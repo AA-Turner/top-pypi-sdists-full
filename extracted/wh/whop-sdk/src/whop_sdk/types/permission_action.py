@@ -4,6 +4,8 @@ import typing
 
 PermissionAction = typing.Union[
     typing.Literal[
+        "experiment:manage",
+        "experiment:read",
         "ai_prompt:create",
         "access_pass:basic:export",
         "access_pass:basic:read",
@@ -210,6 +212,7 @@ PermissionAction = typing.Union[
         "webhook_receive:ledger_accounts",
         "webhook_receive:accounts",
         "webhook_receive:deposits",
+        "webhook_receive:financial_activity",
         "webhook_receive:transfers",
         "webhook_receive:card_transactions",
         "webhook_receive:cards",
@@ -221,6 +224,7 @@ PermissionAction = typing.Union[
         "webhook_receive:chat",
         "webhook_receive:entries",
         "webhook_receive:ad_campaigns",
+        "webhook_receive:ads",
         "webhook_receive:products",
         "webhook_receive:plans",
         "webhook_receive:shipments",
@@ -249,6 +253,7 @@ PermissionAction = typing.Union[
         "notification:create",
         "user:balance:read",
         "user:email:read",
+        "user:payment:charge",
         "user:staff:read",
         "oauth:token_exchange",
         "openid",

@@ -15,7 +15,7 @@
 """  # noqa: E501
 
 
-__version__ = "1.3.715"
+__version__ = "1.3.727"
 
 # Define package exports
 __all__ = [
@@ -243,6 +243,7 @@ __all__ = [
     "BatchProgress",
     "BatchQueryItem",
     "BatchStageInfo",
+    "BatchStageTiming",
     "BatchStatistics",
     "BatchStepInfo",
     "BatchType",
@@ -320,6 +321,7 @@ __all__ = [
     "CancelMigrationResponse",
     "CancelSubscriptionRequest",
     "CancelSubscriptionResponse",
+    "CancellationOutcome",
     "ChangeEventResponse",
     "ChunkStrategy",
     "ClarificationOption",
@@ -489,6 +491,9 @@ __all__ = [
     "DocumentGraphExtractorParams",
     "DocumentGroup",
     "DocumentIdStrategy",
+    "DocumentLineage",
+    "DocumentLineageResponse",
+    "DocumentLineageStep",
     "DocumentListStats",
     "DocumentRef",
     "DocumentResponse",
@@ -1256,6 +1261,7 @@ __all__ = [
     "SyncJobListResponse",
     "SyncJobModel",
     "SyncJobStatus",
+    "SyncJobTrigger",
     "SyncListResponse",
     "SyncMetricsResponse",
     "SyncMode",
@@ -1645,6 +1651,7 @@ from mixpeek.models.batch_phases import BatchPhases as BatchPhases
 from mixpeek.models.batch_progress import BatchProgress as BatchProgress
 from mixpeek.models.batch_query_item import BatchQueryItem as BatchQueryItem
 from mixpeek.models.batch_stage_info import BatchStageInfo as BatchStageInfo
+from mixpeek.models.batch_stage_timing import BatchStageTiming as BatchStageTiming
 from mixpeek.models.batch_statistics import BatchStatistics as BatchStatistics
 from mixpeek.models.batch_step_info import BatchStepInfo as BatchStepInfo
 from mixpeek.models.batch_type import BatchType as BatchType
@@ -1722,6 +1729,7 @@ from mixpeek.models.cancel_migration_request import CancelMigrationRequest as Ca
 from mixpeek.models.cancel_migration_response import CancelMigrationResponse as CancelMigrationResponse
 from mixpeek.models.cancel_subscription_request import CancelSubscriptionRequest as CancelSubscriptionRequest
 from mixpeek.models.cancel_subscription_response import CancelSubscriptionResponse as CancelSubscriptionResponse
+from mixpeek.models.cancellation_outcome import CancellationOutcome as CancellationOutcome
 from mixpeek.models.change_event_response import ChangeEventResponse as ChangeEventResponse
 from mixpeek.models.chunk_strategy import ChunkStrategy as ChunkStrategy
 from mixpeek.models.clarification_option import ClarificationOption as ClarificationOption
@@ -1891,6 +1899,9 @@ from mixpeek.models.document_diagnostics_response import DocumentDiagnosticsResp
 from mixpeek.models.document_graph_extractor_params import DocumentGraphExtractorParams as DocumentGraphExtractorParams
 from mixpeek.models.document_group import DocumentGroup as DocumentGroup
 from mixpeek.models.document_id_strategy import DocumentIdStrategy as DocumentIdStrategy
+from mixpeek.models.document_lineage import DocumentLineage as DocumentLineage
+from mixpeek.models.document_lineage_response import DocumentLineageResponse as DocumentLineageResponse
+from mixpeek.models.document_lineage_step import DocumentLineageStep as DocumentLineageStep
 from mixpeek.models.document_list_stats import DocumentListStats as DocumentListStats
 from mixpeek.models.document_ref import DocumentRef as DocumentRef
 from mixpeek.models.document_response import DocumentResponse as DocumentResponse
@@ -2658,6 +2669,7 @@ from mixpeek.models.sync_health_metric import SyncHealthMetric as SyncHealthMetr
 from mixpeek.models.sync_job_list_response import SyncJobListResponse as SyncJobListResponse
 from mixpeek.models.sync_job_model import SyncJobModel as SyncJobModel
 from mixpeek.models.sync_job_status import SyncJobStatus as SyncJobStatus
+from mixpeek.models.sync_job_trigger import SyncJobTrigger as SyncJobTrigger
 from mixpeek.models.sync_list_response import SyncListResponse as SyncListResponse
 from mixpeek.models.sync_metrics_response import SyncMetricsResponse as SyncMetricsResponse
 from mixpeek.models.sync_mode import SyncMode as SyncMode

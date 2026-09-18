@@ -53,6 +53,15 @@ _CLIENT_TIMEOUT_GRACE_S = 10.0
 _TRANSPORT_EXCS = (aiohttp.ClientConnectionError, aiohttp.ClientPayloadError, TimeoutError)
 
 
+def _detail(exc: BaseException) -> str:
+    """Transport exceptions are frequently argument-less — a bare
+    ``TimeoutError`` stringifies to "" — which leaves the caller-facing message
+    ending at its colon and saying nothing about what went wrong. Fall back to
+    the class name so "POST /v1/... on 10.0.0.1: " reads as
+    "POST /v1/... on 10.0.0.1: TimeoutError"."""
+    return str(exc) or type(exc).__name__
+
+
 class AgentDaemonClient:
     """Typed HTTP/WS client for one agent daemon. Construct via the manager so
     connections are cached per host."""
@@ -144,7 +153,7 @@ class AgentDaemonClient:
         safe_resend: bool,
     ) -> _RespT:
         attempts = 2 if safe_resend else 1
-        last_transport_exc: RpcTransportError | None = None
+        last_transport_exc: BaseException | None = None
         for attempt in range(attempts):
             headers = self._envelope_headers(deadline_s=deadline_s, idempotency_key=idempotency_key)
             timeout = aiohttp.ClientTimeout(total=(deadline_s + _CLIENT_TIMEOUT_GRACE_S) if deadline_s else None)
@@ -175,7 +184,12 @@ class AgentDaemonClient:
                 # so closing it would break other in-flight requests. aiohttp's
                 # connector already discards the failed connection and opens a
                 # fresh one on the retry below.
-                last_transport_exc = RpcTransportError(f"{method} {path} on {self.hostname}: {exc}")
+                # Keep the exception ITSELF, not a rendering of it: the raise
+                # below is outside this `except`, so stringifying here is what
+                # used to drop the cause chain, and a caller asking "was this a
+                # timeout?" (`isinstance` walk over __cause__/__context__) got
+                # an AgentUnreachableError with no cause at all.
+                last_transport_exc = exc
                 if attempt + 1 < attempts:
                     # An ABSORBED transport failure must still leave a trace:
                     # silent recovery makes transport-health regressions
@@ -190,7 +204,9 @@ class AgentDaemonClient:
                     )
                     continue
         assert last_transport_exc is not None
-        raise AgentUnreachableError(str(last_transport_exc)) from last_transport_exc
+        raise AgentUnreachableError(
+            f"{method} {path} on {self.hostname}: {_detail(last_transport_exc)}"
+        ) from last_transport_exc
 
     async def put_bytes(
         self,
@@ -219,7 +235,7 @@ class AgentDaemonClient:
                 # Per-request failure; the shared session stays open (see _request).
                 if attempt == 0:
                     continue
-                raise AgentUnreachableError(f"PUT {path} on {self.hostname}: {exc}") from exc
+                raise AgentUnreachableError(f"PUT {path} on {self.hostname}: {_detail(exc)}") from exc
         raise AgentUnreachableError(f"PUT {path} on {self.hostname}: exhausted")
 
     async def get_bytes(
@@ -246,7 +262,7 @@ class AgentDaemonClient:
                 # Per-request failure; the shared session stays open (see _request).
                 if attempt == 0:
                     continue
-                raise AgentUnreachableError(f"GET {path} on {self.hostname}: {exc}") from exc
+                raise AgentUnreachableError(f"GET {path} on {self.hostname}: {_detail(exc)}") from exc
         raise AgentUnreachableError(f"GET {path} on {self.hostname}: exhausted")
 
     async def _raise_for_error(self, resp: aiohttp.ClientResponse) -> None:

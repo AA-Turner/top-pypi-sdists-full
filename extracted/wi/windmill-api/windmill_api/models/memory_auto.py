@@ -11,12 +11,14 @@ T = TypeVar("T", bound="MemoryAuto")
 
 @_attrs_define
 class MemoryAuto:
-    """Automatic context management
+    """Deprecated, still read as it was written: the run's memory id, else the `memory_id` here.
+    The step's own `memory_id` is not read while this kind is set; switch the kind to `window`
+    to use it. Without a `context_length`, or with 0, it is `off` and reads `previous_messages`.
 
-    Attributes:
-        kind (MemoryAutoKind):
-        context_length (Union[Unset, int]): Maximum number of messages to retain in context
-        memory_id (Union[Unset, str]): Identifier for persistent memory across agent invocations
+        Attributes:
+            kind (MemoryAutoKind):
+            context_length (Union[Unset, int]): Maximum number of messages to retain in context
+            memory_id (Union[Unset, str]): Identifier for persistent memory across agent invocations
     """
 
     kind: MemoryAutoKind

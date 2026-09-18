@@ -17,6 +17,7 @@ import pytest
 from matrx_ai import _ext
 from matrx_ai.graph_nodes import agent_action
 from matrx_ai.graph_nodes.agent_action import (
+    AgentStartConfig,
     AgentStartInput,
     _strip_inert_burned_tool_fields,
     agent_start,
@@ -105,6 +106,105 @@ async def test_workflow_file_variable_reaches_canonical_agent_runner(
     assert captured["agent_id"] == agent_id
     assert captured["app_ctx"] is app_ctx
     assert captured["payload"]["variables"] == {"pdf_file": file_id}
+
+
+def test_variable_source_config_is_hidden_and_typed() -> None:
+    schema = AgentStartConfig.model_json_schema()
+    assert schema["properties"]["variable_sources"]["ui:hidden"] is True
+    assert AgentStartConfig(variable_sources={"topic": "connected"}).variable_sources == {
+        "topic": "connected"
+    }
+
+
+@pytest.mark.asyncio
+async def test_variable_sources_preserve_falsy_custom_values_and_omit_defaults(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The shared builder distinguishes authored values from edge-port extras."""
+    captured = _capture_request(monkeypatch)
+    inputs = AgentStartInput.model_validate(
+        {
+            "agent_id": "4185e955-0f4e-4faa-b63c-704bb876c85f",
+            "variables": {
+                "custom_false": False,
+                "custom_zero": 0,
+                "custom_empty": "",
+                "custom_null": None,
+                "connected": "authored literal",
+                "defaulted": "authored literal",
+                "legacy": "authored literal",
+            },
+            "custom_false": "edge must lose",
+            "custom_zero": 99,
+            "custom_empty": "edge must lose",
+            "custom_null": "edge must lose",
+            "connected": "edge wins",
+            "defaulted": "edge must lose",
+            "legacy": "edge still wins without a mode",
+        }
+    )
+    config = AgentStartConfig(
+        variable_sources={
+            "custom_false": "custom",
+            "custom_zero": "custom",
+            "custom_empty": "custom",
+            "custom_null": "custom",
+            "connected": "connected",
+            "defaulted": "default",
+        }
+    )
+
+    await agent_start(_step_ctx(), inputs, config)  # type: ignore[arg-type]
+
+    assert captured["payload"]["variables"] == {
+        "custom_false": False,
+        "custom_zero": 0,
+        "custom_empty": "",
+        "custom_null": None,
+        "connected": "edge wins",
+        "legacy": "edge still wins without a mode",
+    }
+
+
+@pytest.mark.asyncio
+async def test_connected_variable_without_an_edge_fails_before_the_runner(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = _capture_request(monkeypatch)
+    inputs = AgentStartInput.model_validate(
+        {
+            "agent_id": "4185e955-0f4e-4faa-b63c-704bb876c85f",
+            "variables": {"topic": "authored literal"},
+        }
+    )
+
+    with pytest.raises(ValueError, match="topic.*connected.*Reconnect"):
+        await agent_start(
+            _step_ctx(),
+            inputs,
+            AgentStartConfig(variable_sources={"topic": "connected"}),
+        )  # type: ignore[arg-type]
+
+    assert captured == {}, "the missing edge must refuse before agent execution"
+
+
+@pytest.mark.asyncio
+async def test_legacy_exposed_variable_without_an_edge_is_connected_by_default(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured = _capture_request(monkeypatch)
+    inputs = AgentStartInput.model_validate(
+        {"agent_id": "4185e955-0f4e-4faa-b63c-704bb876c85f"}
+    )
+
+    with pytest.raises(ValueError, match="topic.*connected.*Reconnect"):
+        await agent_start(
+            _step_ctx(),
+            inputs,
+            AgentStartConfig(exposed_variables=["topic"]),
+        )  # type: ignore[arg-type]
+
+    assert captured == {}, "legacy exposed ports must refuse before agent execution"
 
 
 # ---------------------------------------------------------------------------

@@ -96,7 +96,7 @@ _EventMetadataInjector: TypeAlias = Callable[
 _LlmConditionalExecutionGuardrail: TypeAlias = Callable[["LLMRequest"], Optional[str] | Awaitable[Optional[str]]]
 _ToolRequestIntercept: TypeAlias = Callable[[str, _Json], _Json | Awaitable[_Json]]
 _ToolExecutionIntercept: TypeAlias = Callable[
-    [str, _Json, Callable[[_Json], Awaitable["ToolExecutionResult[_Json]"]]],
+    ["ToolExecutionContext", Callable[[_Json], Awaitable["ToolExecutionResult[_Json]"]]],
     "ToolExecutionInterceptOutcome | Awaitable[ToolExecutionInterceptOutcome]",
 ]
 _LlmRequestIntercept: TypeAlias = Callable[
@@ -583,6 +583,21 @@ class ToolExecutionResult(Generic[_TToolResult]):
     def result(self) -> _TToolResult: ...
     @property
     def annotation(self) -> _Json | None: ...
+
+class ToolExecutionContext:
+    """Per-call context delivered to a tool execution intercept.
+
+    ``tool_call_id`` is the provider-issued correlation identifier recorded on
+    the managed tool call, or ``None`` when the call did not record one. It
+    lets an intercept that completes execution without invoking the remaining
+    chain associate its result with the originating tool call.
+    """
+    @property
+    def tool_name(self) -> str: ...
+    @property
+    def args(self) -> _Json: ...
+    @property
+    def tool_call_id(self) -> str | None: ...
 
 class ToolExecutionInterceptOutcome:
     """Canonical result returned by a tool execution intercept.
@@ -1172,6 +1187,14 @@ class OpenTelemetryConfig:
         """Replace additional exporter headers."""
         ...
     @property
+    def header_env(self) -> dict[str, str]:
+        """Return header names mapped to environment variable names."""
+        ...
+    @header_env.setter
+    def header_env(self, value: dict[str, str]) -> None:
+        """Replace environment-backed exporter header references."""
+        ...
+    @property
     def resource_attributes(self) -> dict[str, str]:
         """Return additional OpenTelemetry resource attributes."""
         ...
@@ -1189,6 +1212,9 @@ class OpenTelemetryConfig:
         ...
     def set_header(self, key: str, value: str) -> None:
         """Set one exporter header key/value pair."""
+        ...
+    def set_header_from_env(self, key: str, variable: str) -> None:
+        """Map one exporter header to an environment variable."""
         ...
     def set_resource_attribute(self, key: str, value: str) -> None:
         """Set one OpenTelemetry resource attribute key/value pair."""
@@ -1263,10 +1289,15 @@ class OpenTelemetryLogConfig:
     @headers.setter
     def headers(self, value: dict[str, str]) -> None: ...
     @property
+    def header_env(self) -> dict[str, str]: ...
+    @header_env.setter
+    def header_env(self, value: dict[str, str]) -> None: ...
+    @property
     def resource_attributes(self) -> dict[str, str]: ...
     @resource_attributes.setter
     def resource_attributes(self, value: dict[str, str]) -> None: ...
     def set_header(self, key: str, value: str) -> None: ...
+    def set_header_from_env(self, key: str, variable: str) -> None: ...
     def set_resource_attribute(self, key: str, value: str) -> None: ...
 
 class OpenTelemetryLogSubscriber:
@@ -1307,10 +1338,15 @@ class OpenTelemetryMetricConfig:
     @headers.setter
     def headers(self, value: dict[str, str]) -> None: ...
     @property
+    def header_env(self) -> dict[str, str]: ...
+    @header_env.setter
+    def header_env(self, value: dict[str, str]) -> None: ...
+    @property
     def resource_attributes(self) -> dict[str, str]: ...
     @resource_attributes.setter
     def resource_attributes(self, value: dict[str, str]) -> None: ...
     def set_header(self, key: str, value: str) -> None: ...
+    def set_header_from_env(self, key: str, variable: str) -> None: ...
     def set_resource_attribute(self, key: str, value: str) -> None: ...
 
 class OpenTelemetryMetricSubscriber:
@@ -1555,6 +1591,7 @@ class PropagationContext:
         ...
 
 def capture_propagation_context() -> PropagationContext: ...
+def capture_rootless_propagation_context() -> PropagationContext: ...
 def capture_propagation_context_with_root(root_uuid: str | None) -> PropagationContext: ...
 def capture_traceparent() -> str: ...
 def create_scope_stack_from_propagation(context: PropagationContext) -> ScopeStack: ...
@@ -2164,10 +2201,9 @@ def register_tool_execution_intercept(name: str, priority: int, callable: _ToolE
     Args:
         name: Unique intercept name.
         priority: Execution order; lower values run first.
-        callable: Middleware callback returning
-            ``ToolExecutionInterceptOutcome``. It may call or short-circuit
-            ``next``; ``next`` resolves to the canonical downstream
-            ``ToolExecutionResult`` while Relay retains downstream pending marks.
+        callable: Middleware callback invoked as ``callable(context, next)``.
+            The context carries ``tool_name``, ``args``, and
+            ``tool_call_id``.
 
     Returns:
         ``None``.
@@ -2414,10 +2450,8 @@ def scope_register_tool_execution_intercept(
         scope_uuid: UUID of the owning scope.
         name: Unique intercept name within that scope.
         priority: Execution order; lower values run first.
-        callable: Middleware callback returning
-            ``ToolExecutionInterceptOutcome`` while the owning scope is active.
-            Its ``next`` continuation resolves to the canonical downstream
-            ``ToolExecutionResult`` while Relay retains downstream pending marks.
+        callable: Middleware callback invoked as ``callable(context, next)``
+            while the owning scope is active.
 
     Returns:
         ``None``.
@@ -2613,22 +2647,8 @@ def scope_deregister_subscriber(scope_uuid: str, name: str) -> bool:
     """
     ...
 
-def validate_plugin_config(config: object) -> _JsonObject:
-    """Validate a plugin configuration without changing active runtime state.
-
-    Args:
-        config: Plugin configuration object or equivalent mapping.
-
-    Returns:
-        Validation report as a JSON object.
-
-    Exceptional flow:
-        Raises native conversion or validation errors for malformed config.
-    """
-    ...
-
 class _PluginHostActivation:
-    """Native owner for one process-wide dynamic plugin host."""
+    """Native owner for one process-wide static and dynamic plugin host."""
 
     @property
     def report(self) -> _JsonObject:
@@ -2639,8 +2659,7 @@ class _PluginHostActivation:
     def is_active(self) -> bool:
         """Return whether this activation handle has not begun teardown.
 
-        ``False`` does not guarantee another process-wide activation can start;
-        failed teardown may intentionally retain the activation owner.
+        Failed teardown leaves the activation active so ``close()`` can retry.
         """
         ...
 
@@ -2648,66 +2667,16 @@ class _PluginHostActivation:
         """Clear and unload this activation; repeated calls are safe."""
         ...
 
-def initialize_with_dynamic_plugins(config: object, dynamic_plugins: object) -> Awaitable[_PluginHostActivation]:
-    """Initialize registered components with dynamic plugins as one owned host.
-
-    Args:
-        config: Base plugin configuration object.
-        dynamic_plugins: Sequence of dynamic plugin activation specifications.
-
-    Returns:
-        Awaitable resolving to the native activation owner.
-
-    Exceptional flow:
-        Invalid configuration, load, ownership, and registration errors are
-        raised through the awaitable.
-    """
+def initialize(config: object, additional_plugins_toml: str | None = None) -> Awaitable[_PluginHostActivation]:
+    """Initialize the core-owned static and dynamic plugin host."""
     ...
 
-def initialize_plugins(config: object) -> Awaitable[_JsonObject]:
-    """Validate and activate plugin configuration.
-
-    Args:
-        config: Plugin configuration object or equivalent mapping.
-
-    Returns:
-        Awaitable resolving to the activation report.
-
-    Exceptional flow:
-        Activation errors propagate through the awaitable. The native runtime
-        rolls back partial registration when possible.
-    """
+def validate(config: object, additional_plugins_toml: str | None = None) -> _JsonObject:
+    """Validate static configuration and dynamic plugins without activating them."""
     ...
 
-def clear_plugin_configuration() -> None:
-    """Clear active plugin configuration while preserving registered kinds.
-
-    Returns:
-        ``None``.
-
-    Exceptional flow:
-        Native cleanup errors propagate unchanged.
-    """
-    ...
-
-def clear_plugin_configuration_async() -> Awaitable[None]:
-    """Clear active plugin configuration without blocking the Python event loop.
-
-    Returns:
-        Awaitable resolving when native teardown completes.
-
-    Exceptional flow:
-        Native cleanup and teardown worker errors propagate through the awaitable.
-    """
-    ...
-
-def active_plugin_report() -> Optional[_JsonObject]:
-    """Return the active plugin report or a failed-teardown diagnostic report.
-
-    Returns:
-        Report JSON object for the active configuration or a failed teardown
-        with runtime diagnostics, or ``None`` if neither exists.
-    """
+def validate_exact(config: object) -> _JsonObject:
+    """Validate only the supplied static plugin configuration."""
     ...
 
 def list_plugin_kinds() -> list[str]:

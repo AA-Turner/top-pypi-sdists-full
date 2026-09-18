@@ -122,7 +122,7 @@ class CfnSubscription(
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
         :param plan_family: The name of the pricing plan family.
-        :param plan_tier: The tier of the pricing plan. Upgrades take effect immediately. However, rolling back an upgrade does not revert billing instantly; it schedules a downgrade to the end of the current billing period, and the higher-tier charge applies for the remainder of that month. While a downgrade is scheduled, the CurrentPlanTier property reports the tier currently being billed.
+        :param plan_tier: The tier of the pricing plan. CloudFormation does not change the tier of an existing subscription; a stack update that changes the tier, upgrading or downgrading it, is rejected.
         :param resource_arns: The ARNs of resources associated with the subscription.
         :param usage_level: 
         '''
@@ -347,7 +347,7 @@ class CfnSubscriptionProps:
         '''Properties for defining a ``CfnSubscription``.
 
         :param plan_family: The name of the pricing plan family.
-        :param plan_tier: The tier of the pricing plan. Upgrades take effect immediately. However, rolling back an upgrade does not revert billing instantly; it schedules a downgrade to the end of the current billing period, and the higher-tier charge applies for the remainder of that month. While a downgrade is scheduled, the CurrentPlanTier property reports the tier currently being billed.
+        :param plan_tier: The tier of the pricing plan. CloudFormation does not change the tier of an existing subscription; a stack update that changes the tier, upgrading or downgrading it, is rejected.
         :param resource_arns: The ARNs of resources associated with the subscription.
         :param usage_level: 
 
@@ -397,7 +397,7 @@ class CfnSubscriptionProps:
     def plan_tier(self) -> builtins.str:
         '''The tier of the pricing plan.
 
-        Upgrades take effect immediately. However, rolling back an upgrade does not revert billing instantly; it schedules a downgrade to the end of the current billing period, and the higher-tier charge applies for the remainder of that month. While a downgrade is scheduled, the CurrentPlanTier property reports the tier currently being billed.
+        CloudFormation does not change the tier of an existing subscription; a stack update that changes the tier, upgrading or downgrading it, is rejected.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-pricingplanmanager-subscription.html#cfn-pricingplanmanager-subscription-plantier
         '''

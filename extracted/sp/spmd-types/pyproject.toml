@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "spmd_types"
-version = "0.2.5"
+version = "0.3.0"
 description = "A type system for distributed (SPMD) tensor computations in PyTorch"
 readme = "README.md"
 license = {file = "LICENSE"}
@@ -26,13 +26,24 @@ classifiers = [
 dependencies = [
 ]
 
+[project.optional-dependencies]
+docs = [
+    "myst-parser==2.0.0",
+    "pytorch-sphinx-theme2==0.4.13",
+    "sphinx==7.2.6",
+]
+
 [project.urls]
 Homepage = "https://github.com/meta-pytorch/spmd_types"
+Documentation = "https://meta-pytorch.org/spmd_types/"
 Repository = "https://github.com/meta-pytorch/spmd_types"
 Issues = "https://github.com/meta-pytorch/spmd_types/issues"
 
 [tool.setuptools.packages.find]
 include = ["spmd_types*"]
+
+[tool.setuptools.package-data]
+spmd_types = ["py.typed"]
 
 
 [tool.ruff]
@@ -43,6 +54,7 @@ target-version = "py310"
 select = ["E4", "E7", "E9", "F"]
 
 [tool.ruff.format]
+exclude = ["*.md"]
 quote-style = "double"
 
 [tool.pytest.ini_options]
@@ -53,5 +65,5 @@ python_files = ["*_test.py"]
 
 # BEGIN GENERATED buck-manual-deps -- do not edit by hand
 # Regenerate: export_buck_manual_deps.py
-"spmd_types/__init__.py" = ["../ops/interfaces/attn/triton_attention_fp32.py", "../ops/interfaces/gemm/gemm.py"]
+"spmd_types/__init__.py" = ["../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_audio_artifacts.py", "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_audio_artifacts_v22.py", "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_audio_encoder_r6_i11_v22.py", "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_conditioner_calibration_v21.py", "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_ctts_pipeline_r6_i11_v22.py", "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_landscape_recipe_r5_v21.py", "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_landscape_sampling_r5.py", "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_landscape_sampling_r6_i11_v22.py", "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_landscape_sampling_r6_i11_v22_gb300.py", "../../llama4x/projects/experimental/rtai_avatar/pumpkin/sythetic_data/t2av/conversation_landscape_style_r5_v21.py", "../ops/interfaces/attn/triton_attention_fp32.py", "../ops/interfaces/gemm/gemm.py"]
 # END GENERATED buck-manual-deps

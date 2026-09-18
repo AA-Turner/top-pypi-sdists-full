@@ -24,17 +24,14 @@ repos:
       - id: check-symlinks
       - id: check-yaml
         args: ["--allow-multiple-documents"]
-      - id: debug-statements
       - id: end-of-file-fixer
       - id: mixed-line-ending
-      - id: sort-simple-yaml
-      - id: file-contents-sorter
       - id: trailing-whitespace
         exclude: ^doc/_static/.*.svg
 
   # Ruff linter and formatter
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: "v0.14.3"
+    rev: "v0.16.7"
     hooks:
       - id: ruff-check
         args: [--fix, --show-fixes]
@@ -42,7 +39,7 @@ repos:
 
   # C++ formatting
   - repo: https://github.com/pre-commit/mirrors-clang-format
-    rev: v21.1.2
+    rev: v23.1.1
     hooks:
       - id: clang-format
         files: "src"
@@ -58,7 +55,7 @@ repos:
 
   # Python type checking
   - repo: https://github.com/pre-commit/mirrors-mypy
-    rev: "v1.18.2"
+    rev: "v2.3.1"
     hooks:
       - id: mypy
         files: "src"
@@ -66,7 +63,7 @@ repos:
   # Clear Jupyter notebook output and remove empty cells
   # Override this by adding "keep_output": true to "metadata" block
   - repo: https://github.com/kynan/nbstripout
-    rev: 0.8.1
+    rev: 0.9.1
     hooks:
       - id: nbstripout
         args: [--drop-empty-cells]
@@ -80,12 +77,12 @@ repos:
         additional_dependencies: ["blacken-docs"]
 
   - repo: https://github.com/python-jsonschema/check-jsonschema
-    rev: 0.34.1
+    rev: 0.38.0
     hooks:
       - id: check-github-workflows
 
   - repo: https://github.com/henryiii/validate-pyproject-schema-store
-    rev: 2025.11.02
+    rev: 2026.09.11
     hooks:
       - id: validate-pyproject
 

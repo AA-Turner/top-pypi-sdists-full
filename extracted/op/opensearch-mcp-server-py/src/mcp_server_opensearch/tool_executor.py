@@ -17,7 +17,7 @@ tool invocation, enabling metric filters for:
 
 import logging
 import time
-from mcp.types import CallToolResult, TextContent
+from mcp.types import CallToolResult, ContentBlock, TextContent
 from mcp_server_opensearch.client_context import client_name_var
 
 
@@ -27,7 +27,7 @@ logger = logging.getLogger(__name__)
 def _build_call_tool_result(result: list, is_error: bool) -> CallToolResult:
     # Convert a tool's raw content list into a CallToolResult.
 
-    content: list[TextContent] = []
+    content: list[ContentBlock] = []
     for item in result or []:
         if isinstance(item, dict):
             content.append(
@@ -39,7 +39,7 @@ def _build_call_tool_result(result: list, is_error: bool) -> CallToolResult:
         else:
             content.append(item)
 
-    return CallToolResult(content=content, isError=is_error)
+    return CallToolResult(content=content, is_error=is_error)
 
 
 async def execute_tool(
@@ -85,6 +85,30 @@ async def execute_tool(
         from tools.tool_params import validate_args_for_mode
 
         parsed = validate_args_for_mode(arguments, tool['args_model'])
+
+        # Reject tools OpenSearch Serverless cannot serve when this call resolves to
+        # a serverless connection. Returns immediately with a clear error instead of
+        # letting the request fail downstream (404 / long timeout).
+        from opensearch.client import is_serverless_connection
+        from tools.tool_filter import SERVERLESS_COMPATIBLE_TOOLS
+
+        if found_tool_key not in SERVERLESS_COMPATIBLE_TOOLS and is_serverless_connection(parsed):
+            status = 'error'
+            error_type = 'ServerlessUnsupportedToolError'
+            is_error = True
+            return _build_call_tool_result(
+                [
+                    TextContent(
+                        type='text',
+                        text=(
+                            f"'{name}' is not supported on OpenSearch Serverless, which does "
+                            'not implement cluster, node, or monitoring APIs.'
+                        ),
+                    )
+                ],
+                is_error=True,
+            )
+
         result = await tool['function'](parsed)
 
         # Detect soft errors: tools catch exceptions internally and

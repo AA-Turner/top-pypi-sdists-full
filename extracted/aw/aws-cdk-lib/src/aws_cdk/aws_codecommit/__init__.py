@@ -338,14 +338,6 @@ class CfnRepository(
         return typing.cast(builtins.str, jsii.get(self, "attrCloneUrlSsh"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="attrName")
     def attr_name(self) -> builtins.str:
         '''When you pass the logical ID of this resource, the function returns the repository's name.

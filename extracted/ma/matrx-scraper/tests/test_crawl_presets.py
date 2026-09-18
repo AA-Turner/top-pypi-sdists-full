@@ -177,7 +177,9 @@ async def test_unparseable_config_stays_visible_and_flagged(monkeypatch, repo):
 @pytest.mark.asyncio
 async def test_save_upserts_by_site_and_name_and_revives_a_deleted_preset(monkeypatch, repo):
     model = _FakeModel(upsert_row=_Row(name="Nightly", config=_valid_config(max_pages=42)))
+    site_model = _FakeModel(get_row=_Row(id=SITE, organization_id="org-for-site"))
     monkeypatch.setattr(P, "WebCrawlPreset", model)
+    monkeypatch.setattr(P, "WebSite", site_model)
 
     record = await _presets(repo).save(
         SITE,
@@ -192,6 +194,7 @@ async def test_save_upserts_by_site_and_name_and_revives_a_deleted_preset(monkey
     assert "deleted_at" in update
     assert data["deleted_at"] is None
     assert data["site_id"] == SITE
+    assert data["organization_id"] == "org-for-site"
 
 
 @pytest.mark.asyncio

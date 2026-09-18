@@ -8,8 +8,9 @@ Modes compose from flags around one pass over the project:
 - `--out DIR`: write the translated tree - DIR is the repository ROOT, and the project
   lands in the `{Vendor}/{Name}` its descriptor names, which is what deploys as it is;
 - `--strict`: exit non-zero unless the coverage is complete, the platform data spells every
-  name the sources use, and no problems were found - what a CI gate wants ("publish only a
-  fully translated, lint-clean configuration");
+  name the sources use, every yaml text the metamodel types `Localizable` has its literal
+  entry (`Description` aside - it is developer documentation), and no problems were found -
+  what a CI gate wants ("publish only a fully translated, lint-clean configuration");
 - `--check-duplicates [--against REF]`: the keys the dictionary translates in more than one
   place - two files, or twice in one - the conflicts the load would refuse and the redundant
   copies, each place with its file and line, read from the dictionary files alone; with a git
@@ -67,12 +68,13 @@ MESSAGES = {
               " tokens/phrases/literals, пустое значение снимает запись), либо JSON"
               " [{{key, value, kind}}]; у литерала ключ и перевод – текст между кавычками"
               " ровно так, как он написан в исходнике (кавычка внутри – \\\", обратный"
-              " слеш – \\\\)",
+              " слеш – \\\\); у фразы – строка комментария как есть, без экранирования",
         "en": "apply dictionary edits from a file: either the dictionary's own yaml format"
               " (tokens/phrases/literals sections, an empty value removes the entry) or the"
               " JSON list [{{key, value, kind}}]; for a literal the key and the value are the"
               " text between the quotes exactly as the source writes it (an inner quote is"
-              " \\\", a backslash is \\\\)",
+              " \\\", a backslash is \\\\); for a phrase it is the comment line as it"
+              " stands, with no escaping at all",
     },
     "translate.help.target": {
         "ru": "файл словаря для НОВЫХ записей (по умолчанию 090-manual.yaml)",
@@ -182,8 +184,24 @@ MESSAGES = {
         "en": "rewritten [{kind}] {key}: \"{was}\" -> \"{now}\"",
     },
     "translate.refused": {
-        "ru": "не записано записей: {count} – значение не годится телом строкового литерала:",
-        "en": "entries not written: {count} - the value is not a valid string-literal body:",
+        "ru": "не записано записей: {count}; ниже сказано, почему:",
+        "en": "entries not written: {count}; the reason for each is below:",
+    },
+    "translate.platform-names": {
+        "ru": "записей с ключом из словаря платформы: {count}; они записаны, но переименуют и"
+              " слово платформы:",
+        "en": "entries whose key is a word of the platform: {count}; they are written, but they"
+              " rename the platform's word too:",
+    },
+    "translate.value-taken": {
+        "ru": "значений, уже занятых другим ключом: {count}; платформа откажет в применении"
+              " дерева с двумя именами под одним словом:",
+        "en": "values another key already takes: {count}; the platform refuses to apply a tree"
+              " with two names under one word:",
+    },
+    "translate.normalized": {
+        "ru": "поправлено записей: {count}; ниже сказано, что именно и почему:",
+        "en": "entries corrected: {count}; what exactly, and why, is below:",
     },
     "translate.set-unreadable": {
         "ru": "правки не прочитаны: {error}",
@@ -194,8 +212,18 @@ MESSAGES = {
         "en": "print the coverage of every metadata object",
     },
     "translate.help.strict": {
-        "ru": "ненулевой выход, если покрытие неполное, есть проблемы или платформенные пропуски",
-        "en": "non-zero exit when the coverage is incomplete, problems or platform gaps were found",
+        "ru": "ненулевой выход, если покрытие неполное, есть проблемы или платформенные "
+              "пропуски, а также если у локализуемого текста метамодели нет пары в плане "
+              "literals: любое Представление, заголовки приложения, сообщения запроса "
+              "разрешений, представления групп справочника, представления переключаемой "
+              "команды, шаблоны представления события – всё, кроме Описания. Текст, который "
+              "должен остаться как есть, называют парой со значением, равным ключу",
+        "en": "non-zero exit when the coverage is incomplete, problems or platform gaps were "
+              "found, or a localizable metamodel text has no pair in the literals plane: any "
+              "Presentation, the application titles, the permission-request messages, the "
+              "presentations of a catalog's groups and of a switchable command, the event "
+              "presentation templates - everything but Description. A text that has to stay "
+              "as it is gets a pair whose value equals its key",
     },
     "translate.help.no-swap": {
         "ru": "не переворачивать словари локализации (база останется на исходном языке)",
@@ -315,6 +343,16 @@ MESSAGES = {
     "translate.verdict-problems": {
         "ru": "; проблем {problems}",
         "en": "; problems {problems}",
+    },
+    "translate.verdict-visible-literals": {
+        "ru": "; видимых литералов без пары {literals}",
+        "en": "; visible literals without an entry {literals}",
+    },
+    "translate.visible-literals-header": {
+        "ru": "локализуемые тексты yaml без пары в плане literals (представления, шаблоны"
+              " представлений):",
+        "en": "localizable yaml texts with no entry in the literals plane (presentations,"
+              " presentation templates):",
     },
     "translate.entries-header": {
         "ru": "записей словаря: {shown} из {total}",
@@ -637,9 +675,17 @@ def _ready(report) -> bool:
     the same reason: the name stays Cyrillic in the translated tree, so the build refuses it.
     It is named apart in the report because the CURE is different - not a dictionary entry,
     which the compiler would refuse, but the platform data.
+
+    A visible literal fails it too: a yaml text the metamodel types `Localizable`, such as a
+    presentation or the presentation template of an event kind, with no entry. The build
+    accepts such a text, but the English page shows it in Russian, and the gate passed three
+    of them once: their entries had been pruned as orphans. Every other gap of the literals
+    plane stays out of the verdict - a literal of the code or of an `=` expression, a
+    description - because the pass cannot tell data from a message there.
     """
     totals = report.totals()
-    return not (totals["missing"] or totals["platform_gaps"] or report.problems)
+    return not (totals["missing"] or totals["platform_gaps"]
+                or totals["missing_visible_literals"] or report.problems)
 
 
 def _verdict(report) -> str:
@@ -656,6 +702,9 @@ def _verdict(report) -> str:
     tail = ""
     if totals["platform_gaps"]:
         tail += i18n.t("translate.verdict-platform", platform=totals["platform_gaps"])
+    if totals["missing_visible_literals"]:
+        tail += i18n.t("translate.verdict-visible-literals",
+                       literals=totals["missing_visible_literals"])
     if report.problems:
         tail += i18n.t("translate.verdict-problems", problems=len(report.problems))
     return i18n.t(
@@ -711,6 +760,7 @@ def _as_json(report, args, dictionary: Path | None, lag: dict | None = None,
         "missing_tokens": report.merged_missing_tokens(),
         "missing_phrases": report.merged_missing_phrases(),
         "missing_literals": report.merged_missing_literals(),
+        "missing_visible_literals": report.merged_missing_visible_literals(),
         "platform_gaps": report.merged_platform_gaps(),
         "redundant_entries": report.echoed,
         "renames": report.renames,
@@ -846,6 +896,13 @@ def _print_text(report, args, missing_tokens, missing_phrases, missing_literals,
         print(i18n.t("translate.platform-gaps-header"))
         for name, info in sorted(gaps.items(), key=lambda kv: -kv[1]["count"])[:20]:
             print(f"  {name}  ({info['count']}x, {info['sample']})")
+    # Named, not only counted: the verdict fails on them, and a log that says "three" without
+    # saying which sends the reader to a second run.
+    visible = report.merged_missing_visible_literals()
+    if visible:
+        print(i18n.t("translate.visible-literals-header"))
+        for text, info in sorted(visible.items(), key=lambda kv: (-kv[1]["count"], kv[0]))[:20]:
+            print(f"  {text}  ({info['count']}x, {info['sample']})")
     if args.coverage:
         print(i18n.t("translate.coverage-header"))
         for key, done, total in report.coverage_by_object():
@@ -1217,6 +1274,7 @@ def _apply_edits(args, root: Path, loaded) -> int:
         comment=getattr(args, "comment", "") or "",
     )
     refused = result.get("refused") or []
+    corrected = result.get("normalized") or []
     if args.format == "json":
         print(json.dumps(result, ensure_ascii=False))
     else:
@@ -1224,11 +1282,43 @@ def _apply_edits(args, root: Path, loaded) -> int:
         for row in result.get("rewritten") or []:
             print(f"  {row['file']}:{row['line']}: " + i18n.t("translate.rewritten", kind=row["kind"], key=row["key"],
                                 was=row["was"], now=row["now"]))
+        # A correction goes to stdout beside what was written: the entry IS in the dictionary,
+        # and the run is not a failure - it only landed under a different spelling.
+        if corrected:
+            print(i18n.t("translate.normalized", count=len(corrected)))
+            for row in corrected:
+                print(f"  [{row['kind']}] \"{_one_line(row['was'])}\""
+                      f" -> \"{_one_line(row['now'])}\": {row['reason']}")
+        # Both warnings are about a pair that WAS written and may still break the build, so
+        # they go to stderr, where a log keeps them apart from the count of what was done.
+        # The machine answer has carried them all along; the text one used to drop them, and a
+        # person at the terminal saw a clean "dictionary updated" line over either.
+        taken = result.get("collisions") or []
+        if taken:
+            print(i18n.t("translate.value-taken", count=len(taken)), file=sys.stderr)
+            for row in taken:
+                print(f"  {row['key']}: {row['value']} <- {', '.join(row['taken'])}",
+                      file=sys.stderr)
+        platform_names = result.get("platform_names") or []
+        if platform_names:
+            print(i18n.t("translate.platform-names", count=len(platform_names)),
+                  file=sys.stderr)
+            for row in platform_names:
+                print(f"  {row['reason']}", file=sys.stderr)
         if refused:
             print(i18n.t("translate.refused", count=len(refused)), file=sys.stderr)
             for item in refused:
-                print(f"  {item['key']}: {item['reason']}", file=sys.stderr)
+                print(f"  {_one_line(item['key'])}: {item['reason']}", file=sys.stderr)
     return 1 if refused else 0
+
+
+def _one_line(text: str) -> str:
+    """The text on one line, its breaks shown rather than typed out.
+
+    A refused entry is listed one per line, and a key on two lines used to split its own row
+    in half - the reason ended up under a fragment of the key, reading as a line of its own.
+    """
+    return text.replace("\r\n", "\\n").replace("\r", "\\n").replace("\n", "\\n")
 
 
 #: The modes that answer with a TABLE, in the order the dispatch below tries them: the flag and
@@ -1354,9 +1444,13 @@ def _suggest(args, root: Path, loaded) -> int:
         {"key": key, "value": value, "kind": kind}
         for (kind, key), value in result.values.items()
     )
+    # The write answers which keys the platform already carries, and the machine path is where
+    # that matters most: nobody read these pairs before they were written.
+    platform_names = []
     if args.suggest_out:
-        entries_module.write_entries(path, edits, target=Path(args.suggest_out).name,
-                                     comment=getattr(args, "comment", "") or "")
+        written = entries_module.write_entries(path, edits, target=Path(args.suggest_out).name,
+                                               comment=getattr(args, "comment", "") or "")
+        platform_names = written.get("platform_names") or []
 
     # The count alone hides WHAT did not translate; a refusal is only actionable with its
     # reason next to it, the same way --set already reports a refused edit.
@@ -1372,6 +1466,7 @@ def _suggest(args, root: Path, loaded) -> int:
             "dictionary": str(path),
             "machine": {**machine_report, "refusals": refusals},
             "suggestions": edits,
+            "platform_names": platform_names,
         }
         print(json.dumps(payload, ensure_ascii=False, indent=1))
     else:
@@ -1380,6 +1475,10 @@ def _suggest(args, root: Path, loaded) -> int:
             print(f"  {item['kind']:7} {item['key']}: {item['reason']}")
         for edit in edits:
             print(f"  {edit['kind']:7} {edit['key']}  ->  {edit['value']}")
+        if platform_names:
+            print(i18n.t("translate.platform-names", count=len(platform_names)), file=sys.stderr)
+            for row in platform_names:
+                print(f"  {row['reason']}", file=sys.stderr)
     return 0
 
 

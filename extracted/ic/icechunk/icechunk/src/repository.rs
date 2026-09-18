@@ -248,6 +248,7 @@ impl Repository {
             config.caching(),
             config.compression().level(),
             config.max_concurrent_requests(),
+            config.max_concurrent_decodes(),
         ));
 
         if check_clean_root && !storage.root_is_clean(&storage_settings).await.inject()? {
@@ -447,6 +448,7 @@ impl Repository {
             final_config.caching(),
             final_config.compression().level(),
             final_config.max_concurrent_requests(),
+            final_config.max_concurrent_decodes(),
         ));
 
         Self::new(
@@ -514,6 +516,16 @@ impl Repository {
             authorized_virtual_containers,
             default_commit_metadata: SnapshotProperties::default(),
         })
+    }
+
+    /// Set the HTTP transport for sessions opened after this call. The callback
+    /// is runtime-only and is not persisted or serialized with the repository.
+    pub fn set_http_virtual_chunk_fetcher(
+        &mut self,
+        fetcher: Arc<dyn crate::virtual_chunks::HttpVirtualChunkFetcher>,
+    ) {
+        self.virtual_resolver =
+            Arc::new(self.virtual_resolver.with_http_fetcher(fetcher));
     }
 
     #[instrument(skip_all)]
@@ -1237,7 +1249,7 @@ impl Repository {
         Ok(branch_version.snapshot)
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self, repo_info))]
     async fn lookup_branch_v2(
         &self,
         branch: &str,
@@ -1363,13 +1375,16 @@ impl Repository {
         from_snapshot_id: Option<&SnapshotId>,
     ) -> RepositoryResult<()> {
         let do_update = |repo_info: Arc<RepoInfo>, backup_path: &str, _| {
-            if let Some(from_snapshot_id) = from_snapshot_id
-                && &repo_info.resolve_branch(branch).inject()? != from_snapshot_id
-            {
-                return Err(RepositoryError::capture(RepositoryErrorKind::Conflict {
-                    expected_parent: Some(from_snapshot_id.clone()),
-                    actual_parent: Some(from_snapshot_id.clone()),
-                }));
+            if let Some(from_snapshot_id) = from_snapshot_id {
+                let actual_parent = repo_info.resolve_branch(branch).inject()?;
+                if &actual_parent != from_snapshot_id {
+                    return Err(RepositoryError::capture(
+                        RepositoryErrorKind::Conflict {
+                            expected_parent: Some(from_snapshot_id.clone()),
+                            actual_parent: Some(actual_parent),
+                        },
+                    ));
+                }
             }
             let num_updates = self.config.num_updates_per_repo_info_file();
 
@@ -1619,7 +1634,7 @@ impl Repository {
         Ok(ref_data.snapshot)
     }
 
-    #[instrument(skip(self))]
+    #[instrument(skip(self, repo_info))]
     async fn lookup_tag_v2(
         &self,
         tag: &str,
@@ -2246,7 +2261,6 @@ fn raise_if_invalid_snapshot_id_v2(
 
 #[cfg(test)]
 mod tests {
-    use futures::TryStreamExt as _;
     use std::{
         collections::HashMap, error::Error, iter::zip, num::NonZeroU16, path::PathBuf,
         sync::Arc,
@@ -2473,6 +2487,38 @@ mod tests {
         let tag_snapshot = repo.lookup_tag("tag1").await?;
         assert_eq!(tag_snapshot, initial_snapshot);
 
+        Ok(())
+    }
+
+    /// `reset_branch` used to report `from_snapshot_id` as both the expected and
+    /// the actual parent, so a real conflict printed as `(Some(X)) != (Some(X))`.
+    #[tokio::test]
+    async fn test_reset_branch_conflict_reports_actual_parent()
+    -> Result<(), Box<dyn Error>> {
+        let storage: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
+        let repo = Repository::create(
+            None,
+            Arc::clone(&storage),
+            HashMap::new(),
+            Some(SpecVersionBin::V2),
+            true,
+        )
+        .await?;
+
+        let tip = repo.lookup_branch("main").await?;
+        let stale = SnapshotId::random();
+        let err = repo.reset_branch("main", &tip, Some(&stale)).await.unwrap_err();
+
+        assert!(
+            matches!(
+                &err.kind,
+                RepositoryErrorKind::Conflict {
+                    expected_parent: Some(expected),
+                    actual_parent: Some(actual),
+                } if expected == &stale && actual == &tip
+            ),
+            "expected a conflict naming the real branch tip, got: {err}"
+        );
         Ok(())
     }
 
@@ -3266,7 +3312,7 @@ mod tests {
                 )
                 .await
                 .unwrap()
-                .unwrap_or_else(|| panic!("getting chunk ref failed for {:?}", &ic));
+                .unwrap_or_else(|| panic!("getting chunk ref failed for {ic:?}"));
                 let expected_value =
                     ravel_multi_index(ic.as_slice(), array_shape.as_slice());
                 let expected =
@@ -3557,7 +3603,7 @@ mod tests {
             )
             .await
             .unwrap()
-            .unwrap_or_else(|| panic!("getting chunk ref failed for {:?}", &idx));
+            .unwrap_or_else(|| panic!("getting chunk ref failed for {idx:?}"));
             let expected = Bytes::copy_from_slice(format!("{val}").as_bytes());
             assert_eq!(actual, expected);
         }
@@ -3721,7 +3767,7 @@ mod tests {
             )
             .await
             .unwrap()
-            .unwrap_or_else(|| panic!("getting chunk ref failed for {:?}", &idx));
+            .unwrap_or_else(|| panic!("getting chunk ref failed for {idx:?}"));
             let expected = Bytes::copy_from_slice(format!("{val}").as_bytes());
             assert_eq!(actual, expected);
         }

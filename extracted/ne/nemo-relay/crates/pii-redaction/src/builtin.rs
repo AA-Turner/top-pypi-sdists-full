@@ -24,7 +24,10 @@ use nemo_relay::codec::resolve::{
 use nemo_relay::codec::traits::{LlmCodec, LlmResponseCodec};
 use nemo_relay::plugin::{PluginError, Result as PluginResult};
 
-use super::component::BuiltinBackendConfig;
+use super::component::{
+    BuiltinBackendConfig, DEFAULT_CUSTOM_MARK_PAYLOAD_POLICY,
+    validate_metric_string_attribute_allowlist,
+};
 use super::detectors::BuiltinDetector;
 use super::overlay::BuiltinCodecName;
 use super::trajectory::{CustomMarkPayloadPolicy, TrajectorySanitizer, is_relay_metric_mark};
@@ -254,6 +257,10 @@ impl CompiledBuiltinBackend {
         }
         let trajectory = match config.preset.as_deref() {
             Some("trajectory_context") => {
+                validate_metric_string_attribute_allowlist(
+                    &config.metric_string_attribute_allowlist,
+                )
+                .map_err(PluginError::InvalidConfig)?;
                 if config.detector.is_some()
                     || config.pattern.is_some()
                     || !config.target_paths.is_empty()
@@ -280,6 +287,7 @@ impl CompiledBuiltinBackend {
                         .clone()
                         .unwrap_or_else(|| "[REDACTED]".to_string()),
                     policy,
+                    config.metric_string_attribute_allowlist.clone(),
                 ))
             }
             Some(other) => {
@@ -287,9 +295,17 @@ impl CompiledBuiltinBackend {
                     "unsupported builtin preset '{other}'"
                 )));
             }
+            None if !config.metric_string_attribute_allowlist.is_empty() => {
+                return Err(PluginError::InvalidConfig(
+                    "builtin.metric_string_attribute_allowlist requires builtin.preset = 'trajectory_context'"
+                        .to_string(),
+                ));
+            }
             None => None,
         };
-        if trajectory.is_none() && config.custom_mark_payload_policy != "preserve" {
+        if trajectory.is_none()
+            && config.custom_mark_payload_policy != DEFAULT_CUSTOM_MARK_PAYLOAD_POLICY
+        {
             return Err(PluginError::InvalidConfig(
                 "builtin.custom_mark_payload_policy requires builtin.preset = 'trajectory_context'"
                     .to_string(),
@@ -603,6 +619,10 @@ impl CompiledBuiltinBackend {
         }
     }
 
+    pub(super) fn is_trajectory(&self) -> bool {
+        self.trajectory.is_some()
+    }
+
     fn uses_compatible_legacy_response_codec(&self, payload: &Json) -> bool {
         self.legacy_surface
             .is_some_and(|surface| detect_response_surface(payload) == Some(surface))
@@ -645,6 +665,10 @@ impl CompiledBuiltinBackend {
             self.target_path_matcher
                 .matching_json_pointer_paths(&sanitized),
         );
+
+        let mut target_paths = target_paths.into_iter().collect::<Vec<_>>();
+        target_paths
+            .sort_by(|left, right| right.len().cmp(&left.len()).then_with(|| left.cmp(right)));
 
         for target_segments in target_paths {
             let current_annotated = codec.decode(&sanitized_request).ok()?;
@@ -872,15 +896,6 @@ pub(super) fn llm_sanitize_request_callback(
     Arc::new(move |mut request: LlmRequest, context| {
         let backend = Arc::clone(&backend);
         Box::pin(async move {
-            if let Some(trajectory) = backend.trajectory.as_ref() {
-                request.headers = trajectory
-                    .sanitize_tool_payload(Json::Object(request.headers))
-                    .as_object()
-                    .cloned()
-                    .unwrap_or_default();
-                request.content = trajectory.sanitize_provider_payload(request.content);
-                return Ok(Some(request));
-            }
             request.headers = backend.sanitize_request_headers(request.headers);
             if backend.target_path_matcher.is_empty() {
                 request.content = backend.sanitize_json_preorder_dfs(request.content);
@@ -911,6 +926,33 @@ pub(super) fn llm_sanitize_request_callback(
     })
 }
 
+pub(super) fn trajectory_llm_request_projection_callback(
+    backend: CompiledBuiltinBackend,
+) -> LlmSanitizeRequestFn {
+    let backend = Arc::new(backend);
+    Arc::new(move |request: LlmRequest, context| {
+        let backend = Arc::clone(&backend);
+        Box::pin(async move {
+            if matches!(context.codec(), LlmCodecIdentity::None) {
+                return Ok(backend.legacy_surface.is_some().then_some(request));
+            }
+            let projected = (|| {
+                let surface = backend.selected_surface(context.codec())?;
+                let resolved = context.resolve_codec();
+                let fallback = resolved.is_none().then(|| build_request_codec(surface));
+                let codec = resolved.as_deref().or(fallback.as_deref())?;
+                let annotated = codec.decode(&request).ok()?;
+                let sanitized = backend
+                    .trajectory
+                    .as_ref()?
+                    .sanitize_annotated_request(annotated)?;
+                crate::trajectory_projection::render_request(surface, &sanitized)
+            })();
+            Ok(projected)
+        })
+    })
+}
+
 pub(super) fn llm_sanitize_response_callback(
     backend: CompiledBuiltinBackend,
 ) -> LlmSanitizeResponseFn {
@@ -918,9 +960,6 @@ pub(super) fn llm_sanitize_response_callback(
     Arc::new(move |payload: Json, context| {
         let backend = Arc::clone(&backend);
         Box::pin(async move {
-            if let Some(trajectory) = backend.trajectory.as_ref() {
-                return Ok(Some(trajectory.sanitize_provider_payload(payload)));
-            }
             if backend.target_path_matcher.is_empty() {
                 return Ok(Some(backend.sanitize_json_preorder_dfs(payload)));
             }
@@ -961,6 +1000,33 @@ pub(super) fn llm_sanitize_response_callback(
                 );
             }
             Ok(sanitized)
+        })
+    })
+}
+
+pub(super) fn trajectory_llm_response_projection_callback(
+    backend: CompiledBuiltinBackend,
+) -> LlmSanitizeResponseFn {
+    let backend = Arc::new(backend);
+    Arc::new(move |payload: Json, context| {
+        let backend = Arc::clone(&backend);
+        Box::pin(async move {
+            if matches!(context.codec(), LlmCodecIdentity::None) {
+                return Ok(backend.legacy_surface.is_some().then_some(payload));
+            }
+            let projected = (|| {
+                let surface = backend.selected_surface(context.codec())?;
+                let resolved = context.resolve_codec();
+                let fallback = resolved.is_none().then(|| build_response_codec(surface));
+                let codec = resolved.as_deref().or(fallback.as_deref())?;
+                let annotated = codec.decode_response(&payload).ok()?;
+                let sanitized = backend
+                    .trajectory
+                    .as_ref()?
+                    .sanitize_annotated_response(annotated)?;
+                crate::trajectory_projection::render_response(surface, &sanitized)
+            })();
+            Ok(projected)
         })
     })
 }

@@ -40,7 +40,21 @@ class TestAgentResponse(unittest.TestCase):
                 name = '',
                 data_plane_id = '',
                 task_id = '',
-                creation_source = None,
+                provenance = arthur_client.api_bindings.models.provenance.Provenance(
+                    sources = [
+                        arthur_client.api_bindings.models.provenance_source.ProvenanceSource(
+                            source_class = 'cloud', 
+                            source_id = '', 
+                            vendor = '', 
+                            address = arthur_client.api_bindings.models.source_address.SourceAddress(
+                                instance = '', 
+                                scope = '', 
+                                resource_kind = '', 
+                                resource_id = '', 
+                                query = '', ), )
+                        ], 
+                    runs_on = 'aws', 
+                    platform = 'darwin', ),
                 model_id = '',
                 num_spans = 56,
                 is_autocreated = True,
@@ -61,6 +75,21 @@ class TestAgentResponse(unittest.TestCase):
                 muted_until = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 id = '',
                 workspace_id = '',
+                evidence = [
+                    arthur_client.api_bindings.models.evidence_response.EvidenceResponse(
+                        id = '', 
+                        creation_source = null, 
+                        external_id = '', 
+                        source_id = '', 
+                        detection = 'observed', 
+                        visibility = 'full', 
+                        is_stale = True, 
+                        last_seen = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        last_scanned = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        first_seen = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        discovered_in_run = '', )
+                    ],
+                creation_source = None,
                 tools = [
                     arthur_client.api_bindings.models.tool_response.ToolResponse(
                         id = '', 
@@ -87,7 +116,17 @@ class TestAgentResponse(unittest.TestCase):
                         id = '', 
                         url = '', )
                     ],
-                infrastructure = 'AWS'
+                infrastructure = 'aws',
+                is_stale = True,
+                source_ids = [
+                    ''
+                    ],
+                external_ids = [
+                    ''
+                    ],
+                source_classes = [
+                    'cloud'
+                    ]
             )
         else:
             return AgentResponse(
@@ -96,10 +135,10 @@ class TestAgentResponse(unittest.TestCase):
                 name = '',
                 data_plane_id = '',
                 task_id = '',
-                creation_source = None,
                 id = '',
                 workspace_id = '',
-                infrastructure = 'AWS',
+                creation_source = None,
+                infrastructure = 'aws',
         )
         """
 

@@ -1,0 +1,1 @@
+import{ua as e}from"./lucide-DJxHsl0k.js";var t=e(!1);function n(){t.value=!0}function r(){t.value=!1}function i(){return{active:t,start:n,end:r}}export{i as t};

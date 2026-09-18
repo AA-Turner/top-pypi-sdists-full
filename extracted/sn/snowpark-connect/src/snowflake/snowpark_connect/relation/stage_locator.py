@@ -44,11 +44,31 @@ def get_paths_from_stage(
     if paths[0].startswith("@"):  # This is a stage name
         return [_path_for_stage_mapping(p) for p in paths]
 
+    # GCS is rejected in any position of a *cloud* path list, not just paths[0]. The match
+    # below dispatches on the first path's provider and then applies that provider's rewrite to
+    # all of them, so a GCS path in position 2+ used to skip this check entirely and be
+    # rewritten into the first path's stage -- reading a file the user never asked for,
+    # silently. Same request, opposite handling, purely from argument order.
+    #
+    # Scope limit, deliberate: this loop sits AFTER the ``paths[0].startswith("@")`` early
+    # return above, so a list that STARTS with an @stage path and carries a later gcs:// one
+    # (``["@stg/a.csv", "gcs://b/c.csv"]``) does not reach here and does not raise. That is
+    # pre-existing behaviour on the COPY path and is left alone rather than widened here, since
+    # this change set is NSS-scoped. For NSS reads the case is closed anyway --
+    # ``raise_if_multiple_storage_locations`` rejects the two storage locations before the
+    # scan is built.
+    for path in paths:
+        if get_cloud_from_url(path) == "gcp":
+            exception = AnalysisException(
+                "You must configure an integration for Google Cloud Storage to perform I/O operations rather than accessing the URL directly. Reference: https://docs.snowflake.com/en/user-guide/data-load-gcs-config"
+            )
+            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+            raise exception
+
     stage_name = StageLocator.get_instance(session).get_and_maybe_create_stage(
         _path_for_stage_mapping(paths[0])
     )
 
-    # TODO : What if GCP?
     # TODO: What if already stage path?
     match get_cloud_from_url(paths[0]):
         case "azure":
@@ -58,12 +78,6 @@ def get_paths_from_stage(
                 _, bucket_name, path = parse_azure_url(mapped)
                 rewrite_paths.append(f"{stage_name}/{path}")
             paths = rewrite_paths
-        case "gcp":
-            exception = AnalysisException(
-                "You must configure an integration for Google Cloud Storage to perform I/O operations rather than accessing the URL directly. Reference: https://docs.snowflake.com/en/user-guide/data-load-gcs-config"
-            )
-            attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
-            raise exception
         case _:
             filesystem, parsed_path = url_to_fs(paths[0])
             if isinstance(filesystem, S3FileSystem):  # aws

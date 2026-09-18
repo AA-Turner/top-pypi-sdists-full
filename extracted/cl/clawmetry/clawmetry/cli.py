@@ -2437,6 +2437,28 @@ def _cmd_service(args) -> None:
     sys.exit(0 if result.get("ok") else 1)
 
 
+def _report_uninstall() -> None:
+    """Tell the anonymous install registry that this install is going away.
+
+    REQ-OGV-AIH-004. The registry counted arrivals and never departures:
+    `uninstall` has been an accepted event on the cloud side all along and
+    nothing ever sent it, so a purged machine left an account looking like
+    it had never installed. Same opt-out rules as every other lifecycle
+    ping (``ping_event`` refuses before any request), and every failure is
+    swallowed: the uninstall is the product, this is bookkeeping.
+    """
+    try:
+        from clawmetry import telemetry as _tel
+
+        try:
+            from dashboard import __version__ as _ver
+        except Exception:
+            _ver = "unknown"
+        _tel.ping_event("uninstall", _ver)
+    except Exception:
+        pass
+
+
 def _cmd_uninstall(args=None) -> None:
     """clawmetry uninstall — fully remove clawmetry, stop daemons, delete all files.
 
@@ -2720,6 +2742,8 @@ def _cmd_uninstall(args=None) -> None:
                 print("  ⏳  Purging server-side registration (background)...")
     except Exception:
         pass
+
+    _report_uninstall()
 
     # 1. Stop daemons. Boot the launchd jobs out BEFORE deleting any files:
     # the dashboard agent has KeepAlive, so a plist left registered restarts
@@ -4934,6 +4958,266 @@ def _cmd_mcp(args) -> None:
     fast path in main(); kept for callers that build a Namespace directly."""
     from clawmetry.mcp_install import cli_main as _mcp_cli
     raise SystemExit(_mcp_cli(list(getattr(args, "mcp_args", None) or [])))
+
+
+
+def _cmd_key(args) -> None:
+    """`clawmetry key ...` -- scoped read keys for custom UIs.
+
+    Spec: blueprint 0ea7523c-12b5-4033-84ea-bf1f46e20d70, "API Surface" ->
+    "Command line". Four subcommands, each also taking --json:
+    create (mints one, prints the secret once), list (names, scopes,
+    origins, last use), revoke (effective on that key's next request),
+    scopes (what each grants).
+
+    The point of these keys is that someone can build their own view of
+    their own agents without forking the dashboard: create a key, say what
+    it may read and which site may read it, paste it into whatever they
+    are building. docs/BUILD_YOUR_OWN_UI.md is the long version.
+
+    Two things this command is deliberately strict about, because both
+    are how a local API gets robbed:
+
+    * A browser key must name its origin. There is no wildcard. Any page
+      in any tab can already send a request to localhost; the origin
+      allowlist is the whole reason it cannot read the answer.
+    * ``read:content`` (prompts, replies, tool calls) is never granted
+      unless it is asked for by name, and the created key says so out loud.
+    """
+    import json as _json
+    import time as _time
+
+    from clawmetry import apikeys as _ak
+    from clawmetry.apikeys import SCOPE_DOC, SCOPE_INGEST
+    from clawmetry.query_contract import SCOPE_CONTENT, SCOPE_METRICS
+
+    action = getattr(args, "key_cmd", None) or "list"
+    as_json = bool(getattr(args, "as_json", False))
+
+    def _fmt_age(ts):
+        if not ts:
+            return "never"
+        delta = int(_time.time()) - int(ts)
+        if delta < 60:
+            return "just now"
+        for unit, secs in (("d", 86400), ("h", 3600), ("m", 60)):
+            if delta >= secs:
+                return f"{delta // secs}{unit} ago"
+        return "just now"
+
+    if action == "scopes":
+        rows = _ak.scope_catalogue()
+        if as_json:
+            print(_json.dumps({"scopes": rows}, indent=2))
+            return
+        print("Scopes, least revealing first.")
+        print("")
+        for row in rows:
+            flag = "   (sensitive)" if row["sensitive"] else ""
+            print(f"  {row['scope']}{flag}")
+            print(f"      {row['doc']}")
+            if row["kind"] == "write":
+                print("      queries: none. This scope only pushes data in.")
+            else:
+                print(f"      queries: {', '.join(row['methods'])}")
+            print("")
+        print("Pick the narrowest scope that makes your UI work. A key that")
+        print("only needs a cost chart should be read:metrics, so it cannot")
+        print("return a prompt even if the page it lives in is compromised.")
+        return
+
+    if action == "list":
+        rows = _ak.list_keys(include_revoked=bool(getattr(args, "show_revoked", False)))
+        if as_json:
+            print(_json.dumps({"keys": rows, "summary": _ak.store_summary()}, indent=2))
+            return
+        if not rows:
+            print("No API keys on this machine.")
+            print("")
+            print("Create one to build your own UI on top of ClawMetry:")
+            print("")
+            print("    clawmetry key create --name my-ui \\")
+            print("        --scope read:metrics --origin http://localhost:3000")
+            print("")
+            print("See docs/BUILD_YOUR_OWN_UI.md for the walkthrough.")
+            return
+        print(f"{'ID':<10} {'NAME':<24} {'SCOPES':<34} {'LAST USED':<12} ORIGINS")
+        for r in rows:
+            origins = ", ".join(r.get("origins") or []) or "(not used from a browser)"
+            state = " [revoked]" if r.get("revoked_at") else ""
+            print(
+                f"{r['id']:<10} {r['name'][:23]:<24} "
+                f"{','.join(r.get('scopes') or [])[:33]:<34} "
+                f"{_fmt_age(r.get('last_used_at')):<12} {origins}{state}"
+            )
+        return
+
+    if action == "revoke":
+        key_id = getattr(args, "key_id", "") or ""
+        ok = _ak.revoke(key_id)
+        if as_json:
+            print(_json.dumps({"action": "revoke", "ok": ok, "id": key_id}, indent=2))
+            if not ok:
+                raise SystemExit(1)
+            return
+        if ok:
+            print(f"Key {key_id} revoked. The next request using it is refused.")
+            print("Anything you built on it needs a new key:  clawmetry key create ...")
+            return
+        print(f"No active key called {key_id!r} on this machine.")
+        print("List what is here with:  clawmetry key list")
+        raise SystemExit(1)
+
+    if action == "create":
+        scopes = list(getattr(args, "scope", None) or []) or [SCOPE_METRICS]
+        raw_origins = list(getattr(args, "origin", None) or [])
+        wants_no_origin = any(
+            str(o).strip().lower() == _ak.ORIGIN_NONE for o in raw_origins
+        )
+        if SCOPE_INGEST in scopes and not raw_origins:
+            # An ingest key is server-to-server by definition, so asking
+            # which website may use it is a question with no answer.
+            wants_no_origin = True
+            raw_origins = [_ak.ORIGIN_NONE]
+        if not raw_origins:
+            print("A key needs to know which site may use it from a browser.")
+            print("")
+            print("    --origin https://my-ui.vercel.app     a site you are building")
+            print("    --origin http://localhost:3000        your dev server")
+            print("    --origin none                         not used from a browser")
+            print("")
+            print("There is no wildcard. Any page in any tab can already send a")
+            print("request to this machine, and naming the origin is what stops")
+            print("it reading the answer.")
+            raise SystemExit(1)
+        import hashlib as _hashlib
+        import secrets as _secrets
+        _raw_id = _secrets.token_hex(_ak.ID_BYTES)
+        _raw_secret = _secrets.token_urlsafe(_ak.SECRET_BYTES)
+        _kid = _hashlib.sha256(_raw_id.encode()).hexdigest()[:_ak.ID_BYTES * 2]
+        _wsec = _hashlib.sha256(_raw_secret.encode()).hexdigest()
+        key_output = f"{_ak.KEY_PREFIX}_{_kid}_{_wsec}"
+        try:
+            record = _ak.create_from_material(
+                _kid,
+                _wsec,
+                getattr(args, "name", ""),
+                scopes,
+                [] if wants_no_origin else raw_origins,
+                note=getattr(args, "note", ""),
+            )
+        except _ak.ApiKeyError as exc:
+            if as_json:
+                print(_json.dumps({"action": "create", "ok": False,
+                                   "error": str(exc)}, indent=2))
+            else:
+                print(str(exc))
+            raise SystemExit(1)
+
+        if as_json:
+            _out = {
+                "action": "create", "ok": True,
+                "key": key_output,
+                "record": {k: v for k, v in record.items() if k != "hash"},
+            }
+            print(_json.dumps(_out, indent=2))
+            return
+
+        print("Key created. It is shown once and is not stored anywhere in")
+        print("readable form, so copy it now.")
+        print("")
+        print(f"    {key_output}")
+        print("")
+        print(f"Name:    {record['name']}  (id {record['id']})")
+        if SCOPE_INGEST in record["scopes"]:
+            print(f"Grants:  {', '.join(record['scopes'])}")
+            print(f"           {SCOPE_INGEST}: {SCOPE_DOC[SCOPE_INGEST]}")
+            print("Origins: none. Ingest is server-to-server; this key is never")
+            print("         given a CORS header, so a web page cannot use it.")
+            print("")
+            print("Push a span from anywhere that can reach this machine:")
+            print("")
+            print("    curl -X POST http://localhost:8900/v1/traces \\")
+            print(f"        -H 'x-clawmetry-key: {plaintext}' \\")
+            print("        -H 'x-clawmetry-runtime: my-engine' \\")
+            print("        -H 'x-clawmetry-env: production' \\")
+            print("        -H 'Content-Type: application/json' \\")
+            print("        --data-binary @spans.json")
+            print("")
+            print("OTLP protobuf and OTLP/JSON are both accepted, gzip too.")
+            print("The runtime and env headers are optional; without them the")
+            print("runtime is taken from the resource's service.name.")
+            print("")
+            print("Reference: docs/CUSTOM_RUNTIME_INGEST.md")
+            return
+        print(f"Reads:   {', '.join(record['scopes'])}")
+        for s in record["scopes"]:
+            print(f"           {s}: {SCOPE_DOC[s]}")
+        if record["origins"]:
+            print(f"Origins: {', '.join(record['origins'])}")
+        else:
+            print("Origins: none. This key works from a script or a server, but a")
+            print("         browser page will not be allowed to read the reply.")
+        if SCOPE_CONTENT in record["scopes"]:
+            print("")
+            print("This key can read the turns themselves: prompts, replies and")
+            print("tool calls. Keep it server-side. Do not ship it in a page.")
+        print("")
+        print("Put it somewhere your shell can reach, then try it:")
+        print("")
+        print("    export CLAWMETRY_KEY=<paste it>")
+        print("    curl -H \"Authorization: Bearer $CLAWMETRY_KEY\" \\")
+        print("        http://localhost:8900/api/q/1")
+        print("")
+        print("Point a coding agent at the generated API guide:")
+        print("")
+        print("    curl -H \"Authorization: Bearer $CLAWMETRY_KEY\" \\")
+        print("        http://localhost:8900/api/q/1/llms.txt")
+        print("")
+        print("Walkthrough: docs/BUILD_YOUR_OWN_UI.md")
+        return
+
+    print("Usage: clawmetry key [create|list|revoke|scopes]")
+    print("Start with:  clawmetry key scopes")
+    raise SystemExit(1)
+
+
+def _cmd_setup_prompt(args) -> None:
+    """`clawmetry setup-prompt [runtime]` -- the prompt you hand your agent.
+
+    ClawMetry detects agents on this machine with no configuration. This
+    is for the other case: an agent in CI, a container, a serverless
+    function or on someone else's laptop, which has to push instead.
+
+    The text is generated from the ingest contract, so it cannot tell an
+    agent to send a header the server does not read -- which is the
+    failure worth designing against, because an agent writes a wrong
+    header confidently and the request fails where nobody is looking.
+    """
+    from clawmetry import setup_prompt as _sp
+
+    runtime = (getattr(args, "runtime", "") or "").strip().lower()
+    if runtime and not _sp.VALID_RUNTIME.match(runtime):
+        print(
+            f"{runtime!r} is not a runtime name. Use a short name like "
+            "claude_code or my-engine: lower-case letters, digits, "
+            "underscore and dash, 40 characters at most."
+        )
+        raise SystemExit(1)
+
+    port = getattr(args, "port", None) or 8900
+    endpoint = (getattr(args, "endpoint", "") or f"http://localhost:{port}").rstrip("/")
+    print(_sp.render(runtime, endpoint=endpoint))
+    print("")
+    print("-" * 68)
+    print("Copy everything above into your coding agent.")
+    print("")
+    print("It needs a key. Create one, and paste it in place of the")
+    print("placeholder:")
+    print("")
+    print("    clawmetry key create --name ci --scope write:ingest")
+    print("")
+    print("Reference: docs/INGEST.md")
 
 
 def _cmd_reports(args) -> None:
@@ -8467,6 +8751,20 @@ def main() -> None:
     )
 
     # reports — open the reports browser (refs #1005)
+    p_setup_prompt = sub.add_parser(
+        "setup-prompt",
+        help="Print the prompt that points an off-box agent at this ClawMetry",
+    )
+    p_setup_prompt.add_argument(
+        "runtime", nargs="?", default="",
+        help="Runtime being pointed here (claude_code, my-engine, ...)",
+    )
+    p_setup_prompt.add_argument(
+        "--endpoint", default="",
+        help="Where the agent should send data (default http://localhost:<port>)",
+    )
+    p_setup_prompt.add_argument("--port", type=int, default=8900)
+
     p_reports = sub.add_parser(
         "reports",
         help="Open the reports browser (renders ~/.clawmetry/reports/*.md + DuckDB SQL)",
@@ -8554,6 +8852,74 @@ def main() -> None:
 
     # mcp — intercepted by the fast path at the top of main() (WO-59); the
     # parser entry exists so `clawmetry --help` discovery shows it.
+    # key — scoped read keys for custom UIs (docs/BUILD_YOUR_OWN_UI.md)
+    p_key = sub.add_parser(
+        "key",
+        help="API keys for custom UIs: create, list, revoke, scopes",
+    )
+    key_sub = p_key.add_subparsers(dest="key_cmd")
+
+    p_key_create = key_sub.add_parser(
+        "create", help="Mint a scoped read key. Shown once, never stored."
+    )
+    p_key_create.add_argument(
+        "--name", required=True, metavar="NAME",
+        help="What this key is for, e.g. latency-workbench. Shown in listings.",
+    )
+    p_key_create.add_argument(
+        "--scope", action="append", default=[], metavar="SCOPE",
+        help=(
+            "What the key may read. Repeatable. Run `clawmetry key scopes` "
+            "for the list. Defaults to read:metrics, the least revealing one."
+        ),
+    )
+    p_key_create.add_argument(
+        "--origin", action="append", default=[], metavar="URL",
+        help=(
+            "A site allowed to call this API from a browser, e.g. "
+            "https://my-ui.vercel.app. Repeatable, and required unless you "
+            "pass --origin none for a key used outside a browser. There is "
+            "no wildcard: any page in any tab can already reach localhost, "
+            "and the origin allowlist is what stops it reading the reply."
+        ),
+    )
+    p_key_create.add_argument(
+        "--note", default="", metavar="TEXT",
+        help="Optional reminder to your future self.",
+    )
+    p_key_create.add_argument(
+        "--json", action="store_true", dest="as_json",
+        help="Emit the record plus the key as JSON (jq-friendly).",
+    )
+
+    p_key_list = key_sub.add_parser("list", help="Show this machine's keys")
+    p_key_list.add_argument(
+        "--all", action="store_true", dest="show_revoked",
+        help="Include revoked keys.",
+    )
+    p_key_list.add_argument(
+        "--json", action="store_true", dest="as_json",
+        help="Emit JSON (jq-friendly).",
+    )
+
+    p_key_revoke = key_sub.add_parser(
+        "revoke", help="Stop a key working. Takes effect on the next request."
+    )
+    p_key_revoke.add_argument(
+        "key_id", metavar="ID",
+        help="The key id from `clawmetry key list` (the whole key also works).",
+    )
+    p_key_revoke.add_argument(
+        "--json", action="store_true", dest="as_json", help="Emit JSON.",
+    )
+
+    p_key_scopes = key_sub.add_parser(
+        "scopes", help="What each scope grants, and which queries it unlocks"
+    )
+    p_key_scopes.add_argument(
+        "--json", action="store_true", dest="as_json", help="Emit JSON.",
+    )
+
     p_mcp = sub.add_parser(
         "mcp",
         help="MCP server: `mcp` serves on stdio; `mcp install [--runtime <id>|all] "
@@ -8891,6 +9257,30 @@ def main() -> None:
         ),
     )
 
+    # maintenance: explicit, operator-run store upkeep (REQ-OBS-OTG-001).
+    p_maint = sub.add_parser(
+        "maintenance",
+        help="Explicit store maintenance (nothing here runs on its own)",
+    )
+    maint_sub = p_maint.add_subparsers(dest="maintenance_cmd")
+    p_rescrub = maint_sub.add_parser(
+        "rescrub-spans",
+        help=("Scrub spans stored before span redaction existed. A dry run "
+              "that only counts, unless --apply is given"),
+    )
+    p_rescrub.add_argument(
+        "--apply", action="store_true",
+        help="Rewrite the spans that would change (content fields only)",
+    )
+    p_rescrub.add_argument(
+        "--batch", type=int, default=200,
+        help="Spans per step (default 200)",
+    )
+    p_rescrub.add_argument(
+        "--json", action="store_true", dest="as_json",
+        help="Print the totals as JSON",
+    )
+
     # bundle — cheapest tier admitting a mixed 5-axis constraint bundle.
     # Aggregate CLI sibling of `clawmetry {runtimes,features,channels,
     # nodes,retention}` (each folds ONE axis); this folds a mixed bundle
@@ -9172,6 +9562,8 @@ def main() -> None:
         "secure",
         "reports",
         "eval",
+        "key",
+        "setup-prompt",
         "mcp",
         "update",
         "uninstall",
@@ -9186,6 +9578,7 @@ def main() -> None:
         "channels",
         "nodes",
         "retention",
+        "maintenance",
         "bundle",
         "extensions",
         "diagnose",
@@ -9317,6 +9710,10 @@ def main() -> None:
             _cmd_eval(args)
         elif args.cmd == "mcp":
             _cmd_mcp(args)
+        elif args.cmd == "key":
+            _cmd_key(args)
+        elif args.cmd == "setup-prompt":
+            _cmd_setup_prompt(args)
         elif args.cmd == "update":
             _cmd_update(args)
         elif args.cmd == "uninstall":
@@ -9341,6 +9738,9 @@ def main() -> None:
             _cmd_nodes(args)
         elif args.cmd == "retention":
             _cmd_retention(args)
+        elif args.cmd == "maintenance":
+            from clawmetry.span_rescrub import cmd_maintenance
+            sys.exit(cmd_maintenance(args))
         elif args.cmd == "bundle":
             _cmd_bundle(args)
         elif args.cmd == "extensions":

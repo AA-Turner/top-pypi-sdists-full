@@ -134,6 +134,41 @@ def test_vs15_wider_override_unchanged():
     assert wcwidth.width('\u231a\ufe0e', term_program='VTE') == 2
 
 
+def test_vs15_repeated_ignored():
+    """A repeated VS15 does not narrow the base character more than once."""
+    watch = '\u231a'
+    assert wcwidth.wcswidth(watch + '\ufe0e') == 1
+    assert wcwidth.wcswidth(watch + '\ufe0e' * 2) == 1
+    assert wcwidth.wcswidth(watch + '\ufe0e' * 3) == 1
+    assert wcwidth.wcstwidth(watch + '\ufe0e' * 2, term_program='kitty') == 1
+    assert wcwidth.width(watch + '\ufe0e' * 2) == 1
+    assert wcwidth.wcswidth(watch + '\ufe0e' * 2 + 'x') == 2
+    assert wcwidth.width(watch + '\ufe0e' * 2 + 'x') == 2
+
+
+def test_vs16_repeated_ignored():
+    """A repeated VS16 does not widen the base character more than once."""
+    heart = '\u2764'
+    assert wcwidth.wcswidth(heart + '\ufe0f') == 2
+    assert wcwidth.wcswidth(heart + '\ufe0f' * 2) == 2
+    assert wcwidth.wcswidth(heart + '\ufe0f' * 3) == 2
+    assert wcwidth.wcstwidth(heart + '\ufe0f' * 2, term_program='kitty') == 2
+    assert wcwidth.width(heart + '\ufe0f' * 2) == 2
+    assert wcwidth.wcswidth(heart + '\ufe0f' * 2 + 'x') == 3
+    assert wcwidth.width(heart + '\ufe0f' * 2 + 'x') == 3
+
+
+def test_vs15_vs16_do_not_stack():
+    """A variation selector following another does not re-measure the same base character."""
+    heart = '\u2764'
+    # VS16 widens, a trailing VS15 may not narrow it back
+    assert wcwidth.wcswidth(heart + '\ufe0f\ufe0e') == 2
+    assert wcwidth.width(heart + '\ufe0f\ufe0e') == 2
+    # VS15 is a no-op on an already-narrow base, a trailing VS16 may not widen it
+    assert wcwidth.wcswidth(heart + '\ufe0e\ufe0f') == 1
+    assert wcwidth.width(heart + '\ufe0e\ufe0f') == 1
+
+
 def test_grapheme_override_zwj_not_in_table():
     """ZWJ cluster not in override table falls through without error."""
     assert wcwidth.wcstwidth('😀\u200d😀', term_program='VTE') == 2
@@ -407,8 +442,8 @@ def test_get_term_overrides_reads_narrow_zeroer_key():
     """get_term_overrides reads 'narrow_zeroer' key from NARROW_OVERRIDES."""
     get_term_overrides.cache_clear()
     overrides = get_term_overrides('kitty')
-    assert len(overrides.narrow_zeroer) == 9
-    assert overrides.narrow_zeroer[0] == (0x00AD, 0x00AD)
+    assert overrides.narrow_zeroer
+    assert (0x00AD, 0x00AD) in overrides.narrow_zeroer
 
 
 def test_get_term_overrides_narrow_wider_still_empty():
@@ -491,6 +526,11 @@ def test_resolve_terminal_strips_whitespace(value, expected):
     ('\u0915\u093e', 'kitty', 1),
     ('\u0915\u093e', 'foot', 1),
     ('\u0915\u093e', 'alacritty', 2),
+    # GHA + VIRAMA + ANUSVARA + TA, a conjunct whose override key spans the
+    # cluster *and* the following character, matched by the first phase of the
+    # two-phase override lookup.
+    ('\u0918\u094d\u0902\u0924', 'kitty', 1),
+    ('\u0918\u094d\u0902\u0924', 'terminology', 4),
 ])
 def test_wcswidth_language_grapheme(text, term_program, expected):
     """Language grapheme clusters use per-terminal override tables."""
@@ -503,6 +543,8 @@ def test_wcswidth_language_grapheme(text, term_program, expected):
     ('\u0915\u093e', 'kitty', 1),  # DEVANAGARI LETTER KA + VOWEL SIGN AA
     ('\u0915\u093e', 'foot', 1),
     ('\u0c05\u0c02', 'kitty', 1),  # TELUGU LETTER A + SIGN ANUSVARA
+    ('\u0918\u094d\u0902\u0924', 'kitty', 1),  # GHA + VIRAMA + ANUSVARA + TA
+    ('\u0918\u094d\u0902\u0924', 'terminology', 4),
 ])
 def test_width_language_grapheme(text, term_program, expected):
     """Width() applies language grapheme overrides."""

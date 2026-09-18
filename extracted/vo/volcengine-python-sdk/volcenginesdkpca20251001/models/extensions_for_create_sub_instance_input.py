@@ -33,7 +33,7 @@ class ExtensionsForCreateSubInstanceInput(object):
                             and the value is json key in definition.
     """
     swagger_types = {
-        'custom_extensions': 'list[CustomExtensionForCreateSubInstanceInput]',
+        'custom_extensions': 'CustomExtensionsForCreateSubInstanceInput',
         'extended_key_usages': 'ExtendedKeyUsagesForCreateSubInstanceInput',
         'key_usages': 'KeyUsagesForCreateSubInstanceInput'
     }
@@ -68,7 +68,7 @@ class ExtensionsForCreateSubInstanceInput(object):
 
 
         :return: The custom_extensions of this ExtensionsForCreateSubInstanceInput.  # noqa: E501
-        :rtype: list[CustomExtensionForCreateSubInstanceInput]
+        :rtype: CustomExtensionsForCreateSubInstanceInput
         """
         return self._custom_extensions
 
@@ -78,7 +78,7 @@ class ExtensionsForCreateSubInstanceInput(object):
 
 
         :param custom_extensions: The custom_extensions of this ExtensionsForCreateSubInstanceInput.  # noqa: E501
-        :type: list[CustomExtensionForCreateSubInstanceInput]
+        :type: CustomExtensionsForCreateSubInstanceInput
         """
 
         self._custom_extensions = custom_extensions

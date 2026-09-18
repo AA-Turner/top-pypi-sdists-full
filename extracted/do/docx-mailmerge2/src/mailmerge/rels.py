@@ -4,7 +4,7 @@ from copy import deepcopy
 from .constants import NAMESPACES
 
 
-class RelationsDocument(object):
+class RelationsDocument:
     """handling relations document"""
 
     def __init__(self, rel_part):
@@ -22,7 +22,7 @@ class RelationsDocument(object):
 
     def get_relation_elem(self, target):
         """returns the relation element for the"""
-        return self.rel_part.getroot().find('rr:Relationship[@Target="%s"]' % target, namespaces=NAMESPACES)
+        return self.rel_part.getroot().find(f'rr:Relationship[@Target="{target}"]', namespaces=NAMESPACES)
 
     def get_all(self):
         """returns all relations"""

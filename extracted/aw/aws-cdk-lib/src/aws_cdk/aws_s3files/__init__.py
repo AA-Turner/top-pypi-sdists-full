@@ -160,7 +160,10 @@ class CfnAccessPoint(
             handler="index.handler",
             code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler")),
             vpc=vpc,
-            filesystem=lambda_.FileSystem.from_s3_files_access_point(access_point, "/mnt/s3files")
+            filesystem=lambda_.FileSystem.from_s3_files_access_point(access_point, "/mnt/s3files",
+                # Enables direct reads and grants s3:GetObject/s3:GetObjectVersion on the bucket to the execution role.
+                direct_s3_read=lambda_.DirectS3Read.enabled(bucket)
+            )
         )
     '''
 
@@ -813,7 +816,10 @@ class CfnAccessPointProps:
                 handler="index.handler",
                 code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler")),
                 vpc=vpc,
-                filesystem=lambda_.FileSystem.from_s3_files_access_point(access_point, "/mnt/s3files")
+                filesystem=lambda_.FileSystem.from_s3_files_access_point(access_point, "/mnt/s3files",
+                    # Enables direct reads and grants s3:GetObject/s3:GetObjectVersion on the bucket to the execution role.
+                    direct_s3_read=lambda_.DirectS3Read.enabled(bucket)
+                )
             )
         '''
         if __debug__:
@@ -979,7 +985,10 @@ class CfnFileSystem(
             handler="index.handler",
             code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler")),
             vpc=vpc,
-            filesystem=lambda_.FileSystem.from_s3_files_access_point(access_point, "/mnt/s3files")
+            filesystem=lambda_.FileSystem.from_s3_files_access_point(access_point, "/mnt/s3files",
+                # Enables direct reads and grants s3:GetObject/s3:GetObjectVersion on the bucket to the execution role.
+                direct_s3_read=lambda_.DirectS3Read.enabled(bucket)
+            )
         )
     '''
 
@@ -1818,7 +1827,10 @@ class CfnFileSystemProps:
                 handler="index.handler",
                 code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler")),
                 vpc=vpc,
-                filesystem=lambda_.FileSystem.from_s3_files_access_point(access_point, "/mnt/s3files")
+                filesystem=lambda_.FileSystem.from_s3_files_access_point(access_point, "/mnt/s3files",
+                    # Enables direct reads and grants s3:GetObject/s3:GetObjectVersion on the bucket to the execution role.
+                    direct_s3_read=lambda_.DirectS3Read.enabled(bucket)
+                )
             )
         '''
         if __debug__:

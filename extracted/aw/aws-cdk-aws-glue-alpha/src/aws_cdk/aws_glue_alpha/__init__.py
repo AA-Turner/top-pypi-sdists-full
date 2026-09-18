@@ -4,16 +4,14 @@ r'''
 <!--BEGIN STABILITY BANNER-->---
 
 
-![cdk-constructs: Experimental](https://img.shields.io/badge/cdk--constructs-experimental-important.svg?style=for-the-badge)
+![Deprecated](https://img.shields.io/badge/deprecated-critical.svg?style=for-the-badge)
 
-> The APIs of higher level constructs in this module are experimental and under active development.
-> They are subject to non-backward compatible changes or removal in any future version. These are
-> not subject to the [Semantic Versioning](https://semver.org/) model and breaking changes will be
-> announced in the release notes. This means that while you may use them, you may need to update
-> your source code when upgrading to a newer version of this package.
+> This API may emit warnings. Backward compatibility is not guaranteed.
 
 ---
 <!--END STABILITY BANNER-->
+
+All constructs moved to aws-cdk-lib/aws-glue.
 
 This module is part of the [AWS Cloud Development Kit](https://github.com/aws/aws-cdk) project.
 
@@ -1485,13 +1483,13 @@ class Action(
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="@aws-cdk/aws-glue-alpha.Action",
 ):
-    '''(experimental) An action initiated by a trigger.
+    '''(deprecated) An action initiated by a trigger.
 
     An action runs exactly one target: use {@link Action.job} to run a job or
     {@link Action.crawler} to run a crawler. Because these are separate factory
     methods, an action can never target both or neither.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -1515,7 +1513,7 @@ class Action(
 
     def __init__(self) -> None:
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         jsii.create(self.__class__, self, [])
 
@@ -1529,14 +1527,14 @@ class Action(
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> "Action":
-        '''(experimental) Create an action that runs a crawler.
+        '''(deprecated) Create an action that runs a crawler.
 
         :param crawler: the crawler to run when the trigger fires.
-        :param arguments: (experimental) The arguments used when this trigger fires. Default: - no arguments are passed to the job
-        :param security_configuration: (experimental) The ``SecurityConfiguration`` to be used with this action. Default: - no security configuration is used
-        :param timeout: (experimental) The run timeout. This is the maximum time that a run can consume resources before it is terminated and enters TIMEOUT status. Default: - the default timeout value set in the job definition
+        :param arguments: (deprecated) The arguments used when this trigger fires. Default: - no arguments are passed to the job
+        :param security_configuration: (deprecated) The ``SecurityConfiguration`` to be used with this action. Default: - no security configuration is used
+        :param timeout: (deprecated) The run timeout. This is the maximum time that a run can consume resources before it is terminated and enters TIMEOUT status. Default: - the default timeout value set in the job definition
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__71e7eb7c8320d42e6b5a748aac110ce9e1f594fd81cb5c87c401669f87fd65ae)
@@ -1559,14 +1557,14 @@ class Action(
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> "Action":
-        '''(experimental) Create an action that runs a job.
+        '''(deprecated) Create an action that runs a job.
 
         :param job: the job to run when the trigger fires.
-        :param arguments: (experimental) The arguments used when this trigger fires. Default: - no arguments are passed to the job
-        :param security_configuration: (experimental) The ``SecurityConfiguration`` to be used with this action. Default: - no security configuration is used
-        :param timeout: (experimental) The run timeout. This is the maximum time that a run can consume resources before it is terminated and enters TIMEOUT status. Default: - the default timeout value set in the job definition
+        :param arguments: (deprecated) The arguments used when this trigger fires. Default: - no arguments are passed to the job
+        :param security_configuration: (deprecated) The ``SecurityConfiguration`` to be used with this action. Default: - no security configuration is used
+        :param timeout: (deprecated) The run timeout. This is the maximum time that a run can consume resources before it is terminated and enters TIMEOUT status. Default: - the default timeout value set in the job definition
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9884a2083a1da4da0e480705b09f2bf643a7063de8f1ad5753f5ae9ed5eda54d)
@@ -1589,26 +1587,26 @@ typing.cast(typing.Any, Action).__jsii_proxy_class__ = lambda : _ActionProxy
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.CatalogEncryptionMode")
 class CatalogEncryptionMode(enum.Enum):
-    '''(experimental) The encryption-at-rest mode for a Glue Data Catalog.
+    '''(deprecated) The encryption-at-rest mode for a Glue Data Catalog.
 
     :see: https://docs.aws.amazon.com/glue/latest/webapi/API_EncryptionAtRest.html#Glue-Type-EncryptionAtRest-CatalogEncryptionMode
-    :stability: experimental
+    :stability: deprecated
     '''
 
     DISABLED = "DISABLED"
-    '''(experimental) Encryption at rest is disabled.
+    '''(deprecated) Encryption at rest is disabled.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     SSE_KMS = "SSE_KMS"
-    '''(experimental) Server-side encryption (SSE) with an AWS KMS key.
+    '''(deprecated) Server-side encryption (SSE) with an AWS KMS key.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     SSE_KMS_WITH_SERVICE_ROLE = "SSE_KMS_WITH_SERVICE_ROLE"
-    '''(experimental) Server-side encryption (SSE) with an AWS KMS key, using a service role that AWS Glue assumes to access the key on your behalf.
+    '''(deprecated) Server-side encryption (SSE) with an AWS KMS key, using a service role that AWS Glue assumes to access the key on your behalf.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
@@ -1627,16 +1625,16 @@ class CatalogEncryptionOptions:
         connection_password_encryption: typing.Optional[typing.Union["ConnectionPasswordEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
         encryption_at_rest: typing.Optional["DataCatalogEncryptionAtRest"] = None,
     ) -> None:
-        '''(experimental) Encryption configuration for a Glue Data Catalog.
+        '''(deprecated) Encryption configuration for a Glue Data Catalog.
 
         Encryption is fixed at construction: a catalog either carries encryption
         settings or it does not, which keeps its configuration easy to reason about
         and avoids order-dependent mutation after the catalog is created.
 
-        :param connection_password_encryption: (experimental) Connection-password encryption configuration for the catalog. Default: - connection-password encryption is not managed by CDK
-        :param encryption_at_rest: (experimental) Encryption-at-rest configuration for the catalog. Default: - encryption at rest is not managed by CDK (the catalog default applies)
+        :param connection_password_encryption: (deprecated) Connection-password encryption configuration for the catalog. Default: - connection-password encryption is not managed by CDK
+        :param encryption_at_rest: (deprecated) Encryption-at-rest configuration for the catalog. Default: - encryption at rest is not managed by CDK (the catalog default applies)
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -1665,22 +1663,22 @@ class CatalogEncryptionOptions:
     def connection_password_encryption(
         self,
     ) -> typing.Optional["ConnectionPasswordEncryption"]:
-        '''(experimental) Connection-password encryption configuration for the catalog.
+        '''(deprecated) Connection-password encryption configuration for the catalog.
 
         :default: - connection-password encryption is not managed by CDK
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("connection_password_encryption")
         return typing.cast(typing.Optional["ConnectionPasswordEncryption"], result)
 
     @builtins.property
     def encryption_at_rest(self) -> typing.Optional["DataCatalogEncryptionAtRest"]:
-        '''(experimental) Encryption-at-rest configuration for the catalog.
+        '''(deprecated) Encryption-at-rest configuration for the catalog.
 
         :default: - encryption at rest is not managed by CDK (the catalog default applies)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("encryption_at_rest")
         return typing.cast(typing.Optional["DataCatalogEncryptionAtRest"], result)
@@ -1716,14 +1714,14 @@ class CatalogProps(CatalogEncryptionOptions):
         catalog_name: builtins.str,
         description: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''(experimental) Construction properties for a ``Catalog``.
+        '''(deprecated) Construction properties for a ``Catalog``.
 
-        :param connection_password_encryption: (experimental) Connection-password encryption configuration for the catalog. Default: - connection-password encryption is not managed by CDK
-        :param encryption_at_rest: (experimental) Encryption-at-rest configuration for the catalog. Default: - encryption at rest is not managed by CDK (the catalog default applies)
-        :param catalog_name: (experimental) The name of the catalog.
-        :param description: (experimental) A description of the catalog. Default: - no description
+        :param connection_password_encryption: (deprecated) Connection-password encryption configuration for the catalog. Default: - connection-password encryption is not managed by CDK
+        :param encryption_at_rest: (deprecated) Encryption-at-rest configuration for the catalog. Default: - encryption at rest is not managed by CDK (the catalog default applies)
+        :param catalog_name: (deprecated) The name of the catalog.
+        :param description: (deprecated) A description of the catalog. Default: - no description
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -1755,31 +1753,31 @@ class CatalogProps(CatalogEncryptionOptions):
     def connection_password_encryption(
         self,
     ) -> typing.Optional["ConnectionPasswordEncryption"]:
-        '''(experimental) Connection-password encryption configuration for the catalog.
+        '''(deprecated) Connection-password encryption configuration for the catalog.
 
         :default: - connection-password encryption is not managed by CDK
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("connection_password_encryption")
         return typing.cast(typing.Optional["ConnectionPasswordEncryption"], result)
 
     @builtins.property
     def encryption_at_rest(self) -> typing.Optional["DataCatalogEncryptionAtRest"]:
-        '''(experimental) Encryption-at-rest configuration for the catalog.
+        '''(deprecated) Encryption-at-rest configuration for the catalog.
 
         :default: - encryption at rest is not managed by CDK (the catalog default applies)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("encryption_at_rest")
         return typing.cast(typing.Optional["DataCatalogEncryptionAtRest"], result)
 
     @builtins.property
     def catalog_name(self) -> builtins.str:
-        '''(experimental) The name of the catalog.
+        '''(deprecated) The name of the catalog.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("catalog_name")
         assert result is not None, "Required property 'catalog_name' is missing"
@@ -1787,11 +1785,11 @@ class CatalogProps(CatalogEncryptionOptions):
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A description of the catalog.
+        '''(deprecated) A description of the catalog.
 
         :default: - no description
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1812,10 +1810,10 @@ class ClassificationString(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.ClassificationString",
 ):
-    '''(experimental) Classification string given to tables with this data format.
+    '''(deprecated) Classification string given to tables with this data format.
 
     :see: https://docs.aws.amazon.com/glue/latest/dg/add-classifier.html#classifier-built-in
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: fixture=_generated
 
     Example::
@@ -1831,7 +1829,7 @@ class ClassificationString(
         '''
         :param value: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2bfce587a58c2deea97e71eeab8754a97692804f6d43271eda89c6257eaebdfc)
@@ -1843,7 +1841,7 @@ class ClassificationString(
     def AVRO(cls) -> "ClassificationString":
         '''
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-format.html#aws-glue-programming-etl-format-avro
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ClassificationString", jsii.sget(cls, "AVRO"))
 
@@ -1852,7 +1850,7 @@ class ClassificationString(
     def CSV(cls) -> "ClassificationString":
         '''
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-format.html#aws-glue-programming-etl-format-csv
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ClassificationString", jsii.sget(cls, "CSV"))
 
@@ -1861,7 +1859,7 @@ class ClassificationString(
     def JSON(cls) -> "ClassificationString":
         '''
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-format.html#aws-glue-programming-etl-format-json
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ClassificationString", jsii.sget(cls, "JSON"))
 
@@ -1870,7 +1868,7 @@ class ClassificationString(
     def ORC(cls) -> "ClassificationString":
         '''
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-format.html#aws-glue-programming-etl-format-orc
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ClassificationString", jsii.sget(cls, "ORC"))
 
@@ -1879,7 +1877,7 @@ class ClassificationString(
     def PARQUET(cls) -> "ClassificationString":
         '''
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-format.html#aws-glue-programming-etl-format-parquet
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ClassificationString", jsii.sget(cls, "PARQUET"))
 
@@ -1888,7 +1886,7 @@ class ClassificationString(
     def XML(cls) -> "ClassificationString":
         '''
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-format.html#aws-glue-programming-etl-format-xml
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ClassificationString", jsii.sget(cls, "XML"))
 
@@ -1896,7 +1894,7 @@ class ClassificationString(
     @jsii.member(jsii_name="value")
     def value(self) -> builtins.str:
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "value"))
 
@@ -1905,11 +1903,11 @@ class CloudWatchEncryption(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.CloudWatchEncryption",
 ):
-    '''(experimental) CloudWatch Logs encryption configuration for a ``SecurityConfiguration``.
+    '''(deprecated) CloudWatch Logs encryption configuration for a ``SecurityConfiguration``.
 
     CloudWatch Logs support only server-side encryption with a KMS key.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -1927,11 +1925,11 @@ class CloudWatchEncryption(
         cls,
         kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
     ) -> "CloudWatchEncryption":
-        '''(experimental) Server-side encryption (SSE) with an AWS KMS key managed by the account owner.
+        '''(deprecated) Server-side encryption (SSE) with an AWS KMS key managed by the account owner.
 
         :param kms_key: the KMS key used to encrypt the data. A key is created if one is not provided.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1f88fc64cc736f508e1d560c28b0596a00dc22376289f3fd63a0d9b2e8119e7e)
@@ -1940,9 +1938,9 @@ class CloudWatchEncryption(
 
 
 class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="@aws-cdk/aws-glue-alpha.Code"):
-    '''(experimental) Represents a Glue Job's Code assets (an asset can be a scripts, a jar, a python file or any other file).
+    '''(deprecated) Represents a Glue Job's Code assets (an asset can be a scripts, a jar, a python file or any other file).
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -1966,7 +1964,7 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="@aws-cdk/aws-glue-alpha.
 
     def __init__(self) -> None:
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         jsii.create(self.__class__, self, [])
 
@@ -1987,7 +1985,7 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="@aws-cdk/aws-glue-alpha.
         follow_symlinks: typing.Optional["_aws_cdk_ceddda9d.SymlinkFollowMode"] = None,
         ignore_mode: typing.Optional["_aws_cdk_ceddda9d.IgnoreMode"] = None,
     ) -> "AssetCode":
-        '''(experimental) Job code from a local disk path.
+        '''(deprecated) Job code from a local disk path.
 
         :param path: code file (not a directory).
         :param deploy_time: Whether or not the asset needs to exist beyond deployment time; i.e. are copied over to a different location and not needed afterwards. Setting this property to true has an impact on the lifecycle of the asset, because we will assume that it is safe to delete after the CloudFormation deployment succeeds. For example, Lambda Function assets are copied over to Lambda during deployment. Therefore, it is not necessary to store the asset in S3, so we consider those deployTime assets. Default: false
@@ -2001,7 +1999,7 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="@aws-cdk/aws-glue-alpha.
         :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
         :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cd7e88ca82e81ea6700503f28d9e5352c4a86e264d00afb35e761e591a7e0e24)
@@ -2028,12 +2026,12 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="@aws-cdk/aws-glue-alpha.
         bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
         key: builtins.str,
     ) -> "S3Code":
-        '''(experimental) Job code as an S3 object.
+        '''(deprecated) Job code as an S3 object.
 
         :param bucket: The S3 bucket.
         :param key: The object key.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d23f6002340150960cebd70816482874d96a0de7d52265f1fcd0ab459eea2a61)
@@ -2048,12 +2046,12 @@ class Code(metaclass=jsii.JSIIAbstractClass, jsii_type="@aws-cdk/aws-glue-alpha.
         scope: "_constructs_77d1e7e8.Construct",
         grantable: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
     ) -> "CodeConfig":
-        '''(experimental) Called when the Job is initialized to allow this object to bind.
+        '''(deprecated) Called when the Job is initialized to allow this object to bind.
 
         :param scope: -
         :param grantable: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -2065,12 +2063,12 @@ class _CodeProxy(Code):
         scope: "_constructs_77d1e7e8.Construct",
         grantable: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
     ) -> "CodeConfig":
-        '''(experimental) Called when the Job is initialized to allow this object to bind.
+        '''(deprecated) Called when the Job is initialized to allow this object to bind.
 
         :param scope: -
         :param grantable: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7b88388256be44082f9ce622ac393616c31af36dc246d0cb6ea3eb8e78b31dc1)
@@ -2093,11 +2091,11 @@ class CodeConfig:
         *,
         s3_location: typing.Union["_aws_cdk_aws_s3_ceddda9d.Location", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
-        '''(experimental) Result of binding ``Code`` into a ``Job``.
+        '''(deprecated) Result of binding ``Code`` into a ``Job``.
 
-        :param s3_location: (experimental) The location of the code in S3.
+        :param s3_location: (deprecated) The location of the code in S3.
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -2128,9 +2126,9 @@ class CodeConfig:
 
     @builtins.property
     def s3_location(self) -> "_aws_cdk_aws_s3_ceddda9d.Location":
-        '''(experimental) The location of the code in S3.
+        '''(deprecated) The location of the code in S3.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("s3_location")
         assert result is not None, "Required property 's3_location' is missing"
@@ -2161,13 +2159,13 @@ class Column:
         type: "Type",
         comment: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''(experimental) A column of a table.
+        '''(deprecated) A column of a table.
 
-        :param name: (experimental) Name of the column.
-        :param type: (experimental) Type of the column.
-        :param comment: (experimental) Coment describing the column. Default: none
+        :param name: (deprecated) Name of the column.
+        :param type: (deprecated) Type of the column.
+        :param comment: (deprecated) Coment describing the column. Default: none
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -2200,9 +2198,9 @@ class Column:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''(experimental) Name of the column.
+        '''(deprecated) Name of the column.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -2210,9 +2208,9 @@ class Column:
 
     @builtins.property
     def type(self) -> "Type":
-        '''(experimental) Type of the column.
+        '''(deprecated) Type of the column.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -2220,11 +2218,11 @@ class Column:
 
     @builtins.property
     def comment(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Coment describing the column.
+        '''(deprecated) Coment describing the column.
 
         :default: none
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2243,42 +2241,42 @@ class Column:
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.ColumnCountMismatchHandlingAction")
 class ColumnCountMismatchHandlingAction(enum.Enum):
-    '''(experimental) Identifies if the file contains less or more values for a row than the number of columns specified in the external table definition.
+    '''(deprecated) Identifies if the file contains less or more values for a row than the number of columns specified in the external table definition.
 
     This property is only available for an uncompressed text file format.
 
     :see: https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_EXTERNAL_TABLE.html#r_CREATE_EXTERNAL_TABLE-parameters - under *"TABLE PROPERTIES"* > *"column_count_mismatch_handling"*
-    :stability: experimental
+    :stability: deprecated
     '''
 
     DISABLED = "DISABLED"
-    '''(experimental) Column count mismatch handling is turned off.
+    '''(deprecated) Column count mismatch handling is turned off.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     FAIL = "FAIL"
-    '''(experimental) Fail the query if the column count mismatch is detected.
+    '''(deprecated) Fail the query if the column count mismatch is detected.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     SET_TO_NULL = "SET_TO_NULL"
-    '''(experimental) Fill missing values with NULL and ignore the additional values in each row.
+    '''(deprecated) Fill missing values with NULL and ignore the additional values in each row.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     DROP_ROW = "DROP_ROW"
-    '''(experimental) Drop all rows that contain column count mismatch error from the scan.
+    '''(deprecated) Drop all rows that contain column count mismatch error from the scan.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.CompressionType")
 class CompressionType(enum.Enum):
-    '''(experimental) The compression type.
+    '''(deprecated) The compression type.
 
     :see: https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_EXTERNAL_TABLE.html#r_CREATE_EXTERNAL_TABLE-parameters - under *"TABLE PROPERTIES"* > *"compression_type"*
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -2302,24 +2300,24 @@ class CompressionType(enum.Enum):
     '''
 
     NONE = "NONE"
-    '''(experimental) No compression.
+    '''(deprecated) No compression.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     BZIP2 = "BZIP2"
-    '''(experimental) Burrows-Wheeler compression.
+    '''(deprecated) Burrows-Wheeler compression.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     GZIP = "GZIP"
-    '''(experimental) Deflate compression.
+    '''(deprecated) Deflate compression.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     SNAPPY = "SNAPPY"
-    '''(experimental) Compression algorithm focused on high compression and decompression speeds, rather than the maximum possible compression.
+    '''(deprecated) Compression algorithm focused on high compression and decompression speeds, rather than the maximum possible compression.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
@@ -2327,14 +2325,14 @@ class Condition(
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="@aws-cdk/aws-glue-alpha.Condition",
 ):
-    '''(experimental) A condition that determines when a conditional trigger fires.
+    '''(deprecated) A condition that determines when a conditional trigger fires.
 
     A condition watches exactly one target in exactly one state: use
     {@link Condition.job} to watch a job or {@link Condition.crawler} to watch a
     crawler. Because the state is a required argument of each factory, a condition
     can never reference a target without its state, or both a job and a crawler.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: fixture=_generated
 
     Example::
@@ -2353,7 +2351,7 @@ class Condition(
 
     def __init__(self) -> None:
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         jsii.create(self.__class__, self, [])
 
@@ -2366,13 +2364,13 @@ class Condition(
         *,
         logical_operator: typing.Optional["ConditionLogicalOperator"] = None,
     ) -> "Condition":
-        '''(experimental) Create a condition on the state of a crawler.
+        '''(deprecated) Create a condition on the state of a crawler.
 
         :param crawler: the crawler to watch.
         :param crawl_state: the crawler state that satisfies the condition.
-        :param logical_operator: (experimental) The logical operator for the condition. Default: ConditionLogicalOperator.EQUALS
+        :param logical_operator: (deprecated) The logical operator for the condition. Default: ConditionLogicalOperator.EQUALS
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3eb13f8d79125657b743cc76f03b5fe4be3bfd8358e976b0cda1fa170401c634)
@@ -2391,13 +2389,13 @@ class Condition(
         *,
         logical_operator: typing.Optional["ConditionLogicalOperator"] = None,
     ) -> "Condition":
-        '''(experimental) Create a condition on the state of a job.
+        '''(deprecated) Create a condition on the state of a job.
 
         :param job: the job to watch.
         :param state: the job state that satisfies the condition.
-        :param logical_operator: (experimental) The logical operator for the condition. Default: ConditionLogicalOperator.EQUALS
+        :param logical_operator: (deprecated) The logical operator for the condition. Default: ConditionLogicalOperator.EQUALS
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ab3f1152549bdcfb6fbfc83c30105c13e5c523303f53ce4d49d1acf23e71a0cf)
@@ -2417,15 +2415,15 @@ typing.cast(typing.Any, Condition).__jsii_proxy_class__ = lambda : _ConditionPro
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.ConditionLogicalOperator")
 class ConditionLogicalOperator(enum.Enum):
-    '''(experimental) Represents the logical operator for evaluating a single condition in the Glue Trigger API.
+    '''(deprecated) Represents the logical operator for evaluating a single condition in the Glue Trigger API.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
     EQUALS = "EQUALS"
-    '''(experimental) The condition is true if the values are equal.
+    '''(deprecated) The condition is true if the values are equal.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
@@ -2440,11 +2438,11 @@ class ConditionOptions:
         *,
         logical_operator: typing.Optional["ConditionLogicalOperator"] = None,
     ) -> None:
-        '''(experimental) Options shared by all trigger conditions.
+        '''(deprecated) Options shared by all trigger conditions.
 
-        :param logical_operator: (experimental) The logical operator for the condition. Default: ConditionLogicalOperator.EQUALS
+        :param logical_operator: (deprecated) The logical operator for the condition. Default: ConditionLogicalOperator.EQUALS
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -2466,11 +2464,11 @@ class ConditionOptions:
 
     @builtins.property
     def logical_operator(self) -> typing.Optional["ConditionLogicalOperator"]:
-        '''(experimental) The logical operator for the condition.
+        '''(deprecated) The logical operator for the condition.
 
         :default: ConditionLogicalOperator.EQUALS
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("logical_operator")
         return typing.cast(typing.Optional["ConditionLogicalOperator"], result)
@@ -2491,14 +2489,14 @@ class ConnectionNetwork(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.ConnectionNetwork",
 ):
-    '''(experimental) VPC network placement for a Glue ``Connection``.
+    '''(deprecated) VPC network placement for a Glue ``Connection``.
 
     A Glue connection targets a single subnet. Choose the placement with one of
     the mutually-exclusive factories — an explicit subnet, or a VPC to select one
     from — so a subnet paired with a VPC, or a subnet selection without a VPC,
     cannot be expressed.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -2517,11 +2515,11 @@ class ConnectionNetwork(
     @jsii.member(jsii_name="subnet")
     @builtins.classmethod
     def subnet(cls, subnet: "_aws_cdk_aws_ec2_ceddda9d.ISubnet") -> "ConnectionNetwork":
-        '''(experimental) Pin the connection to a specific subnet.
+        '''(deprecated) Pin the connection to a specific subnet.
 
         :param subnet: the subnet the connection targets.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__887ab89399be39cdb709b57f9a608baf9c495f581da0cafa342427bd912d4430)
@@ -2541,7 +2539,7 @@ class ConnectionNetwork(
         subnets: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISubnet"]] = None,
         subnet_type: typing.Optional["_aws_cdk_aws_ec2_ceddda9d.SubnetType"] = None,
     ) -> "ConnectionNetwork":
-        '''(experimental) Select the connection's subnet from a VPC.
+        '''(deprecated) Select the connection's subnet from a VPC.
 
         Since a Glue connection targets
         a single subnet, the first subnet of the selection is used.
@@ -2556,7 +2554,7 @@ class ConnectionNetwork(
 
         :default: vpcSubnets - private subnets
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__74d7d624a85040952490b335183bd4fcc518ccea5486cc49ba8aad5685b9a66b)
@@ -2598,17 +2596,17 @@ class ConnectionOptions:
         secret: typing.Optional["_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef"] = None,
         security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
     ) -> None:
-        '''(experimental) Base Connection Options.
+        '''(deprecated) Base Connection Options.
 
-        :param connection_name: (experimental) The name of the connection. Default: cloudformation generated name
-        :param description: (experimental) The description of the connection. Default: no description
-        :param match_criteria: (experimental) A list of criteria that can be used in selecting this connection. This is useful for filtering the results of https://awscli.amazonaws.com/v2/documentation/api/latest/reference/glue/get-connections.html Default: no match criteria
-        :param network: (experimental) The VPC network placement for this connection, so it can reach resources inside a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html. Build it with ``ConnectionNetwork.subnet(subnet)`` to pin a specific subnet, or ``ConnectionNetwork.vpc(vpc, vpcSubnets?)`` to let the CDK select one. Default: - no VPC network placement
-        :param properties: (experimental) Key-Value pairs that define parameters for the connection. Default: empty properties
-        :param secret: (experimental) A reference to a Secrets Manager secret holding the credentials for this connection. The secret is referenced through the connection's ``SECRET_ID`` property, so Glue reads the credentials at runtime and the secret value never appears in the synthesized template. Prefer this over placing credentials directly in ``properties``. Accepts any ``secretsmanager.ISecret``. Default: - no secret; any credentials must be supplied via ``properties``
-        :param security_groups: (experimental) The list of security groups needed to successfully make this connection e.g. to successfully connect to VPC. Default: no security group
+        :param connection_name: (deprecated) The name of the connection. Default: cloudformation generated name
+        :param description: (deprecated) The description of the connection. Default: no description
+        :param match_criteria: (deprecated) A list of criteria that can be used in selecting this connection. This is useful for filtering the results of https://awscli.amazonaws.com/v2/documentation/api/latest/reference/glue/get-connections.html Default: no match criteria
+        :param network: (deprecated) The VPC network placement for this connection, so it can reach resources inside a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html. Build it with ``ConnectionNetwork.subnet(subnet)`` to pin a specific subnet, or ``ConnectionNetwork.vpc(vpc, vpcSubnets?)`` to let the CDK select one. Default: - no VPC network placement
+        :param properties: (deprecated) Key-Value pairs that define parameters for the connection. Default: empty properties
+        :param secret: (deprecated) A reference to a Secrets Manager secret holding the credentials for this connection. The secret is referenced through the connection's ``SECRET_ID`` property, so Glue reads the credentials at runtime and the secret value never appears in the synthesized template. Prefer this over placing credentials directly in ``properties``. Accepts any ``secretsmanager.ISecret``. Default: - no secret; any credentials must be supplied via ``properties``
+        :param security_groups: (deprecated) The list of security groups needed to successfully make this connection e.g. to successfully connect to VPC. Default: no security group
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -2662,61 +2660,61 @@ class ConnectionOptions:
 
     @builtins.property
     def connection_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The name of the connection.
+        '''(deprecated) The name of the connection.
 
         :default: cloudformation generated name
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("connection_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The description of the connection.
+        '''(deprecated) The description of the connection.
 
         :default: no description
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_criteria(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(experimental) A list of criteria that can be used in selecting this connection.
+        '''(deprecated) A list of criteria that can be used in selecting this connection.
 
         This is useful for filtering the results of https://awscli.amazonaws.com/v2/documentation/api/latest/reference/glue/get-connections.html
 
         :default: no match criteria
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("match_criteria")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def network(self) -> typing.Optional["ConnectionNetwork"]:
-        '''(experimental) The VPC network placement for this connection, so it can reach resources inside a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html.
+        '''(deprecated) The VPC network placement for this connection, so it can reach resources inside a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html.
 
         Build it with ``ConnectionNetwork.subnet(subnet)`` to pin a specific subnet,
         or ``ConnectionNetwork.vpc(vpc, vpcSubnets?)`` to let the CDK select one.
 
         :default: - no VPC network placement
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional["ConnectionNetwork"], result)
 
     @builtins.property
     def properties(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Key-Value pairs that define parameters for the connection.
+        '''(deprecated) Key-Value pairs that define parameters for the connection.
 
         :default: empty properties
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-connect.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2725,7 +2723,7 @@ class ConnectionOptions:
     def secret(
         self,
     ) -> typing.Optional["_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef"]:
-        '''(experimental) A reference to a Secrets Manager secret holding the credentials for this connection.
+        '''(deprecated) A reference to a Secrets Manager secret holding the credentials for this connection.
 
         The secret is referenced through the connection's ``SECRET_ID`` property, so
         Glue reads the credentials at runtime and the secret value never appears in
@@ -2734,7 +2732,7 @@ class ConnectionOptions:
 
         :default: - no secret; any credentials must be supplied via ``properties``
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("secret")
         return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef"], result)
@@ -2743,11 +2741,11 @@ class ConnectionOptions:
     def security_groups(
         self,
     ) -> typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]]:
-        '''(experimental) The list of security groups needed to successfully make this connection e.g. to successfully connect to VPC.
+        '''(deprecated) The list of security groups needed to successfully make this connection e.g. to successfully connect to VPC.
 
         :default: no security group
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]], result)
@@ -2779,18 +2777,18 @@ class ConnectionPasswordEncryption:
         kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
         return_connection_password_encrypted: typing.Optional[builtins.bool] = None,
     ) -> None:
-        '''(experimental) Connection-password encryption configuration for a Glue Data Catalog.
+        '''(deprecated) Connection-password encryption configuration for a Glue Data Catalog.
 
         When enabled, the Data Catalog encrypts the password as part of
         ``CreateConnection`` or ``UpdateConnection`` and stores it in the
         ``ENCRYPTED_PASSWORD`` field of the connection properties. This is independent
         from catalog encryption at rest, and may use a different KMS key.
 
-        :param kms_key: (experimental) The KMS key used to encrypt connection passwords. Default: - an AWS-managed key is used and the key is not exposed as a grantable resource.
-        :param return_connection_password_encrypted: (experimental) Whether passwords remain encrypted in the responses of ``GetConnection`` and ``GetConnections``. This takes effect independently from catalog encryption. Default: true
+        :param kms_key: (deprecated) The KMS key used to encrypt connection passwords. Default: - an AWS-managed key is used and the key is not exposed as a grantable resource.
+        :param return_connection_password_encrypted: (deprecated) Whether passwords remain encrypted in the responses of ``GetConnection`` and ``GetConnections``. This takes effect independently from catalog encryption. Default: true
 
         :see: https://docs.aws.amazon.com/glue/latest/webapi/API_ConnectionPasswordEncryption.html
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -2819,24 +2817,24 @@ class ConnectionPasswordEncryption:
     def kms_key(
         self,
     ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
-        '''(experimental) The KMS key used to encrypt connection passwords.
+        '''(deprecated) The KMS key used to encrypt connection passwords.
 
         :default: - an AWS-managed key is used and the key is not exposed as a grantable resource.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("kms_key")
         return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], result)
 
     @builtins.property
     def return_connection_password_encrypted(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether passwords remain encrypted in the responses of ``GetConnection`` and ``GetConnections``.
+        '''(deprecated) Whether passwords remain encrypted in the responses of ``GetConnection`` and ``GetConnections``.
 
         This takes effect independently from catalog encryption.
 
         :default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("return_connection_password_encrypted")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -2880,18 +2878,18 @@ class ConnectionProps(ConnectionOptions):
         security_groups: typing.Optional[typing.Sequence["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]] = None,
         type: "ConnectionType",
     ) -> None:
-        '''(experimental) Construction properties for ``Connection``.
+        '''(deprecated) Construction properties for ``Connection``.
 
-        :param connection_name: (experimental) The name of the connection. Default: cloudformation generated name
-        :param description: (experimental) The description of the connection. Default: no description
-        :param match_criteria: (experimental) A list of criteria that can be used in selecting this connection. This is useful for filtering the results of https://awscli.amazonaws.com/v2/documentation/api/latest/reference/glue/get-connections.html Default: no match criteria
-        :param network: (experimental) The VPC network placement for this connection, so it can reach resources inside a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html. Build it with ``ConnectionNetwork.subnet(subnet)`` to pin a specific subnet, or ``ConnectionNetwork.vpc(vpc, vpcSubnets?)`` to let the CDK select one. Default: - no VPC network placement
-        :param properties: (experimental) Key-Value pairs that define parameters for the connection. Default: empty properties
-        :param secret: (experimental) A reference to a Secrets Manager secret holding the credentials for this connection. The secret is referenced through the connection's ``SECRET_ID`` property, so Glue reads the credentials at runtime and the secret value never appears in the synthesized template. Prefer this over placing credentials directly in ``properties``. Accepts any ``secretsmanager.ISecret``. Default: - no secret; any credentials must be supplied via ``properties``
-        :param security_groups: (experimental) The list of security groups needed to successfully make this connection e.g. to successfully connect to VPC. Default: no security group
-        :param type: (experimental) The type of the connection.
+        :param connection_name: (deprecated) The name of the connection. Default: cloudformation generated name
+        :param description: (deprecated) The description of the connection. Default: no description
+        :param match_criteria: (deprecated) A list of criteria that can be used in selecting this connection. This is useful for filtering the results of https://awscli.amazonaws.com/v2/documentation/api/latest/reference/glue/get-connections.html Default: no match criteria
+        :param network: (deprecated) The VPC network placement for this connection, so it can reach resources inside a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html. Build it with ``ConnectionNetwork.subnet(subnet)`` to pin a specific subnet, or ``ConnectionNetwork.vpc(vpc, vpcSubnets?)`` to let the CDK select one. Default: - no VPC network placement
+        :param properties: (deprecated) Key-Value pairs that define parameters for the connection. Default: empty properties
+        :param secret: (deprecated) A reference to a Secrets Manager secret holding the credentials for this connection. The secret is referenced through the connection's ``SECRET_ID`` property, so Glue reads the credentials at runtime and the secret value never appears in the synthesized template. Prefer this over placing credentials directly in ``properties``. Accepts any ``secretsmanager.ISecret``. Default: - no secret; any credentials must be supplied via ``properties``
+        :param security_groups: (deprecated) The list of security groups needed to successfully make this connection e.g. to successfully connect to VPC. Default: no security group
+        :param type: (deprecated) The type of the connection.
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -2936,61 +2934,61 @@ class ConnectionProps(ConnectionOptions):
 
     @builtins.property
     def connection_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The name of the connection.
+        '''(deprecated) The name of the connection.
 
         :default: cloudformation generated name
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("connection_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The description of the connection.
+        '''(deprecated) The description of the connection.
 
         :default: no description
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def match_criteria(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''(experimental) A list of criteria that can be used in selecting this connection.
+        '''(deprecated) A list of criteria that can be used in selecting this connection.
 
         This is useful for filtering the results of https://awscli.amazonaws.com/v2/documentation/api/latest/reference/glue/get-connections.html
 
         :default: no match criteria
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("match_criteria")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def network(self) -> typing.Optional["ConnectionNetwork"]:
-        '''(experimental) The VPC network placement for this connection, so it can reach resources inside a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html.
+        '''(deprecated) The VPC network placement for this connection, so it can reach resources inside a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html.
 
         Build it with ``ConnectionNetwork.subnet(subnet)`` to pin a specific subnet,
         or ``ConnectionNetwork.vpc(vpc, vpcSubnets?)`` to let the CDK select one.
 
         :default: - no VPC network placement
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("network")
         return typing.cast(typing.Optional["ConnectionNetwork"], result)
 
     @builtins.property
     def properties(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Key-Value pairs that define parameters for the connection.
+        '''(deprecated) Key-Value pairs that define parameters for the connection.
 
         :default: empty properties
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-connect.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -2999,7 +2997,7 @@ class ConnectionProps(ConnectionOptions):
     def secret(
         self,
     ) -> typing.Optional["_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef"]:
-        '''(experimental) A reference to a Secrets Manager secret holding the credentials for this connection.
+        '''(deprecated) A reference to a Secrets Manager secret holding the credentials for this connection.
 
         The secret is referenced through the connection's ``SECRET_ID`` property, so
         Glue reads the credentials at runtime and the secret value never appears in
@@ -3008,7 +3006,7 @@ class ConnectionProps(ConnectionOptions):
 
         :default: - no secret; any credentials must be supplied via ``properties``
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("secret")
         return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_secretsmanager_ceddda9d.ISecretRef"], result)
@@ -3017,20 +3015,20 @@ class ConnectionProps(ConnectionOptions):
     def security_groups(
         self,
     ) -> typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]]:
-        '''(experimental) The list of security groups needed to successfully make this connection e.g. to successfully connect to VPC.
+        '''(deprecated) The list of security groups needed to successfully make this connection e.g. to successfully connect to VPC.
 
         :default: no security group
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("security_groups")
         return typing.cast(typing.Optional[typing.List["_aws_cdk_aws_ec2_ceddda9d.ISecurityGroup"]], result)
 
     @builtins.property
     def type(self) -> "ConnectionType":
-        '''(experimental) The type of the connection.
+        '''(deprecated) The type of the connection.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -3052,13 +3050,13 @@ class ConnectionType(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.ConnectionType",
 ):
-    '''(experimental) The type of the glue connection.
+    '''(deprecated) The type of the glue connection.
 
     If you need to use a connection type that doesn't exist as a static member, you
     can instantiate a ``ConnectionType`` object, e.g: ``new ConnectionType('NEW_TYPE')``.
 
     :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connection-connectioninput.html#cfn-glue-connection-connectioninput-connectiontype
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -3078,7 +3076,7 @@ class ConnectionType(
         '''
         :param name: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b1f57c94567ffb3d89cdd8c9cd2b37bd37decd390b53c9bfdadd569dc797aa3f)
@@ -3087,378 +3085,378 @@ class ConnectionType(
 
     @jsii.member(jsii_name="toString")
     def to_string(self) -> builtins.str:
-        '''(experimental) The connection type name as expected by Connection resource.
+        '''(deprecated) The connection type name as expected by Connection resource.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AZURECOSMOS")
     def AZURECOSMOS(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Azure Cosmos DB.
+        '''(deprecated) Designates a connection to Azure Cosmos DB.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "AZURECOSMOS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AZURESQL")
     def AZURESQL(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Azure SQL Database.
+        '''(deprecated) Designates a connection to Azure SQL Database.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "AZURESQL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="BIGQUERY")
     def BIGQUERY(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Google BigQuery.
+        '''(deprecated) Designates a connection to Google BigQuery.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "BIGQUERY"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CUSTOM")
     def CUSTOM(cls) -> "ConnectionType":
-        '''(experimental) Uses configuration settings contained in a custom connector to read from and write to data stores that are not natively supported by AWS Glue.
+        '''(deprecated) Uses configuration settings contained in a custom connector to read from and write to data stores that are not natively supported by AWS Glue.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "CUSTOM"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DYNAMODB")
     def DYNAMODB(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Amazon DynamoDB.
+        '''(deprecated) Designates a connection to Amazon DynamoDB.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "DYNAMODB"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="FACEBOOKADS")
     def FACEBOOKADS(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Facebook Ads.
+        '''(deprecated) Designates a connection to Facebook Ads.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "FACEBOOKADS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GOOGLEADS")
     def GOOGLEADS(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Google Ads.
+        '''(deprecated) Designates a connection to Google Ads.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "GOOGLEADS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GOOGLEANALYTICS4")
     def GOOGLEANALYTICS4(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Google Analytics 4.
+        '''(deprecated) Designates a connection to Google Analytics 4.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "GOOGLEANALYTICS4"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="GOOGLESHEETS")
     def GOOGLESHEETS(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Google Sheets.
+        '''(deprecated) Designates a connection to Google Sheets.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "GOOGLESHEETS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="HUBSPOT")
     def HUBSPOT(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to HubSpot.
+        '''(deprecated) Designates a connection to HubSpot.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "HUBSPOT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="INSTAGRAMADS")
     def INSTAGRAMADS(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Instagram Ads.
+        '''(deprecated) Designates a connection to Instagram Ads.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "INSTAGRAMADS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="INTERCOM")
     def INTERCOM(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Intercom.
+        '''(deprecated) Designates a connection to Intercom.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "INTERCOM"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="JDBC")
     def JDBC(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to a database through Java Database Connectivity (JDBC).
+        '''(deprecated) Designates a connection to a database through Java Database Connectivity (JDBC).
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "JDBC"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="JIRACLOUD")
     def JIRACLOUD(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Jira Cloud.
+        '''(deprecated) Designates a connection to Jira Cloud.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "JIRACLOUD"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="KAFKA")
     def KAFKA(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to an Apache Kafka streaming platform.
+        '''(deprecated) Designates a connection to an Apache Kafka streaming platform.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "KAFKA"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MARKETO")
     def MARKETO(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Adobe Marketo Engage.
+        '''(deprecated) Designates a connection to Adobe Marketo Engage.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "MARKETO"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MARKETPLACE")
     def MARKETPLACE(cls) -> "ConnectionType":
-        '''(experimental) Uses configuration settings contained in a connector purchased from AWS Marketplace to read from and write to data stores that are not natively supported by AWS Glue.
+        '''(deprecated) Uses configuration settings contained in a connector purchased from AWS Marketplace to read from and write to data stores that are not natively supported by AWS Glue.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "MARKETPLACE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MONGODB")
     def MONGODB(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to a MongoDB document database.
+        '''(deprecated) Designates a connection to a MongoDB document database.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "MONGODB"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="MYSQL")
     def MYSQL(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to MySQL.
+        '''(deprecated) Designates a connection to MySQL.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "MYSQL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NETSUITEERP")
     def NETSUITEERP(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Oracle NetSuite.
+        '''(deprecated) Designates a connection to Oracle NetSuite.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "NETSUITEERP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="NETWORK")
     def NETWORK(cls) -> "ConnectionType":
-        '''(experimental) Designates a network connection to a data source within an Amazon Virtual Private Cloud environment (Amazon VPC).
+        '''(deprecated) Designates a network connection to a data source within an Amazon Virtual Private Cloud environment (Amazon VPC).
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "NETWORK"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="OPENSEARCH")
     def OPENSEARCH(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Amazon OpenSearch Service.
+        '''(deprecated) Designates a connection to Amazon OpenSearch Service.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "OPENSEARCH"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ORACLE")
     def ORACLE(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Oracle Database.
+        '''(deprecated) Designates a connection to Oracle Database.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "ORACLE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="POSTGRESQL")
     def POSTGRESQL(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to PostgreSQL.
+        '''(deprecated) Designates a connection to PostgreSQL.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "POSTGRESQL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SALESFORCE")
     def SALESFORCE(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Salesforce using OAuth authentication.
+        '''(deprecated) Designates a connection to Salesforce using OAuth authentication.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "SALESFORCE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SALESFORCEMARKETINGCLOUD")
     def SALESFORCEMARKETINGCLOUD(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Salesforce Marketing Cloud.
+        '''(deprecated) Designates a connection to Salesforce Marketing Cloud.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "SALESFORCEMARKETINGCLOUD"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SALESFORCEPARDOT")
     def SALESFORCEPARDOT(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Salesforce Marketing Cloud Account Engagement (MCAE).
+        '''(deprecated) Designates a connection to Salesforce Marketing Cloud Account Engagement (MCAE).
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "SALESFORCEPARDOT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SAPHANA")
     def SAPHANA(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to SAP HANA.
+        '''(deprecated) Designates a connection to SAP HANA.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "SAPHANA"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SAPODATA")
     def SAPODATA(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to SAP OData.
+        '''(deprecated) Designates a connection to SAP OData.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "SAPODATA"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SERVICENOW")
     def SERVICENOW(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to ServiceNow.
+        '''(deprecated) Designates a connection to ServiceNow.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "SERVICENOW"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SLACK")
     def SLACK(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Slack.
+        '''(deprecated) Designates a connection to Slack.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "SLACK"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SNAPCHATADS")
     def SNAPCHATADS(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Snapchat Ads.
+        '''(deprecated) Designates a connection to Snapchat Ads.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "SNAPCHATADS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SQLSERVER")
     def SQLSERVER(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Microsoft SQL Server.
+        '''(deprecated) Designates a connection to Microsoft SQL Server.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "SQLSERVER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STRIPE")
     def STRIPE(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Stripe.
+        '''(deprecated) Designates a connection to Stripe.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "STRIPE"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="TERADATA")
     def TERADATA(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Teradata.
+        '''(deprecated) Designates a connection to Teradata.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "TERADATA"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VERTICA")
     def VERTICA(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Vertica.
+        '''(deprecated) Designates a connection to Vertica.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "VERTICA"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VIEW_VALIDATION_ATHENA")
     def VIEW_VALIDATION_ATHENA(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection used for view validation by Amazon Athena.
+        '''(deprecated) Designates a connection used for view validation by Amazon Athena.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "VIEW_VALIDATION_ATHENA"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="VIEW_VALIDATION_REDSHIFT")
     def VIEW_VALIDATION_REDSHIFT(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection used for view validation by Amazon Redshift.
+        '''(deprecated) Designates a connection used for view validation by Amazon Redshift.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "VIEW_VALIDATION_REDSHIFT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ZENDESK")
     def ZENDESK(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Zendesk.
+        '''(deprecated) Designates a connection to Zendesk.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "ZENDESK"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ZOHOCRM")
     def ZOHOCRM(cls) -> "ConnectionType":
-        '''(experimental) Designates a connection to Zoho CRM.
+        '''(deprecated) Designates a connection to Zoho CRM.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ConnectionType", jsii.sget(cls, "ZOHOCRM"))
 
     @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
-        '''(experimental) The name of this ConnectionType, as expected by Connection resource.
+        '''(deprecated) The name of this ConnectionType, as expected by Connection resource.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "name"))
 
@@ -3484,16 +3482,16 @@ class ContinuousLoggingProps:
         log_stream_prefix: typing.Optional[builtins.str] = None,
         quiet: typing.Optional[builtins.bool] = None,
     ) -> None:
-        '''(experimental) Properties for enabling Continuous Logging for Glue Jobs.
+        '''(deprecated) Properties for enabling Continuous Logging for Glue Jobs.
 
-        :param enabled: (experimental) Enable continuous logging.
-        :param conversion_pattern: (experimental) Apply the provided conversion pattern. This is a Log4j Conversion Pattern to customize driver and executor logs. Default: ``%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n``
-        :param log_group: (experimental) Specify a custom CloudWatch log group name. Default: - a log group is created with name ``/aws-glue/jobs/logs-v2/``.
-        :param log_stream_prefix: (experimental) Specify a custom CloudWatch log stream prefix. Default: - the job run ID.
-        :param quiet: (experimental) Filter out non-useful Apache Spark driver/executor and Apache Hadoop YARN heartbeat log messages. Default: true
+        :param enabled: (deprecated) Enable continuous logging.
+        :param conversion_pattern: (deprecated) Apply the provided conversion pattern. This is a Log4j Conversion Pattern to customize driver and executor logs. Default: ``%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n``
+        :param log_group: (deprecated) Specify a custom CloudWatch log group name. Default: - a log group is created with name ``/aws-glue/jobs/logs-v2/``.
+        :param log_stream_prefix: (deprecated) Specify a custom CloudWatch log stream prefix. Default: - the job run ID.
+        :param quiet: (deprecated) Filter out non-useful Apache Spark driver/executor and Apache Hadoop YARN heartbeat log messages. Default: true
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -3548,9 +3546,9 @@ class ContinuousLoggingProps:
 
     @builtins.property
     def enabled(self) -> builtins.bool:
-        '''(experimental) Enable continuous logging.
+        '''(deprecated) Enable continuous logging.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -3558,46 +3556,46 @@ class ContinuousLoggingProps:
 
     @builtins.property
     def conversion_pattern(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Apply the provided conversion pattern.
+        '''(deprecated) Apply the provided conversion pattern.
 
         This is a Log4j Conversion Pattern to customize driver and executor logs.
 
         :default: ``%d{yy/MM/dd HH:mm:ss} %p %c{1}: %m%n``
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("conversion_pattern")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def log_group(self) -> typing.Optional["_aws_cdk_aws_logs_ceddda9d.ILogGroup"]:
-        '''(experimental) Specify a custom CloudWatch log group name.
+        '''(deprecated) Specify a custom CloudWatch log group name.
 
         :default: - a log group is created with name ``/aws-glue/jobs/logs-v2/``.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("log_group")
         return typing.cast(typing.Optional["_aws_cdk_aws_logs_ceddda9d.ILogGroup"], result)
 
     @builtins.property
     def log_stream_prefix(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Specify a custom CloudWatch log stream prefix.
+        '''(deprecated) Specify a custom CloudWatch log stream prefix.
 
         :default: - the job run ID.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("log_stream_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def quiet(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Filter out non-useful Apache Spark driver/executor and Apache Hadoop YARN heartbeat log messages.
+        '''(deprecated) Filter out non-useful Apache Spark driver/executor and Apache Hadoop YARN heartbeat log messages.
 
         :default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("quiet")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -3631,13 +3629,13 @@ class CrawlerActionOptions:
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
-        '''(experimental) Options for the execution of a crawler.
+        '''(deprecated) Options for the execution of a crawler.
 
-        :param arguments: (experimental) The arguments used when this trigger fires. Default: - no arguments are passed to the job
-        :param security_configuration: (experimental) The ``SecurityConfiguration`` to be used with this action. Default: - no security configuration is used
-        :param timeout: (experimental) The run timeout. This is the maximum time that a run can consume resources before it is terminated and enters TIMEOUT status. Default: - the default timeout value set in the job definition
+        :param arguments: (deprecated) The arguments used when this trigger fires. Default: - no arguments are passed to the job
+        :param security_configuration: (deprecated) The ``SecurityConfiguration`` to be used with this action. Default: - no security configuration is used
+        :param timeout: (deprecated) The run timeout. This is the maximum time that a run can consume resources before it is terminated and enters TIMEOUT status. Default: - the default timeout value set in the job definition
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -3672,35 +3670,35 @@ class CrawlerActionOptions:
 
     @builtins.property
     def arguments(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) The arguments used when this trigger fires.
+        '''(deprecated) The arguments used when this trigger fires.
 
         :default: - no arguments are passed to the job
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("arguments")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
-        '''(experimental) The ``SecurityConfiguration`` to be used with this action.
+        '''(deprecated) The ``SecurityConfiguration`` to be used with this action.
 
         :default: - no security configuration is used
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("security_configuration")
         return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
-        '''(experimental) The run timeout.
+        '''(deprecated) The run timeout.
 
         This is the maximum time that a run can consume resources before it is terminated and enters TIMEOUT status.
 
         :default: - the default timeout value set in the job definition
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
@@ -3719,40 +3717,40 @@ class CrawlerActionOptions:
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.CrawlerState")
 class CrawlerState(enum.Enum):
-    '''(experimental) Represents the state of a crawler for a condition in the Glue Trigger API.
+    '''(deprecated) Represents the state of a crawler for a condition in the Glue Trigger API.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
     RUNNING = "RUNNING"
-    '''(experimental) The crawler is currently running.
+    '''(deprecated) The crawler is currently running.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     CANCELLING = "CANCELLING"
-    '''(experimental) The crawler is in the process of being cancelled.
+    '''(deprecated) The crawler is in the process of being cancelled.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     CANCELLED = "CANCELLED"
-    '''(experimental) The crawler has been cancelled.
+    '''(deprecated) The crawler has been cancelled.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     SUCCEEDED = "SUCCEEDED"
-    '''(experimental) The crawler has completed its operation successfully.
+    '''(deprecated) The crawler has completed its operation successfully.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     FAILED = "FAILED"
-    '''(experimental) The crawler has failed to complete its operation.
+    '''(deprecated) The crawler has failed to complete its operation.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     ERROR = "ERROR"
-    '''(experimental) The crawler encountered an error during its operation.
+    '''(deprecated) The crawler encountered an error during its operation.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
@@ -3760,14 +3758,14 @@ class DataCatalogEncryptionAtRest(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.DataCatalogEncryptionAtRest",
 ):
-    '''(experimental) Encryption-at-rest configuration for a Glue Data Catalog.
+    '''(deprecated) Encryption-at-rest configuration for a Glue Data Catalog.
 
     The Data Catalog encryption at rest and the connection password encryption
     are independent: enabling one does not require the other, and each may use a
     different KMS key.
 
     :see: https://docs.aws.amazon.com/glue/latest/webapi/API_EncryptionAtRest.html
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -3784,9 +3782,9 @@ class DataCatalogEncryptionAtRest(
     @jsii.member(jsii_name="disabled")
     @builtins.classmethod
     def disabled(cls) -> "DataCatalogEncryptionAtRest":
-        '''(experimental) Disable encryption at rest for the Data Catalog.
+        '''(deprecated) Disable encryption at rest for the Data Catalog.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("DataCatalogEncryptionAtRest", jsii.sinvoke(cls, "disabled", []))
 
@@ -3796,11 +3794,11 @@ class DataCatalogEncryptionAtRest(
         cls,
         key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
     ) -> "DataCatalogEncryptionAtRest":
-        '''(experimental) Encrypt the Data Catalog at rest with an AWS KMS key.
+        '''(deprecated) Encrypt the Data Catalog at rest with an AWS KMS key.
 
         :param key: the KMS key to use. If omitted, an AWS-managed key is used and the key is not exposed as a grantable resource.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2e67d66150729d3a1d21e6b214b3b9937871de81ab46af00f3e83ecf24fe8b22)
@@ -3814,7 +3812,7 @@ class DataCatalogEncryptionAtRest(
         role: "_aws_cdk_aws_iam_ceddda9d.IRole",
         key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
     ) -> "DataCatalogEncryptionAtRest":
-        '''(experimental) Encrypt the Data Catalog at rest with an AWS KMS key, accessed through a service role that AWS Glue assumes on your behalf.
+        '''(deprecated) Encrypt the Data Catalog at rest with an AWS KMS key, accessed through a service role that AWS Glue assumes on your behalf.
 
         When a customer-managed ``key`` is provided, the ``role`` is automatically
         granted ``kms:Encrypt``/``kms:Decrypt``/``kms:GenerateDataKey*`` on it.
@@ -3822,7 +3820,7 @@ class DataCatalogEncryptionAtRest(
         :param role: the service role that AWS Glue assumes to access the key.
         :param key: the KMS key to use. If omitted, an AWS-managed key is used and the key is not exposed as a grantable resource.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6b86817eec411efa47f1e2dcfb5982cbdc079fb5c41382c6463a998e3e755194)
@@ -3833,9 +3831,9 @@ class DataCatalogEncryptionAtRest(
     @builtins.property
     @jsii.member(jsii_name="mode")
     def mode(self) -> "CatalogEncryptionMode":
-        '''(experimental) The encryption mode.
+        '''(deprecated) The encryption mode.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("CatalogEncryptionMode", jsii.get(self, "mode"))
 
@@ -3844,18 +3842,18 @@ class DataCatalogEncryptionAtRest(
     def kms_key(
         self,
     ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
-        '''(experimental) The customer-managed KMS key used for encryption at rest, if any.
+        '''(deprecated) The customer-managed KMS key used for encryption at rest, if any.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], jsii.get(self, "kmsKey"))
 
     @builtins.property
     @jsii.member(jsii_name="serviceRole")
     def service_role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
-        '''(experimental) The service role that AWS Glue assumes to access the KMS key, if any.
+        '''(deprecated) The service role that AWS Glue assumes to access the KMS key, if any.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], jsii.get(self, "serviceRole"))
 
@@ -3864,9 +3862,9 @@ class DataFormat(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.DataFormat",
 ):
-    '''(experimental) Defines the input/output formats and ser/de for a single DataFormat.
+    '''(deprecated) Defines the input/output formats and ser/de for a single DataFormat.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -3903,12 +3901,12 @@ class DataFormat(
         classification_string: typing.Optional["ClassificationString"] = None,
     ) -> None:
         '''
-        :param input_format: (experimental) ``InputFormat`` for this data format.
-        :param output_format: (experimental) ``OutputFormat`` for this data format.
-        :param serialization_library: (experimental) Serialization library for this data format.
-        :param classification_string: (experimental) Classification string given to tables with this data format. Default: - No classification is specified.
+        :param input_format: (deprecated) ``InputFormat`` for this data format.
+        :param output_format: (deprecated) ``OutputFormat`` for this data format.
+        :param serialization_library: (deprecated) Serialization library for this data format.
+        :param classification_string: (deprecated) Classification string given to tables with this data format. Default: - No classification is specified.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         props = DataFormatProps(
             input_format=input_format,
@@ -3922,130 +3920,130 @@ class DataFormat(
     @jsii.python.classproperty
     @jsii.member(jsii_name="APACHE_LOGS")
     def APACHE_LOGS(cls) -> "DataFormat":
-        '''(experimental) DataFormat for Apache Web Server Logs.
+        '''(deprecated) DataFormat for Apache Web Server Logs.
 
         Also works for CloudFront logs
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/apache.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("DataFormat", jsii.sget(cls, "APACHE_LOGS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="AVRO")
     def AVRO(cls) -> "DataFormat":
-        '''(experimental) DataFormat for Apache Avro.
+        '''(deprecated) DataFormat for Apache Avro.
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/avro.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("DataFormat", jsii.sget(cls, "AVRO"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDTRAIL_LOGS")
     def CLOUDTRAIL_LOGS(cls) -> "DataFormat":
-        '''(experimental) DataFormat for CloudTrail logs stored on S3.
+        '''(deprecated) DataFormat for CloudTrail logs stored on S3.
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/cloudtrail.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("DataFormat", jsii.sget(cls, "CLOUDTRAIL_LOGS"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CSV")
     def CSV(cls) -> "DataFormat":
-        '''(experimental) DataFormat for CSV Files.
+        '''(deprecated) DataFormat for CSV Files.
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/csv.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("DataFormat", jsii.sget(cls, "CSV"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="JSON")
     def JSON(cls) -> "DataFormat":
-        '''(experimental) Stored as plain text files in JSON format.
+        '''(deprecated) Stored as plain text files in JSON format.
 
         Uses OpenX Json SerDe for serialization and deseralization.
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/json.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("DataFormat", jsii.sget(cls, "JSON"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="LOGSTASH")
     def LOGSTASH(cls) -> "DataFormat":
-        '''(experimental) DataFormat for Logstash Logs, using the GROK SerDe.
+        '''(deprecated) DataFormat for Logstash Logs, using the GROK SerDe.
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/grok.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("DataFormat", jsii.sget(cls, "LOGSTASH"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ORC")
     def ORC(cls) -> "DataFormat":
-        '''(experimental) DataFormat for Apache ORC (Optimized Row Columnar).
+        '''(deprecated) DataFormat for Apache ORC (Optimized Row Columnar).
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/orc.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("DataFormat", jsii.sget(cls, "ORC"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PARQUET")
     def PARQUET(cls) -> "DataFormat":
-        '''(experimental) DataFormat for Apache Parquet.
+        '''(deprecated) DataFormat for Apache Parquet.
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/parquet.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("DataFormat", jsii.sget(cls, "PARQUET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="TSV")
     def TSV(cls) -> "DataFormat":
-        '''(experimental) DataFormat for TSV (Tab-Separated Values).
+        '''(deprecated) DataFormat for TSV (Tab-Separated Values).
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/lazy-simple-serde.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("DataFormat", jsii.sget(cls, "TSV"))
 
     @builtins.property
     @jsii.member(jsii_name="inputFormat")
     def input_format(self) -> "InputFormat":
-        '''(experimental) ``InputFormat`` for this data format.
+        '''(deprecated) ``InputFormat`` for this data format.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("InputFormat", jsii.get(self, "inputFormat"))
 
     @builtins.property
     @jsii.member(jsii_name="outputFormat")
     def output_format(self) -> "OutputFormat":
-        '''(experimental) ``OutputFormat`` for this data format.
+        '''(deprecated) ``OutputFormat`` for this data format.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("OutputFormat", jsii.get(self, "outputFormat"))
 
     @builtins.property
     @jsii.member(jsii_name="serializationLibrary")
     def serialization_library(self) -> "SerializationLibrary":
-        '''(experimental) Serialization library for this data format.
+        '''(deprecated) Serialization library for this data format.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("SerializationLibrary", jsii.get(self, "serializationLibrary"))
 
     @builtins.property
     @jsii.member(jsii_name="classificationString")
     def classification_string(self) -> typing.Optional["ClassificationString"]:
-        '''(experimental) Classification string given to tables with this data format.
+        '''(deprecated) Classification string given to tables with this data format.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional["ClassificationString"], jsii.get(self, "classificationString"))
 
@@ -4069,14 +4067,14 @@ class DataFormatProps:
         serialization_library: "SerializationLibrary",
         classification_string: typing.Optional["ClassificationString"] = None,
     ) -> None:
-        '''(experimental) Properties of a DataFormat instance.
+        '''(deprecated) Properties of a DataFormat instance.
 
-        :param input_format: (experimental) ``InputFormat`` for this data format.
-        :param output_format: (experimental) ``OutputFormat`` for this data format.
-        :param serialization_library: (experimental) Serialization library for this data format.
-        :param classification_string: (experimental) Classification string given to tables with this data format. Default: - No classification is specified.
+        :param input_format: (deprecated) ``InputFormat`` for this data format.
+        :param output_format: (deprecated) ``OutputFormat`` for this data format.
+        :param serialization_library: (deprecated) Serialization library for this data format.
+        :param classification_string: (deprecated) Classification string given to tables with this data format. Default: - No classification is specified.
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -4115,9 +4113,9 @@ class DataFormatProps:
 
     @builtins.property
     def input_format(self) -> "InputFormat":
-        '''(experimental) ``InputFormat`` for this data format.
+        '''(deprecated) ``InputFormat`` for this data format.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("input_format")
         assert result is not None, "Required property 'input_format' is missing"
@@ -4125,9 +4123,9 @@ class DataFormatProps:
 
     @builtins.property
     def output_format(self) -> "OutputFormat":
-        '''(experimental) ``OutputFormat`` for this data format.
+        '''(deprecated) ``OutputFormat`` for this data format.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("output_format")
         assert result is not None, "Required property 'output_format' is missing"
@@ -4135,9 +4133,9 @@ class DataFormatProps:
 
     @builtins.property
     def serialization_library(self) -> "SerializationLibrary":
-        '''(experimental) Serialization library for this data format.
+        '''(deprecated) Serialization library for this data format.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("serialization_library")
         assert result is not None, "Required property 'serialization_library' is missing"
@@ -4145,11 +4143,11 @@ class DataFormatProps:
 
     @builtins.property
     def classification_string(self) -> typing.Optional["ClassificationString"]:
-        '''(experimental) Classification string given to tables with this data format.
+        '''(deprecated) Classification string given to tables with this data format.
 
         :default: - No classification is specified.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("classification_string")
         return typing.cast(typing.Optional["ClassificationString"], result)
@@ -4189,16 +4187,16 @@ class DataQualityRulesetProps:
         removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> None:
-        '''(experimental) Construction properties for ``DataQualityRuleset``.
+        '''(deprecated) Construction properties for ``DataQualityRuleset``.
 
-        :param dqdl: (experimental) The DQDL document defining the ruleset's data quality rules. Build it with ``Dqdl.fromString(...)``.
-        :param ruleset_name: (experimental) The name of the ruleset.
-        :param target_table: (experimental) The target table of the ruleset.
-        :param description: (experimental) The description of the ruleset.
-        :param removal_policy: (experimental) Policy to apply when the ruleset is removed from the stack. Default: - resource will be destroyed
-        :param tags: (experimental) Key-Value pairs that define tags for the ruleset. Default: empty tags
+        :param dqdl: (deprecated) The DQDL document defining the ruleset's data quality rules. Build it with ``Dqdl.fromString(...)``.
+        :param ruleset_name: (deprecated) The name of the ruleset.
+        :param target_table: (deprecated) The target table of the ruleset.
+        :param description: (deprecated) The description of the ruleset.
+        :param removal_policy: (deprecated) Policy to apply when the ruleset is removed from the stack. Default: - resource will be destroyed
+        :param tags: (deprecated) Key-Value pairs that define tags for the ruleset. Default: empty tags
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -4233,11 +4231,11 @@ class DataQualityRulesetProps:
 
     @builtins.property
     def dqdl(self) -> "Dqdl":
-        '''(experimental) The DQDL document defining the ruleset's data quality rules.
+        '''(deprecated) The DQDL document defining the ruleset's data quality rules.
 
         Build it with ``Dqdl.fromString(...)``.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("dqdl")
         assert result is not None, "Required property 'dqdl' is missing"
@@ -4245,9 +4243,9 @@ class DataQualityRulesetProps:
 
     @builtins.property
     def ruleset_name(self) -> builtins.str:
-        '''(experimental) The name of the ruleset.
+        '''(deprecated) The name of the ruleset.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("ruleset_name")
         assert result is not None, "Required property 'ruleset_name' is missing"
@@ -4255,9 +4253,9 @@ class DataQualityRulesetProps:
 
     @builtins.property
     def target_table(self) -> "DataQualityTargetTable":
-        '''(experimental) The target table of the ruleset.
+        '''(deprecated) The target table of the ruleset.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         result = self._values.get("target_table")
@@ -4266,9 +4264,9 @@ class DataQualityRulesetProps:
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The description of the ruleset.
+        '''(deprecated) The description of the ruleset.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         result = self._values.get("description")
@@ -4276,22 +4274,22 @@ class DataQualityRulesetProps:
 
     @builtins.property
     def removal_policy(self) -> typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"]:
-        '''(experimental) Policy to apply when the ruleset is removed from the stack.
+        '''(deprecated) Policy to apply when the ruleset is removed from the stack.
 
         :default: - resource will be destroyed
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("removal_policy")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Key-Value pairs that define tags for the ruleset.
+        '''(deprecated) Key-Value pairs that define tags for the ruleset.
 
         :default: empty tags
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
@@ -4312,9 +4310,9 @@ class DataQualityTargetTable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.DataQualityTargetTable",
 ):
-    '''(experimental) The Glue table a ``DataQualityRuleset`` evaluates.
+    '''(deprecated) The Glue table a ``DataQualityRuleset`` evaluates.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -4335,12 +4333,12 @@ class DataQualityTargetTable(
         database: "_aws_cdk_interfaces_aws_glue_ceddda9d.IDatabaseRef",
         table: "ITable",
     ) -> "DataQualityTargetTable":
-        '''(experimental) Target an L2 table in a database.
+        '''(deprecated) Target an L2 table in a database.
 
         :param database: the database that holds the table.
         :param table: the table to evaluate.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__474986c74cfe58f66060a4f00aa8b51b946db5d1dfb8ed6f9f19d0f8030f556a)
@@ -4355,7 +4353,7 @@ class DataQualityTargetTable(
         database: "_aws_cdk_interfaces_aws_glue_ceddda9d.IDatabaseRef",
         table_name: builtins.str,
     ) -> "DataQualityTargetTable":
-        '''(experimental) Target a table by name in a database.
+        '''(deprecated) Target a table by name in a database.
 
         Use this when the table is not
         modeled as an L2 construct (e.g. it is imported or created elsewhere).
@@ -4363,7 +4361,7 @@ class DataQualityTargetTable(
         :param database: the database that holds the table.
         :param table_name: the name of the table to evaluate.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7b72ae0ac46fc71a21f820d408e80190e46b12b7f6580c7bdae098c42a4e222b)
@@ -4374,18 +4372,18 @@ class DataQualityTargetTable(
     @builtins.property
     @jsii.member(jsii_name="databaseName")
     def database_name(self) -> builtins.str:
-        '''(experimental) The database name of the target table.
+        '''(deprecated) The database name of the target table.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "databaseName"))
 
     @builtins.property
     @jsii.member(jsii_name="tableName")
     def table_name(self) -> builtins.str:
-        '''(experimental) The table name of the target table.
+        '''(deprecated) The table name of the target table.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "tableName"))
 
@@ -4412,13 +4410,13 @@ class DatabaseProps:
         removal_policy: typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"] = None,
     ) -> None:
         '''
-        :param catalog: (experimental) The catalog in which the database will be placed. Default: The default, account-wide catalog.
-        :param database_name: (experimental) The name of the database. Default: - generated by CDK.
-        :param description: (experimental) A description of the database. Default: - no database description
-        :param location_uri: (experimental) The location of the database (for example, an HDFS path). Default: undefined. This field is optional in AWS::Glue::Database DatabaseInput
-        :param removal_policy: (experimental) Policy to apply when the database is removed from the stack. A database is a container for tables and their metadata, so it is retained by default to avoid accidental data loss when it is removed from a stack. Default: RemovalPolicy.RETAIN
+        :param catalog: (deprecated) The catalog in which the database will be placed. Default: The default, account-wide catalog.
+        :param database_name: (deprecated) The name of the database. Default: - generated by CDK.
+        :param description: (deprecated) A description of the database. Default: - no database description
+        :param location_uri: (deprecated) The location of the database (for example, an HDFS path). Default: undefined. This field is optional in AWS::Glue::Database DatabaseInput
+        :param removal_policy: (deprecated) Policy to apply when the database is removed from the stack. A database is a container for tables and their metadata, so it is retained by default to avoid accidental data loss when it is removed from a stack. Default: RemovalPolicy.RETAIN
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -4449,59 +4447,59 @@ class DatabaseProps:
 
     @builtins.property
     def catalog(self) -> typing.Optional["ICatalog"]:
-        '''(experimental) The catalog in which the database will be placed.
+        '''(deprecated) The catalog in which the database will be placed.
 
         :default: The default, account-wide catalog.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("catalog")
         return typing.cast(typing.Optional["ICatalog"], result)
 
     @builtins.property
     def database_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The name of the database.
+        '''(deprecated) The name of the database.
 
         :default: - generated by CDK.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("database_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A description of the database.
+        '''(deprecated) A description of the database.
 
         :default: - no database description
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def location_uri(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The location of the database (for example, an HDFS path).
+        '''(deprecated) The location of the database (for example, an HDFS path).
 
         :default: undefined. This field is optional in AWS::Glue::Database DatabaseInput
 
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-database-databaseinput.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("location_uri")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def removal_policy(self) -> typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"]:
-        '''(experimental) Policy to apply when the database is removed from the stack.
+        '''(deprecated) Policy to apply when the database is removed from the stack.
 
         A database is a container for tables and their metadata, so it is retained
         by default to avoid accidental data loss when it is removed from a stack.
 
         :default: RemovalPolicy.RETAIN
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("removal_policy")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"], result)
@@ -4520,10 +4518,10 @@ class DatabaseProps:
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.DateIntervalUnit")
 class DateIntervalUnit(enum.Enum):
-    '''(experimental) Date interval unit for partition projection.
+    '''(deprecated) Date interval unit for partition projection.
 
     :see: https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html#partition-projection-date-type
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -4555,39 +4553,39 @@ class DateIntervalUnit(enum.Enum):
     '''
 
     YEARS = "YEARS"
-    '''(experimental) Year interval.
+    '''(deprecated) Year interval.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     MONTHS = "MONTHS"
-    '''(experimental) Month interval.
+    '''(deprecated) Month interval.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     WEEKS = "WEEKS"
-    '''(experimental) Week interval.
+    '''(deprecated) Week interval.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     DAYS = "DAYS"
-    '''(experimental) Day interval (default).
+    '''(deprecated) Day interval (default).
 
-    :stability: experimental
+    :stability: deprecated
     '''
     HOURS = "HOURS"
-    '''(experimental) Hour interval.
+    '''(deprecated) Hour interval.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     MINUTES = "MINUTES"
-    '''(experimental) Minute interval.
+    '''(deprecated) Minute interval.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     SECONDS = "SECONDS"
-    '''(experimental) Second interval.
+    '''(deprecated) Second interval.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
@@ -4605,14 +4603,14 @@ class DatePartitionProjectionConfigurationProps:
         min: builtins.str,
         step: typing.Optional[typing.Union["DateProjectionStep", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
-        '''(experimental) Properties for DATE partition projection configuration.
+        '''(deprecated) Properties for DATE partition projection configuration.
 
-        :param format: (experimental) Date format for partition values. Uses Java SimpleDateFormat patterns.
-        :param max: (experimental) End date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property - Relative date using NOW syntax Same format constraints as ``min``.
-        :param min: (experimental) Start date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property (e.g., '2020-01-01' for format 'yyyy-MM-dd') - Relative date using NOW syntax (e.g., 'NOW', 'NOW-3YEARS', 'NOW+1MONTH')
-        :param step: (experimental) Interval step (``interval`` + ``intervalUnit``) between partition values. The two are supplied together, so a partial step cannot be expressed. Required when ``format`` carries sub-day precision — a field finer than a day, such as hours or AM/PM; at day or coarser precision Athena defaults the step, so it may be omitted. Default: - Athena's default step for the format's precision; required when ``format`` is sub-day precision
+        :param format: (deprecated) Date format for partition values. Uses Java SimpleDateFormat patterns.
+        :param max: (deprecated) End date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property - Relative date using NOW syntax Same format constraints as ``min``.
+        :param min: (deprecated) Start date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property (e.g., '2020-01-01' for format 'yyyy-MM-dd') - Relative date using NOW syntax (e.g., 'NOW', 'NOW-3YEARS', 'NOW+1MONTH')
+        :param step: (deprecated) Interval step (``interval`` + ``intervalUnit``) between partition values. The two are supplied together, so a partial step cannot be expressed. Required when ``format`` carries sub-day precision — a field finer than a day, such as hours or AM/PM; at day or coarser precision Athena defaults the step, so it may be omitted. Default: - Athena's default step for the format's precision; required when ``format`` is sub-day precision
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -4660,12 +4658,12 @@ class DatePartitionProjectionConfigurationProps:
 
     @builtins.property
     def format(self) -> builtins.str:
-        '''(experimental) Date format for partition values.
+        '''(deprecated) Date format for partition values.
 
         Uses Java SimpleDateFormat patterns.
 
         :see: https://docs.oracle.com/javase/8/docs/api/java/text/SimpleDateFormat.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("format")
         assert result is not None, "Required property 'format' is missing"
@@ -4673,7 +4671,7 @@ class DatePartitionProjectionConfigurationProps:
 
     @builtins.property
     def max(self) -> builtins.str:
-        '''(experimental) End date for the partition range (inclusive).
+        '''(deprecated) End date for the partition range (inclusive).
 
         Can be either:
 
@@ -4682,7 +4680,7 @@ class DatePartitionProjectionConfigurationProps:
 
         Same format constraints as ``min``.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max")
         assert result is not None, "Required property 'max' is missing"
@@ -4690,7 +4688,7 @@ class DatePartitionProjectionConfigurationProps:
 
     @builtins.property
     def min(self) -> builtins.str:
-        '''(experimental) Start date for the partition range (inclusive).
+        '''(deprecated) Start date for the partition range (inclusive).
 
         Can be either:
 
@@ -4700,7 +4698,7 @@ class DatePartitionProjectionConfigurationProps:
           (e.g., 'NOW', 'NOW-3YEARS', 'NOW+1MONTH')
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html#partition-projection-date-type
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("min")
         assert result is not None, "Required property 'min' is missing"
@@ -4708,7 +4706,7 @@ class DatePartitionProjectionConfigurationProps:
 
     @builtins.property
     def step(self) -> typing.Optional["DateProjectionStep"]:
-        '''(experimental) Interval step (``interval`` + ``intervalUnit``) between partition values.
+        '''(deprecated) Interval step (``interval`` + ``intervalUnit``) between partition values.
 
         The two are supplied together, so a partial step cannot be expressed.
         Required when ``format`` carries sub-day precision — a field finer than a
@@ -4717,7 +4715,7 @@ class DatePartitionProjectionConfigurationProps:
 
         :default: - Athena's default step for the format's precision; required when ``format`` is sub-day precision
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("step")
         return typing.cast(typing.Optional["DateProjectionStep"], result)
@@ -4746,15 +4744,15 @@ class DateProjectionStep:
         interval: jsii.Number,
         interval_unit: "DateIntervalUnit",
     ) -> None:
-        '''(experimental) A required-together interval step for DATE partition projection.
+        '''(deprecated) A required-together interval step for DATE partition projection.
 
         Bundling ``interval`` and ``intervalUnit`` into one value makes a partial step
         (one without the other) unrepresentable.
 
-        :param interval: (experimental) Interval between partition values.
-        :param interval_unit: (experimental) Unit for the interval.
+        :param interval: (deprecated) Interval between partition values.
+        :param interval_unit: (deprecated) Unit for the interval.
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -4795,9 +4793,9 @@ class DateProjectionStep:
 
     @builtins.property
     def interval(self) -> jsii.Number:
-        '''(experimental) Interval between partition values.
+        '''(deprecated) Interval between partition values.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("interval")
         assert result is not None, "Required property 'interval' is missing"
@@ -4805,9 +4803,9 @@ class DateProjectionStep:
 
     @builtins.property
     def interval_unit(self) -> "DateIntervalUnit":
-        '''(experimental) Unit for the interval.
+        '''(deprecated) Unit for the interval.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("interval_unit")
         assert result is not None, "Required property 'interval_unit' is missing"
@@ -4826,13 +4824,13 @@ class DateProjectionStep:
 
 
 class Dqdl(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Dqdl"):
-    '''(experimental) The Data Quality Definition Language (DQDL) document for a ``DataQualityRuleset``.
+    '''(deprecated) The Data Quality Definition Language (DQDL) document for a ``DataQualityRuleset``.
 
     DQDL is an authored string that Glue parses and validates at deploy time. Build
     one from a raw DQDL string with {@link Dqdl.fromString}.
 
     :see: https://docs.aws.amazon.com/glue/latest/dg/dqdl.html
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -4849,11 +4847,11 @@ class Dqdl(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Dqdl"):
     @jsii.member(jsii_name="fromString")
     @builtins.classmethod
     def from_string(cls, dqdl: builtins.str) -> "Dqdl":
-        '''(experimental) Create a ``Dqdl`` from a raw DQDL string.
+        '''(deprecated) Create a ``Dqdl`` from a raw DQDL string.
 
         :param dqdl: the DQDL document, e.g. ``Rules = [ RowCount > 100 ]``.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__930bbf5e9717083d6925db7850d0c9cbc75868f58ac0b9d5c47e8c192f882ebe)
@@ -4868,11 +4866,11 @@ class Dqdl(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Dqdl"):
 )
 class EnumPartitionProjectionConfigurationProps:
     def __init__(self, *, values: typing.Sequence[builtins.str]) -> None:
-        '''(experimental) Properties for ENUM partition projection configuration.
+        '''(deprecated) Properties for ENUM partition projection configuration.
 
-        :param values: (experimental) Explicit list of partition values.
+        :param values: (deprecated) Explicit list of partition values.
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -4906,9 +4904,9 @@ class EnumPartitionProjectionConfigurationProps:
 
     @builtins.property
     def values(self) -> typing.List[builtins.str]:
-        '''(experimental) Explicit list of partition values.
+        '''(deprecated) Explicit list of partition values.
 
-        :stability: experimental
+        :stability: deprecated
 
         Example::
 
@@ -4942,12 +4940,12 @@ class EventBatchingCondition:
         batch_size: jsii.Number,
         batch_window: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
-        '''(experimental) Represents event trigger batch condition.
+        '''(deprecated) Represents event trigger batch condition.
 
-        :param batch_size: (experimental) Number of events that must be received from Amazon EventBridge before EventBridge event trigger fires.
-        :param batch_window: (experimental) Window of time in seconds after which EventBridge event trigger fires. Default: - 900 seconds
+        :param batch_size: (deprecated) Number of events that must be received from Amazon EventBridge before EventBridge event trigger fires.
+        :param batch_window: (deprecated) Window of time in seconds after which EventBridge event trigger fires. Default: - 900 seconds
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -4976,9 +4974,9 @@ class EventBatchingCondition:
 
     @builtins.property
     def batch_size(self) -> jsii.Number:
-        '''(experimental) Number of events that must be received from Amazon EventBridge before EventBridge event trigger fires.
+        '''(deprecated) Number of events that must be received from Amazon EventBridge before EventBridge event trigger fires.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("batch_size")
         assert result is not None, "Required property 'batch_size' is missing"
@@ -4986,11 +4984,11 @@ class EventBatchingCondition:
 
     @builtins.property
     def batch_window(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
-        '''(experimental) Window of time in seconds after which EventBridge event trigger fires.
+        '''(deprecated) Window of time in seconds after which EventBridge event trigger fires.
 
         :default: - 900 seconds
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("batch_window")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
@@ -5009,30 +5007,30 @@ class EventBatchingCondition:
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.ExecutionClass")
 class ExecutionClass(enum.Enum):
-    '''(experimental) The ExecutionClass whether the job is run with a standard or flexible execution class.
+    '''(deprecated) The ExecutionClass whether the job is run with a standard or flexible execution class.
 
     :see: https://docs.aws.amazon.com/glue/latest/dg/add-job.html
-    :stability: experimental
+    :stability: deprecated
     '''
 
     FLEX = "FLEX"
-    '''(experimental) The flexible execution class is appropriate for time-insensitive jobs whose start and completion times may vary.
+    '''(deprecated) The flexible execution class is appropriate for time-insensitive jobs whose start and completion times may vary.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     STANDARD = "STANDARD"
-    '''(experimental) The standard execution class is ideal for time-sensitive workloads that require fast job startup and dedicated resources.
+    '''(deprecated) The standard execution class is ideal for time-sensitive workloads that require fast job startup and dedicated resources.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.GlueVersion")
 class GlueVersion(enum.Enum):
-    '''(experimental) AWS Glue version determines the versions of Apache Spark and Python that are available to the job.
+    '''(deprecated) AWS Glue version determines the versions of Apache Spark and Python that are available to the job.
 
     :see: https://docs.aws.amazon.com/glue/latest/dg/add-job.html.
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -5068,39 +5066,39 @@ class GlueVersion(enum.Enum):
     '''
 
     V0_9 = "V0_9"
-    '''(experimental) Glue version using Spark 2.2.1 and Python 2.7.
+    '''(deprecated) Glue version using Spark 2.2.1 and Python 2.7.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     V1_0 = "V1_0"
-    '''(experimental) Glue version using Spark 2.4.3, Python 2.7 and Python 3.6.
+    '''(deprecated) Glue version using Spark 2.4.3, Python 2.7 and Python 3.6.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     V2_0 = "V2_0"
-    '''(experimental) Glue version using Spark 2.4.3 and Python 3.7.
+    '''(deprecated) Glue version using Spark 2.4.3 and Python 3.7.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     V3_0 = "V3_0"
-    '''(experimental) Glue version using Spark 3.1.1 and Python 3.7.
+    '''(deprecated) Glue version using Spark 3.1.1 and Python 3.7.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     V4_0 = "V4_0"
-    '''(experimental) Glue version using Spark 3.3.0 and Python 3.10.
+    '''(deprecated) Glue version using Spark 3.3.0 and Python 3.10.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     V5_0 = "V5_0"
-    '''(experimental) Glue version using Spark 3.5.4, Python 3.11, and Scala 2.12.18.
+    '''(deprecated) Glue version using Spark 3.5.4, Python 3.11, and Scala 2.12.18.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     V5_1 = "V5_1"
-    '''(experimental) Glue version using Spark 3.5.6, Python 3.11, and Scala 2.12.18.
+    '''(deprecated) Glue version using Spark 3.5.6, Python 3.11, and Scala 2.12.18.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
@@ -5110,17 +5108,17 @@ class ICatalog(
     _aws_cdk_interfaces_aws_glue_ceddda9d.ICatalogRef,
     typing_extensions.Protocol,
 ):
-    '''(experimental) A Glue Data Catalog, either the implicit account-wide catalog or one created as an ``AWS::Glue::Catalog`` resource.
+    '''(deprecated) A Glue Data Catalog, either the implicit account-wide catalog or one created as an ``AWS::Glue::Catalog`` resource.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
     @builtins.property
     @jsii.member(jsii_name="catalogArn")
     def catalog_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the catalog.
+        '''(deprecated) The ARN of the catalog.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         ...
@@ -5128,9 +5126,9 @@ class ICatalog(
     @builtins.property
     @jsii.member(jsii_name="catalogId")
     def catalog_id(self) -> builtins.str:
-        '''(experimental) The id of the catalog (for the account-wide catalog, the AWS account id).
+        '''(deprecated) The id of the catalog (for the account-wide catalog, the AWS account id).
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         ...
@@ -5140,13 +5138,13 @@ class ICatalog(
     def connection_password_key(
         self,
     ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
-        '''(experimental) The customer-managed KMS key used to encrypt connection passwords, if one was configured.
+        '''(deprecated) The customer-managed KMS key used to encrypt connection passwords, if one was configured.
 
         Undefined when password encryption uses an AWS-managed key or is not
         configured. Grant access to it via ``KeyGrants``, e.g.
         ``if (catalog.connectionPasswordKey) { KeyGrants.fromKey(catalog.connectionPasswordKey).encrypt(grantee); }``.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -5155,13 +5153,13 @@ class ICatalog(
     def encryption_key(
         self,
     ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
-        '''(experimental) The customer-managed KMS key used for the catalog's encryption at rest, if one was configured.
+        '''(deprecated) The customer-managed KMS key used for the catalog's encryption at rest, if one was configured.
 
         Undefined when encryption is disabled or an AWS-managed key is used. Grant
         access to it via ``KeyGrants``, e.g.
         ``if (catalog.encryptionKey) { KeyGrants.fromKey(catalog.encryptionKey).encrypt(grantee); }``.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -5170,9 +5168,9 @@ class _ICatalogProxy(
     jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
     jsii.proxy_for(_aws_cdk_interfaces_aws_glue_ceddda9d.ICatalogRef), # type: ignore[misc]
 ):
-    '''(experimental) A Glue Data Catalog, either the implicit account-wide catalog or one created as an ``AWS::Glue::Catalog`` resource.
+    '''(deprecated) A Glue Data Catalog, either the implicit account-wide catalog or one created as an ``AWS::Glue::Catalog`` resource.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
     __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-glue-alpha.ICatalog"
@@ -5180,9 +5178,9 @@ class _ICatalogProxy(
     @builtins.property
     @jsii.member(jsii_name="catalogArn")
     def catalog_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the catalog.
+        '''(deprecated) The ARN of the catalog.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "catalogArn"))
@@ -5190,9 +5188,9 @@ class _ICatalogProxy(
     @builtins.property
     @jsii.member(jsii_name="catalogId")
     def catalog_id(self) -> builtins.str:
-        '''(experimental) The id of the catalog (for the account-wide catalog, the AWS account id).
+        '''(deprecated) The id of the catalog (for the account-wide catalog, the AWS account id).
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "catalogId"))
@@ -5202,13 +5200,13 @@ class _ICatalogProxy(
     def connection_password_key(
         self,
     ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
-        '''(experimental) The customer-managed KMS key used to encrypt connection passwords, if one was configured.
+        '''(deprecated) The customer-managed KMS key used to encrypt connection passwords, if one was configured.
 
         Undefined when password encryption uses an AWS-managed key or is not
         configured. Grant access to it via ``KeyGrants``, e.g.
         ``if (catalog.connectionPasswordKey) { KeyGrants.fromKey(catalog.connectionPasswordKey).encrypt(grantee); }``.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], jsii.get(self, "connectionPasswordKey"))
 
@@ -5217,13 +5215,13 @@ class _ICatalogProxy(
     def encryption_key(
         self,
     ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
-        '''(experimental) The customer-managed KMS key used for the catalog's encryption at rest, if one was configured.
+        '''(deprecated) The customer-managed KMS key used for the catalog's encryption at rest, if one was configured.
 
         Undefined when encryption is disabled or an AWS-managed key is used. Grant
         access to it via ``KeyGrants``, e.g.
         ``if (catalog.encryptionKey) { KeyGrants.fromKey(catalog.encryptionKey).encrypt(grantee); }``.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], jsii.get(self, "encryptionKey"))
 
@@ -5233,17 +5231,17 @@ typing.cast(typing.Any, ICatalog).__jsii_proxy_class__ = lambda : _ICatalogProxy
 
 @jsii.interface(jsii_type="@aws-cdk/aws-glue-alpha.IConnection")
 class IConnection(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
-    '''(experimental) Interface representing a created or an imported ``Connection``.
+    '''(deprecated) Interface representing a created or an imported ``Connection``.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
     @builtins.property
     @jsii.member(jsii_name="connectionArn")
     def connection_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the connection.
+        '''(deprecated) The ARN of the connection.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         ...
@@ -5251,9 +5249,9 @@ class IConnection(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
     @builtins.property
     @jsii.member(jsii_name="connectionName")
     def connection_name(self) -> builtins.str:
-        '''(experimental) The name of the connection.
+        '''(deprecated) The name of the connection.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         ...
@@ -5262,9 +5260,9 @@ class IConnection(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
 class _IConnectionProxy(
     jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
 ):
-    '''(experimental) Interface representing a created or an imported ``Connection``.
+    '''(deprecated) Interface representing a created or an imported ``Connection``.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
     __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-glue-alpha.IConnection"
@@ -5272,9 +5270,9 @@ class _IConnectionProxy(
     @builtins.property
     @jsii.member(jsii_name="connectionArn")
     def connection_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the connection.
+        '''(deprecated) The ARN of the connection.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "connectionArn"))
@@ -5282,9 +5280,9 @@ class _IConnectionProxy(
     @builtins.property
     @jsii.member(jsii_name="connectionName")
     def connection_name(self) -> builtins.str:
-        '''(experimental) The name of the connection.
+        '''(deprecated) The name of the connection.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "connectionName"))
@@ -5296,15 +5294,15 @@ typing.cast(typing.Any, IConnection).__jsii_proxy_class__ = lambda : _IConnectio
 @jsii.interface(jsii_type="@aws-cdk/aws-glue-alpha.IDataQualityRuleset")
 class IDataQualityRuleset(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
     '''
-    :stability: experimental
+    :stability: deprecated
     '''
 
     @builtins.property
     @jsii.member(jsii_name="rulesetArn")
     def ruleset_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the ruleset.
+        '''(deprecated) The ARN of the ruleset.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         ...
@@ -5312,9 +5310,9 @@ class IDataQualityRuleset(_aws_cdk_ceddda9d.IResource, typing_extensions.Protoco
     @builtins.property
     @jsii.member(jsii_name="rulesetName")
     def ruleset_name(self) -> builtins.str:
-        '''(experimental) The name of the ruleset.
+        '''(deprecated) The name of the ruleset.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         ...
@@ -5324,7 +5322,7 @@ class _IDataQualityRulesetProxy(
     jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
 ):
     '''
-    :stability: experimental
+    :stability: deprecated
     '''
 
     __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-glue-alpha.IDataQualityRuleset"
@@ -5332,9 +5330,9 @@ class _IDataQualityRulesetProxy(
     @builtins.property
     @jsii.member(jsii_name="rulesetArn")
     def ruleset_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the ruleset.
+        '''(deprecated) The ARN of the ruleset.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "rulesetArn"))
@@ -5342,9 +5340,9 @@ class _IDataQualityRulesetProxy(
     @builtins.property
     @jsii.member(jsii_name="rulesetName")
     def ruleset_name(self) -> builtins.str:
-        '''(experimental) The name of the ruleset.
+        '''(deprecated) The name of the ruleset.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "rulesetName"))
@@ -5360,24 +5358,24 @@ class IDatabase(
     typing_extensions.Protocol,
 ):
     '''
-    :stability: experimental
+    :stability: deprecated
     '''
 
     @builtins.property
     @jsii.member(jsii_name="catalog")
     def catalog(self) -> "ICatalog":
-        '''(experimental) The catalog this database belongs to.
+        '''(deprecated) The catalog this database belongs to.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
     @builtins.property
     @jsii.member(jsii_name="databaseArn")
     def database_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the database.
+        '''(deprecated) The ARN of the database.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         ...
@@ -5385,9 +5383,9 @@ class IDatabase(
     @builtins.property
     @jsii.member(jsii_name="databaseName")
     def database_name(self) -> builtins.str:
-        '''(experimental) The name of the database.
+        '''(deprecated) The name of the database.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         ...
@@ -5398,7 +5396,7 @@ class _IDatabaseProxy(
     jsii.proxy_for(_aws_cdk_interfaces_aws_glue_ceddda9d.IDatabaseRef), # type: ignore[misc]
 ):
     '''
-    :stability: experimental
+    :stability: deprecated
     '''
 
     __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-glue-alpha.IDatabase"
@@ -5406,18 +5404,18 @@ class _IDatabaseProxy(
     @builtins.property
     @jsii.member(jsii_name="catalog")
     def catalog(self) -> "ICatalog":
-        '''(experimental) The catalog this database belongs to.
+        '''(deprecated) The catalog this database belongs to.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ICatalog", jsii.get(self, "catalog"))
 
     @builtins.property
     @jsii.member(jsii_name="databaseArn")
     def database_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the database.
+        '''(deprecated) The ARN of the database.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "databaseArn"))
@@ -5425,9 +5423,9 @@ class _IDatabaseProxy(
     @builtins.property
     @jsii.member(jsii_name="databaseName")
     def database_name(self) -> builtins.str:
-        '''(experimental) The name of the database.
+        '''(deprecated) The name of the database.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "databaseName"))
@@ -5443,17 +5441,17 @@ class IJob(
     _aws_cdk_interfaces_aws_glue_ceddda9d.IJobRef,
     typing_extensions.Protocol,
 ):
-    '''(experimental) Interface representing a new or an imported Glue Job.
+    '''(deprecated) Interface representing a new or an imported Glue Job.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
     @builtins.property
     @jsii.member(jsii_name="jobArn")
     def job_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the job.
+        '''(deprecated) The ARN of the job.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         ...
@@ -5461,9 +5459,9 @@ class IJob(
     @builtins.property
     @jsii.member(jsii_name="jobName")
     def job_name(self) -> builtins.str:
-        '''(experimental) The name of the job.
+        '''(deprecated) The name of the job.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         ...
@@ -5487,7 +5485,7 @@ class IJob(
         unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
     ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
-        '''(experimental) Create a CloudWatch metric.
+        '''(deprecated) Create a CloudWatch metric.
 
         :param metric_name: name of the metric typically prefixed with ``glue.driver.``, ``glue.<executorId>.`` or ``glue.ALL.``.
         :param type: the metric type.
@@ -5505,7 +5503,7 @@ class IJob(
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/monitoring-awsglue-with-cloudwatch-metrics.html
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -5526,7 +5524,7 @@ class IJob(
         unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
     ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
-        '''(experimental) Create a CloudWatch Metric indicating job failure.
+        '''(deprecated) Create a CloudWatch Metric indicating job failure.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
@@ -5541,7 +5539,7 @@ class IJob(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -5562,7 +5560,7 @@ class IJob(
         unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
     ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
-        '''(experimental) Create a CloudWatch Metric indicating job success.
+        '''(deprecated) Create a CloudWatch Metric indicating job success.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
@@ -5577,7 +5575,7 @@ class IJob(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -5598,7 +5596,7 @@ class IJob(
         unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
     ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
-        '''(experimental) Create a CloudWatch Metric indicating job timeout.
+        '''(deprecated) Create a CloudWatch Metric indicating job timeout.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
@@ -5613,7 +5611,7 @@ class IJob(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -5628,7 +5626,7 @@ class IJob(
         event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
-        '''(experimental) Defines a CloudWatch event rule triggered when something happens with this job.
+        '''(deprecated) Defines a CloudWatch event rule triggered when something happens with this job.
 
         :param id: -
         :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
@@ -5638,7 +5636,7 @@ class IJob(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
 
         :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/EventTypes.html#glue-event-types
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -5653,7 +5651,7 @@ class IJob(
         event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
-        '''(experimental) Defines a CloudWatch event rule triggered when this job moves to the FAILED state.
+        '''(deprecated) Defines a CloudWatch event rule triggered when this job moves to the FAILED state.
 
         :param id: -
         :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
@@ -5663,7 +5661,7 @@ class IJob(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
 
         :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/EventTypes.html#glue-event-types
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -5678,7 +5676,7 @@ class IJob(
         event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
-        '''(experimental) Defines a CloudWatch event rule triggered when this job moves to the SUCCEEDED state.
+        '''(deprecated) Defines a CloudWatch event rule triggered when this job moves to the SUCCEEDED state.
 
         :param id: -
         :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
@@ -5688,7 +5686,7 @@ class IJob(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
 
         :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/EventTypes.html#glue-event-types
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -5703,7 +5701,7 @@ class IJob(
         event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
-        '''(experimental) Defines a CloudWatch event rule triggered when this job moves to the TIMEOUT state.
+        '''(deprecated) Defines a CloudWatch event rule triggered when this job moves to the TIMEOUT state.
 
         :param id: -
         :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
@@ -5713,7 +5711,7 @@ class IJob(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
 
         :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/EventTypes.html#glue-event-types
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -5723,9 +5721,9 @@ class _IJobProxy(
     jsii.proxy_for(_aws_cdk_aws_iam_ceddda9d.IGrantable), # type: ignore[misc]
     jsii.proxy_for(_aws_cdk_interfaces_aws_glue_ceddda9d.IJobRef), # type: ignore[misc]
 ):
-    '''(experimental) Interface representing a new or an imported Glue Job.
+    '''(deprecated) Interface representing a new or an imported Glue Job.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
     __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-glue-alpha.IJob"
@@ -5733,9 +5731,9 @@ class _IJobProxy(
     @builtins.property
     @jsii.member(jsii_name="jobArn")
     def job_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the job.
+        '''(deprecated) The ARN of the job.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobArn"))
@@ -5743,9 +5741,9 @@ class _IJobProxy(
     @builtins.property
     @jsii.member(jsii_name="jobName")
     def job_name(self) -> builtins.str:
-        '''(experimental) The name of the job.
+        '''(deprecated) The name of the job.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobName"))
@@ -5769,7 +5767,7 @@ class _IJobProxy(
         unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
     ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
-        '''(experimental) Create a CloudWatch metric.
+        '''(deprecated) Create a CloudWatch metric.
 
         :param metric_name: name of the metric typically prefixed with ``glue.driver.``, ``glue.<executorId>.`` or ``glue.ALL.``.
         :param type: the metric type.
@@ -5787,7 +5785,7 @@ class _IJobProxy(
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/monitoring-awsglue-with-cloudwatch-metrics.html
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__79f8eb7ba0850dad06f49887b6323e6019fa48cdf967d96e579591ff36e61765)
@@ -5827,7 +5825,7 @@ class _IJobProxy(
         unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
     ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
-        '''(experimental) Create a CloudWatch Metric indicating job failure.
+        '''(deprecated) Create a CloudWatch Metric indicating job failure.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
@@ -5842,7 +5840,7 @@ class _IJobProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -5878,7 +5876,7 @@ class _IJobProxy(
         unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
     ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
-        '''(experimental) Create a CloudWatch Metric indicating job success.
+        '''(deprecated) Create a CloudWatch Metric indicating job success.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
@@ -5893,7 +5891,7 @@ class _IJobProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -5929,7 +5927,7 @@ class _IJobProxy(
         unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
     ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
-        '''(experimental) Create a CloudWatch Metric indicating job timeout.
+        '''(deprecated) Create a CloudWatch Metric indicating job timeout.
 
         :param account: Account which this metric comes from. Default: - Deployment account.
         :param color: The hex color code, prefixed with '#' (e.g. '#00ff00'), to use when this metric is rendered on a graph. The ``Color`` class has a set of standard colors that can be used here. Default: - Automatic color
@@ -5944,7 +5942,7 @@ class _IJobProxy(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -5974,7 +5972,7 @@ class _IJobProxy(
         event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
-        '''(experimental) Defines a CloudWatch event rule triggered when something happens with this job.
+        '''(deprecated) Defines a CloudWatch event rule triggered when something happens with this job.
 
         :param id: -
         :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
@@ -5984,7 +5982,7 @@ class _IJobProxy(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
 
         :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/EventTypes.html#glue-event-types
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4e9bb641a392e36442ae2624591822707bc3af7603043bcb85c82e6dde0aedff)
@@ -6010,7 +6008,7 @@ class _IJobProxy(
         event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
-        '''(experimental) Defines a CloudWatch event rule triggered when this job moves to the FAILED state.
+        '''(deprecated) Defines a CloudWatch event rule triggered when this job moves to the FAILED state.
 
         :param id: -
         :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
@@ -6020,7 +6018,7 @@ class _IJobProxy(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
 
         :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/EventTypes.html#glue-event-types
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__192bf1eecc268b3f759e65151917fb49666d5a0144c2df120f2dd72e3fd5e4f4)
@@ -6046,7 +6044,7 @@ class _IJobProxy(
         event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
-        '''(experimental) Defines a CloudWatch event rule triggered when this job moves to the SUCCEEDED state.
+        '''(deprecated) Defines a CloudWatch event rule triggered when this job moves to the SUCCEEDED state.
 
         :param id: -
         :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
@@ -6056,7 +6054,7 @@ class _IJobProxy(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
 
         :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/EventTypes.html#glue-event-types
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5b62843a9fea91eb93e6bf7bcd95a76fc790b72a6a7ae7024cf486b3fd9d20f7)
@@ -6082,7 +6080,7 @@ class _IJobProxy(
         event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
-        '''(experimental) Defines a CloudWatch event rule triggered when this job moves to the TIMEOUT state.
+        '''(deprecated) Defines a CloudWatch event rule triggered when this job moves to the TIMEOUT state.
 
         :param id: -
         :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
@@ -6092,7 +6090,7 @@ class _IJobProxy(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
 
         :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/EventTypes.html#glue-event-types
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b1fcdc972ccb29fe1572e8970cb83faccd76d7cee7f09ed3f5c9571bca7a886d)
@@ -6113,17 +6111,17 @@ typing.cast(typing.Any, IJob).__jsii_proxy_class__ = lambda : _IJobProxy
 
 @jsii.interface(jsii_type="@aws-cdk/aws-glue-alpha.ISecurityConfiguration")
 class ISecurityConfiguration(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
-    '''(experimental) Interface representing a created or an imported ``SecurityConfiguration``.
+    '''(deprecated) Interface representing a created or an imported ``SecurityConfiguration``.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
     @builtins.property
     @jsii.member(jsii_name="securityConfigurationName")
     def security_configuration_name(self) -> builtins.str:
-        '''(experimental) The name of the security configuration.
+        '''(deprecated) The name of the security configuration.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         ...
@@ -6132,9 +6130,9 @@ class ISecurityConfiguration(_aws_cdk_ceddda9d.IResource, typing_extensions.Prot
 class _ISecurityConfigurationProxy(
     jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
 ):
-    '''(experimental) Interface representing a created or an imported ``SecurityConfiguration``.
+    '''(deprecated) Interface representing a created or an imported ``SecurityConfiguration``.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
     __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-glue-alpha.ISecurityConfiguration"
@@ -6142,9 +6140,9 @@ class _ISecurityConfigurationProxy(
     @builtins.property
     @jsii.member(jsii_name="securityConfigurationName")
     def security_configuration_name(self) -> builtins.str:
-        '''(experimental) The name of the security configuration.
+        '''(deprecated) The name of the security configuration.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "securityConfigurationName"))
@@ -6156,14 +6154,14 @@ typing.cast(typing.Any, ISecurityConfiguration).__jsii_proxy_class__ = lambda : 
 @jsii.interface(jsii_type="@aws-cdk/aws-glue-alpha.ITable")
 class ITable(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
     '''
-    :stability: experimental
+    :stability: deprecated
     '''
 
     @builtins.property
     @jsii.member(jsii_name="tableArn")
     def table_arn(self) -> builtins.str:
         '''
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         ...
@@ -6172,7 +6170,7 @@ class ITable(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
     @jsii.member(jsii_name="tableName")
     def table_name(self) -> builtins.str:
         '''
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         ...
@@ -6182,7 +6180,7 @@ class _ITableProxy(
     jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
 ):
     '''
-    :stability: experimental
+    :stability: deprecated
     '''
 
     __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-glue-alpha.ITable"
@@ -6191,7 +6189,7 @@ class _ITableProxy(
     @jsii.member(jsii_name="tableArn")
     def table_arn(self) -> builtins.str:
         '''
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "tableArn"))
@@ -6200,7 +6198,7 @@ class _ITableProxy(
     @jsii.member(jsii_name="tableName")
     def table_name(self) -> builtins.str:
         '''
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "tableName"))
@@ -6211,18 +6209,18 @@ typing.cast(typing.Any, ITable).__jsii_proxy_class__ = lambda : _ITableProxy
 
 @jsii.interface(jsii_type="@aws-cdk/aws-glue-alpha.IWorkflow")
 class IWorkflow(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
-    '''(experimental) The base interface for Glue Workflow.
+    '''(deprecated) The base interface for Glue Workflow.
 
     :see: https://docs.aws.amazon.com/glue/latest/dg/workflows_overview.html
-    :stability: experimental
+    :stability: deprecated
     '''
 
     @builtins.property
     @jsii.member(jsii_name="workflowArn")
     def workflow_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the workflow.
+        '''(deprecated) The ARN of the workflow.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         ...
@@ -6230,9 +6228,9 @@ class IWorkflow(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
     @builtins.property
     @jsii.member(jsii_name="workflowName")
     def workflow_name(self) -> builtins.str:
-        '''(experimental) The name of the workflow.
+        '''(deprecated) The name of the workflow.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         ...
@@ -6248,18 +6246,18 @@ class IWorkflow(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
-        '''(experimental) Add a conditional (predicate-based) trigger to the workflow.
+        '''(deprecated) Add a conditional (predicate-based) trigger to the workflow.
 
         :param id: -
-        :param predicate: (experimental) The predicate for the trigger.
-        :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
+        :param predicate: (deprecated) The predicate for the trigger.
+        :param start_on_creation: (deprecated) Whether to start the trigger on creation or not. Default: - false
+        :param actions: (deprecated) The actions initiated by this trigger.
+        :param description: (deprecated) A description for the trigger. Default: - no description
+        :param name: (deprecated) A name for the trigger. Default: - no name is provided
 
         :return: a reference to the created trigger.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -6273,17 +6271,17 @@ class IWorkflow(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
-        '''(experimental) Add an EventBridge event-based trigger to the workflow.
+        '''(deprecated) Add an EventBridge event-based trigger to the workflow.
 
         :param id: -
-        :param event_batching_condition: (experimental) Batch condition for the trigger. Default: - no batch condition
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
+        :param event_batching_condition: (deprecated) Batch condition for the trigger. Default: - no batch condition
+        :param actions: (deprecated) The actions initiated by this trigger.
+        :param description: (deprecated) A description for the trigger. Default: - no description
+        :param name: (deprecated) A name for the trigger. Default: - no name is provided
 
         :return: a reference to the created trigger.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -6296,16 +6294,16 @@ class IWorkflow(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
-        '''(experimental) Add an on-demand trigger to the workflow.
+        '''(deprecated) Add an on-demand trigger to the workflow.
 
         :param id: -
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
+        :param actions: (deprecated) The actions initiated by this trigger.
+        :param description: (deprecated) A description for the trigger. Default: - no description
+        :param name: (deprecated) A name for the trigger. Default: - no name is provided
 
         :return: a reference to the created trigger.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -6320,18 +6318,18 @@ class IWorkflow(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
-        '''(experimental) Add a scheduled trigger to the workflow.
+        '''(deprecated) Add a scheduled trigger to the workflow.
 
         :param id: -
-        :param schedule: (experimental) The schedule on which this trigger fires. Build one with {@link TriggerSchedule.daily}, {@link TriggerSchedule.weekly}, {@link TriggerSchedule.cron}, or {@link TriggerSchedule.expression}.
-        :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
+        :param schedule: (deprecated) The schedule on which this trigger fires. Build one with {@link TriggerSchedule.daily}, {@link TriggerSchedule.weekly}, {@link TriggerSchedule.cron}, or {@link TriggerSchedule.expression}.
+        :param start_on_creation: (deprecated) Whether to start the trigger on creation or not. Default: - false
+        :param actions: (deprecated) The actions initiated by this trigger.
+        :param description: (deprecated) A description for the trigger. Default: - no description
+        :param name: (deprecated) A name for the trigger. Default: - no name is provided
 
         :return: a reference to the created trigger.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -6339,10 +6337,10 @@ class IWorkflow(_aws_cdk_ceddda9d.IResource, typing_extensions.Protocol):
 class _IWorkflowProxy(
     jsii.proxy_for(_aws_cdk_ceddda9d.IResource), # type: ignore[misc]
 ):
-    '''(experimental) The base interface for Glue Workflow.
+    '''(deprecated) The base interface for Glue Workflow.
 
     :see: https://docs.aws.amazon.com/glue/latest/dg/workflows_overview.html
-    :stability: experimental
+    :stability: deprecated
     '''
 
     __jsii_type__: typing.ClassVar[str] = "@aws-cdk/aws-glue-alpha.IWorkflow"
@@ -6350,9 +6348,9 @@ class _IWorkflowProxy(
     @builtins.property
     @jsii.member(jsii_name="workflowArn")
     def workflow_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the workflow.
+        '''(deprecated) The ARN of the workflow.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "workflowArn"))
@@ -6360,9 +6358,9 @@ class _IWorkflowProxy(
     @builtins.property
     @jsii.member(jsii_name="workflowName")
     def workflow_name(self) -> builtins.str:
-        '''(experimental) The name of the workflow.
+        '''(deprecated) The name of the workflow.
 
-        :stability: experimental
+        :stability: deprecated
         :attribute: true
         '''
         return typing.cast(builtins.str, jsii.get(self, "workflowName"))
@@ -6378,18 +6376,18 @@ class _IWorkflowProxy(
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
-        '''(experimental) Add a conditional (predicate-based) trigger to the workflow.
+        '''(deprecated) Add a conditional (predicate-based) trigger to the workflow.
 
         :param id: -
-        :param predicate: (experimental) The predicate for the trigger.
-        :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
+        :param predicate: (deprecated) The predicate for the trigger.
+        :param start_on_creation: (deprecated) Whether to start the trigger on creation or not. Default: - false
+        :param actions: (deprecated) The actions initiated by this trigger.
+        :param description: (deprecated) A description for the trigger. Default: - no description
+        :param name: (deprecated) A name for the trigger. Default: - no name is provided
 
         :return: a reference to the created trigger.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__987442fc814518de647c411b03390e82069274b6061f2e4d107745c1151ec13f)
@@ -6414,17 +6412,17 @@ class _IWorkflowProxy(
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
-        '''(experimental) Add an EventBridge event-based trigger to the workflow.
+        '''(deprecated) Add an EventBridge event-based trigger to the workflow.
 
         :param id: -
-        :param event_batching_condition: (experimental) Batch condition for the trigger. Default: - no batch condition
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
+        :param event_batching_condition: (deprecated) Batch condition for the trigger. Default: - no batch condition
+        :param actions: (deprecated) The actions initiated by this trigger.
+        :param description: (deprecated) A description for the trigger. Default: - no description
+        :param name: (deprecated) A name for the trigger. Default: - no name is provided
 
         :return: a reference to the created trigger.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f3a82d646b3a60322c48ebaa3842b3a5c91a449639b70300f632798a2e82ad96)
@@ -6447,16 +6445,16 @@ class _IWorkflowProxy(
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
-        '''(experimental) Add an on-demand trigger to the workflow.
+        '''(deprecated) Add an on-demand trigger to the workflow.
 
         :param id: -
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
+        :param actions: (deprecated) The actions initiated by this trigger.
+        :param description: (deprecated) A description for the trigger. Default: - no description
+        :param name: (deprecated) A name for the trigger. Default: - no name is provided
 
         :return: a reference to the created trigger.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__69dd208a64d173519d3c260e4e253ed29f7a8284b2092d82c939efacfa84dd90)
@@ -6478,18 +6476,18 @@ class _IWorkflowProxy(
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
-        '''(experimental) Add a scheduled trigger to the workflow.
+        '''(deprecated) Add a scheduled trigger to the workflow.
 
         :param id: -
-        :param schedule: (experimental) The schedule on which this trigger fires. Build one with {@link TriggerSchedule.daily}, {@link TriggerSchedule.weekly}, {@link TriggerSchedule.cron}, or {@link TriggerSchedule.expression}.
-        :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
+        :param schedule: (deprecated) The schedule on which this trigger fires. Build one with {@link TriggerSchedule.daily}, {@link TriggerSchedule.weekly}, {@link TriggerSchedule.cron}, or {@link TriggerSchedule.expression}.
+        :param start_on_creation: (deprecated) Whether to start the trigger on creation or not. Default: - false
+        :param actions: (deprecated) The actions initiated by this trigger.
+        :param description: (deprecated) A description for the trigger. Default: - no description
+        :param name: (deprecated) A name for the trigger. Default: - no name is provided
 
         :return: a reference to the created trigger.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6607c6e68360d49d2e99238d604180d69ba6237c83e821dc3fde6c81a999682a)
@@ -6512,9 +6510,9 @@ class InputFormat(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.InputFormat",
 ):
-    '''(experimental) Absolute class name of the Hadoop ``InputFormat`` to use when reading table files.
+    '''(deprecated) Absolute class name of the Hadoop ``InputFormat`` to use when reading table files.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: fixture=_generated
 
     Example::
@@ -6530,7 +6528,7 @@ class InputFormat(
         '''
         :param class_name: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__697ee4e4007ce058f39e7fc610b2c0c4457bbd6008e9287406b18505ed299434)
@@ -6540,47 +6538,47 @@ class InputFormat(
     @jsii.python.classproperty
     @jsii.member(jsii_name="AVRO")
     def AVRO(cls) -> "InputFormat":
-        '''(experimental) InputFormat for Avro files.
+        '''(deprecated) InputFormat for Avro files.
 
         :see: https://svn.apache.org/repos/infra/websites/production/hive/content/javadocs/r3.1.3/api/org/apache/hadoop/hive/ql/io/avro/AvroContainerInputFormat.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("InputFormat", jsii.sget(cls, "AVRO"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="CLOUDTRAIL")
     def CLOUDTRAIL(cls) -> "InputFormat":
-        '''(experimental) InputFormat for Cloudtrail Logs.
+        '''(deprecated) InputFormat for Cloudtrail Logs.
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/cloudtrail.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("InputFormat", jsii.sget(cls, "CLOUDTRAIL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ORC")
     def ORC(cls) -> "InputFormat":
-        '''(experimental) InputFormat for Orc files.
+        '''(deprecated) InputFormat for Orc files.
 
         :see: https://svn.apache.org/repos/infra/websites/production/hive/content/javadocs/r3.1.3/api/org/apache/hadoop/hive/ql/io/orc/OrcInputFormat.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("InputFormat", jsii.sget(cls, "ORC"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PARQUET")
     def PARQUET(cls) -> "InputFormat":
-        '''(experimental) InputFormat for Parquet files.
+        '''(deprecated) InputFormat for Parquet files.
 
         :see: https://svn.apache.org/repos/infra/websites/production/hive/content/javadocs/r3.1.3/api/org/apache/hadoop/hive/ql/io/parquet/MapredParquetInputFormat.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("InputFormat", jsii.sget(cls, "PARQUET"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="TEXT")
     def TEXT(cls) -> "InputFormat":
-        '''(experimental) An InputFormat for plain text files.
+        '''(deprecated) An InputFormat for plain text files.
 
         Files are broken into lines. Either linefeed or
         carriage-return are used to signal end of line. Keys are the position in the file, and
@@ -6588,7 +6586,7 @@ class InputFormat(
         JSON & CSV files are examples of this InputFormat
 
         :see: https://hadoop.apache.org/docs/stable/api/org/apache/hadoop/mapred/TextInputFormat.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("InputFormat", jsii.sget(cls, "TEXT"))
 
@@ -6596,7 +6594,7 @@ class InputFormat(
     @jsii.member(jsii_name="className")
     def class_name(self) -> builtins.str:
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "className"))
 
@@ -6620,14 +6618,14 @@ class IntegerPartitionProjectionConfigurationProps:
         digits: typing.Optional[jsii.Number] = None,
         interval: typing.Optional[jsii.Number] = None,
     ) -> None:
-        '''(experimental) Properties for INTEGER partition projection configuration.
+        '''(deprecated) Properties for INTEGER partition projection configuration.
 
-        :param max: (experimental) Maximum value for the integer partition range (inclusive).
-        :param min: (experimental) Minimum value for the integer partition range (inclusive).
-        :param digits: (experimental) Number of digits to pad the partition value with leading zeros. With digits: 4, partition values: 0001, 0002, ..., 0100 Default: - no static number of digits and no leading zeroes
-        :param interval: (experimental) Interval between partition values. Default: 1
+        :param max: (deprecated) Maximum value for the integer partition range (inclusive).
+        :param min: (deprecated) Minimum value for the integer partition range (inclusive).
+        :param digits: (deprecated) Number of digits to pad the partition value with leading zeros. With digits: 4, partition values: 0001, 0002, ..., 0100 Default: - no static number of digits and no leading zeroes
+        :param interval: (deprecated) Interval between partition values. Default: 1
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -6672,9 +6670,9 @@ class IntegerPartitionProjectionConfigurationProps:
 
     @builtins.property
     def max(self) -> jsii.Number:
-        '''(experimental) Maximum value for the integer partition range (inclusive).
+        '''(deprecated) Maximum value for the integer partition range (inclusive).
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max")
         assert result is not None, "Required property 'max' is missing"
@@ -6682,9 +6680,9 @@ class IntegerPartitionProjectionConfigurationProps:
 
     @builtins.property
     def min(self) -> jsii.Number:
-        '''(experimental) Minimum value for the integer partition range (inclusive).
+        '''(deprecated) Minimum value for the integer partition range (inclusive).
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("min")
         assert result is not None, "Required property 'min' is missing"
@@ -6692,24 +6690,24 @@ class IntegerPartitionProjectionConfigurationProps:
 
     @builtins.property
     def digits(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Number of digits to pad the partition value with leading zeros.
+        '''(deprecated) Number of digits to pad the partition value with leading zeros.
 
         With digits: 4, partition values: 0001, 0002, ..., 0100
 
         :default: - no static number of digits and no leading zeroes
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("digits")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def interval(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Interval between partition values.
+        '''(deprecated) Interval between partition values.
 
         :default: 1
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("interval")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -6728,36 +6726,36 @@ class IntegerPartitionProjectionConfigurationProps:
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.InvalidCharHandlingAction")
 class InvalidCharHandlingAction(enum.Enum):
-    '''(experimental) Specifies the action to perform when query results contain invalid UTF-8 character values.
+    '''(deprecated) Specifies the action to perform when query results contain invalid UTF-8 character values.
 
     :see: https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_EXTERNAL_TABLE.html#r_CREATE_EXTERNAL_TABLE-parameters - under *"TABLE PROPERTIES"* > *"invalid_char_handling"*
-    :stability: experimental
+    :stability: deprecated
     '''
 
     DISABLED = "DISABLED"
-    '''(experimental) Doesn't perform invalid character handling.
+    '''(deprecated) Doesn't perform invalid character handling.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     FAIL = "FAIL"
-    '''(experimental) Cancels queries that return data containing invalid UTF-8 values.
+    '''(deprecated) Cancels queries that return data containing invalid UTF-8 values.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     SET_TO_NULL = "SET_TO_NULL"
-    '''(experimental) Replaces invalid UTF-8 values with null.
+    '''(deprecated) Replaces invalid UTF-8 values with null.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     DROP_ROW = "DROP_ROW"
-    '''(experimental) Replaces each value in the row with null.
+    '''(deprecated) Replaces each value in the row with null.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     REPLACE = "REPLACE"
-    '''(experimental) Replaces the invalid character with the replacement character you specify using ``REPLACEMENT_CHAR``.
+    '''(deprecated) Replaces the invalid character with the replacement character you specify using ``REPLACEMENT_CHAR``.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
@@ -6778,13 +6776,13 @@ class JobActionOptions:
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
-        '''(experimental) Options for the execution of a job.
+        '''(deprecated) Options for the execution of a job.
 
-        :param arguments: (experimental) The arguments used when this trigger fires. Default: - no arguments are passed to the job
-        :param security_configuration: (experimental) The ``SecurityConfiguration`` to be used with this action. Default: - no security configuration is used
-        :param timeout: (experimental) The run timeout. This is the maximum time that a run can consume resources before it is terminated and enters TIMEOUT status. Default: - the default timeout value set in the job definition
+        :param arguments: (deprecated) The arguments used when this trigger fires. Default: - no arguments are passed to the job
+        :param security_configuration: (deprecated) The ``SecurityConfiguration`` to be used with this action. Default: - no security configuration is used
+        :param timeout: (deprecated) The run timeout. This is the maximum time that a run can consume resources before it is terminated and enters TIMEOUT status. Default: - the default timeout value set in the job definition
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -6819,35 +6817,35 @@ class JobActionOptions:
 
     @builtins.property
     def arguments(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) The arguments used when this trigger fires.
+        '''(deprecated) The arguments used when this trigger fires.
 
         :default: - no arguments are passed to the job
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("arguments")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
-        '''(experimental) The ``SecurityConfiguration`` to be used with this action.
+        '''(deprecated) The ``SecurityConfiguration`` to be used with this action.
 
         :default: - no security configuration is used
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("security_configuration")
         return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
-        '''(experimental) The run timeout.
+        '''(deprecated) The run timeout.
 
         This is the maximum time that a run can consume resources before it is terminated and enters TIMEOUT status.
 
         :default: - the default timeout value set in the job definition
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
@@ -6876,15 +6874,15 @@ class JobAttributes:
         job_name: builtins.str,
         role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> None:
-        '''(experimental) A subset of Job attributes are required for importing an existing job into a CDK project.
+        '''(deprecated) A subset of Job attributes are required for importing an existing job into a CDK project.
 
         This is only used when using fromJobAttributes
         to identify and reference the existing job.
 
-        :param job_name: (experimental) The name of the job.
-        :param role: (experimental) The IAM role assumed by Glue to run this job. Default: - undefined
+        :param job_name: (deprecated) The name of the job.
+        :param role: (deprecated) The IAM role assumed by Glue to run this job. Default: - undefined
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -6915,9 +6913,9 @@ class JobAttributes:
 
     @builtins.property
     def job_name(self) -> builtins.str:
-        '''(experimental) The name of the job.
+        '''(deprecated) The name of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("job_name")
         assert result is not None, "Required property 'job_name' is missing"
@@ -6925,11 +6923,11 @@ class JobAttributes:
 
     @builtins.property
     def role(self) -> typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"]:
-        '''(experimental) The IAM role assumed by Glue to run this job.
+        '''(deprecated) The IAM role assumed by Glue to run this job.
 
         :default: - undefined
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("role")
         return typing.cast(typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"], result)
@@ -6952,14 +6950,14 @@ class JobBase(
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="@aws-cdk/aws-glue-alpha.JobBase",
 ):
-    '''(experimental) A base class is needed to be able to import existing Jobs into a CDK app to reference as part of a larger stack or construct.
+    '''(deprecated) A base class is needed to be able to import existing Jobs into a CDK app to reference as part of a larger stack or construct.
 
     JobBase has the subset
     of attributes required to identify and reference an existing Glue Job,
     as well as some CloudWatch metric convenience functions to configure an
     event-driven flow using the job.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
     def __init__(
@@ -6999,12 +6997,12 @@ class JobBase(
         scope: "_constructs_77d1e7e8.Construct",
         job_name: builtins.str,
     ) -> builtins.str:
-        '''(experimental) Returns the job arn.
+        '''(deprecated) Returns the job arn.
 
         :param scope: -
         :param job_name: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__aa70660931870737cb35ddc17084f527f23d25c7ed943938c3f22e4c0485f50a)
@@ -7031,7 +7029,7 @@ class JobBase(
         unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
     ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
-        '''(experimental) Create a CloudWatch metric.
+        '''(deprecated) Create a CloudWatch metric.
 
         :param metric_name: name of the metric typically prefixed with ``glue.driver.``, ``glue.<executorId>.`` or ``glue.ALL.``.
         :param type: the metric type.
@@ -7049,7 +7047,7 @@ class JobBase(
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/monitoring-awsglue-with-cloudwatch-metrics.html
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b911d0b80d0ff56cbcc674f043e52b8311bc7400a829e448c3c3eda764d83491)
@@ -7089,7 +7087,7 @@ class JobBase(
         unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
     ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
-        '''(experimental) Return a CloudWatch Metric indicating job failure.
+        '''(deprecated) Return a CloudWatch Metric indicating job failure.
 
         This metric is based on the Rule returned by no-args onFailure() call.
 
@@ -7106,7 +7104,7 @@ class JobBase(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -7142,7 +7140,7 @@ class JobBase(
         unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
     ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
-        '''(experimental) Return a CloudWatch Metric indicating job success.
+        '''(deprecated) Return a CloudWatch Metric indicating job success.
 
         This metric is based on the Rule returned by no-args onSuccess() call.
 
@@ -7159,7 +7157,7 @@ class JobBase(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -7195,7 +7193,7 @@ class JobBase(
         unit: typing.Optional["_aws_cdk_aws_cloudwatch_ceddda9d.Unit"] = None,
         visible: typing.Optional[builtins.bool] = None,
     ) -> "_aws_cdk_aws_cloudwatch_ceddda9d.Metric":
-        '''(experimental) Return a CloudWatch Metric indicating job timeout.
+        '''(deprecated) Return a CloudWatch Metric indicating job timeout.
 
         This metric is based on the Rule returned by no-args onTimeout() call.
 
@@ -7212,7 +7210,7 @@ class JobBase(
         :param unit: Unit used to filter the metric stream. Only refer to datums emitted to the metric stream with the given unit and ignore all others. Only useful when datums are being emitted to the same metric stream under different units. The default is to use all matric datums in the stream, regardless of unit, which is recommended in nearly all cases. CloudWatch does not honor this property for graphs. Default: - All metric datums in the given metric stream
         :param visible: Whether this metric should be visible in dashboard graphs. Setting this to false is useful when you want to hide raw metrics that are used in math expressions, and show only the expression results. Default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         props = _aws_cdk_aws_cloudwatch_ceddda9d.MetricOptions(
             account=account,
@@ -7242,7 +7240,7 @@ class JobBase(
         event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
-        '''(experimental) Create a CloudWatch Event Rule for this Glue Job when it's in a given state.
+        '''(deprecated) Create a CloudWatch Event Rule for this Glue Job when it's in a given state.
 
         :param id: construct id.
         :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
@@ -7252,7 +7250,7 @@ class JobBase(
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
 
         :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/EventTypes.html#glue-event-types
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__73cc7e2bbc6bf1373f7ea0648bd9ea98ea4128f5a8fc4e953c6ed045553241be)
@@ -7278,7 +7276,7 @@ class JobBase(
         event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
-        '''(experimental) Return a CloudWatch Event Rule matching FAILED state.
+        '''(deprecated) Return a CloudWatch Event Rule matching FAILED state.
 
         :param id: construct id.
         :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
@@ -7287,7 +7285,7 @@ class JobBase(
         :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__77f5d668de04442221d5e3bba863cfe419f61129e07989d315192cb9d97f4db5)
@@ -7314,7 +7312,7 @@ class JobBase(
         event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
-        '''(experimental) Create a CloudWatch Event Rule for the transition into the input jobState.
+        '''(deprecated) Create a CloudWatch Event Rule for the transition into the input jobState.
 
         :param id: construct id.
         :param job_state: the job state.
@@ -7324,7 +7322,7 @@ class JobBase(
         :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fda6a815caa9cab4dc3e6813b1bfd2b75320d67659c45911f873bdd5d36ebb7d)
@@ -7351,7 +7349,7 @@ class JobBase(
         event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
-        '''(experimental) Create a CloudWatch Event Rule matching JobState.SUCCEEDED.
+        '''(deprecated) Create a CloudWatch Event Rule matching JobState.SUCCEEDED.
 
         :param id: construct id.
         :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
@@ -7360,7 +7358,7 @@ class JobBase(
         :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__b222179ebf9f594ae469da9d52cf7fd0d5443aa5fd6dd0e5038d38dc0b3c00fb)
@@ -7386,7 +7384,7 @@ class JobBase(
         event_pattern: typing.Optional[typing.Union["_aws_cdk_aws_events_ceddda9d.EventPattern", typing.Dict[builtins.str, typing.Any]]] = None,
         rule_name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_aws_events_ceddda9d.Rule":
-        '''(experimental) Return a CloudWatch Event Rule matching TIMEOUT state.
+        '''(deprecated) Return a CloudWatch Event Rule matching TIMEOUT state.
 
         :param id: construct id.
         :param target: The target to register for the event. Default: - No target is added to the rule. Use ``addTarget()`` to add a target.
@@ -7395,7 +7393,7 @@ class JobBase(
         :param event_pattern: Additional restrictions for the event to route to the specified target. The method that generates the rule probably imposes some type of event filtering. The filtering implied by what you pass here is added on top of that filtering. Default: - No additional filtering based on an event pattern.
         :param rule_name: A name for the rule. Default: AWS CloudFormation generates a unique physical ID.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d7a8d02d32cc082a6ff2a1e0f1652f9b32b59c7e9908524f3e8b2ccbd05b1c1c)
@@ -7414,9 +7412,9 @@ class JobBase(
     @jsii.member(jsii_name="grantPrincipal")
     @abc.abstractmethod
     def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
-        '''(experimental) The principal to grant permissions to.
+        '''(deprecated) The principal to grant permissions to.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -7424,9 +7422,9 @@ class JobBase(
     @jsii.member(jsii_name="jobArn")
     @abc.abstractmethod
     def job_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the job.
+        '''(deprecated) The ARN of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -7434,18 +7432,18 @@ class JobBase(
     @jsii.member(jsii_name="jobName")
     @abc.abstractmethod
     def job_name(self) -> builtins.str:
-        '''(experimental) The name of the job.
+        '''(deprecated) The name of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
     @builtins.property
     @jsii.member(jsii_name="jobRef")
     def job_ref(self) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.JobReference":
-        '''(experimental) A reference to this Job resource, for use with the generated L1 ref interface.
+        '''(deprecated) A reference to this Job resource, for use with the generated L1 ref interface.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("_aws_cdk_interfaces_aws_glue_ceddda9d.JobReference", jsii.get(self, "jobRef"))
 
@@ -7457,27 +7455,27 @@ class _JobBaseProxy(
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
     def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
-        '''(experimental) The principal to grant permissions to.
+        '''(deprecated) The principal to grant permissions to.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="jobArn")
     def job_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the job.
+        '''(deprecated) The ARN of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobArn"))
 
     @builtins.property
     @jsii.member(jsii_name="jobName")
     def job_name(self) -> builtins.str:
-        '''(experimental) The name of the job.
+        '''(deprecated) The name of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobName"))
 
@@ -7489,11 +7487,11 @@ class JobBookmarksEncryption(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.JobBookmarksEncryption",
 ):
-    '''(experimental) Job bookmarks encryption configuration for a ``SecurityConfiguration``.
+    '''(deprecated) Job bookmarks encryption configuration for a ``SecurityConfiguration``.
 
     Job bookmarks support only client-side encryption with a KMS key.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -7511,12 +7509,12 @@ class JobBookmarksEncryption(
         cls,
         kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
     ) -> "JobBookmarksEncryption":
-        '''(experimental) Client-side encryption (CSE) with an AWS KMS key managed by the account owner.
+        '''(deprecated) Client-side encryption (CSE) with an AWS KMS key managed by the account owner.
 
         :param kms_key: the KMS key used to encrypt the data. A key is created if one is not provided.
 
         :see: https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingClientSideEncryption.html
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8799542eea726904c0332b476c0c0b92c6d42f78273fd15f6728fa5d6da5518e)
@@ -7526,20 +7524,20 @@ class JobBookmarksEncryption(
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.JobLanguage")
 class JobLanguage(enum.Enum):
-    '''(experimental) Runtime language of the Glue job.
+    '''(deprecated) Runtime language of the Glue job.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
     SCALA = "SCALA"
-    '''(experimental) Scala.
+    '''(deprecated) Scala.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     PYTHON = "PYTHON"
-    '''(experimental) Python.
+    '''(deprecated) Python.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
@@ -7580,23 +7578,23 @@ class JobProps:
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
-        '''(experimental) JobProps will be used to create new Glue Jobs using this L2 Construct.
+        '''(deprecated) JobProps will be used to create new Glue Jobs using this L2 Construct.
 
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -7690,10 +7688,10 @@ class JobProps:
 
     @builtins.property
     def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
-        '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        '''(deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
@@ -7701,13 +7699,13 @@ class JobProps:
 
     @builtins.property
     def script(self) -> "Code":
-        '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
+        '''(deprecated) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
         from the local directory structure using fromAsset
         or referenced via S3 location using fromBucket
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
@@ -7715,23 +7713,23 @@ class JobProps:
 
     @builtins.property
     def connections(self) -> typing.Optional[typing.List["IConnection"]]:
-        '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
+        '''(deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("connections")
         return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
     def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
-        '''(experimental) Enables continuous logging with the specified props.
+        '''(deprecated) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("continuous_logging")
         return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
@@ -7740,7 +7738,7 @@ class JobProps:
     def default_arguments(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+        '''(deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
         This map is the escape hatch for Glue job arguments that this construct does not model. It
         MUST NOT be used to set arguments that already have a dedicated prop — configure those through
@@ -7762,100 +7760,100 @@ class JobProps:
 
         https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
         for a list of reserved parameters
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("default_arguments")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Description (optional) Developer-specified description of the Glue job.
+        '''(deprecated) Description (optional) Developer-specified description of the Glue job.
 
         :default: - no value
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
-        '''(experimental) Glue Version The version of Glue to use to execute this job.
+        '''(deprecated) Glue Version The version of Glue to use to execute this job.
 
         :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("glue_version")
         return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Name of the Glue job (optional) Developer-specified name of the Glue job.
+        '''(deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job.
 
         :default: - a name is automatically generated
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("job_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_concurrent_runs(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
+        '''(deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
 
         An error is returned when this threshold is reached. The maximum value
         you can specify is controlled by a service limit.
 
         :default: 1
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_concurrent_runs")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_retries(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
+        '''(deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
 
         :default: 0
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
-        '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
+        '''(deprecated) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("security_configuration")
         return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
+        '''(deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
 
         :default: {} - no tags
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
-        '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
+        '''(deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
 
         :default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
@@ -7874,70 +7872,70 @@ class JobProps:
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.JobState")
 class JobState(enum.Enum):
-    '''(experimental) Job states emitted by Glue to CloudWatch Events.
+    '''(deprecated) Job states emitted by Glue to CloudWatch Events.
 
     :see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/EventTypes.html#glue-event-types for more information.
-    :stability: experimental
+    :stability: deprecated
     '''
 
     SUCCEEDED = "SUCCEEDED"
-    '''(experimental) State indicating job run succeeded.
+    '''(deprecated) State indicating job run succeeded.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     FAILED = "FAILED"
-    '''(experimental) State indicating job run failed.
+    '''(deprecated) State indicating job run failed.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     TIMEOUT = "TIMEOUT"
-    '''(experimental) State indicating job run timed out.
+    '''(deprecated) State indicating job run timed out.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     STARTING = "STARTING"
-    '''(experimental) State indicating job is starting.
+    '''(deprecated) State indicating job is starting.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     RUNNING = "RUNNING"
-    '''(experimental) State indicating job is running.
+    '''(deprecated) State indicating job is running.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     STOPPING = "STOPPING"
-    '''(experimental) State indicating job is stopping.
+    '''(deprecated) State indicating job is stopping.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     STOPPED = "STOPPED"
-    '''(experimental) State indicating job stopped.
+    '''(deprecated) State indicating job stopped.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.JobType")
 class JobType(enum.Enum):
-    '''(experimental) The job type.
+    '''(deprecated) The job type.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
     ETL = "ETL"
-    '''(experimental) Command for running a Glue Spark job.
+    '''(deprecated) Command for running a Glue Spark job.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     STREAMING = "STREAMING"
-    '''(experimental) Command for running a Glue Spark streaming job.
+    '''(deprecated) Command for running a Glue Spark streaming job.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     PYTHON_SHELL = "PYTHON_SHELL"
-    '''(experimental) Command for running a Glue python shell job.
+    '''(deprecated) Command for running a Glue python shell job.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     RAY = "RAY"
     '''(deprecated) Command for running a Glue Ray job.
@@ -7954,34 +7952,34 @@ class JobType(enum.Enum):
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.LibrarySet")
 class LibrarySet(enum.Enum):
-    '''(experimental) The set of pre-installed Python libraries available to a Python shell job running Python 3.9.
+    '''(deprecated) The set of pre-installed Python libraries available to a Python shell job running Python 3.9.
 
     :see: https://docs.aws.amazon.com/glue/latest/dg/add-job-python.html#python-shell-supported-library
-    :stability: experimental
+    :stability: deprecated
     '''
 
     ANALYTICS = "ANALYTICS"
-    '''(experimental) Include the common analytics libraries for Python 3.9 (e.g. pandas, numpy, scikit-learn, awswrangler).
+    '''(deprecated) Include the common analytics libraries for Python 3.9 (e.g. pandas, numpy, scikit-learn, awswrangler).
 
-    :stability: experimental
+    :stability: deprecated
     '''
     NONE = "NONE"
-    '''(experimental) Do not install the common library set.
+    '''(deprecated) Do not install the common library set.
 
     Use this when your libraries are custom or conflict
     with the pre-installed ones.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.MaxCapacity")
 class MaxCapacity(enum.Enum):
-    '''(experimental) The number of AWS Glue data processing units (DPUs) that can be allocated when this job runs.
+    '''(deprecated) The number of AWS Glue data processing units (DPUs) that can be allocated when this job runs.
 
     A DPU is a relative measure of processing power that consists of 4 vCPUs of compute capacity and 16 GB of memory.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -8017,84 +8015,84 @@ class MaxCapacity(enum.Enum):
     '''
 
     DPU_1_16TH = "DPU_1_16TH"
-    '''(experimental) DPU value of 1/16th.
+    '''(deprecated) DPU value of 1/16th.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     DPU_1 = "DPU_1"
-    '''(experimental) DPU value of 1.
+    '''(deprecated) DPU value of 1.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.MetricType")
 class MetricType(enum.Enum):
-    '''(experimental) The Glue CloudWatch metric type.
+    '''(deprecated) The Glue CloudWatch metric type.
 
     :see: https://docs.aws.amazon.com/glue/latest/dg/monitoring-awsglue-with-cloudwatch-metrics.html
-    :stability: experimental
+    :stability: deprecated
     '''
 
     GAUGE = "GAUGE"
-    '''(experimental) A value at a point in time.
+    '''(deprecated) A value at a point in time.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     COUNT = "COUNT"
-    '''(experimental) An aggregate number.
+    '''(deprecated) An aggregate number.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.NumericOverflowHandlingAction")
 class NumericOverflowHandlingAction(enum.Enum):
-    '''(experimental) Specifies the action to perform when ORC data contains an integer (for example, BIGINT or int64) that is larger than the column definition (for example, SMALLINT or int16).
+    '''(deprecated) Specifies the action to perform when ORC data contains an integer (for example, BIGINT or int64) that is larger than the column definition (for example, SMALLINT or int16).
 
     :see: https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_EXTERNAL_TABLE.html#r_CREATE_EXTERNAL_TABLE-parameters - under *"TABLE PROPERTIES"* > *"numeric_overflow_handling"*
-    :stability: experimental
+    :stability: deprecated
     '''
 
     DISABLED = "DISABLED"
-    '''(experimental) Invalid character handling is turned off.
+    '''(deprecated) Invalid character handling is turned off.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     FAIL = "FAIL"
-    '''(experimental) Cancel the query when the data includes invalid characters.
+    '''(deprecated) Cancel the query when the data includes invalid characters.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     SET_TO_NULL = "SET_TO_NULL"
-    '''(experimental) Set invalid characters to null.
+    '''(deprecated) Set invalid characters to null.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     DROP_ROW = "DROP_ROW"
-    '''(experimental) Set each value in the row to null.
+    '''(deprecated) Set each value in the row to null.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.OrcColumnMappingType")
 class OrcColumnMappingType(enum.Enum):
-    '''(experimental) Specifies how to map columns when the table uses ORC data format.
+    '''(deprecated) Specifies how to map columns when the table uses ORC data format.
 
     :see: https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_EXTERNAL_TABLE.html#r_CREATE_EXTERNAL_TABLE-parameters - under *"TABLE PROPERTIES"* > *"orc.schema.resolution"*
-    :stability: experimental
+    :stability: deprecated
     '''
 
     NAME = "NAME"
-    '''(experimental) Map columns by name.
+    '''(deprecated) Map columns by name.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     POSITION = "POSITION"
-    '''(experimental) Map columns by position.
+    '''(deprecated) Map columns by position.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
@@ -8102,9 +8100,9 @@ class OutputFormat(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.OutputFormat",
 ):
-    '''(experimental) Absolute class name of the Hadoop ``OutputFormat`` to use when writing table files.
+    '''(deprecated) Absolute class name of the Hadoop ``OutputFormat`` to use when writing table files.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: fixture=_generated
 
     Example::
@@ -8120,7 +8118,7 @@ class OutputFormat(
         '''
         :param class_name: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8952681a040fc7931f48438a2e01cd3c2bed40202b6f32cd606344a5ea10e810)
@@ -8130,40 +8128,40 @@ class OutputFormat(
     @jsii.python.classproperty
     @jsii.member(jsii_name="AVRO")
     def AVRO(cls) -> "OutputFormat":
-        '''(experimental) OutputFormat for Avro files.
+        '''(deprecated) OutputFormat for Avro files.
 
         :see: https://svn.apache.org/repos/infra/websites/production/hive/content/javadocs/r3.1.3/api/org/apache/hadoop/hive/ql/io/avro/AvroContainerOutputFormat.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("OutputFormat", jsii.sget(cls, "AVRO"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="HIVE_IGNORE_KEY_TEXT")
     def HIVE_IGNORE_KEY_TEXT(cls) -> "OutputFormat":
-        '''(experimental) Writes text data with a null key (value only).
+        '''(deprecated) Writes text data with a null key (value only).
 
         :see: https://svn.apache.org/repos/infra/websites/production/hive/content/javadocs/r3.1.3/api/org/apache/hadoop/hive/ql/io/HiveIgnoreKeyTextOutputFormat.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("OutputFormat", jsii.sget(cls, "HIVE_IGNORE_KEY_TEXT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="ORC")
     def ORC(cls) -> "OutputFormat":
-        '''(experimental) OutputFormat for Orc files.
+        '''(deprecated) OutputFormat for Orc files.
 
         :see: https://svn.apache.org/repos/infra/websites/production/hive/content/javadocs/r3.1.3/api/org/apache/hadoop/hive/ql/io/orc/OrcOutputFormat.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("OutputFormat", jsii.sget(cls, "ORC"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="PARQUET")
     def PARQUET(cls) -> "OutputFormat":
-        '''(experimental) OutputFormat for Parquet files.
+        '''(deprecated) OutputFormat for Parquet files.
 
         :see: https://svn.apache.org/repos/infra/websites/production/hive/content/javadocs/r3.1.3/api/org/apache/hadoop/hive/ql/io/parquet/MapredParquetOutputFormat.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("OutputFormat", jsii.sget(cls, "PARQUET"))
 
@@ -8171,7 +8169,7 @@ class OutputFormat(
     @jsii.member(jsii_name="className")
     def class_name(self) -> builtins.str:
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "className"))
 
@@ -8188,12 +8186,12 @@ class PartitionIndex:
         key_names: typing.Sequence[builtins.str],
         index_name: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''(experimental) Properties of a Partition Index.
+        '''(deprecated) Properties of a Partition Index.
 
-        :param key_names: (experimental) The partition key names that comprise the partition index. The names must correspond to a name in the table's partition keys.
-        :param index_name: (experimental) The name of the partition index. Default: - a name will be generated for you.
+        :param key_names: (deprecated) The partition key names that comprise the partition index. The names must correspond to a name in the table's partition keys.
+        :param index_name: (deprecated) The name of the partition index. Default: - a name will be generated for you.
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -8217,12 +8215,12 @@ class PartitionIndex:
 
     @builtins.property
     def key_names(self) -> typing.List[builtins.str]:
-        '''(experimental) The partition key names that comprise the partition index.
+        '''(deprecated) The partition key names that comprise the partition index.
 
         The names must correspond to a name in the
         table's partition keys.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("key_names")
         assert result is not None, "Required property 'key_names' is missing"
@@ -8230,11 +8228,11 @@ class PartitionIndex:
 
     @builtins.property
     def index_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The name of the partition index.
+        '''(deprecated) The name of the partition index.
 
         :default: - a name will be generated for you.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("index_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -8255,9 +8253,9 @@ class PartitionProjectionConfiguration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.PartitionProjectionConfiguration",
 ):
-    '''(experimental) Factory class for creating partition projection configurations.
+    '''(deprecated) Factory class for creating partition projection configurations.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -8298,14 +8296,14 @@ class PartitionProjectionConfiguration(
         min: builtins.str,
         step: typing.Optional[typing.Union["DateProjectionStep", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> "PartitionProjectionConfiguration":
-        '''(experimental) Create a DATE partition projection configuration.
+        '''(deprecated) Create a DATE partition projection configuration.
 
-        :param format: (experimental) Date format for partition values. Uses Java SimpleDateFormat patterns.
-        :param max: (experimental) End date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property - Relative date using NOW syntax Same format constraints as ``min``.
-        :param min: (experimental) Start date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property (e.g., '2020-01-01' for format 'yyyy-MM-dd') - Relative date using NOW syntax (e.g., 'NOW', 'NOW-3YEARS', 'NOW+1MONTH')
-        :param step: (experimental) Interval step (``interval`` + ``intervalUnit``) between partition values. The two are supplied together, so a partial step cannot be expressed. Required when ``format`` carries sub-day precision — a field finer than a day, such as hours or AM/PM; at day or coarser precision Athena defaults the step, so it may be omitted. Default: - Athena's default step for the format's precision; required when ``format`` is sub-day precision
+        :param format: (deprecated) Date format for partition values. Uses Java SimpleDateFormat patterns.
+        :param max: (deprecated) End date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property - Relative date using NOW syntax Same format constraints as ``min``.
+        :param min: (deprecated) Start date for the partition range (inclusive). Can be either: - Fixed date in the format specified by ``format`` property (e.g., '2020-01-01' for format 'yyyy-MM-dd') - Relative date using NOW syntax (e.g., 'NOW', 'NOW-3YEARS', 'NOW+1MONTH')
+        :param step: (deprecated) Interval step (``interval`` + ``intervalUnit``) between partition values. The two are supplied together, so a partial step cannot be expressed. Required when ``format`` carries sub-day precision — a field finer than a day, such as hours or AM/PM; at day or coarser precision Athena defaults the step, so it may be omitted. Default: - Athena's default step for the format's precision; required when ``format`` is sub-day precision
 
-        :stability: experimental
+        :stability: deprecated
         '''
         props = DatePartitionProjectionConfigurationProps(
             format=format, max=max, min=min, step=step
@@ -8320,11 +8318,11 @@ class PartitionProjectionConfiguration(
         *,
         values: typing.Sequence[builtins.str],
     ) -> "PartitionProjectionConfiguration":
-        '''(experimental) Create an ENUM partition projection configuration.
+        '''(deprecated) Create an ENUM partition projection configuration.
 
-        :param values: (experimental) Explicit list of partition values.
+        :param values: (deprecated) Explicit list of partition values.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         props = EnumPartitionProjectionConfigurationProps(values=values)
 
@@ -8333,12 +8331,12 @@ class PartitionProjectionConfiguration(
     @jsii.member(jsii_name="injected")
     @builtins.classmethod
     def injected(cls) -> "PartitionProjectionConfiguration":
-        '''(experimental) Create an INJECTED partition projection configuration.
+        '''(deprecated) Create an INJECTED partition projection configuration.
 
         Partition values are injected at query time through the query statement.
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html#partition-projection-injected-type
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("PartitionProjectionConfiguration", jsii.sinvoke(cls, "injected", []))
 
@@ -8352,14 +8350,14 @@ class PartitionProjectionConfiguration(
         digits: typing.Optional[jsii.Number] = None,
         interval: typing.Optional[jsii.Number] = None,
     ) -> "PartitionProjectionConfiguration":
-        '''(experimental) Create an INTEGER partition projection configuration.
+        '''(deprecated) Create an INTEGER partition projection configuration.
 
-        :param max: (experimental) Maximum value for the integer partition range (inclusive).
-        :param min: (experimental) Minimum value for the integer partition range (inclusive).
-        :param digits: (experimental) Number of digits to pad the partition value with leading zeros. With digits: 4, partition values: 0001, 0002, ..., 0100 Default: - no static number of digits and no leading zeroes
-        :param interval: (experimental) Interval between partition values. Default: 1
+        :param max: (deprecated) Maximum value for the integer partition range (inclusive).
+        :param min: (deprecated) Minimum value for the integer partition range (inclusive).
+        :param digits: (deprecated) Number of digits to pad the partition value with leading zeros. With digits: 4, partition values: 0001, 0002, ..., 0100 Default: - no static number of digits and no leading zeroes
+        :param interval: (deprecated) Interval between partition values. Default: 1
 
-        :stability: experimental
+        :stability: deprecated
         '''
         props = IntegerPartitionProjectionConfigurationProps(
             max=max, min=min, digits=digits, interval=interval
@@ -8370,42 +8368,42 @@ class PartitionProjectionConfiguration(
     @builtins.property
     @jsii.member(jsii_name="type")
     def type(self) -> "PartitionProjectionType":
-        '''(experimental) The type of partition projection.
+        '''(deprecated) The type of partition projection.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("PartitionProjectionType", jsii.get(self, "type"))
 
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.PartitionProjectionType")
 class PartitionProjectionType(enum.Enum):
-    '''(experimental) Partition projection type.
+    '''(deprecated) Partition projection type.
 
     Determines how Athena projects partition values.
 
     :see: https://docs.aws.amazon.com/athena/latest/ug/partition-projection-supported-types.html
-    :stability: experimental
+    :stability: deprecated
     '''
 
     INTEGER = "INTEGER"
-    '''(experimental) Project partition values as integers within a range.
+    '''(deprecated) Project partition values as integers within a range.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     DATE = "DATE"
-    '''(experimental) Project partition values as dates within a range.
+    '''(deprecated) Project partition values as dates within a range.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     ENUM = "ENUM"
-    '''(experimental) Project partition values from an explicit list of values.
+    '''(deprecated) Project partition values from an explicit list of values.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     INJECTED = "INJECTED"
-    '''(experimental) Project partition values that are injected at query time.
+    '''(deprecated) Project partition values that are injected at query time.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
@@ -8421,12 +8419,12 @@ class Predicate:
         conditions: typing.Optional[typing.Sequence["Condition"]] = None,
         logical: typing.Optional["PredicateLogical"] = None,
     ) -> None:
-        '''(experimental) Represents a trigger predicate.
+        '''(deprecated) Represents a trigger predicate.
 
-        :param conditions: (experimental) A list of the conditions that determine when the trigger will fire. Default: - no conditions are provided
-        :param logical: (experimental) The logical operator to be applied to the conditions. Default: - PredicateLogical.AND if multiple conditions are provided, no logical operator if only one condition
+        :param conditions: (deprecated) A list of the conditions that determine when the trigger will fire. Default: - no conditions are provided
+        :param logical: (deprecated) The logical operator to be applied to the conditions. Default: - PredicateLogical.AND if multiple conditions are provided, no logical operator if only one condition
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -8454,22 +8452,22 @@ class Predicate:
 
     @builtins.property
     def conditions(self) -> typing.Optional[typing.List["Condition"]]:
-        '''(experimental) A list of the conditions that determine when the trigger will fire.
+        '''(deprecated) A list of the conditions that determine when the trigger will fire.
 
         :default: - no conditions are provided
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("conditions")
         return typing.cast(typing.Optional[typing.List["Condition"]], result)
 
     @builtins.property
     def logical(self) -> typing.Optional["PredicateLogical"]:
-        '''(experimental) The logical operator to be applied to the conditions.
+        '''(deprecated) The logical operator to be applied to the conditions.
 
         :default: - PredicateLogical.AND if multiple conditions are provided, no logical operator if only one condition
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("logical")
         return typing.cast(typing.Optional["PredicateLogical"], result)
@@ -8489,18 +8487,18 @@ class Predicate:
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.PredicateLogical")
 class PredicateLogical(enum.Enum):
     '''
-    :stability: experimental
+    :stability: deprecated
     '''
 
     AND = "AND"
-    '''(experimental) All conditions must be true for the predicate to be true.
+    '''(deprecated) All conditions must be true for the predicate to be true.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     ANY = "ANY"
-    '''(experimental) At least one condition must be true for the predicate to be true.
+    '''(deprecated) At least one condition must be true for the predicate to be true.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
@@ -8551,28 +8549,28 @@ class PythonShellJobProps(JobProps):
         max_capacity: typing.Optional["MaxCapacity"] = None,
         python_version: typing.Optional["PythonVersion"] = None,
     ) -> None:
-        '''(experimental) Properties for creating a Python Shell job.
+        '''(deprecated) Properties for creating a Python Shell job.
 
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param extra_python_files: (experimental) Additional Python files that AWS Glue adds to the Python path before executing your script. Only individual files are supported, directories are not supported. Equivalent to the ``--extra-py-files`` job argument. Default: - no extra Python files
-        :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: false
-        :param library_set: (experimental) The set of pre-installed Python libraries to make available to the job. Only applies to jobs running Python 3.9. Set to ``LibrarySet.NONE`` when your libraries are custom or conflict with the pre-installed ones. Default: LibrarySet.ANALYTICS when running Python 3.9, otherwise no library set is configured
-        :param max_capacity: (experimental) The total number of DPU to assign to the Python Job. Default: 0.0625
-        :param python_version: (experimental) The version of Python to use to execute this job. Python shell jobs only support ``PythonVersion.THREE_NINE``. The older ``PythonVersion.TWO`` (Python 2.7) and ``PythonVersion.THREE`` (Python 3.6) runtimes have been retired by AWS Glue and are no longer available for Python shell jobs. Default: PythonVersion.THREE_NINE
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param extra_python_files: (deprecated) Additional Python files that AWS Glue adds to the Python path before executing your script. Only individual files are supported, directories are not supported. Equivalent to the ``--extra-py-files`` job argument. Default: - no extra Python files
+        :param job_run_queuing_enabled: (deprecated) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: false
+        :param library_set: (deprecated) The set of pre-installed Python libraries to make available to the job. Only applies to jobs running Python 3.9. Set to ``LibrarySet.NONE`` when your libraries are custom or conflict with the pre-installed ones. Default: LibrarySet.ANALYTICS when running Python 3.9, otherwise no library set is configured
+        :param max_capacity: (deprecated) The total number of DPU to assign to the Python Job. Default: 0.0625
+        :param python_version: (deprecated) The version of Python to use to execute this job. Python shell jobs only support ``PythonVersion.THREE_NINE``. The older ``PythonVersion.TWO`` (Python 2.7) and ``PythonVersion.THREE`` (Python 3.6) runtimes have been retired by AWS Glue and are no longer available for Python shell jobs. Default: PythonVersion.THREE_NINE
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -8646,10 +8644,10 @@ class PythonShellJobProps(JobProps):
 
     @builtins.property
     def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
-        '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        '''(deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
@@ -8657,13 +8655,13 @@ class PythonShellJobProps(JobProps):
 
     @builtins.property
     def script(self) -> "Code":
-        '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
+        '''(deprecated) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
         from the local directory structure using fromAsset
         or referenced via S3 location using fromBucket
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
@@ -8671,23 +8669,23 @@ class PythonShellJobProps(JobProps):
 
     @builtins.property
     def connections(self) -> typing.Optional[typing.List["IConnection"]]:
-        '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
+        '''(deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("connections")
         return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
     def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
-        '''(experimental) Enables continuous logging with the specified props.
+        '''(deprecated) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("continuous_logging")
         return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
@@ -8696,7 +8694,7 @@ class PythonShellJobProps(JobProps):
     def default_arguments(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+        '''(deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
         This map is the escape hatch for Glue job arguments that this construct does not model. It
         MUST NOT be used to set arguments that already have a dedicated prop — configure those through
@@ -8718,107 +8716,107 @@ class PythonShellJobProps(JobProps):
 
         https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
         for a list of reserved parameters
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("default_arguments")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Description (optional) Developer-specified description of the Glue job.
+        '''(deprecated) Description (optional) Developer-specified description of the Glue job.
 
         :default: - no value
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
-        '''(experimental) Glue Version The version of Glue to use to execute this job.
+        '''(deprecated) Glue Version The version of Glue to use to execute this job.
 
         :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("glue_version")
         return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Name of the Glue job (optional) Developer-specified name of the Glue job.
+        '''(deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job.
 
         :default: - a name is automatically generated
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("job_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_concurrent_runs(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
+        '''(deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
 
         An error is returned when this threshold is reached. The maximum value
         you can specify is controlled by a service limit.
 
         :default: 1
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_concurrent_runs")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_retries(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
+        '''(deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
 
         :default: 0
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
-        '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
+        '''(deprecated) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("security_configuration")
         return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
+        '''(deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
 
         :default: {} - no tags
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
-        '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
+        '''(deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
 
         :default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def extra_python_files(self) -> typing.Optional[typing.List["Code"]]:
-        '''(experimental) Additional Python files that AWS Glue adds to the Python path before executing your script.
+        '''(deprecated) Additional Python files that AWS Glue adds to the Python path before executing your script.
 
         Only individual files are supported, directories are not supported.
         Equivalent to the ``--extra-py-files`` job argument.
@@ -8826,14 +8824,14 @@ class PythonShellJobProps(JobProps):
         :default: - no extra Python files
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_python_files")
         return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def job_run_queuing_enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Specifies whether job run queuing is enabled for the job runs for this job.
+        '''(deprecated) Specifies whether job run queuing is enabled for the job runs for this job.
 
         A value of true means job run queuing is enabled for the job runs.
         If false or not populated, the job runs will not be considered for queueing.
@@ -8843,14 +8841,14 @@ class PythonShellJobProps(JobProps):
 
         :default: false
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("job_run_queuing_enabled")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def library_set(self) -> typing.Optional["LibrarySet"]:
-        '''(experimental) The set of pre-installed Python libraries to make available to the job.
+        '''(deprecated) The set of pre-installed Python libraries to make available to the job.
 
         Only applies to jobs running Python 3.9. Set to ``LibrarySet.NONE`` when your libraries are
         custom or conflict with the pre-installed ones.
@@ -8858,25 +8856,25 @@ class PythonShellJobProps(JobProps):
         :default: LibrarySet.ANALYTICS when running Python 3.9, otherwise no library set is configured
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/add-job-python.html#python-shell-supported-library
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("library_set")
         return typing.cast(typing.Optional["LibrarySet"], result)
 
     @builtins.property
     def max_capacity(self) -> typing.Optional["MaxCapacity"]:
-        '''(experimental) The total number of DPU to assign to the Python Job.
+        '''(deprecated) The total number of DPU to assign to the Python Job.
 
         :default: 0.0625
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_capacity")
         return typing.cast(typing.Optional["MaxCapacity"], result)
 
     @builtins.property
     def python_version(self) -> typing.Optional["PythonVersion"]:
-        '''(experimental) The version of Python to use to execute this job.
+        '''(deprecated) The version of Python to use to execute this job.
 
         Python shell jobs only support ``PythonVersion.THREE_NINE``. The older ``PythonVersion.TWO``
         (Python 2.7) and ``PythonVersion.THREE`` (Python 3.6) runtimes have been retired by AWS Glue
@@ -8884,7 +8882,7 @@ class PythonShellJobProps(JobProps):
 
         :default: PythonVersion.THREE_NINE
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("python_version")
         return typing.cast(typing.Optional["PythonVersion"], result)
@@ -8903,9 +8901,9 @@ class PythonShellJobProps(JobProps):
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.PythonVersion")
 class PythonVersion(enum.Enum):
-    '''(experimental) Python version.
+    '''(deprecated) Python version.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -8941,19 +8939,19 @@ class PythonVersion(enum.Enum):
     '''
 
     TWO = "TWO"
-    '''(experimental) Python 2 (the exact version depends on GlueVersion and JobCommand used).
+    '''(deprecated) Python 2 (the exact version depends on GlueVersion and JobCommand used).
 
-    :stability: experimental
+    :stability: deprecated
     '''
     THREE = "THREE"
-    '''(experimental) Python 3 (the exact version depends on GlueVersion and JobCommand used).
+    '''(deprecated) Python 3 (the exact version depends on GlueVersion and JobCommand used).
 
-    :stability: experimental
+    :stability: deprecated
     '''
     THREE_NINE = "THREE_NINE"
-    '''(experimental) Python 3.9 (the exact version depends on GlueVersion and JobCommand used).
+    '''(deprecated) Python 3.9 (the exact version depends on GlueVersion and JobCommand used).
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
@@ -9006,19 +9004,19 @@ class RayJobProps(JobProps):
     ) -> None:
         '''(deprecated) Properties for creating a Ray Glue job.
 
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
         :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
         :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
         :param job_run_queuing_enabled: (deprecated) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
@@ -9145,10 +9143,10 @@ class RayJobProps(JobProps):
 
     @builtins.property
     def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
-        '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        '''(deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
@@ -9156,13 +9154,13 @@ class RayJobProps(JobProps):
 
     @builtins.property
     def script(self) -> "Code":
-        '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
+        '''(deprecated) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
         from the local directory structure using fromAsset
         or referenced via S3 location using fromBucket
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
@@ -9170,23 +9168,23 @@ class RayJobProps(JobProps):
 
     @builtins.property
     def connections(self) -> typing.Optional[typing.List["IConnection"]]:
-        '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
+        '''(deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("connections")
         return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
     def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
-        '''(experimental) Enables continuous logging with the specified props.
+        '''(deprecated) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("continuous_logging")
         return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
@@ -9195,7 +9193,7 @@ class RayJobProps(JobProps):
     def default_arguments(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+        '''(deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
         This map is the escape hatch for Glue job arguments that this construct does not model. It
         MUST NOT be used to set arguments that already have a dedicated prop — configure those through
@@ -9217,100 +9215,100 @@ class RayJobProps(JobProps):
 
         https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
         for a list of reserved parameters
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("default_arguments")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Description (optional) Developer-specified description of the Glue job.
+        '''(deprecated) Description (optional) Developer-specified description of the Glue job.
 
         :default: - no value
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
-        '''(experimental) Glue Version The version of Glue to use to execute this job.
+        '''(deprecated) Glue Version The version of Glue to use to execute this job.
 
         :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("glue_version")
         return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Name of the Glue job (optional) Developer-specified name of the Glue job.
+        '''(deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job.
 
         :default: - a name is automatically generated
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("job_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_concurrent_runs(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
+        '''(deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
 
         An error is returned when this threshold is reached. The maximum value
         you can specify is controlled by a service limit.
 
         :default: 1
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_concurrent_runs")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_retries(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
+        '''(deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
 
         :default: 0
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
-        '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
+        '''(deprecated) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("security_configuration")
         return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
+        '''(deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
 
         :default: {} - no tags
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
-        '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
+        '''(deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
 
         :default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
@@ -9415,9 +9413,9 @@ class Runtime(enum.Enum):
 
 
 class S3Code(Code, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.S3Code"):
-    '''(experimental) Glue job Code from an S3 bucket.
+    '''(deprecated) Glue job Code from an S3 bucket.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: fixture=_generated
 
     Example::
@@ -9441,7 +9439,7 @@ class S3Code(Code, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.S
         :param bucket: -
         :param key: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f7854e17fe796bdc5dc10fe3c8febb691186728550ca107493a43fc6979cafee)
@@ -9455,12 +9453,12 @@ class S3Code(Code, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.S
         _scope: "_constructs_77d1e7e8.Construct",
         grantable: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
     ) -> "CodeConfig":
-        '''(experimental) Called when the Job is initialized to allow this object to bind.
+        '''(deprecated) Called when the Job is initialized to allow this object to bind.
 
         :param _scope: -
         :param grantable: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__18fa6b6bc6e19007515f753b3e849efd4b7a16720ea785b0e155f20075d71602)
@@ -9473,13 +9471,13 @@ class S3Encryption(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.S3Encryption",
 ):
-    '''(experimental) S3 encryption configuration for a ``SecurityConfiguration``.
+    '''(deprecated) S3 encryption configuration for a ``SecurityConfiguration``.
 
     Use {@link S3Encryption.s3Managed} for SSE-S3 or {@link S3Encryption.kms} for
     SSE-KMS. Because these are separate factories, a KMS key can never be paired
     with S3-managed encryption.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -9497,12 +9495,12 @@ class S3Encryption(
         cls,
         kms_key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
     ) -> "S3Encryption":
-        '''(experimental) Server-side encryption (SSE) with an AWS KMS key managed by the account owner.
+        '''(deprecated) Server-side encryption (SSE) with an AWS KMS key managed by the account owner.
 
         :param kms_key: the KMS key used to encrypt the data. A key is created if one is not provided.
 
         :see: https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingKMSEncryption.html
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5966825f76b0928b999155cb9520d466beb9558e71e26ce21f86c25f88507e5a)
@@ -9512,33 +9510,33 @@ class S3Encryption(
     @jsii.member(jsii_name="s3Managed")
     @builtins.classmethod
     def s3_managed(cls) -> "S3Encryption":
-        '''(experimental) Server-side encryption (SSE) with an Amazon S3-managed key.
+        '''(deprecated) Server-side encryption (SSE) with an Amazon S3-managed key.
 
         :see: https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingServerSideEncryption.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("S3Encryption", jsii.sinvoke(cls, "s3Managed", []))
 
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.S3EncryptionMode")
 class S3EncryptionMode(enum.Enum):
-    '''(experimental) Encryption mode for S3.
+    '''(deprecated) Encryption mode for S3.
 
     :see: https://docs.aws.amazon.com/glue/latest/webapi/API_S3Encryption.html#Glue-Type-S3Encryption-S3EncryptionMode
-    :stability: experimental
+    :stability: deprecated
     '''
 
     S3_MANAGED = "S3_MANAGED"
-    '''(experimental) Server side encryption (SSE) with an Amazon S3-managed key.
+    '''(deprecated) Server side encryption (SSE) with an Amazon S3-managed key.
 
     :see: https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingServerSideEncryption.html
-    :stability: experimental
+    :stability: deprecated
     '''
     KMS = "KMS"
-    '''(experimental) Server-side encryption (SSE) with an AWS KMS key managed by the account owner.
+    '''(deprecated) Server-side encryption (SSE) with an AWS KMS key managed by the account owner.
 
     :see: https://docs.aws.amazon.com/AmazonS3/latest/dev/UsingKMSEncryption.html
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
@@ -9546,13 +9544,13 @@ class S3TableEncryption(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.S3TableEncryption",
 ):
-    '''(experimental) Server-side encryption for the S3 bucket that a managed ``S3Table`` creates.
+    '''(deprecated) Server-side encryption for the S3 bucket that a managed ``S3Table`` creates.
 
     Applies only when the table manages its own bucket (via
     ``S3TableStorage.managedBucket``). An existing bucket keeps whatever encryption
     it was created with.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -9577,11 +9575,11 @@ class S3TableEncryption(
         cls,
         key: typing.Optional["_aws_cdk_aws_kms_ceddda9d.IKey"] = None,
     ) -> "S3TableEncryption":
-        '''(experimental) Server-side encryption (SSE-KMS) with an AWS KMS key managed by the account owner.
+        '''(deprecated) Server-side encryption (SSE-KMS) with an AWS KMS key managed by the account owner.
 
         :param key: the KMS key used to encrypt the data. A key is created if one is not provided.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c9bd85c80296893b73014fdc895b26df10ab8d7e0c207517615538203ce398aa)
@@ -9591,18 +9589,18 @@ class S3TableEncryption(
     @jsii.member(jsii_name="kmsManaged")
     @builtins.classmethod
     def kms_managed(cls) -> "S3TableEncryption":
-        '''(experimental) Server-side encryption (SSE-KMS) with an AWS KMS key managed by the KMS service.
+        '''(deprecated) Server-side encryption (SSE-KMS) with an AWS KMS key managed by the KMS service.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("S3TableEncryption", jsii.sinvoke(cls, "kmsManaged", []))
 
     @jsii.member(jsii_name="s3Managed")
     @builtins.classmethod
     def s3_managed(cls) -> "S3TableEncryption":
-        '''(experimental) Server-side encryption (SSE-S3) with an Amazon S3-managed key.
+        '''(deprecated) Server-side encryption (SSE-S3) with an Amazon S3-managed key.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("S3TableEncryption", jsii.sinvoke(cls, "s3Managed", []))
 
@@ -9611,13 +9609,13 @@ class S3TableStorage(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.S3TableStorage",
 ):
-    '''(experimental) Where an ``S3Table`` stores its data.
+    '''(deprecated) Where an ``S3Table`` stores its data.
 
     The two paths are mutually exclusive: a managed bucket may specify its
     server-side encryption, while an existing bucket keeps its own encryption — so
     an encryption choice can never be paired with a bring-your-own bucket.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -9642,7 +9640,7 @@ class S3TableStorage(
         cls,
         bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
     ) -> "S3TableStorage":
-        '''(experimental) Store the table's data in an existing bucket. CDK does not manage the bucket's encryption.
+        '''(deprecated) Store the table's data in an existing bucket. CDK does not manage the bucket's encryption.
 
         The bucket can be one you don't own, imported with
         ``Bucket.fromBucketArn()`` or ``Bucket.fromBucketAttributes()``. If that bucket
@@ -9654,7 +9652,7 @@ class S3TableStorage(
 
         :param bucket: the bucket that holds the table's data.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__21ce0d5de9a9819db560ceacdd6b5952bacd63dde55e28171d26fe171d4730a0)
@@ -9667,13 +9665,13 @@ class S3TableStorage(
         cls,
         encryption: typing.Optional["S3TableEncryption"] = None,
     ) -> "S3TableStorage":
-        '''(experimental) Store the table's data in a bucket created and managed by the table.
+        '''(deprecated) Store the table's data in a bucket created and managed by the table.
 
         :param encryption: the server-side encryption for the created bucket.
 
         :default: - S3-managed (SSE-S3) encryption
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__188999384a9cc582ede3bcc6b233363fdba10d1af72bafe56bc0ca67c410e4ae)
@@ -9684,7 +9682,7 @@ class S3TableStorage(
 class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"):
     '''
     :see: https://docs.aws.amazon.com/athena/latest/ug/data-types.html
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -9714,18 +9712,18 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
 
     def __init__(self) -> None:
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         jsii.create(self.__class__, self, [])
 
     @jsii.member(jsii_name="array")
     @builtins.classmethod
     def array(cls, item_type: "Type") -> "Type":
-        '''(experimental) Creates an array of some other type.
+        '''(deprecated) Creates an array of some other type.
 
         :param item_type: type contained by the array.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__10ded5f06685c7c05ee2fbe3c09be6fef35475e5c00fde477815f8614a484cbb)
@@ -9735,11 +9733,11 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
     @jsii.member(jsii_name="char")
     @builtins.classmethod
     def char(cls, length: jsii.Number) -> "Type":
-        '''(experimental) Fixed length character data, with a specified length between 1 and 255.
+        '''(deprecated) Fixed length character data, with a specified length between 1 and 255.
 
         :param length: length between 1 and 255.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__d4b92f46741e45dc5d5e256fe3738d53a8878b40fc430d149eec6fdbfe167229)
@@ -9753,7 +9751,7 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
         input_string: builtins.str,
         is_primitive: typing.Optional[builtins.bool] = None,
     ) -> "Type":
-        '''(experimental) Creates a custom type from a raw Glue input string.
+        '''(deprecated) Creates a custom type from a raw Glue input string.
 
         Escape hatch for column types the other ``Schema`` factories don't model. The
         ``inputString`` is emitted verbatim and is not validated.
@@ -9761,7 +9759,7 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
         :param input_string: the Glue input string for the type (for example ``interval_day_to_second``).
         :param is_primitive: whether the type is a primitive (non-nested) data type. Defaults to true.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c3081332212c4a1a616782ed41b95e46c97ed3d55d3c8a2e6d25a5f81999b374)
@@ -9776,13 +9774,13 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
         precision: jsii.Number,
         scale: typing.Optional[jsii.Number] = None,
     ) -> "Type":
-        '''(experimental) Creates a decimal type.
+        '''(deprecated) Creates a decimal type.
 
         :param precision: the total number of digits, between 1 and 38.
         :param scale: the number of digits in the fractional part, between 0 and 38; the default is 0
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/data-types.html
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fcdd8f07d6d5e4e87f54cd2104a8605a571a6abede0b42465e2352b51723b900)
@@ -9793,12 +9791,12 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
     @jsii.member(jsii_name="map")
     @builtins.classmethod
     def map(cls, key_type: "Type", value_type: "Type") -> "Type":
-        '''(experimental) Creates a map of some primitive key type to some value type.
+        '''(deprecated) Creates a map of some primitive key type to some value type.
 
         :param key_type: type of key, must be a primitive.
         :param value_type: type fo the value indexed by the key.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fc04f65c508e37fca936dfd67a8b4a0f84a73b9ef9c446edcd34f17c738c8dae)
@@ -9812,11 +9810,11 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
         cls,
         columns: typing.Sequence[typing.Union["Column", typing.Dict[builtins.str, typing.Any]]],
     ) -> "Type":
-        '''(experimental) Creates a nested structure containing individually named and typed columns.
+        '''(deprecated) Creates a nested structure containing individually named and typed columns.
 
         :param columns: the columns of the structure.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__33f94b4c838eb0e3d03de4da6b4f3fe8e873ef98895fb940645c459801c4bb50)
@@ -9826,11 +9824,11 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
     @jsii.member(jsii_name="varchar")
     @builtins.classmethod
     def varchar(cls, length: jsii.Number) -> "Type":
-        '''(experimental) Variable length character data, with a specified length between 1 and 65535.
+        '''(deprecated) Variable length character data, with a specified length between 1 and 65535.
 
         :param length: length between 1 and 65535.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0ba18137b7dd32100f635af375c8586adc2f9824c4ccd0a1b01168f5ba757da4)
@@ -9840,9 +9838,9 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
     @jsii.python.classproperty
     @jsii.member(jsii_name="BIG_INT")
     def BIG_INT(cls) -> "Type":
-        '''(experimental) A 64-bit signed INTEGER in two’s complement format, with a minimum value of -2^63 and a maximum value of 2^63-1.
+        '''(deprecated) A 64-bit signed INTEGER in two’s complement format, with a minimum value of -2^63 and a maximum value of 2^63-1.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("Type", jsii.sget(cls, "BIG_INT"))
 
@@ -9850,7 +9848,7 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
     @jsii.member(jsii_name="BINARY")
     def BINARY(cls) -> "Type":
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("Type", jsii.sget(cls, "BINARY"))
 
@@ -9858,16 +9856,16 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
     @jsii.member(jsii_name="BOOLEAN")
     def BOOLEAN(cls) -> "Type":
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("Type", jsii.sget(cls, "BOOLEAN"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="DATE")
     def DATE(cls) -> "Type":
-        '''(experimental) Date type.
+        '''(deprecated) Date type.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("Type", jsii.sget(cls, "DATE"))
 
@@ -9875,7 +9873,7 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
     @jsii.member(jsii_name="DOUBLE")
     def DOUBLE(cls) -> "Type":
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("Type", jsii.sget(cls, "DOUBLE"))
 
@@ -9883,52 +9881,52 @@ class Schema(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Schema"
     @jsii.member(jsii_name="FLOAT")
     def FLOAT(cls) -> "Type":
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("Type", jsii.sget(cls, "FLOAT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="INTEGER")
     def INTEGER(cls) -> "Type":
-        '''(experimental) A 32-bit signed INTEGER in two’s complement format, with a minimum value of -2^31 and a maximum value of 2^31-1.
+        '''(deprecated) A 32-bit signed INTEGER in two’s complement format, with a minimum value of -2^31 and a maximum value of 2^31-1.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("Type", jsii.sget(cls, "INTEGER"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="SMALL_INT")
     def SMALL_INT(cls) -> "Type":
-        '''(experimental) A 16-bit signed INTEGER in two’s complement format, with a minimum value of -2^15 and a maximum value of 2^15-1.
+        '''(deprecated) A 16-bit signed INTEGER in two’s complement format, with a minimum value of -2^15 and a maximum value of 2^15-1.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("Type", jsii.sget(cls, "SMALL_INT"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="STRING")
     def STRING(cls) -> "Type":
-        '''(experimental) Arbitrary-length string type.
+        '''(deprecated) Arbitrary-length string type.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("Type", jsii.sget(cls, "STRING"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="TIMESTAMP")
     def TIMESTAMP(cls) -> "Type":
-        '''(experimental) Timestamp type (date and time).
+        '''(deprecated) Timestamp type (date and time).
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("Type", jsii.sget(cls, "TIMESTAMP"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="TINY_INT")
     def TINY_INT(cls) -> "Type":
-        '''(experimental) A 8-bit signed INTEGER in two’s complement format, with a minimum value of -2^7 and a maximum value of 2^7-1.
+        '''(deprecated) A 8-bit signed INTEGER in two’s complement format, with a minimum value of -2^7 and a maximum value of 2^7-1.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("Type", jsii.sget(cls, "TINY_INT"))
 
@@ -9939,7 +9937,7 @@ class SecurityConfiguration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.SecurityConfiguration",
 ):
-    '''(experimental) A security configuration is a set of security properties that can be used by AWS Glue to encrypt data at rest.
+    '''(deprecated) A security configuration is a set of security properties that can be used by AWS Glue to encrypt data at rest.
 
     The following scenarios show some of the ways that you can use a security configuration.
 
@@ -9948,7 +9946,7 @@ class SecurityConfiguration(
     - Attach a security configuration to an ETL job to write its jobs bookmarks as encrypted Amazon S3 data.
     - Attach a security configuration to a development endpoint to write encrypted Amazon S3 targets.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -9997,13 +9995,13 @@ class SecurityConfiguration(
         '''
         :param scope: -
         :param id: -
-        :param cloud_watch_encryption: (experimental) The encryption configuration for Amazon CloudWatch Logs. Default: no cloudwatch logs encryption.
-        :param job_bookmarks_encryption: (experimental) The encryption configuration for Glue Job Bookmarks. Default: no job bookmarks encryption.
-        :param removal_policy: (experimental) Policy to apply when the security configuration is removed from the stack. Default: - resource will be destroyed
-        :param s3_encryption: (experimental) The encryption configuration for Amazon Simple Storage Service (Amazon S3) data. Default: no s3 encryption.
-        :param security_configuration_name: (experimental) The name of the security configuration. Default: - generated by CDK.
+        :param cloud_watch_encryption: (deprecated) The encryption configuration for Amazon CloudWatch Logs. Default: no cloudwatch logs encryption.
+        :param job_bookmarks_encryption: (deprecated) The encryption configuration for Glue Job Bookmarks. Default: no job bookmarks encryption.
+        :param removal_policy: (deprecated) Policy to apply when the security configuration is removed from the stack. Default: - resource will be destroyed
+        :param s3_encryption: (deprecated) The encryption configuration for Amazon Simple Storage Service (Amazon S3) data. Default: no s3 encryption.
+        :param security_configuration_name: (deprecated) The name of the security configuration. Default: - generated by CDK.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cd628a6199f5b5fb7644771f78b6cc6d9230e3c38bba0463810d192bceb52e8d)
@@ -10027,13 +10025,13 @@ class SecurityConfiguration(
         id: builtins.str,
         security_configuration_name: builtins.str,
     ) -> "ISecurityConfiguration":
-        '''(experimental) Creates a Connection construct that represents an external security configuration.
+        '''(deprecated) Creates a Connection construct that represents an external security configuration.
 
         :param scope: The scope creating construct (usually ``this``).
         :param id: The construct's id.
         :param security_configuration_name: name of external security configuration.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4a85db96fd444625c46f4574190ecd86214bed327c2f826ee3294853f69a42b6)
@@ -10045,18 +10043,18 @@ class SecurityConfiguration(
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''(experimental) Uniquely identifies this class.
+        '''(deprecated) Uniquely identifies this class.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
     @jsii.member(jsii_name="securityConfigurationName")
     def security_configuration_name(self) -> builtins.str:
-        '''(experimental) The name of the security configuration.
+        '''(deprecated) The name of the security configuration.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "securityConfigurationName"))
 
@@ -10065,9 +10063,9 @@ class SecurityConfiguration(
     def cloud_watch_encryption_key(
         self,
     ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
-        '''(experimental) The KMS key used in CloudWatch encryption if it requires a kms key.
+        '''(deprecated) The KMS key used in CloudWatch encryption if it requires a kms key.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], jsii.get(self, "cloudWatchEncryptionKey"))
 
@@ -10076,9 +10074,9 @@ class SecurityConfiguration(
     def job_bookmarks_encryption_key(
         self,
     ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
-        '''(experimental) The KMS key used in job bookmarks encryption if it requires a kms key.
+        '''(deprecated) The KMS key used in job bookmarks encryption if it requires a kms key.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], jsii.get(self, "jobBookmarksEncryptionKey"))
 
@@ -10087,9 +10085,9 @@ class SecurityConfiguration(
     def s3_encryption_key(
         self,
     ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
-        '''(experimental) The KMS key used in S3 encryption if it requires a kms key.
+        '''(deprecated) The KMS key used in S3 encryption if it requires a kms key.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], jsii.get(self, "s3EncryptionKey"))
 
@@ -10115,15 +10113,15 @@ class SecurityConfigurationProps:
         s3_encryption: typing.Optional["S3Encryption"] = None,
         security_configuration_name: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''(experimental) Constructions properties of ``SecurityConfiguration``.
+        '''(deprecated) Constructions properties of ``SecurityConfiguration``.
 
-        :param cloud_watch_encryption: (experimental) The encryption configuration for Amazon CloudWatch Logs. Default: no cloudwatch logs encryption.
-        :param job_bookmarks_encryption: (experimental) The encryption configuration for Glue Job Bookmarks. Default: no job bookmarks encryption.
-        :param removal_policy: (experimental) Policy to apply when the security configuration is removed from the stack. Default: - resource will be destroyed
-        :param s3_encryption: (experimental) The encryption configuration for Amazon Simple Storage Service (Amazon S3) data. Default: no s3 encryption.
-        :param security_configuration_name: (experimental) The name of the security configuration. Default: - generated by CDK.
+        :param cloud_watch_encryption: (deprecated) The encryption configuration for Amazon CloudWatch Logs. Default: no cloudwatch logs encryption.
+        :param job_bookmarks_encryption: (deprecated) The encryption configuration for Glue Job Bookmarks. Default: no job bookmarks encryption.
+        :param removal_policy: (deprecated) Policy to apply when the security configuration is removed from the stack. Default: - resource will be destroyed
+        :param s3_encryption: (deprecated) The encryption configuration for Amazon Simple Storage Service (Amazon S3) data. Default: no s3 encryption.
+        :param security_configuration_name: (deprecated) The name of the security configuration. Default: - generated by CDK.
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -10155,55 +10153,55 @@ class SecurityConfigurationProps:
 
     @builtins.property
     def cloud_watch_encryption(self) -> typing.Optional["CloudWatchEncryption"]:
-        '''(experimental) The encryption configuration for Amazon CloudWatch Logs.
+        '''(deprecated) The encryption configuration for Amazon CloudWatch Logs.
 
         :default: no cloudwatch logs encryption.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("cloud_watch_encryption")
         return typing.cast(typing.Optional["CloudWatchEncryption"], result)
 
     @builtins.property
     def job_bookmarks_encryption(self) -> typing.Optional["JobBookmarksEncryption"]:
-        '''(experimental) The encryption configuration for Glue Job Bookmarks.
+        '''(deprecated) The encryption configuration for Glue Job Bookmarks.
 
         :default: no job bookmarks encryption.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("job_bookmarks_encryption")
         return typing.cast(typing.Optional["JobBookmarksEncryption"], result)
 
     @builtins.property
     def removal_policy(self) -> typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"]:
-        '''(experimental) Policy to apply when the security configuration is removed from the stack.
+        '''(deprecated) Policy to apply when the security configuration is removed from the stack.
 
         :default: - resource will be destroyed
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("removal_policy")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.RemovalPolicy"], result)
 
     @builtins.property
     def s3_encryption(self) -> typing.Optional["S3Encryption"]:
-        '''(experimental) The encryption configuration for Amazon Simple Storage Service (Amazon S3) data.
+        '''(deprecated) The encryption configuration for Amazon Simple Storage Service (Amazon S3) data.
 
         :default: no s3 encryption.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("s3_encryption")
         return typing.cast(typing.Optional["S3Encryption"], result)
 
     @builtins.property
     def security_configuration_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The name of the security configuration.
+        '''(deprecated) The name of the security configuration.
 
         :default: - generated by CDK.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("security_configuration_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10224,10 +10222,10 @@ class SerializationLibrary(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.SerializationLibrary",
 ):
-    '''(experimental) Serialization library to use when serializing/deserializing (SerDe) table records.
+    '''(deprecated) Serialization library to use when serializing/deserializing (SerDe) table records.
 
     :see: https://cwiki.apache.org/confluence/display/Hive/SerDe
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: fixture=_generated
 
     Example::
@@ -10243,7 +10241,7 @@ class SerializationLibrary(
         '''
         :param class_name: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__44b6eea0230610f203e5d4ed1dbd871c9ecc76a60681d0500a51e2d3815f193e)
@@ -10255,7 +10253,7 @@ class SerializationLibrary(
     def AVRO(cls) -> "SerializationLibrary":
         '''
         :see: https://svn.apache.org/repos/infra/websites/production/hive/content/javadocs/r3.1.3/api/org/apache/hadoop/hive/serde2/avro/AvroSerDe.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("SerializationLibrary", jsii.sget(cls, "AVRO"))
 
@@ -10264,7 +10262,7 @@ class SerializationLibrary(
     def CLOUDTRAIL(cls) -> "SerializationLibrary":
         '''
         :see: https://docs.aws.amazon.com/athena/latest/ug/cloudtrail.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("SerializationLibrary", jsii.sget(cls, "CLOUDTRAIL"))
 
@@ -10273,7 +10271,7 @@ class SerializationLibrary(
     def GROK(cls) -> "SerializationLibrary":
         '''
         :see: https://docs.aws.amazon.com/athena/latest/ug/grok.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("SerializationLibrary", jsii.sget(cls, "GROK"))
 
@@ -10282,7 +10280,7 @@ class SerializationLibrary(
     def HIVE_JSON(cls) -> "SerializationLibrary":
         '''
         :see: https://svn.apache.org/repos/infra/websites/production/hive/content/javadocs/r3.1.3/api/org/apache/hive/hcatalog/data/JsonSerDe.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("SerializationLibrary", jsii.sget(cls, "HIVE_JSON"))
 
@@ -10291,7 +10289,7 @@ class SerializationLibrary(
     def LAZY_SIMPLE(cls) -> "SerializationLibrary":
         '''
         :see: https://svn.apache.org/repos/infra/websites/production/hive/content/javadocs/r3.1.3/api/org/apache/hadoop/hive/serde2/lazy/LazySimpleSerDe.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("SerializationLibrary", jsii.sget(cls, "LAZY_SIMPLE"))
 
@@ -10300,7 +10298,7 @@ class SerializationLibrary(
     def OPEN_CSV(cls) -> "SerializationLibrary":
         '''
         :see: https://svn.apache.org/repos/infra/websites/production/hive/content/javadocs/r3.1.3/api/org/apache/hadoop/hive/serde2/OpenCSVSerde.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("SerializationLibrary", jsii.sget(cls, "OPEN_CSV"))
 
@@ -10309,7 +10307,7 @@ class SerializationLibrary(
     def OPENX_JSON(cls) -> "SerializationLibrary":
         '''
         :see: https://github.com/rcongiu/Hive-JSON-Serde
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("SerializationLibrary", jsii.sget(cls, "OPENX_JSON"))
 
@@ -10318,7 +10316,7 @@ class SerializationLibrary(
     def ORC(cls) -> "SerializationLibrary":
         '''
         :see: https://svn.apache.org/repos/infra/websites/production/hive/content/javadocs/r3.1.3/api/org/apache/hadoop/hive/ql/io/orc/OrcSerde.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("SerializationLibrary", jsii.sget(cls, "ORC"))
 
@@ -10327,7 +10325,7 @@ class SerializationLibrary(
     def PARQUET(cls) -> "SerializationLibrary":
         '''
         :see: https://svn.apache.org/repos/infra/websites/production/hive/content/javadocs/r3.1.3/api/org/apache/hadoop/hive/ql/io/parquet/serde/ParquetHiveSerDe.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("SerializationLibrary", jsii.sget(cls, "PARQUET"))
 
@@ -10336,7 +10334,7 @@ class SerializationLibrary(
     def REGEXP(cls) -> "SerializationLibrary":
         '''
         :see: https://svn.apache.org/repos/infra/websites/production/hive/content/javadocs/r3.1.3/api/org/apache/hadoop/hive/serde2/RegexSerDe.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("SerializationLibrary", jsii.sget(cls, "REGEXP"))
 
@@ -10344,7 +10342,7 @@ class SerializationLibrary(
     @jsii.member(jsii_name="className")
     def class_name(self) -> builtins.str:
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "className"))
 
@@ -10368,14 +10366,14 @@ class SparkExtraCodeProps:
         extra_jars_first: typing.Optional[builtins.bool] = None,
         extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
     ) -> None:
-        '''(experimental) Code props for different {@link Code} assets used by different types of Spark jobs.
+        '''(deprecated) Code props for different {@link Code} assets used by different types of Spark jobs.
 
-        :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
-        :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
-        :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
-        :param extra_python_files: (experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
+        :param extra_files: (deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
+        :param extra_jars: (deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
+        :param extra_jars_first: (deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
+        :param extra_python_files: (deprecated) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -10411,46 +10409,46 @@ class SparkExtraCodeProps:
 
     @builtins.property
     def extra_files(self) -> typing.Optional[typing.List["Code"]]:
-        '''(experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
+        '''(deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
 
         :default: - no extra files specified.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_files")
         return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars(self) -> typing.Optional[typing.List["Code"]]:
-        '''(experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
+        '''(deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
 
         :default: - no extra jar files
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_jars")
         return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars_first(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath.
+        '''(deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath.
 
         :default: false - priority is not given to user-provided jars
 
         :see: ``--user-jars-first`` in https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_jars_first")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def extra_python_files(self) -> typing.Optional[typing.List["Code"]]:
-        '''(experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located.
+        '''(deprecated) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located.
 
         :default: - no extra files
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_python_files")
         return typing.cast(typing.Optional[typing.List["Code"]], result)
@@ -10512,27 +10510,27 @@ class SparkJobProps(JobProps):
         spark_ui: typing.Optional[typing.Union["SparkUIProps", typing.Dict[builtins.str, typing.Any]]] = None,
         worker_configuration: typing.Optional[typing.Union["WorkerConfiguration", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
-        '''(experimental) Common properties for different types of Spark jobs.
+        '''(deprecated) Common properties for different types of Spark jobs.
 
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
-        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
-        :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
-        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
+        :param spark_ui: (deprecated) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (deprecated) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -10654,10 +10652,10 @@ class SparkJobProps(JobProps):
 
     @builtins.property
     def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
-        '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        '''(deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
@@ -10665,13 +10663,13 @@ class SparkJobProps(JobProps):
 
     @builtins.property
     def script(self) -> "Code":
-        '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
+        '''(deprecated) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
         from the local directory structure using fromAsset
         or referenced via S3 location using fromBucket
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
@@ -10679,23 +10677,23 @@ class SparkJobProps(JobProps):
 
     @builtins.property
     def connections(self) -> typing.Optional[typing.List["IConnection"]]:
-        '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
+        '''(deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("connections")
         return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
     def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
-        '''(experimental) Enables continuous logging with the specified props.
+        '''(deprecated) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("continuous_logging")
         return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
@@ -10704,7 +10702,7 @@ class SparkJobProps(JobProps):
     def default_arguments(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+        '''(deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
         This map is the escape hatch for Glue job arguments that this construct does not model. It
         MUST NOT be used to set arguments that already have a dedicated prop — configure those through
@@ -10726,149 +10724,149 @@ class SparkJobProps(JobProps):
 
         https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
         for a list of reserved parameters
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("default_arguments")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Description (optional) Developer-specified description of the Glue job.
+        '''(deprecated) Description (optional) Developer-specified description of the Glue job.
 
         :default: - no value
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
-        '''(experimental) Glue Version The version of Glue to use to execute this job.
+        '''(deprecated) Glue Version The version of Glue to use to execute this job.
 
         :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("glue_version")
         return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Name of the Glue job (optional) Developer-specified name of the Glue job.
+        '''(deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job.
 
         :default: - a name is automatically generated
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("job_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_concurrent_runs(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
+        '''(deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
 
         An error is returned when this threshold is reached. The maximum value
         you can specify is controlled by a service limit.
 
         :default: 1
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_concurrent_runs")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_retries(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
+        '''(deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
 
         :default: 0
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
-        '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
+        '''(deprecated) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("security_configuration")
         return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
+        '''(deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
 
         :default: {} - no tags
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
-        '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
+        '''(deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
 
         :default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable profiling metrics for the Glue job.
+        '''(deprecated) Enable profiling metrics for the Glue job.
 
         When enabled, adds '--enable-metrics' to job arguments.
 
         :default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enable_metrics")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def enable_observability_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable observability metrics for the Glue job.
+        '''(deprecated) Enable observability metrics for the Glue job.
 
         When enabled, adds '--enable-observability-metrics': 'true' to job arguments.
 
         :default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enable_observability_metrics")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def spark_ui(self) -> typing.Optional["SparkUIProps"]:
-        '''(experimental) Enables the Spark UI debugging and monitoring with the specified props.
+        '''(deprecated) Enables the Spark UI debugging and monitoring with the specified props.
 
         :default: - Spark UI debugging and monitoring is disabled.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("spark_ui")
         return typing.cast(typing.Optional["SparkUIProps"], result)
 
     @builtins.property
     def worker_configuration(self) -> typing.Optional["WorkerConfiguration"]:
-        '''(experimental) The worker type and the number of workers allocated when a job runs.
+        '''(deprecated) The worker type and the number of workers allocated when a job runs.
 
         :default: - the job runs with the G_1X worker type and 10 workers.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("worker_configuration")
         return typing.cast(typing.Optional["WorkerConfiguration"], result)
@@ -10897,13 +10895,13 @@ class SparkUILoggingLocation:
         bucket: "_aws_cdk_aws_s3_ceddda9d.IBucket",
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''(experimental) The Spark UI logging location.
+        '''(deprecated) The Spark UI logging location.
 
-        :param bucket: (experimental) The bucket where the Glue job stores the logs.
-        :param prefix: (experimental) The path inside the bucket (objects prefix) where the Glue job stores the logs. Default: '/' - the logs will be written at the root of the bucket
+        :param bucket: (deprecated) The bucket where the Glue job stores the logs.
+        :param prefix: (deprecated) The path inside the bucket (objects prefix) where the Glue job stores the logs. Default: '/' - the logs will be written at the root of the bucket
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -10934,9 +10932,9 @@ class SparkUILoggingLocation:
 
     @builtins.property
     def bucket(self) -> "_aws_cdk_aws_s3_ceddda9d.IBucket":
-        '''(experimental) The bucket where the Glue job stores the logs.
+        '''(deprecated) The bucket where the Glue job stores the logs.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("bucket")
         assert result is not None, "Required property 'bucket' is missing"
@@ -10944,11 +10942,11 @@ class SparkUILoggingLocation:
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The path inside the bucket (objects prefix) where the Glue job stores the logs.
+        '''(deprecated) The path inside the bucket (objects prefix) where the Glue job stores the logs.
 
         :default: '/' - the logs will be written at the root of the bucket
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -10977,13 +10975,13 @@ class SparkUIProps:
         bucket: typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"] = None,
         prefix: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''(experimental) Properties for enabling Spark UI monitoring feature for Spark-based Glue jobs.
+        '''(deprecated) Properties for enabling Spark UI monitoring feature for Spark-based Glue jobs.
 
-        :param bucket: (experimental) The bucket where the Glue job stores the logs. Default: a new bucket will be created.
-        :param prefix: (experimental) The path inside the bucket (objects prefix) where the Glue job stores the logs. Use format ``'/foo/bar'`` Default: - the logs will be written at the root of the bucket
+        :param bucket: (deprecated) The bucket where the Glue job stores the logs. Default: a new bucket will be created.
+        :param prefix: (deprecated) The path inside the bucket (objects prefix) where the Glue job stores the logs. Use format ``'/foo/bar'`` Default: - the logs will be written at the root of the bucket
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -11012,24 +11010,24 @@ class SparkUIProps:
 
     @builtins.property
     def bucket(self) -> typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"]:
-        '''(experimental) The bucket where the Glue job stores the logs.
+        '''(deprecated) The bucket where the Glue job stores the logs.
 
         :default: a new bucket will be created.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("bucket")
         return typing.cast(typing.Optional["_aws_cdk_aws_s3_ceddda9d.IBucket"], result)
 
     @builtins.property
     def prefix(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The path inside the bucket (objects prefix) where the Glue job stores the logs.
+        '''(deprecated) The path inside the bucket (objects prefix) where the Glue job stores the logs.
 
         Use format ``'/foo/bar'``
 
         :default: - the logs will be written at the root of the bucket
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("prefix")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -11050,14 +11048,14 @@ class StorageParameter(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.StorageParameter",
 ):
-    '''(experimental) A storage parameter. The list of storage parameters available is not exhaustive and other keys may be used.
+    '''(deprecated) A storage parameter. The list of storage parameters available is not exhaustive and other keys may be used.
 
     If you would like to specify a storage parameter that is not available as a static member of this class, use the ``StorageParameter.custom`` method.
 
     The list of storage parameters currently known within the CDK is listed.
 
     :see: https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_EXTERNAL_TABLE.html#r_CREATE_EXTERNAL_TABLE-parameters - under *"TABLE PROPERTIES"*
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -11085,7 +11083,7 @@ class StorageParameter(
         :param key: -
         :param value: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0f74283389af10eaf6da714f4aadddf86dec9f3da227641c23ae118f6dfd7b45)
@@ -11099,13 +11097,13 @@ class StorageParameter(
         cls,
         value: "ColumnCountMismatchHandlingAction",
     ) -> "StorageParameter":
-        '''(experimental) Identifies if the file contains less or more values for a row than the number of columns specified in the external table definition.
+        '''(deprecated) Identifies if the file contains less or more values for a row than the number of columns specified in the external table definition.
 
         This property is only available for an uncompressed text file format.
 
         :param value: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a39c7b662e4b538ebbd408dcac5b933ae4d1527472b30facbc0405a6a1d3bb14)
@@ -11115,13 +11113,13 @@ class StorageParameter(
     @jsii.member(jsii_name="compressionType")
     @builtins.classmethod
     def compression_type(cls, value: "CompressionType") -> "StorageParameter":
-        '''(experimental) The type of compression used on the table, when the file name does not contain an extension.
+        '''(deprecated) The type of compression used on the table, when the file name does not contain an extension.
 
         This value overrides the compression type specified through the extension.
 
         :param value: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__666d2a40474ee489c242320aca5600aa88eb0e9ff6b3f6f2523138d1febe5b9b)
@@ -11131,12 +11129,12 @@ class StorageParameter(
     @jsii.member(jsii_name="custom")
     @builtins.classmethod
     def custom(cls, key: builtins.str, value: builtins.str) -> "StorageParameter":
-        '''(experimental) A custom storage parameter.
+        '''(deprecated) A custom storage parameter.
 
         :param key: - The key of the storage parameter.
         :param value: - The value of the storage parameter.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__972574c985d99d1bb6f6d431a08c62d778ff9dd7c7acaa151f9c4c535255e211)
@@ -11147,11 +11145,11 @@ class StorageParameter(
     @jsii.member(jsii_name="dataCleansingEnabled")
     @builtins.classmethod
     def data_cleansing_enabled(cls, value: builtins.bool) -> "StorageParameter":
-        '''(experimental) Determines whether data handling is on for the table.
+        '''(deprecated) Determines whether data handling is on for the table.
 
         :param value: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f7446681fb6fa8d72452081fd5567c4cfb319974b0acc83e49ae911e49d15d02)
@@ -11164,11 +11162,11 @@ class StorageParameter(
         cls,
         value: "InvalidCharHandlingAction",
     ) -> "StorageParameter":
-        '''(experimental) Specifies the action to perform when query results contain invalid UTF-8 character values.
+        '''(deprecated) Specifies the action to perform when query results contain invalid UTF-8 character values.
 
         :param value: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c4fecfebea5461d7e6230a0187c52f9a9d764b9e29971ed3414e1d84633f26ba)
@@ -11181,11 +11179,11 @@ class StorageParameter(
         cls,
         value: "NumericOverflowHandlingAction",
     ) -> "StorageParameter":
-        '''(experimental) Specifies the action to perform when ORC data contains an integer (for example, BIGINT or int64) that is larger than the column definition (for example, SMALLINT or int16).
+        '''(deprecated) Specifies the action to perform when ORC data contains an integer (for example, BIGINT or int64) that is larger than the column definition (for example, SMALLINT or int16).
 
         :param value: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5bbe8806a487d42b3c7b3868e2419195fd8e623ea4a74692a316cc258efafb28)
@@ -11195,13 +11193,13 @@ class StorageParameter(
     @jsii.member(jsii_name="numRows")
     @builtins.classmethod
     def num_rows(cls, value: jsii.Number) -> "StorageParameter":
-        '''(experimental) A property that sets the numRows value for the table definition.
+        '''(deprecated) A property that sets the numRows value for the table definition.
 
         To explicitly update an external table's statistics, set the numRows property to indicate the size of the table. Amazon Redshift doesn't analyze external tables to generate the table statistics that the query optimizer uses to generate a query plan. If table statistics aren't set for an external table, Amazon Redshift generates a query execution plan based on an assumption that external tables are the larger tables and local tables are the smaller tables.
 
         :param value: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0897c928202255a3b3383203c753ac3165280fbc81faec3dd559c25843d4d3d4)
@@ -11211,7 +11209,7 @@ class StorageParameter(
     @jsii.member(jsii_name="orcSchemaResolution")
     @builtins.classmethod
     def orc_schema_resolution(cls, value: "OrcColumnMappingType") -> "StorageParameter":
-        '''(experimental) A property that sets the column mapping type for tables that use ORC data format.
+        '''(deprecated) A property that sets the column mapping type for tables that use ORC data format.
 
         This property is ignored for other data formats. If this property is omitted, columns are mapped by ``OrcColumnMappingType.NAME`` by default.
 
@@ -11219,7 +11217,7 @@ class StorageParameter(
 
         :default: OrcColumnMappingType.NAME
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0eb88780e26a940311a2cf44dd5d68de1ff362d2d0ca028f0443bba7e4bb06a8)
@@ -11229,11 +11227,11 @@ class StorageParameter(
     @jsii.member(jsii_name="replacementChar")
     @builtins.classmethod
     def replacement_char(cls, value: builtins.str) -> "StorageParameter":
-        '''(experimental) Specifies the replacement character to use when you set ``INVALID_CHAR_HANDLING`` to ``REPLACE``.
+        '''(deprecated) Specifies the replacement character to use when you set ``INVALID_CHAR_HANDLING`` to ``REPLACE``.
 
         :param value: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4284890747f6d237b5fdefef7df7ed57b66bda672915eb23526cae4e1b45ac7b)
@@ -11243,11 +11241,11 @@ class StorageParameter(
     @jsii.member(jsii_name="serializationNullFormat")
     @builtins.classmethod
     def serialization_null_format(cls, value: builtins.str) -> "StorageParameter":
-        '''(experimental) A property that sets number of rows to skip at the beginning of each source file.
+        '''(deprecated) A property that sets number of rows to skip at the beginning of each source file.
 
         :param value: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__51d196d1d149d7fb743eb77988c4d05f55b9e72876647220d0067b47caeab18a)
@@ -11257,11 +11255,11 @@ class StorageParameter(
     @jsii.member(jsii_name="skipHeaderLineCount")
     @builtins.classmethod
     def skip_header_line_count(cls, value: jsii.Number) -> "StorageParameter":
-        '''(experimental) The number of rows to skip at the top of a CSV file when the table is being created.
+        '''(deprecated) The number of rows to skip at the top of a CSV file when the table is being created.
 
         :param value: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cf2e1fd759f08830451a50273269345e05b91bbd90e750e7b76b2bac5275870a)
@@ -11274,13 +11272,13 @@ class StorageParameter(
         cls,
         value: "SurplusBytesHandlingAction",
     ) -> "StorageParameter":
-        '''(experimental) Specifies how to handle data being loaded that exceeds the length of the data type defined for columns containing VARBYTE data.
+        '''(deprecated) Specifies how to handle data being loaded that exceeds the length of the data type defined for columns containing VARBYTE data.
 
         By default, Redshift Spectrum sets the value to null for data that exceeds the width of the column.
 
         :param value: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1c04fd2fab2c9a95b1c92f9718dfe11ffeb2436d47a798d0f870aae58746f67a)
@@ -11293,13 +11291,13 @@ class StorageParameter(
         cls,
         value: "SurplusCharHandlingAction",
     ) -> "StorageParameter":
-        '''(experimental) Specifies how to handle data being loaded that exceeds the length of the data type defined for columns containing VARCHAR, CHAR, or string data.
+        '''(deprecated) Specifies how to handle data being loaded that exceeds the length of the data type defined for columns containing VARCHAR, CHAR, or string data.
 
         By default, Redshift Spectrum sets the value to null for data that exceeds the width of the column.
 
         :param value: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1e1b9effa7f6a703549bb4dbdc074898313b647fe00864615574b5f4527a6efd)
@@ -11312,7 +11310,7 @@ class StorageParameter(
         cls,
         key: "_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef",
     ) -> "StorageParameter":
-        '''(experimental) Enables server-side encryption (SSE-KMS) with the given AWS KMS key on the files Redshift Spectrum writes for this table (via ``CREATE EXTERNAL TABLE AS`` or ``INSERT``).
+        '''(deprecated) Enables server-side encryption (SSE-KMS) with the given AWS KMS key on the files Redshift Spectrum writes for this table (via ``CREATE EXTERNAL TABLE AS`` or ``INSERT``).
 
         Redshift Spectrum accepts either the key's ARN or its bare key ID for the
         ``write.kms.key.id`` property, and encrypts the written objects with that key;
@@ -11323,7 +11321,7 @@ class StorageParameter(
         :param key: -
 
         :see: https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_EXTERNAL_TABLE.html
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__786b7e6901c19fc29fc68d4fe9cfd302c0d877d823b66a1fc00cd87af05bc1a9)
@@ -11333,13 +11331,13 @@ class StorageParameter(
     @jsii.member(jsii_name="writeMaxFileSizeMb")
     @builtins.classmethod
     def write_max_file_size_mb(cls, value: jsii.Number) -> "StorageParameter":
-        '''(experimental) A property that sets the maximum size (in MB) of each file written to Amazon S3 by CREATE EXTERNAL TABLE AS.
+        '''(deprecated) A property that sets the maximum size (in MB) of each file written to Amazon S3 by CREATE EXTERNAL TABLE AS.
 
         The size must be a valid integer between 5 and 6200. The default maximum file size is 6,200 MB. This table property also applies to any subsequent INSERT statement into the same external table.
 
         :param value: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7d6b28d6c7211b035722cff75146ec9b7f6d1ef3da62494976a7200ddf69ed8f)
@@ -11349,7 +11347,7 @@ class StorageParameter(
     @jsii.member(jsii_name="writeParallel")
     @builtins.classmethod
     def write_parallel(cls, value: "WriteParallel") -> "StorageParameter":
-        '''(experimental) A property that sets whether CREATE EXTERNAL TABLE AS should write data in parallel.
+        '''(deprecated) A property that sets whether CREATE EXTERNAL TABLE AS should write data in parallel.
 
         When 'write.parallel' is set to off, CREATE EXTERNAL TABLE AS writes to one or more data files serially onto Amazon S3. This table property also applies to any subsequent INSERT statement into the same external table.
 
@@ -11357,7 +11355,7 @@ class StorageParameter(
 
         :default: WriteParallel.ON
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__934bd25af2a5a54f5badd7296f8c59c0bd6be0399bcb84d225a10f0f5db755d5)
@@ -11368,7 +11366,7 @@ class StorageParameter(
     @jsii.member(jsii_name="key")
     def key(self) -> builtins.str:
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "key"))
 
@@ -11376,16 +11374,16 @@ class StorageParameter(
     @jsii.member(jsii_name="value")
     def value(self) -> builtins.str:
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "value"))
 
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.StorageParameters")
 class StorageParameters(enum.Enum):
-    '''(experimental) The storage parameter keys that are currently known, this list is not exhaustive and other keys may be used.
+    '''(deprecated) The storage parameter keys that are currently known, this list is not exhaustive and other keys may be used.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -11411,169 +11409,169 @@ class StorageParameters(enum.Enum):
     '''
 
     SKIP_HEADER_LINE_COUNT = "SKIP_HEADER_LINE_COUNT"
-    '''(experimental) The number of rows to skip at the top of a CSV file when the table is being created.
+    '''(deprecated) The number of rows to skip at the top of a CSV file when the table is being created.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     DATA_CLEANSING_ENABLED = "DATA_CLEANSING_ENABLED"
-    '''(experimental) Determines whether data handling is on for the table.
+    '''(deprecated) Determines whether data handling is on for the table.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     COMPRESSION_TYPE = "COMPRESSION_TYPE"
-    '''(experimental) The type of compression used on the table, when the file name does not contain an extension.
+    '''(deprecated) The type of compression used on the table, when the file name does not contain an extension.
 
     This value overrides the compression type specified through the extension.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     INVALID_CHAR_HANDLING = "INVALID_CHAR_HANDLING"
-    '''(experimental) Specifies the action to perform when query results contain invalid UTF-8 character values.
+    '''(deprecated) Specifies the action to perform when query results contain invalid UTF-8 character values.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     REPLACEMENT_CHAR = "REPLACEMENT_CHAR"
-    '''(experimental) Specifies the replacement character to use when you set ``INVALID_CHAR_HANDLING`` to ``REPLACE``.
+    '''(deprecated) Specifies the replacement character to use when you set ``INVALID_CHAR_HANDLING`` to ``REPLACE``.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     NUMERIC_OVERFLOW_HANDLING = "NUMERIC_OVERFLOW_HANDLING"
-    '''(experimental) Specifies the action to perform when ORC data contains an integer (for example, BIGINT or int64) that is larger than the column definition (for example, SMALLINT or int16).
+    '''(deprecated) Specifies the action to perform when ORC data contains an integer (for example, BIGINT or int64) that is larger than the column definition (for example, SMALLINT or int16).
 
-    :stability: experimental
+    :stability: deprecated
     '''
     SURPLUS_BYTES_HANDLING = "SURPLUS_BYTES_HANDLING"
-    '''(experimental) Specifies how to handle data being loaded that exceeds the length of the data type defined for columns containing VARBYTE data.
+    '''(deprecated) Specifies how to handle data being loaded that exceeds the length of the data type defined for columns containing VARBYTE data.
 
     By default, Redshift Spectrum sets the value to null for data that exceeds the width of the column.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     SURPLUS_CHAR_HANDLING = "SURPLUS_CHAR_HANDLING"
-    '''(experimental) Specifies how to handle data being loaded that exceeds the length of the data type defined for columns containing VARCHAR, CHAR, or string data.
+    '''(deprecated) Specifies how to handle data being loaded that exceeds the length of the data type defined for columns containing VARCHAR, CHAR, or string data.
 
     By default, Redshift Spectrum sets the value to null for data that exceeds the width of the column.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     COLUMN_COUNT_MISMATCH_HANDLING = "COLUMN_COUNT_MISMATCH_HANDLING"
-    '''(experimental) Identifies if the file contains less or more values for a row than the number of columns specified in the external table definition.
+    '''(deprecated) Identifies if the file contains less or more values for a row than the number of columns specified in the external table definition.
 
     This property is only available for an uncompressed text file format.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     NUM_ROWS = "NUM_ROWS"
-    '''(experimental) A property that sets the numRows value for the table definition.
+    '''(deprecated) A property that sets the numRows value for the table definition.
 
     To explicitly update an external table's statistics, set the numRows property to indicate the size of the table. Amazon Redshift doesn't analyze external tables to generate the table statistics that the query optimizer uses to generate a query plan. If table statistics aren't set for an external table, Amazon Redshift generates a query execution plan based on an assumption that external tables are the larger tables and local tables are the smaller tables.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     SERIALIZATION_NULL_FORMAT = "SERIALIZATION_NULL_FORMAT"
-    '''(experimental) A property that sets number of rows to skip at the beginning of each source file.
+    '''(deprecated) A property that sets number of rows to skip at the beginning of each source file.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     ORC_SCHEMA_RESOLUTION = "ORC_SCHEMA_RESOLUTION"
-    '''(experimental) A property that sets the column mapping type for tables that use ORC data format.
+    '''(deprecated) A property that sets the column mapping type for tables that use ORC data format.
 
     This property is ignored for other data formats.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     WRITE_PARALLEL = "WRITE_PARALLEL"
-    '''(experimental) A property that sets whether CREATE EXTERNAL TABLE AS should write data in parallel.
+    '''(deprecated) A property that sets whether CREATE EXTERNAL TABLE AS should write data in parallel.
 
     When 'write.parallel' is set to off, CREATE EXTERNAL TABLE AS writes to one or more data files serially onto Amazon S3. This table property also applies to any subsequent INSERT statement into the same external table.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     WRITE_MAX_FILESIZE_MB = "WRITE_MAX_FILESIZE_MB"
-    '''(experimental) A property that sets the maximum size (in MB) of each file written to Amazon S3 by CREATE EXTERNAL TABLE AS.
+    '''(deprecated) A property that sets the maximum size (in MB) of each file written to Amazon S3 by CREATE EXTERNAL TABLE AS.
 
     The size must be a valid integer between 5 and 6200. The default maximum file size is 6,200 MB. This table property also applies to any subsequent INSERT statement into the same external table.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     WRITE_KMS_KEY_ID = "WRITE_KMS_KEY_ID"
-    '''(experimental) You can specify an AWS Key Management Service key to enable Server–Side Encryption (SSE) for Amazon S3 objects.
+    '''(deprecated) You can specify an AWS Key Management Service key to enable Server–Side Encryption (SSE) for Amazon S3 objects.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.SurplusBytesHandlingAction")
 class SurplusBytesHandlingAction(enum.Enum):
-    '''(experimental) Specifies how to handle data being loaded that exceeds the length of the data type defined for columns containing VARBYTE data.
+    '''(deprecated) Specifies how to handle data being loaded that exceeds the length of the data type defined for columns containing VARBYTE data.
 
     By default, Redshift Spectrum sets the value to null for data that exceeds the width of the column.
 
     :see: https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_EXTERNAL_TABLE.html#r_CREATE_EXTERNAL_TABLE-parameters - under *"TABLE PROPERTIES"* > *"surplus_bytes_handling"*
-    :stability: experimental
+    :stability: deprecated
     '''
 
     SET_TO_NULL = "SET_TO_NULL"
-    '''(experimental) Replaces data that exceeds the column width with null.
+    '''(deprecated) Replaces data that exceeds the column width with null.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     DISABLED = "DISABLED"
-    '''(experimental) Doesn't perform surplus byte handling.
+    '''(deprecated) Doesn't perform surplus byte handling.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     FAIL = "FAIL"
-    '''(experimental) Cancels queries that return data exceeding the column width.
+    '''(deprecated) Cancels queries that return data exceeding the column width.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     DROP_ROW = "DROP_ROW"
-    '''(experimental) Drop all rows that contain data exceeding column width.
+    '''(deprecated) Drop all rows that contain data exceeding column width.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     TRUNCATE = "TRUNCATE"
-    '''(experimental) Removes the characters that exceed the maximum number of characters defined for the column.
+    '''(deprecated) Removes the characters that exceed the maximum number of characters defined for the column.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.SurplusCharHandlingAction")
 class SurplusCharHandlingAction(enum.Enum):
-    '''(experimental) Specifies how to handle data being loaded that exceeds the length of the data type defined for columns containing VARCHAR, CHAR, or string data.
+    '''(deprecated) Specifies how to handle data being loaded that exceeds the length of the data type defined for columns containing VARCHAR, CHAR, or string data.
 
     By default, Redshift Spectrum sets the value to null for data that exceeds the width of the column.
 
     :see: https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_EXTERNAL_TABLE.html#r_CREATE_EXTERNAL_TABLE-parameters - under *"TABLE PROPERTIES"* > *"surplus_char_handling"*
-    :stability: experimental
+    :stability: deprecated
     '''
 
     SET_TO_NULL = "SET_TO_NULL"
-    '''(experimental) Replaces data that exceeds the column width with null.
+    '''(deprecated) Replaces data that exceeds the column width with null.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     DISABLED = "DISABLED"
-    '''(experimental) Doesn't perform surplus character handling.
+    '''(deprecated) Doesn't perform surplus character handling.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     FAIL = "FAIL"
-    '''(experimental) Cancels queries that return data exceeding the column width.
+    '''(deprecated) Cancels queries that return data exceeding the column width.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     DROP_ROW = "DROP_ROW"
-    '''(experimental) Replaces each value in the row with null.
+    '''(deprecated) Replaces each value in the row with null.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     TRUNCATE = "TRUNCATE"
-    '''(experimental) Removes the characters that exceed the maximum number of characters defined for the column.
+    '''(deprecated) Removes the characters that exceed the maximum number of characters defined for the column.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
@@ -11588,7 +11586,7 @@ class TableAttributes:
         :param table_arn: 
         :param table_name: 
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -11614,7 +11612,7 @@ class TableAttributes:
     @builtins.property
     def table_arn(self) -> builtins.str:
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("table_arn")
         assert result is not None, "Required property 'table_arn' is missing"
@@ -11623,7 +11621,7 @@ class TableAttributes:
     @builtins.property
     def table_name(self) -> builtins.str:
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("table_name")
         assert result is not None, "Required property 'table_name' is missing"
@@ -11647,9 +11645,9 @@ class TableBase(
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="@aws-cdk/aws-glue-alpha.TableBase",
 ):
-    '''(experimental) A Glue table.
+    '''(deprecated) A Glue table.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: fixture=_generated
 
     Example::
@@ -11684,22 +11682,22 @@ class TableBase(
         '''
         :param scope: -
         :param id: -
-        :param columns: (experimental) Columns of the table.
-        :param database: (experimental) Database in which to store the table.
-        :param data_format: (experimental) Storage type of the table's data.
-        :param compressed: (experimental) Indicates whether the table's data is compressed or not. Default: false
-        :param description: (experimental) Description of the table. Default: generated
-        :param enable_partition_filtering: (experimental) Enables partition filtering. Default: - The parameter is not defined
-        :param has_encrypted_data: (experimental) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
-        :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
-        :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
-        :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
-        :param partition_projection: (experimental) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
-        :param storage_parameters: (experimental) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
-        :param stored_as_sub_directories: (experimental) Indicates whether the table data is stored in subdirectories. Default: false
-        :param table_name: (experimental) Name of the table. Default: - generated by CDK.
+        :param columns: (deprecated) Columns of the table.
+        :param database: (deprecated) Database in which to store the table.
+        :param data_format: (deprecated) Storage type of the table's data.
+        :param compressed: (deprecated) Indicates whether the table's data is compressed or not. Default: false
+        :param description: (deprecated) Description of the table. Default: generated
+        :param enable_partition_filtering: (deprecated) Enables partition filtering. Default: - The parameter is not defined
+        :param has_encrypted_data: (deprecated) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
+        :param parameters: (deprecated) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
+        :param partition_indexes: (deprecated) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
+        :param partition_keys: (deprecated) Partition columns of the table. Default: table is not partitioned
+        :param partition_projection: (deprecated) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
+        :param storage_parameters: (deprecated) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
+        :param stored_as_sub_directories: (deprecated) Indicates whether the table data is stored in subdirectories. Default: false
+        :param table_name: (deprecated) Name of the table. Default: - generated by CDK.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3498ddd8b03f8ca1e3bea08a9f07832747b340c2a3681dc513148655f79ad155)
@@ -11737,7 +11735,7 @@ class TableBase(
         :param id: -
         :param table_arn: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__02bd4969b95beb4e956637865cbc28ff5818c6ec54f938297add787350585c81)
@@ -11756,14 +11754,14 @@ class TableBase(
         table_arn: builtins.str,
         table_name: builtins.str,
     ) -> "ITable":
-        '''(experimental) Creates a Table construct that represents an external table.
+        '''(deprecated) Creates a Table construct that represents an external table.
 
         :param scope: The scope creating construct (usually ``this``).
         :param id: The construct's id.
         :param table_arn: 
         :param table_name: 
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__58099cdb2e6af7cafb7eb58d27cec43a72e06cce30052aef55c41e9f4574cb47)
@@ -11780,17 +11778,17 @@ class TableBase(
         key_names: typing.Sequence[builtins.str],
         index_name: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''(experimental) Add a partition index to the table.
+        '''(deprecated) Add a partition index to the table.
 
         You can have a maximum of 3 partition
         indexes to a table. Partition index keys must be a subset of the table's
         partition keys.
 
-        :param key_names: (experimental) The partition key names that comprise the partition index. The names must correspond to a name in the table's partition keys.
-        :param index_name: (experimental) The name of the partition index. Default: - a name will be generated for you.
+        :param key_names: (deprecated) The partition key names that comprise the partition index. The names must correspond to a name in the table's partition keys.
+        :param index_name: (deprecated) The name of the partition index. Default: - a name will be generated for you.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/partition-indexes.html
-        :stability: experimental
+        :stability: deprecated
         '''
         index = PartitionIndex(key_names=key_names, index_name=index_name)
 
@@ -11802,7 +11800,7 @@ class TableBase(
         grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
         actions: typing.Sequence[builtins.str],
     ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
-        '''(experimental) Grant the given identity custom permissions on this table.
+        '''(deprecated) Grant the given identity custom permissions on this table.
 
         This is a low-level escape hatch: the ``actions`` are applied verbatim,
         scoped to this table's ARN. Prefer the intent-based ``grantRead`` /
@@ -11814,7 +11812,7 @@ class TableBase(
         :param grantee: the principal.
         :param actions: the set of Glue actions to allow (for example ``glue:GetTable``).
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5b9362ce2360a32cd6ed5b3e0b6fb67c0eeb2fadb38c5ce618002656d772e776)
@@ -11831,7 +11829,7 @@ class TableBase(
         '''
         :param grantee: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -11844,7 +11842,7 @@ class TableBase(
         '''
         :param grantee: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -11854,7 +11852,7 @@ class TableBase(
         grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
         actions: typing.Sequence[builtins.str],
     ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
-        '''(experimental) Grant the given identity custom permissions on this table AND its parent catalog and database.
+        '''(deprecated) Grant the given identity custom permissions on this table AND its parent catalog and database.
 
         This is a low-level escape hatch for actions (such as certain Lake
         Formation or crawler operations) that must be authorized against the
@@ -11868,7 +11866,7 @@ class TableBase(
         :param grantee: the principal.
         :param actions: the set of Glue actions to allow (for example ``glue:GetTable``).
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0fefdc4d880c6035cf74f0867c529fd1390e46d666f130f14ef71eeb28507b1c)
@@ -11885,65 +11883,65 @@ class TableBase(
         '''
         :param grantee: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
     @builtins.property
     @jsii.member(jsii_name="columns")
     def columns(self) -> typing.List["Column"]:
-        '''(experimental) This table's columns.
+        '''(deprecated) This table's columns.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.List["Column"], jsii.get(self, "columns"))
 
     @builtins.property
     @jsii.member(jsii_name="compressed")
     def compressed(self) -> builtins.bool:
-        '''(experimental) Indicates whether the table's data is compressed or not.
+        '''(deprecated) Indicates whether the table's data is compressed or not.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.bool, jsii.get(self, "compressed"))
 
     @builtins.property
     @jsii.member(jsii_name="database")
     def database(self) -> "IDatabase":
-        '''(experimental) Database this table belongs to.
+        '''(deprecated) Database this table belongs to.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("IDatabase", jsii.get(self, "database"))
 
     @builtins.property
     @jsii.member(jsii_name="dataFormat")
     def data_format(self) -> "DataFormat":
-        '''(experimental) Format of this table's data files.
+        '''(deprecated) Format of this table's data files.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("DataFormat", jsii.get(self, "dataFormat"))
 
     @builtins.property
     @jsii.member(jsii_name="hasEncryptedData")
     def _has_encrypted_data(self) -> builtins.bool:
-        '''(experimental) Whether the data stored in the table is encrypted.
+        '''(deprecated) Whether the data stored in the table is encrypted.
 
         Emitted as the
         ``has_encrypted_data`` table parameter.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.bool, jsii.get(self, "hasEncryptedData"))
 
     @builtins.property
     @jsii.member(jsii_name="parameters")
     def _parameters(self) -> typing.Mapping[builtins.str, builtins.str]:
-        '''(experimental) The tables' properties associated with the table.
+        '''(deprecated) The tables' properties associated with the table.
 
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-tableinput.html#cfn-glue-table-tableinput-parameters
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Mapping[builtins.str, builtins.str], jsii.get(self, "parameters"))
 
@@ -11952,7 +11950,7 @@ class TableBase(
     @abc.abstractmethod
     def table_arn(self) -> builtins.str:
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -11961,7 +11959,7 @@ class TableBase(
     @abc.abstractmethod
     def table_name(self) -> builtins.str:
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -11970,7 +11968,7 @@ class TableBase(
     @abc.abstractmethod
     def _table_resource(self) -> "_aws_cdk_aws_glue_ceddda9d.CfnTable":
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -11979,16 +11977,16 @@ class TableBase(
     @abc.abstractmethod
     def partition_indexes(self) -> typing.Optional[typing.List["PartitionIndex"]]:
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
     @builtins.property
     @jsii.member(jsii_name="partitionKeys")
     def partition_keys(self) -> typing.Optional[typing.List["Column"]]:
-        '''(experimental) This table's partition keys if the table is partitioned.
+        '''(deprecated) This table's partition keys if the table is partitioned.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional[typing.List["Column"]], jsii.get(self, "partitionKeys"))
 
@@ -11997,18 +11995,18 @@ class TableBase(
     def partition_projection(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]]:
-        '''(experimental) This table's partition projection configuration if enabled.
+        '''(deprecated) This table's partition projection configuration if enabled.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]], jsii.get(self, "partitionProjection"))
 
     @builtins.property
     @jsii.member(jsii_name="storageParameters")
     def storage_parameters(self) -> typing.Optional[typing.List["StorageParameter"]]:
-        '''(experimental) The tables' storage descriptor properties.
+        '''(deprecated) The tables' storage descriptor properties.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional[typing.List["StorageParameter"]], jsii.get(self, "storageParameters"))
 
@@ -12025,7 +12023,7 @@ class _TableBaseProxy(
         '''
         :param grantee: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__daad53122858b1d79a2d9a51e22fe701058f7a4a9f5b6d813930d2e34d3f2c63)
@@ -12040,7 +12038,7 @@ class _TableBaseProxy(
         '''
         :param grantee: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__316a7ca269e4227039ebebd0789404fc7ab5c3f9b3787007562ce4edf5df8225)
@@ -12055,7 +12053,7 @@ class _TableBaseProxy(
         '''
         :param grantee: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__bb08ef4e43dac45d9dc56da91de5195d72be73db28c81ee45853c2c2ac349abd)
@@ -12066,7 +12064,7 @@ class _TableBaseProxy(
     @jsii.member(jsii_name="tableArn")
     def table_arn(self) -> builtins.str:
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "tableArn"))
 
@@ -12074,7 +12072,7 @@ class _TableBaseProxy(
     @jsii.member(jsii_name="tableName")
     def table_name(self) -> builtins.str:
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "tableName"))
 
@@ -12082,7 +12080,7 @@ class _TableBaseProxy(
     @jsii.member(jsii_name="tableResource")
     def _table_resource(self) -> "_aws_cdk_aws_glue_ceddda9d.CfnTable":
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTable", jsii.get(self, "tableResource"))
 
@@ -12090,7 +12088,7 @@ class _TableBaseProxy(
     @jsii.member(jsii_name="partitionIndexes")
     def partition_indexes(self) -> typing.Optional[typing.List["PartitionIndex"]]:
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional[typing.List["PartitionIndex"]], jsii.get(self, "partitionIndexes"))
 
@@ -12138,22 +12136,22 @@ class TableBaseProps:
         table_name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param columns: (experimental) Columns of the table.
-        :param database: (experimental) Database in which to store the table.
-        :param data_format: (experimental) Storage type of the table's data.
-        :param compressed: (experimental) Indicates whether the table's data is compressed or not. Default: false
-        :param description: (experimental) Description of the table. Default: generated
-        :param enable_partition_filtering: (experimental) Enables partition filtering. Default: - The parameter is not defined
-        :param has_encrypted_data: (experimental) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
-        :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
-        :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
-        :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
-        :param partition_projection: (experimental) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
-        :param storage_parameters: (experimental) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
-        :param stored_as_sub_directories: (experimental) Indicates whether the table data is stored in subdirectories. Default: false
-        :param table_name: (experimental) Name of the table. Default: - generated by CDK.
+        :param columns: (deprecated) Columns of the table.
+        :param database: (deprecated) Database in which to store the table.
+        :param data_format: (deprecated) Storage type of the table's data.
+        :param compressed: (deprecated) Indicates whether the table's data is compressed or not. Default: false
+        :param description: (deprecated) Description of the table. Default: generated
+        :param enable_partition_filtering: (deprecated) Enables partition filtering. Default: - The parameter is not defined
+        :param has_encrypted_data: (deprecated) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
+        :param parameters: (deprecated) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
+        :param partition_indexes: (deprecated) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
+        :param partition_keys: (deprecated) Partition columns of the table. Default: table is not partitioned
+        :param partition_projection: (deprecated) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
+        :param storage_parameters: (deprecated) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
+        :param stored_as_sub_directories: (deprecated) Indicates whether the table data is stored in subdirectories. Default: false
+        :param table_name: (deprecated) Name of the table. Default: - generated by CDK.
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -12254,9 +12252,9 @@ class TableBaseProps:
 
     @builtins.property
     def columns(self) -> typing.List["Column"]:
-        '''(experimental) Columns of the table.
+        '''(deprecated) Columns of the table.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("columns")
         assert result is not None, "Required property 'columns' is missing"
@@ -12264,9 +12262,9 @@ class TableBaseProps:
 
     @builtins.property
     def database(self) -> "IDatabase":
-        '''(experimental) Database in which to store the table.
+        '''(deprecated) Database in which to store the table.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -12274,9 +12272,9 @@ class TableBaseProps:
 
     @builtins.property
     def data_format(self) -> "DataFormat":
-        '''(experimental) Storage type of the table's data.
+        '''(deprecated) Storage type of the table's data.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("data_format")
         assert result is not None, "Required property 'data_format' is missing"
@@ -12284,41 +12282,41 @@ class TableBaseProps:
 
     @builtins.property
     def compressed(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Indicates whether the table's data is compressed or not.
+        '''(deprecated) Indicates whether the table's data is compressed or not.
 
         :default: false
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("compressed")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Description of the table.
+        '''(deprecated) Description of the table.
 
         :default: generated
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def enable_partition_filtering(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables partition filtering.
+        '''(deprecated) Enables partition filtering.
 
         :default: - The parameter is not defined
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/glue-best-practices.html#glue-best-practices-partition-index
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enable_partition_filtering")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def has_encrypted_data(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether the data stored in the table is encrypted.
+        '''(deprecated) Whether the data stored in the table is encrypted.
 
         This sets the ``has_encrypted_data`` table parameter. Athena reads it when
         querying client-side (CSE-KMS) encrypted datasets; for server-side
@@ -12331,28 +12329,28 @@ class TableBaseProps:
         :default: true
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/creating-tables-based-on-encrypted-datasets-in-s3.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("has_encrypted_data")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) The key/value pairs define properties associated with the table.
+        '''(deprecated) The key/value pairs define properties associated with the table.
 
         The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed.
 
         :default: - The parameter is not defined
 
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-tableinput.html#cfn-glue-table-tableinput-parameters
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def partition_indexes(self) -> typing.Optional[typing.List["PartitionIndex"]]:
-        '''(experimental) Partition indexes on the table.
+        '''(deprecated) Partition indexes on the table.
 
         A maximum of 3 indexes
         are allowed on a table. Keys in the index must be part
@@ -12360,18 +12358,18 @@ class TableBaseProps:
 
         :default: table has no partition indexes
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("partition_indexes")
         return typing.cast(typing.Optional[typing.List["PartitionIndex"]], result)
 
     @builtins.property
     def partition_keys(self) -> typing.Optional[typing.List["Column"]]:
-        '''(experimental) Partition columns of the table.
+        '''(deprecated) Partition columns of the table.
 
         :default: table is not partitioned
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("partition_keys")
         return typing.cast(typing.Optional[typing.List["Column"]], result)
@@ -12380,7 +12378,7 @@ class TableBaseProps:
     def partition_projection(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]]:
-        '''(experimental) Partition projection configuration for this table.
+        '''(deprecated) Partition projection configuration for this table.
 
         Partition projection allows Athena to automatically add new partitions
         without requiring ``ALTER TABLE ADD PARTITION`` statements.
@@ -12388,14 +12386,14 @@ class TableBaseProps:
         :default: - No partition projection
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/partition-projection.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("partition_projection")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]], result)
 
     @builtins.property
     def storage_parameters(self) -> typing.Optional[typing.List["StorageParameter"]]:
-        '''(experimental) The user-supplied properties for the description of the physical storage of this table.
+        '''(deprecated) The user-supplied properties for the description of the physical storage of this table.
 
         These properties help describe the format of the data that is stored within the crawled data sources.
 
@@ -12406,7 +12404,7 @@ class TableBaseProps:
         :default: - The parameter is not defined
 
         :see: https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_EXTERNAL_TABLE.html#r_CREATE_EXTERNAL_TABLE-parameters - under *"TABLE PROPERTIES"*
-        :stability: experimental
+        :stability: deprecated
 
         Example::
 
@@ -12434,22 +12432,22 @@ class TableBaseProps:
 
     @builtins.property
     def stored_as_sub_directories(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Indicates whether the table data is stored in subdirectories.
+        '''(deprecated) Indicates whether the table data is stored in subdirectories.
 
         :default: false
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("stored_as_sub_directories")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def table_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Name of the table.
+        '''(deprecated) Name of the table.
 
         :default: - generated by CDK.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("table_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -12470,13 +12468,13 @@ class TableClientSideEncryption(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.TableClientSideEncryption",
 ):
-    '''(experimental) Client-side encryption for an ``S3Table``'s data.
+    '''(deprecated) Client-side encryption for an ``S3Table``'s data.
 
     Independent of the bucket's server-side encryption and of who owns the bucket:
     the data is encrypted by the client before it is written to S3. When set, the
     ``grant*`` methods also grant the relevant KMS permissions on the key.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -12514,11 +12512,11 @@ class TableClientSideEncryption(
         cls,
         key: typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"] = None,
     ) -> "TableClientSideEncryption":
-        '''(experimental) Client-side encryption (CSE-KMS) with an AWS KMS key managed by the account owner.
+        '''(deprecated) Client-side encryption (CSE-KMS) with an AWS KMS key managed by the account owner.
 
         :param key: the KMS key used to encrypt the data. A key is created if one is not provided.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1c9aafcca958a02033eeb95ddd63beee8aecb98a8cca7c8cc2883a868af786c2)
@@ -12539,13 +12537,13 @@ class TriggerOptions:
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''(experimental) Properties for configuring a Glue Trigger.
+        '''(deprecated) Properties for configuring a Glue Trigger.
 
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
+        :param actions: (deprecated) The actions initiated by this trigger.
+        :param description: (deprecated) A description for the trigger. Default: - no description
+        :param name: (deprecated) A name for the trigger. Default: - no name is provided
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -12579,9 +12577,9 @@ class TriggerOptions:
 
     @builtins.property
     def actions(self) -> typing.List["Action"]:
-        '''(experimental) The actions initiated by this trigger.
+        '''(deprecated) The actions initiated by this trigger.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
@@ -12589,22 +12587,22 @@ class TriggerOptions:
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A description for the trigger.
+        '''(deprecated) A description for the trigger.
 
         :default: - no description
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A name for the trigger.
+        '''(deprecated) A name for the trigger.
 
         :default: - no name is provided
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -12625,9 +12623,9 @@ class TriggerSchedule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.TriggerSchedule",
 ):
-    '''(experimental) Represents a trigger schedule.
+    '''(deprecated) Represents a trigger schedule.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -12659,7 +12657,7 @@ class TriggerSchedule(
         week_day: typing.Optional[builtins.str] = None,
         year: typing.Optional[builtins.str] = None,
     ) -> "TriggerSchedule":
-        '''(experimental) Creates a new TriggerSchedule instance with a cron expression.
+        '''(deprecated) Creates a new TriggerSchedule instance with a cron expression.
 
         :param day: The day of the month to run this rule at. Default: - Every day of the month
         :param hour: The hour to run this rule at. Default: - Every hour
@@ -12670,7 +12668,7 @@ class TriggerSchedule(
 
         :return: A new TriggerSchedule instance.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         options = _aws_cdk_aws_events_ceddda9d.CronOptions(
             day=day,
@@ -12686,24 +12684,24 @@ class TriggerSchedule(
     @jsii.member(jsii_name="daily")
     @builtins.classmethod
     def daily(cls) -> "TriggerSchedule":
-        '''(experimental) Creates a schedule that fires once a day, at midnight UTC.
+        '''(deprecated) Creates a schedule that fires once a day, at midnight UTC.
 
         :return: A new TriggerSchedule instance.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("TriggerSchedule", jsii.sinvoke(cls, "daily", []))
 
     @jsii.member(jsii_name="expression")
     @builtins.classmethod
     def expression(cls, expression: builtins.str) -> "TriggerSchedule":
-        '''(experimental) Creates a new TriggerSchedule instance with a custom expression.
+        '''(deprecated) Creates a new TriggerSchedule instance with a custom expression.
 
         :param expression: The custom expression for the schedule.
 
         :return: A new TriggerSchedule instance.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__56ff882bc008a9c07c54cca389af52f69a512017f4daa61c64beb028d7e8c4cc)
@@ -12713,32 +12711,32 @@ class TriggerSchedule(
     @jsii.member(jsii_name="weekly")
     @builtins.classmethod
     def weekly(cls) -> "TriggerSchedule":
-        '''(experimental) Creates a schedule that fires once a week, at midnight UTC on Sunday.
+        '''(deprecated) Creates a schedule that fires once a week, at midnight UTC on Sunday.
 
         :return: A new TriggerSchedule instance.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("TriggerSchedule", jsii.sinvoke(cls, "weekly", []))
 
     @builtins.property
     @jsii.member(jsii_name="expressionString")
     def expression_string(self) -> builtins.str:
-        '''(experimental) The expression string for the schedule.
+        '''(deprecated) The expression string for the schedule.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "expressionString"))
 
 
 class Type(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Type"):
-    '''(experimental) The type of a column in a table schema.
+    '''(deprecated) The type of a column in a table schema.
 
     Instances are opaque: obtain one from a ``Schema`` factory (for example
     ``Schema.STRING``, ``Schema.decimal(...)``, ``Schema.array(...)``) or, for a type the
     ``Schema`` factories don't model, from ``Schema.custom(...)``.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -12769,18 +12767,18 @@ class Type(metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Type"):
     @builtins.property
     @jsii.member(jsii_name="inputString")
     def input_string(self) -> builtins.str:
-        '''(experimental) Glue InputString for this type.
+        '''(deprecated) Glue InputString for this type.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "inputString"))
 
     @builtins.property
     @jsii.member(jsii_name="isPrimitive")
     def is_primitive(self) -> builtins.bool:
-        '''(experimental) Indicates whether this type is a primitive data type.
+        '''(deprecated) Indicates whether this type is a primitive data type.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.bool, jsii.get(self, "isPrimitive"))
 
@@ -12797,16 +12795,16 @@ class WorkerConfiguration:
         number_of_workers: jsii.Number,
         worker_type: "WorkerType",
     ) -> None:
-        '''(experimental) The worker configuration for a Spark job.
+        '''(deprecated) The worker configuration for a Spark job.
 
         The worker type and the number of workers are set together: providing this
         configuration requires both values, so a Spark job can never be given one
         without the other.
 
-        :param number_of_workers: (experimental) The number of workers of the given ``workerType`` that are allocated when a job runs.
-        :param worker_type: (experimental) The type of predefined worker that is allocated when a job runs. Enum options: Standard, G_1X, G_2X, G_025X, G_4X, G_8X, Z_2X
+        :param number_of_workers: (deprecated) The number of workers of the given ``workerType`` that are allocated when a job runs.
+        :param worker_type: (deprecated) The type of predefined worker that is allocated when a job runs. Enum options: Standard, G_1X, G_2X, G_025X, G_4X, G_8X, Z_2X
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -12851,9 +12849,9 @@ class WorkerConfiguration:
 
     @builtins.property
     def number_of_workers(self) -> jsii.Number:
-        '''(experimental) The number of workers of the given ``workerType`` that are allocated when a job runs.
+        '''(deprecated) The number of workers of the given ``workerType`` that are allocated when a job runs.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("number_of_workers")
         assert result is not None, "Required property 'number_of_workers' is missing"
@@ -12861,11 +12859,11 @@ class WorkerConfiguration:
 
     @builtins.property
     def worker_type(self) -> "WorkerType":
-        '''(experimental) The type of predefined worker that is allocated when a job runs.
+        '''(deprecated) The type of predefined worker that is allocated when a job runs.
 
         Enum options: Standard, G_1X, G_2X, G_025X, G_4X, G_8X, Z_2X
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("worker_type")
         assert result is not None, "Required property 'worker_type' is missing"
@@ -12885,9 +12883,9 @@ class WorkerConfiguration:
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.WorkerType")
 class WorkerType(enum.Enum):
-    '''(experimental) The type of predefined worker that is allocated when a job runs.
+    '''(deprecated) The type of predefined worker that is allocated when a job runs.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -12923,44 +12921,44 @@ class WorkerType(enum.Enum):
     '''
 
     STANDARD = "STANDARD"
-    '''(experimental) Standard Worker Type 4 vCPU, 16 GB of memory and a 50GB disk, and 2 executors per worker.
+    '''(deprecated) Standard Worker Type 4 vCPU, 16 GB of memory and a 50GB disk, and 2 executors per worker.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     G_1X = "G_1X"
-    '''(experimental) G.1X Worker Type 1 DPU (4 vCPU, 16 GB of memory, 64 GB disk), and provides 1 executor per worker. Suitable for memory-intensive jobs.
+    '''(deprecated) G.1X Worker Type 1 DPU (4 vCPU, 16 GB of memory, 64 GB disk), and provides 1 executor per worker. Suitable for memory-intensive jobs.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     G_2X = "G_2X"
-    '''(experimental) G.2X Worker Type 2 DPU (8 vCPU, 32 GB of memory, 128 GB disk), and provides 1 executor per worker. Suitable for memory-intensive jobs.
+    '''(deprecated) G.2X Worker Type 2 DPU (8 vCPU, 32 GB of memory, 128 GB disk), and provides 1 executor per worker. Suitable for memory-intensive jobs.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     G_4X = "G_4X"
-    '''(experimental) G.4X Worker Type 4 DPU (16 vCPU, 64 GB of memory, 256 GB disk), and provides 1 executor per worker. We recommend this worker type for jobs whose workloads contain your most demanding transforms, aggregations, joins, and queries. This worker type is available only for AWS Glue version 3.0 or later jobs.
+    '''(deprecated) G.4X Worker Type 4 DPU (16 vCPU, 64 GB of memory, 256 GB disk), and provides 1 executor per worker. We recommend this worker type for jobs whose workloads contain your most demanding transforms, aggregations, joins, and queries. This worker type is available only for AWS Glue version 3.0 or later jobs.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     G_8X = "G_8X"
-    '''(experimental) G.8X Worker Type 8 DPU (32 vCPU, 128 GB of memory, 512 GB disk), and provides 1 executor per worker. We recommend this worker type for jobs whose workloads contain your most demanding transforms, aggregations, joins, and queries. This worker type is available only for AWS Glue version 3.0 or later jobs.
+    '''(deprecated) G.8X Worker Type 8 DPU (32 vCPU, 128 GB of memory, 512 GB disk), and provides 1 executor per worker. We recommend this worker type for jobs whose workloads contain your most demanding transforms, aggregations, joins, and queries. This worker type is available only for AWS Glue version 3.0 or later jobs.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     G_12X = "G_12X"
-    '''(experimental) G.12X Worker Type 12 DPU (48 vCPU, 192 GB of memory, 768 GB disk), and provides 1 executor per worker. We recommend this worker type for jobs with very large and resource-intensive workloads that require significant compute capacity. This worker type is available only for AWS Glue version 3.0 or later jobs.
+    '''(deprecated) G.12X Worker Type 12 DPU (48 vCPU, 192 GB of memory, 768 GB disk), and provides 1 executor per worker. We recommend this worker type for jobs with very large and resource-intensive workloads that require significant compute capacity. This worker type is available only for AWS Glue version 3.0 or later jobs.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     G_16X = "G_16X"
-    '''(experimental) G.16X Worker Type 16 DPU (64 vCPU, 256 GB of memory, 1024 GB disk), and provides 1 executor per worker. We recommend this worker type for jobs with the largest and most resource-intensive workloads that require maximum compute capacity. This worker type is available only for AWS Glue version 3.0 or later jobs.
+    '''(deprecated) G.16X Worker Type 16 DPU (64 vCPU, 256 GB of memory, 1024 GB disk), and provides 1 executor per worker. We recommend this worker type for jobs with the largest and most resource-intensive workloads that require maximum compute capacity. This worker type is available only for AWS Glue version 3.0 or later jobs.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     G_025X = "G_025X"
-    '''(experimental) G.025X Worker Type 0.25 DPU (2 vCPU, 4 GB of memory, 64 GB disk), and provides 1 executor per worker. Suitable for low volume streaming jobs.
+    '''(deprecated) G.025X Worker Type 0.25 DPU (2 vCPU, 4 GB of memory, 64 GB disk), and provides 1 executor per worker. Suitable for low volume streaming jobs.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     Z_2X = "Z_2X"
     '''(deprecated) Z.2X Worker Type.
@@ -12974,24 +12972,24 @@ class WorkerType(enum.Enum):
     :stability: deprecated
     '''
     R_1X = "R_1X"
-    '''(experimental) R.1X Worker Type 1 M-DPU (4 vCPUs, 32 GB memory), We recommend this worker type for memory-intensive workloads that frequently encounter out-of-memory errors or require high memory-to-CPU ratios.
+    '''(deprecated) R.1X Worker Type 1 M-DPU (4 vCPUs, 32 GB memory), We recommend this worker type for memory-intensive workloads that frequently encounter out-of-memory errors or require high memory-to-CPU ratios.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     R_2X = "R_2X"
-    '''(experimental) R.2X Worker Type 2 M-DPU (8 vCPUs, 64 GB memory), We recommend this worker type for memory-intensive workloads that frequently encounter out-of-memory errors or require high memory-to-CPU ratios.
+    '''(deprecated) R.2X Worker Type 2 M-DPU (8 vCPUs, 64 GB memory), We recommend this worker type for memory-intensive workloads that frequently encounter out-of-memory errors or require high memory-to-CPU ratios.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     R_4X = "R_4X"
-    '''(experimental) R.4X Worker Type 4 M-DPU (16 vCPUs, 128 GB memory), We recommend this worker type for large memory-intensive workloads that frequently encounter out-of-memory errors or require high memory-to-CPU ratios.
+    '''(deprecated) R.4X Worker Type 4 M-DPU (16 vCPUs, 128 GB memory), We recommend this worker type for large memory-intensive workloads that frequently encounter out-of-memory errors or require high memory-to-CPU ratios.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     R_8X = "R_8X"
-    '''(experimental) R.8X Worker Type 8 M-DPU (32 vCPUs, 256 GB memory), We recommend this worker type for very large memory-intensive workloads that frequently encounter out-of-memory errors or require high memory-to-CPU ratios.
+    '''(deprecated) R.8X Worker Type 8 M-DPU (32 vCPUs, 256 GB memory), We recommend this worker type for very large memory-intensive workloads that frequently encounter out-of-memory errors or require high memory-to-CPU ratios.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
@@ -13007,12 +13005,12 @@ class WorkflowAttributes:
         workflow_name: builtins.str,
         workflow_arn: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''(experimental) Properties for importing a Workflow using its attributes.
+        '''(deprecated) Properties for importing a Workflow using its attributes.
 
-        :param workflow_name: (experimental) The name of the workflow to import.
-        :param workflow_arn: (experimental) The ARN of the workflow to import. Default: - derived from the workflow name
+        :param workflow_name: (deprecated) The name of the workflow to import.
+        :param workflow_arn: (deprecated) The ARN of the workflow to import. Default: - derived from the workflow name
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -13040,9 +13038,9 @@ class WorkflowAttributes:
 
     @builtins.property
     def workflow_name(self) -> builtins.str:
-        '''(experimental) The name of the workflow to import.
+        '''(deprecated) The name of the workflow to import.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("workflow_name")
         assert result is not None, "Required property 'workflow_name' is missing"
@@ -13050,11 +13048,11 @@ class WorkflowAttributes:
 
     @builtins.property
     def workflow_arn(self) -> typing.Optional[builtins.str]:
-        '''(experimental) The ARN of the workflow to import.
+        '''(deprecated) The ARN of the workflow to import.
 
         :default: - derived from the workflow name
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("workflow_arn")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -13077,10 +13075,10 @@ class WorkflowBase(
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="@aws-cdk/aws-glue-alpha.WorkflowBase",
 ):
-    '''(experimental) Base abstract class for Workflow.
+    '''(deprecated) Base abstract class for Workflow.
 
     :see: https://docs.aws.amazon.com/glue/latest/dg/about-triggers.html
-    :stability: experimental
+    :stability: deprecated
     '''
 
     def __init__(
@@ -13121,12 +13119,12 @@ class WorkflowBase(
         scope: "_constructs_77d1e7e8.Construct",
         workflow_arn: builtins.str,
     ) -> builtins.str:
-        '''(experimental) Extract workflowName from arn.
+        '''(deprecated) Extract workflowName from arn.
 
         :param scope: -
         :param workflow_arn: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e60bad0b098fdfdf2b691c49ccc19b0958d18a40071c1f2dc9876e4cb3f218ed)
@@ -13145,18 +13143,18 @@ class WorkflowBase(
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
-        '''(experimental) Add a conditional (predicate-based) trigger to the workflow.
+        '''(deprecated) Add a conditional (predicate-based) trigger to the workflow.
 
         :param id: The id of the trigger.
-        :param predicate: (experimental) The predicate for the trigger.
-        :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
+        :param predicate: (deprecated) The predicate for the trigger.
+        :param start_on_creation: (deprecated) Whether to start the trigger on creation or not. Default: - false
+        :param actions: (deprecated) The actions initiated by this trigger.
+        :param description: (deprecated) A description for the trigger. Default: - no description
+        :param name: (deprecated) A name for the trigger. Default: - no name is provided
 
         :return: a reference to the created trigger.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__198f86d215161a42a7d94a66d9c0e12667e8bcffc4f46d5be57675e9ef4ead34)
@@ -13181,17 +13179,17 @@ class WorkflowBase(
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
-        '''(experimental) Add an EventBridge event-based trigger to the workflow.
+        '''(deprecated) Add an EventBridge event-based trigger to the workflow.
 
         :param id: The id of the trigger.
-        :param event_batching_condition: (experimental) Batch condition for the trigger. Default: - no batch condition
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
+        :param event_batching_condition: (deprecated) Batch condition for the trigger. Default: - no batch condition
+        :param actions: (deprecated) The actions initiated by this trigger.
+        :param description: (deprecated) A description for the trigger. Default: - no description
+        :param name: (deprecated) A name for the trigger. Default: - no name is provided
 
         :return: a reference to the created trigger.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a32096a81a8487c02396b4e5e70d6909c171ffdaf25fea1024c049fe18e70af4)
@@ -13214,16 +13212,16 @@ class WorkflowBase(
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
-        '''(experimental) Add an on-demand trigger to the workflow.
+        '''(deprecated) Add an on-demand trigger to the workflow.
 
         :param id: The id of the trigger.
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
+        :param actions: (deprecated) The actions initiated by this trigger.
+        :param description: (deprecated) A description for the trigger. Default: - no description
+        :param name: (deprecated) A name for the trigger. Default: - no name is provided
 
         :return: a reference to the created trigger.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ef2bb127a7095832cbabb03ab806137724c70a57726a996979493b4efd025d33)
@@ -13245,18 +13243,18 @@ class WorkflowBase(
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.ITriggerRef":
-        '''(experimental) Add a scheduled trigger to the workflow.
+        '''(deprecated) Add a scheduled trigger to the workflow.
 
         :param id: The id of the trigger.
-        :param schedule: (experimental) The schedule on which this trigger fires. Build one with {@link TriggerSchedule.daily}, {@link TriggerSchedule.weekly}, {@link TriggerSchedule.cron}, or {@link TriggerSchedule.expression}.
-        :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
+        :param schedule: (deprecated) The schedule on which this trigger fires. Build one with {@link TriggerSchedule.daily}, {@link TriggerSchedule.weekly}, {@link TriggerSchedule.cron}, or {@link TriggerSchedule.expression}.
+        :param start_on_creation: (deprecated) Whether to start the trigger on creation or not. Default: - false
+        :param actions: (deprecated) The actions initiated by this trigger.
+        :param description: (deprecated) A description for the trigger. Default: - no description
+        :param name: (deprecated) A name for the trigger. Default: - no name is provided
 
         :return: a reference to the created trigger.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__630114deeb6f6732425ff4b320a07036c999ceb0be0ad71c8a8477810e5dc67f)
@@ -13281,7 +13279,7 @@ class WorkflowBase(
         :param scope: -
         :param workflow_name: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8997679cd37044eb0d286e532b0259bfa39f780f2f0929b826fd149f746c5df0)
@@ -13293,9 +13291,9 @@ class WorkflowBase(
     @jsii.member(jsii_name="workflowArn")
     @abc.abstractmethod
     def workflow_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the workflow.
+        '''(deprecated) The ARN of the workflow.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -13303,9 +13301,9 @@ class WorkflowBase(
     @jsii.member(jsii_name="workflowName")
     @abc.abstractmethod
     def workflow_name(self) -> builtins.str:
-        '''(experimental) The name of the workflow.
+        '''(deprecated) The name of the workflow.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -13317,18 +13315,18 @@ class _WorkflowBaseProxy(
     @builtins.property
     @jsii.member(jsii_name="workflowArn")
     def workflow_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the workflow.
+        '''(deprecated) The ARN of the workflow.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "workflowArn"))
 
     @builtins.property
     @jsii.member(jsii_name="workflowName")
     def workflow_name(self) -> builtins.str:
-        '''(experimental) The name of the workflow.
+        '''(deprecated) The name of the workflow.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "workflowName"))
 
@@ -13355,14 +13353,14 @@ class WorkflowProps:
         max_concurrent_runs: typing.Optional[jsii.Number] = None,
         workflow_name: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''(experimental) Properties for defining a Workflow.
+        '''(deprecated) Properties for defining a Workflow.
 
-        :param default_run_properties: (experimental) A map of properties to use when this workflow is executed. Default: - no default run properties
-        :param description: (experimental) A description of the workflow. Default: - no description
-        :param max_concurrent_runs: (experimental) The maximum number of concurrent runs allowed for the workflow. Default: - no limit
-        :param workflow_name: (experimental) Name of the workflow. Default: - a name will be generated
+        :param default_run_properties: (deprecated) A map of properties to use when this workflow is executed. Default: - no default run properties
+        :param description: (deprecated) A description of the workflow. Default: - no description
+        :param max_concurrent_runs: (deprecated) The maximum number of concurrent runs allowed for the workflow. Default: - no limit
+        :param workflow_name: (deprecated) Name of the workflow. Default: - a name will be generated
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -13400,44 +13398,44 @@ class WorkflowProps:
     def default_run_properties(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) A map of properties to use when this workflow is executed.
+        '''(deprecated) A map of properties to use when this workflow is executed.
 
         :default: - no default run properties
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("default_run_properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A description of the workflow.
+        '''(deprecated) A description of the workflow.
 
         :default: - no description
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_concurrent_runs(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) The maximum number of concurrent runs allowed for the workflow.
+        '''(deprecated) The maximum number of concurrent runs allowed for the workflow.
 
         :default: - no limit
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_concurrent_runs")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def workflow_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Name of the workflow.
+        '''(deprecated) Name of the workflow.
 
         :default: - a name will be generated
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("workflow_name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -13456,23 +13454,23 @@ class WorkflowProps:
 
 @jsii.enum(jsii_type="@aws-cdk/aws-glue-alpha.WriteParallel")
 class WriteParallel(enum.Enum):
-    '''(experimental) Specifies how to handle data being loaded that exceeds the length of the data type defined for columns containing VARCHAR, CHAR, or string data.
+    '''(deprecated) Specifies how to handle data being loaded that exceeds the length of the data type defined for columns containing VARCHAR, CHAR, or string data.
 
     By default, Redshift Spectrum sets the value to null for data that exceeds the width of the column.
 
     :see: https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_EXTERNAL_TABLE.html#r_CREATE_EXTERNAL_TABLE-parameters - under *"TABLE PROPERTIES"* > *"surplus_char_handling"*
-    :stability: experimental
+    :stability: deprecated
     '''
 
     ON = "ON"
-    '''(experimental) Write data in parallel.
+    '''(deprecated) Write data in parallel.
 
-    :stability: experimental
+    :stability: deprecated
     '''
     OFF = "OFF"
-    '''(experimental) Write data serially.
+    '''(deprecated) Write data serially.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
 
@@ -13481,9 +13479,9 @@ class AssetCode(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.AssetCode",
 ):
-    '''(experimental) Job Code from a local file.
+    '''(deprecated) Job Code from a local file.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: fixture=_generated
 
     Example::
@@ -13567,7 +13565,7 @@ class AssetCode(
         :param follow_symlinks: A strategy for how to handle symlinks. Default: SymlinkFollowMode.NEVER
         :param ignore_mode: The ignore behavior to use for ``exclude`` patterns. Default: IgnoreMode.GLOB
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8659d1457c6b7393d9d7559014d5e5cf2fae91cdf81e1dcc8f010bdd5e6159d6)
@@ -13593,12 +13591,12 @@ class AssetCode(
         scope: "_constructs_77d1e7e8.Construct",
         grantable: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
     ) -> "CodeConfig":
-        '''(experimental) Called when the Job is initialized to allow this object to bind.
+        '''(deprecated) Called when the Job is initialized to allow this object to bind.
 
         :param scope: -
         :param grantable: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__02569161383966e61e7748be2a2760721daf0107762bdf02e3d7b51459e0adda)
@@ -13613,14 +13611,14 @@ class CatalogBase(
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="@aws-cdk/aws-glue-alpha.CatalogBase",
 ):
-    '''(experimental) Base class for all ``ICatalog`` implementations.
+    '''(deprecated) Base class for all ``ICatalog`` implementations.
 
     Materializes the single
     ``CfnDataCatalogEncryptionSettings`` resource (targeting its own ``catalogId``)
     from the encryption options supplied at construction. Encryption is fixed at
     construction, so a catalog either carries settings or it does not.
 
-    :stability: experimental
+    :stability: deprecated
     '''
 
     def __init__(
@@ -13661,16 +13659,16 @@ class CatalogBase(
         connection_password_encryption: typing.Optional[typing.Union["ConnectionPasswordEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
         encryption_at_rest: typing.Optional["DataCatalogEncryptionAtRest"] = None,
     ) -> None:
-        '''(experimental) Emit the catalog's encryption settings from the options fixed at construction.
+        '''(deprecated) Emit the catalog's encryption settings from the options fixed at construction.
 
         Subclasses call this once, after ``catalogId``/``catalogArn`` are
         assigned. When neither block is configured, no resource is emitted, avoiding
         an empty settings resource that would reset the catalog on deploy.
 
-        :param connection_password_encryption: (experimental) Connection-password encryption configuration for the catalog. Default: - connection-password encryption is not managed by CDK
-        :param encryption_at_rest: (experimental) Encryption-at-rest configuration for the catalog. Default: - encryption at rest is not managed by CDK (the catalog default applies)
+        :param connection_password_encryption: (deprecated) Connection-password encryption configuration for the catalog. Default: - connection-password encryption is not managed by CDK
+        :param encryption_at_rest: (deprecated) Encryption-at-rest configuration for the catalog. Default: - encryption at rest is not managed by CDK (the catalog default applies)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         options = CatalogEncryptionOptions(
             connection_password_encryption=connection_password_encryption,
@@ -13683,9 +13681,9 @@ class CatalogBase(
     @jsii.member(jsii_name="catalogArn")
     @abc.abstractmethod
     def catalog_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the catalog.
+        '''(deprecated) The ARN of the catalog.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -13693,18 +13691,18 @@ class CatalogBase(
     @jsii.member(jsii_name="catalogId")
     @abc.abstractmethod
     def catalog_id(self) -> builtins.str:
-        '''(experimental) The id of the catalog (for the account-wide catalog, the AWS account id).
+        '''(deprecated) The id of the catalog (for the account-wide catalog, the AWS account id).
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
     @builtins.property
     @jsii.member(jsii_name="catalogRef")
     def catalog_ref(self) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.CatalogReference":
-        '''(experimental) A reference to a Catalog resource.
+        '''(deprecated) A reference to a Catalog resource.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("_aws_cdk_interfaces_aws_glue_ceddda9d.CatalogReference", jsii.get(self, "catalogRef"))
 
@@ -13713,13 +13711,13 @@ class CatalogBase(
     def connection_password_key(
         self,
     ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
-        '''(experimental) The customer-managed KMS key used to encrypt connection passwords, if one was configured.
+        '''(deprecated) The customer-managed KMS key used to encrypt connection passwords, if one was configured.
 
         Undefined when password encryption uses an AWS-managed key or is not
         configured. Grant access to it via ``KeyGrants``, e.g.
         ``if (catalog.connectionPasswordKey) { KeyGrants.fromKey(catalog.connectionPasswordKey).encrypt(grantee); }``.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], jsii.get(self, "connectionPasswordKey"))
 
@@ -13728,13 +13726,13 @@ class CatalogBase(
     def encryption_key(
         self,
     ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
-        '''(experimental) The customer-managed KMS key used for the catalog's encryption at rest, if one was configured.
+        '''(deprecated) The customer-managed KMS key used for the catalog's encryption at rest, if one was configured.
 
         Undefined when encryption is disabled or an AWS-managed key is used. Grant
         access to it via ``KeyGrants``, e.g.
         ``if (catalog.encryptionKey) { KeyGrants.fromKey(catalog.encryptionKey).encrypt(grantee); }``.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], jsii.get(self, "encryptionKey"))
 
@@ -13746,18 +13744,18 @@ class _CatalogBaseProxy(
     @builtins.property
     @jsii.member(jsii_name="catalogArn")
     def catalog_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the catalog.
+        '''(deprecated) The ARN of the catalog.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "catalogArn"))
 
     @builtins.property
     @jsii.member(jsii_name="catalogId")
     def catalog_id(self) -> builtins.str:
-        '''(experimental) The id of the catalog (for the account-wide catalog, the AWS account id).
+        '''(deprecated) The id of the catalog (for the account-wide catalog, the AWS account id).
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "catalogId"))
 
@@ -13771,9 +13769,9 @@ class Connection(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.Connection",
 ):
-    '''(experimental) An AWS Glue connection to a data source.
+    '''(deprecated) An AWS Glue connection to a data source.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -13825,16 +13823,16 @@ class Connection(
         '''
         :param scope: -
         :param id: -
-        :param type: (experimental) The type of the connection.
-        :param connection_name: (experimental) The name of the connection. Default: cloudformation generated name
-        :param description: (experimental) The description of the connection. Default: no description
-        :param match_criteria: (experimental) A list of criteria that can be used in selecting this connection. This is useful for filtering the results of https://awscli.amazonaws.com/v2/documentation/api/latest/reference/glue/get-connections.html Default: no match criteria
-        :param network: (experimental) The VPC network placement for this connection, so it can reach resources inside a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html. Build it with ``ConnectionNetwork.subnet(subnet)`` to pin a specific subnet, or ``ConnectionNetwork.vpc(vpc, vpcSubnets?)`` to let the CDK select one. Default: - no VPC network placement
-        :param properties: (experimental) Key-Value pairs that define parameters for the connection. Default: empty properties
-        :param secret: (experimental) A reference to a Secrets Manager secret holding the credentials for this connection. The secret is referenced through the connection's ``SECRET_ID`` property, so Glue reads the credentials at runtime and the secret value never appears in the synthesized template. Prefer this over placing credentials directly in ``properties``. Accepts any ``secretsmanager.ISecret``. Default: - no secret; any credentials must be supplied via ``properties``
-        :param security_groups: (experimental) The list of security groups needed to successfully make this connection e.g. to successfully connect to VPC. Default: no security group
+        :param type: (deprecated) The type of the connection.
+        :param connection_name: (deprecated) The name of the connection. Default: cloudformation generated name
+        :param description: (deprecated) The description of the connection. Default: no description
+        :param match_criteria: (deprecated) A list of criteria that can be used in selecting this connection. This is useful for filtering the results of https://awscli.amazonaws.com/v2/documentation/api/latest/reference/glue/get-connections.html Default: no match criteria
+        :param network: (deprecated) The VPC network placement for this connection, so it can reach resources inside a VPC. See more at https://docs.aws.amazon.com/glue/latest/dg/start-connecting.html. Build it with ``ConnectionNetwork.subnet(subnet)`` to pin a specific subnet, or ``ConnectionNetwork.vpc(vpc, vpcSubnets?)`` to let the CDK select one. Default: - no VPC network placement
+        :param properties: (deprecated) Key-Value pairs that define parameters for the connection. Default: empty properties
+        :param secret: (deprecated) A reference to a Secrets Manager secret holding the credentials for this connection. The secret is referenced through the connection's ``SECRET_ID`` property, so Glue reads the credentials at runtime and the secret value never appears in the synthesized template. Prefer this over placing credentials directly in ``properties``. Accepts any ``secretsmanager.ISecret``. Default: - no secret; any credentials must be supplied via ``properties``
+        :param security_groups: (deprecated) The list of security groups needed to successfully make this connection e.g. to successfully connect to VPC. Default: no security group
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9e49faf739a72a3e5056a9506838a646b867a4b6b78cad2fc0eb56a8a3a4d314)
@@ -13861,13 +13859,13 @@ class Connection(
         id: builtins.str,
         connection_arn: builtins.str,
     ) -> "IConnection":
-        '''(experimental) Creates a Connection construct that represents an external connection.
+        '''(deprecated) Creates a Connection construct that represents an external connection.
 
         :param scope: The scope creating construct (usually ``this``).
         :param id: The construct's id.
         :param connection_arn: arn of external connection.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0a3a56fcf056a17ac1a36f3aeea6a054c7367495dbcff654385c491f79a8de6e)
@@ -13884,13 +13882,13 @@ class Connection(
         id: builtins.str,
         connection_name: builtins.str,
     ) -> "IConnection":
-        '''(experimental) Creates a Connection construct that represents an external connection.
+        '''(deprecated) Creates a Connection construct that represents an external connection.
 
         :param scope: The scope creating construct (usually ``this``).
         :param id: The construct's id.
         :param connection_name: name of external connection.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2376990bb2b0fdc1652696730260ad95accfa020e78a7421e67836ad9c49c867)
@@ -13901,12 +13899,12 @@ class Connection(
 
     @jsii.member(jsii_name="addProperty")
     def add_property(self, key: builtins.str, value: builtins.str) -> None:
-        '''(experimental) Add additional connection parameters.
+        '''(deprecated) Add additional connection parameters.
 
         :param key: parameter key.
         :param value: parameter value.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__664a10af42e73be7ad7fc6b49fd43b23cdb7750d16ad9c795923ec494e582778)
@@ -13917,27 +13915,27 @@ class Connection(
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''(experimental) Uniquely identifies this class.
+        '''(deprecated) Uniquely identifies this class.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
     @jsii.member(jsii_name="connectionArn")
     def connection_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the connection.
+        '''(deprecated) The ARN of the connection.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "connectionArn"))
 
     @builtins.property
     @jsii.member(jsii_name="connectionName")
     def connection_name(self) -> builtins.str:
-        '''(experimental) The name of the connection.
+        '''(deprecated) The name of the connection.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "connectionName"))
 
@@ -13948,9 +13946,9 @@ class DataQualityRuleset(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.DataQualityRuleset",
 ):
-    '''(experimental) A Glue Data Quality ruleset.
+    '''(deprecated) A Glue Data Quality ruleset.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -13979,14 +13977,14 @@ class DataQualityRuleset(
         '''
         :param scope: -
         :param id: -
-        :param dqdl: (experimental) The DQDL document defining the ruleset's data quality rules. Build it with ``Dqdl.fromString(...)``.
-        :param ruleset_name: (experimental) The name of the ruleset.
-        :param target_table: (experimental) The target table of the ruleset.
-        :param description: (experimental) The description of the ruleset.
-        :param removal_policy: (experimental) Policy to apply when the ruleset is removed from the stack. Default: - resource will be destroyed
-        :param tags: (experimental) Key-Value pairs that define tags for the ruleset. Default: empty tags
+        :param dqdl: (deprecated) The DQDL document defining the ruleset's data quality rules. Build it with ``Dqdl.fromString(...)``.
+        :param ruleset_name: (deprecated) The name of the ruleset.
+        :param target_table: (deprecated) The target table of the ruleset.
+        :param description: (deprecated) The description of the ruleset.
+        :param removal_policy: (deprecated) Policy to apply when the ruleset is removed from the stack. Default: - resource will be destroyed
+        :param tags: (deprecated) Key-Value pairs that define tags for the ruleset. Default: empty tags
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9e874ec3f48fcb87408229a566f69396601cc87f18c40fa5579a09664f117653)
@@ -14016,7 +14014,7 @@ class DataQualityRuleset(
         :param id: -
         :param ruleset_arn: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__02f0037b4150747a57e755360c767a1a492219225586c5381f7515e9f8675b60)
@@ -14038,7 +14036,7 @@ class DataQualityRuleset(
         :param id: -
         :param ruleset_name: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__73d686727005bdb9857f1aed58c7619b0390fa040ea2cf5eeef9e309883720e1)
@@ -14050,27 +14048,27 @@ class DataQualityRuleset(
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''(experimental) Uniquely identifies this class.
+        '''(deprecated) Uniquely identifies this class.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
     @jsii.member(jsii_name="rulesetArn")
     def ruleset_arn(self) -> builtins.str:
-        '''(experimental) ARN of this ruleset.
+        '''(deprecated) ARN of this ruleset.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "rulesetArn"))
 
     @builtins.property
     @jsii.member(jsii_name="rulesetName")
     def ruleset_name(self) -> builtins.str:
-        '''(experimental) Name of this ruleset.
+        '''(deprecated) Name of this ruleset.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "rulesetName"))
 
@@ -14081,19 +14079,16 @@ class Database(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.Database",
 ):
-    '''(experimental) A Glue database.
+    '''(deprecated) A Glue database.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
 
-        from aws_cdk import RemovalPolicy
-        
-        
         glue.Database(self, "MyDatabase",
             database_name="my_database",
-            removal_policy=RemovalPolicy.DESTROY
+            description="my_database_description"
         )
     '''
 
@@ -14111,13 +14106,13 @@ class Database(
         '''
         :param scope: -
         :param id: -
-        :param catalog: (experimental) The catalog in which the database will be placed. Default: The default, account-wide catalog.
-        :param database_name: (experimental) The name of the database. Default: - generated by CDK.
-        :param description: (experimental) A description of the database. Default: - no database description
-        :param location_uri: (experimental) The location of the database (for example, an HDFS path). Default: undefined. This field is optional in AWS::Glue::Database DatabaseInput
-        :param removal_policy: (experimental) Policy to apply when the database is removed from the stack. A database is a container for tables and their metadata, so it is retained by default to avoid accidental data loss when it is removed from a stack. Default: RemovalPolicy.RETAIN
+        :param catalog: (deprecated) The catalog in which the database will be placed. Default: The default, account-wide catalog.
+        :param database_name: (deprecated) The name of the database. Default: - generated by CDK.
+        :param description: (deprecated) A description of the database. Default: - no database description
+        :param location_uri: (deprecated) The location of the database (for example, an HDFS path). Default: undefined. This field is optional in AWS::Glue::Database DatabaseInput
+        :param removal_policy: (deprecated) Policy to apply when the database is removed from the stack. A database is a container for tables and their metadata, so it is retained by default to avoid accidental data loss when it is removed from a stack. Default: RemovalPolicy.RETAIN
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2f4b410df1b0bf1116ce03c0e8a707776efd2f03da87fd718bf64b6a4964b2cd)
@@ -14146,7 +14141,7 @@ class Database(
         :param id: -
         :param database_arn: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6b20be4513bbaa9c562fcfb165fa327a8e6c6d38a0b15481eca8493b9b5a7b8d)
@@ -14158,57 +14153,57 @@ class Database(
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''(experimental) Uniquely identifies this class.
+        '''(deprecated) Uniquely identifies this class.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
     @jsii.member(jsii_name="catalog")
     def catalog(self) -> "ICatalog":
-        '''(experimental) The catalog this database belongs to.
+        '''(deprecated) The catalog this database belongs to.
 
         Defaults to the implicit, account-wide catalog, materialized on first
         access.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("ICatalog", jsii.get(self, "catalog"))
 
     @builtins.property
     @jsii.member(jsii_name="databaseArn")
     def database_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the database.
+        '''(deprecated) The ARN of the database.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "databaseArn"))
 
     @builtins.property
     @jsii.member(jsii_name="databaseName")
     def database_name(self) -> builtins.str:
-        '''(experimental) The name of the database.
+        '''(deprecated) The name of the database.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "databaseName"))
 
     @builtins.property
     @jsii.member(jsii_name="databaseRef")
     def database_ref(self) -> "_aws_cdk_interfaces_aws_glue_ceddda9d.DatabaseReference":
-        '''(experimental) A reference to a Database resource.
+        '''(deprecated) A reference to a Database resource.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("_aws_cdk_interfaces_aws_glue_ceddda9d.DatabaseReference", jsii.get(self, "databaseRef"))
 
     @builtins.property
     @jsii.member(jsii_name="locationUri")
     def location_uri(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Location URI of this database.
+        '''(deprecated) Location URI of this database.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "locationUri"))
 
@@ -14232,14 +14227,14 @@ class EventTriggerOptions(TriggerOptions):
         name: typing.Optional[builtins.str] = None,
         event_batching_condition: typing.Optional[typing.Union["EventBatchingCondition", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
-        '''(experimental) Properties for configuring an Event Bridge based Glue Trigger.
+        '''(deprecated) Properties for configuring an Event Bridge based Glue Trigger.
 
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
-        :param event_batching_condition: (experimental) Batch condition for the trigger. Default: - no batch condition
+        :param actions: (deprecated) The actions initiated by this trigger.
+        :param description: (deprecated) A description for the trigger. Default: - no description
+        :param name: (deprecated) A name for the trigger. Default: - no name is provided
+        :param event_batching_condition: (deprecated) Batch condition for the trigger. Default: - no batch condition
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -14285,9 +14280,9 @@ class EventTriggerOptions(TriggerOptions):
 
     @builtins.property
     def actions(self) -> typing.List["Action"]:
-        '''(experimental) The actions initiated by this trigger.
+        '''(deprecated) The actions initiated by this trigger.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
@@ -14295,33 +14290,33 @@ class EventTriggerOptions(TriggerOptions):
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A description for the trigger.
+        '''(deprecated) A description for the trigger.
 
         :default: - no description
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A name for the trigger.
+        '''(deprecated) A name for the trigger.
 
         :default: - no name is provided
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def event_batching_condition(self) -> typing.Optional["EventBatchingCondition"]:
-        '''(experimental) Batch condition for the trigger.
+        '''(deprecated) Batch condition for the trigger.
 
         :default: - no batch condition
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("event_batching_condition")
         return typing.cast(typing.Optional["EventBatchingCondition"], result)
@@ -14343,9 +14338,9 @@ class ExternalTable(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.ExternalTable",
 ):
-    '''(experimental) A Glue table that targets an external data location (e.g. A table in a Redshift Cluster).
+    '''(deprecated) A Glue table that targets an external data location (e.g. A table in a Redshift Cluster).
 
-    :stability: experimental
+    :stability: deprecated
     :resource: AWS::Glue::Table
     :exampleMetadata: infused
 
@@ -14392,24 +14387,24 @@ class ExternalTable(
         '''
         :param scope: -
         :param id: -
-        :param connection: (experimental) The connection the table will use when performing reads and writes. Default: - No connection
-        :param external_data_location: (experimental) The data source location of the glue table, (e.g. ``default_db_public_example`` for Redshift). If this property is set, it will override both ``bucket`` and ``s3Prefix``. Default: - No outsourced data source location
-        :param columns: (experimental) Columns of the table.
-        :param database: (experimental) Database in which to store the table.
-        :param data_format: (experimental) Storage type of the table's data.
-        :param compressed: (experimental) Indicates whether the table's data is compressed or not. Default: false
-        :param description: (experimental) Description of the table. Default: generated
-        :param enable_partition_filtering: (experimental) Enables partition filtering. Default: - The parameter is not defined
-        :param has_encrypted_data: (experimental) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
-        :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
-        :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
-        :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
-        :param partition_projection: (experimental) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
-        :param storage_parameters: (experimental) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
-        :param stored_as_sub_directories: (experimental) Indicates whether the table data is stored in subdirectories. Default: false
-        :param table_name: (experimental) Name of the table. Default: - generated by CDK.
+        :param connection: (deprecated) The connection the table will use when performing reads and writes. Default: - No connection
+        :param external_data_location: (deprecated) The data source location of the glue table, (e.g. ``default_db_public_example`` for Redshift). If this property is set, it will override both ``bucket`` and ``s3Prefix``. Default: - No outsourced data source location
+        :param columns: (deprecated) Columns of the table.
+        :param database: (deprecated) Database in which to store the table.
+        :param data_format: (deprecated) Storage type of the table's data.
+        :param compressed: (deprecated) Indicates whether the table's data is compressed or not. Default: false
+        :param description: (deprecated) Description of the table. Default: generated
+        :param enable_partition_filtering: (deprecated) Enables partition filtering. Default: - The parameter is not defined
+        :param has_encrypted_data: (deprecated) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
+        :param parameters: (deprecated) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
+        :param partition_indexes: (deprecated) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
+        :param partition_keys: (deprecated) Partition columns of the table. Default: table is not partitioned
+        :param partition_projection: (deprecated) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
+        :param storage_parameters: (deprecated) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
+        :param stored_as_sub_directories: (deprecated) Indicates whether the table data is stored in subdirectories. Default: false
+        :param table_name: (deprecated) Name of the table. Default: - generated by CDK.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f5b251bd575556272c98729ccada78c9d0fedbddd35e4e50ccd72649f6882227)
@@ -14441,11 +14436,11 @@ class ExternalTable(
         self,
         grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
     ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
-        '''(experimental) Grant read permissions to the table [disable-awslint:no-grants].
+        '''(deprecated) Grant read permissions to the table [disable-awslint:no-grants].
 
         :param grantee: the principal.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c617ebeabae95be649f31192a1508ef254d5bb2a8f19540978e253877af7dc16)
@@ -14457,11 +14452,11 @@ class ExternalTable(
         self,
         grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
     ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
-        '''(experimental) Grant read and write permissions to the table [disable-awslint:no-grants].
+        '''(deprecated) Grant read and write permissions to the table [disable-awslint:no-grants].
 
         :param grantee: the principal.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2d8e02b4ae2bce8590c80e2ce7a5829b237b1f08f6385cd6a8b926b701f8156b)
@@ -14473,11 +14468,11 @@ class ExternalTable(
         self,
         grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
     ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
-        '''(experimental) Grant write permissions to the table [disable-awslint:no-grants].
+        '''(deprecated) Grant write permissions to the table [disable-awslint:no-grants].
 
         :param grantee: the principal.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a161912810e7c25318614d340cf493d532bdbc1c20d5857baaa8e004b812df93)
@@ -14487,36 +14482,36 @@ class ExternalTable(
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''(experimental) Uniquely identifies this class.
+        '''(deprecated) Uniquely identifies this class.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
     @jsii.member(jsii_name="connection")
     def connection(self) -> "IConnection":
-        '''(experimental) The connection associated to this table.
+        '''(deprecated) The connection associated to this table.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("IConnection", jsii.get(self, "connection"))
 
     @builtins.property
     @jsii.member(jsii_name="tableArn")
     def table_arn(self) -> builtins.str:
-        '''(experimental) ARN of this table.
+        '''(deprecated) ARN of this table.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "tableArn"))
 
     @builtins.property
     @jsii.member(jsii_name="tableName")
     def table_name(self) -> builtins.str:
-        '''(experimental) Name of this table.
+        '''(deprecated) Name of this table.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "tableName"))
 
@@ -14524,16 +14519,16 @@ class ExternalTable(
     @jsii.member(jsii_name="tableResource")
     def _table_resource(self) -> "_aws_cdk_aws_glue_ceddda9d.CfnTable":
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTable", jsii.get(self, "tableResource"))
 
     @builtins.property
     @jsii.member(jsii_name="partitionIndexes")
     def partition_indexes(self) -> typing.Optional[typing.List["PartitionIndex"]]:
-        '''(experimental) This table's partition indexes.
+        '''(deprecated) This table's partition indexes.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional[typing.List["PartitionIndex"]], jsii.get(self, "partitionIndexes"))
 
@@ -14582,24 +14577,24 @@ class ExternalTableProps(TableBaseProps):
         external_data_location: builtins.str,
     ) -> None:
         '''
-        :param columns: (experimental) Columns of the table.
-        :param database: (experimental) Database in which to store the table.
-        :param data_format: (experimental) Storage type of the table's data.
-        :param compressed: (experimental) Indicates whether the table's data is compressed or not. Default: false
-        :param description: (experimental) Description of the table. Default: generated
-        :param enable_partition_filtering: (experimental) Enables partition filtering. Default: - The parameter is not defined
-        :param has_encrypted_data: (experimental) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
-        :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
-        :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
-        :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
-        :param partition_projection: (experimental) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
-        :param storage_parameters: (experimental) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
-        :param stored_as_sub_directories: (experimental) Indicates whether the table data is stored in subdirectories. Default: false
-        :param table_name: (experimental) Name of the table. Default: - generated by CDK.
-        :param connection: (experimental) The connection the table will use when performing reads and writes. Default: - No connection
-        :param external_data_location: (experimental) The data source location of the glue table, (e.g. ``default_db_public_example`` for Redshift). If this property is set, it will override both ``bucket`` and ``s3Prefix``. Default: - No outsourced data source location
+        :param columns: (deprecated) Columns of the table.
+        :param database: (deprecated) Database in which to store the table.
+        :param data_format: (deprecated) Storage type of the table's data.
+        :param compressed: (deprecated) Indicates whether the table's data is compressed or not. Default: false
+        :param description: (deprecated) Description of the table. Default: generated
+        :param enable_partition_filtering: (deprecated) Enables partition filtering. Default: - The parameter is not defined
+        :param has_encrypted_data: (deprecated) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
+        :param parameters: (deprecated) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
+        :param partition_indexes: (deprecated) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
+        :param partition_keys: (deprecated) Partition columns of the table. Default: table is not partitioned
+        :param partition_projection: (deprecated) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
+        :param storage_parameters: (deprecated) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
+        :param stored_as_sub_directories: (deprecated) Indicates whether the table data is stored in subdirectories. Default: false
+        :param table_name: (deprecated) Name of the table. Default: - generated by CDK.
+        :param connection: (deprecated) The connection the table will use when performing reads and writes. Default: - No connection
+        :param external_data_location: (deprecated) The data source location of the glue table, (e.g. ``default_db_public_example`` for Redshift). If this property is set, it will override both ``bucket`` and ``s3Prefix``. Default: - No outsourced data source location
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -14669,9 +14664,9 @@ class ExternalTableProps(TableBaseProps):
 
     @builtins.property
     def columns(self) -> typing.List["Column"]:
-        '''(experimental) Columns of the table.
+        '''(deprecated) Columns of the table.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("columns")
         assert result is not None, "Required property 'columns' is missing"
@@ -14679,9 +14674,9 @@ class ExternalTableProps(TableBaseProps):
 
     @builtins.property
     def database(self) -> "IDatabase":
-        '''(experimental) Database in which to store the table.
+        '''(deprecated) Database in which to store the table.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -14689,9 +14684,9 @@ class ExternalTableProps(TableBaseProps):
 
     @builtins.property
     def data_format(self) -> "DataFormat":
-        '''(experimental) Storage type of the table's data.
+        '''(deprecated) Storage type of the table's data.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("data_format")
         assert result is not None, "Required property 'data_format' is missing"
@@ -14699,41 +14694,41 @@ class ExternalTableProps(TableBaseProps):
 
     @builtins.property
     def compressed(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Indicates whether the table's data is compressed or not.
+        '''(deprecated) Indicates whether the table's data is compressed or not.
 
         :default: false
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("compressed")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Description of the table.
+        '''(deprecated) Description of the table.
 
         :default: generated
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def enable_partition_filtering(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables partition filtering.
+        '''(deprecated) Enables partition filtering.
 
         :default: - The parameter is not defined
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/glue-best-practices.html#glue-best-practices-partition-index
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enable_partition_filtering")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def has_encrypted_data(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether the data stored in the table is encrypted.
+        '''(deprecated) Whether the data stored in the table is encrypted.
 
         This sets the ``has_encrypted_data`` table parameter. Athena reads it when
         querying client-side (CSE-KMS) encrypted datasets; for server-side
@@ -14746,28 +14741,28 @@ class ExternalTableProps(TableBaseProps):
         :default: true
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/creating-tables-based-on-encrypted-datasets-in-s3.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("has_encrypted_data")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) The key/value pairs define properties associated with the table.
+        '''(deprecated) The key/value pairs define properties associated with the table.
 
         The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed.
 
         :default: - The parameter is not defined
 
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-tableinput.html#cfn-glue-table-tableinput-parameters
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def partition_indexes(self) -> typing.Optional[typing.List["PartitionIndex"]]:
-        '''(experimental) Partition indexes on the table.
+        '''(deprecated) Partition indexes on the table.
 
         A maximum of 3 indexes
         are allowed on a table. Keys in the index must be part
@@ -14775,18 +14770,18 @@ class ExternalTableProps(TableBaseProps):
 
         :default: table has no partition indexes
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("partition_indexes")
         return typing.cast(typing.Optional[typing.List["PartitionIndex"]], result)
 
     @builtins.property
     def partition_keys(self) -> typing.Optional[typing.List["Column"]]:
-        '''(experimental) Partition columns of the table.
+        '''(deprecated) Partition columns of the table.
 
         :default: table is not partitioned
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("partition_keys")
         return typing.cast(typing.Optional[typing.List["Column"]], result)
@@ -14795,7 +14790,7 @@ class ExternalTableProps(TableBaseProps):
     def partition_projection(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]]:
-        '''(experimental) Partition projection configuration for this table.
+        '''(deprecated) Partition projection configuration for this table.
 
         Partition projection allows Athena to automatically add new partitions
         without requiring ``ALTER TABLE ADD PARTITION`` statements.
@@ -14803,14 +14798,14 @@ class ExternalTableProps(TableBaseProps):
         :default: - No partition projection
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/partition-projection.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("partition_projection")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]], result)
 
     @builtins.property
     def storage_parameters(self) -> typing.Optional[typing.List["StorageParameter"]]:
-        '''(experimental) The user-supplied properties for the description of the physical storage of this table.
+        '''(deprecated) The user-supplied properties for the description of the physical storage of this table.
 
         These properties help describe the format of the data that is stored within the crawled data sources.
 
@@ -14821,7 +14816,7 @@ class ExternalTableProps(TableBaseProps):
         :default: - The parameter is not defined
 
         :see: https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_EXTERNAL_TABLE.html#r_CREATE_EXTERNAL_TABLE-parameters - under *"TABLE PROPERTIES"*
-        :stability: experimental
+        :stability: deprecated
 
         Example::
 
@@ -14849,33 +14844,33 @@ class ExternalTableProps(TableBaseProps):
 
     @builtins.property
     def stored_as_sub_directories(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Indicates whether the table data is stored in subdirectories.
+        '''(deprecated) Indicates whether the table data is stored in subdirectories.
 
         :default: false
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("stored_as_sub_directories")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def table_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Name of the table.
+        '''(deprecated) Name of the table.
 
         :default: - generated by CDK.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("table_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def connection(self) -> "IConnection":
-        '''(experimental) The connection the table will use when performing reads and writes.
+        '''(deprecated) The connection the table will use when performing reads and writes.
 
         :default: - No connection
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("connection")
         assert result is not None, "Required property 'connection' is missing"
@@ -14883,13 +14878,13 @@ class ExternalTableProps(TableBaseProps):
 
     @builtins.property
     def external_data_location(self) -> builtins.str:
-        '''(experimental) The data source location of the glue table, (e.g. ``default_db_public_example`` for Redshift).
+        '''(deprecated) The data source location of the glue table, (e.g. ``default_db_public_example`` for Redshift).
 
         If this property is set, it will override both ``bucket`` and ``s3Prefix``.
 
         :default: - No outsourced data source location
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("external_data_location")
         assert result is not None, "Required property 'external_data_location' is missing"
@@ -14912,9 +14907,9 @@ class Job(
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="@aws-cdk/aws-glue-alpha.Job",
 ):
-    '''(experimental) A Glue Job.
+    '''(deprecated) A Glue Job.
 
-    :stability: experimental
+    :stability: deprecated
     :resource: AWS::Glue::Job
     :exampleMetadata: fixture=_generated
 
@@ -14976,14 +14971,14 @@ class Job(
         job_name: builtins.str,
         role: typing.Optional["_aws_cdk_aws_iam_ceddda9d.IRole"] = None,
     ) -> "IJob":
-        '''(experimental) Identifies an existing Glue Job from a subset of attributes that can be referenced from within another Stack or Construct.
+        '''(deprecated) Identifies an existing Glue Job from a subset of attributes that can be referenced from within another Stack or Construct.
 
         :param scope: The scope creating construct (usually ``this``).
         :param id: The construct's id.
-        :param job_name: (experimental) The name of the job.
-        :param role: (experimental) The IAM role assumed by Glue to run this job. Default: - undefined
+        :param job_name: (deprecated) The name of the job.
+        :param role: (deprecated) The IAM role assumed by Glue to run this job. Default: - undefined
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cd8db6c08c7bba32e81d8cda162918f634f3065c707bdd1ddfb404e329994882)
@@ -14998,7 +14993,7 @@ class Job(
         '''
         :param code: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c7671592b9386519b22e4789d3523141c6bcaf1227c681ea7d0218b405b0f4bc)
@@ -15010,7 +15005,7 @@ class Job(
         self,
         default_arguments: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     ) -> typing.Mapping[builtins.str, builtins.str]:
-        '''(experimental) Merge the customer-supplied ``defaultArguments`` with the arguments this construct manages.
+        '''(deprecated) Merge the customer-supplied ``defaultArguments`` with the arguments this construct manages.
 
         The construct owns every argument it emits — whether the value comes from a dedicated typed
         prop (e.g. ``continuousLogging``, ``enableMetrics``, ``sparkUI``) or from the job class itself
@@ -15039,7 +15034,7 @@ class Job(
         :param default_arguments: the caller-supplied escape-hatch arguments, if any.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__703dc37dca42a311b11c75cbcb4bc435b9e951b719d4fc806388265f0919a4b8)
@@ -15052,7 +15047,7 @@ class Job(
         key: builtins.str,
         value: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''(experimental) Declare ``key`` as construct-managed and, when ``value`` is defined, emit it into the job's arguments.
+        '''(deprecated) Declare ``key`` as construct-managed and, when ``value`` is defined, emit it into the job's arguments.
 
         This is the single sink for every argument a job construct derives from its typed props (or
         from the job class itself). Call it once per managed key, passing ``undefined`` as the value when
@@ -15064,7 +15059,7 @@ class Job(
         :param key: the Glue argument key, e.g. ``--enable-metrics``.
         :param value: the value to emit, or ``undefined`` to reserve the key without emitting it.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f97c5e5097883d944d088aa6c5e9585f928530bc593615113dad90e78b3c08bb)
@@ -15079,7 +15074,7 @@ class Job(
         props: typing.Optional[typing.Union["ContinuousLoggingProps", typing.Dict[builtins.str, typing.Any]]] = None,
         security_configuration: typing.Optional["ISecurityConfiguration"] = None,
     ) -> None:
-        '''(experimental) Register (and, when enabled, emit) the continuous-logging arguments this job manages.
+        '''(deprecated) Register (and, when enabled, emit) the continuous-logging arguments this job manages.
 
         All five continuous-logging keys are reserved on every job type regardless of configuration:
         they are always registered through {@link setManagedArgument}, and carry a value only when
@@ -15089,7 +15084,7 @@ class Job(
         :param props: The properties for continuous logging configuration.
         :param security_configuration: The security configuration attached to the job, if any.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__f29b980b22353589abfe6c5bfce2bdd0cd67bde1f5d6c43eb8e302fb54206f59)
@@ -15102,9 +15097,9 @@ class Job(
     @jsii.member(jsii_name="role")
     @abc.abstractmethod
     def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
-        '''(experimental) The IAM role Glue assumes to run this job.
+        '''(deprecated) The IAM role Glue assumes to run this job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         ...
 
@@ -15116,9 +15111,9 @@ class _JobProxy(
     @builtins.property
     @jsii.member(jsii_name="role")
     def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
-        '''(experimental) The IAM role Glue assumes to run this job.
+        '''(deprecated) The IAM role Glue assumes to run this job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", jsii.get(self, "role"))
 
@@ -15139,13 +15134,13 @@ class OnDemandTriggerOptions(TriggerOptions):
         description: typing.Optional[builtins.str] = None,
         name: typing.Optional[builtins.str] = None,
     ) -> None:
-        '''(experimental) Properties for configuring an on-demand Glue Trigger.
+        '''(deprecated) Properties for configuring an on-demand Glue Trigger.
 
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
+        :param actions: (deprecated) The actions initiated by this trigger.
+        :param description: (deprecated) A description for the trigger. Default: - no description
+        :param name: (deprecated) A name for the trigger. Default: - no name is provided
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -15181,9 +15176,9 @@ class OnDemandTriggerOptions(TriggerOptions):
 
     @builtins.property
     def actions(self) -> typing.List["Action"]:
-        '''(experimental) The actions initiated by this trigger.
+        '''(deprecated) The actions initiated by this trigger.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
@@ -15191,22 +15186,22 @@ class OnDemandTriggerOptions(TriggerOptions):
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A description for the trigger.
+        '''(deprecated) A description for the trigger.
 
         :default: - no description
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A name for the trigger.
+        '''(deprecated) A name for the trigger.
 
         :default: - no name is provided
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -15280,33 +15275,33 @@ class PySparkEtlJobProps(SparkJobProps):
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
         notify_delay_after: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
-        '''(experimental) Properties for creating a Python Spark ETL job.
+        '''(deprecated) Properties for creating a Python Spark ETL job.
 
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
-        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
-        :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
-        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
-        :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
-        :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
-        :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
-        :param extra_python_files: (experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
-        :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: false
-        :param notify_delay_after: (experimental) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
+        :param spark_ui: (deprecated) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (deprecated) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
+        :param extra_files: (deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
+        :param extra_jars: (deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
+        :param extra_jars_first: (deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
+        :param extra_python_files: (deprecated) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
+        :param job_run_queuing_enabled: (deprecated) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: false
+        :param notify_delay_after: (deprecated) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -15407,10 +15402,10 @@ class PySparkEtlJobProps(SparkJobProps):
 
     @builtins.property
     def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
-        '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        '''(deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
@@ -15418,13 +15413,13 @@ class PySparkEtlJobProps(SparkJobProps):
 
     @builtins.property
     def script(self) -> "Code":
-        '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
+        '''(deprecated) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
         from the local directory structure using fromAsset
         or referenced via S3 location using fromBucket
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
@@ -15432,23 +15427,23 @@ class PySparkEtlJobProps(SparkJobProps):
 
     @builtins.property
     def connections(self) -> typing.Optional[typing.List["IConnection"]]:
-        '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
+        '''(deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("connections")
         return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
     def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
-        '''(experimental) Enables continuous logging with the specified props.
+        '''(deprecated) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("continuous_logging")
         return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
@@ -15457,7 +15452,7 @@ class PySparkEtlJobProps(SparkJobProps):
     def default_arguments(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+        '''(deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
         This map is the escape hatch for Glue job arguments that this construct does not model. It
         MUST NOT be used to set arguments that already have a dedicated prop — configure those through
@@ -15479,202 +15474,202 @@ class PySparkEtlJobProps(SparkJobProps):
 
         https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
         for a list of reserved parameters
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("default_arguments")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Description (optional) Developer-specified description of the Glue job.
+        '''(deprecated) Description (optional) Developer-specified description of the Glue job.
 
         :default: - no value
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
-        '''(experimental) Glue Version The version of Glue to use to execute this job.
+        '''(deprecated) Glue Version The version of Glue to use to execute this job.
 
         :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("glue_version")
         return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Name of the Glue job (optional) Developer-specified name of the Glue job.
+        '''(deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job.
 
         :default: - a name is automatically generated
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("job_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_concurrent_runs(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
+        '''(deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
 
         An error is returned when this threshold is reached. The maximum value
         you can specify is controlled by a service limit.
 
         :default: 1
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_concurrent_runs")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_retries(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
+        '''(deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
 
         :default: 0
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
-        '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
+        '''(deprecated) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("security_configuration")
         return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
+        '''(deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
 
         :default: {} - no tags
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
-        '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
+        '''(deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
 
         :default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable profiling metrics for the Glue job.
+        '''(deprecated) Enable profiling metrics for the Glue job.
 
         When enabled, adds '--enable-metrics' to job arguments.
 
         :default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enable_metrics")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def enable_observability_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable observability metrics for the Glue job.
+        '''(deprecated) Enable observability metrics for the Glue job.
 
         When enabled, adds '--enable-observability-metrics': 'true' to job arguments.
 
         :default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enable_observability_metrics")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def spark_ui(self) -> typing.Optional["SparkUIProps"]:
-        '''(experimental) Enables the Spark UI debugging and monitoring with the specified props.
+        '''(deprecated) Enables the Spark UI debugging and monitoring with the specified props.
 
         :default: - Spark UI debugging and monitoring is disabled.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("spark_ui")
         return typing.cast(typing.Optional["SparkUIProps"], result)
 
     @builtins.property
     def worker_configuration(self) -> typing.Optional["WorkerConfiguration"]:
-        '''(experimental) The worker type and the number of workers allocated when a job runs.
+        '''(deprecated) The worker type and the number of workers allocated when a job runs.
 
         :default: - the job runs with the G_1X worker type and 10 workers.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("worker_configuration")
         return typing.cast(typing.Optional["WorkerConfiguration"], result)
 
     @builtins.property
     def extra_files(self) -> typing.Optional[typing.List["Code"]]:
-        '''(experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
+        '''(deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
 
         :default: - no extra files specified.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_files")
         return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars(self) -> typing.Optional[typing.List["Code"]]:
-        '''(experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
+        '''(deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
 
         :default: - no extra jar files
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_jars")
         return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars_first(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath.
+        '''(deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath.
 
         :default: false - priority is not given to user-provided jars
 
         :see: ``--user-jars-first`` in https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_jars_first")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def extra_python_files(self) -> typing.Optional[typing.List["Code"]]:
-        '''(experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located.
+        '''(deprecated) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located.
 
         :default: - no extra files
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_python_files")
         return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def job_run_queuing_enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Specifies whether job run queuing is enabled for the job runs for this job.
+        '''(deprecated) Specifies whether job run queuing is enabled for the job runs for this job.
 
         A value of true means job run queuing is enabled for the job runs.
         If false or not populated, the job runs will not be considered for queueing.
@@ -15684,20 +15679,20 @@ class PySparkEtlJobProps(SparkJobProps):
 
         :default: false
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("job_run_queuing_enabled")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def notify_delay_after(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
-        '''(experimental) Specifies configuration properties of a notification (optional).
+        '''(deprecated) Specifies configuration properties of a notification (optional).
 
         After a job run starts, the number of minutes to wait before sending a job run delay notification.
 
         :default: - undefined
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("notify_delay_after")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
@@ -15769,32 +15764,32 @@ class PySparkFlexEtlJobProps(SparkJobProps):
         extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
         notify_delay_after: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
-        '''(experimental) Properties for PySparkFlexEtlJob.
+        '''(deprecated) Properties for PySparkFlexEtlJob.
 
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
-        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
-        :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
-        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
-        :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
-        :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
-        :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
-        :param extra_python_files: (experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
-        :param notify_delay_after: (experimental) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
+        :param spark_ui: (deprecated) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (deprecated) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
+        :param extra_files: (deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
+        :param extra_jars: (deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
+        :param extra_jars_first: (deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
+        :param extra_python_files: (deprecated) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
+        :param notify_delay_after: (deprecated) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -15884,10 +15879,10 @@ class PySparkFlexEtlJobProps(SparkJobProps):
 
     @builtins.property
     def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
-        '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        '''(deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
@@ -15895,13 +15890,13 @@ class PySparkFlexEtlJobProps(SparkJobProps):
 
     @builtins.property
     def script(self) -> "Code":
-        '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
+        '''(deprecated) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
         from the local directory structure using fromAsset
         or referenced via S3 location using fromBucket
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
@@ -15909,23 +15904,23 @@ class PySparkFlexEtlJobProps(SparkJobProps):
 
     @builtins.property
     def connections(self) -> typing.Optional[typing.List["IConnection"]]:
-        '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
+        '''(deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("connections")
         return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
     def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
-        '''(experimental) Enables continuous logging with the specified props.
+        '''(deprecated) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("continuous_logging")
         return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
@@ -15934,7 +15929,7 @@ class PySparkFlexEtlJobProps(SparkJobProps):
     def default_arguments(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+        '''(deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
         This map is the escape hatch for Glue job arguments that this construct does not model. It
         MUST NOT be used to set arguments that already have a dedicated prop — configure those through
@@ -15956,208 +15951,208 @@ class PySparkFlexEtlJobProps(SparkJobProps):
 
         https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
         for a list of reserved parameters
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("default_arguments")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Description (optional) Developer-specified description of the Glue job.
+        '''(deprecated) Description (optional) Developer-specified description of the Glue job.
 
         :default: - no value
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
-        '''(experimental) Glue Version The version of Glue to use to execute this job.
+        '''(deprecated) Glue Version The version of Glue to use to execute this job.
 
         :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("glue_version")
         return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Name of the Glue job (optional) Developer-specified name of the Glue job.
+        '''(deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job.
 
         :default: - a name is automatically generated
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("job_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_concurrent_runs(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
+        '''(deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
 
         An error is returned when this threshold is reached. The maximum value
         you can specify is controlled by a service limit.
 
         :default: 1
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_concurrent_runs")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_retries(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
+        '''(deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
 
         :default: 0
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
-        '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
+        '''(deprecated) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("security_configuration")
         return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
+        '''(deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
 
         :default: {} - no tags
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
-        '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
+        '''(deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
 
         :default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable profiling metrics for the Glue job.
+        '''(deprecated) Enable profiling metrics for the Glue job.
 
         When enabled, adds '--enable-metrics' to job arguments.
 
         :default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enable_metrics")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def enable_observability_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable observability metrics for the Glue job.
+        '''(deprecated) Enable observability metrics for the Glue job.
 
         When enabled, adds '--enable-observability-metrics': 'true' to job arguments.
 
         :default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enable_observability_metrics")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def spark_ui(self) -> typing.Optional["SparkUIProps"]:
-        '''(experimental) Enables the Spark UI debugging and monitoring with the specified props.
+        '''(deprecated) Enables the Spark UI debugging and monitoring with the specified props.
 
         :default: - Spark UI debugging and monitoring is disabled.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("spark_ui")
         return typing.cast(typing.Optional["SparkUIProps"], result)
 
     @builtins.property
     def worker_configuration(self) -> typing.Optional["WorkerConfiguration"]:
-        '''(experimental) The worker type and the number of workers allocated when a job runs.
+        '''(deprecated) The worker type and the number of workers allocated when a job runs.
 
         :default: - the job runs with the G_1X worker type and 10 workers.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("worker_configuration")
         return typing.cast(typing.Optional["WorkerConfiguration"], result)
 
     @builtins.property
     def extra_files(self) -> typing.Optional[typing.List["Code"]]:
-        '''(experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
+        '''(deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
 
         :default: - no extra files specified.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_files")
         return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars(self) -> typing.Optional[typing.List["Code"]]:
-        '''(experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
+        '''(deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
 
         :default: - no extra jar files
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_jars")
         return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars_first(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath.
+        '''(deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath.
 
         :default: false - priority is not given to user-provided jars
 
         :see: ``--user-jars-first`` in https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_jars_first")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def extra_python_files(self) -> typing.Optional[typing.List["Code"]]:
-        '''(experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located.
+        '''(deprecated) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located.
 
         :default: - no extra files
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_python_files")
         return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def notify_delay_after(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
-        '''(experimental) Specifies configuration properties of a notification (optional).
+        '''(deprecated) Specifies configuration properties of a notification (optional).
 
         After a job run starts, the number of minutes to wait before sending a job run delay notification.
 
         :default: - undefined
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("notify_delay_after")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
@@ -16229,32 +16224,32 @@ class PySparkStreamingJobProps(SparkJobProps):
         extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
     ) -> None:
-        '''(experimental) Properties for creating a Python Spark ETL job.
+        '''(deprecated) Properties for creating a Python Spark ETL job.
 
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
-        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
-        :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
-        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
-        :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
-        :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
-        :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
-        :param extra_python_files: (experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
-        :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
+        :param spark_ui: (deprecated) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (deprecated) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
+        :param extra_files: (deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
+        :param extra_jars: (deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
+        :param extra_jars_first: (deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
+        :param extra_python_files: (deprecated) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
+        :param job_run_queuing_enabled: (deprecated) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -16344,10 +16339,10 @@ class PySparkStreamingJobProps(SparkJobProps):
 
     @builtins.property
     def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
-        '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        '''(deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
@@ -16355,13 +16350,13 @@ class PySparkStreamingJobProps(SparkJobProps):
 
     @builtins.property
     def script(self) -> "Code":
-        '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
+        '''(deprecated) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
         from the local directory structure using fromAsset
         or referenced via S3 location using fromBucket
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
@@ -16369,23 +16364,23 @@ class PySparkStreamingJobProps(SparkJobProps):
 
     @builtins.property
     def connections(self) -> typing.Optional[typing.List["IConnection"]]:
-        '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
+        '''(deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("connections")
         return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
     def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
-        '''(experimental) Enables continuous logging with the specified props.
+        '''(deprecated) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("continuous_logging")
         return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
@@ -16394,7 +16389,7 @@ class PySparkStreamingJobProps(SparkJobProps):
     def default_arguments(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+        '''(deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
         This map is the escape hatch for Glue job arguments that this construct does not model. It
         MUST NOT be used to set arguments that already have a dedicated prop — configure those through
@@ -16416,202 +16411,202 @@ class PySparkStreamingJobProps(SparkJobProps):
 
         https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
         for a list of reserved parameters
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("default_arguments")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Description (optional) Developer-specified description of the Glue job.
+        '''(deprecated) Description (optional) Developer-specified description of the Glue job.
 
         :default: - no value
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
-        '''(experimental) Glue Version The version of Glue to use to execute this job.
+        '''(deprecated) Glue Version The version of Glue to use to execute this job.
 
         :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("glue_version")
         return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Name of the Glue job (optional) Developer-specified name of the Glue job.
+        '''(deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job.
 
         :default: - a name is automatically generated
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("job_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_concurrent_runs(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
+        '''(deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
 
         An error is returned when this threshold is reached. The maximum value
         you can specify is controlled by a service limit.
 
         :default: 1
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_concurrent_runs")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_retries(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
+        '''(deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
 
         :default: 0
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
-        '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
+        '''(deprecated) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("security_configuration")
         return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
+        '''(deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
 
         :default: {} - no tags
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
-        '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
+        '''(deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
 
         :default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable profiling metrics for the Glue job.
+        '''(deprecated) Enable profiling metrics for the Glue job.
 
         When enabled, adds '--enable-metrics' to job arguments.
 
         :default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enable_metrics")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def enable_observability_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable observability metrics for the Glue job.
+        '''(deprecated) Enable observability metrics for the Glue job.
 
         When enabled, adds '--enable-observability-metrics': 'true' to job arguments.
 
         :default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enable_observability_metrics")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def spark_ui(self) -> typing.Optional["SparkUIProps"]:
-        '''(experimental) Enables the Spark UI debugging and monitoring with the specified props.
+        '''(deprecated) Enables the Spark UI debugging and monitoring with the specified props.
 
         :default: - Spark UI debugging and monitoring is disabled.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("spark_ui")
         return typing.cast(typing.Optional["SparkUIProps"], result)
 
     @builtins.property
     def worker_configuration(self) -> typing.Optional["WorkerConfiguration"]:
-        '''(experimental) The worker type and the number of workers allocated when a job runs.
+        '''(deprecated) The worker type and the number of workers allocated when a job runs.
 
         :default: - the job runs with the G_1X worker type and 10 workers.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("worker_configuration")
         return typing.cast(typing.Optional["WorkerConfiguration"], result)
 
     @builtins.property
     def extra_files(self) -> typing.Optional[typing.List["Code"]]:
-        '''(experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
+        '''(deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
 
         :default: - no extra files specified.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_files")
         return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars(self) -> typing.Optional[typing.List["Code"]]:
-        '''(experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
+        '''(deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
 
         :default: - no extra jar files
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_jars")
         return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars_first(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath.
+        '''(deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath.
 
         :default: false - priority is not given to user-provided jars
 
         :see: ``--user-jars-first`` in https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_jars_first")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def extra_python_files(self) -> typing.Optional[typing.List["Code"]]:
-        '''(experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located.
+        '''(deprecated) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located.
 
         :default: - no extra files
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_python_files")
         return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def job_run_queuing_enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Specifies whether job run queuing is enabled for the job runs for this job.
+        '''(deprecated) Specifies whether job run queuing is enabled for the job runs for this job.
 
         A value of true means job run queuing is enabled for the job runs.
         If false or not populated, the job runs will not be considered for queueing.
@@ -16621,7 +16616,7 @@ class PySparkStreamingJobProps(SparkJobProps):
 
         :default: - no job run queuing
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("job_run_queuing_enabled")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -16643,13 +16638,13 @@ class PythonShellJob(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.PythonShellJob",
 ):
-    '''(experimental) Python Shell Jobs class.
+    '''(deprecated) Python Shell Jobs class.
 
     A Python shell job runs Python scripts as a shell and supports a Python version that
     depends on the AWS Glue version you are using.
     This can be used to schedule and run tasks that don't require an Apache Spark environment.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -16687,30 +16682,30 @@ class PythonShellJob(
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
-        '''(experimental) PythonShellJob constructor.
+        '''(deprecated) PythonShellJob constructor.
 
         :param scope: -
         :param id: -
-        :param extra_python_files: (experimental) Additional Python files that AWS Glue adds to the Python path before executing your script. Only individual files are supported, directories are not supported. Equivalent to the ``--extra-py-files`` job argument. Default: - no extra Python files
-        :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: false
-        :param library_set: (experimental) The set of pre-installed Python libraries to make available to the job. Only applies to jobs running Python 3.9. Set to ``LibrarySet.NONE`` when your libraries are custom or conflict with the pre-installed ones. Default: LibrarySet.ANALYTICS when running Python 3.9, otherwise no library set is configured
-        :param max_capacity: (experimental) The total number of DPU to assign to the Python Job. Default: 0.0625
-        :param python_version: (experimental) The version of Python to use to execute this job. Python shell jobs only support ``PythonVersion.THREE_NINE``. The older ``PythonVersion.TWO`` (Python 2.7) and ``PythonVersion.THREE`` (Python 3.6) runtimes have been retired by AWS Glue and are no longer available for Python shell jobs. Default: PythonVersion.THREE_NINE
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param extra_python_files: (deprecated) Additional Python files that AWS Glue adds to the Python path before executing your script. Only individual files are supported, directories are not supported. Equivalent to the ``--extra-py-files`` job argument. Default: - no extra Python files
+        :param job_run_queuing_enabled: (deprecated) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: false
+        :param library_set: (deprecated) The set of pre-installed Python libraries to make available to the job. Only applies to jobs running Python 3.9. Set to ``LibrarySet.NONE`` when your libraries are custom or conflict with the pre-installed ones. Default: LibrarySet.ANALYTICS when running Python 3.9, otherwise no library set is configured
+        :param max_capacity: (deprecated) The total number of DPU to assign to the Python Job. Default: 0.0625
+        :param python_version: (deprecated) The version of Python to use to execute this job. Python shell jobs only support ``PythonVersion.THREE_NINE``. The older ``PythonVersion.TWO`` (Python 2.7) and ``PythonVersion.THREE`` (Python 3.6) runtimes have been retired by AWS Glue and are no longer available for Python shell jobs. Default: PythonVersion.THREE_NINE
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__cf957fffa6063a485485a9901ecfb6eddf77eb6d14270f51d1e144b768f67f52)
@@ -16742,45 +16737,45 @@ class PythonShellJob(
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''(experimental) Uniquely identifies this class.
+        '''(deprecated) Uniquely identifies this class.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
     def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
-        '''(experimental) The principal to grant permissions to.
+        '''(deprecated) The principal to grant permissions to.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="jobArn")
     def job_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the job.
+        '''(deprecated) The ARN of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobArn"))
 
     @builtins.property
     @jsii.member(jsii_name="jobName")
     def job_name(self) -> builtins.str:
-        '''(experimental) The name of the job.
+        '''(deprecated) The name of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobName"))
 
     @builtins.property
     @jsii.member(jsii_name="role")
     def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
-        '''(experimental) The IAM role Glue assumes to run this job.
+        '''(deprecated) The IAM role Glue assumes to run this job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", jsii.get(self, "role"))
 
@@ -16886,19 +16881,19 @@ class RayJob(Job, metaclass=jsii.JSIIMeta, jsii_type="@aws-cdk/aws-glue-alpha.Ra
         :param job_run_queuing_enabled: (deprecated) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
         :param number_of_workers: (deprecated) The number of workers allocated when a job runs. Ray jobs only support the Z.2X worker type, so the worker type is not configurable. Default: 3
         :param runtime: (deprecated) Sets the Ray runtime environment version. Default: - Runtime version will default to Ray2.4
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
 
         :stability: deprecated
         '''
@@ -16980,9 +16975,9 @@ class S3Table(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.S3Table",
 ):
-    '''(experimental) A Glue table that targets a S3 dataset.
+    '''(deprecated) A Glue table that targets a S3 dataset.
 
-    :stability: experimental
+    :stability: deprecated
     :resource: AWS::Glue::Table
     :exampleMetadata: infused
 
@@ -17037,25 +17032,25 @@ class S3Table(
         '''
         :param scope: -
         :param id: -
-        :param client_side_encryption: (experimental) Client-side encryption (CSE-KMS) for the table's data. Independent of the bucket's server-side encryption, and valid whether the bucket is managed or provided. Default: - no client-side encryption
-        :param s3_prefix: (experimental) S3 prefix under which table objects are stored. When the table shares a bucket with other tables or consumers, set this so that the ``grant*`` methods scope S3 access to this table's data. Without a prefix, those grants cover the entire bucket. Default: - No prefix. The data will be stored under the root of the bucket.
-        :param storage: (experimental) Where the table's data is stored: a bucket created and managed by the table, or an existing bucket you provide. Default: - a managed bucket with S3-managed (SSE-S3) encryption
-        :param columns: (experimental) Columns of the table.
-        :param database: (experimental) Database in which to store the table.
-        :param data_format: (experimental) Storage type of the table's data.
-        :param compressed: (experimental) Indicates whether the table's data is compressed or not. Default: false
-        :param description: (experimental) Description of the table. Default: generated
-        :param enable_partition_filtering: (experimental) Enables partition filtering. Default: - The parameter is not defined
-        :param has_encrypted_data: (experimental) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
-        :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
-        :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
-        :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
-        :param partition_projection: (experimental) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
-        :param storage_parameters: (experimental) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
-        :param stored_as_sub_directories: (experimental) Indicates whether the table data is stored in subdirectories. Default: false
-        :param table_name: (experimental) Name of the table. Default: - generated by CDK.
+        :param client_side_encryption: (deprecated) Client-side encryption (CSE-KMS) for the table's data. Independent of the bucket's server-side encryption, and valid whether the bucket is managed or provided. Default: - no client-side encryption
+        :param s3_prefix: (deprecated) S3 prefix under which table objects are stored. When the table shares a bucket with other tables or consumers, set this so that the ``grant*`` methods scope S3 access to this table's data. Without a prefix, those grants cover the entire bucket. Default: - No prefix. The data will be stored under the root of the bucket.
+        :param storage: (deprecated) Where the table's data is stored: a bucket created and managed by the table, or an existing bucket you provide. Default: - a managed bucket with S3-managed (SSE-S3) encryption
+        :param columns: (deprecated) Columns of the table.
+        :param database: (deprecated) Database in which to store the table.
+        :param data_format: (deprecated) Storage type of the table's data.
+        :param compressed: (deprecated) Indicates whether the table's data is compressed or not. Default: false
+        :param description: (deprecated) Description of the table. Default: generated
+        :param enable_partition_filtering: (deprecated) Enables partition filtering. Default: - The parameter is not defined
+        :param has_encrypted_data: (deprecated) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
+        :param parameters: (deprecated) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
+        :param partition_indexes: (deprecated) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
+        :param partition_keys: (deprecated) Partition columns of the table. Default: table is not partitioned
+        :param partition_projection: (deprecated) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
+        :param storage_parameters: (deprecated) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
+        :param stored_as_sub_directories: (deprecated) Indicates whether the table data is stored in subdirectories. Default: false
+        :param table_name: (deprecated) Name of the table. Default: - generated by CDK.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__2b5cd7a8c51600d473f125b7e52d34d32dba95265780e87640a28f30e73ce95d)
@@ -17086,7 +17081,7 @@ class S3Table(
     @jsii.member(jsii_name="generateS3PrefixForGrant")
     def _generate_s3_prefix_for_grant(self) -> builtins.str:
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.invoke(self, "generateS3PrefixForGrant", []))
 
@@ -17095,13 +17090,13 @@ class S3Table(
         self,
         grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
     ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
-        '''(experimental) Grant read permissions to the table and the underlying data stored in S3 to an IAM principal.
+        '''(deprecated) Grant read permissions to the table and the underlying data stored in S3 to an IAM principal.
 
         [disable-awslint:no-grants]
 
         :param grantee: the principal.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__e3909b8e18b4eb038d1349092a370f0791a90c6e7f8380b7439f83993e01d04f)
@@ -17113,13 +17108,13 @@ class S3Table(
         self,
         grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
     ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
-        '''(experimental) Grant read and write permissions to the table and the underlying data stored in S3 to an IAM principal.
+        '''(deprecated) Grant read and write permissions to the table and the underlying data stored in S3 to an IAM principal.
 
         [disable-awslint:no-grants]
 
         :param grantee: the principal.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1e7a94485fcfc5ef062186c7655669b475fac2ccac917edd1bd396de160cd227)
@@ -17131,13 +17126,13 @@ class S3Table(
         self,
         grantee: "_aws_cdk_aws_iam_ceddda9d.IGrantable",
     ) -> "_aws_cdk_aws_iam_ceddda9d.Grant":
-        '''(experimental) Grant write permissions to the table and the underlying data stored in S3 to an IAM principal.
+        '''(deprecated) Grant write permissions to the table and the underlying data stored in S3 to an IAM principal.
 
         [disable-awslint:no-grants]
 
         :param grantee: the principal.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__ea067213729fc1f1f124734239ce0d21ea4e77d3fecd8d14ab5363d59122770b)
@@ -17147,45 +17142,45 @@ class S3Table(
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''(experimental) Uniquely identifies this class.
+        '''(deprecated) Uniquely identifies this class.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
     @jsii.member(jsii_name="bucket")
     def bucket(self) -> "_aws_cdk_aws_s3_ceddda9d.IBucket":
-        '''(experimental) S3 bucket in which the table's data resides.
+        '''(deprecated) S3 bucket in which the table's data resides.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("_aws_cdk_aws_s3_ceddda9d.IBucket", jsii.get(self, "bucket"))
 
     @builtins.property
     @jsii.member(jsii_name="s3Prefix")
     def s3_prefix(self) -> builtins.str:
-        '''(experimental) S3 Key Prefix under which this table's files are stored in S3.
+        '''(deprecated) S3 Key Prefix under which this table's files are stored in S3.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "s3Prefix"))
 
     @builtins.property
     @jsii.member(jsii_name="tableArn")
     def table_arn(self) -> builtins.str:
-        '''(experimental) ARN of this table.
+        '''(deprecated) ARN of this table.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "tableArn"))
 
     @builtins.property
     @jsii.member(jsii_name="tableName")
     def table_name(self) -> builtins.str:
-        '''(experimental) Name of this table.
+        '''(deprecated) Name of this table.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "tableName"))
 
@@ -17193,7 +17188,7 @@ class S3Table(
     @jsii.member(jsii_name="tableResource")
     def _table_resource(self) -> "_aws_cdk_aws_glue_ceddda9d.CfnTable":
         '''
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("_aws_cdk_aws_glue_ceddda9d.CfnTable", jsii.get(self, "tableResource"))
 
@@ -17202,20 +17197,20 @@ class S3Table(
     def client_side_encryption_key(
         self,
     ) -> typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"]:
-        '''(experimental) The KMS key used for client-side encryption of the table's data, if ``clientSideEncryption`` was configured. Otherwise, ``undefined``.
+        '''(deprecated) The KMS key used for client-side encryption of the table's data, if ``clientSideEncryption`` was configured. Otherwise, ``undefined``.
 
         For server-side (bucket) encryption, read ``bucket.encryptionKey`` instead.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional["_aws_cdk_interfaces_aws_kms_ceddda9d.IKeyRef"], jsii.get(self, "clientSideEncryptionKey"))
 
     @builtins.property
     @jsii.member(jsii_name="partitionIndexes")
     def partition_indexes(self) -> typing.Optional[typing.List["PartitionIndex"]]:
-        '''(experimental) This table's partition indexes.
+        '''(deprecated) This table's partition indexes.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional[typing.List["PartitionIndex"]], jsii.get(self, "partitionIndexes"))
 
@@ -17266,25 +17261,25 @@ class S3TableProps(TableBaseProps):
         storage: typing.Optional["S3TableStorage"] = None,
     ) -> None:
         '''
-        :param columns: (experimental) Columns of the table.
-        :param database: (experimental) Database in which to store the table.
-        :param data_format: (experimental) Storage type of the table's data.
-        :param compressed: (experimental) Indicates whether the table's data is compressed or not. Default: false
-        :param description: (experimental) Description of the table. Default: generated
-        :param enable_partition_filtering: (experimental) Enables partition filtering. Default: - The parameter is not defined
-        :param has_encrypted_data: (experimental) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
-        :param parameters: (experimental) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
-        :param partition_indexes: (experimental) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
-        :param partition_keys: (experimental) Partition columns of the table. Default: table is not partitioned
-        :param partition_projection: (experimental) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
-        :param storage_parameters: (experimental) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
-        :param stored_as_sub_directories: (experimental) Indicates whether the table data is stored in subdirectories. Default: false
-        :param table_name: (experimental) Name of the table. Default: - generated by CDK.
-        :param client_side_encryption: (experimental) Client-side encryption (CSE-KMS) for the table's data. Independent of the bucket's server-side encryption, and valid whether the bucket is managed or provided. Default: - no client-side encryption
-        :param s3_prefix: (experimental) S3 prefix under which table objects are stored. When the table shares a bucket with other tables or consumers, set this so that the ``grant*`` methods scope S3 access to this table's data. Without a prefix, those grants cover the entire bucket. Default: - No prefix. The data will be stored under the root of the bucket.
-        :param storage: (experimental) Where the table's data is stored: a bucket created and managed by the table, or an existing bucket you provide. Default: - a managed bucket with S3-managed (SSE-S3) encryption
+        :param columns: (deprecated) Columns of the table.
+        :param database: (deprecated) Database in which to store the table.
+        :param data_format: (deprecated) Storage type of the table's data.
+        :param compressed: (deprecated) Indicates whether the table's data is compressed or not. Default: false
+        :param description: (deprecated) Description of the table. Default: generated
+        :param enable_partition_filtering: (deprecated) Enables partition filtering. Default: - The parameter is not defined
+        :param has_encrypted_data: (deprecated) Whether the data stored in the table is encrypted. This sets the ``has_encrypted_data`` table parameter. Athena reads it when querying client-side (CSE-KMS) encrypted datasets; for server-side encrypted (SSE-S3 / SSE-KMS) or unencrypted data it has no effect, since Amazon S3 decrypts server-side encrypted objects transparently. Do not also set ``has_encrypted_data`` through ``parameters`` - use this property instead. A conflicting value in ``parameters`` is rejected. Default: true
+        :param parameters: (deprecated) The key/value pairs define properties associated with the table. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Default: - The parameter is not defined
+        :param partition_indexes: (deprecated) Partition indexes on the table. A maximum of 3 indexes are allowed on a table. Keys in the index must be part of the table's partition keys. Default: table has no partition indexes
+        :param partition_keys: (deprecated) Partition columns of the table. Default: table is not partitioned
+        :param partition_projection: (deprecated) Partition projection configuration for this table. Partition projection allows Athena to automatically add new partitions without requiring ``ALTER TABLE ADD PARTITION`` statements. Default: - No partition projection
+        :param storage_parameters: (deprecated) The user-supplied properties for the description of the physical storage of this table. These properties help describe the format of the data that is stored within the crawled data sources. The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed. Some keys will be auto-populated by glue crawlers, however, you can override them by specifying the key and value in this property. Default: - The parameter is not defined
+        :param stored_as_sub_directories: (deprecated) Indicates whether the table data is stored in subdirectories. Default: false
+        :param table_name: (deprecated) Name of the table. Default: - generated by CDK.
+        :param client_side_encryption: (deprecated) Client-side encryption (CSE-KMS) for the table's data. Independent of the bucket's server-side encryption, and valid whether the bucket is managed or provided. Default: - no client-side encryption
+        :param s3_prefix: (deprecated) S3 prefix under which table objects are stored. When the table shares a bucket with other tables or consumers, set this so that the ``grant*`` methods scope S3 access to this table's data. Without a prefix, those grants cover the entire bucket. Default: - No prefix. The data will be stored under the root of the bucket.
+        :param storage: (deprecated) Where the table's data is stored: a bucket created and managed by the table, or an existing bucket you provide. Default: - a managed bucket with S3-managed (SSE-S3) encryption
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -17366,9 +17361,9 @@ class S3TableProps(TableBaseProps):
 
     @builtins.property
     def columns(self) -> typing.List["Column"]:
-        '''(experimental) Columns of the table.
+        '''(deprecated) Columns of the table.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("columns")
         assert result is not None, "Required property 'columns' is missing"
@@ -17376,9 +17371,9 @@ class S3TableProps(TableBaseProps):
 
     @builtins.property
     def database(self) -> "IDatabase":
-        '''(experimental) Database in which to store the table.
+        '''(deprecated) Database in which to store the table.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -17386,9 +17381,9 @@ class S3TableProps(TableBaseProps):
 
     @builtins.property
     def data_format(self) -> "DataFormat":
-        '''(experimental) Storage type of the table's data.
+        '''(deprecated) Storage type of the table's data.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("data_format")
         assert result is not None, "Required property 'data_format' is missing"
@@ -17396,41 +17391,41 @@ class S3TableProps(TableBaseProps):
 
     @builtins.property
     def compressed(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Indicates whether the table's data is compressed or not.
+        '''(deprecated) Indicates whether the table's data is compressed or not.
 
         :default: false
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("compressed")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Description of the table.
+        '''(deprecated) Description of the table.
 
         :default: generated
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def enable_partition_filtering(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enables partition filtering.
+        '''(deprecated) Enables partition filtering.
 
         :default: - The parameter is not defined
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/glue-best-practices.html#glue-best-practices-partition-index
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enable_partition_filtering")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def has_encrypted_data(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether the data stored in the table is encrypted.
+        '''(deprecated) Whether the data stored in the table is encrypted.
 
         This sets the ``has_encrypted_data`` table parameter. Athena reads it when
         querying client-side (CSE-KMS) encrypted datasets; for server-side
@@ -17443,28 +17438,28 @@ class S3TableProps(TableBaseProps):
         :default: true
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/creating-tables-based-on-encrypted-datasets-in-s3.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("has_encrypted_data")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def parameters(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) The key/value pairs define properties associated with the table.
+        '''(deprecated) The key/value pairs define properties associated with the table.
 
         The key/value pairs that are allowed to be submitted are not limited, however their functionality is not guaranteed.
 
         :default: - The parameter is not defined
 
         :see: https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-tableinput.html#cfn-glue-table-tableinput-parameters
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("parameters")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def partition_indexes(self) -> typing.Optional[typing.List["PartitionIndex"]]:
-        '''(experimental) Partition indexes on the table.
+        '''(deprecated) Partition indexes on the table.
 
         A maximum of 3 indexes
         are allowed on a table. Keys in the index must be part
@@ -17472,18 +17467,18 @@ class S3TableProps(TableBaseProps):
 
         :default: table has no partition indexes
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("partition_indexes")
         return typing.cast(typing.Optional[typing.List["PartitionIndex"]], result)
 
     @builtins.property
     def partition_keys(self) -> typing.Optional[typing.List["Column"]]:
-        '''(experimental) Partition columns of the table.
+        '''(deprecated) Partition columns of the table.
 
         :default: table is not partitioned
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("partition_keys")
         return typing.cast(typing.Optional[typing.List["Column"]], result)
@@ -17492,7 +17487,7 @@ class S3TableProps(TableBaseProps):
     def partition_projection(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]]:
-        '''(experimental) Partition projection configuration for this table.
+        '''(deprecated) Partition projection configuration for this table.
 
         Partition projection allows Athena to automatically add new partitions
         without requiring ``ALTER TABLE ADD PARTITION`` statements.
@@ -17500,14 +17495,14 @@ class S3TableProps(TableBaseProps):
         :default: - No partition projection
 
         :see: https://docs.aws.amazon.com/athena/latest/ug/partition-projection.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("partition_projection")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, "PartitionProjectionConfiguration"]], result)
 
     @builtins.property
     def storage_parameters(self) -> typing.Optional[typing.List["StorageParameter"]]:
-        '''(experimental) The user-supplied properties for the description of the physical storage of this table.
+        '''(deprecated) The user-supplied properties for the description of the physical storage of this table.
 
         These properties help describe the format of the data that is stored within the crawled data sources.
 
@@ -17518,7 +17513,7 @@ class S3TableProps(TableBaseProps):
         :default: - The parameter is not defined
 
         :see: https://docs.aws.amazon.com/redshift/latest/dg/r_CREATE_EXTERNAL_TABLE.html#r_CREATE_EXTERNAL_TABLE-parameters - under *"TABLE PROPERTIES"*
-        :stability: experimental
+        :stability: deprecated
 
         Example::
 
@@ -17546,43 +17541,43 @@ class S3TableProps(TableBaseProps):
 
     @builtins.property
     def stored_as_sub_directories(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Indicates whether the table data is stored in subdirectories.
+        '''(deprecated) Indicates whether the table data is stored in subdirectories.
 
         :default: false
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("stored_as_sub_directories")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def table_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Name of the table.
+        '''(deprecated) Name of the table.
 
         :default: - generated by CDK.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("table_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def client_side_encryption(self) -> typing.Optional["TableClientSideEncryption"]:
-        '''(experimental) Client-side encryption (CSE-KMS) for the table's data.
+        '''(deprecated) Client-side encryption (CSE-KMS) for the table's data.
 
         Independent of the bucket's server-side encryption, and valid whether the
         bucket is managed or provided.
 
         :default: - no client-side encryption
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("client_side_encryption")
         return typing.cast(typing.Optional["TableClientSideEncryption"], result)
 
     @builtins.property
     def s3_prefix(self) -> typing.Optional[builtins.str]:
-        '''(experimental) S3 prefix under which table objects are stored.
+        '''(deprecated) S3 prefix under which table objects are stored.
 
         When the table shares a bucket with other tables or consumers, set this so
         that the ``grant*`` methods scope S3 access to this table's data. Without a
@@ -17590,18 +17585,18 @@ class S3TableProps(TableBaseProps):
 
         :default: - No prefix. The data will be stored under the root of the bucket.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("s3_prefix")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def storage(self) -> typing.Optional["S3TableStorage"]:
-        '''(experimental) Where the table's data is stored: a bucket created and managed by the table, or an existing bucket you provide.
+        '''(deprecated) Where the table's data is stored: a bucket created and managed by the table, or an existing bucket you provide.
 
         :default: - a managed bucket with S3-managed (SSE-S3) encryption
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("storage")
         return typing.cast(typing.Optional["S3TableStorage"], result)
@@ -17675,33 +17670,33 @@ class ScalaSparkEtlJobProps(SparkJobProps):
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
         notify_delay_after: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
-        '''(experimental) Properties for creating a Scala Spark ETL job.
+        '''(deprecated) Properties for creating a Scala Spark ETL job.
 
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
-        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
-        :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
-        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
-        :param class_name: (experimental) Class name (required for Scala scripts) Package and class name for the entry point of Glue job execution for Java scripts.
-        :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
-        :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
-        :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
-        :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
-        :param notify_delay_after: (experimental) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
+        :param spark_ui: (deprecated) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (deprecated) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
+        :param class_name: (deprecated) Class name (required for Scala scripts) Package and class name for the entry point of Glue job execution for Java scripts.
+        :param extra_files: (deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
+        :param extra_jars: (deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
+        :param extra_jars_first: (deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
+        :param job_run_queuing_enabled: (deprecated) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
+        :param notify_delay_after: (deprecated) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -17846,10 +17841,10 @@ class ScalaSparkEtlJobProps(SparkJobProps):
 
     @builtins.property
     def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
-        '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        '''(deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
@@ -17857,13 +17852,13 @@ class ScalaSparkEtlJobProps(SparkJobProps):
 
     @builtins.property
     def script(self) -> "Code":
-        '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
+        '''(deprecated) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
         from the local directory structure using fromAsset
         or referenced via S3 location using fromBucket
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
@@ -17871,23 +17866,23 @@ class ScalaSparkEtlJobProps(SparkJobProps):
 
     @builtins.property
     def connections(self) -> typing.Optional[typing.List["IConnection"]]:
-        '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
+        '''(deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("connections")
         return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
     def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
-        '''(experimental) Enables continuous logging with the specified props.
+        '''(deprecated) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("continuous_logging")
         return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
@@ -17896,7 +17891,7 @@ class ScalaSparkEtlJobProps(SparkJobProps):
     def default_arguments(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+        '''(deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
         This map is the escape hatch for Glue job arguments that this construct does not model. It
         MUST NOT be used to set arguments that already have a dedicated prop — configure those through
@@ -17918,158 +17913,158 @@ class ScalaSparkEtlJobProps(SparkJobProps):
 
         https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
         for a list of reserved parameters
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("default_arguments")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Description (optional) Developer-specified description of the Glue job.
+        '''(deprecated) Description (optional) Developer-specified description of the Glue job.
 
         :default: - no value
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
-        '''(experimental) Glue Version The version of Glue to use to execute this job.
+        '''(deprecated) Glue Version The version of Glue to use to execute this job.
 
         :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("glue_version")
         return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Name of the Glue job (optional) Developer-specified name of the Glue job.
+        '''(deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job.
 
         :default: - a name is automatically generated
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("job_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_concurrent_runs(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
+        '''(deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
 
         An error is returned when this threshold is reached. The maximum value
         you can specify is controlled by a service limit.
 
         :default: 1
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_concurrent_runs")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_retries(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
+        '''(deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
 
         :default: 0
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
-        '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
+        '''(deprecated) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("security_configuration")
         return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
+        '''(deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
 
         :default: {} - no tags
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
-        '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
+        '''(deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
 
         :default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable profiling metrics for the Glue job.
+        '''(deprecated) Enable profiling metrics for the Glue job.
 
         When enabled, adds '--enable-metrics' to job arguments.
 
         :default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enable_metrics")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def enable_observability_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable observability metrics for the Glue job.
+        '''(deprecated) Enable observability metrics for the Glue job.
 
         When enabled, adds '--enable-observability-metrics': 'true' to job arguments.
 
         :default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enable_observability_metrics")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def spark_ui(self) -> typing.Optional["SparkUIProps"]:
-        '''(experimental) Enables the Spark UI debugging and monitoring with the specified props.
+        '''(deprecated) Enables the Spark UI debugging and monitoring with the specified props.
 
         :default: - Spark UI debugging and monitoring is disabled.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("spark_ui")
         return typing.cast(typing.Optional["SparkUIProps"], result)
 
     @builtins.property
     def worker_configuration(self) -> typing.Optional["WorkerConfiguration"]:
-        '''(experimental) The worker type and the number of workers allocated when a job runs.
+        '''(deprecated) The worker type and the number of workers allocated when a job runs.
 
         :default: - the job runs with the G_1X worker type and 10 workers.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("worker_configuration")
         return typing.cast(typing.Optional["WorkerConfiguration"], result)
 
     @builtins.property
     def class_name(self) -> builtins.str:
-        '''(experimental) Class name (required for Scala scripts) Package and class name for the entry point of Glue job execution for Java scripts.
+        '''(deprecated) Class name (required for Scala scripts) Package and class name for the entry point of Glue job execution for Java scripts.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("class_name")
         assert result is not None, "Required property 'class_name' is missing"
@@ -18077,42 +18072,42 @@ class ScalaSparkEtlJobProps(SparkJobProps):
 
     @builtins.property
     def extra_files(self) -> typing.Optional[typing.List["Code"]]:
-        '''(experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
+        '''(deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
 
         :default: - no extra files specified.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_files")
         return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars(self) -> typing.Optional[typing.List["Code"]]:
-        '''(experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
+        '''(deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
 
         :default: - no extra jar files
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_jars")
         return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars_first(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath.
+        '''(deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath.
 
         :default: false - priority is not given to user-provided jars
 
         :see: ``--user-jars-first`` in https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_jars_first")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def job_run_queuing_enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Specifies whether job run queuing is enabled for the job runs for this job.
+        '''(deprecated) Specifies whether job run queuing is enabled for the job runs for this job.
 
         A value of true means job run queuing is enabled for the job runs.
         If false or not populated, the job runs will not be considered for queueing.
@@ -18122,20 +18117,20 @@ class ScalaSparkEtlJobProps(SparkJobProps):
 
         :default: - no job run queuing
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("job_run_queuing_enabled")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def notify_delay_after(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
-        '''(experimental) Specifies configuration properties of a notification (optional).
+        '''(deprecated) Specifies configuration properties of a notification (optional).
 
         After a job run starts, the number of minutes to wait before sending a job run delay notification.
 
         :default: - undefined
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("notify_delay_after")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
@@ -18207,32 +18202,32 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
         extra_jars_first: typing.Optional[builtins.bool] = None,
         notify_delay_after: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
-        '''(experimental) Properties for a ``ScalaSparkFlexEtlJob``.
+        '''(deprecated) Properties for a ``ScalaSparkFlexEtlJob``.
 
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
-        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
-        :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
-        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
-        :param class_name: (experimental) The fully qualified Scala class name that serves as the entry point for the job.
-        :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
-        :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
-        :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
-        :param notify_delay_after: (experimental) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
+        :param spark_ui: (deprecated) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (deprecated) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
+        :param class_name: (deprecated) The fully qualified Scala class name that serves as the entry point for the job.
+        :param extra_files: (deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
+        :param extra_jars: (deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
+        :param extra_jars_first: (deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
+        :param notify_delay_after: (deprecated) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -18373,10 +18368,10 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
 
     @builtins.property
     def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
-        '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        '''(deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
@@ -18384,13 +18379,13 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
 
     @builtins.property
     def script(self) -> "Code":
-        '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
+        '''(deprecated) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
         from the local directory structure using fromAsset
         or referenced via S3 location using fromBucket
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
@@ -18398,23 +18393,23 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
 
     @builtins.property
     def connections(self) -> typing.Optional[typing.List["IConnection"]]:
-        '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
+        '''(deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("connections")
         return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
     def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
-        '''(experimental) Enables continuous logging with the specified props.
+        '''(deprecated) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("continuous_logging")
         return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
@@ -18423,7 +18418,7 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
     def default_arguments(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+        '''(deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
         This map is the escape hatch for Glue job arguments that this construct does not model. It
         MUST NOT be used to set arguments that already have a dedicated prop — configure those through
@@ -18445,159 +18440,159 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
 
         https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
         for a list of reserved parameters
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("default_arguments")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Description (optional) Developer-specified description of the Glue job.
+        '''(deprecated) Description (optional) Developer-specified description of the Glue job.
 
         :default: - no value
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
-        '''(experimental) Glue Version The version of Glue to use to execute this job.
+        '''(deprecated) Glue Version The version of Glue to use to execute this job.
 
         :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("glue_version")
         return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Name of the Glue job (optional) Developer-specified name of the Glue job.
+        '''(deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job.
 
         :default: - a name is automatically generated
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("job_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_concurrent_runs(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
+        '''(deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
 
         An error is returned when this threshold is reached. The maximum value
         you can specify is controlled by a service limit.
 
         :default: 1
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_concurrent_runs")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_retries(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
+        '''(deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
 
         :default: 0
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
-        '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
+        '''(deprecated) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("security_configuration")
         return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
+        '''(deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
 
         :default: {} - no tags
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
-        '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
+        '''(deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
 
         :default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable profiling metrics for the Glue job.
+        '''(deprecated) Enable profiling metrics for the Glue job.
 
         When enabled, adds '--enable-metrics' to job arguments.
 
         :default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enable_metrics")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def enable_observability_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable observability metrics for the Glue job.
+        '''(deprecated) Enable observability metrics for the Glue job.
 
         When enabled, adds '--enable-observability-metrics': 'true' to job arguments.
 
         :default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enable_observability_metrics")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def spark_ui(self) -> typing.Optional["SparkUIProps"]:
-        '''(experimental) Enables the Spark UI debugging and monitoring with the specified props.
+        '''(deprecated) Enables the Spark UI debugging and monitoring with the specified props.
 
         :default: - Spark UI debugging and monitoring is disabled.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("spark_ui")
         return typing.cast(typing.Optional["SparkUIProps"], result)
 
     @builtins.property
     def worker_configuration(self) -> typing.Optional["WorkerConfiguration"]:
-        '''(experimental) The worker type and the number of workers allocated when a job runs.
+        '''(deprecated) The worker type and the number of workers allocated when a job runs.
 
         :default: - the job runs with the G_1X worker type and 10 workers.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("worker_configuration")
         return typing.cast(typing.Optional["WorkerConfiguration"], result)
 
     @builtins.property
     def class_name(self) -> builtins.str:
-        '''(experimental) The fully qualified Scala class name that serves as the entry point for the job.
+        '''(deprecated) The fully qualified Scala class name that serves as the entry point for the job.
 
         :see: ``--class`` in https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("class_name")
         assert result is not None, "Required property 'class_name' is missing"
@@ -18605,48 +18600,48 @@ class ScalaSparkFlexEtlJobProps(SparkJobProps):
 
     @builtins.property
     def extra_files(self) -> typing.Optional[typing.List["Code"]]:
-        '''(experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
+        '''(deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
 
         :default: - no extra files specified.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_files")
         return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars(self) -> typing.Optional[typing.List["Code"]]:
-        '''(experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
+        '''(deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
 
         :default: - no extra jar files
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_jars")
         return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars_first(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath.
+        '''(deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath.
 
         :default: false - priority is not given to user-provided jars
 
         :see: ``--user-jars-first`` in https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_jars_first")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def notify_delay_after(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
-        '''(experimental) Specifies configuration properties of a notification (optional).
+        '''(deprecated) Specifies configuration properties of a notification (optional).
 
         After a job run starts, the number of minutes to wait before sending a job run delay notification.
 
         :default: - undefined
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("notify_delay_after")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
@@ -18718,32 +18713,32 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
         extra_jars_first: typing.Optional[builtins.bool] = None,
         job_run_queuing_enabled: typing.Optional[builtins.bool] = None,
     ) -> None:
-        '''(experimental) Properties for creating a Scala Spark ETL job.
+        '''(deprecated) Properties for creating a Scala Spark ETL job.
 
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
-        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
-        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
-        :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
-        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
-        :param class_name: (experimental) Class name (required for Scala scripts) Package and class name for the entry point of Glue job execution for Java scripts.
-        :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
-        :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
-        :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
-        :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
+        :param spark_ui: (deprecated) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (deprecated) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
+        :param class_name: (deprecated) Class name (required for Scala scripts) Package and class name for the entry point of Glue job execution for Java scripts.
+        :param extra_files: (deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
+        :param extra_jars: (deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
+        :param extra_jars_first: (deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
+        :param job_run_queuing_enabled: (deprecated) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -18884,10 +18879,10 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
 
     @builtins.property
     def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
-        '''(experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        '''(deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/getting-started-access.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
@@ -18895,13 +18890,13 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
 
     @builtins.property
     def script(self) -> "Code":
-        '''(experimental) Script Code Location (required) Script to run when the Glue job executes.
+        '''(deprecated) Script Code Location (required) Script to run when the Glue job executes.
 
         Can be uploaded
         from the local directory structure using fromAsset
         or referenced via S3 location using fromBucket
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("script")
         assert result is not None, "Required property 'script' is missing"
@@ -18909,23 +18904,23 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
 
     @builtins.property
     def connections(self) -> typing.Optional[typing.List["IConnection"]]:
-        '''(experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
+        '''(deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC.
 
         :default: [] - no connections are added to the job
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("connections")
         return typing.cast(typing.Optional[typing.List["IConnection"]], result)
 
     @builtins.property
     def continuous_logging(self) -> typing.Optional["ContinuousLoggingProps"]:
-        '''(experimental) Enables continuous logging with the specified props.
+        '''(deprecated) Enables continuous logging with the specified props.
 
         :default: - continuous logging is enabled.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("continuous_logging")
         return typing.cast(typing.Optional["ContinuousLoggingProps"], result)
@@ -18934,7 +18929,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
     def default_arguments(
         self,
     ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
+        '''(deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs.
 
         This map is the escape hatch for Glue job arguments that this construct does not model. It
         MUST NOT be used to set arguments that already have a dedicated prop — configure those through
@@ -18956,158 +18951,158 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
 
         https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
         for a list of reserved parameters
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("default_arguments")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Description (optional) Developer-specified description of the Glue job.
+        '''(deprecated) Description (optional) Developer-specified description of the Glue job.
 
         :default: - no value
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def glue_version(self) -> typing.Optional["GlueVersion"]:
-        '''(experimental) Glue Version The version of Glue to use to execute this job.
+        '''(deprecated) Glue Version The version of Glue to use to execute this job.
 
         :default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("glue_version")
         return typing.cast(typing.Optional["GlueVersion"], result)
 
     @builtins.property
     def job_name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) Name of the Glue job (optional) Developer-specified name of the Glue job.
+        '''(deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job.
 
         :default: - a name is automatically generated
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("job_name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def max_concurrent_runs(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
+        '''(deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run.
 
         An error is returned when this threshold is reached. The maximum value
         you can specify is controlled by a service limit.
 
         :default: 1
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_concurrent_runs")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def max_retries(self) -> typing.Optional[jsii.Number]:
-        '''(experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
+        '''(deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails.
 
         :default: 0
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("max_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def security_configuration(self) -> typing.Optional["ISecurityConfiguration"]:
-        '''(experimental) Security Configuration (optional) Defines the encryption options for the Glue job.
+        '''(deprecated) Security Configuration (optional) Defines the encryption options for the Glue job.
 
         :default: - no security configuration.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("security_configuration")
         return typing.cast(typing.Optional["ISecurityConfiguration"], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''(experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
+        '''(deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources.
 
         :default: {} - no tags
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def timeout(self) -> typing.Optional["_aws_cdk_ceddda9d.Duration"]:
-        '''(experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
+        '''(deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status.
 
         Specified in minutes.
 
         :default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("timeout")
         return typing.cast(typing.Optional["_aws_cdk_ceddda9d.Duration"], result)
 
     @builtins.property
     def enable_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable profiling metrics for the Glue job.
+        '''(deprecated) Enable profiling metrics for the Glue job.
 
         When enabled, adds '--enable-metrics' to job arguments.
 
         :default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enable_metrics")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def enable_observability_metrics(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Enable observability metrics for the Glue job.
+        '''(deprecated) Enable observability metrics for the Glue job.
 
         When enabled, adds '--enable-observability-metrics': 'true' to job arguments.
 
         :default: true
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("enable_observability_metrics")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def spark_ui(self) -> typing.Optional["SparkUIProps"]:
-        '''(experimental) Enables the Spark UI debugging and monitoring with the specified props.
+        '''(deprecated) Enables the Spark UI debugging and monitoring with the specified props.
 
         :default: - Spark UI debugging and monitoring is disabled.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("spark_ui")
         return typing.cast(typing.Optional["SparkUIProps"], result)
 
     @builtins.property
     def worker_configuration(self) -> typing.Optional["WorkerConfiguration"]:
-        '''(experimental) The worker type and the number of workers allocated when a job runs.
+        '''(deprecated) The worker type and the number of workers allocated when a job runs.
 
         :default: - the job runs with the G_1X worker type and 10 workers.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("worker_configuration")
         return typing.cast(typing.Optional["WorkerConfiguration"], result)
 
     @builtins.property
     def class_name(self) -> builtins.str:
-        '''(experimental) Class name (required for Scala scripts) Package and class name for the entry point of Glue job execution for Java scripts.
+        '''(deprecated) Class name (required for Scala scripts) Package and class name for the entry point of Glue job execution for Java scripts.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("class_name")
         assert result is not None, "Required property 'class_name' is missing"
@@ -19115,42 +19110,42 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
 
     @builtins.property
     def extra_files(self) -> typing.Optional[typing.List["Code"]]:
-        '''(experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
+        '''(deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it.
 
         :default: - no extra files specified.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_files")
         return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars(self) -> typing.Optional[typing.List["Code"]]:
-        '''(experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
+        '''(deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located.
 
         :default: - no extra jar files
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_jars")
         return typing.cast(typing.Optional[typing.List["Code"]], result)
 
     @builtins.property
     def extra_jars_first(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath.
+        '''(deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath.
 
         :default: false - priority is not given to user-provided jars
 
         :see: ``--user-jars-first`` in https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("extra_jars_first")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def job_run_queuing_enabled(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Specifies whether job run queuing is enabled for the job runs for this job.
+        '''(deprecated) Specifies whether job run queuing is enabled for the job runs for this job.
 
         A value of true means job run queuing is enabled for the job runs.
         If false or not populated, the job runs will not be considered for queueing.
@@ -19160,7 +19155,7 @@ class ScalaSparkStreamingJobProps(SparkJobProps):
 
         :default: - no job run queuing
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("job_run_queuing_enabled")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -19182,9 +19177,9 @@ class SparkJob(
     metaclass=jsii.JSIIAbstractClass,
     jsii_type="@aws-cdk/aws-glue-alpha.SparkJob",
 ):
-    '''(experimental) Base class for different types of Spark Jobs.
+    '''(deprecated) Base class for different types of Spark Jobs.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: fixture=_generated
 
     Example::
@@ -19230,25 +19225,25 @@ class SparkJob(
         '''
         :param scope: -
         :param id: -
-        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
-        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
-        :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
-        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
+        :param spark_ui: (deprecated) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (deprecated) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__8fbd2cbc25f1bca6ef290d592a0caaacb6be8da071335ebfe9f73523d48dbb9d)
@@ -19298,32 +19293,32 @@ class SparkJob(
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
-        '''(experimental) Register the arguments this construct manages for a Spark job.
+        '''(deprecated) Register the arguments this construct manages for a Spark job.
 
         These are owned by the construct
         (derived from typed props). Each key is declared via {@link setManagedArgument} whether or not
         the current configuration emits a value, so a disabled feature (e.g. ``enableMetrics: false``)
         cannot be silently re-enabled through ``defaultArguments``.
 
-        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
-        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
-        :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
-        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
+        :param spark_ui: (deprecated) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (deprecated) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         props = SparkJobProps(
             enable_metrics=enable_metrics,
@@ -19356,14 +19351,14 @@ class SparkJob(
         extra_jars_first: typing.Optional[builtins.bool] = None,
         extra_python_files: typing.Optional[typing.Sequence["Code"]] = None,
     ) -> None:
-        '''(experimental) Register the arguments for extra {@link Code}-related properties.
+        '''(deprecated) Register the arguments for extra {@link Code}-related properties.
 
-        :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
-        :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
-        :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
-        :param extra_python_files: (experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
+        :param extra_files: (deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
+        :param extra_jars: (deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
+        :param extra_jars_first: (deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
+        :param extra_python_files: (deprecated) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
 
-        :stability: experimental
+        :stability: deprecated
         '''
         props = SparkExtraCodeProps(
             extra_files=extra_files,
@@ -19377,28 +19372,28 @@ class SparkJob(
     @builtins.property
     @jsii.member(jsii_name="grantPrincipal")
     def grant_principal(self) -> "_aws_cdk_aws_iam_ceddda9d.IPrincipal":
-        '''(experimental) The principal to grant permissions to.
+        '''(deprecated) The principal to grant permissions to.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.IPrincipal", jsii.get(self, "grantPrincipal"))
 
     @builtins.property
     @jsii.member(jsii_name="role")
     def role(self) -> "_aws_cdk_aws_iam_ceddda9d.IRole":
-        '''(experimental) The IAM role Glue assumes to run this job.
+        '''(deprecated) The IAM role Glue assumes to run this job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast("_aws_cdk_aws_iam_ceddda9d.IRole", jsii.get(self, "role"))
 
     @builtins.property
     @jsii.member(jsii_name="sparkUILoggingLocation")
     def spark_ui_logging_location(self) -> typing.Optional["SparkUILoggingLocation"]:
-        '''(experimental) The Spark UI logs location if Spark UI monitoring and debugging is enabled.
+        '''(deprecated) The Spark UI logs location if Spark UI monitoring and debugging is enabled.
 
         :see: https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(typing.Optional["SparkUILoggingLocation"], jsii.get(self, "sparkUILoggingLocation"))
 
@@ -19432,14 +19427,14 @@ class StartableTriggerOptions(TriggerOptions):
         name: typing.Optional[builtins.str] = None,
         start_on_creation: typing.Optional[builtins.bool] = None,
     ) -> None:
-        '''(experimental) Base options for triggers that can be started when they are created.
+        '''(deprecated) Base options for triggers that can be started when they are created.
 
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
-        :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
+        :param actions: (deprecated) The actions initiated by this trigger.
+        :param description: (deprecated) A description for the trigger. Default: - no description
+        :param name: (deprecated) A name for the trigger. Default: - no name is provided
+        :param start_on_creation: (deprecated) Whether to start the trigger on creation or not. Default: - false
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -19477,9 +19472,9 @@ class StartableTriggerOptions(TriggerOptions):
 
     @builtins.property
     def actions(self) -> typing.List["Action"]:
-        '''(experimental) The actions initiated by this trigger.
+        '''(deprecated) The actions initiated by this trigger.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
@@ -19487,33 +19482,33 @@ class StartableTriggerOptions(TriggerOptions):
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A description for the trigger.
+        '''(deprecated) A description for the trigger.
 
         :default: - no description
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A name for the trigger.
+        '''(deprecated) A name for the trigger.
 
         :default: - no name is provided
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start_on_creation(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether to start the trigger on creation or not.
+        '''(deprecated) Whether to start the trigger on creation or not.
 
         :default: - false
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("start_on_creation")
         return typing.cast(typing.Optional[builtins.bool], result)
@@ -19535,7 +19530,7 @@ class Workflow(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.Workflow",
 ):
-    '''(experimental) This module defines a construct for creating and managing AWS Glue Workflows and Triggers.
+    '''(deprecated) This module defines a construct for creating and managing AWS Glue Workflows and Triggers.
 
     AWS Glue Workflows are orchestration services that allow you to create, manage, and monitor complex extract, transform, and load (ETL) activities involving multiple crawlers, jobs, and triggers. Workflows are designed to allow you to manage interdependent jobs and crawlers as a single unit, making it easier to orchestrate and monitor complex ETL pipelines.
 
@@ -19565,7 +19560,7 @@ class Workflow(
     workflow.addOnDemandTrigger('OnDemandTrigger', {
     actions: [glue.Action.job(job)],
     });
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -19600,12 +19595,12 @@ class Workflow(
         '''
         :param scope: -
         :param id: -
-        :param default_run_properties: (experimental) A map of properties to use when this workflow is executed. Default: - no default run properties
-        :param description: (experimental) A description of the workflow. Default: - no description
-        :param max_concurrent_runs: (experimental) The maximum number of concurrent runs allowed for the workflow. Default: - no limit
-        :param workflow_name: (experimental) Name of the workflow. Default: - a name will be generated
+        :param default_run_properties: (deprecated) A map of properties to use when this workflow is executed. Default: - no default run properties
+        :param description: (deprecated) A description of the workflow. Default: - no description
+        :param max_concurrent_runs: (deprecated) The maximum number of concurrent runs allowed for the workflow. Default: - no limit
+        :param workflow_name: (deprecated) Name of the workflow. Default: - a name will be generated
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__143a4af02e3d0336bf030e8289627395ce8b6afffbd456a2d856c4cbd48415b7)
@@ -19628,13 +19623,13 @@ class Workflow(
         id: builtins.str,
         workflow_arn: builtins.str,
     ) -> "IWorkflow":
-        '''(experimental) Import a workflow from its name.
+        '''(deprecated) Import a workflow from its name.
 
         :param scope: -
         :param id: -
         :param workflow_arn: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7f0bb294849d569f6816f8d15062fd89d4e4aa2432b263a7fc73863923e176b5)
@@ -19653,14 +19648,14 @@ class Workflow(
         workflow_name: builtins.str,
         workflow_arn: typing.Optional[builtins.str] = None,
     ) -> "IWorkflow":
-        '''(experimental) Import an existing workflow.
+        '''(deprecated) Import an existing workflow.
 
         :param scope: -
         :param id: -
-        :param workflow_name: (experimental) The name of the workflow to import.
-        :param workflow_arn: (experimental) The ARN of the workflow to import. Default: - derived from the workflow name
+        :param workflow_name: (deprecated) The name of the workflow to import.
+        :param workflow_arn: (deprecated) The ARN of the workflow to import. Default: - derived from the workflow name
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a61fed5d3b53b16ed35106c2175eafc4ea7d630d0dcf94cb9edd8fae881982de)
@@ -19680,13 +19675,13 @@ class Workflow(
         id: builtins.str,
         workflow_name: builtins.str,
     ) -> "IWorkflow":
-        '''(experimental) Import a workflow from its name.
+        '''(deprecated) Import a workflow from its name.
 
         :param scope: -
         :param id: -
         :param workflow_name: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__7a1877b3d7d7ab2c5ddb7cf8f2c83c8d6a4692eae109a3bd5523d35c230b4ce1)
@@ -19698,27 +19693,27 @@ class Workflow(
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''(experimental) Uniquely identifies this class.
+        '''(deprecated) Uniquely identifies this class.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
     @jsii.member(jsii_name="workflowArn")
     def workflow_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the workflow.
+        '''(deprecated) The ARN of the workflow.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "workflowArn"))
 
     @builtins.property
     @jsii.member(jsii_name="workflowName")
     def workflow_name(self) -> builtins.str:
-        '''(experimental) The name of the workflow.
+        '''(deprecated) The name of the workflow.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "workflowName"))
 
@@ -19728,13 +19723,13 @@ class Catalog(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.Catalog",
 ):
-    '''(experimental) A Glue Data Catalog.
+    '''(deprecated) A Glue Data Catalog.
 
     Use ``Catalog.forAccount(scope)`` to obtain the implicit account-wide catalog,
     ``Catalog.encryptAccount(scope, options)`` to configure its Data Catalog
     encryption, or ``new Catalog(...)`` to create an ``AWS::Glue::Catalog`` resource.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -19759,12 +19754,12 @@ class Catalog(
         '''
         :param scope: -
         :param id: -
-        :param catalog_name: (experimental) The name of the catalog.
-        :param description: (experimental) A description of the catalog. Default: - no description
-        :param connection_password_encryption: (experimental) Connection-password encryption configuration for the catalog. Default: - connection-password encryption is not managed by CDK
-        :param encryption_at_rest: (experimental) Encryption-at-rest configuration for the catalog. Default: - encryption at rest is not managed by CDK (the catalog default applies)
+        :param catalog_name: (deprecated) The name of the catalog.
+        :param description: (deprecated) A description of the catalog. Default: - no description
+        :param connection_password_encryption: (deprecated) Connection-password encryption configuration for the catalog. Default: - connection-password encryption is not managed by CDK
+        :param encryption_at_rest: (deprecated) Encryption-at-rest configuration for the catalog. Default: - encryption at rest is not managed by CDK (the catalog default applies)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c2226379aa557de537fa2fe23c511263972348d5899e010d8896897f2d84a98e)
@@ -19788,7 +19783,7 @@ class Catalog(
         connection_password_encryption: typing.Optional[typing.Union["ConnectionPasswordEncryption", typing.Dict[builtins.str, typing.Any]]] = None,
         encryption_at_rest: typing.Optional["DataCatalogEncryptionAtRest"] = None,
     ) -> "ICatalog":
-        '''(experimental) Configure Data Catalog encryption for the implicit, account-wide catalog and return it.
+        '''(deprecated) Configure Data Catalog encryption for the implicit, account-wide catalog and return it.
 
         The account catalog's encryption is an account/region-wide setting, managed
         through the singleton ``PutDataCatalogEncryptionSettings`` API. Because
@@ -19804,10 +19799,10 @@ class Catalog(
         caught at synthesis time, because each stack synthesizes to its own template.
 
         :param scope: -
-        :param connection_password_encryption: (experimental) Connection-password encryption configuration for the catalog. Default: - connection-password encryption is not managed by CDK
-        :param encryption_at_rest: (experimental) Encryption-at-rest configuration for the catalog. Default: - encryption at rest is not managed by CDK (the catalog default applies)
+        :param connection_password_encryption: (deprecated) Connection-password encryption configuration for the catalog. Default: - connection-password encryption is not managed by CDK
+        :param encryption_at_rest: (deprecated) Encryption-at-rest configuration for the catalog. Default: - encryption at rest is not managed by CDK (the catalog default applies)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__6929c02a8180e9d7b79e45cc8afb2c36ac572b4545a3b0cad81c92b226615190)
@@ -19822,7 +19817,7 @@ class Catalog(
     @jsii.member(jsii_name="forAccount")
     @builtins.classmethod
     def for_account(cls, scope: "_constructs_77d1e7e8.Construct") -> "ICatalog":
-        '''(experimental) Obtain the implicit, account-wide Data Catalog.
+        '''(deprecated) Obtain the implicit, account-wide Data Catalog.
 
         The account catalog is not a CloudFormation resource; it always exists. This
         returns a stack-scoped singleton, so repeated calls within the same stack
@@ -19835,7 +19830,7 @@ class Catalog(
 
         :param scope: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__5bac0eefc27dedfdece3ee33a0da2056aa618abb1b56753418b366fa7d5c6e3d)
@@ -19850,7 +19845,7 @@ class Catalog(
         id: builtins.str,
         catalog_arn: builtins.str,
     ) -> "ICatalog":
-        '''(experimental) Import an existing catalog by its ARN.
+        '''(deprecated) Import an existing catalog by its ARN.
 
         The ARN must be a Glue catalog ARN, either the account-wide catalog
         (``arn:aws:glue:<region>:<account>:catalog``, whose id is the account) or a
@@ -19866,7 +19861,7 @@ class Catalog(
         :param id: -
         :param catalog_arn: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__9a7d491de2a1d68627143d599223e96dceba7346df784c8a46837bde2592b6d1)
@@ -19883,7 +19878,7 @@ class Catalog(
         id: builtins.str,
         catalog_id: builtins.str,
     ) -> "ICatalog":
-        '''(experimental) Import an existing catalog by its id.
+        '''(deprecated) Import an existing catalog by its id.
 
         The imported catalog is a pure identity handle and does not manage the
         catalog's encryption. To manage an existing catalog's Data Catalog
@@ -19894,7 +19889,7 @@ class Catalog(
         :param id: -
         :param catalog_id: -
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__4aca1bce64ca7efd22a9b190c3488fa96b7f83b2e8b73d367dec9d39795a6d4d)
@@ -19906,27 +19901,27 @@ class Catalog(
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''(experimental) Uniquely identifies this class.
+        '''(deprecated) Uniquely identifies this class.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
     @jsii.member(jsii_name="catalogArn")
     def catalog_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the catalog.
+        '''(deprecated) The ARN of the catalog.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "catalogArn"))
 
     @builtins.property
     @jsii.member(jsii_name="catalogId")
     def catalog_id(self) -> builtins.str:
-        '''(experimental) The id of the catalog (for the account-wide catalog, the AWS account id).
+        '''(deprecated) The id of the catalog (for the account-wide catalog, the AWS account id).
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "catalogId"))
 
@@ -19952,15 +19947,15 @@ class ConditionalTriggerOptions(StartableTriggerOptions):
         start_on_creation: typing.Optional[builtins.bool] = None,
         predicate: typing.Union["Predicate", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
-        '''(experimental) Properties for configuring a Condition (Predicate) based Glue Trigger.
+        '''(deprecated) Properties for configuring a Condition (Predicate) based Glue Trigger.
 
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
-        :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
-        :param predicate: (experimental) The predicate for the trigger.
+        :param actions: (deprecated) The actions initiated by this trigger.
+        :param description: (deprecated) A description for the trigger. Default: - no description
+        :param name: (deprecated) A name for the trigger. Default: - no name is provided
+        :param start_on_creation: (deprecated) Whether to start the trigger on creation or not. Default: - false
+        :param predicate: (deprecated) The predicate for the trigger.
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: fixture=_generated
 
         Example::
@@ -20007,9 +20002,9 @@ class ConditionalTriggerOptions(StartableTriggerOptions):
 
     @builtins.property
     def actions(self) -> typing.List["Action"]:
-        '''(experimental) The actions initiated by this trigger.
+        '''(deprecated) The actions initiated by this trigger.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
@@ -20017,42 +20012,42 @@ class ConditionalTriggerOptions(StartableTriggerOptions):
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A description for the trigger.
+        '''(deprecated) A description for the trigger.
 
         :default: - no description
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A name for the trigger.
+        '''(deprecated) A name for the trigger.
 
         :default: - no name is provided
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start_on_creation(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether to start the trigger on creation or not.
+        '''(deprecated) Whether to start the trigger on creation or not.
 
         :default: - false
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("start_on_creation")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def predicate(self) -> "Predicate":
-        '''(experimental) The predicate for the trigger.
+        '''(deprecated) The predicate for the trigger.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("predicate")
         assert result is not None, "Required property 'predicate' is missing"
@@ -20075,7 +20070,7 @@ class PySparkEtlJob(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.PySparkEtlJob",
 ):
-    '''(experimental) PySpark ETL Jobs class.
+    '''(deprecated) PySpark ETL Jobs class.
 
     ETL jobs support pySpark and Scala languages, for which there are separate
     but similar constructors. ETL jobs default to the G1 worker type, but you
@@ -20087,7 +20082,7 @@ class PySparkEtlJob(
     You can find more details about version, worker type and other features
     in Glue's public documentation.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -20138,35 +20133,35 @@ class PySparkEtlJob(
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
-        '''(experimental) PySparkEtlJob constructor.
+        '''(deprecated) PySparkEtlJob constructor.
 
         :param scope: -
         :param id: -
-        :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
-        :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
-        :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
-        :param extra_python_files: (experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
-        :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: false
-        :param notify_delay_after: (experimental) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
-        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
-        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
-        :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
-        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param extra_files: (deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
+        :param extra_jars: (deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
+        :param extra_jars_first: (deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
+        :param extra_python_files: (deprecated) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
+        :param job_run_queuing_enabled: (deprecated) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: false
+        :param notify_delay_after: (deprecated) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
+        :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
+        :param spark_ui: (deprecated) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (deprecated) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__327d74fee281b2b0d3a8881dfc5d5dc7ee1df1b54cc0e95df5cc6b2542c9b974)
@@ -20203,27 +20198,27 @@ class PySparkEtlJob(
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''(experimental) Uniquely identifies this class.
+        '''(deprecated) Uniquely identifies this class.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
     @jsii.member(jsii_name="jobArn")
     def job_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the job.
+        '''(deprecated) The ARN of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobArn"))
 
     @builtins.property
     @jsii.member(jsii_name="jobName")
     def job_name(self) -> builtins.str:
-        '''(experimental) The name of the job.
+        '''(deprecated) The name of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobName"))
 
@@ -20233,7 +20228,7 @@ class PySparkFlexEtlJob(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.PySparkFlexEtlJob",
 ):
-    '''(experimental) Flex Jobs class.
+    '''(deprecated) Flex Jobs class.
 
     Flex jobs supports Python and Scala language.
     The flexible execution class is appropriate for non-urgent jobs such as
@@ -20245,7 +20240,7 @@ class PySparkFlexEtlJob(
     --enable-continuous-cloudwatch-log. The Spark UI (--enable-spark-ui) is off by
     default; enable it by setting the ``sparkUI`` prop.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -20287,34 +20282,34 @@ class PySparkFlexEtlJob(
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
-        '''(experimental) PySparkFlexEtlJob constructor.
+        '''(deprecated) PySparkFlexEtlJob constructor.
 
         :param scope: -
         :param id: -
-        :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
-        :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
-        :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
-        :param extra_python_files: (experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
-        :param notify_delay_after: (experimental) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
-        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
-        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
-        :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
-        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param extra_files: (deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
+        :param extra_jars: (deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
+        :param extra_jars_first: (deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
+        :param extra_python_files: (deprecated) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
+        :param notify_delay_after: (deprecated) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
+        :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
+        :param spark_ui: (deprecated) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (deprecated) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__df8099e58d980930cb131b7b6143370cec5ab0c0d687c1577ad0f5bc93b48198)
@@ -20350,27 +20345,27 @@ class PySparkFlexEtlJob(
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''(experimental) Uniquely identifies this class.
+        '''(deprecated) Uniquely identifies this class.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
     @jsii.member(jsii_name="jobArn")
     def job_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the job.
+        '''(deprecated) The ARN of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobArn"))
 
     @builtins.property
     @jsii.member(jsii_name="jobName")
     def job_name(self) -> builtins.str:
-        '''(experimental) The name of the job.
+        '''(deprecated) The name of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobName"))
 
@@ -20380,7 +20375,7 @@ class PySparkStreamingJob(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.PySparkStreamingJob",
 ):
-    '''(experimental) Python Spark Streaming Jobs class.
+    '''(deprecated) Python Spark Streaming Jobs class.
 
     A Streaming job is similar to an ETL job, except that it performs ETL on data streams
     using the Apache Spark Structured Streaming framework.
@@ -20392,7 +20387,7 @@ class PySparkStreamingJob(
     We will enable --enable-metrics, --enable-continuous-cloudwatch-log. The Spark UI
     (--enable-spark-ui) is off by default; enable it by setting the ``sparkUI`` prop.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: infused
 
     Example::
@@ -20434,34 +20429,34 @@ class PySparkStreamingJob(
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
-        '''(experimental) PySparkStreamingJob constructor.
+        '''(deprecated) PySparkStreamingJob constructor.
 
         :param scope: -
         :param id: -
-        :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
-        :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
-        :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
-        :param extra_python_files: (experimental) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
-        :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
-        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
-        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
-        :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
-        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param extra_files: (deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
+        :param extra_jars: (deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
+        :param extra_jars_first: (deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
+        :param extra_python_files: (deprecated) Extra Python Files S3 URL (optional) S3 URL where additional python dependencies are located. Default: - no extra files
+        :param job_run_queuing_enabled: (deprecated) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
+        :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
+        :param spark_ui: (deprecated) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (deprecated) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__db0d9c08e93dc8ac4aa26bd9cbdc4f728b7fed72e75da00734b4bea75445f84f)
@@ -20497,27 +20492,27 @@ class PySparkStreamingJob(
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''(experimental) Uniquely identifies this class.
+        '''(deprecated) Uniquely identifies this class.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
     @jsii.member(jsii_name="jobArn")
     def job_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the job.
+        '''(deprecated) The ARN of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobArn"))
 
     @builtins.property
     @jsii.member(jsii_name="jobName")
     def job_name(self) -> builtins.str:
-        '''(experimental) The name of the job.
+        '''(deprecated) The name of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobName"))
 
@@ -20527,7 +20522,7 @@ class ScalaSparkEtlJob(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.ScalaSparkEtlJob",
 ):
-    '''(experimental) Spark ETL Jobs class.
+    '''(deprecated) Spark ETL Jobs class.
 
     ETL jobs support pySpark and Scala languages, for which there are separate
     but similar constructors. ETL jobs default to the G1 worker type, but you
@@ -20539,7 +20534,7 @@ class ScalaSparkEtlJob(
     You can find more details about version, worker type and other features
     in Glue's public documentation.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: fixture=_generated
 
     Example::
@@ -20635,35 +20630,35 @@ class ScalaSparkEtlJob(
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
-        '''(experimental) ScalaSparkEtlJob constructor.
+        '''(deprecated) ScalaSparkEtlJob constructor.
 
         :param scope: -
         :param id: -
-        :param class_name: (experimental) Class name (required for Scala scripts) Package and class name for the entry point of Glue job execution for Java scripts.
-        :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
-        :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
-        :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
-        :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
-        :param notify_delay_after: (experimental) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
-        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
-        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
-        :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
-        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param class_name: (deprecated) Class name (required for Scala scripts) Package and class name for the entry point of Glue job execution for Java scripts.
+        :param extra_files: (deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
+        :param extra_jars: (deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
+        :param extra_jars_first: (deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
+        :param job_run_queuing_enabled: (deprecated) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
+        :param notify_delay_after: (deprecated) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
+        :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
+        :param spark_ui: (deprecated) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (deprecated) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__3531464a00fcaee4dedc194dffa8743ca4d59d92cc35e1ec406f90fe4f1ecbf0)
@@ -20700,27 +20695,27 @@ class ScalaSparkEtlJob(
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''(experimental) Uniquely identifies this class.
+        '''(deprecated) Uniquely identifies this class.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
     @jsii.member(jsii_name="jobArn")
     def job_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the job.
+        '''(deprecated) The ARN of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobArn"))
 
     @builtins.property
     @jsii.member(jsii_name="jobName")
     def job_name(self) -> builtins.str:
-        '''(experimental) The name of the job.
+        '''(deprecated) The name of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobName"))
 
@@ -20730,7 +20725,7 @@ class ScalaSparkFlexEtlJob(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.ScalaSparkFlexEtlJob",
 ):
-    '''(experimental) Scala Spark Flex ETL Jobs class.
+    '''(deprecated) Scala Spark Flex ETL Jobs class.
 
     Flex jobs support Python and Scala languages.
     The flexible execution class is appropriate for non-urgent jobs such as
@@ -20742,7 +20737,7 @@ class ScalaSparkFlexEtlJob(
     --enable-continuous-cloudwatch-log. The Spark UI (--enable-spark-ui) is off by
     default; enable it by setting the ``sparkUI`` prop.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: fixture=_generated
 
     Example::
@@ -20836,34 +20831,34 @@ class ScalaSparkFlexEtlJob(
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
-        '''(experimental) ScalaSparkFlexEtlJob constructor.
+        '''(deprecated) ScalaSparkFlexEtlJob constructor.
 
         :param scope: -
         :param id: -
-        :param class_name: (experimental) The fully qualified Scala class name that serves as the entry point for the job.
-        :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
-        :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
-        :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
-        :param notify_delay_after: (experimental) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
-        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
-        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
-        :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
-        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param class_name: (deprecated) The fully qualified Scala class name that serves as the entry point for the job.
+        :param extra_files: (deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
+        :param extra_jars: (deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
+        :param extra_jars_first: (deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
+        :param notify_delay_after: (deprecated) Specifies configuration properties of a notification (optional). After a job run starts, the number of minutes to wait before sending a job run delay notification. Default: - undefined
+        :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
+        :param spark_ui: (deprecated) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (deprecated) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__c45fb25248ac17e75b6beafe427e181daa7b993fc5b05859e6d9c0733a23c8de)
@@ -20899,27 +20894,27 @@ class ScalaSparkFlexEtlJob(
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''(experimental) Uniquely identifies this class.
+        '''(deprecated) Uniquely identifies this class.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
     @jsii.member(jsii_name="jobArn")
     def job_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the job.
+        '''(deprecated) The ARN of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobArn"))
 
     @builtins.property
     @jsii.member(jsii_name="jobName")
     def job_name(self) -> builtins.str:
-        '''(experimental) The name of the job.
+        '''(deprecated) The name of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobName"))
 
@@ -20929,7 +20924,7 @@ class ScalaSparkStreamingJob(
     metaclass=jsii.JSIIMeta,
     jsii_type="@aws-cdk/aws-glue-alpha.ScalaSparkStreamingJob",
 ):
-    '''(experimental) Scala Streaming Jobs class.
+    '''(deprecated) Scala Streaming Jobs class.
 
     A Streaming job is similar to an ETL job, except that it performs ETL on data streams
     using the Apache Spark Structured Streaming framework.
@@ -20941,7 +20936,7 @@ class ScalaSparkStreamingJob(
     We will enable --enable-metrics, --enable-continuous-cloudwatch-log. The Spark UI
     (--enable-spark-ui) is off by default; enable it by setting the ``sparkUI`` prop.
 
-    :stability: experimental
+    :stability: deprecated
     :exampleMetadata: fixture=_generated
 
     Example::
@@ -21035,34 +21030,34 @@ class ScalaSparkStreamingJob(
         tags: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
         timeout: typing.Optional["_aws_cdk_ceddda9d.Duration"] = None,
     ) -> None:
-        '''(experimental) ScalaSparkStreamingJob constructor.
+        '''(deprecated) ScalaSparkStreamingJob constructor.
 
         :param scope: -
         :param id: -
-        :param class_name: (experimental) Class name (required for Scala scripts) Package and class name for the entry point of Glue job execution for Java scripts.
-        :param extra_files: (experimental) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
-        :param extra_jars: (experimental) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
-        :param extra_jars_first: (experimental) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
-        :param job_run_queuing_enabled: (experimental) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
-        :param enable_metrics: (experimental) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
-        :param enable_observability_metrics: (experimental) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
-        :param spark_ui: (experimental) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
-        :param worker_configuration: (experimental) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
-        :param role: (experimental) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
-        :param script: (experimental) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
-        :param connections: (experimental) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
-        :param continuous_logging: (experimental) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
-        :param default_arguments: (experimental) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
-        :param description: (experimental) Description (optional) Developer-specified description of the Glue job. Default: - no value
-        :param glue_version: (experimental) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
-        :param job_name: (experimental) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
-        :param max_concurrent_runs: (experimental) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
-        :param max_retries: (experimental) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
-        :param security_configuration: (experimental) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
-        :param tags: (experimental) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
-        :param timeout: (experimental) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
+        :param class_name: (deprecated) Class name (required for Scala scripts) Package and class name for the entry point of Glue job execution for Java scripts.
+        :param extra_files: (deprecated) Additional files, such as configuration files that AWS Glue copies to the working directory of your script before executing it. Default: - no extra files specified.
+        :param extra_jars: (deprecated) Extra Jars S3 URL (optional) S3 URL where additional jar dependencies are located. Default: - no extra jar files
+        :param extra_jars_first: (deprecated) Setting this value to true prioritizes the customer's extra JAR files in the classpath. Default: false - priority is not given to user-provided jars
+        :param job_run_queuing_enabled: (deprecated) Specifies whether job run queuing is enabled for the job runs for this job. A value of true means job run queuing is enabled for the job runs. If false or not populated, the job runs will not be considered for queueing. If this field does not match the value set in the job run, then the value from the job run field will be used. This property must be set to false for flex jobs. If this property is enabled, maxRetries must be set to zero. Default: - no job run queuing
+        :param enable_metrics: (deprecated) Enable profiling metrics for the Glue job. When enabled, adds '--enable-metrics' to job arguments. Default: true
+        :param enable_observability_metrics: (deprecated) Enable observability metrics for the Glue job. When enabled, adds '--enable-observability-metrics': 'true' to job arguments. Default: true
+        :param spark_ui: (deprecated) Enables the Spark UI debugging and monitoring with the specified props. Default: - Spark UI debugging and monitoring is disabled.
+        :param worker_configuration: (deprecated) The worker type and the number of workers allocated when a job runs. Default: - the job runs with the G_1X worker type and 10 workers.
+        :param role: (deprecated) IAM Role (required) IAM Role to use for Glue job execution Must be specified by the developer because the L2 doesn't have visibility into the actions the script(s) takes during the job execution The role must trust the Glue service principal (glue.amazonaws.com) and be granted sufficient permissions.
+        :param script: (deprecated) Script Code Location (required) Script to run when the Glue job executes. Can be uploaded from the local directory structure using fromAsset or referenced via S3 location using fromBucket
+        :param connections: (deprecated) Connections (optional) List of connections to use for this Glue job Connections are used to connect to other AWS Service or resources within a VPC. Default: [] - no connections are added to the job
+        :param continuous_logging: (deprecated) Enables continuous logging with the specified props. Default: - continuous logging is enabled.
+        :param default_arguments: (deprecated) Default Arguments (optional) The default arguments for every run of this Glue job, specified as name-value pairs. This map is the escape hatch for Glue job arguments that this construct does not model. It MUST NOT be used to set arguments that already have a dedicated prop — configure those through the corresponding prop instead (``continuousLogging``, ``enableMetrics``, ``enableObservabilityMetrics``, ``sparkUI``, ``className``, ``extraJars``, ``extraJarsFirst``, ``extraPythonFiles``, ``extraFiles``). Passing a construct-managed argument (e.g. ``--enable-continuous-cloudwatch-log``, ``--enable-metrics``, ``--enable-spark-ui``, ``--job-language``) or a Glue-reserved argument (``--debug``, ``--mode``, ``--JOB_NAME``, ``--endpoint``) here throws at synthesis time, so there is exactly one way to express each intent. Also note that these are emitted verbatim into the CloudFormation template, so avoid placing secrets here in plaintext. Pass secrets to the job at runtime through AWS Secrets Manager instead. A synthesis-time warning is emitted when an argument key looks like a credential and holds a plaintext literal. Default: - no arguments
+        :param description: (deprecated) Description (optional) Developer-specified description of the Glue job. Default: - no value
+        :param glue_version: (deprecated) Glue Version The version of Glue to use to execute this job. Default: - determined by the job type: 4.0 for ETL and Streaming, 5.0 for Flex, 3.0 for Python Shell
+        :param job_name: (deprecated) Name of the Glue job (optional) Developer-specified name of the Glue job. Default: - a name is automatically generated
+        :param max_concurrent_runs: (deprecated) Max Concurrent Runs (optional) The maximum number of runs this Glue job can concurrently run. An error is returned when this threshold is reached. The maximum value you can specify is controlled by a service limit. Default: 1
+        :param max_retries: (deprecated) Max Retries (optional) Maximum number of retry attempts Glue performs if the job fails. Default: 0
+        :param security_configuration: (deprecated) Security Configuration (optional) Defines the encryption options for the Glue job. Default: - no security configuration.
+        :param tags: (deprecated) Tags (optional) A list of key:value pairs of tags to apply to this Glue job resources. Default: {} - no tags
+        :param timeout: (deprecated) Timeout (optional) The maximum time that a job run can consume resources before it is terminated and enters TIMEOUT status. Specified in minutes. Default: 2880 (2 days for non-streaming)
 
-        :stability: experimental
+        :stability: deprecated
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__1ea5c033f6ebef3ce7a903821d4289a54ea02a63c6adc3dc1b36a567cb476317)
@@ -21098,27 +21093,27 @@ class ScalaSparkStreamingJob(
     @jsii.python.classproperty
     @jsii.member(jsii_name="PROPERTY_INJECTION_ID")
     def PROPERTY_INJECTION_ID(cls) -> builtins.str:
-        '''(experimental) Uniquely identifies this class.
+        '''(deprecated) Uniquely identifies this class.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.sget(cls, "PROPERTY_INJECTION_ID"))
 
     @builtins.property
     @jsii.member(jsii_name="jobArn")
     def job_arn(self) -> builtins.str:
-        '''(experimental) The ARN of the job.
+        '''(deprecated) The ARN of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobArn"))
 
     @builtins.property
     @jsii.member(jsii_name="jobName")
     def job_name(self) -> builtins.str:
-        '''(experimental) The name of the job.
+        '''(deprecated) The name of the job.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         return typing.cast(builtins.str, jsii.get(self, "jobName"))
 
@@ -21144,15 +21139,15 @@ class ScheduledTriggerOptions(StartableTriggerOptions):
         start_on_creation: typing.Optional[builtins.bool] = None,
         schedule: "TriggerSchedule",
     ) -> None:
-        '''(experimental) Properties for configuring a scheduled Glue Trigger.
+        '''(deprecated) Properties for configuring a scheduled Glue Trigger.
 
-        :param actions: (experimental) The actions initiated by this trigger.
-        :param description: (experimental) A description for the trigger. Default: - no description
-        :param name: (experimental) A name for the trigger. Default: - no name is provided
-        :param start_on_creation: (experimental) Whether to start the trigger on creation or not. Default: - false
-        :param schedule: (experimental) The schedule on which this trigger fires. Build one with {@link TriggerSchedule.daily}, {@link TriggerSchedule.weekly}, {@link TriggerSchedule.cron}, or {@link TriggerSchedule.expression}.
+        :param actions: (deprecated) The actions initiated by this trigger.
+        :param description: (deprecated) A description for the trigger. Default: - no description
+        :param name: (deprecated) A name for the trigger. Default: - no name is provided
+        :param start_on_creation: (deprecated) Whether to start the trigger on creation or not. Default: - false
+        :param schedule: (deprecated) The schedule on which this trigger fires. Build one with {@link TriggerSchedule.daily}, {@link TriggerSchedule.weekly}, {@link TriggerSchedule.cron}, or {@link TriggerSchedule.expression}.
 
-        :stability: experimental
+        :stability: deprecated
         :exampleMetadata: infused
 
         Example::
@@ -21191,9 +21186,9 @@ class ScheduledTriggerOptions(StartableTriggerOptions):
 
     @builtins.property
     def actions(self) -> typing.List["Action"]:
-        '''(experimental) The actions initiated by this trigger.
+        '''(deprecated) The actions initiated by this trigger.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("actions")
         assert result is not None, "Required property 'actions' is missing"
@@ -21201,45 +21196,45 @@ class ScheduledTriggerOptions(StartableTriggerOptions):
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A description for the trigger.
+        '''(deprecated) A description for the trigger.
 
         :default: - no description
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def name(self) -> typing.Optional[builtins.str]:
-        '''(experimental) A name for the trigger.
+        '''(deprecated) A name for the trigger.
 
         :default: - no name is provided
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def start_on_creation(self) -> typing.Optional[builtins.bool]:
-        '''(experimental) Whether to start the trigger on creation or not.
+        '''(deprecated) Whether to start the trigger on creation or not.
 
         :default: - false
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("start_on_creation")
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def schedule(self) -> "TriggerSchedule":
-        '''(experimental) The schedule on which this trigger fires.
+        '''(deprecated) The schedule on which this trigger fires.
 
         Build one with {@link TriggerSchedule.daily}, {@link TriggerSchedule.weekly},
         {@link TriggerSchedule.cron}, or {@link TriggerSchedule.expression}.
 
-        :stability: experimental
+        :stability: deprecated
         '''
         result = self._values.get("schedule")
         assert result is not None, "Required property 'schedule' is missing"

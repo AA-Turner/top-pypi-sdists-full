@@ -237,7 +237,7 @@ class RawSemanticModelClient:
             Optional ordering as [member, direction] pairs applied before "limit", e.g. [["orders.count", "desc"]] for a server-side top-N. Direction must be "asc" or "desc".
 
         time_dimensions : typing.Optional[typing.Sequence[typing.Dict[str, typing.Optional[typing.Any]]]]
-            Optional time dimension configs
+            Optional Cube time dimension configs, e.g. [{"dimension": "orders.created_at", "granularity": "month", "dateRange": ["2026-01-01", "2026-06-30"]}]. The camelCase spelling "timeDimensions" (Cube's own, and the one the rest of Athena uses) is accepted as well.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -549,7 +549,7 @@ class AsyncRawSemanticModelClient:
             Optional ordering as [member, direction] pairs applied before "limit", e.g. [["orders.count", "desc"]] for a server-side top-N. Direction must be "asc" or "desc".
 
         time_dimensions : typing.Optional[typing.Sequence[typing.Dict[str, typing.Optional[typing.Any]]]]
-            Optional time dimension configs
+            Optional Cube time dimension configs, e.g. [{"dimension": "orders.created_at", "granularity": "month", "dateRange": ["2026-01-01", "2026-06-30"]}]. The camelCase spelling "timeDimensions" (Cube's own, and the one the rest of Athena uses) is accepted as well.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

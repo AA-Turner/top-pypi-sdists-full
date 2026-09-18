@@ -88,8 +88,6 @@ class CfnLifecyclePolicy(
         # The values are placeholders you should change.
         from aws_cdk import aws_dlm as dlm
         
-        # exclude_volume_types: Any
-        
         cfn_lifecycle_policy = dlm.CfnLifecyclePolicy(self, "MyCfnLifecyclePolicy",
             copy_tags=False,
             create_interval=123,
@@ -104,7 +102,7 @@ class CfnLifecyclePolicy(
                     key="key",
                     value="value"
                 )],
-                exclude_volume_types=[exclude_volume_types]
+                exclude_volume_types=["excludeVolumeTypes"]
             ),
             execution_role_arn="executionRoleArn",
             extend_deletion=False,
@@ -150,7 +148,7 @@ class CfnLifecyclePolicy(
                         key="key",
                         value="value"
                     )],
-                    exclude_volume_types=[exclude_volume_types]
+                    exclude_volume_types=["excludeVolumeTypes"]
                 ),
                 extend_deletion=False,
                 parameters=dlm.CfnLifecyclePolicy.ParametersProperty(
@@ -325,6 +323,48 @@ class CfnLifecyclePolicy(
             type_hints = cached_type_hints(_typecheckingstub__830703e41406e6c71f5b9c1c3b14fc45cadeaae13ef088ba35c359cad091de68)
             check_type(argname="argument resource", value=resource, expected_type=type_hints["resource"])
         return typing.cast(builtins.str, jsii.sinvoke(cls, "arnForLifecyclePolicy", [resource]))
+
+    @jsii.member(jsii_name="fromLifecyclePolicyArn")
+    @builtins.classmethod
+    def from_lifecycle_policy_arn(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        arn: builtins.str,
+    ) -> "_aws_dlm_0fce1171.ILifecyclePolicyRef":
+        '''Creates a new ILifecyclePolicyRef from an ARN.
+
+        :param scope: -
+        :param id: -
+        :param arn: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__d0facacec6599c32969cf158317405f4b3ebbf190a0471bd78190b54fc4e3250)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument arn", value=arn, expected_type=type_hints["arn"])
+        return typing.cast("_aws_dlm_0fce1171.ILifecyclePolicyRef", jsii.sinvoke(cls, "fromLifecyclePolicyArn", [scope, id, arn]))
+
+    @jsii.member(jsii_name="fromPolicyId")
+    @builtins.classmethod
+    def from_policy_id(
+        cls,
+        scope: "_constructs_77d1e7e8.Construct",
+        id: builtins.str,
+        policy_id: builtins.str,
+    ) -> "_aws_dlm_0fce1171.ILifecyclePolicyRef":
+        '''Creates a new ILifecyclePolicyRef from a policyId.
+
+        :param scope: -
+        :param id: -
+        :param policy_id: -
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__574a7eb589a9ec34c90a008017000846fec6dbea128e02971fb8c8611c89173f)
+            check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument policy_id", value=policy_id, expected_type=type_hints["policy_id"])
+        return typing.cast("_aws_dlm_0fce1171.ILifecyclePolicyRef", jsii.sinvoke(cls, "fromPolicyId", [scope, id, policy_id]))
 
     @jsii.member(jsii_name="isCfnLifecyclePolicy")
     @builtins.classmethod
@@ -1866,7 +1906,7 @@ class CfnLifecyclePolicy(
             *,
             exclude_boot_volumes: typing.Optional[typing.Union[builtins.bool, "_aws_cdk_0cae9daa.IResolvable"]] = None,
             exclude_tags: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Sequence[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["_aws_cdk_0cae9daa.CfnTag", typing.Dict[builtins.str, typing.Any]]]]]] = None,
-            exclude_volume_types: typing.Optional[typing.Union[typing.Sequence[typing.Any], "_aws_cdk_0cae9daa.IResolvable"]] = None,
+            exclude_volume_types: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
             '''*[Default policies only]* Specifies exclusion parameters for volumes or instances for which you do not want to create snapshots or AMIs.
 
@@ -1886,15 +1926,13 @@ class CfnLifecyclePolicy(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_dlm as dlm
                 
-                # exclude_volume_types: Any
-                
                 exclusions_property = dlm.CfnLifecyclePolicy.ExclusionsProperty(
                     exclude_boot_volumes=False,
                     exclude_tags=[CfnTag(
                         key="key",
                         value="value"
                     )],
-                    exclude_volume_types=[exclude_volume_types]
+                    exclude_volume_types=["excludeVolumeTypes"]
                 )
             '''
             if __debug__:
@@ -1935,9 +1973,7 @@ class CfnLifecyclePolicy(
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.List[typing.Union["_aws_cdk_0cae9daa.IResolvable", "_aws_cdk_0cae9daa.CfnTag"]]]], result)
 
         @builtins.property
-        def exclude_volume_types(
-            self,
-        ) -> typing.Optional[typing.Union[typing.List[typing.Any], "_aws_cdk_0cae9daa.IResolvable"]]:
+        def exclude_volume_types(self) -> typing.Optional[typing.List[builtins.str]]:
             '''*[Default policies for EBS snapshots only]* Specifies the volume types to exclude.
 
             Volumes of the specified types will not be targeted by the policy.
@@ -1945,7 +1981,7 @@ class CfnLifecyclePolicy(
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dlm-lifecyclepolicy-exclusions.html#cfn-dlm-lifecyclepolicy-exclusions-excludevolumetypes
             '''
             result = self._values.get("exclude_volume_types")
-            return typing.cast(typing.Optional[typing.Union[typing.List[typing.Any], "_aws_cdk_0cae9daa.IResolvable"]], result)
+            return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
         def __eq__(self, rhs: typing.Any) -> builtins.bool:
             return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -2264,8 +2300,6 @@ class CfnLifecyclePolicy(
                 # The values are placeholders you should change.
                 from aws_cdk import aws_dlm as dlm
                 
-                # exclude_volume_types: Any
-                
                 policy_details_property = dlm.CfnLifecyclePolicy.PolicyDetailsProperty(
                     actions=[dlm.CfnLifecyclePolicy.ActionProperty(
                         cross_region_copy=[dlm.CfnLifecyclePolicy.CrossRegionCopyActionProperty(
@@ -2308,7 +2342,7 @@ class CfnLifecyclePolicy(
                             key="key",
                             value="value"
                         )],
-                        exclude_volume_types=[exclude_volume_types]
+                        exclude_volume_types=["excludeVolumeTypes"]
                     ),
                     extend_deletion=False,
                     parameters=dlm.CfnLifecyclePolicy.ParametersProperty(
@@ -3539,8 +3573,6 @@ class CfnLifecyclePolicyProps:
             # The values are placeholders you should change.
             from aws_cdk import aws_dlm as dlm
             
-            # exclude_volume_types: Any
-            
             cfn_lifecycle_policy_props = dlm.CfnLifecyclePolicyProps(
                 copy_tags=False,
                 create_interval=123,
@@ -3555,7 +3587,7 @@ class CfnLifecyclePolicyProps:
                         key="key",
                         value="value"
                     )],
-                    exclude_volume_types=[exclude_volume_types]
+                    exclude_volume_types=["excludeVolumeTypes"]
                 ),
                 execution_role_arn="executionRoleArn",
                 extend_deletion=False,
@@ -3601,7 +3633,7 @@ class CfnLifecyclePolicyProps:
                             key="key",
                             value="value"
                         )],
-                        exclude_volume_types=[exclude_volume_types]
+                        exclude_volume_types=["excludeVolumeTypes"]
                     ),
                     extend_deletion=False,
                     parameters=dlm.CfnLifecyclePolicy.ParametersProperty(
@@ -3945,6 +3977,22 @@ def _typecheckingstub__830703e41406e6c71f5b9c1c3b14fc45cadeaae13ef088ba35c359cad
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__d0facacec6599c32969cf158317405f4b3ebbf190a0471bd78190b54fc4e3250(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    arn: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__574a7eb589a9ec34c90a008017000846fec6dbea128e02971fb8c8611c89173f(
+    scope: _constructs_77d1e7e8.Construct,
+    id: builtins.str,
+    policy_id: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__f489f95e84ed80f33f31ab9bfdc3dc85952419b4c35952887e27f834c1538f2a(
     x: typing.Any,
 ) -> None:
@@ -4152,7 +4200,7 @@ def _typecheckingstub__5692b64ab6dee50c1d5309ad0a3d609805882baacd6ea4c1c2d0733bc
     *,
     exclude_boot_volumes: typing.Optional[typing.Union[builtins.bool, _aws_cdk_0cae9daa.IResolvable]] = None,
     exclude_tags: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Sequence[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[_aws_cdk_0cae9daa.CfnTag, typing.Dict[builtins.str, typing.Any]]]]]] = None,
-    exclude_volume_types: typing.Optional[typing.Union[typing.Sequence[typing.Any], _aws_cdk_0cae9daa.IResolvable]] = None,
+    exclude_volume_types: typing.Optional[typing.Sequence[builtins.str]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

@@ -718,6 +718,11 @@ def http_query():
 # which is a smaller foot-gun but still a foot-gun.
 
 _DAEMON_METHODS = frozenset({
+    "query_startup_status",
+    # `clawmetry maintenance rescrub-spans` (REQ-OBS-OTG-001): the operator's
+    # explicit rescrub of spans stored before scrubbing existed. A dry run
+    # unless apply=True; pages by span_id so each call stays bounded.
+    "rescrub_spans",
     # Activity heatmap (day x hour event counts), aggregated in SQL. The
     # route used to pull 50k raw event rows through this proxy and bucket
     # them in Python; on a busy node the cap silently emptied the oldest
@@ -1095,6 +1100,8 @@ _DAEMON_METHODS = frozenset({
     "get_node_setting",
     "set_node_setting",
     "list_node_settings",
+    "query_guard_checks",
+    "set_guard_check",
     # Agent identity: one principal per AGENT (node + runtime + agent_id),
     # derived from sessions and overlaid with the agent_meta labels above.
     # Read-only; the daemon owns the writer, and ownership writes reuse
@@ -1251,6 +1258,8 @@ _DAEMON_METHODS = frozenset({
     "query_self_report_counts",
     "query_self_report_honesty",
     "query_guard_incidents",
+    # Agent supply chain inventory (#5947), read by /api/guard/inventory.
+    "query_agent_inventory",
     "query_session_denials",
     "find_session_by_cwd",
     # Issue #5680 — onboarding ingest-status strip. Polled every 2 s by

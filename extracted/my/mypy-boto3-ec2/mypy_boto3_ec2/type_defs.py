@@ -305,6 +305,7 @@ from .literals import (
     OperationTypeType,
     OutputFormatType,
     PartitionLoadFrequencyType,
+    PayerResponsibilityScopeType,
     PayerResponsibilityTypeType,
     PaymentOptionType,
     PeriodTypeType,
@@ -8645,7 +8646,7 @@ class ModifyVpcEndpointConnectionNotificationRequestTypeDef(TypedDict):
 class ModifyVpcEndpointPayerResponsibilityRequestTypeDef(TypedDict):
     VpcEndpointId: str
     PayerResponsibility: PayerResponsibilityTypeType
-    Scope: Literal["vpc-endpoint-charges"]
+    Scope: PayerResponsibilityScopeType
     DryRun: NotRequired[bool]
     ServiceId: NotRequired[str]
 
@@ -8653,7 +8654,7 @@ class ModifyVpcEndpointPayerResponsibilityRequestTypeDef(TypedDict):
 PayerResponsibilityEntryTypeDef = TypedDict(
     "PayerResponsibilityEntryTypeDef",
     {
-        "Scope": NotRequired[Literal["vpc-endpoint-charges"]],
+        "Scope": NotRequired[PayerResponsibilityScopeType],
         "PayerResponsibilityType": NotRequired[PayerResponsibilityTypeType],
     },
 )

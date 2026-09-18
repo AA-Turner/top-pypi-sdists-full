@@ -84,3 +84,29 @@ def _fast_pacing_knobs(monkeypatch: pytest.MonkeyPatch) -> None:
         "DEFAULT_KNOBS",
         PacingKnobs(floor_rps=1_000.0, max_rps=1_000.0, min_rps=1_000.0),
     )
+
+
+@pytest.fixture(autouse=True, scope="session")
+def _a_test_process_has_a_block_ledger():
+    """Every real process that runs this package has a block sink; so does the test process.
+
+    `matrx_scraper.db.web` installs one the moment the database binds (board row H7), so a
+    live server's readiness snapshot always reports `block_ledger: true`. A test process binds
+    no database, so without this the ledger would read as missing and every readiness guard
+    that asserts an EXACT `failed_components` list would be asserting a world no deployment is
+    ever in. The sink writes to an in-memory store — nothing reaches a database.
+
+    Tests about the wiring itself (`test_every_entrypoint_wires_the_block_sink.py`) override
+    this per-test and start from the unconfigured world the hosted service actually booted into.
+    """
+    from matrx_utils import block_sink as sink_module
+
+    from matrx_scraper.blocks.sink import configure_block_ledger
+    from matrx_scraper.blocks.testing import FakeBlockStore
+
+    original = sink_module._sink
+    configure_block_ledger(store=FakeBlockStore(), force=True)
+    try:
+        yield
+    finally:
+        sink_module.configure_block_sink(original)

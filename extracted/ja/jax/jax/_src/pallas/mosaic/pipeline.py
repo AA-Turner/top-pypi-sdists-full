@@ -39,6 +39,7 @@ from jax._src import api_util
 from jax._src.tree_util import tracing_registry
 from jax._src.pallas import core as pallas_core
 from jax._src.pallas import helpers
+from jax._src.pallas import hlo_interpreter
 from jax._src.pallas import primitives
 from jax._src.pallas import utils
 from jax._src.pallas.mosaic import core as tpu_core
@@ -50,6 +51,7 @@ from jax._src.pallas.mosaic import primitives as tpu_primitives
 from jax._src.pallas.mosaic import tpu_info
 from jax._src import effects
 from jax._src.state import WriteEffect, ReadEffect
+from jax._src.state import discharge as state_discharge
 from jax._src.state import indexing
 from jax._src.interpreters import batching
 from jax._src.pallas.pallas_call import _batch_block_mapping
@@ -174,10 +176,24 @@ def _make_block_slice(
       raise ValueError(f"Unsupported block dimension type: {block_size}")
 
 
+def _or(a, b):
+  if a is True or b is True:
+    return True
+  if a is False:
+    return b
+  if b is False:
+    return a
+  return a | b
+
+
 def _tuples_differ(xs, ys):
   """Dynamic index-tuple comparison calculation."""
-  differences = jax.tree.leaves(jax.tree.map(lambda x, y: x != y, xs, ys))
-  return functools.reduce(lambda x, y: x | y, differences, False)
+  diffs = (
+      x is not y and x != y
+      for x, y in zip(jax.tree.leaves(xs), jax.tree.leaves(ys), strict=True)
+  )
+  return functools.reduce(_or, diffs, False)
+
 
 def _tuple_all_binop(binop, xs, ys):
   """Dynamic reduce_all calculation with a user-provided comparison op."""
@@ -319,6 +335,10 @@ class BufferedRefBase:
   @property
   def prefetched_count(self) -> int:
     return 0
+
+  @property
+  def await_prefetch(self) -> bool:
+    return False
 
   def initialize_slots(self):
     """Initializes slots to 0."""
@@ -478,10 +498,10 @@ class BufferedRef(BufferedRefBase):
     has_allocated_buffer: Whether the reference has an allocated buffer
       due to being in a different memory space than the source ref.
   """
-  _spec: pallas_core.BlockSpec = dataclasses.field(metadata=dict(static=True))
-  _buffer_type: BufferType = dataclasses.field(metadata=dict(static=True))
-  _buffer_count: int = dataclasses.field(metadata=dict(static=True))
-  _grid_rank: int | None = dataclasses.field(metadata=dict(static=True))
+  _spec: pallas_core.BlockSpec = jax.tree.static()
+  _buffer_type: BufferType = jax.tree.static()
+  _buffer_count: int = jax.tree.static()
+  _grid_rank: int | None = jax.tree.static()
   window_ref: ArrayRef | None
   copy_in_slot: int | jax.Array | None
   wait_in_slot: int | jax.Array | None
@@ -490,16 +510,12 @@ class BufferedRef(BufferedRefBase):
   next_fetch: Sequence[jax.Array | int] | None
   sem_recvs: SemaphoreTuple | None
   sem_sends: SemaphoreTuple | None
-  tiling: Tiling | None = dataclasses.field(metadata=dict(static=True))
-  is_trivial_windowing: bool = dataclasses.field(
-      default=False, metadata=dict(static=True)
-  )
-  has_allocated_buffer: bool = dataclasses.field(
-      default=False, metadata=dict(static=True)
-  )
-  prefetched_count: int = dataclasses.field(
-      default=0, metadata=dict(static=True)
-  )
+  tiling: Tiling | None = jax.tree.static()
+  is_trivial_windowing: bool = jax.tree.static(default=False)
+  has_allocated_buffer: bool = jax.tree.static(default=False)
+  prefetched_count: int = jax.tree.static(default=0)
+  # New style prefetch with folded emit_pipeline await. New is False here.
+  await_prefetch: bool = jax.tree.static(default=False)
 
   def __post_init__(self):
     if self.is_buffered and self.buffer_count < 1:
@@ -628,9 +644,9 @@ class BufferedRef(BufferedRefBase):
       window_ref = buffer_memory_space.from_type(buffer_ty)
       if prefetched_count > 0:
         window_ref = None
-        if not is_trivial_windowing and prefetched_count >= buffer_count:
+        if not is_trivial_windowing and prefetched_count > buffer_count:
           raise ValueError(
-              "prefetched_count must be less than buffer_count for"
+              "prefetched_count must be at most buffer_count for"
               f" non-trivial windowing, got prefetched_count={prefetched_count}"
               f" and buffer_count={buffer_count}"
           )
@@ -850,7 +866,10 @@ class BufferedRef(BufferedRefBase):
 
   def _advance_slot(self, reg_slot, slot_kwarg, predicate) -> BufferedRef:
     assert reg_slot is not None
-    new_current_slot = lax.select(predicate, reg_slot + 1, reg_slot)
+    if isinstance(predicate, bool):
+      new_current_slot = reg_slot + 1 if predicate else reg_slot
+    else:
+      new_current_slot = lax.select(predicate, reg_slot + 1, reg_slot)
     return self.with_slot_index(**{slot_kwarg: new_current_slot})
 
   def advance_copy_in_slot(
@@ -1027,11 +1046,13 @@ def fetch_with_lookahead(buffered_ref, src_ref,
     next_block_indices = buffered_ref.compute_index(*next_indices_offset)
     will_change = _tuples_differ(block_indices, next_block_indices)
     pred = will_change
+    if buffered_ref.prefetched_count > 0:
+      pred &= cumulative_copy_in >= buffered_ref.prefetched_count
     bref = buffered_ref.with_slot_index(copy_in_slot=cumulative_copy_in)
     @when(pred)
     def _start():
       bref.copy_in(src_ref, next_indices_offset)
-    next_copy_in = cumulative_copy_in + as_uint32(pred)
+    next_copy_in = cumulative_copy_in + as_uint32(will_change)
     next_next_indices = increment_indices(next_indices)
     return next_indices, next_next_indices, next_copy_in
   current_indices = buffered_ref.next_fetch_indices
@@ -1130,7 +1151,7 @@ class Scheduler:
 
   def __init__(
       self,
-      step: jax.Array,
+      step: int | jax.Array,
       indices: tuple[int | jax.Array, ...],
       grid: tuple[int | jax.Array, ...],
       grid_offsets: tuple[int | jax.Array, ...],
@@ -1191,6 +1212,17 @@ class Scheduler:
             i + j
             for i, j in zip(fetch_indices, grid_offsets, strict=True)
       ))
+    self._compute_index_cache = {}
+
+  def _compute_index(self, buffered_ref, *indices):
+    _key = lambda x: (True, id(x)) if isinstance(x, core.Tracer) else (False, x)
+    key = (id(buffered_ref.spec.index_map), tuple(map(_key, indices)))
+    if key in self._compute_index_cache:
+      res, _, _ = self._compute_index_cache[key]
+      return res
+    res = buffered_ref.compute_index(*indices)
+    self._compute_index_cache[key] = (res, indices, buffered_ref.spec.index_map)
+    return res
 
   @contextmanager
   def _named_scope(self, name):
@@ -1219,8 +1251,8 @@ class Scheduler:
       return False
     if buffered_ref.has_indirect:
       return True
-    indices = buffered_ref.compute_index(*self.indices)
-    prev_indices = buffered_ref.compute_index(*self.prev_indices)
+    indices = self._compute_index(buffered_ref, *self.indices)
+    prev_indices = self._compute_index(buffered_ref, *self.prev_indices)
     return _tuples_differ(indices, prev_indices)
 
   def will_change_current(self, buffered_ref):
@@ -1228,8 +1260,8 @@ class Scheduler:
       return False
     if buffered_ref.has_indirect:
       return True
-    indices = buffered_ref.compute_index(*self.indices)
-    next_indices = buffered_ref.compute_index(*self.next_indices)
+    indices = self._compute_index(buffered_ref, *self.indices)
+    next_indices = self._compute_index(buffered_ref, *self.next_indices)
     return _tuples_differ(indices, next_indices)
 
   def will_change_fetch(self, buffered_ref):
@@ -1239,10 +1271,10 @@ class Scheduler:
       return True
     if buffered_ref.buffer_count < 2:
       return self.has_changed(buffered_ref)
-    indices = buffered_ref.compute_index(
-        *self.fetch_indices[buffered_ref.buffer_count-2])
-    next_indices = buffered_ref.compute_index(
-        *self.fetch_indices[buffered_ref.buffer_count-1])
+    indices = self._compute_index(
+        buffered_ref, *self.fetch_indices[buffered_ref.buffer_count-2])
+    next_indices = self._compute_index(
+        buffered_ref, *self.fetch_indices[buffered_ref.buffer_count-1])
     return _tuples_differ(indices, next_indices)
 
   def alias_local_refs(self, buffered_ref, ref):
@@ -1256,7 +1288,9 @@ class Scheduler:
   # Below is the sequence of conditional waits and copies used for inputs,
   # outputs, and in-outs.
 
-  def initialize_step(self, buffered_ref, src_ref, step=0):
+  def initialize_step(
+      self, buffered_ref, src_ref, step=0, init_limit: int | None = None
+  ):
 
     with self._named_scope(f"ep_initialize_{step}"):
 
@@ -1266,43 +1300,44 @@ class Scheduler:
       if buffered_ref.is_trivial_windowing:
         return buffered_ref
 
-      if (step + 1) >= buffered_ref.buffer_count:
+      if init_limit is None:
+        init_limit = max(buffered_ref.buffer_count - 1, 0)
+      if step >= init_limit:
         return buffered_ref
 
-      if step < buffered_ref.prefetched_count:
-        if buffered_ref.use_lookahead and step > 0:
-          buffered_ref = buffered_ref.advance_next_fetch(self.grid)
-        return buffered_ref.advance_copy_in_slot()
-
+      in_bounds = step < self.num_steps
       if buffered_ref.use_lookahead:
         if step == 0:
           # We always fetch the first block.
-          @when(self.first_step)
+          predicate = self.first_step & in_bounds
+          @when(predicate & (step >= buffered_ref.prefetched_count))
           def _start():
             buffered_ref.copy_in(src_ref,
               self.add_offset(buffered_ref.next_fetch_indices))
-          buffered_ref = buffered_ref.advance_copy_in_slot(self.first_step)
+          buffered_ref = buffered_ref.advance_copy_in_slot(predicate)
         else:
           buffered_ref, _ = fetch_with_lookahead(
               buffered_ref,
               src_ref,
               self.grid,
               self.grid_offsets,
-              predicate=self.first_step,
+              predicate=self.first_step & in_bounds,
               max_num_fetches=1,
           )
       else:
         if step == 0:
-          predicate = self.first_step
+          predicate = self.first_step & in_bounds
           fetch_indices = self.fetch_indices[step]
         else:
           fetch_indices = self.fetch_indices[step]
           prev_grid_indices = self.fetch_indices[step - 1]
-          block_indices = buffered_ref.compute_index(*fetch_indices)
-          prev_block_indices = buffered_ref.compute_index(*prev_grid_indices)
+          block_indices = self._compute_index(buffered_ref, *fetch_indices)
+          prev_block_indices = self._compute_index(
+              buffered_ref, *prev_grid_indices
+          )
           block_changed = _tuples_differ(block_indices, prev_block_indices)
-          predicate = self.first_step & block_changed
-        @when(predicate)
+          predicate = self.first_step & in_bounds & block_changed
+        @when(predicate & (step >= buffered_ref.prefetched_count))
         def _start():
           buffered_ref.copy_in(src_ref, fetch_indices)
         buffered_ref = buffered_ref.advance_copy_in_slot(predicate)
@@ -1312,7 +1347,8 @@ class Scheduler:
     if buffered_ref.is_trivial_windowing:
       return buffered_ref
     pred = self.has_changed(buffered_ref) | self.first_step
-    pred = pred & (~(self.step < buffered_ref.prefetched_count))
+    if not buffered_ref.await_prefetch:
+      pred = pred & (self.step >= buffered_ref.prefetched_count)
 
     @when(pred)
     @self._named_scope("ep_wait_in")
@@ -1325,7 +1361,7 @@ class Scheduler:
     if buffered_ref.is_trivial_windowing:
       return buffered_ref
     pred = (self.will_change_fetch(buffered_ref) &
-            ~self.out_of_fetch(buffered_ref))
+            jnp.logical_not(self.out_of_fetch(buffered_ref)))
 
     # Single-buffered refs skip the prologue, so the first copy_in in the
     # loop must always fire to populate the buffer before wait_in.
@@ -1339,7 +1375,11 @@ class Scheduler:
           buffered_ref, src_ref, self.grid, self.grid_offsets, predicate=True
       )
     else:
-      @when(pred)
+      needs_copy_in = True
+      if buffered_ref.prefetched_count > 0:
+        needs_copy_in = (self.step + buffered_ref.buffer_count
+                         > buffered_ref.prefetched_count)
+      @when(pred & needs_copy_in)
       @self._named_scope("ep_copy_in")
       def _send():
         if buffered_ref.is_input and buffered_ref.is_buffered:
@@ -1352,7 +1392,7 @@ class Scheduler:
   def wait_out(self, buffered_ref, dst_ref) -> BufferedRef:
     if buffered_ref.is_trivial_windowing:
       return buffered_ref
-    pred = self.has_changed(buffered_ref) & ~self.first_step
+    pred = self.has_changed(buffered_ref) & jnp.logical_not(self.first_step)
     @when(pred)
     @self._named_scope("ep_wait_out")
     def _wait():
@@ -1404,6 +1444,16 @@ class Scheduler:
 # Main pipeline methods
 
 
+def _filter_specs_and_refs(specs: Any, refs: Any):
+  """Replaces unwindowed block specs and their corresponding refs with None."""
+  is_no_spec = lambda s: s is pallas_core.no_block_spec
+  filt_specs = jax.tree.map(lambda s, r: None if is_no_spec(s) else s,
+                            specs, refs)
+  filt_refs = jax.tree.map(lambda s, r: None if is_no_spec(s) else r,
+                           specs, refs)
+  return filt_specs, filt_refs
+
+
 def _normalize_specs(specs: Any) -> tuple[pallas_core.BlockSpec, ...]:
   if not isinstance(specs, (list, tuple)):
     specs = (specs,)
@@ -1438,8 +1488,8 @@ def _make_pipeline_allocations(
   num_in_specs = len(in_specs)
   in_specs = _normalize_specs(in_specs)
   out_specs = _normalize_specs(out_specs)
-  in_refs = refs[:num_in_specs]
-  out_refs = refs[num_in_specs:]
+  in_specs, in_refs = _filter_specs_and_refs(in_specs, refs[:num_in_specs])
+  out_specs, out_refs = _filter_specs_and_refs(out_specs, refs[num_in_specs:])
   def make_input_bref(in_spec, in_ref):
     in_aval = _ref_to_value_aval(in_ref)
     buffer_count = 2
@@ -1455,13 +1505,15 @@ def _make_pipeline_allocations(
     if not has_buffering and is_trivial:
       buffer_count = 1
 
+    sms = (in_ref.memory_space if isinstance(in_ref, state.TransformedRef) else
+           core.typeof(in_ref).memory_space)
     return BufferedRef.input(
         in_spec,
         in_aval,
         buffer_count,
         grid_rank=len(grid),
         use_lookahead=use_lookahead,
-        source_memory_space=in_ref.memory_space,
+        source_memory_space=sms,
         tiling=tiling,
         is_trivial_windowing=is_trivial,
         prefetched_count=prefetched_count,
@@ -1478,11 +1530,13 @@ def _make_pipeline_allocations(
     if not has_buffering and is_trivial:
       buffer_count = 1
 
+    sms = (out_ref.memory_space if isinstance(out_ref, state.TransformedRef)
+           else core.typeof(out_ref).memory_space)
     return BufferedRef.output(
         out_spec,
         out_aval,
         buffer_count,
-        source_memory_space=out_ref.memory_space,
+        source_memory_space=sms,
         tiling=tiling,
         is_trivial_windowing=is_trivial,
     )
@@ -1764,6 +1818,31 @@ def _emit_pipeline(
     if isinstance(allocations, list):
       allocations = tuple(allocations)
 
+    # When using async prefetch, we only allocate the input buffers, so we need
+    # to allocate the output buffers here, if they are missing.
+    if len(allocations) == len(in_specs):
+      # Re-bind specs so that index maps use lowering invars instead of
+      # closed-over tracers from the outer Python scope.
+      allocations = map_brefs(
+          lambda b, s: b.with_spec(s), allocations, in_specs
+      )
+      if len(refs) > len(in_specs):
+        return primitives.run_scoped(
+            lambda out_allocations: pipeline(
+                *refs,
+                scratches=scratches,
+                allocations=(*allocations, *out_allocations),
+                body_prologue=body_prologue,
+            ),
+            _make_pipeline_allocations(
+                *refs[len(in_specs):],
+                in_specs=(),
+                out_specs=out_specs,
+                grid=grid,
+                tiling=tiling,
+            ),
+        )
+
     def make_scheduler(step, indices):
       return Scheduler(
           step,
@@ -1935,6 +2014,7 @@ class EmitPipelinePrimitiveArgs:
   core_id: jax.Array | None
   body_consts: tuple[jax.Array, ...]
   refs_flat: tuple[jax.Array | state.TransformedRef | state.AbstractRef, ...]
+  allocations: Any | None = None
 
   @property
   def body_offset(self) -> int:
@@ -1970,6 +2050,9 @@ def emit_pipeline(
     no_pipelining: bool = False,
     _explicit_indices: bool = False,
 ):
+  in_specs = _normalize_specs(in_specs)
+  out_specs = _normalize_specs(out_specs)
+
   if any(g <= 0 for g in grid if isinstance(g, int)):
     raise ValueError(
         f"All elements in the grid must be strictly positive, but got {grid=}"
@@ -1981,63 +2064,83 @@ def emit_pipeline(
   if dimension_semantics is None:
     dimension_semantics = (ARBITRARY,) * len(grid)
 
-  if not config.use_emit_pipeline_primitive.value:
+  num_in_specs = len(in_specs)
+
+  def wrapped(*args, allocations=None, **kwargs):
     num_cores, core_id = _resolve_core_info(core_axis_)
-    return _emit_pipeline(
-        body,
-        grid=grid,
-        in_specs=in_specs,
-        out_specs=out_specs,
-        tiling=tiling,
-        dimension_semantics=dimension_semantics,
-        trace_scopes=trace_scopes,
-        no_pipelining=no_pipelining,
-        _explicit_indices=_explicit_indices,
-        num_cores=num_cores,
-        core_id=core_id,
-    )
 
-  in_specs = _normalize_specs(in_specs)
-  out_specs = _normalize_specs(out_specs)
-  in_specs_flat, _ = tree_util.tree_flatten(in_specs)
-  out_specs_flat, _ = tree_util.tree_flatten(out_specs)
-
-  def wrapped(*args, allocations=None):
-    refs_flat, refs_tree = tracing_registry.flatten(args, is_transformed_ref)
-    if allocations is not None:
-      # TODO(rdyro): Add support for allocations.
-      raise NotImplementedError("`allocations` are not yet supported.")
+    if allocations is not None and not in_specs and not out_specs:
+      flat_allocs = [
+          b for b in allocations if isinstance(b, BufferedRefBase) or b is None
+      ]
+      in_specs_ = tuple(
+          b.spec if isinstance(b, BufferedRefBase) else None
+          for b in flat_allocs if b is None or b.buffer_type == BufferType.INPUT
+      )
+      out_specs_ = tuple(
+          b.spec if isinstance(b, BufferedRefBase) else None
+          for b in flat_allocs
+          if b is not None and b.buffer_type != BufferType.INPUT
+      )
+      num_in_specs_alloc = sum(
+          1 for b in flat_allocs
+          if b is None or b.buffer_type == BufferType.INPUT
+      )
+      in_refs = args[:num_in_specs_alloc]
+      out_refs = args[num_in_specs_alloc:]
+      in_specs_, in_refs = _filter_specs_and_refs(in_specs_, in_refs)
+      out_specs_, out_refs = _filter_specs_and_refs(out_specs_, out_refs)
     else:
-      local_in_specs = in_specs_flat
-      local_out_specs = out_specs_flat
+      in_specs_, in_refs = _filter_specs_and_refs(
+          in_specs, args[:num_in_specs])
+      out_specs_, out_refs = _filter_specs_and_refs(
+          out_specs, args[num_in_specs:])
 
-    num_inputs = len(local_in_specs)
-    in_refs, out_refs = refs_flat[:num_inputs], refs_flat[num_inputs:]
+    if not config.use_emit_pipeline_primitive.value:
+      return _emit_pipeline(
+          body,
+          grid=grid,
+          in_specs=in_specs_,
+          out_specs=out_specs_,
+          tiling=tiling,
+          dimension_semantics=dimension_semantics,
+          trace_scopes=trace_scopes,
+          no_pipelining=no_pipelining,
+          _explicit_indices=_explicit_indices,
+          num_cores=num_cores,
+          core_id=core_id,
+      )(*in_refs, *out_refs, allocations=allocations, **kwargs)
+
+    in_specs_flat, _ = tree_util.tree_flatten(in_specs_)
+    out_specs_flat, _ = tree_util.tree_flatten(out_specs_)
+    in_refs_flat, _ = tracing_registry.flatten(in_refs, is_transformed_ref)
+    out_refs_flat, _ = tracing_registry.flatten(out_refs, is_transformed_ref)
 
     # Split the grid into static and dynamic parts the latter passed as args.
-    in_avals = [_ref_to_value_aval(r) for r in in_refs]
-    out_avals = [_ref_to_value_aval(r) for r in out_refs]
+    in_avals = [_ref_to_value_aval(r) for r in in_refs_flat]
+    out_avals = [_ref_to_value_aval(r) for r in out_refs_flat]
 
-    num_cores, core_id = _resolve_core_info(core_axis_)
     grid_spec = pallas_core.GridSpec(
-        grid=grid, in_specs=local_in_specs, out_specs=local_out_specs)
+        grid=grid, in_specs=in_specs_flat, out_specs=out_specs_flat)
     static_grid_spec, dynamic_grid_specs = (
         pallas_core.unzip_dynamic_grid_bounds(grid_spec))
 
     # TODO(rdyro): Move this method to pallas_core or vendor it here.
-    _, in_tree = tracing_registry.flatten(tuple(in_refs), is_transformed_ref)
-    _, out_tree = tracing_registry.flatten(tuple(out_refs), is_transformed_ref)
     kernel_args, grid_mapping = pallas_core.get_grid_mapping(
         static_grid_spec,
         in_avals,
-        in_tree,
+        tree_util.tree_structure(tuple(in_refs_flat)),
         [""] * len(in_avals),
         out_avals,
-        out_tree,
+        tree_util.tree_structure(tuple(out_refs_flat)),
         [""] * len(out_avals),
         allow_captured_consts=True,
     )
     # Trace the kernel body to a jaxpr.
+    filtered_args = (*in_refs, *out_refs)
+    _, refs_tree = tracing_registry.flatten(
+        filtered_args, is_transformed_ref
+    )
     kernel_args = refs_tree.unflatten(kernel_args)
     flat_kernel_args, _ = tracing_registry.flatten(
         kernel_args, is_transformed_ref)
@@ -2075,13 +2178,14 @@ def emit_pipeline(
     all_index_map_consts = tuple(itertools.chain.from_iterable(
         bm.index_map_jaxpr.consts for bm in grid_mapping.block_mappings))
 
-    refs_flat, refs_tree = tracing_registry.flatten(args)
+    refs_flat, refs_tree = tracing_registry.flatten(filtered_args)
     prim_args = EmitPipelinePrimitiveArgs(
         all_index_map_consts=all_index_map_consts,
         dynamic_grid_spec=dynamic_grid_specs,
         core_id=core_id,
         body_consts=tuple(body_jaxpr.consts),
         refs_flat=tuple(refs_flat),
+        allocations=allocations,
     )
     args_flat, args_tree = tracing_registry.flatten(prim_args)
     return emit_pipeline_p.bind(
@@ -2116,7 +2220,8 @@ def _emit_pipeline_effectful_abstract_eval(
   # arguments are flattened Refs and transforms, we unflatten the positional
   # indices to be able to identify the index of an n-th Ref from a positional
   # index.
-  indices_flat = list(range(all_args.refs_offset, len(avals)))
+  indices_flat = list(range(all_args.refs_offset,
+                            all_args.refs_offset + len(all_args.refs_flat)))
   flat_refs_idx, _ = tracing_registry.flatten(
       refs_tree.unflatten(indices_flat), is_transformed_ref)
   # Helper to resolve the underlying AbstractRef index in `avals` for any leaf.
@@ -2130,6 +2235,12 @@ def _emit_pipeline_effectful_abstract_eval(
     if isinstance(avals[ref_idx], state.AbstractRef):
       out_effects.add(ReadEffect(ref_idx)
                       if i < num_inputs else WriteEffect(ref_idx))
+
+  allocations_offset = all_args.refs_offset + len(all_args.refs_flat)
+  for ref_idx in range(allocations_offset, len(avals)):
+    if isinstance(avals[ref_idx], state.AbstractRef):
+      out_effects.add(ReadEffect(ref_idx))
+      out_effects.add(WriteEffect(ref_idx))
 
   num_ps_leaves = (
       len(body_jaxpr.invars) - len(flat_refs_idx)
@@ -2240,6 +2351,7 @@ def _emit_pipeline_physicalize_rule(
       core_id=all_args.core_id,
       body_consts=tuple(new_closed.consts),
       refs_flat=all_args.refs_flat,
+      allocations=all_args.allocations,
   )
   new_args_flat, new_args_tree = tracing_registry.flatten(new_args)
   return emit_pipeline_p.bind(*new_args_flat,
@@ -2303,11 +2415,105 @@ def _pipeline_body_lowering_rule(
     return jaxpr_subcomp(
         lowering_context, jaxpr, *body_consts, *resolved_refs)
 
-@register_lowering_rule(emit_pipeline_p, kernel_types=[*tpu_core.CoreType])
-def _emit_pipeline_lowering_rule(
-    ctx, *args_flat, grid_mapping, body_jaxpr, args_tree, refs_tree, num_cores,
-    dimension_semantics, core_axis, core_axis_name, _explicit_indices, **params
+
+def _pipeline_body_is_high(*avals, jaxpr, **_):
+  del avals
+  return jaxpr.is_high
+
+
+pipeline_body_p.is_high = _pipeline_body_is_high
+
+
+def pipeline_body_discharge_rule(
+    ctx: state_discharge.DischargeContext,
+    *invals,
+    jaxpr: core.Jaxpr,
+    in_tree,
+    _explicit_indices: bool = False,
+    **params,
 ):
+  del params
+  ps, body_consts, refs = in_tree.unflatten(invals)
+  _, _, refs_should = in_tree.unflatten(ctx.should_discharge)
+
+  ps_flat, _ = tree_util.tree_flatten(ps)
+  body_in_args = list(ps_flat) if _explicit_indices else []
+  body_should_discharge = [False] * len(body_in_args)
+
+  for ref, ref_sh in zip(refs, refs_should):
+    base, transforms = tpu_primitives._get_ref_and_transforms(ref)
+    should_discharge = tpu_primitives._get_ref(ref_sh)
+    body_should_discharge.append(should_discharge)
+    if should_discharge:
+      body_in_args.append(state_discharge.transform_array(base, transforms))
+    else:
+      body_in_args.append(ref)
+
+  # Add program ID info into the grid
+  cur_env = pallas_core.current_grid_env() or ()
+  body_grid_env = tuple(
+      pallas_core.GridAxis(
+          idx,
+          cur_env[i].size if i < len(cur_env) else 0,
+      )
+      for i, idx in enumerate(ps.index)
+  ) + tuple(cur_env[len(ps.index) :])
+
+  body_closed_jaxpr = jaxpr.with_consts(body_consts)
+  with pallas_core.grid_env(body_grid_env):
+    discharged_body_closed = state_discharge.discharge_state(
+        body_closed_jaxpr,
+        should_discharge=tuple(body_should_discharge),
+        strip_memory_space=ctx.strip_memory_space,
+    )
+    out = core.eval_jaxpr(
+        discharged_body_closed.jaxpr,
+        discharged_body_closed.consts,
+        *body_in_args,
+    )
+
+  num_outvars = len(body_closed_jaxpr.jaxpr.outvars)
+  ans = out[:num_outvars]
+  updated_slices = iter(out[num_outvars:])
+
+  new_bases = []
+  for ref, ref_sh in zip(refs, refs_should):
+    if tpu_primitives._get_ref(ref_sh):
+      base, transforms = tpu_primitives._get_ref_and_transforms(ref)
+      _, new_base = state_discharge.transform_swap_array(
+          base, transforms, next(updated_slices)
+      )
+      new_bases.append(new_base)
+
+  new_bases_iter = iter(new_bases)
+  new_invals = [
+      next(new_bases_iter) if should else None
+      for should in ctx.should_discharge
+  ]
+  return new_invals, ans
+
+
+state_discharge.register_discharge_rule(pipeline_body_p)(
+    pipeline_body_discharge_rule
+)
+
+
+def emit_pipeline_to_jaxpr(
+    avals_in,
+    *,
+    grid_mapping,
+    grid_names,
+    grid_sizes,
+    body_jaxpr,
+    args_tree,
+    refs_tree,
+    num_cores,
+    dimension_semantics,
+    core_axis=None,
+    core_axis_name=None,
+    _explicit_indices=False,
+    **params,
+) -> core.ClosedJaxpr:
   del core_axis, core_axis_name
   index_map_consts_counts = tuple(
       len(bm.index_map_jaxpr.consts) for bm in grid_mapping.block_mappings)
@@ -2357,32 +2563,57 @@ def _emit_pipeline_lowering_rule(
                           if i not in grid_mapping.vmapped_dims)
 
     # re-create the pallas core grid env
-    grid_names = ctx.lowering_context.grid_names
-    grid_sizes = ctx.lowering_context.grid_sizes
-    if grid_names is None:
-      grid_names = (None,) * len(grid_sizes)
+    names = (None,) * len(grid_sizes) if grid_names is None else grid_names
     axis_env_ctx = core.extend_axis_env_nd(
-        [(name, size) for name, size in zip(grid_names, grid_sizes)
+        [(name, size) for name, size in zip(names, grid_sizes)
         if name is not None and isinstance(size, int)]
     )
 
     # run the actual pipeline function
+    allocations = (
+        tuple(jax.tree.leaves(all_args.allocations,
+                              is_leaf=lambda x: isinstance(x, BufferedRefBase)))
+        if all_args.allocations is not None else None
+    )
     with (axis_env_ctx, pallas_core.tracing_grid_env(pipeline_grid, ())):
       pipeline_fun = _emit_pipeline(
           new_body, grid=grid, in_specs=in_specs, out_specs=out_specs,
           num_cores=num_cores, core_id=all_args.core_id,
           dimension_semantics=dimension_semantics, _explicit_indices=True,
           **params)
-      pipeline_fun(*refs_flat)
+      pipeline_fun(*refs_flat, allocations=allocations)
     return ()
 
-  all_args = args_tree.unflatten(args_flat)
   dbg = api_util.debug_info(
-      "emit_pipeline_lowering", wrapped_pipeline_fun, ctx.avals_in, {}
+      "emit_pipeline_lowering", wrapped_pipeline_fun, avals_in, {}
   )
-  in_avals_ft = ft.flatten_args(*ctx.avals_in)
-  closed_jaxpr, _ = pe.trace_to_jaxpr_nocache(
-      wrapped_pipeline_fun, in_avals_ft, debug_info=dbg
+  in_avals_ft = ft.flatten_args(*avals_in)
+  with config.mutable_array_checks(False):
+    closed_jaxpr, _ = pe.trace_to_jaxpr_nocache(
+        wrapped_pipeline_fun, in_avals_ft, debug_info=dbg
+    )
+  return closed_jaxpr
+
+
+@register_lowering_rule(emit_pipeline_p, kernel_types=[*tpu_core.CoreType])
+def _emit_pipeline_lowering_rule(
+    ctx, *args_flat, grid_mapping, body_jaxpr, args_tree, refs_tree, num_cores,
+    dimension_semantics, core_axis, core_axis_name, _explicit_indices, **params
+):
+  closed_jaxpr = emit_pipeline_to_jaxpr(
+      ctx.avals_in,
+      grid_mapping=grid_mapping,
+      grid_names=ctx.lowering_context.grid_names,
+      grid_sizes=ctx.lowering_context.grid_sizes,
+      body_jaxpr=body_jaxpr,
+      args_tree=args_tree,
+      refs_tree=refs_tree,
+      num_cores=num_cores,
+      dimension_semantics=dimension_semantics,
+      core_axis=core_axis,
+      core_axis_name=core_axis_name,
+      _explicit_indices=_explicit_indices,
+      **params,
   )
   jaxpr = closed_jaxpr
   consts = closed_jaxpr.consts
@@ -2392,6 +2623,7 @@ def _emit_pipeline_lowering_rule(
   )
   jaxpr = pe.convert_constvars_jaxpr(jaxpr)
 
+  all_args = args_tree.unflatten(args_flat)
   grid_val_iter = iter(all_args.dynamic_grid_spec)
   grid_indices = tuple(next(grid_val_iter) if pallas_core.is_dynamic_dim(d)
                        else ir_constant(d) for d in grid_mapping.grid)
@@ -2463,6 +2695,7 @@ def _emit_pipeline_to_lojax(
       core_id=all_args.core_id,
       body_consts=tuple(closed_lo_jaxpr.consts),
       refs_flat=tuple(lo_flat_refs),
+      allocations=all_args.allocations,
   )
   new_args_flat, new_args_tree = tracing_registry.flatten(new_prim_args)
   return emit_pipeline_p.bind(
@@ -2484,11 +2717,17 @@ def _emit_pipeline_batching_rule(
   dimension_semantics = (PARALLEL,) + dimension_semantics
   all_args: EmitPipelinePrimitiveArgs = args_tree.unflatten(args_flat)
 
-  _, dynamic_dims, _, _, flat_ref_dims = jax_util.split_list(dims, [
+  _, dynamic_dims, _, _, flat_ref_dims, alloc_dims = jax_util.split_list(dims, [
       len(all_args.all_index_map_consts),
       len(all_args.dynamic_grid_spec),
       int(all_args.has_core_id),
-      len(all_args.body_consts)])
+      len(all_args.body_consts),
+      len(all_args.refs_flat)])
+
+  if any(d is not None for d in alloc_dims):
+    raise NotImplementedError(
+        "Batching over custom allocations is not supported yet."
+    )
 
   batch_size = axis_data.size
 
@@ -2528,3 +2767,38 @@ def _emit_pipeline_batching_rule(
 
 batching.fancy_primitive_batchers[emit_pipeline_p] = (
     _emit_pipeline_batching_rule)
+
+
+def _emit_pipeline_discharge_rule(
+    ctx: state_discharge.DischargeContext,
+    *args_flat,
+    grid_mapping,
+    **params,
+):
+  closed_jaxpr = emit_pipeline_to_jaxpr(
+      ctx.in_avals,
+      grid_mapping=grid_mapping,
+      grid_names=grid_mapping.grid_names,
+      grid_sizes=grid_mapping.grid,
+      **params,
+  )
+  phys_jaxpr, phys_consts = hlo_interpreter.resolve_physical_types(
+      closed_jaxpr.jaxpr, closed_jaxpr.consts
+  )
+  discharged = state_discharge.discharge_state(
+      phys_jaxpr.with_consts(phys_consts),
+      should_discharge=tuple(ctx.should_discharge),
+      strip_memory_space=ctx.strip_memory_space,
+  )
+  ref_vals = iter(
+      core.eval_jaxpr(discharged.jaxpr, discharged.consts, *args_flat)
+  )
+  new_invals = [
+      next(ref_vals) if should else None for should in ctx.should_discharge
+  ]
+  return new_invals, ()
+
+
+state_discharge.register_discharge_rule(emit_pipeline_p)(
+    _emit_pipeline_discharge_rule
+)

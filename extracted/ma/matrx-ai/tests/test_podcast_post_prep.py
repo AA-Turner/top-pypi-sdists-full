@@ -109,3 +109,33 @@ def test_short_input_keeps_scaled_floor(monkeypatch):
     )
     assert result.success is True
     assert result.output == "w" * 300
+
+
+def test_every_outcome_reports_the_started_stage_key(monkeypatch):
+    # The pipeline announces this stage as ``post_prep`` (STAGE_STARTED, and the
+    # checkpoint / agent_run_stage key). If the finished StageResult carries any
+    # other key (it carried ``post_prep_<option>``), STAGE_DONE names a stage no
+    # client ever saw start: the live step list grew a second "Post-processing
+    # the content" row and the started one never settled (2026-09-17, run
+    # e24c4b68, option=summarization).
+    outcomes = {
+        "success": lambda: _FakeResult(success=True, output="x" * 3000),
+        "agent_failure": lambda: _FakeResult(success=False, error="boom"),
+        "degenerate": lambda: _FakeResult(success=True, output="tiny"),
+    }
+    for option in PostPrepOption:
+        for name, make in outcomes.items():
+
+            async def fake_run_mandated(agent_cls, _make=make, **kwargs):
+                return _make()
+
+            monkeypatch.setattr(pg, "_run_mandated", fake_run_mandated)
+            result = _run(_apply_post_prep("y" * 3000, option, language="English"))
+            assert result.stage == "post_prep", (option, name, result.stage)
+
+        async def raising(agent_cls, **kwargs):
+            raise RuntimeError("resolver broke")
+
+        monkeypatch.setattr(pg, "_run_mandated", raising)
+        result = _run(_apply_post_prep("y" * 3000, option, language="English"))
+        assert result.stage == "post_prep", (option, "exception", result.stage)

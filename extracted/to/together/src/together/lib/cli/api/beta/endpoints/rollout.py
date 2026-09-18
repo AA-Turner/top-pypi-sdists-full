@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Any, Optional
+from typing import Any, Literal, Optional
 from typing_extensions import Annotated
 
 from cyclopts import Group, Parameter
@@ -10,14 +10,17 @@ from cyclopts.validators import Number, mutually_exclusive
 
 from together import AsyncClient, omit
 from together._utils._json import openapi_dumps
+from together.lib.cli.utils._exit import CliDiagnosticExit
 from together.types.beta.endpoint import Endpoint
 from together.lib.cli.utils.config import CLIConfigParameter
 from together.lib.cli.utils._console import console, error_console
 from together.lib.cli.components.loader import show_loading_status
 from together.types.beta.endpoints.rollout import Rollout
 from together.lib.cli.api.beta.endpoints.retrieve import retrieve
-from together.types.beta.endpoints.rollout_create_params import Canary, Rolling, BlueGreen
+from together.types.beta.endpoints.canary_config_param import CanaryConfigParam as Canary
+from together.types.beta.endpoints.rolling_config_param import RollingConfigParam as Rolling
 from together.lib.cli.api.beta.endpoints._utils._rollouts import resolve_rollout_by_id
+from together.types.beta.endpoints.blue_green_config_param import BlueGreenConfigParam as BlueGreen
 from together.lib.cli.api.beta.endpoints._utils._resolve_model import resolve_endpoint
 from together.lib.cli.api.beta.endpoints._utils._build_autoscaling import normalize_duration
 from together.lib.cli.api.beta.endpoints._utils._build_rollout_metric import (
@@ -69,6 +72,12 @@ _CREATE_PARAMS = frozenset(
 )
 _REASON_PARAMS = frozenset({"cancel", "pause"})
 _CANARY_ONLY_PARAMS = frozenset({"steps", "interval"}) | _METRIC_PARAMS
+CancelDispositionCli = Literal["freeze", "revert"]
+CancelDispositionApi = Literal["CANCEL_DISPOSITION_FREEZE", "CANCEL_DISPOSITION_REVERT"]
+_CANCEL_DISPOSITION_MAP: dict[CancelDispositionCli, CancelDispositionApi] = {
+    "freeze": "CANCEL_DISPOSITION_FREEZE",
+    "revert": "CANCEL_DISPOSITION_REVERT",
+}
 
 
 def _populated_names(argument_collection: ArgumentCollection) -> set[str]:
@@ -76,7 +85,7 @@ def _populated_names(argument_collection: ArgumentCollection) -> set[str]:
 
 
 def _control_mode_validator(argument_collection: ArgumentCollection) -> None:
-    """Controls are exclusive with create/strategy options; --reason only with --cancel/--pause."""
+    """Controls are exclusive with create/strategy options; --reason requires --cancel/--pause."""
     populated = _populated_names(argument_collection)
     controls = populated & _CONTROL_PARAMS
     creates = populated & _CREATE_PARAMS
@@ -168,13 +177,19 @@ When omitted, infers the sole other deployment with traffic weight > 0.""",
         ),
     ] = None,
     cancel: Annotated[
-        bool,
+        Optional[list[CancelDispositionCli]],
         Parameter(
             name="--cancel",
-            help="Cancel an in-progress rollout, Endpoint and deployments will be left in the current traffic split",
+            help=(
+                """Cancel an in-progress rollout. Bare --cancel uses server defined disposition. To control the disposition the following options are available:
+
+--cancel freeze - leaves the deployments at their current split.
+--cancel revert - restores the source deployment"""
+            ),
+            consume_multiple=(0, 1),
             group=(ControlDisplayGroup, ControlGroup, ModeGroup),
         ),
-    ] = False,
+    ] = None,
     pause: Annotated[
         bool,
         Parameter(
@@ -378,7 +393,7 @@ When omitted, infers the sole other deployment with traffic weight > 0.""",
     """Roll out a deployment, or control an existing rollout."""
     actions: list[str] = []
 
-    if cancel or pause or resume or promote:
+    if cancel is not None or pause or resume or promote:
         result, message = await _control_rollout(
             id,
             cancel=cancel,
@@ -429,7 +444,7 @@ When omitted, infers the sole other deployment with traffic weight > 0.""",
 async def _control_rollout(
     ref: str,
     *,
-    cancel: bool,
+    cancel: list[CancelDispositionCli] | None,
     pause: bool,
     resume: bool,
     promote: bool,
@@ -439,16 +454,22 @@ async def _control_rollout(
     existing_rollout = await _resolve_active_rollout(config, ref)
     rollout_id = existing_rollout.id
 
-    if cancel:
+    if cancel is not None:
+        cancel_disposition = cancel[0] if cancel else None
         rollout = await show_loading_status(
             "Cancelling rollout...",
             config.client.beta.endpoints.rollouts.cancel(
                 id=rollout_id,
                 endpoint_id=existing_rollout.endpoint_id,
                 reason=reason or "Cancelled via tg beta endpoints rollout --cancel",
+                disposition=(
+                    _cancel_disposition_to_api(cancel_disposition) if cancel_disposition is not None else omit
+                ),
                 etag=existing_rollout.etag or omit,
             ),
         )
+        if cancel_disposition == "revert":
+            return rollout, "Rollout cancelled (traffic reverted to source)."
         return rollout, "Rollout cancelled (traffic frozen at current split)."
 
     if pause:
@@ -486,6 +507,13 @@ async def _control_rollout(
         ),
     )
     return rollout, "Rollout promoted (100% traffic on target)."
+
+
+def _cancel_disposition_to_api(value: CancelDispositionCli) -> CancelDispositionApi:
+    if value not in _CANCEL_DISPOSITION_MAP:
+        known = ", ".join(_CANCEL_DISPOSITION_MAP)
+        raise ValueError(f"Unknown --cancel disposition {value!r}. Choose one of: {known}.")
+    return _CANCEL_DISPOSITION_MAP[value]
 
 
 async def _create_and_start_rollout(
@@ -617,7 +645,12 @@ def _report_failed_create_start(
             payload["actions"] = actions
         console.print_json(openapi_dumps(payload).decode("utf-8"))
         # Avoid the outer APIError handler printing a second, ID-less JSON error.
-        raise SystemExit(1)
+        diagnostic = (
+            "Rollout created but failed to start"
+            if created_rollout_id is not None
+            else "Rollout failed after irreversible changes"
+        )
+        raise CliDiagnosticExit(diagnostic)
 
     if created_rollout_id is not None:
         error_console.print(

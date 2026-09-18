@@ -294,6 +294,7 @@ api_key_sandbox/org_id,ws_id:
     - flow_execute_sandbox/org_id,ws_id,*
     - w+r:workspace_sandbox_endpoint/org_id,ws_id
     - r+w:workspace_agent_execution/org_id,ws_id,{env=sandbox,type=agent}
+    - connection_user_sandbox/org_id,ws_id
     - w+d:workspace_connection_resource/org_id,ws_id
     - r:workspace_connection/org_id,ws_id
     - r+w+d:workspace_connection_tenant/org_id,ws_id
@@ -315,6 +316,7 @@ api_key_production/org_id,ws_id:
     - flow_execute_live/org_id,ws_id,*
     - w+r:workspace_endpoint/org_id,ws_id
     - r+w:workspace_agent_execution/org_id,ws_id,{env=live,type=agent}
+    - connection_user_live/org_id,ws_id
     - w+d:workspace_connection_resource/org_id,ws_id
     - r:workspace_connection/org_id,ws_id
     - r+w+d:workspace_connection_tenant/org_id,ws_id

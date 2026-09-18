@@ -23,7 +23,6 @@ use uv_client::{
     CacheControl, CachedClientError, Connectivity, DataWithCachePolicy, RegistryClient,
     RequestBuilder, RetryState,
 };
-use uv_configuration::initialize_rayon_once;
 use uv_distribution_filename::WheelFilename;
 use uv_distribution_types::{
     ArchiveHashPolicy, BuildInfo, BuildableSource, BuiltDist, Dist, DistRef, HashCollection,
@@ -39,6 +38,7 @@ use uv_preview::PreviewFeature;
 use uv_pypi_types::{HashDigest, HashDigests, PyProjectToml};
 use uv_python::PythonVariant;
 use uv_redacted::DisplaySafeUrl;
+use uv_threads::initialize_rayon_once;
 use uv_types::{BuildContext, BuildStack};
 
 use crate::archive::Archive;
@@ -149,12 +149,29 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
         lock_entry.lock().await.map_err(Error::CacheLock)
     }
 
+    /// Validate dist hashes, and return them.
+    fn validate_hashes(
+        dist: &BuiltDist,
+        hashes: ArchiveHashPolicy<'_>,
+        hashers: Vec<Hasher>,
+    ) -> Result<HashDigests, Error> {
+        let computed_hashes: HashDigests = hashers.into_iter().map(HashDigest::from).collect();
+        if hashes.requires_validation() && !hashes.matches(computed_hashes.as_slice()) {
+            return Err(Error::hash_mismatch(
+                dist.to_string(),
+                hashes.digests(),
+                computed_hashes.as_slice(),
+            ));
+        }
+        Ok(computed_hashes)
+    }
+
     /// Either fetch the wheel or fetch and build the source distribution
     ///
     /// Returns a wheel that's compliant with the given platform tags.
     ///
-    /// While hashes will be generated in some cases, hash-checking is only enforced for source
-    /// distributions, and should be enforced by the caller for wheels.
+    /// Applicable hash checks are enforced before newly fetched archives are published to the cache.
+    /// Callers must enforce their hash policy when reusing cached wheels.
     #[instrument(skip_all, fields(%dist))]
     pub async fn get_or_build_wheel(
         &self,
@@ -184,7 +201,7 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
             .dependency_metadata()
             .get(dist.name(), Some(dist.version()))
         {
-            return Ok(ArchiveMetadata::from_metadata23(metadata));
+            return Ok(Metadata::from_dependency_metadata(metadata).into());
         }
 
         let metadata = dist
@@ -215,8 +232,9 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
 
     /// Fetch a wheel from the cache or download it from the index.
     ///
-    /// While hashes will be generated in all cases, hash-checking is _not_ enforced and should
-    /// instead be enforced by the caller.
+    /// Applicable hash checks are enforced before newly fetched wheels are published to the cache.
+    /// Registry hashes are used when available and no explicit verification policy is provided.
+    /// Callers must enforce their hash policy when reusing cached wheels.
     async fn get_wheel(
         &self,
         dist: &BuiltDist,
@@ -579,15 +597,12 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
                 .dependency_metadata()
                 .get(dist.name(), Some(dist.version()))
             {
-                metadata
+                Metadata::from_dependency_metadata(metadata)
             } else {
-                wheel.metadata()?
+                Metadata::from_metadata23(wheel.metadata()?)
             };
             let hashes = wheel.hashes;
-            return Ok(ArchiveMetadata {
-                metadata: Metadata::from_metadata23(metadata),
-                hashes,
-            });
+            return Ok(ArchiveMetadata { metadata, hashes });
         }
 
         // If the metadata was provided by the user directly, prefer it.
@@ -596,7 +611,7 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
             .dependency_metadata()
             .get(dist.name(), Some(dist.version()))
         {
-            return Ok(ArchiveMetadata::from_metadata23(metadata));
+            return Ok(Metadata::from_dependency_metadata(metadata).into());
         }
 
         let result = self
@@ -657,7 +672,7 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
                 // commits.
                 self.builder.resolve_revision(source, &self.client).await?;
 
-                return Ok(ArchiveMetadata::from_metadata23(metadata));
+                return Ok(Metadata::from_dependency_metadata(metadata).into());
             }
         }
 
@@ -681,13 +696,19 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
             },
             HashValidation::Any(_) | HashValidation::All(_) => hashes.validation.into(),
         };
-        let metadata = self
+        let ArchiveMetadata { metadata, hashes } = self
             .builder
             .download_and_build_metadata(source, build_hash_policy, &self.client)
             .boxed_local()
             .await?;
 
-        Ok(metadata)
+        // This also handles external dependencies, so force relative paths by default.
+        // For explicit inputs and current project/workspace metadata, this is later overridden with
+        // `with_force_relative(false)` to respect the user's relative/absolute path preference.
+        Ok(ArchiveMetadata {
+            metadata: metadata.with_force_relative(true),
+            hashes,
+        })
     }
 
     /// Return the [`RequiresDist`] from a `pyproject.toml`, if it can be statically extracted.
@@ -737,6 +758,12 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
 
         let download = |response: reqwest::Response, _: &mut RetryState| {
             async {
+                let hashes = if let BuiltDist::Registry(wheels) = dist {
+                    hashes.with_index_hashes(wheels.best_wheel().file.hashes.as_slice())
+                } else {
+                    hashes
+                };
+
                 let progress_size_hint = progress_size_hint.or_else(|| content_length(&response));
 
                 let progress = self.reporter.as_ref().map(|reporter| {
@@ -789,6 +816,8 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
                     });
                 }
 
+                let computed_hashes = Self::validate_hashes(dist, hashes, hashers)?;
+
                 // Before we make the wheel accessible by persisting it, ensure that the RECORD is
                 // valid.
                 extracted.validate_and_heal_record(dist)?;
@@ -804,7 +833,7 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
 
                 Ok(Archive::new(
                     id,
-                    hashers.into_iter().map(HashDigest::from).collect(),
+                    computed_hashes,
                     filename.clone(),
                     Some(actual_size),
                 ))
@@ -1039,6 +1068,12 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
         dist: &BuiltDist,
         hashes: ArchiveHashPolicy<'_>,
     ) -> Result<Archive, Error> {
+        let hashes = if let BuiltDist::Registry(wheels) = dist {
+            hashes.with_index_hashes(wheels.best_wheel().file.hashes.as_slice())
+        } else {
+            hashes
+        };
+
         let progress_size_hint = progress_size_hint.or_else(|| content_length(&response));
         let mut download_size = content_length(&response).or(expected_size);
 
@@ -1290,7 +1325,7 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
         let mut extracted = tokio::task::spawn_blocking(move || extractor.extract_seekable(file))
             .await?
             .map_err(|err| Error::Extract(filename.to_string(), err))?;
-        let hashes = hashers.into_iter().map(HashDigest::from).collect();
+        let computed_hashes = Self::validate_hashes(dist, hashes, hashers)?;
 
         // Before we make the wheel accessible by persisting it, ensure that the RECORD is
         // valid.
@@ -1307,7 +1342,7 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
 
         Ok(Archive::new(
             id,
-            hashes,
+            computed_hashes,
             filename.clone(),
             Some(bytes_retrieved),
         ))
@@ -1337,6 +1372,14 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
             .filter(|pointer| pointer.is_up_to_date(modified))
             .map(PathArchivePointer::into_archive)
             .filter(|archive| archive.has_digests(hashes));
+
+        // Index hashes may replace `Generate`, but the caller still needs its SHA-256.
+        let caller_hashes = hashes;
+        let hashes = if let BuiltDist::Registry(wheels) = dist {
+            hashes.with_index_hashes(wheels.best_wheel().file.hashes.as_slice())
+        } else {
+            hashes
+        };
 
         // If the file is already unzipped, and the cache is up-to-date, return it.
         if let Some(archive) = archive {
@@ -1392,8 +1435,11 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
             )
             .map_err(Error::CacheWrite)?;
 
-            // Create a hasher for each hash algorithm.
-            let algorithms = hashes.algorithms();
+            // Include the caller's algorithms alongside any index algorithms selected for validation.
+            let mut algorithms = caller_hashes.algorithms();
+            algorithms.extend(hashes.algorithms());
+            algorithms.sort();
+            algorithms.dedup();
             let mut hashers = algorithms.into_iter().map(Hasher::from).collect::<Vec<_>>();
             let mut hasher = uv_extract::hash::HashReader::new(file, &mut hashers);
 
@@ -1406,7 +1452,7 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
             // Exhaust the reader to compute the hash.
             hasher.finish().await.map_err(Error::HashExhaustion)?;
 
-            let hashes = hashers.into_iter().map(HashDigest::from).collect();
+            let computed_hashes = Self::validate_hashes(dist, hashes, hashers)?;
 
             // Before we make the wheel accessible by persisting it, ensure that the RECORD is
             // valid.
@@ -1418,7 +1464,7 @@ impl<'a, Context: BuildContext> DistributionDatabase<'a, Context> {
                 .await?;
 
             // Create an archive.
-            let archive = Archive::new(id, hashes, filename.clone(), None);
+            let archive = Archive::new(id, computed_hashes, filename.clone(), None);
 
             // Write the archive pointer to the cache.
             let pointer = PathArchivePointer {

@@ -6,6 +6,16 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .create_payments_request_line_items_item import CreatePaymentsRequestLineItemsItem
+    from .create_payments_request_plan import CreatePaymentsRequestPlan
+    from .create_payments_request_plan_currency import CreatePaymentsRequestPlanCurrency
+    from .create_payments_request_plan_plan_type import CreatePaymentsRequestPlanPlanType
+    from .create_payments_request_plan_product import CreatePaymentsRequestPlanProduct
+    from .create_payments_request_plan_product_global_affiliate_status import (
+        CreatePaymentsRequestPlanProductGlobalAffiliateStatus,
+    )
+    from .create_payments_request_plan_product_visibility import CreatePaymentsRequestPlanProductVisibility
+    from .create_payments_request_plan_visibility import CreatePaymentsRequestPlanVisibility
     from .list_fees_payments_response import ListFeesPaymentsResponse
     from .list_fees_payments_response_page_info import ListFeesPaymentsResponsePageInfo
     from .list_payments_request_billing_reason import ListPaymentsRequestBillingReason
@@ -29,10 +39,21 @@ if typing.TYPE_CHECKING:
     from .post_payment_pending_payload import PostPaymentPendingPayload
     from .post_payment_pending_payload_api_version import PostPaymentPendingPayloadApiVersion
     from .post_payment_pending_payload_type import PostPaymentPendingPayloadType
+    from .post_payment_requires_action_payload import PostPaymentRequiresActionPayload
+    from .post_payment_requires_action_payload_api_version import PostPaymentRequiresActionPayloadApiVersion
+    from .post_payment_requires_action_payload_type import PostPaymentRequiresActionPayloadType
     from .post_payment_succeeded_payload import PostPaymentSucceededPayload
     from .post_payment_succeeded_payload_api_version import PostPaymentSucceededPayloadApiVersion
     from .post_payment_succeeded_payload_type import PostPaymentSucceededPayloadType
 _dynamic_imports: typing.Dict[str, str] = {
+    "CreatePaymentsRequestLineItemsItem": ".create_payments_request_line_items_item",
+    "CreatePaymentsRequestPlan": ".create_payments_request_plan",
+    "CreatePaymentsRequestPlanCurrency": ".create_payments_request_plan_currency",
+    "CreatePaymentsRequestPlanPlanType": ".create_payments_request_plan_plan_type",
+    "CreatePaymentsRequestPlanProduct": ".create_payments_request_plan_product",
+    "CreatePaymentsRequestPlanProductGlobalAffiliateStatus": ".create_payments_request_plan_product_global_affiliate_status",
+    "CreatePaymentsRequestPlanProductVisibility": ".create_payments_request_plan_product_visibility",
+    "CreatePaymentsRequestPlanVisibility": ".create_payments_request_plan_visibility",
     "ListFeesPaymentsResponse": ".list_fees_payments_response",
     "ListFeesPaymentsResponsePageInfo": ".list_fees_payments_response_page_info",
     "ListPaymentsRequestBillingReason": ".list_payments_request_billing_reason",
@@ -56,6 +77,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PostPaymentPendingPayload": ".post_payment_pending_payload",
     "PostPaymentPendingPayloadApiVersion": ".post_payment_pending_payload_api_version",
     "PostPaymentPendingPayloadType": ".post_payment_pending_payload_type",
+    "PostPaymentRequiresActionPayload": ".post_payment_requires_action_payload",
+    "PostPaymentRequiresActionPayloadApiVersion": ".post_payment_requires_action_payload_api_version",
+    "PostPaymentRequiresActionPayloadType": ".post_payment_requires_action_payload_type",
     "PostPaymentSucceededPayload": ".post_payment_succeeded_payload",
     "PostPaymentSucceededPayloadApiVersion": ".post_payment_succeeded_payload_api_version",
     "PostPaymentSucceededPayloadType": ".post_payment_succeeded_payload_type",
@@ -84,6 +108,14 @@ def __dir__():
 
 
 __all__ = [
+    "CreatePaymentsRequestLineItemsItem",
+    "CreatePaymentsRequestPlan",
+    "CreatePaymentsRequestPlanCurrency",
+    "CreatePaymentsRequestPlanPlanType",
+    "CreatePaymentsRequestPlanProduct",
+    "CreatePaymentsRequestPlanProductGlobalAffiliateStatus",
+    "CreatePaymentsRequestPlanProductVisibility",
+    "CreatePaymentsRequestPlanVisibility",
     "ListFeesPaymentsResponse",
     "ListFeesPaymentsResponsePageInfo",
     "ListPaymentsRequestBillingReason",
@@ -107,6 +139,9 @@ __all__ = [
     "PostPaymentPendingPayload",
     "PostPaymentPendingPayloadApiVersion",
     "PostPaymentPendingPayloadType",
+    "PostPaymentRequiresActionPayload",
+    "PostPaymentRequiresActionPayloadApiVersion",
+    "PostPaymentRequiresActionPayloadType",
     "PostPaymentSucceededPayload",
     "PostPaymentSucceededPayloadApiVersion",
     "PostPaymentSucceededPayloadType",

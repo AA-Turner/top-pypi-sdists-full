@@ -7,7 +7,7 @@ GitHub Issue #13: Board-Based Ticket Synchronization.
 """
 
 import logging
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from typing import Dict, List, Optional, Tuple
 
 from sqlalchemy import func
@@ -39,7 +39,7 @@ from src.services.ticket_status_service import (
     GENERIC_SYNC_ERROR,
     classify_push_failure,
 )
-from src.utils.time_windows import parse_iso_naive, parse_iso_utc
+from src.utils.time_windows import as_utc, parse_iso_naive, parse_iso_utc
 
 logger = logging.getLogger(__name__)
 
@@ -108,6 +108,26 @@ def _parse_since(value) -> Optional[datetime]:
         # (`src/utils/time_windows.py`); only this policy is local.
         logger.warning("Ignoring unparseable sync `since` option %r", value)
     return parsed
+
+
+#: How far before the last successful sync's start an incremental pull resumes.
+#:
+#: Guards clock skew between the board's `updatedAt` and our own `started_at`,
+#: which are two different clocks. Re-examining five minutes of already-seen
+#: tickets costs a handful of field comparisons and no writes; missing one
+#: costs a ticket that is never updated again, and nothing surfaces it.
+_INCREMENTAL_OVERLAP = timedelta(minutes=5)
+
+#: How stale the last *full* pull may get before one is forced.
+#:
+#: **Incremental syncing is only safe with this.** The watermark advances on
+#: every success, so a ticket missed once -- skew past the overlap above, a board
+#: that did not move `updatedAt`, a partial run recorded as completed -- sits
+#: outside every later window, and nothing revisits it. Time-based filtering
+#: cannot detect that; it has no count to reconcile against and no checksum.
+#: A periodic full pull is what bounds the damage: at worst a ticket is stale
+#: for a week rather than forever.
+_FULL_RESYNC_INTERVAL = timedelta(days=7)
 
 
 class BoardSyncService:
@@ -622,6 +642,60 @@ class BoardSyncService:
             },
         }
 
+    def _resume_point(
+        self, session: Session, registration: BoardRegistration
+    ) -> Optional[datetime]:
+        """Where an unwindowed sync can safely resume from, or None.
+
+        **The last successful sync's start, not its completion.** A board sync
+        takes minutes on a real board -- BPAI's is 156 seconds for 258 issues --
+        and a ticket edited while one ran sits between a completion-stamped
+        watermark and the next run's lower bound. It would be skipped, and then
+        skipped forever, because nothing ever revisits it. Resuming from the
+        *start* re-covers that whole interval instead.
+
+        A further `_INCREMENTAL_OVERLAP` is subtracted because the comparison is
+        between two different clocks: the board stamps `updatedAt`, we stamp
+        `started_at`. The previous run's duration usually dwarfs any skew, but a
+        sync that finished in two seconds leaves no such cushion, and this is
+        the case where a gap would be silent.
+
+        Only rows that actually completed count. A FAILED sync proves nothing
+        about what it managed to import, so treating its start as a watermark
+        would skip whatever it missed.
+        """
+
+        def newest(*extra):
+            return session.exec(
+                select(BoardSyncHistory)
+                .where(
+                    BoardSyncHistory.board_registration_id == registration.id,
+                    BoardSyncHistory.sync_status == SyncStatus.COMPLETED,
+                    BoardSyncHistory.dry_run.is_(False),  # type: ignore[union-attr]
+                    *extra,
+                )
+                .order_by(
+                    BoardSyncHistory.started_at.desc()  # type: ignore[union-attr]
+                )
+                .limit(1)
+            ).first()
+
+        last = newest()
+        if last is None or last.started_at is None:
+            return None
+
+        # **A full pull is due periodically, and returning None is how one is
+        # asked for.** Without this the watermark would march forward forever
+        # and a single missed ticket would never be seen again -- see
+        # `_FULL_RESYNC_INTERVAL`.
+        full = newest(BoardSyncHistory.full_sync.is_(True))  # type: ignore[union-attr]
+        if full is None or full.started_at is None:
+            return None
+        if as_utc(full.started_at) < datetime.now(timezone.utc) - _FULL_RESYNC_INTERVAL:
+            return None
+
+        return as_utc(last.started_at) - _INCREMENTAL_OVERLAP
+
     @staticmethod
     def _unchanged_since(
         external_ticket: Dict,
@@ -749,10 +823,16 @@ class BoardSyncService:
                   before. The summary engine passes it so a read-triggered sync
                   is not a whole-board pull.
 
-                ``full_sync`` and ``force`` arrive from the CLI, MCP and router
-                request models but have never been read here -- the pull was
-                always full. They are listed so nobody re-reads this signature
-                and assumes otherwise.
+                * ``full_sync`` -- re-pull the whole board instead of
+                  resuming from the last successful sync. The repair path, for a
+                  board somebody suspects has drifted.
+
+                With neither ``since`` nor ``full_sync``, the pull resumes from
+                `_resume_point` once the board has one completed sync behind it;
+                a board's first sync is always full.
+
+                ``force`` arrives from the same request models and is still not
+                read here -- listed so nobody assumes otherwise.
 
         Returns:
             Dict with sync results
@@ -760,6 +840,7 @@ class BoardSyncService:
         options = options or {}
         dry_run = options.get("dry_run", False)
         since = _parse_since(options.get("since"))
+        full_sync = bool(options.get("full_sync"))
 
         results = {
             "success": False,
@@ -832,7 +913,32 @@ class BoardSyncService:
             # for first, and the summary engine passes a window on every gate-1
             # sync. First sync is therefore always a full pull; the latency win
             # applies from the second onwards, when there is a baseline to trust.
+            # **Resume rather than re-pull, unless asked for a full sync.**
+            # Every guard above still applies; the only change is that `since`
+            # no longer has to be supplied by hand. Without this, `innoday sync`
+            # fetched all 258 of BPAI's issues every run and wrote almost none
+            # of them -- the adapter already filters server-side
+            # (`filter: { updatedAt: { gte: … } }`) and nothing was using it.
+            #
+            # `full_sync` is the escape hatch, and the router has described this
+            # field as "full sync vs incremental" all along; it simply had no
+            # behaviour behind it. A full pull stays the repair path for a board
+            # somebody suspects has drifted.
+            if (
+                since is None
+                and not full_sync
+                and registration.last_sync_at is not None
+            ):
+                since = self._resume_point(session, registration)
+
             windowed = since is not None and registration.last_sync_at is not None
+            results["resumed_from"] = since.isoformat() if windowed else None
+            # Recorded so `_resume_point` can tell when the next full
+            # reconciliation is due. Written here rather than at the end
+            # because this is where the decision is actually made.
+            results["full_sync"] = not windowed
+            if sync_history is not None:
+                sync_history.full_sync = not windowed
             if not windowed:
                 tickets_from_board = await adapter.get_tickets(
                     registration.board_external_id

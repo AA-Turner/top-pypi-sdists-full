@@ -155,6 +155,17 @@ def test_scipy_fixed(grad):
         assert m.fmin.ngrad == 0
 
 
+def test_scipy_clears_merrors():
+    m = Minuit(fcn, a=1, b=2)
+    m.migrad()
+    m.minos()
+    assert len(m.merrors) == 2
+    m.values = (5, 5)
+    m.scipy()
+    assert len(m.merrors) == 0
+    assert m.params[0].merror is None
+
+
 @pytest.mark.parametrize("stra", (0, 1))
 @pytest.mark.parametrize("grad", (None, grad))
 def test_scipy_errordef(stra, grad):
@@ -203,6 +214,29 @@ def test_scipy_constraints_1(lb, fixed):
     else:
         assert_allclose(m.values, [lb, lb, lb], atol=1e-3)
     assert m.accurate
+
+
+def test_scipy_nonlinear_constraint_not_mutated():
+    def fcn(a, x, y):
+        return a + x**2 + y**2
+
+    def confun(a, x, y):
+        return a
+
+    nc = scopt.NonlinearConstraint(confun, 0, np.inf)
+    fun_before = nc.fun
+
+    m = Minuit(fcn, a=3, x=1, y=2)
+    m.scipy(constraints=[nc])
+    assert_allclose(m.values, [0, 0, 0], atol=1e-3)
+    assert nc.fun is fun_before
+
+    # a second call fails if fun is double-wrapped, because the wrapper expects
+    # the original positional signature
+    m2 = Minuit(fcn, a=3, x=1, y=2)
+    m2.scipy(constraints=[nc])
+    assert_allclose(m2.values, [0, 0, 0], atol=1e-3)
+    assert nc.fun is fun_before
 
 
 @pytest.mark.parametrize("fixed", (False, True))
@@ -280,3 +314,40 @@ def test_options():
     b_with_options = m.values["b"]
 
     assert b_without_options > b_with_options
+
+
+def test_options_not_modified():
+    m = Minuit(fcn, a=1, b=2)
+    opts = {"disp": False}
+    m.scipy(options=opts)
+    assert m.valid
+    assert opts == {"disp": False}
+
+
+def test_ncall_counts_only_current_run():
+    def rosen3(x):
+        return sum(100 * (x[1:] - x[:-1] ** 2) ** 2 + (1 - x[:-1]) ** 2)
+
+    m = Minuit(rosen3, np.zeros(3))
+    m.errordef = 1
+    m.migrad()
+    nfcn_before = m.nfcn
+    assert nfcn_before > 100
+    m.strategy = 0
+    m.values = (0.9, 0.9, 0.9)
+    m.scipy(ncall=100)
+    assert m.valid
+    assert not m.fmin.has_reached_call_limit
+    assert m.fmin.nfcn == m.nfcn
+    assert m.fmin.nfcn > nfcn_before
+
+
+def test_covariance_updated_with_strategy_0():
+    m = Minuit(fcn, a=1, b=2)
+    m.migrad()
+    cov1 = np.array(m.covariance)
+    m.strategy = 0
+    m.values = (5, 5)
+    m.scipy()
+    assert m._last_state.has_covariance
+    assert not np.array_equal(np.array(m.covariance), cov1)

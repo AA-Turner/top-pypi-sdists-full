@@ -23,7 +23,7 @@ from typing import IO, Any, Union
 
 from botocore.response import StreamingBody
 
-from .literals import MetaFlowCategoryType, RegistrationStatusType
+from .literals import MetaFlowCategoryType, RegistrationStatusType, WhatsAppDayOfWeekType
 
 if sys.version_info >= (3, 12):
     from typing import NotRequired, TypedDict
@@ -57,6 +57,8 @@ __all__ = (
     "GetLinkedWhatsAppBusinessAccountPhoneNumberOutputTypeDef",
     "GetWhatsAppBusinessPublicKeyInputTypeDef",
     "GetWhatsAppBusinessPublicKeyOutputTypeDef",
+    "GetWhatsAppCallPermissionInputTypeDef",
+    "GetWhatsAppCallPermissionOutputTypeDef",
     "GetWhatsAppFlowInputTypeDef",
     "GetWhatsAppFlowOutputTypeDef",
     "GetWhatsAppFlowPreviewInputTypeDef",
@@ -106,6 +108,8 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "S3FileTypeDef",
     "S3PresignedUrlTypeDef",
+    "SendWhatsAppCallEventInputTypeDef",
+    "SendWhatsAppCallEventOutputTypeDef",
     "SendWhatsAppConversionEventInputTypeDef",
     "SendWhatsAppConversionEventOutputTypeDef",
     "SendWhatsAppMessageInputTypeDef",
@@ -116,6 +120,8 @@ __all__ = (
     "TemplateSummaryTypeDef",
     "UntagResourceInputTypeDef",
     "UntagResourceOutputTypeDef",
+    "UpdateLinkedWhatsAppBusinessAccountPhoneNumberInputTypeDef",
+    "UpdateLinkedWhatsAppBusinessAccountPhoneNumberOutputTypeDef",
     "UpdateWhatsAppFlowAssetsInputTypeDef",
     "UpdateWhatsAppFlowAssetsOutputTypeDef",
     "UpdateWhatsAppFlowInputTypeDef",
@@ -123,11 +129,22 @@ __all__ = (
     "WabaPhoneNumberSetupFinalizationTypeDef",
     "WabaSetupFinalizationTypeDef",
     "WhatsAppBusinessAccountEventDestinationTypeDef",
+    "WhatsAppCallHoursOutputTypeDef",
+    "WhatsAppCallHoursTypeDef",
+    "WhatsAppCallPermissionActionTypeDef",
+    "WhatsAppCallPermissionLimitTypeDef",
+    "WhatsAppCallPermissionTypeDef",
+    "WhatsAppCallSettingsOutputTypeDef",
+    "WhatsAppCallSettingsTypeDef",
+    "WhatsAppCallSettingsUnionTypeDef",
+    "WhatsAppHolidayScheduleEntryTypeDef",
     "WhatsAppPhoneNumberDetailTypeDef",
     "WhatsAppPhoneNumberSummaryTypeDef",
     "WhatsAppSetupFinalizationTypeDef",
     "WhatsAppSignupCallbackResultTypeDef",
     "WhatsAppSignupCallbackTypeDef",
+    "WhatsAppTimeOfDayTypeDef",
+    "WhatsAppWeeklyOperatingHoursEntryTypeDef",
 )
 
 
@@ -221,6 +238,17 @@ class WhatsAppPhoneNumberDetailTypeDef(TypedDict):
 
 class GetWhatsAppBusinessPublicKeyInputTypeDef(TypedDict):
     originationPhoneNumberId: str
+
+
+class GetWhatsAppCallPermissionInputTypeDef(TypedDict):
+    originationPhoneNumberId: str
+    destinationPhoneNumber: NotRequired[str]
+    endUserBsuid: NotRequired[str]
+
+
+class WhatsAppCallPermissionTypeDef(TypedDict):
+    status: str
+    expirationTime: NotRequired[datetime]
 
 
 GetWhatsAppFlowInputTypeDef = TypedDict(
@@ -454,6 +482,18 @@ UpdateWhatsAppFlowInputTypeDef = TypedDict(
 )
 
 
+class WhatsAppCallPermissionLimitTypeDef(TypedDict):
+    timePeriod: str
+    maxAllowed: int
+    currentUsage: int
+    limitExpirationTime: NotRequired[datetime]
+
+
+class WhatsAppTimeOfDayTypeDef(TypedDict):
+    hours: int
+    minutes: int
+
+
 class CreateWhatsAppDatasetOutputTypeDef(TypedDict):
     datasetId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -511,6 +551,11 @@ class PostWhatsAppMessageMediaOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class SendWhatsAppCallEventOutputTypeDef(TypedDict):
+    callId: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
 class SendWhatsAppConversionEventOutputTypeDef(TypedDict):
     requestId: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -528,6 +573,11 @@ class TagResourceOutputTypeDef(TypedDict):
 
 class UntagResourceOutputTypeDef(TypedDict):
     statusCode: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class UpdateLinkedWhatsAppBusinessAccountPhoneNumberOutputTypeDef(TypedDict):
+    phoneNumberId: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -555,6 +605,14 @@ CreateWhatsAppMessageTemplateInputTypeDef = TypedDict(
         "id": str,
     },
 )
+
+
+class SendWhatsAppCallEventInputTypeDef(TypedDict):
+    originationPhoneNumberId: str
+    metaApiVersion: str
+    callEvent: BlobTypeDef
+
+
 SendWhatsAppConversionEventInputTypeDef = TypedDict(
     "SendWhatsAppConversionEventInputTypeDef",
     {
@@ -599,12 +657,6 @@ CreateWhatsAppMessageTemplateMediaInputTypeDef = TypedDict(
         "sourceS3File": NotRequired[S3FileTypeDef],
     },
 )
-
-
-class GetLinkedWhatsAppBusinessAccountPhoneNumberOutputTypeDef(TypedDict):
-    phoneNumber: WhatsAppPhoneNumberDetailTypeDef
-    linkedWhatsAppBusinessAccountId: str
-    ResponseMetadata: ResponseMetadataTypeDef
 
 
 class LinkedWhatsAppBusinessAccountIdMetaDataTypeDef(TypedDict):
@@ -784,6 +836,24 @@ class MetaFlowHealthStatusTypeDef(TypedDict):
     entities: NotRequired[list[MetaFlowHealthEntityTypeDef]]
 
 
+class WhatsAppCallPermissionActionTypeDef(TypedDict):
+    actionName: str
+    canPerformAction: bool
+    limits: list[WhatsAppCallPermissionLimitTypeDef]
+
+
+class WhatsAppHolidayScheduleEntryTypeDef(TypedDict):
+    date: str
+    startTime: WhatsAppTimeOfDayTypeDef
+    endTime: WhatsAppTimeOfDayTypeDef
+
+
+class WhatsAppWeeklyOperatingHoursEntryTypeDef(TypedDict):
+    dayOfWeek: WhatsAppDayOfWeekType
+    openTime: WhatsAppTimeOfDayTypeDef
+    closeTime: WhatsAppTimeOfDayTypeDef
+
+
 class WhatsAppSignupCallbackResultTypeDef(TypedDict):
     associateInProgressToken: NotRequired[str]
     linkedAccountsWithIncompleteSetup: NotRequired[
@@ -840,6 +910,26 @@ class GetWhatsAppFlowOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class GetWhatsAppCallPermissionOutputTypeDef(TypedDict):
+    permission: WhatsAppCallPermissionTypeDef
+    actions: list[WhatsAppCallPermissionActionTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+class WhatsAppCallHoursOutputTypeDef(TypedDict):
+    enabled: bool
+    timezone: str
+    weeklyOperatingHours: list[WhatsAppWeeklyOperatingHoursEntryTypeDef]
+    holidaySchedule: NotRequired[list[WhatsAppHolidayScheduleEntryTypeDef]]
+
+
+class WhatsAppCallHoursTypeDef(TypedDict):
+    enabled: bool
+    timezone: str
+    weeklyOperatingHours: Sequence[WhatsAppWeeklyOperatingHoursEntryTypeDef]
+    holidaySchedule: NotRequired[Sequence[WhatsAppHolidayScheduleEntryTypeDef]]
+
+
 class AssociateWhatsAppBusinessAccountOutputTypeDef(TypedDict):
     signupCallbackResult: WhatsAppSignupCallbackResultTypeDef
     statusCode: int
@@ -850,3 +940,36 @@ class AssociateWhatsAppBusinessAccountOutputTypeDef(TypedDict):
 class AssociateWhatsAppBusinessAccountInputTypeDef(TypedDict):
     signupCallback: NotRequired[WhatsAppSignupCallbackTypeDef]
     setupFinalization: NotRequired[WhatsAppSetupFinalizationTypeDef]
+
+
+class WhatsAppCallSettingsOutputTypeDef(TypedDict):
+    callEnabled: bool
+    callHours: NotRequired[WhatsAppCallHoursOutputTypeDef]
+    callIconVisibility: NotRequired[str]
+    callbackPermissionStatus: NotRequired[str]
+
+
+class WhatsAppCallSettingsTypeDef(TypedDict):
+    callEnabled: bool
+    callHours: NotRequired[WhatsAppCallHoursTypeDef]
+    callIconVisibility: NotRequired[str]
+    callbackPermissionStatus: NotRequired[str]
+
+
+class GetLinkedWhatsAppBusinessAccountPhoneNumberOutputTypeDef(TypedDict):
+    phoneNumber: WhatsAppPhoneNumberDetailTypeDef
+    linkedWhatsAppBusinessAccountId: str
+    callSettings: WhatsAppCallSettingsOutputTypeDef
+    ResponseMetadata: ResponseMetadataTypeDef
+
+
+WhatsAppCallSettingsUnionTypeDef = Union[
+    WhatsAppCallSettingsTypeDef, WhatsAppCallSettingsOutputTypeDef
+]
+UpdateLinkedWhatsAppBusinessAccountPhoneNumberInputTypeDef = TypedDict(
+    "UpdateLinkedWhatsAppBusinessAccountPhoneNumberInputTypeDef",
+    {
+        "id": str,
+        "callSettings": WhatsAppCallSettingsUnionTypeDef,
+    },
+)

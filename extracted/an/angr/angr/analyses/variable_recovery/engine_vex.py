@@ -3,10 +3,10 @@ from __future__ import annotations
 
 from typing import cast
 
-import claripy
 import pyvex
 from archinfo.arch_arm import is_arm_arch
 
+from angr import claripy
 from angr.analyses.typehoon import typeconsts, typevars
 from angr.block import Block
 from angr.calling_conventions import SimRegArg, SimStackArg, SimTypeFunction, default_cc
@@ -311,7 +311,9 @@ class SimEngineVRVEX(
 
         typevar = None
         if r0.typevar is not None and r1.data.concrete:
-            typevar = self.tv_manager.new_dtv(r0.typevar, label=typevars.AddN(r1.data.concrete_value))
+            typevar = self.tv_manager.new_dtv(
+                r0.typevar, label=typevars.add_label(r1.data.concrete_value, r1.data.size())
+            )
 
         tc: set[typevars.TypeConstraint] = set()
         if r0.typevar is not None and r1.typevar is not None:
@@ -334,7 +336,9 @@ class SimEngineVRVEX(
 
         typevar = None
         if r0.typevar is not None and r1.data.concrete:
-            typevar = self.tv_manager.new_dtv(r0.typevar, label=typevars.SubN(r1.data.concrete_value))
+            typevar = self.tv_manager.new_dtv(
+                r0.typevar, label=typevars.sub_label(r1.data.concrete_value, r1.data.size())
+            )
 
         return RichR(
             diff,

@@ -8,10 +8,10 @@ from collections.abc import Iterable, Iterator
 from typing import TYPE_CHECKING, cast
 
 import archinfo
-import claripy
 from archinfo import RegisterName
 
 import angr
+from angr import claripy
 
 from .errors import AngrTypeError
 from .rust.sim_type import RustSimEnum
@@ -39,6 +39,7 @@ from .sim_type import (
     SimTypeReg,
     SimTypeString,
     SimUnion,
+    TypeRef,
     parse_signature,
 )
 from .state_plugins.sim_action_object import SimActionObject
@@ -174,7 +175,9 @@ def refine_locs_with_struct_type(
             for i in range(arg_type.length)
         ]
         return SimArrayArg(locs_list)
-    if isinstance(arg_type, SimStruct):
+    # An opaque class has a size and no members: nothing to lay out field by field, so leave it to the
+    # integer case below, which is how SimCCSystemVAMD64._classify already classifies it.
+    if isinstance(arg_type, SimStruct) and (arg_type.fields or not arg_type.size):
         locs_dict = {
             field: refine_locs_with_struct_type(arch, locs, field_ty, offset=offset + arg_type.offsets[field])
             for field, field_ty in arg_type.fields.items()
@@ -1020,6 +1023,10 @@ class SimCC:
             alloc_base -= allocator.size()
         if type(alloc_base) is int:
             alloc_base = claripy.BVV(alloc_base, state.arch.bits)
+        elif len(alloc_base) != state.arch.bits:
+            # The allocator lays its data out in pointer-width arithmetic, but the stack pointer register can be wider
+            # than a pointer (MIPS n32 keeps its 32-bit stack pointer in a 64-bit register). Keep the address bits.
+            alloc_base = alloc_base[state.arch.bits - 1 : 0]
 
         for i, val in enumerate(vals):
             vals[i] = allocator.translate(val, alloc_base)
@@ -1488,6 +1495,43 @@ class SimCCMicrosoftFastcall(SimCC):
             locs_size += locs[-1].size
         return refine_locs_with_struct_type(self.arch, locs, arg_type)
 
+    STRUCT_RETURN_THRESHOLD = 64
+
+    def return_val(self, ty, perspective_returned=False):
+        # __fastcall changes how arguments are passed, not how values are returned: on Windows x86 an
+        # aggregate of at most eight bytes comes back in EAX:EDX and a larger one is written through a
+        # hidden pointer, exactly as for __cdecl. OVERFLOW_RETURN_VAL above already states this, but
+        # without an override the base class refuses every aggregate return type.
+        #
+        # The hidden pointer's location is taken from next_arg rather than assumed, because it is the
+        # call's first argument and __fastcall passes that in ECX -- not in the stack slot that
+        # SimCCCdecl.return_val hard-codes for its own convention. That is why this cannot simply
+        # inherit or delegate to the cdecl implementation.
+        if ty._arch is None:
+            ty = ty.with_arch(self.arch)
+        if not isinstance(ty, SimStruct):
+            return super().return_val(ty, perspective_returned)
+
+        if ty.size > self.STRUCT_RETURN_THRESHOLD:
+            byte_size = ty.size // self.arch.byte_width
+            referenced_locs = [SimStackArg(offset, self.arch.bytes) for offset in range(0, byte_size, self.arch.bytes)]
+            referenced_loc = refine_locs_with_struct_type(self.arch, referenced_locs, ty)
+            if perspective_returned:
+                ptr_loc = self.RETURN_VAL
+            else:
+                ptr_loc = self.next_arg(self.ArgSession(self), SimTypePointer(SimTypeBottom()).with_arch(self.arch))
+            assert ptr_loc is not None
+            return SimReferenceArgument(ptr_loc, referenced_loc)
+
+        return refine_locs_with_struct_type(self.arch, [self.RETURN_VAL, self.OVERFLOW_RETURN_VAL], ty)
+
+    def return_in_implicit_outparam(self, ty):
+        # Kept consistent with return_val: when the aggregate comes back through a hidden pointer that
+        # pointer is the first argument, so it must consume ECX and push the declared arguments along.
+        if isinstance(ty, SimTypeBottom):
+            return False
+        return isinstance(ty, SimStruct) and ty.size > self.STRUCT_RETURN_THRESHOLD
+
 
 class MicrosoftAMD64ArgSession(ArgSession):
     pass
@@ -1532,9 +1576,12 @@ class SimCCMicrosoftAMD64(SimCC):
         return SimReferenceArgument(int_loc, referenced_loc)
 
     def return_in_implicit_outparam(self, ty):
-        if isinstance(ty, (SimTypeBottom, SimTypeRef)):
+        if isinstance(ty, TypeRef):
+            ty = ty.type
+        if isinstance(ty, (SimTypeBottom, SimTypeRef, SimTypeFloat)):
             return False
-        return not isinstance(ty, SimTypeFloat) and ty.size > self.STRUCT_RETURN_THRESHOLD
+        size = ty.size
+        return size is not None and size > self.STRUCT_RETURN_THRESHOLD
 
     def return_val(self, ty, perspective_returned=False):
         if ty._arch is None:

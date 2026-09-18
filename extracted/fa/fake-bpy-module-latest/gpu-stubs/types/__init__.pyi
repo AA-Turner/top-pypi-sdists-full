@@ -360,6 +360,13 @@ This is deprecated and will always return -1."""
         :param texture: Texture to attach.
         """
 
+    def storage_block(self, name: str, ssbo: GPUStorageBuf) -> None:
+        """Specify the value of a storage buffer object variable for the current GPUShader.
+
+        :param name: Name of the storage block variable whose SSBO is to be specified.
+        :param ssbo: Storage Buffer to attach.
+        """
+
     def uniform_block(self, name: str, ubo: GPUUniformBuf) -> None:
         """Specify the value of a uniform buffer object variable for the current GPUShader.
 
@@ -704,6 +711,21 @@ class GPUShaderCreateInfo:
         :param name: The image texture sampler name.
         """
 
+    def storage_buf(
+        self,
+        slot: int,
+        qualifiers: set[typing.Literal["NO_RESTRICT", "READ", "WRITE"]],
+        type_name: str,
+        name: str,
+    ) -> None:
+        """Specify a storage buffer variable whose type can be one of those declared in `gpu.types.GPUShaderCreateInfo.typedef_source`.
+
+        :param slot: The storage buffer variable index.
+        :param qualifiers: Set containing values that describe how the storage buffer is to be read or written.
+        :param type_name: Name of the data type. It can be a struct type defined in the source passed through the `gpu.types.GPUShaderCreateInfo.typedef_source`.
+        :param name: The storage buffer variable name.
+        """
+
     def typedef_source(self, source: str) -> None:
         """Source code included before resource declaration. Useful for defining structs used by Uniform Buffers.Example:
 
@@ -850,6 +872,31 @@ class GPUStageInterfaceInfo:
 
         :param type: The data type of the attribute.
         :param name: name of the attribute.
+        """
+
+class GPUStorageBuf:
+    """This object gives access to storage buffers."""
+
+    def __init__(self, data: Buffer) -> None:
+        """
+
+        :param data: Data to fill the buffer.
+        """
+
+    def clear_to_zero(self) -> None:
+        """Clear the storage buffer data to zero."""
+
+    def read(self) -> Buffer:
+        """Read back the contents of the storage buffer.
+        This waits until all GPU operations are finished, performing the necessary synchronization.
+
+                :return: The Buffer with the read data.
+        """
+
+    def update(self, data: Buffer) -> None:
+        """Update the data of the storage buffer object.
+
+        :param data: Data to fill the buffer.
         """
 
 class GPUTexture:

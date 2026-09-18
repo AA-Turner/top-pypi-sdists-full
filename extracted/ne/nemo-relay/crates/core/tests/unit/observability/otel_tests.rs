@@ -10,8 +10,9 @@ use crate::api::event::{
 };
 use crate::api::runtime::{
     NemoRelayContextState, PropagationContext, ThreadScopeStackBinding,
-    capture_propagation_context, capture_thread_scope_stack, create_scope_stack_from_propagation,
-    fork_scope_stack, global_context, restore_thread_scope_stack, set_thread_scope_stack,
+    capture_propagation_context, capture_rootless_propagation_context, capture_thread_scope_stack,
+    create_scope_stack_from_propagation, fork_scope_stack, global_context,
+    restore_thread_scope_stack, set_thread_scope_stack,
 };
 use crate::api::scope::ScopeType;
 use crate::api::scope::{event, pop_scope, push_scope};
@@ -53,12 +54,20 @@ impl Drop for ResetPricingResolverGuard {
     }
 }
 
-struct ClearPluginConfigurationGuard;
+struct ClosePluginHostGuard;
 
-impl Drop for ClearPluginConfigurationGuard {
+impl Drop for ClosePluginHostGuard {
     fn drop(&mut self) {
-        let _ = crate::plugin::clear_plugin_configuration();
+        let _ = crate::plugin::test_close_plugin_host();
     }
+}
+
+fn test_tokio_runtime() -> tokio::runtime::Runtime {
+    tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
+        .enable_all()
+        .build()
+        .unwrap()
 }
 
 #[test]
@@ -112,6 +121,8 @@ fn shutdown_is_idempotent_for_all_otlp_subscribers() {
 #[test]
 fn shutdown_normalization_preserves_provider_failures() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
+    let runtime = test_tokio_runtime();
+    let _runtime_guard = runtime.enter();
 
     assert!(normalize_shutdown_result(Err(OTelSdkError::AlreadyShutdown)).is_ok());
 
@@ -211,6 +222,8 @@ impl SpanExporter for BlockingSpanExporter {
 fn slow_trace_flush_does_not_block_other_subscribers_or_lifecycle_barriers() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
     reset_global();
+    let runtime = test_tokio_runtime();
+    let _runtime_guard = runtime.enter();
 
     let exporter = BlockingSpanExporter::default();
     let processor = DiagnosticBatchSpanProcessor::new_with_batch_config(
@@ -640,32 +653,89 @@ fn make_start_event(
 #[test]
 fn propagated_root_parent_projects_as_a_remote_otel_parent() {
     let root_uuid = Uuid::now_v7();
+    let parent_uuid = Uuid::now_v7();
     let _restore_guard = RestoreThreadScopeStackGuard(capture_thread_scope_stack());
     let imported_stack = create_scope_stack_from_propagation(&PropagationContext {
         version: PropagationContext::VERSION,
         root_uuid: Some(root_uuid),
-        parent_uuid: root_uuid,
+        parent_uuid,
     })
     .unwrap();
     set_thread_scope_stack(imported_stack);
 
     let processor = OtelEventProcessor::new(make_provider().0, "test".into());
-    let parent_context = processor.parent_context(&make_start_event(
+    let mut event = make_start_event(
         Uuid::now_v7(),
-        Some(root_uuid),
+        Some(parent_uuid),
         "receiver-tool",
         ScopeType::Tool,
         None,
-    ));
+    );
+    event.set_propagation_root_uuid(Some(root_uuid));
+    event.set_propagation_parent_uuid(Some(parent_uuid));
+    let parent_context = processor.parent_context(&event);
     let parent_span = parent_context.span();
     let span_context = parent_span.span_context();
     assert!(span_context.is_remote());
     assert_eq!(span_context.trace_id(), relay_trace_id(root_uuid));
-    assert_eq!(span_context.span_id(), relay_span_id(root_uuid));
+    assert_eq!(span_context.span_id(), relay_span_id(parent_uuid));
 }
 
 #[test]
-fn rootless_propagation_starts_a_new_otel_trace() {
+fn local_unexported_parent_starts_a_root_trace() {
+    let parent_uuid = Uuid::now_v7();
+    let agent_uuid = Uuid::now_v7();
+    let (provider, exporter) = make_provider();
+    let mut processor = OtelEventProcessor::new(provider, "test".into());
+    let mut start = make_start_event(
+        agent_uuid,
+        Some(parent_uuid),
+        "receiver-agent",
+        ScopeType::Agent,
+        None,
+    );
+    start.set_propagation_root_uuid(Some(agent_uuid));
+
+    processor.process(&start);
+    processor.process(&make_end_event(
+        agent_uuid,
+        Some(parent_uuid),
+        "receiver-agent",
+        ScopeType::Agent,
+        None,
+    ));
+    processor.force_flush().unwrap();
+
+    let spans = exporter.get_finished_spans().unwrap();
+    assert_eq!(spans.len(), 1);
+    let span = &spans[0];
+    assert_eq!(span.span_context.trace_id(), relay_trace_id(agent_uuid));
+    assert_eq!(span.parent_span_id, SpanId::INVALID);
+    assert!(!span.parent_span_is_remote);
+}
+
+#[test]
+fn orphan_mark_with_a_local_unexported_parent_starts_a_new_trace() {
+    let parent_uuid = Uuid::now_v7();
+    let (provider, exporter) = make_provider();
+    let mut processor = OtelEventProcessor::new(provider, "test".into());
+    let mut mark = make_mark_event(Some(parent_uuid), "detached", None);
+    let mark_uuid = mark.uuid();
+    mark.set_propagation_root_uuid(Some(Uuid::now_v7()));
+
+    processor.process(&mark);
+    processor.force_flush().unwrap();
+
+    let spans = exporter.get_finished_spans().unwrap();
+    assert_eq!(spans.len(), 1);
+    let span = &spans[0];
+    assert_eq!(span.span_context.trace_id(), relay_trace_id(mark_uuid));
+    assert_eq!(span.parent_span_id, SpanId::INVALID);
+    assert!(!span.parent_span_is_remote);
+}
+
+#[test]
+fn rootless_propagation_remains_rootless_when_forked() {
     let parent_uuid = Uuid::now_v7();
     let local_uuid = Uuid::now_v7();
     let _restore_guard = RestoreThreadScopeStackGuard(capture_thread_scope_stack());
@@ -677,7 +747,7 @@ fn rootless_propagation_starts_a_new_otel_trace() {
     .unwrap();
     set_thread_scope_stack(imported_stack);
 
-    let captured = capture_propagation_context().unwrap();
+    let captured = capture_rootless_propagation_context().unwrap();
     assert_eq!(captured.root_uuid, None);
     assert_eq!(captured.parent_uuid, parent_uuid);
 
@@ -687,17 +757,23 @@ fn rootless_propagation_starts_a_new_otel_trace() {
         assert_eq!(forked_stack.root_uuid(), parent_uuid);
         assert_eq!(forked_stack.top().uuid, parent_uuid);
     }
-    set_thread_scope_stack(forked_stack);
+    let propagation_root_uuid = forked_stack.read().unwrap().event_propagation_root_uuid();
+    set_thread_scope_stack(forked_stack.clone());
+    let forked_context = capture_propagation_context().unwrap();
+    assert_eq!(forked_context.root_uuid, None);
 
     let (provider, exporter) = make_provider();
     let mut processor = OtelEventProcessor::new(provider, "test".into());
-    processor.process(&make_start_event(
+    let mut start = make_start_event(
         local_uuid,
         Some(parent_uuid),
         "receiver-tool",
         ScopeType::Tool,
         None,
-    ));
+    );
+    start.set_propagation_root_uuid(propagation_root_uuid);
+    assert_eq!(start.propagation_root_uuid(), None);
+    processor.process(&start);
     processor.process(&make_end_event(
         local_uuid,
         Some(parent_uuid),
@@ -714,6 +790,24 @@ fn rootless_propagation_starts_a_new_otel_trace() {
     assert_eq!(span.span_context.span_id(), relay_span_id(local_uuid));
     assert_eq!(span.parent_span_id, SpanId::INVALID);
     assert!(!span.parent_span_is_remote);
+}
+
+#[test]
+fn default_propagation_context_preserves_the_imported_root() {
+    let root_uuid = Uuid::now_v7();
+    let parent_uuid = Uuid::now_v7();
+    let _restore_guard = RestoreThreadScopeStackGuard(capture_thread_scope_stack());
+    let imported_stack = create_scope_stack_from_propagation(&PropagationContext {
+        version: PropagationContext::VERSION,
+        root_uuid: Some(root_uuid),
+        parent_uuid,
+    })
+    .unwrap();
+    set_thread_scope_stack(imported_stack);
+
+    let captured = capture_propagation_context().unwrap();
+    assert_eq!(captured.root_uuid, Some(root_uuid));
+    assert_eq!(captured.parent_uuid, parent_uuid);
 }
 
 #[test]
@@ -1281,6 +1375,7 @@ fn make_mark_event_with_metadata(parent_uuid: Option<Uuid>, metadata: Json) -> E
 struct CapturedHttpRequest {
     path: String,
     content_type: String,
+    authorization: Option<String>,
     body: Vec<u8>,
 }
 
@@ -1306,6 +1401,7 @@ fn read_http_request(stream: &mut impl Read) -> CapturedHttpRequest {
     CapturedHttpRequest {
         path: request_line.split_whitespace().nth(1).unwrap().to_string(),
         content_type: header_value(&headers_text, "content-type").unwrap_or_default(),
+        authorization: header_value(&headers_text, "authorization"),
         body: bytes[header_end..header_end + content_length].to_vec(),
     }
 }
@@ -1362,6 +1458,7 @@ fn config_defaults_and_builder_overrides_are_applied() {
         OpenTelemetryConfig::new(OpenTelemetryType::Full, "http://localhost:4318/v1/traces")
             .with_service_name("demo-agent")
             .with_header("authorization", "Bearer token")
+            .with_header_env("x-api-key", "NEMO_RELAY_TEST_API_KEY")
             .with_resource_attribute("deployment.environment", "test")
             .with_service_namespace("agents")
             .with_service_version("1.2.3")
@@ -1380,6 +1477,10 @@ fn assert_config_builder_overrides(config: &OpenTelemetryConfig) {
     assert_eq!(
         config.headers.get("authorization"),
         Some(&"Bearer token".into())
+    );
+    assert_eq!(
+        config.header_env.get("x-api-key"),
+        Some(&"NEMO_RELAY_TEST_API_KEY".into())
     );
     assert_eq!(
         config.resource_attributes.get("deployment.environment"),
@@ -1404,6 +1505,39 @@ fn assert_config_defaults(defaults: &OpenTelemetryConfig) {
     assert_eq!(defaults.timeout, Duration::from_secs(3));
     assert!(defaults.headers.is_empty());
     assert!(defaults.resource_attributes.is_empty());
+}
+
+#[test]
+fn subscribers_reject_configured_telemetry_sdk_resource_attributes() {
+    for key in [
+        "telemetry.sdk.name",
+        "telemetry.sdk.language",
+        "telemetry.sdk.version",
+    ] {
+        let trace_error = OpenTelemetrySubscriber::new(
+            OpenTelemetryConfig::new(OpenTelemetryType::Full, "http://127.0.0.1:4318/v1/traces")
+                .with_resource_attribute(key, "configured"),
+        )
+        .err()
+        .expect("configured telemetry SDK trace attribute must be rejected");
+        assert!(trace_error.to_string().contains(key));
+
+        let log_error = OpenTelemetryLogSubscriber::new(
+            OpenTelemetryLogConfig::new("http://127.0.0.1:4318/v1/logs")
+                .with_resource_attribute(key, "configured"),
+        )
+        .err()
+        .expect("configured telemetry SDK log attribute must be rejected");
+        assert!(log_error.to_string().contains(key));
+
+        let metric_error = OpenTelemetryMetricSubscriber::new(
+            OpenTelemetryMetricConfig::new("http://127.0.0.1:4318/v1/metrics")
+                .with_resource_attribute(key, "configured"),
+        )
+        .err()
+        .expect("configured telemetry SDK metric attribute must be rejected");
+        assert!(metric_error.to_string().contains(key));
+    }
 }
 
 #[test]
@@ -1605,6 +1739,128 @@ fn direct_config_rejects_invalid_and_case_duplicate_headers() {
 }
 
 #[test]
+fn direct_config_rejects_invalid_header_env_without_exposing_values() {
+    let _guard = crate::observability::test_mutex().lock().unwrap();
+    let missing = format!("NEMO_RELAY_TEST_MISSING_HEADER_{}", Uuid::now_v7().simple());
+
+    for (variable, value, expected) in [
+        (missing.as_str(), None, "is not set"),
+        ("NEMO_RELAY_TEST_BLANK_HEADER", Some("  "), "nonblank value"),
+        (
+            "NEMO_RELAY_TEST_SECRET_HEADER",
+            Some("relay-secret\ninvalid"),
+            "valid header value",
+        ),
+    ] {
+        if let Some(value) = value {
+            unsafe { std::env::set_var(variable, value) };
+        }
+        let error = match OpenTelemetrySubscriber::new(
+            OpenTelemetryConfig::new(OpenTelemetryType::Full, "http://localhost:4318/v1/traces")
+                .with_header_env("authorization", variable),
+        ) {
+            Ok(_) => panic!("invalid header_env should fail activation"),
+            Err(error) => error,
+        };
+        let message = error.to_string();
+        assert!(message.contains(expected), "unexpected error: {message}");
+        assert!(!message.contains("relay-secret"));
+        unsafe { std::env::remove_var(variable) };
+    }
+
+    for variable in ["", " padded ", "INVALID=NAME", "INVALID\0NAME"] {
+        let error = match OpenTelemetrySubscriber::new(
+            OpenTelemetryConfig::new(OpenTelemetryType::Full, "http://localhost:4318/v1/traces")
+                .with_header_env("authorization", variable),
+        ) {
+            Ok(_) => panic!("invalid environment variable reference should fail activation"),
+            Err(error) => error,
+        };
+        assert!(error.to_string().contains("header_env must name"));
+    }
+
+    let error = match OpenTelemetrySubscriber::new(
+        OpenTelemetryConfig::new(OpenTelemetryType::Full, "http://localhost:4318/v1/traces")
+            .with_header("Authorization", "static")
+            .with_header_env("authorization", &missing),
+    ) {
+        Ok(_) => panic!("case-insensitive duplicate should fail before environment lookup"),
+        Err(error) => error,
+    };
+    assert!(
+        error
+            .to_string()
+            .contains("unique across headers and header_env")
+    );
+
+    unsafe { std::env::set_var(&missing, "valid") };
+    let exact_error = match OpenTelemetrySubscriber::new(
+        OpenTelemetryConfig::new(OpenTelemetryType::Full, "http://localhost:4318/v1/traces")
+            .with_header("authorization", "static")
+            .with_header_env("authorization", &missing),
+    ) {
+        Ok(_) => panic!("exact duplicate should fail activation"),
+        Err(error) => error,
+    };
+    assert!(
+        exact_error
+            .to_string()
+            .contains("unique across headers and header_env")
+    );
+    unsafe { std::env::remove_var(&missing) };
+}
+
+#[test]
+fn direct_config_rejects_case_duplicate_header_env_names() {
+    let missing = format!("NEMO_RELAY_TEST_MISSING_HEADER_{}", Uuid::now_v7().simple());
+    let error = match OpenTelemetrySubscriber::new(
+        OpenTelemetryConfig::new(OpenTelemetryType::Full, "http://localhost:4318/v1/traces")
+            .with_header_env("Authorization", &missing)
+            .with_header_env("authorization", &missing),
+    ) {
+        Ok(_) => panic!("case-insensitive header_env duplicate should fail activation"),
+        Err(error) => error,
+    };
+
+    assert!(
+        error
+            .to_string()
+            .contains("unique across headers and header_env")
+    );
+}
+
+#[cfg(unix)]
+#[test]
+fn direct_config_non_unicode_header_env_errors_do_not_expose_values() {
+    use std::os::unix::ffi::OsStringExt;
+
+    let _guard = crate::observability::test_mutex()
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    let variable = format!(
+        "NEMO_RELAY_TEST_NON_UNICODE_DIRECT_HEADER_{}",
+        Uuid::now_v7().simple()
+    );
+    let secret = "relay-direct-secret";
+    let mut value = vec![0xff];
+    value.extend_from_slice(secret.as_bytes());
+    unsafe { std::env::set_var(&variable, std::ffi::OsString::from_vec(value)) };
+
+    let error = match OpenTelemetrySubscriber::new(
+        OpenTelemetryConfig::new(OpenTelemetryType::Full, "http://localhost:4318/v1/traces")
+            .with_header_env("authorization", &variable),
+    ) {
+        Ok(_) => panic!("non-Unicode header environment value should fail activation"),
+        Err(error) => error,
+    };
+    let message = error.to_string();
+    assert!(message.contains(&variable));
+    assert!(!message.contains(secret));
+
+    unsafe { std::env::remove_var(variable) };
+}
+
+#[test]
 fn direct_config_rejects_process_global_otel_headers() {
     const CHILD_MARKER: &str = "NEMO_RELAY_TEST_GLOBAL_OTEL_HEADER_CHILD";
     if let Ok(variable) = std::env::var(CHILD_MARKER) {
@@ -1746,6 +2002,11 @@ fn mapped_aliases_are_typed_and_cannot_replace_projected_span_fields() {
     );
 }
 
+fn with_propagation_root(mut event: Event, root_uuid: Uuid) -> Event {
+    event.set_propagation_root_uuid(Some(root_uuid));
+    event
+}
+
 #[test]
 fn session_identity_is_projected_on_trace_roots_and_marks_only() {
     let (provider, exporter) = make_provider();
@@ -1754,71 +2015,79 @@ fn session_identity_is_projected_on_trace_roots_and_marks_only() {
     let root_uuid = Uuid::now_v7();
     let child_uuid = Uuid::now_v7();
     let second_root_uuid = Uuid::now_v7();
-    let instance_id = crate::api::runtime::current_scope_stack()
-        .read()
-        .unwrap()
-        .root_uuid()
-        .to_string();
+    let instance_id = root_uuid.to_string();
+    let second_instance_id = second_root_uuid.to_string();
     let identity = json!({
         "session_id": "logical-session",
         "user_id": "alice",
         "agent_kind": "claude-code"
     });
 
-    callback(&make_start_event_with_metadata(
+    callback(&with_propagation_root(
+        make_start_event_with_metadata(root_uuid, None, "identity-root", identity.clone()),
         root_uuid,
-        None,
-        "identity-root",
-        identity.clone(),
     ));
-    callback(&make_start_event_with_metadata(
-        child_uuid,
-        Some(root_uuid),
-        "identity-child",
-        identity.clone(),
-    ));
-    callback(&make_mark_event_with_metadata(
-        Some(root_uuid),
-        identity.clone(),
-    ));
-    callback(&make_end_event(
-        child_uuid,
-        Some(root_uuid),
-        "identity-child",
-        ScopeType::Agent,
-        None,
-    ));
-    callback(&make_end_event(
+    callback(&with_propagation_root(
+        make_start_event_with_metadata(
+            child_uuid,
+            Some(root_uuid),
+            "identity-child",
+            identity.clone(),
+        ),
         root_uuid,
-        None,
-        "identity-root",
-        ScopeType::Agent,
-        None,
     ));
-    callback(&make_start_event_with_metadata(
+    callback(&with_propagation_root(
+        make_mark_event_with_metadata(Some(root_uuid), identity.clone()),
+        root_uuid,
+    ));
+    callback(&with_propagation_root(
+        make_end_event(
+            child_uuid,
+            Some(root_uuid),
+            "identity-child",
+            ScopeType::Agent,
+            None,
+        ),
+        root_uuid,
+    ));
+    callback(&with_propagation_root(
+        make_end_event(root_uuid, None, "identity-root", ScopeType::Agent, None),
+        root_uuid,
+    ));
+    callback(&with_propagation_root(
+        make_start_event_with_metadata(
+            second_root_uuid,
+            None,
+            "identity-second-root",
+            json!({"session_id": "logical-session", "user_id": 42}),
+        ),
         second_root_uuid,
-        None,
-        "identity-second-root",
-        json!({"session_id": "logical-session", "user_id": 42}),
     ));
-    callback(&make_end_event(
+    callback(&with_propagation_root(
+        make_end_event(
+            second_root_uuid,
+            None,
+            "identity-second-root",
+            ScopeType::Agent,
+            None,
+        ),
         second_root_uuid,
-        None,
-        "identity-second-root",
-        ScopeType::Agent,
-        None,
     ));
-    callback(&make_mark_event_with_metadata(None, identity));
+    callback(&with_propagation_root(
+        make_mark_event_with_metadata(None, identity),
+        root_uuid,
+    ));
     subscriber.force_flush().unwrap();
 
     let spans = exporter.get_finished_spans().unwrap();
-    assert_session_root_and_child_identity(&spans, &instance_id);
+    assert_session_root_and_child_identity(&spans, &instance_id, &second_instance_id);
     assert_session_mark_identity(&spans);
 }
 
 fn assert_session_root_and_child_identity(
     spans: &[opentelemetry_sdk::trace::SpanData],
     instance_id: &str,
+    second_instance_id: &str,
 ) {
     let root = finished_span_named(spans, "identity-root");
     let child = finished_span_named(spans, "identity-child");
@@ -1857,7 +2126,7 @@ fn assert_session_root_and_child_identity(
     );
     assert_eq!(
         second_root_attributes["nemo_relay.session.instance_id"],
-        root_attributes["nemo_relay.session.instance_id"]
+        second_instance_id
     );
     assert_ne!(
         root.span_context.trace_id(),
@@ -2041,14 +2310,14 @@ fn gen_ai_projection_is_fixed_and_preserves_all_scope_parentage() {
         Some(reranker_uuid),
         "web-search",
         ScopeType::Tool,
-        Some(json!({"query": "must-not-export"})),
+        Some(json!({"query": "exported-tool-input"})),
     ));
     processor.process(&make_end_event(
         tool_uuid,
         Some(reranker_uuid),
         "web-search",
         ScopeType::Tool,
-        Some(json!({"result": "must-not-export"})),
+        Some(json!({"result": "exported-tool-result"})),
     ));
     processor.process(&make_end_event(
         reranker_uuid,
@@ -2219,6 +2488,7 @@ fn gen_ai_projection_emits_only_span_specific_attributes() {
             "search",
             [
                 "gen_ai.operation.name",
+                "gen_ai.tool.call.arguments",
                 "gen_ai.tool.call.id",
                 "gen_ai.tool.description",
                 "gen_ai.tool.name",
@@ -2254,7 +2524,11 @@ fn gen_ai_projection_emits_only_span_specific_attributes() {
         ),
     ];
     for (scope_type, name, expected) in cases {
-        let event = make_start_event(Uuid::now_v7(), None, name, scope_type, Some(common.clone()));
+        let mut event =
+            make_start_event(Uuid::now_v7(), None, name, scope_type, Some(common.clone()));
+        if let Event::Scope(scope) = &mut event {
+            scope.base.metadata = Some(common.clone());
+        }
         let attributes = crate::observability::otel_genai::start_attributes(&event);
         let actual = attributes
             .iter()
@@ -2289,6 +2563,344 @@ fn gen_ai_projection_emits_only_span_specific_attributes() {
         Some(&"7".to_string())
     );
     assert!(!embed_attributes.contains_key("gen_ai.usage.output_tokens"));
+}
+
+#[test]
+fn all_trace_projections_require_protected_remote_transport() {
+    for endpoint in [
+        "https://collector.example/v1/traces",
+        "http://localhost:4318/v1/traces",
+        "http://127.0.0.1:4318/v1/traces",
+        "http://127.0.0.2:4318/v1/traces",
+        "http://[::1]:4318/v1/traces",
+    ] {
+        assert!(validate_trace_endpoint(endpoint).is_ok(), "{endpoint}");
+    }
+    for endpoint in [
+        "http://collector.example/v1/traces",
+        "http://10.0.0.1:4318",
+        "http://[::]:4318",
+        "http://localhost.example:4318",
+        "http://localhost@collector.example:4318",
+        "ftp://localhost/traces",
+        "not a URL",
+    ] {
+        for transport in [OtlpTransport::HttpBinary, OtlpTransport::Grpc] {
+            for otel_type in [
+                OpenTelemetryType::Full,
+                OpenTelemetryType::GenAi,
+                OpenTelemetryType::OpenInference,
+            ] {
+                let result = OpenTelemetrySubscriber::new(
+                    OpenTelemetryConfig::new(otel_type, endpoint).with_transport(transport),
+                );
+                assert!(
+                    result.err().unwrap().to_string().contains("require HTTPS"),
+                    "{endpoint}"
+                );
+            }
+        }
+    }
+}
+
+#[test]
+fn gen_ai_tool_content_is_captured_by_default_and_object_shaped() {
+    use crate::observability::otel_genai::{end_attributes, start_attributes};
+    for (payload, expected) in [
+        (
+            json!({"query": "sanitized"}),
+            Some(json!({"query": "sanitized"})),
+        ),
+        (
+            json!("{\"query\":\"sanitized\"}"),
+            Some(json!({"query": "sanitized"})),
+        ),
+        (json!({}), Some(json!({}))),
+        (json!("plain text"), None),
+        (json!("[1,2]"), None),
+        (json!([1, 2]), None),
+        (json!(null), None),
+        (json!(false), None),
+        (json!(42), None),
+    ] {
+        let start = make_start_event(
+            Uuid::now_v7(),
+            None,
+            "search",
+            ScopeType::Tool,
+            Some(payload.clone()),
+        );
+        let mut end = make_end_event(start.uuid(), None, "search", ScopeType::Tool, Some(payload));
+        for (attrs, key) in [
+            (start_attributes(&start), "gen_ai.tool.call.arguments"),
+            (end_attributes(&end), "gen_ai.tool.call.result"),
+        ] {
+            let attrs = attr_map(&attrs);
+            let actual = attrs
+                .get(key)
+                .map(|value| serde_json::from_str::<Json>(value).unwrap());
+            assert_eq!(actual, expected.clone());
+        }
+        if let Event::Scope(scope) = &mut end {
+            scope.base.metadata = Some(json!({"otel.status_code": "ERROR"}));
+        }
+        let attrs = attr_map(&end_attributes(&end));
+        assert!(attrs.contains_key("error.type"));
+        assert!(!attrs.contains_key("gen_ai.tool.call.result"));
+    }
+}
+
+#[test]
+fn gen_ai_tool_identity_ignores_payload_keys_and_blank_metadata() {
+    let mut event = make_start_event(
+        Uuid::now_v7(),
+        None,
+        "search",
+        ScopeType::Tool,
+        Some(json!({
+            "gen_ai.tool.name": "spoofed", "description": "private argument", "tool_type": "spoofed",
+            "tool_call_id": "spoofed", "gen_ai.agent.name": "spoofed"
+        })),
+    );
+    let attrs = attr_map(&crate::observability::otel_genai::start_attributes(&event));
+    assert_eq!(
+        attrs.get("gen_ai.tool.name").map(String::as_str),
+        Some("search")
+    );
+    assert_eq!(attrs.len(), 3);
+    if let Event::Scope(scope) = &mut event {
+        scope.base.metadata = Some(json!({
+            "gen_ai.tool.name": " ", "gen_ai.tool.call.id": "", "tool_call_id": "call-1",
+            "gen_ai.tool.type": false, "tool_type": "function", "tool_description": "Search docs",
+            "gen_ai.agent.name": "researcher"
+        }));
+    }
+    let attrs = attr_map(&crate::observability::otel_genai::start_attributes(&event));
+    assert_eq!(
+        attrs.get("gen_ai.tool.name").map(String::as_str),
+        Some("search")
+    );
+    assert_eq!(
+        attrs.get("gen_ai.tool.call.id").map(String::as_str),
+        Some("call-1")
+    );
+    assert_eq!(
+        attrs.get("gen_ai.tool.type").map(String::as_str),
+        Some("function")
+    );
+    assert_eq!(
+        attrs.get("gen_ai.tool.description").map(String::as_str),
+        Some("Search docs")
+    );
+    assert_eq!(
+        attrs.get("gen_ai.agent.name").map(String::as_str),
+        Some("researcher")
+    );
+}
+
+#[test]
+fn gen_ai_tool_content_is_exported_with_default_options() {
+    let (provider, exporter) = make_provider();
+    let subscriber = OpenTelemetrySubscriber::from_tracer_provider_with_type_and_options(
+        provider,
+        "tool-content",
+        OpenTelemetryType::GenAi,
+        OpenTelemetrySubscriberOptions::default(),
+    )
+    .unwrap();
+    let id = Uuid::now_v7();
+    let start = make_start_event(
+        id,
+        None,
+        "search",
+        ScopeType::Tool,
+        Some(json!({"q": "docs"})),
+    );
+    let end = make_end_event(
+        id,
+        None,
+        "search",
+        ScopeType::Tool,
+        Some(json!({"hits": []})),
+    );
+    (subscriber.inner.subscriber)(&start);
+    (subscriber.inner.subscriber)(&end);
+    subscriber.force_flush().unwrap();
+    let spans = exporter.get_finished_spans().unwrap();
+    assert_eq!(spans.len(), 1);
+    let attrs = attr_map(&spans[0].attributes);
+    assert!(attrs.contains_key("gen_ai.tool.call.arguments"));
+    assert!(attrs.contains_key("gen_ai.tool.call.result"));
+    subscriber.shutdown().unwrap();
+}
+
+#[test]
+fn gen_ai_tool_definitions_use_minimal_standard_schema() {
+    let request = serde_json::from_value::<AnnotatedLlmRequest>(json!({
+        "messages": [],
+        "tools": [
+            {"type": "function", "function": {
+                "name": "search", "description": "large private description",
+                "parameters": {"type": "object"}
+            }},
+            {"type": "provider_native", "provider": "anthropic", "kind": "web_search",
+             "value": {"type": "web_search_20250305", "name": "web_search", "private": "omitted"}},
+            {"type": "provider_native", "provider": "openai_responses", "kind": "web_search",
+             "value": {"type": "web_search"}},
+            {"type": "provider_native", "provider": "gemini", "kind": "codeExecution",
+             "value": {"codeExecution": {}, "googleSearch": {}, "unknownTool": {}}},
+            {"type": "provider_native", "provider": "unknown", "kind": "web_search",
+             "value": {"type": "web_search"}},
+            {"type": "provider_native", "provider": "openai_responses", "kind": "unknown",
+             "value": {"type": "unknown"}},
+            {"type": "function", "function": {"name": " "}}
+        ]
+    }))
+    .unwrap();
+    let event = make_scope_event_with_profile(
+        ScopeCategory::Start,
+        Uuid::now_v7(),
+        None,
+        "chat",
+        ScopeType::Llm,
+        None,
+        Some(
+            CategoryProfile::builder()
+                .annotated_request(Arc::new(request))
+                .build(),
+        ),
+    );
+    let enabled = attr_map(&crate::observability::otel_genai::start_attributes(&event));
+    let definitions: Json =
+        serde_json::from_str(enabled.get("gen_ai.tool.definitions").unwrap()).unwrap();
+    assert_eq!(
+        definitions,
+        json!([
+            {"type": "function", "name": "search"},
+            {"type": "web_search_20250305", "name": "web_search"},
+            {"type": "web_search", "name": "web_search"},
+            {"type": "codeExecution", "name": "codeExecution"},
+            {"type": "googleSearch", "name": "googleSearch"}
+        ])
+    );
+}
+
+#[test]
+fn gen_ai_tool_completion_fills_missing_metadata_without_replacing_start_identity() {
+    for initial_id in [None, Some("typed-id")] {
+        let (provider, exporter) = make_provider();
+        let subscriber = OpenTelemetrySubscriber::from_tracer_provider_with_type(
+            provider,
+            "tool-identity",
+            OpenTelemetryType::GenAi,
+        );
+        let id = Uuid::now_v7();
+        let start = make_scope_event_with_profile(
+            ScopeCategory::Start,
+            id,
+            None,
+            "search",
+            ScopeType::Tool,
+            None,
+            initial_id.map(|id| CategoryProfile::builder().tool_call_id(id).build()),
+        );
+        let mut end = make_end_event(id, None, "end-label", ScopeType::Tool, None);
+        if let Event::Scope(scope) = &mut end {
+            scope.base.metadata = Some(json!({
+                "tool_call_id": "late-id", "tool_description": "Search docs",
+                "gen_ai.tool.name": "late-name"
+            }));
+        }
+        (subscriber.inner.subscriber)(&start);
+        (subscriber.inner.subscriber)(&end);
+        subscriber.force_flush().unwrap();
+        let spans = exporter.get_finished_spans().unwrap();
+        let attrs = attr_map(&spans[0].attributes);
+        assert_eq!(
+            attrs.get("gen_ai.tool.call.id").map(String::as_str),
+            Some(initial_id.unwrap_or("late-id"))
+        );
+        assert_eq!(
+            attrs.get("gen_ai.tool.description").map(String::as_str),
+            Some("Search docs")
+        );
+        assert_eq!(
+            attrs.get("gen_ai.tool.name").map(String::as_str),
+            Some("search")
+        );
+        subscriber.shutdown().unwrap();
+    }
+}
+
+#[test]
+fn gen_ai_tool_completion_refines_only_inferred_identity() {
+    for inferred_start in [false, true] {
+        for completion in ["canonical", "alias", "inferred", "absent"] {
+            let (provider, exporter) = make_provider();
+            let subscriber = OpenTelemetrySubscriber::from_tracer_provider_with_type(
+                provider,
+                "identity-origin",
+                OpenTelemetryType::GenAi,
+            );
+            let id = Uuid::now_v7();
+            let mut start = make_scope_event_with_profile(
+                ScopeCategory::Start,
+                id,
+                None,
+                "search",
+                ScopeType::Tool,
+                None,
+                Some(CategoryProfile::builder().tool_call_id("typed-id").build()),
+            );
+            let mut metadata =
+                json!({"gen_ai.tool.type": "function", "gen_ai.agent.name": "codex"});
+            if inferred_start {
+                metadata["nemo_relay.tool.execution.defaults"] = metadata.clone();
+            }
+            if let Event::Scope(scope) = &mut start {
+                scope.base.metadata = Some(metadata.clone());
+            }
+            let mut end = make_end_event(id, None, "end-label", ScopeType::Tool, None);
+            match completion {
+                "canonical" => {
+                    metadata["gen_ai.tool.type"] = json!("extension");
+                    metadata["gen_ai.agent.name"] = json!("researcher");
+                }
+                "alias" => {
+                    metadata["tool_type"] = json!("extension");
+                    metadata["agent_name"] = json!("researcher");
+                }
+                "inferred" => {
+                    metadata = json!({"gen_ai.tool.type": "extension", "gen_ai.agent.name": "researcher",
+                        "nemo_relay.tool.execution.defaults": {"gen_ai.tool.type": "extension", "gen_ai.agent.name": "researcher"}});
+                }
+                "absent" => metadata = json!({}),
+                _ => unreachable!("unknown completion case"),
+            }
+            metadata["tool_call_id"] = json!("late-id");
+            if let Event::Scope(scope) = &mut end {
+                scope.base.metadata = Some(metadata);
+            }
+            subscriber.subscriber()(&start);
+            subscriber.subscriber()(&end);
+            subscriber.force_flush().unwrap();
+            let spans = exporter.get_finished_spans().unwrap();
+            let attrs = attr_map(&spans[0].attributes);
+            let refined = inferred_start && matches!(completion, "canonical" | "alias");
+            assert_eq!(
+                attrs["gen_ai.tool.type"],
+                if refined { "extension" } else { "function" },
+                "{inferred_start}/{completion}"
+            );
+            assert_eq!(
+                attrs["gen_ai.agent.name"],
+                if refined { "researcher" } else { "codex" }
+            );
+            assert_eq!(attrs["gen_ai.tool.call.id"], "typed-id");
+            assert!(!attrs.keys().any(|key| key.starts_with("nemo_relay.")));
+            subscriber.shutdown().unwrap();
+        }
+    }
 }
 
 #[test]
@@ -2733,13 +3345,10 @@ fn gen_ai_projection_prefers_standard_names_and_normalized_provider_details() {
         "invoke_agent semantic-agent"
     );
 
-    let tool = make_start_event(
-        Uuid::now_v7(),
-        None,
-        "fallback-tool",
-        ScopeType::Tool,
-        Some(json!({"gen_ai.tool.name": "semantic-tool"})),
-    );
+    let mut tool = make_start_event(Uuid::now_v7(), None, "fallback-tool", ScopeType::Tool, None);
+    if let Event::Scope(scope) = &mut tool {
+        scope.base.metadata = Some(json!({"gen_ai.tool.name": "semantic-tool"}));
+    }
     assert_eq!(
         crate::observability::otel_genai::span_name(&tool),
         "execute_tool semantic-tool"
@@ -3244,8 +3853,17 @@ fn http_config_exports_scope_push_pop_and_marks_without_tokio_runtime() {
     let (request_tx, request_rx) = mpsc::channel();
     spawn_http_collector(listener, request_tx);
 
-    let config = OpenTelemetryConfig::http_binary("demo-agent").with_endpoint(endpoint);
+    let variable = format!(
+        "NEMO_RELAY_TEST_HEADER_SNAPSHOT_{}",
+        Uuid::now_v7().simple()
+    );
+    let secret = "Bearer activation-secret";
+    unsafe { std::env::set_var(&variable, secret) };
+    let config = OpenTelemetryConfig::http_binary("demo-agent")
+        .with_endpoint(endpoint)
+        .with_header_env("authorization", &variable);
     let subscriber = OpenTelemetrySubscriber::new(config).unwrap();
+    unsafe { std::env::set_var(&variable, "Bearer changed-secret") };
     let name = format!("otel_http_{}", Uuid::now_v7().simple());
 
     subscriber.register(&name).unwrap();
@@ -3283,11 +3901,26 @@ fn http_config_exports_scope_push_pop_and_marks_without_tokio_runtime() {
         .expect("expected an OTLP request");
     assert_eq!(request.path, "/v1/traces");
     assert_eq!(request.content_type, "application/x-protobuf");
+    assert_eq!(request.authorization.as_deref(), Some(secret));
     assert!(!request.body.is_empty());
+    assert!(
+        !request
+            .body
+            .windows(secret.len())
+            .any(|window| window == secret.as_bytes())
+    );
+    assert!(
+        subscriber
+            .runtime_diagnostics()
+            .entries()
+            .iter()
+            .all(|diagnostic| !diagnostic.message.contains(secret))
+    );
+    unsafe { std::env::remove_var(variable) };
 }
 
 #[test]
-fn root_metadata_promotes_to_a_shared_otlp_resource() {
+fn root_metadata_promotes_to_a_shared_otlp_resource_without_overriding_sdk_identity() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
     let listener = TcpListener::bind("127.0.0.1:0").unwrap();
     let endpoint = format!("http://{}", listener.local_addr().unwrap());
@@ -3298,7 +3931,7 @@ fn root_metadata_promotes_to_a_shared_otlp_resource() {
         OpenTelemetryConfig::http_binary("resource-test")
             .with_endpoint(endpoint)
             .with_resource_attribute("tenant.region", "configured")
-            .with_promote_resource_metadata_prefixes(["tenant."]),
+            .with_promote_resource_metadata_prefixes(["tenant.", "telemetry.sdk."]),
     )
     .unwrap();
     let callback = subscriber.subscriber();
@@ -3308,7 +3941,13 @@ fn root_metadata_promotes_to_a_shared_otlp_resource() {
         root_uuid,
         None,
         "resource-root",
-        json!({"tenant.id": "root-tenant", "tenant.region": "metadata"}),
+        json!({
+            "tenant.id": "root-tenant",
+            "tenant.region": "metadata",
+            "telemetry.sdk.name": "metadata-name",
+            "telemetry.sdk.language": "metadata-language",
+            "telemetry.sdk.version": "metadata-version",
+        }),
     ));
     callback(&make_start_event_with_metadata(
         child_uuid,
@@ -3357,6 +3996,7 @@ fn root_metadata_promotes_to_a_shared_otlp_resource() {
         otlp_string_attribute(&resource.attributes, "tenant.region"),
         Some("configured")
     );
+    assert_telemetry_sdk_resource(&resource.attributes);
 
     let spans = resource_spans
         .scope_spans
@@ -3385,6 +4025,21 @@ fn otlp_string_attribute<'a>(attributes: &'a [OtlpKeyValue], key: &str) -> Optio
         })
 }
 
+fn assert_telemetry_sdk_resource(attributes: &[OtlpKeyValue]) {
+    assert_eq!(
+        otlp_string_attribute(attributes, "telemetry.sdk.name"),
+        Some("opentelemetry")
+    );
+    assert_eq!(
+        otlp_string_attribute(attributes, "telemetry.sdk.language"),
+        Some("rust")
+    );
+    assert_eq!(
+        otlp_string_attribute(attributes, "telemetry.sdk.version"),
+        Some("0.32.1")
+    );
+}
+
 fn has_promoted_resource_metadata(attributes: &[OtlpKeyValue]) -> bool {
     attributes.iter().any(|attribute| {
         attribute.key.ends_with(".metadata.tenant.id")
@@ -3397,6 +4052,104 @@ fn has_promoted_resource_metadata(attributes: &[OtlpKeyValue]) -> bool {
                 Some(any_value::Value::StringValue(value)) if value == "child-tenant"
             )
     })
+}
+
+#[test]
+fn http_trace_exports_do_not_follow_redirects() {
+    let _guard = crate::observability::test_mutex().lock().unwrap();
+    reset_global();
+
+    for otel_type in [
+        OpenTelemetryType::Full,
+        OpenTelemetryType::GenAi,
+        OpenTelemetryType::OpenInference,
+    ] {
+        for status in [307, 308] {
+            let destination = TcpListener::bind("127.0.0.1:0").unwrap();
+            destination.set_nonblocking(true).unwrap();
+            let location = format!("http://{}/leak", destination.local_addr().unwrap());
+            let redirector = TcpListener::bind("127.0.0.1:0").unwrap();
+            let endpoint = format!("http://{}/v1/traces", redirector.local_addr().unwrap());
+            let server = thread::spawn(move || {
+                let (mut stream, _) = redirector.accept().unwrap();
+                stream
+                    .set_read_timeout(Some(Duration::from_secs(5)))
+                    .unwrap();
+                let request = read_http_request(&mut stream);
+                write!(stream, "HTTP/1.1 {status} Redirect\r\nLocation: {location}\r\nContent-Length: 0\r\nConnection: close\r\n\r\n").unwrap();
+                request
+            });
+            let mut config =
+                OpenTelemetryConfig::new(otel_type, endpoint).with_timeout(Duration::from_secs(1));
+            config
+                .headers
+                .insert("x-collector-key".into(), "test-secret".into());
+            let subscriber = OpenTelemetrySubscriber::new(config).unwrap();
+            let callback = subscriber.subscriber();
+            let uuid = Uuid::now_v7();
+            callback(&make_start_event(
+                uuid,
+                None,
+                "redirect-test",
+                ScopeType::Agent,
+                None,
+            ));
+            callback(&make_end_event(
+                uuid,
+                None,
+                "redirect-test",
+                ScopeType::Agent,
+                None,
+            ));
+            assert!(
+                subscriber.force_flush().is_err(),
+                "redirect must fail export"
+            );
+            let request = server.join().unwrap();
+            assert!(
+                !request.body.is_empty(),
+                "initial collector must receive the export"
+            );
+            assert!(
+                matches!(destination.accept(), Err(error) if error.kind() == std::io::ErrorKind::WouldBlock),
+                "redirect destination must receive no connection, payload, or credentials"
+            );
+            subscriber.shutdown().unwrap();
+        }
+    }
+}
+
+#[test]
+fn http_trace_subscriber_drains_accepted_events_on_drop() {
+    let _guard = crate::observability::test_mutex().lock().unwrap();
+    reset_global();
+
+    let listener = TcpListener::bind("127.0.0.1:0").unwrap();
+    let endpoint = format!("http://{}/v1/traces", listener.local_addr().unwrap());
+    let (request_tx, request_rx) = mpsc::channel();
+    spawn_http_collector(listener, request_tx);
+    let subscriber = OpenTelemetrySubscriber::new(
+        OpenTelemetryConfig::new(OpenTelemetryType::Full, endpoint)
+            .with_scheduled_delay(Duration::from_secs(60)),
+    )
+    .unwrap();
+    let name = format!("drop-drain-{}", Uuid::now_v7().simple());
+    subscriber.register(&name).unwrap();
+    event(
+        crate::api::scope::EmitMarkEventParams::builder()
+            .name("drop-drain")
+            .build(),
+    )
+    .unwrap();
+    subscriber.deregister(&name).unwrap();
+
+    drop(subscriber);
+
+    let request = request_rx
+        .recv_timeout(Duration::from_secs(5))
+        .expect("dropping the subscriber must wait for its accepted trace export");
+    let traces = ExportTraceServiceRequest::decode(request.body.as_slice()).unwrap();
+    assert_eq!(traces.resource_spans[0].scope_spans[0].spans.len(), 1);
 }
 
 #[test]
@@ -4831,6 +5584,8 @@ fn assert_otel_manual_cost_branches() {
 
 #[test]
 fn provider_builders_cover_success_paths() {
+    let runtime = test_tokio_runtime();
+    let _runtime_guard = runtime.enter();
     let http_provider = build_tracer_provider(
         &OpenTelemetryConfig::new(OpenTelemetryType::Full, "http://localhost:4318/v1/traces")
             .with_service_name("demo-agent")
@@ -4859,45 +5614,28 @@ fn provider_builders_cover_success_paths() {
 #[test]
 fn dropped_spans_are_recorded_in_the_active_plugin_report() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
-    let _ = crate::plugin::clear_plugin_configuration();
-    let _clear_guard = ClearPluginConfigurationGuard;
-    futures::executor::block_on(crate::plugin::initialize_plugins_exact(
+    let runtime = test_tokio_runtime();
+    let _runtime_guard = runtime.enter();
+    let _ = crate::plugin::test_close_plugin_host();
+    let _clear_guard = ClosePluginHostGuard;
+    futures::executor::block_on(crate::plugin::test_initialize_plugin_host_exact(
         crate::plugin::PluginConfig::default(),
     ))
     .unwrap();
 
-    let exporter = BlockingSpanExporter::default();
     let runtime_diagnostics =
         SignalRuntimeDiagnostics::new(Some("opentelemetry.traces[2].endpoint".to_string()));
     let processor = DiagnosticBatchSpanProcessor::new_with_batch_config(
-        exporter.clone(),
+        InMemorySpanExporterBuilder::new().build(),
         "https://collector.example/v1/traces".to_string(),
         runtime_diagnostics.clone(),
-        BatchConfigBuilder::default()
-            .with_max_queue_size(1)
-            .with_max_export_batch_size(1)
-            .with_scheduled_delay(Duration::from_secs(60))
-            .build(),
+        BatchConfigBuilder::default().build(),
     );
-    let provider = SdkTracerProvider::builder()
-        .with_span_processor(processor)
-        .build();
-    let tracer = provider.tracer("dropped-span-diagnostic-test");
+    processor.completed_spans.store(3, Ordering::Relaxed);
+    processor.accepted_spans.store(1, Ordering::Relaxed);
+    processor.force_flush().unwrap();
 
-    tracer.start("export-in-progress").end();
-    exporter.wait_until_export_starts();
-    tracer.start("queued").end();
-    tracer.start("dropped-1").end();
-    tracer.start("dropped-2").end();
-    exporter.release();
-    let shutdown = provider.shutdown().unwrap_err();
-    assert!(
-        shutdown
-            .to_string()
-            .contains(OTEL_RUNTIME_DELIVERY_FAILURE_MARKER)
-    );
-
-    let report = crate::plugin::active_plugin_report().unwrap();
+    let report = crate::plugin::test_plugin_host_report().unwrap();
     let diagnostic = report
         .runtime_diagnostics
         .iter()
@@ -4920,6 +5658,8 @@ fn dropped_spans_are_recorded_in_the_active_plugin_report() {
 
 #[test]
 fn direct_trace_processor_records_cumulative_queue_drops_on_flush_and_shutdown() {
+    let runtime = test_tokio_runtime();
+    let _runtime_guard = runtime.enter();
     let runtime_diagnostics = SignalRuntimeDiagnostics::new(None);
     let processor = DiagnosticBatchSpanProcessor::new_with_batch_config(
         InMemorySpanExporterBuilder::new().build(),
@@ -4954,9 +5694,9 @@ fn direct_trace_processor_records_cumulative_queue_drops_on_flush_and_shutdown()
 #[test]
 fn plugin_trace_subscriber_runtime_diagnostics_use_trace_field() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
-    let _ = crate::plugin::clear_plugin_configuration();
-    let _clear_guard = ClearPluginConfigurationGuard;
-    futures::executor::block_on(crate::plugin::initialize_plugins_exact(
+    let _ = crate::plugin::test_close_plugin_host();
+    let _clear_guard = ClosePluginHostGuard;
+    futures::executor::block_on(crate::plugin::test_initialize_plugin_host_exact(
         crate::plugin::PluginConfig::default(),
     ))
     .unwrap();
@@ -4983,7 +5723,7 @@ fn plugin_trace_subscriber_runtime_diagnostics_use_trace_field() {
 
     (subscriber.subscriber())(&event);
 
-    let report = crate::plugin::active_plugin_report().unwrap();
+    let report = crate::plugin::test_plugin_host_report().unwrap();
     let diagnostic = report
         .runtime_diagnostics
         .iter()
@@ -4997,6 +5737,8 @@ fn plugin_trace_subscriber_runtime_diagnostics_use_trace_field() {
 
 #[test]
 fn trace_export_failures_are_diagnosed_until_a_later_export_recovers() {
+    let runtime = test_tokio_runtime();
+    let _runtime_guard = runtime.enter();
     let runtime_diagnostics = SignalRuntimeDiagnostics::new(None);
     let processor = DiagnosticBatchSpanProcessor::new_with_batch_config(
         FailingThenRecoveringSpanExporter::default(),
@@ -5054,6 +5796,8 @@ fn trace_endpoint_log_identity_redacts_and_validates_urls() {
 
 #[test]
 fn trace_export_failures_use_a_safe_endpoint_identity() {
+    let runtime = test_tokio_runtime();
+    let _runtime_guard = runtime.enter();
     let endpoint = "https://user:password@collector.example:4318/private-path?access_token=url-secret#fragment-secret";
     let runtime_diagnostics = SignalRuntimeDiagnostics::new(None);
     let processor = DiagnosticBatchSpanProcessor::new_with_batch_config(
@@ -5102,9 +5846,11 @@ fn trace_export_failures_use_a_safe_endpoint_identity() {
 #[test]
 fn unrecovered_trace_export_failure_is_retained_in_the_active_plugin_report() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
-    let _ = crate::plugin::clear_plugin_configuration();
-    let _clear_guard = ClearPluginConfigurationGuard;
-    futures::executor::block_on(crate::plugin::initialize_plugins_exact(
+    let runtime = test_tokio_runtime();
+    let _runtime_guard = runtime.enter();
+    let _ = crate::plugin::test_close_plugin_host();
+    let _clear_guard = ClosePluginHostGuard;
+    futures::executor::block_on(crate::plugin::test_initialize_plugin_host_exact(
         crate::plugin::PluginConfig::default(),
     ))
     .unwrap();
@@ -5139,7 +5885,7 @@ fn unrecovered_trace_export_failure_is_retained_in_the_active_plugin_report() {
             .contains("otel.traces_export_failed (1)")
     );
 
-    let report = crate::plugin::active_plugin_report().unwrap();
+    let report = crate::plugin::test_plugin_host_report().unwrap();
     let diagnostic = report
         .runtime_diagnostics
         .iter()
@@ -5166,19 +5912,21 @@ fn grpc_metadata_and_runtime_builder_paths_succeed() {
         "Bearer token"
     );
 
-    let runtime = tokio::runtime::Builder::new_current_thread()
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .worker_threads(1)
         .enable_all()
         .build()
         .unwrap();
-    runtime.block_on(async {
-        let provider = build_tracer_provider(
+    let provider = {
+        let _runtime_guard = runtime.enter();
+        build_tracer_provider(
             &OpenTelemetryConfig::grpc("grpc-demo")
                 .with_endpoint("http://127.0.0.1:4317")
                 .with_header("authorization", "Bearer token"),
             SignalRuntimeDiagnostics::new(None),
         )
-        .unwrap();
-        provider.force_flush().ok();
-        provider.shutdown().ok();
-    });
+        .unwrap()
+    };
+    provider.force_flush().ok();
+    provider.shutdown().ok();
 }

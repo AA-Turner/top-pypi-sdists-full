@@ -14476,14 +14476,6 @@ class CfnReplicationTask(
         return typing.cast(builtins.str, jsii.sget(cls, "CFN_RESOURCE_TYPE_NAME"))
 
     @builtins.property
-    @jsii.member(jsii_name="attrId")
-    def attr_id(self) -> builtins.str:
-        '''
-        :cloudformationAttribute: Id
-        '''
-        return typing.cast(builtins.str, jsii.get(self, "attrId"))
-
-    @builtins.property
     @jsii.member(jsii_name="attrReplicationTaskArn")
     def attr_replication_task_arn(self) -> builtins.str:
         '''The ARN of the ReplicationTask.

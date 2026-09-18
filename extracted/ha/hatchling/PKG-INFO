@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: hatchling
-Version: 1.32.0
+Version: 1.32.3
 Summary: Modern, extensible Python build backend
 Project-URL: Homepage, https://hatch.pypa.io/latest/
 Project-URL: Sponsor, https://github.com/sponsors/ofek

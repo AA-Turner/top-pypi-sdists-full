@@ -80,16 +80,16 @@ class RawSocialAccountsClient:
             Only return social accounts that have these scopes.
 
         first : typing.Optional[int]
-            The number of social accounts to return.
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            Cursor to fetch the page after (from page_info.end_cursor).
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            The number of social accounts to return from the end of the range.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            Cursor to fetch the page before (from page_info.start_cursor).
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         order : typing.Optional[ListSocialAccountsRequestOrder]
             The field to sort social accounts by.
@@ -192,12 +192,12 @@ class RawSocialAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[SocialAccount]:
         """
-        Creates or returns a Whop-managed Facebook page for an account.
+        Creates or returns a Whop-managed Facebook page or TikTok account for an account.
 
         Parameters
         ----------
         platform : CreateSocialAccountsRequestPlatform
-            The platform to create the social account on. `facebook` requires the account's `banner_image`, `logo`, and `description`; configure them with [Update Account](/api-reference/beta/accounts/update-account).
+            The platform to create the social account on. `facebook` requires the account's `banner_image`, `logo`, and `description`, and `tiktok` requires its `logo`; configure them with [Update Account](/api-reference/beta/accounts/update-account). The account is returned before the platform has created it — its `id` is usable right away, and the rest of the profile fills in once provisioning finishes.
 
         account_id : typing.Optional[str]
             The Account (biz_ identifier) to create the social account for. An account-scoped API key may omit this to default to its own account. Account API keys cannot update their own account's branding through Update Account; use a user-authenticated path.
@@ -596,10 +596,10 @@ class RawSocialAccountsClient:
             Return only the single post with this platform id, instead of the full list.
 
         first : typing.Optional[int]
-            The number of posts to return.
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            Cursor to fetch the page after (from page_info.end_cursor).
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -730,16 +730,16 @@ class AsyncRawSocialAccountsClient:
             Only return social accounts that have these scopes.
 
         first : typing.Optional[int]
-            The number of social accounts to return.
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            Cursor to fetch the page after (from page_info.end_cursor).
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            The number of social accounts to return from the end of the range.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            Cursor to fetch the page before (from page_info.start_cursor).
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         order : typing.Optional[ListSocialAccountsRequestOrder]
             The field to sort social accounts by.
@@ -845,12 +845,12 @@ class AsyncRawSocialAccountsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[SocialAccount]:
         """
-        Creates or returns a Whop-managed Facebook page for an account.
+        Creates or returns a Whop-managed Facebook page or TikTok account for an account.
 
         Parameters
         ----------
         platform : CreateSocialAccountsRequestPlatform
-            The platform to create the social account on. `facebook` requires the account's `banner_image`, `logo`, and `description`; configure them with [Update Account](/api-reference/beta/accounts/update-account).
+            The platform to create the social account on. `facebook` requires the account's `banner_image`, `logo`, and `description`, and `tiktok` requires its `logo`; configure them with [Update Account](/api-reference/beta/accounts/update-account). The account is returned before the platform has created it — its `id` is usable right away, and the rest of the profile fills in once provisioning finishes.
 
         account_id : typing.Optional[str]
             The Account (biz_ identifier) to create the social account for. An account-scoped API key may omit this to default to its own account. Account API keys cannot update their own account's branding through Update Account; use a user-authenticated path.
@@ -1249,10 +1249,10 @@ class AsyncRawSocialAccountsClient:
             Return only the single post with this platform id, instead of the full list.
 
         first : typing.Optional[int]
-            The number of posts to return.
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            Cursor to fetch the page after (from page_info.end_cursor).
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

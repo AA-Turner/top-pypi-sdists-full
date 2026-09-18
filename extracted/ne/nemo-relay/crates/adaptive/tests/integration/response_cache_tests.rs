@@ -28,13 +28,13 @@ use nemo_relay::api::subscriber::{deregister_subscriber, flush_subscribers, regi
 use nemo_relay::api::tool::{ToolCallExecuteParams, tool_call_execute};
 use nemo_relay::error::FlowError;
 use nemo_relay::plugin::{
-    DiagnosticLevel, PluginConfig, clear_plugin_configuration, initialize_plugins_exact,
-    validate_plugin_config,
+    DiagnosticLevel, PluginConfig, test_close_plugin_host, test_initialize_plugin_host_exact,
+    test_validate_static_plugin_config,
 };
 use nemo_relay_adaptive::plugin_component::{ComponentSpec, register_adaptive_component};
 use nemo_relay_adaptive::{
-    AcgComponentConfig, AdaptiveConfig, BackendSpec, ResponseCacheConfig, StateConfig,
-    ToolCacheConfig, ToolClass, ToolOverride,
+    AcgComponentConfig, AdaptiveConfig, BackendSpec, ResponseCacheConfig, ResponseCacheKeyStrategy,
+    StateConfig, ToolCacheConfig, ToolClass, ToolOverride,
 };
 use serde_json::{Value as Json, json};
 use tokio::sync::Mutex;
@@ -48,7 +48,7 @@ static TEST_MUTEX: Mutex<()> = Mutex::const_new(());
 const ROUTING_BACKEND_HEADER: &str = "x-nemo-relay-internal-dispatch-backend";
 
 fn reset_global() {
-    let _ = clear_plugin_configuration();
+    test_close_plugin_host().expect("test plugin host must close");
     let ctx = global_context();
     let mut state = ctx.write().unwrap();
     *state = NemoRelayContextState::new();
@@ -555,13 +555,13 @@ async fn invalid_config_is_rejected_by_validation() {
         response_cache: Some(ResponseCacheConfig {
             ttl_seconds: 0,
             bypass_rate: 2.0,
-            key_strategy: "semantic".to_string(),
+            key_strategy: ResponseCacheKeyStrategy::Unknown("semantic".to_string()),
             namespace: "invalid-config-test".to_string(),
             ..ResponseCacheConfig::default()
         }),
         ..AdaptiveConfig::default()
     };
-    let report = validate_plugin_config(&PluginConfig {
+    let report = test_validate_static_plugin_config(&PluginConfig {
         components: vec![ComponentSpec::new(adaptive).into()],
         ..PluginConfig::default()
     });
@@ -601,7 +601,7 @@ async fn unknown_and_unavailable_backends_are_rejected_by_validation() {
             ..ResponseCacheConfig::default()
         };
         config.backend.kind = kind.to_string();
-        validate_plugin_config(&PluginConfig {
+        test_validate_static_plugin_config(&PluginConfig {
             components: vec![
                 ComponentSpec::new(AdaptiveConfig {
                     response_cache: Some(config),
@@ -647,7 +647,7 @@ async fn response_cache_validation_diagnostics_identify_the_invalid_setting() {
 
     let mut cache = ResponseCacheConfig {
         namespace: "diagnostic-contract-test".to_string(),
-        key_strategy: "semantic".to_string(),
+        key_strategy: ResponseCacheKeyStrategy::Unknown("semantic".to_string()),
         tools: Some(ToolCacheConfig {
             enabled: true,
             default: ToolClass {
@@ -660,7 +660,7 @@ async fn response_cache_validation_diagnostics_identify_the_invalid_setting() {
     };
     cache.backend.kind = "redis".to_string();
 
-    let report = validate_plugin_config(&PluginConfig {
+    let report = test_validate_static_plugin_config(&PluginConfig {
         components: vec![
             ComponentSpec::new(AdaptiveConfig {
                 response_cache: Some(cache),
@@ -790,6 +790,50 @@ async fn hit_preserves_usage_on_the_end_event_and_reports_savings_on_the_mark() 
 
     drop(events);
     deregister_subscriber("response_cache_event_capture").unwrap();
+}
+
+#[tokio::test]
+async fn logical_strategy_reuses_across_reworded_tool_descriptions() {
+    let _guard = TEST_MUTEX.lock().await;
+    reset_global();
+    // `logical` must be accepted by validation (activate_cache asserts no
+    // diagnostics) and must reuse across a reworded tool description end-to-end.
+    activate_cache(ResponseCacheConfig {
+        namespace: "logical-key-integration-test".to_string(),
+        key_strategy: ResponseCacheKeyStrategy::Logical,
+        ..ResponseCacheConfig::default()
+    })
+    .await;
+
+    let calls = Arc::new(AtomicUsize::new(0));
+    let provider = counting_provider(Arc::clone(&calls), sample_body());
+
+    let request_with_tool = |description: &str| LlmRequest {
+        headers: serde_json::Map::new(),
+        content: json!({
+            "model": "nvidia/nemotron-3-nano-omni-30b-a3b-reasoning",
+            "messages": [{"role": "user", "content": "what is the weather?"}],
+            "temperature": 0.0,
+            "tools": [{"type": "function", "function": {
+                "name": "get_weather",
+                "description": description,
+                "parameters": {"type": "object", "properties": {"city": {"type": "string"}}}
+            }}]
+        }),
+    };
+
+    call(&provider, request_with_tool("Get the weather for a city.")).await;
+    call(
+        &provider,
+        request_with_tool("Look up the current weather (reworded)."),
+    )
+    .await;
+
+    assert_eq!(
+        calls.load(Ordering::SeqCst),
+        1,
+        "logical keying must serve the reworded-tool repeat from cache"
+    );
 }
 
 #[tokio::test]
@@ -1557,7 +1601,7 @@ async fn unsafe_cache_scope_headers_and_backends_are_rejected_by_validation() {
             response_cache: Some(config),
             ..AdaptiveConfig::default()
         };
-        validate_plugin_config(&PluginConfig {
+        test_validate_static_plugin_config(&PluginConfig {
             components: vec![ComponentSpec::new(adaptive).into()],
             ..PluginConfig::default()
         })
@@ -1833,7 +1877,7 @@ async fn cache_coexists_with_acg_execution_intercept() {
         }),
         ..AdaptiveConfig::default()
     };
-    let report = initialize_plugins_exact(PluginConfig {
+    let report = test_initialize_plugin_host_exact(PluginConfig {
         components: vec![ComponentSpec::new(adaptive).into()],
         ..PluginConfig::default()
     })
@@ -2261,11 +2305,11 @@ async fn execution_intercepts_outside_the_cache_run_on_hits() {
         40,
         Arc::new({
             let outer_runs = Arc::clone(&outer_runs);
-            move |_name, args, next| {
+            move |context, next| {
                 let outer_runs = Arc::clone(&outer_runs);
                 Box::pin(async move {
                     outer_runs.fetch_add(1, Ordering::SeqCst);
-                    next(args).await.map(Into::into)
+                    next(context.into_args()).await.map(Into::into)
                 })
             }
         }),
@@ -2422,7 +2466,7 @@ async fn invalid_tool_config_is_rejected_by_validation() {
         })),
         ..AdaptiveConfig::default()
     };
-    let report = validate_plugin_config(&PluginConfig {
+    let report = test_validate_static_plugin_config(&PluginConfig {
         components: vec![ComponentSpec::new(adaptive).into()],
         ..PluginConfig::default()
     });
@@ -2484,7 +2528,7 @@ async fn wildcard_member_validation_rules() {
             })),
             ..AdaptiveConfig::default()
         };
-        validate_plugin_config(&PluginConfig {
+        test_validate_static_plugin_config(&PluginConfig {
             components: vec![ComponentSpec::new(adaptive).into()],
             ..PluginConfig::default()
         })
@@ -2598,7 +2642,7 @@ async fn wildcard_member_validation_rules() {
         })),
         ..AdaptiveConfig::default()
     };
-    let report = validate_plugin_config(&PluginConfig {
+    let report = test_validate_static_plugin_config(&PluginConfig {
         components: vec![ComponentSpec::new(adaptive).into()],
         ..PluginConfig::default()
     });
@@ -2627,7 +2671,7 @@ async fn wildcard_member_validation_rules() {
         })),
         ..AdaptiveConfig::default()
     };
-    let report = validate_plugin_config(&PluginConfig {
+    let report = test_validate_static_plugin_config(&PluginConfig {
         components: vec![ComponentSpec::new(adaptive).into()],
         ..PluginConfig::default()
     });
@@ -2663,7 +2707,7 @@ async fn wildcard_member_validation_rules() {
         })),
         ..AdaptiveConfig::default()
     };
-    let report = validate_plugin_config(&PluginConfig {
+    let report = test_validate_static_plugin_config(&PluginConfig {
         components: vec![ComponentSpec::new(adaptive).into()],
         ..PluginConfig::default()
     });
@@ -2703,7 +2747,7 @@ async fn wildcard_member_validation_rules() {
         })),
         ..AdaptiveConfig::default()
     };
-    let report = validate_plugin_config(&PluginConfig {
+    let report = test_validate_static_plugin_config(&PluginConfig {
         components: vec![ComponentSpec::new(adaptive).into()],
         ..PluginConfig::default()
     });
@@ -2744,7 +2788,7 @@ async fn unknown_tool_field_warns_but_valid_class_names_do_not() {
         enabled: true,
         config: adaptive_json.as_object().unwrap().clone(),
     };
-    let report = validate_plugin_config(&PluginConfig {
+    let report = test_validate_static_plugin_config(&PluginConfig {
         components: vec![component],
         ..PluginConfig::default()
     });

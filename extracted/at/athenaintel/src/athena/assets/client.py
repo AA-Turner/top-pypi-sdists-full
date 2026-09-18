@@ -621,15 +621,26 @@ class AssetsClient:
         return _response.data
 
     def download(
-        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        asset_id: str,
+        *,
+        live_sync: typing.Optional[bool] = None,
+        addin_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Iterator[bytes]:
         """
-        Download an asset's file exactly as Athena stores or serves it — no type coercion, no pagination. Native collaborative assets are converted from live content to their canonical Office format: Athena documents download as .docx, spreadsheets as .xlsx (round-trip faithful — string identifiers, leading zeros, and number formats are preserved), PPTX Studio presentations and Word documents export their live studio content as .pptx/.docx. Uploaded files stream their original bytes. The response sets Content-Disposition with a filename derived from the asset title and media type.
+        Download an asset's file exactly as Athena stores or serves it — no type coercion, no pagination. Native collaborative assets are converted from live content to their canonical Office format: Athena documents download as .docx, spreadsheets as .xlsx (round-trip faithful — string identifiers, leading zeros, and number formats are preserved), PPTX Studio presentations and Word documents export their live studio content as .pptx/.docx. Uploaded files stream their original bytes. The response sets Content-Disposition with a filename derived from the asset title and media type. With `live_sync=true`, a spreadsheet's .xlsx or a PPTX Studio presentation's .pptx also carries the Athena for Microsoft 365 add-in's link record, so opening it in Excel or PowerPoint with the add-in installed starts syncing it with the asset; other asset types ignore the flag.
 
         Parameters
         ----------
         asset_id : str
             Unique identifier of the asset to download
+
+        live_sync : typing.Optional[bool]
+            Office live sync: when true and the asset is an Athena spreadsheet or a PPTX Studio presentation, the downloaded .xlsx / .pptx carries the Athena for Microsoft 365 add-in's link record and opens already syncing with this asset. Ignored for every other asset type.
+
+        addin_id : typing.Optional[str]
+            GUID of the installed add-in manifest the live-sync record should reference (defaults to this deployment's Athena add-in). Only read together with `live_sync`; use it to target a preview-channel sideload.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
@@ -650,7 +661,9 @@ class AssetsClient:
             asset_id="asset_id",
         )
         """
-        with self._raw_client.download(asset_id, request_options=request_options) as r:
+        with self._raw_client.download(
+            asset_id, live_sync=live_sync, addin_id=addin_id, request_options=request_options
+        ) as r:
             yield from r.data
 
     def move(
@@ -1508,15 +1521,26 @@ class AsyncAssetsClient:
         return _response.data
 
     async def download(
-        self, asset_id: str, *, request_options: typing.Optional[RequestOptions] = None
+        self,
+        asset_id: str,
+        *,
+        live_sync: typing.Optional[bool] = None,
+        addin_id: typing.Optional[str] = None,
+        request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.AsyncIterator[bytes]:
         """
-        Download an asset's file exactly as Athena stores or serves it — no type coercion, no pagination. Native collaborative assets are converted from live content to their canonical Office format: Athena documents download as .docx, spreadsheets as .xlsx (round-trip faithful — string identifiers, leading zeros, and number formats are preserved), PPTX Studio presentations and Word documents export their live studio content as .pptx/.docx. Uploaded files stream their original bytes. The response sets Content-Disposition with a filename derived from the asset title and media type.
+        Download an asset's file exactly as Athena stores or serves it — no type coercion, no pagination. Native collaborative assets are converted from live content to their canonical Office format: Athena documents download as .docx, spreadsheets as .xlsx (round-trip faithful — string identifiers, leading zeros, and number formats are preserved), PPTX Studio presentations and Word documents export their live studio content as .pptx/.docx. Uploaded files stream their original bytes. The response sets Content-Disposition with a filename derived from the asset title and media type. With `live_sync=true`, a spreadsheet's .xlsx or a PPTX Studio presentation's .pptx also carries the Athena for Microsoft 365 add-in's link record, so opening it in Excel or PowerPoint with the add-in installed starts syncing it with the asset; other asset types ignore the flag.
 
         Parameters
         ----------
         asset_id : str
             Unique identifier of the asset to download
+
+        live_sync : typing.Optional[bool]
+            Office live sync: when true and the asset is an Athena spreadsheet or a PPTX Studio presentation, the downloaded .xlsx / .pptx carries the Athena for Microsoft 365 add-in's link record and opens already syncing with this asset. Ignored for every other asset type.
+
+        addin_id : typing.Optional[str]
+            GUID of the installed add-in manifest the live-sync record should reference (defaults to this deployment's Athena add-in). Only read together with `live_sync`; use it to target a preview-channel sideload.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration. You can pass in configuration such as `chunk_size`, and more to customize the request and response.
@@ -1545,7 +1569,9 @@ class AsyncAssetsClient:
 
         asyncio.run(main())
         """
-        async with self._raw_client.download(asset_id, request_options=request_options) as r:
+        async with self._raw_client.download(
+            asset_id, live_sync=live_sync, addin_id=addin_id, request_options=request_options
+        ) as r:
             async for _chunk in r.data:
                 yield _chunk
 

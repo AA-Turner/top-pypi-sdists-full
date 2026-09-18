@@ -31,8 +31,9 @@ class BatchStageInfo(BaseModel):
     index: StrictInt = Field(description="1-based stage index within the current job.")
     total: StrictInt = Field(description="Total stages in the current job.")
     stage_elapsed_seconds: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.0, description="Seconds spent in this stage so far.")
-    sub_stage: Optional[StrictStr] = Field(default=None, description="Sub-stage within 'processing': 'model_loading' while models are initializing, 'inferring' once the first batch completes. Helps explain why processed=0.")
-    __properties: ClassVar[List[str]] = ["name", "index", "total", "stage_elapsed_seconds", "sub_stage"]
+    sub_stage: Optional[StrictStr] = Field(default=None, description="Sub-stage within 'processing': 'model_loading' while models are initializing, 'inferring' once the first batch completes, 'preparing_write' while the results are handed to the datasink. Helps explain why processed=0.")
+    sub_stage_elapsed_seconds: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Seconds spent in the CURRENT sub-stage, which is a different clock from stage_elapsed_seconds: a batch can be 90s into 'processing' and 85s into 'model_loading'. Null when sub_stage is null, and null on an engine image that predates this field; null means not reported, never zero seconds.")
+    __properties: ClassVar[List[str]] = ["name", "index", "total", "stage_elapsed_seconds", "sub_stage", "sub_stage_elapsed_seconds"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -89,7 +90,8 @@ class BatchStageInfo(BaseModel):
             "index": obj.get("index"),
             "total": obj.get("total"),
             "stage_elapsed_seconds": obj.get("stage_elapsed_seconds") if obj.get("stage_elapsed_seconds") is not None else 0.0,
-            "sub_stage": obj.get("sub_stage")
+            "sub_stage": obj.get("sub_stage"),
+            "sub_stage_elapsed_seconds": obj.get("sub_stage_elapsed_seconds")
         })
         return _obj
 

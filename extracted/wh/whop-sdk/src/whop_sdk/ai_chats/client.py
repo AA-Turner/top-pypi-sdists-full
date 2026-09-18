@@ -6,6 +6,7 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from ..types.ai_chat import AiChat
+from ..types.ai_chat_agent_identifiers import AiChatAgentIdentifiers
 from ..types.ai_chat_list_item import AiChatListItem
 from ..types.ai_chat_message_source_types import AiChatMessageSourceTypes
 from ..types.ai_chat_notification_preferences import AiChatNotificationPreferences
@@ -39,6 +40,7 @@ class AiChatsClient:
         before: typing.Optional[str] = None,
         first: typing.Optional[int] = None,
         last: typing.Optional[int] = None,
+        agent_identifier: typing.Optional[AiChatAgentIdentifiers] = None,
         only_active_crons: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[AiChatListItem, ListAiChatsResponse]:
@@ -59,6 +61,8 @@ class AiChatsClient:
         last : typing.Optional[int]
             Returns the last _n_ elements from the list.
 
+        agent_identifier : typing.Optional[AiChatAgentIdentifiers]
+
         only_active_crons : typing.Optional[bool]
             When true, returns only chats with an active cron schedule
 
@@ -75,7 +79,7 @@ class AiChatsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -94,6 +98,7 @@ class AiChatsClient:
             before=before,
             first=first,
             last=last,
+            agent_identifier=agent_identifier,
             only_active_crons=only_active_crons,
             request_options=request_options,
         )
@@ -102,7 +107,8 @@ class AiChatsClient:
         self,
         *,
         message_text: str,
-        current_company_id: typing.Optional[str] = OMIT,
+        agent_identifier: typing.Optional[AiChatAgentIdentifiers] = OMIT,
+        current_account_id: typing.Optional[str] = OMIT,
         message_attachments: typing.Optional[typing.Sequence[CreateAiChatsRequestMessageAttachmentsItem]] = OMIT,
         message_source: typing.Optional[AiChatMessageSourceTypes] = OMIT,
         suggestion_type: typing.Optional[str] = OMIT,
@@ -120,8 +126,11 @@ class AiChatsClient:
         message_text : str
             The text content of the first message to send to the AI agent.
 
-        current_company_id : typing.Optional[str]
-            The unique identifier of the company to set as context for the AI chat (e.g., "biz_XXXXX").
+        agent_identifier : typing.Optional[AiChatAgentIdentifiers]
+            The AI agent that handles the chat. Defaults to `support`.
+
+        current_account_id : typing.Optional[str]
+            The unique identifier of the account to set as context for the AI chat (e.g., "biz_XXXXX").
 
         message_attachments : typing.Optional[typing.Sequence[CreateAiChatsRequestMessageAttachmentsItem]]
             A list of previously uploaded file attachments to include with the first message.
@@ -148,7 +157,7 @@ class AiChatsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -158,7 +167,8 @@ class AiChatsClient:
         """
         _response = self._raw_client.create(
             message_text=message_text,
-            current_company_id=current_company_id,
+            agent_identifier=agent_identifier,
+            current_account_id=current_account_id,
             message_attachments=message_attachments,
             message_source=message_source,
             suggestion_type=suggestion_type,
@@ -189,7 +199,7 @@ class AiChatsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -225,7 +235,7 @@ class AiChatsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -240,13 +250,13 @@ class AiChatsClient:
         self,
         id: str,
         *,
-        current_company_id: typing.Optional[str] = OMIT,
+        current_account_id: typing.Optional[str] = OMIT,
         notification_preference: typing.Optional[AiChatNotificationPreferences] = OMIT,
         title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AiChat:
         """
-        Update an AI chat's title, notification preferences, or associated company context.
+        Update an AI chat's title, notification preferences, or associated account context.
 
         Required permissions:
          - `ai_chat:update`
@@ -256,8 +266,8 @@ class AiChatsClient:
         id : str
             The unique identifier of the AI chat to update (e.g., "ai_chat_XXXXX").
 
-        current_company_id : typing.Optional[str]
-            The unique identifier of the company to set as context for the AI chat (e.g., "biz_XXXXX").
+        current_account_id : typing.Optional[str]
+            The unique identifier of the account to set as context for the AI chat (e.g., "biz_XXXXX").
 
         notification_preference : typing.Optional[AiChatNotificationPreferences]
             The notification preference for the AI chat.
@@ -278,7 +288,7 @@ class AiChatsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -288,7 +298,7 @@ class AiChatsClient:
         """
         _response = self._raw_client.update(
             id,
-            current_company_id=current_company_id,
+            current_account_id=current_account_id,
             notification_preference=notification_preference,
             title=title,
             request_options=request_options,
@@ -318,6 +328,7 @@ class AsyncAiChatsClient:
         before: typing.Optional[str] = None,
         first: typing.Optional[int] = None,
         last: typing.Optional[int] = None,
+        agent_identifier: typing.Optional[AiChatAgentIdentifiers] = None,
         only_active_crons: typing.Optional[bool] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[AiChatListItem, ListAiChatsResponse]:
@@ -338,6 +349,8 @@ class AsyncAiChatsClient:
         last : typing.Optional[int]
             Returns the last _n_ elements from the list.
 
+        agent_identifier : typing.Optional[AiChatAgentIdentifiers]
+
         only_active_crons : typing.Optional[bool]
             When true, returns only chats with an active cron schedule
 
@@ -356,7 +369,7 @@ class AsyncAiChatsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -382,6 +395,7 @@ class AsyncAiChatsClient:
             before=before,
             first=first,
             last=last,
+            agent_identifier=agent_identifier,
             only_active_crons=only_active_crons,
             request_options=request_options,
         )
@@ -390,7 +404,8 @@ class AsyncAiChatsClient:
         self,
         *,
         message_text: str,
-        current_company_id: typing.Optional[str] = OMIT,
+        agent_identifier: typing.Optional[AiChatAgentIdentifiers] = OMIT,
+        current_account_id: typing.Optional[str] = OMIT,
         message_attachments: typing.Optional[typing.Sequence[CreateAiChatsRequestMessageAttachmentsItem]] = OMIT,
         message_source: typing.Optional[AiChatMessageSourceTypes] = OMIT,
         suggestion_type: typing.Optional[str] = OMIT,
@@ -408,8 +423,11 @@ class AsyncAiChatsClient:
         message_text : str
             The text content of the first message to send to the AI agent.
 
-        current_company_id : typing.Optional[str]
-            The unique identifier of the company to set as context for the AI chat (e.g., "biz_XXXXX").
+        agent_identifier : typing.Optional[AiChatAgentIdentifiers]
+            The AI agent that handles the chat. Defaults to `support`.
+
+        current_account_id : typing.Optional[str]
+            The unique identifier of the account to set as context for the AI chat (e.g., "biz_XXXXX").
 
         message_attachments : typing.Optional[typing.Sequence[CreateAiChatsRequestMessageAttachmentsItem]]
             A list of previously uploaded file attachments to include with the first message.
@@ -438,7 +456,7 @@ class AsyncAiChatsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -454,7 +472,8 @@ class AsyncAiChatsClient:
         """
         _response = await self._raw_client.create(
             message_text=message_text,
-            current_company_id=current_company_id,
+            agent_identifier=agent_identifier,
+            current_account_id=current_account_id,
             message_attachments=message_attachments,
             message_source=message_source,
             suggestion_type=suggestion_type,
@@ -487,7 +506,7 @@ class AsyncAiChatsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -531,7 +550,7 @@ class AsyncAiChatsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -552,13 +571,13 @@ class AsyncAiChatsClient:
         self,
         id: str,
         *,
-        current_company_id: typing.Optional[str] = OMIT,
+        current_account_id: typing.Optional[str] = OMIT,
         notification_preference: typing.Optional[AiChatNotificationPreferences] = OMIT,
         title: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AiChat:
         """
-        Update an AI chat's title, notification preferences, or associated company context.
+        Update an AI chat's title, notification preferences, or associated account context.
 
         Required permissions:
          - `ai_chat:update`
@@ -568,8 +587,8 @@ class AsyncAiChatsClient:
         id : str
             The unique identifier of the AI chat to update (e.g., "ai_chat_XXXXX").
 
-        current_company_id : typing.Optional[str]
-            The unique identifier of the company to set as context for the AI chat (e.g., "biz_XXXXX").
+        current_account_id : typing.Optional[str]
+            The unique identifier of the account to set as context for the AI chat (e.g., "biz_XXXXX").
 
         notification_preference : typing.Optional[AiChatNotificationPreferences]
             The notification preference for the AI chat.
@@ -592,7 +611,7 @@ class AsyncAiChatsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -608,7 +627,7 @@ class AsyncAiChatsClient:
         """
         _response = await self._raw_client.update(
             id,
-            current_company_id=current_company_id,
+            current_account_id=current_account_id,
             notification_preference=notification_preference,
             title=title,
             request_options=request_options,

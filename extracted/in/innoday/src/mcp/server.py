@@ -3570,6 +3570,51 @@ async def update_release(
     )
 
 
+async def _release_target_aliases(org_ref: str, project_ref: str) -> tuple[str, str]:
+    """The **aliases** for an org and project given as either ids or aliases.
+
+    `_resolve_release_target` asks `/api/v1/onboarding/resolve`, and that route
+    is the one resolver in the codebase that matches on alias alone -- its own
+    docstring says so. Every reference blastoff had to hand it was a UUID:
+    `_API.resolve_org`/`resolve_project` return an explicit argument verbatim,
+    and when nothing is passed they fall through to `.innoday/project.yml`,
+    which stores `innoday_id`. So the alias was the one form this tool never
+    had, resolution failed for every call, and the error it returned advised
+    passing `organization_id` and `project_id` -- the ids that caused the miss.
+
+    Asking the organization and project routes for the alias closes it. Both
+    accept a UUID *or* an alias (`resolve_organization`, and
+    `src.routers.projects.resolve_project`, which takes a name too), so the one
+    lookup covers a caller who passed ids, a caller who passed aliases, and a
+    caller who passed neither and resolved from the launch directory.
+
+    A lookup that fails falls back to the reference exactly as given rather than
+    aborting the release. If the caller already passed an alias, the release
+    still resolves even when the API is unreachable for this one extra call; and
+    if they did not, `_resolve_release_target` is the better place to report the
+    miss, because it can say what InnoDay actually answered.
+    """
+    org_alias, project_alias = org_ref, project_ref
+
+    try:
+        organization = await _api.get(f"/api/v1/organizations/{org_ref}")
+        if isinstance(organization, dict) and organization.get("alias"):
+            org_alias = organization["alias"]
+    except Exception as exc:  # noqa: BLE001 -- a fallback, never a failure
+        logger.warning("Could not read the alias for organization %s: %s", org_ref, exc)
+
+    try:
+        project = await _api.get(
+            f"/api/v1/organizations/{org_ref}/projects/{project_ref}"
+        )
+        if isinstance(project, dict) and project.get("alias"):
+            project_alias = project["alias"]
+    except Exception as exc:  # noqa: BLE001 -- a fallback, never a failure
+        logger.warning("Could not read the alias for project %s: %s", project_ref, exc)
+
+    return org_alias, project_alias
+
+
 @app.tool()
 async def blastoff(
     release: bool = Field(
@@ -3682,17 +3727,41 @@ async def blastoff(
     # ------------------------------------------------------------------ #
     from src.cli.commands.release_proxy import _resolve_release_target
 
+    org_alias, project_alias = await _release_target_aliases(
+        org_id, resolved_project_id
+    )
+
+    # Captured for the same reason the blastoff run below is: `console.print`
+    # writes to stdout, and under stdio transport stdout *is* the JSON-RPC
+    # channel, so a single refusal message printed here would corrupt the
+    # framing of this response and every one after it. The text is not thrown
+    # away -- it is the most specific account of what InnoDay refused, so it is
+    # returned as `details` instead of printed.
+    resolve_output = io.StringIO()
     try:
-        target = await _resolve_release_target(
-            build_cli_config(), org_id, resolved_project_id
-        )
+        with contextlib.redirect_stdout(resolve_output):
+            target = await _resolve_release_target(
+                build_cli_config(), org_alias, project_alias
+            )
     except Exception as e:  # noqa: BLE001 -- never raise out of an MCP tool
         return {"error": f"Could not resolve this project from InnoDay: {e}"}
     if target is None:
         return {
-            "error": "Could not resolve this project's GitHub account and topics "
-            "from InnoDay. Launch the MCP server from inside the project "
-            "workspace, or pass organization_id and project_id."
+            # Says what could not be resolved, and under which names it was
+            # looked up. The message this replaced told the caller to pass
+            # organization_id and project_id, which is what a caller who passed
+            # them had just done -- advice that reads as "you did it wrong"
+            # while describing the failing path itself.
+            "error": (
+                f"InnoDay could not resolve organization '{org_alias}' and "
+                f"project '{project_alias}' to a GitHub account and topics, so "
+                "there is nowhere to look for this release's repositories. "
+                "Check that the project exists and that its organization has a "
+                "GitHub account configured."
+            ),
+            "organization": org_alias,
+            "project": project_alias,
+            "details": resolve_output.getvalue().strip() or None,
         }
     resolved_alias, github_org, resolved_topics = target
     if topics:
@@ -3725,13 +3794,15 @@ async def blastoff(
         prerelease=prerelease,
     )
 
-    # Best-effort read of the target version for the result (blastoff resolves
-    # it again authoritatively through the store inside its own run()).
+    # The version this run will tag. A release cuts the one the project is
+    # heading toward; a hotfix moves the patch digit on the line that last
+    # shipped -- `_version_to_cut` is the CLI's answer to the same question, so
+    # the tool and the command cannot name different versions.
     target_version: Optional[str] = None
     loaded_config = None
     try:
         loaded_config = store.load_org_config(resolved_alias)
-        target_version = loaded_config.next_version
+        target_version = ReleaseProxyCommands._version_to_cut(loaded_config, hotfix)
     except Exception:  # noqa: BLE001 -- non-fatal; blastoff will resolve it too
         target_version = None
 
@@ -3744,10 +3815,15 @@ async def blastoff(
     # corrupt the protocol. Capture stdout for the whole run and return it in
     # the result dict — never let it reach the real process stdout.
     # ------------------------------------------------------------------ #
-    from blastoff.hotfix import Hotfix
     from blastoff.release import Release
 
-    engine = Hotfix if hotfix else Release
+    # **One engine, so one call.** A hotfix used to be a second application
+    # driven a second way: an alias and a topic list instead of the brief,
+    # which meant the brief assembled just above -- version, window, ticket
+    # counts -- was built and then thrown away on that branch. And `--json`
+    # was appended to every preview while the hotfix engine defined no such
+    # switch, so an MCP hotfix preview failed on its own arguments before it
+    # reached anything. Both faults were the split itself.
     brief = {
         "name": resolved_alias,
         "github_org": github_org,
@@ -3760,17 +3836,14 @@ async def blastoff(
     if picture is not None:
         brief["ticket_count"], brief["open_ticket_count"] = picture
 
+    argv = ["--brief", "-"]
+    brief_stdin = json.dumps(brief)
     if hotfix:
-        argv = ["-c", resolved_alias, "-o", github_org]
-        argv += ["--topics", ",".join(resolved_topics)]
-        if repo:
-            argv += ["--repo", repo]
-        if commit:
-            argv += ["--commit", commit]
-        brief_stdin = None
-    else:
-        argv = ["--brief", "-"]
-        brief_stdin = json.dumps(brief)
+        argv.append("--hotfix")
+    if repo:
+        argv += ["--repo", repo]
+    if commit:
+        argv += ["--commit", commit]
 
     if summary:
         argv += ["--summary", summary]
@@ -3788,7 +3861,7 @@ async def blastoff(
     try:
         with contextlib.redirect_stdout(captured):
             retcode = ReleaseProxyCommands._invoke_blastoff(
-                engine, argv, store, stdin=brief_stdin
+                Release, argv, store, stdin=brief_stdin
             )
     except Exception as e:  # noqa: BLE001 -- never raise out of an MCP tool
         error = str(e)

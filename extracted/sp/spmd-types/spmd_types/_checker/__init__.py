@@ -76,6 +76,7 @@ from spmd_types.runtime import (  # noqa: F401
     no_typecheck,
     register_autograd_function,
     register_decomposition,
+    reinterpret_no_grad,
     trace,
 )
 from spmd_types.types import (
@@ -306,6 +307,7 @@ def _infer_local_type_for_axis_raw(  # noqa: C901
     axis_types: list[PerMeshAxisLocalSpmdType],
     out_partial: bool = False,
     linearity: OpLinearity = OpLinearity.NONLINEAR,
+    no_grad: list[bool] | None = None,
 ) -> PerMeshAxisLocalSpmdType:
     """Raw inference logic -- raises plain ``SpmdTypeError`` without suggestions.
 
@@ -317,6 +319,9 @@ def _infer_local_type_for_axis_raw(  # noqa: C901
         axis_types: List of input SPMD types for this axis.
         out_partial: If True, reinterpret the inferred result as Partial.
         linearity: How the op interacts with Partial types.
+        no_grad: Optional list parallel to ``axis_types``; True marks an
+            operand that cannot receive a gradient from this op (it does not
+            require grad, or grad mode is disabled).
     """
     if not axis_types:
         if out_partial:
@@ -324,6 +329,20 @@ def _infer_local_type_for_axis_raw(  # noqa: C901
         raise ValueError(f"No types provided for axis {format_axis(axis)}")
 
     type_set = set(axis_types)
+
+    # R and I differ only in the gradient they accept.  When I is mixed with
+    # other types, an R/I operand that cannot receive a gradient adopts the
+    # flavor of those that can (R if there are none).  The rules below run on
+    # the coerced types; error messages keep reporting the original
+    # ``axis_types``.
+    if no_grad is not None and I in type_set and not type_set <= {I, _Scalar}:
+        fixed = {t for t, ng in zip(axis_types, no_grad) if not ng and t in (R, I)}
+        if len(fixed) <= 1:
+            flavor = I if fixed == {I} else R
+            type_set = {
+                flavor if ng and t in (R, I) else t
+                for t, ng in zip(axis_types, no_grad)
+            }
 
     # Check type compatibility and infer output type.
     #
@@ -422,6 +441,7 @@ def infer_local_type_for_axis(
     axis_types: list[PerMeshAxisLocalSpmdType],
     out_partial: bool = False,
     linearity: OpLinearity = OpLinearity.NONLINEAR,
+    no_grad: list[bool] | None = None,
 ) -> PerMeshAxisLocalSpmdType:
     """
     Infer the output SPMD type for a single mesh axis given input types.
@@ -431,6 +451,9 @@ def infer_local_type_for_axis(
         axis_types: List of input types for this axis
         out_partial: If True, reinterpret the result as Partial
         linearity: How the op interacts with Partial types
+        no_grad: Optional list parallel to ``axis_types`` marking operands
+            that cannot receive a gradient.  Such operands may be typed I
+            while mixing with R (see ``_infer_local_type_for_axis_raw``).
 
     Returns:
         The inferred output type
@@ -440,13 +463,17 @@ def infer_local_type_for_axis(
     """
     axis = normalize_axis(axis)
     try:
-        return _infer_local_type_for_axis_raw(axis, axis_types, out_partial, linearity)
+        return _infer_local_type_for_axis_raw(
+            axis, axis_types, out_partial, linearity, no_grad
+        )
     except SpmdTypeError as e:
         raise SpmdTypeError(
             _format_error_with_suggestions(
                 str(e),
                 axis,
                 axis_types,
+                # Suggestions describe explicit conversions, so they are
+                # evaluated under the strict rule (no no_grad relaxation).
                 lambda a, t: _infer_local_type_for_axis_raw(
                     a, t, out_partial, linearity
                 ),
@@ -755,6 +782,8 @@ def _auto_reinterpret_cross_mesh(
 
 def infer_output_type(  # noqa: C901
     input_types_list: list[LocalSpmdType],
+    *,
+    no_grad: list[bool] | None = None,
     out_partial_axes: set[DeviceMeshAxis] | None = None,
     linearity: OpLinearity = OpLinearity.NONLINEAR,
 ) -> LocalSpmdType:
@@ -772,7 +801,8 @@ def infer_output_type(  # noqa: C901
     - If all operands are V -> output is V
     - If all operands are P -> output is P (linear ops only)
     - Mixed R/V -> output is V
-    - I cannot mix with other types
+    - I cannot mix with other types, unless the R or I operands that cannot
+      receive a gradient (per ``no_grad``) can be read as the other flavor
     - P cannot mix with non-P types
 
     In strict mode, raises ``SpmdTypeError`` when an operand is missing an
@@ -781,6 +811,8 @@ def infer_output_type(  # noqa: C901
 
     Args:
         input_types_list: List of LocalSpmdType dicts, one per operand
+        no_grad: Optional list parallel to ``input_types_list``; True marks
+            an operand that cannot receive a gradient from this op
         out_partial_axes: Optional set of mesh axis names to mark as partial
         linearity: How the op interacts with Partial types
 
@@ -820,6 +852,7 @@ def infer_output_type(  # noqa: C901
     output_type: LocalSpmdType = {}
     for axis in sorted(all_axes, key=lambda ax: format_axis(ax)):
         axis_types = []
+        axis_no_grad: list[bool] = []
         for operand_idx, typ in enumerate(input_types_list):
             if axis not in typ:
                 if strict:
@@ -844,12 +877,18 @@ def infer_output_type(  # noqa: C901
                     )
                 continue  # permissive: skip this operand for this axis
             axis_types.append(typ[axis])
+            if no_grad is not None:
+                axis_no_grad.append(no_grad[operand_idx])
 
         if not axis_types:
             continue  # all operands missing this axis
 
         output_type[axis] = infer_local_type_for_axis(
-            axis, axis_types, out_partial=axis in out_partial_axes, linearity=linearity
+            axis,
+            axis_types,
+            out_partial=axis in out_partial_axes,
+            linearity=linearity,
+            no_grad=axis_no_grad if no_grad is not None else None,
         )
 
     return output_type
@@ -1238,12 +1277,16 @@ class _ArgInfo(NamedTuple):
         partition_specs: PartitionSpec for each tensor (same order as
             tensor_types). None for tensors without a PartitionSpec.
         no_grads: Tensor ids with requires_grad=False
+        tensor_no_grad: Parallel to ``tensor_types``; True when the tensor
+            cannot receive a gradient from this op (requires_grad=False or
+            grad mode disabled).
     """
 
     tensor_types: list[LocalSpmdType]
     raw_entries: list[_RawArgEntry]
     partition_specs: list[PartitionSpec | None]
     no_grads: set[int]
+    tensor_no_grad: list[bool]
 
 
 def _classify_args(args: tuple, kwargs: dict) -> _ArgInfo:
@@ -1264,11 +1307,14 @@ def _classify_args(args: tuple, kwargs: dict) -> _ArgInfo:
     raw_entries: list[_RawArgEntry] = []
     partition_specs: list[PartitionSpec | None] = []
     no_grads: set[int] = set()
+    tensor_no_grad: list[bool] = []
+    grad_enabled = torch.is_grad_enabled()
 
     for arg in args:
         for t in _iter_tensors_in(arg):
             tensor_types.append(get_local_type(t))
             partition_specs.append(get_partition_spec(t))
+            tensor_no_grad.append(not (grad_enabled and t.requires_grad))
             if not t.requires_grad:
                 no_grads.add(id(t))
         raw_entries.append(_RawArgEntry(None, arg))
@@ -1281,6 +1327,7 @@ def _classify_args(args: tuple, kwargs: dict) -> _ArgInfo:
         for t in _iter_tensors_in(v):
             tensor_types.append(get_local_type(t))
             partition_specs.append(get_partition_spec(t))
+            tensor_no_grad.append(not (grad_enabled and t.requires_grad))
         raw_entries.append(_RawArgEntry(key, v))
 
     return _ArgInfo(
@@ -1288,6 +1335,7 @@ def _classify_args(args: tuple, kwargs: dict) -> _ArgInfo:
         raw_entries,
         partition_specs,
         no_grads,
+        tensor_no_grad,
     )
 
 
@@ -2684,6 +2732,243 @@ class _SpmdTypeMode(torch.overrides.TorchFunctionMode):
             _filter_and_reraise(e)
             raise
 
+    def _typecheck_shard_propagation(
+        self,
+        func,
+        result,
+        args: tuple,
+        kwargs: dict,
+        out,
+        input_types_list: list[LocalSpmdType],
+        partition_specs: list[PartitionSpec | None],
+        output_type: LocalSpmdType,
+    ) -> None:
+        """Overlay DTensor shard propagation for global-SPMD S(i) axes.
+
+        Sets PartitionSpecs on the result and promotes the local type from V
+        to P on axes where DTensor determines the output is Partial.  The
+        result was already stamped with the local type, so the promotion goes
+        through ``mutate_type`` with ``src=V``, which checks that the tensor
+        really is V on that axis.  ``output_type`` is updated in place so the
+        caller's trace reflects the promotion.
+        """
+        all_axes: set[MeshAxis] = set()
+        for typ in input_types_list:
+            all_axes.update(typ.keys())
+        global_axes = self._global_axes_for(all_axes)
+        if global_axes:
+            global_shard_axes, shard_edges = _collect_shard_axes(
+                partition_specs, global_axes
+            )
+        else:
+            global_shard_axes, shard_edges = [], {}
+
+        # In permissive mode, local inference may skip axes that some
+        # operands lack. Global shard propagation must also skip those
+        # axes.
+        global_shard_axes = [ax for ax in global_shard_axes if ax in output_type]
+
+        if global_shard_axes:
+            # Global layer: overlay DTensor shard propagation for S(i)
+            # axes and set partition specs on the result.
+            flat_results, _ = torch.utils._pytree.tree_flatten(result)
+            raw_placements, output_specs = _infer_global_output_type(
+                func,
+                args,
+                kwargs,
+                global_shard_axes,
+                flat_results,
+                shard_edges=shard_edges,
+            )
+            # Validate local <-> global correspondence per axis.
+            for axis in global_shard_axes:
+                per_tensor_output_on_axis: list[PerMeshAxisSpmdType | None] = []
+                for per_leaf_placements in raw_placements:
+                    if per_leaf_placements is None or axis not in per_leaf_placements:
+                        per_tensor_output_on_axis.append(None)
+                    else:
+                        per_tensor_output_on_axis.append(
+                            dtensor_placement_to_spmd_type(per_leaf_placements[axis])
+                        )
+                # NB: local spmd type assumes all output tensors have
+                # the same output_type[axis] on this axis. While global
+                # spmd type may have different types on different output
+                # tensors. This is needed to explicitly tell the S(?)
+                # from V.
+                validated_global_result = (
+                    _validate_and_update_local_global_correspondence(
+                        output_type[axis], per_tensor_output_on_axis, axis
+                    )
+                )
+                # Upgrade V to P when global shard propagation
+                # determines the output is Partial.
+                if output_type[axis] is V and any(
+                    vgr is P for vgr in validated_global_result
+                ):
+                    assert all(vgr is P for vgr in validated_global_result), (
+                        f"Inconsistent global results on axis {format_axis(axis)}: "
+                        f"expected all P, got {validated_global_result}"
+                    )
+                    output_type[axis] = P
+                    # ``out`` may alias tensors in ``result`` (the out= kwarg
+                    # convention returns the same buffer). Promote each tensor
+                    # once, or mutate_type would see the already-promoted P on
+                    # the second pass and raise on the src=V check.
+                    promoted: set[int] = set()
+                    for t in _iter_tensors_in(result):
+                        if id(t) not in promoted:
+                            promoted.add(id(t))
+                            mutate_type(t, axis, src=V, dst=P)
+                    for t in _iter_tensors_in(out):
+                        if id(t) not in promoted:
+                            promoted.add(id(t))
+                            mutate_type(t, axis, src=V, dst=P)
+            _set_result_partition_spec(result, output_specs)
+
+    def _typecheck_spmd_function(  # noqa: C901
+        self,
+        func,
+        result,
+        args: tuple,
+        kwargs: dict,
+        input_types: list[LocalSpmdType],
+    ) -> None:
+        """Type an spmd_types collective / reinterpret / convert call.
+
+        Local first (src/dst on the collective axis), then global (PartitionSpec
+        update on the collective axis).
+        """
+        x = args[0]
+        defaults = _SPMD_FUNCTION_DEFAULTS[func]
+        axis = normalize_axis(args[1] if len(args) > 1 else kwargs["axis"])
+        src = kwargs.get("src", defaults["src"])
+        dst = kwargs.get("dst", defaults["dst"])
+
+        # Decay Shard to Varying for local SPMD type checking.
+        # S(i) is a global SPMD refinement; locally it behaves as V.
+        local_src = to_local_type(src)
+        local_dst = to_local_type(dst)
+
+        # Validate input type on the axis matches src.
+        # Special case: reductions (all_reduce, reduce_scatter) accept
+        # V when src=P, implicitly reinterpreting V as P.  The runtime
+        # in _collectives.py already handles this conversion.
+        local_type = get_local_type(x)
+
+        # Resolve axis to a list of matching axes on the tensor.
+        # Direct match: [axis]. Flattened decomposition: [sub1, sub2, ...].
+        resolved_axes = _resolve_collective_axes(axis, local_type)
+        collective_axes = resolved_axes or [axis]
+        global_collective_axes = [
+            ax for ax in collective_axes if self._is_global_axis(ax)
+        ]
+        if global_collective_axes and len(global_collective_axes) != len(
+            collective_axes
+        ):
+            global_axis_set = set(global_collective_axes)
+            local_collective_axes = [
+                ax for ax in collective_axes if ax not in global_axis_set
+            ]
+            local_names = ", ".join(format_axis(ax) for ax in local_collective_axes)
+            global_names = ", ".join(format_axis(ax) for ax in global_collective_axes)
+            raise SpmdTypeError(
+                f"Collective axis {format_axis(axis)} spans mesh axes with "
+                f"mixed typechecking policies: local axes ({local_names}) "
+                f"and global axes ({global_names}). Pass a collective axis "
+                f"whose component axes are all local or all global."
+            )
+
+        if resolved_axes is not None:
+            # Validate input types on all resolved axes
+            for ax in resolved_axes:
+                input_type = local_type[ax]
+                if local_src is not None and input_type != local_src:
+                    # Allow V -> P implicit cast for reductions
+                    if not (local_src is P and input_type is V):
+                        raise SpmdTypeError(
+                            f"{func.__name__}: expected input type {local_src} on axis "
+                            f"{format_axis(ax)}, got {input_type}"
+                        )
+        elif axis.size() == 1:
+            pass  # singleton axes are never stored; skip
+        elif _state.is_strict():
+            raise SpmdTypeError(
+                f"{func.__name__}: tensor has no type for axis "
+                f"{format_axis(axis)}. Use assert_type() to annotate "
+                f"the tensor on this axis before calling collectives."
+            )
+        # else: permissive mode -- skip validation for this axis.
+
+        # Build output types: copy all axes from input, override
+        # resolved axes with local_dst.
+        output_type = local_type.copy()
+        if resolved_axes is not None and local_dst is not None:
+            for ax in resolved_axes:
+                output_type[ax] = local_dst
+        _set_local_type(result, output_type)
+
+        if global_collective_axes:
+            input_spec = get_partition_spec(x)
+            # Find S(dim) for this axis in the input spec, validating
+            # it is innermost in its multi-axis group.
+            input_shard = None
+            if input_spec is not None:
+                for dim, entry in enumerate(input_spec):
+                    if entry is None:
+                        continue
+                    if isinstance(entry, tuple):
+                        if axis in entry:
+                            if axis != entry[-1]:
+                                group_str = (
+                                    "(" + ", ".join(format_axis(a) for a in entry) + ")"
+                                )
+                                # TODO: update error message to cover both
+                                # user error (suggest correct collective) and
+                                # expert mode (suggest local_map).
+                                raise RedistributeError(
+                                    f"redistribute on axis {format_axis(axis)} is not allowed "
+                                    f"because it is not the innermost axis in its PartitionSpec "
+                                    f"group {group_str}. Only the innermost axis "
+                                    f"({format_axis(entry[-1])}) can be directly redistributed."
+                                )
+                            input_shard = Shard(dim)
+                            break
+                    elif entry == axis:
+                        input_shard = Shard(dim)
+                        break
+            # V on a global axis must be backed by S(i).
+            if input_type is V and input_shard is None:
+                raise SpmdTypeError(
+                    f"{func.__name__}: axis {format_axis(axis)} is "
+                    f"global but the input tensor has V without a "
+                    f"corresponding S(i) in its PartitionSpec. Use "
+                    f"assert_type() to set an S(i) type."
+                )
+            # Validate src S(i) matches input PartitionSpec.
+            if isinstance(src, Shard) and input_shard is not None:
+                if input_shard != src:
+                    raise SpmdTypeError(
+                        f"{func.__name__}: expected input shard {src} "
+                        f"on axis {format_axis(axis)}, got "
+                        f"{input_shard}"
+                    )
+
+            # Build output PartitionSpec: replace this axis's shard.
+            new_output_spec = _update_axis_in_partition_spec(
+                input_spec,
+                axis,
+                dst if isinstance(dst, Shard) else None,
+                result.ndim,
+            )
+            _set_partition_spec(result, new_output_spec)
+
+        if _TRACE:
+            _trace_op(
+                func,
+                input_types,
+                get_local_type(result) if has_local_type(result) else None,
+            )
+
     def _typecheck_core(self, func, types, args=(), kwargs=None):  # noqa: C901
         kwargs = kwargs or {}
         # Unwrap Scalar objects to raw values for the actual function call,
@@ -2756,143 +3041,9 @@ class _SpmdTypeMode(torch.overrides.TorchFunctionMode):
             # when incompatible types are combined.
             # =============================================================
             if func in _SPMD_FUNCTION_DEFAULTS:
-                # SPMD collective/reinterpret/convert: local first, then global.
-                x = args[0]
-                defaults = _SPMD_FUNCTION_DEFAULTS[func]
-                axis = normalize_axis(args[1] if len(args) > 1 else kwargs["axis"])
-                src = kwargs.get("src", defaults["src"])
-                dst = kwargs.get("dst", defaults["dst"])
-
-                # Decay Shard to Varying for local SPMD type checking.
-                # S(i) is a global SPMD refinement; locally it behaves as V.
-                local_src = to_local_type(src)
-                local_dst = to_local_type(dst)
-
-                # Validate input type on the axis matches src.
-                # Special case: reductions (all_reduce, reduce_scatter) accept
-                # V when src=P, implicitly reinterpreting V as P.  The runtime
-                # in _collectives.py already handles this conversion.
-                local_type = get_local_type(x)
-
-                # Resolve axis to a list of matching axes on the tensor.
-                # Direct match: [axis]. Flattened decomposition: [sub1, sub2, ...].
-                resolved_axes = _resolve_collective_axes(axis, local_type)
-                collective_axes = resolved_axes or [axis]
-                global_collective_axes = [
-                    ax for ax in collective_axes if self._is_global_axis(ax)
-                ]
-                if global_collective_axes and len(global_collective_axes) != len(
-                    collective_axes
-                ):
-                    global_axis_set = set(global_collective_axes)
-                    local_collective_axes = [
-                        ax for ax in collective_axes if ax not in global_axis_set
-                    ]
-                    local_names = ", ".join(
-                        format_axis(ax) for ax in local_collective_axes
-                    )
-                    global_names = ", ".join(
-                        format_axis(ax) for ax in global_collective_axes
-                    )
-                    raise SpmdTypeError(
-                        f"Collective axis {format_axis(axis)} spans mesh axes with "
-                        f"mixed typechecking policies: local axes ({local_names}) "
-                        f"and global axes ({global_names}). Pass a collective axis "
-                        f"whose component axes are all local or all global."
-                    )
-
-                if resolved_axes is not None:
-                    # Validate input types on all resolved axes
-                    for ax in resolved_axes:
-                        input_type = local_type[ax]
-                        if local_src is not None and input_type != local_src:
-                            # Allow V -> P implicit cast for reductions
-                            if not (local_src is P and input_type is V):
-                                raise SpmdTypeError(
-                                    f"{func.__name__}: expected input type {local_src} on axis "
-                                    f"{format_axis(ax)}, got {input_type}"
-                                )
-                elif axis.size() == 1:
-                    pass  # singleton axes are never stored; skip
-                elif _state.is_strict():
-                    raise SpmdTypeError(
-                        f"{func.__name__}: tensor has no type for axis "
-                        f"{format_axis(axis)}. Use assert_type() to annotate "
-                        f"the tensor on this axis before calling collectives."
-                    )
-                # else: permissive mode -- skip validation for this axis.
-
-                # Build output types: copy all axes from input, override
-                # resolved axes with local_dst.
-                output_type = local_type.copy()
-                if resolved_axes is not None and local_dst is not None:
-                    for ax in resolved_axes:
-                        output_type[ax] = local_dst
-                _set_local_type(result, output_type)
-
-                if global_collective_axes:
-                    input_spec = get_partition_spec(x)
-                    # Find S(dim) for this axis in the input spec, validating
-                    # it is innermost in its multi-axis group.
-                    input_shard = None
-                    if input_spec is not None:
-                        for dim, entry in enumerate(input_spec):
-                            if entry is None:
-                                continue
-                            if isinstance(entry, tuple):
-                                if axis in entry:
-                                    if axis != entry[-1]:
-                                        group_str = (
-                                            "("
-                                            + ", ".join(format_axis(a) for a in entry)
-                                            + ")"
-                                        )
-                                        # TODO: update error message to cover both
-                                        # user error (suggest correct collective) and
-                                        # expert mode (suggest local_map).
-                                        raise RedistributeError(
-                                            f"redistribute on axis {format_axis(axis)} is not allowed "
-                                            f"because it is not the innermost axis in its PartitionSpec "
-                                            f"group {group_str}. Only the innermost axis "
-                                            f"({format_axis(entry[-1])}) can be directly redistributed."
-                                        )
-                                    input_shard = Shard(dim)
-                                    break
-                            elif entry == axis:
-                                input_shard = Shard(dim)
-                                break
-                    # V on a global axis must be backed by S(i).
-                    if input_type is V and input_shard is None:
-                        raise SpmdTypeError(
-                            f"{func.__name__}: axis {format_axis(axis)} is "
-                            f"global but the input tensor has V without a "
-                            f"corresponding S(i) in its PartitionSpec. Use "
-                            f"assert_type() to set an S(i) type."
-                        )
-                    # Validate src S(i) matches input PartitionSpec.
-                    if isinstance(src, Shard) and input_shard is not None:
-                        if input_shard != src:
-                            raise SpmdTypeError(
-                                f"{func.__name__}: expected input shard {src} "
-                                f"on axis {format_axis(axis)}, got "
-                                f"{input_shard}"
-                            )
-
-                    # Build output PartitionSpec: replace this axis's shard.
-                    new_output_spec = _update_axis_in_partition_spec(
-                        input_spec,
-                        axis,
-                        dst if isinstance(dst, Shard) else None,
-                        result.ndim,
-                    )
-                    _set_partition_spec(result, new_output_spec)
-
-                if _TRACE:
-                    _trace_op(
-                        func,
-                        info.tensor_types,
-                        get_local_type(result) if has_local_type(result) else None,
-                    )
+                self._typecheck_spmd_function(
+                    func, result, args, kwargs, info.tensor_types
+                )
 
             elif func in RAW_DIST_RULES:
                 # Raw torch.distributed collective (e.g. all_gather_into_tensor).
@@ -2916,143 +3067,22 @@ class _SpmdTypeMode(torch.overrides.TorchFunctionMode):
                         f"{register_local_autograd_function.__name__}("
                         f"{autograd_cls.__name__}) to mark it as safe "
                         f"for type propagation, or define "
-                        f"{autograd_cls.__name__}.spmd_typecheck for a custom "
-                        f"typecheck rule."
+                        f"{autograd_cls.__name__}.spmd_typecheck composed from "
+                        f"spmd_types.rules operations to declare its comms."
                     )
                 return result
 
             else:
-                # Local op (regular op or registered local autograd Function):
-                # infer output type from tensor types + scalars.
-                spec = _OP_REGISTRY.get(func)
-                input_types_list = list(info.tensor_types)
-                input_types_list = _collect_scalar_types(
-                    input_types_list, original_args, original_kwargs, spec
+                self._typecheck_torch_op(
+                    func,
+                    result,
+                    args,
+                    kwargs,
+                    original_args,
+                    original_kwargs,
+                    info.no_grads,
+                    info.tensor_no_grad,
                 )
-                # _collect_scalar_types may append entries for typed scalars;
-                # pad partition_specs with None to keep both lists aligned.
-                partition_specs = list(info.partition_specs)
-                while len(partition_specs) < len(input_types_list):
-                    partition_specs.append(None)
-
-                # Stage 1: cross-mesh reinterpret.
-                input_types_list, partition_specs = _auto_reinterpret_cross_mesh(
-                    input_types_list, partition_specs
-                )
-
-                # Stage 2: local R/I/V/P propagation. Local first: infer R/I/V/P
-                # output types for all axes. Strict/permissive mode is enforced
-                # here (missing axis annotations raise in strict, get skipped in
-                # permissive). Global shard propagation runs after and operates
-                # only on axes present in output_type (filtered below).
-                if func in _DETERMINISTIC_FACTORIES and not input_types_list:
-                    # Deterministic factory with no typed inputs: output is R.
-                    output_type = _deterministic_factory_type(func)
-                elif func in _DETERMINISTIC_NEW_FACTORIES:
-                    # new_zeros/new_ones/new_full: output shape differs from
-                    # input, output is always R (identical values on all ranks).
-                    output_type = _deterministic_factory_type(func)
-                elif not input_types_list:
-                    # No typed tensor inputs and no scalars -- unknown factory.
-                    output_type = _deterministic_factory_type(func)
-                elif (decomp_rule := _DECOMP_TYPE_RULES.get(func)) is not None:
-                    output_type = decomp_rule(*input_types_list)
-                else:
-                    linearity = (
-                        spec.linearity if spec is not None else OpLinearity.NONLINEAR
-                    )
-                    if spec is not None and spec.nonlinear_args:
-                        _validate_nonlinear_args(func, original_args, spec)
-                    # NB: output_type may be further updated because global
-                    # shard propagation below may promote local type V to P.
-                    output_type = infer_output_type(
-                        input_types_list,
-                        linearity=linearity,
-                    )
-
-                # Stage 3: global shard propagation.
-                all_axes: set[MeshAxis] = set()
-                for typ in input_types_list:
-                    all_axes.update(typ.keys())
-                global_axes = self._global_axes_for(all_axes)
-                if global_axes:
-                    global_shard_axes, shard_edges = _collect_shard_axes(
-                        partition_specs, global_axes
-                    )
-                else:
-                    global_shard_axes, shard_edges = [], {}
-
-                # Validate mutation safety for in-place/out operations.
-                mutated = _get_mutated_tensors(func, args, kwargs, result)
-                if mutated:
-                    _validate_mutation_types(func, mutated, output_type, info.no_grads)
-
-                _set_result_type(result, output_type)
-                out = original_kwargs.get("out")
-                if out is not None:
-                    _set_result_type(out, output_type)
-
-                # In permissive mode, local inference may skip axes that some
-                # operands lack. Global shard propagation must also skip those
-                # axes.
-                global_shard_axes = [
-                    ax for ax in global_shard_axes if ax in output_type
-                ]
-
-                if global_shard_axes:
-                    # Global layer: overlay DTensor shard propagation for S(i)
-                    # axes and set partition specs on the result.
-                    flat_results, _ = torch.utils._pytree.tree_flatten(result)
-                    raw_placements, output_specs = _infer_global_output_type(
-                        func,
-                        args,
-                        kwargs,
-                        global_shard_axes,
-                        flat_results,
-                        shard_edges=shard_edges,
-                    )
-                    # Validate local <-> global correspondence per axis.
-                    for axis in global_shard_axes:
-                        per_tensor_output_on_axis: list[PerMeshAxisSpmdType | None] = []
-                        for per_leaf_placements in raw_placements:
-                            if (
-                                per_leaf_placements is None
-                                or axis not in per_leaf_placements
-                            ):
-                                per_tensor_output_on_axis.append(None)
-                            else:
-                                per_tensor_output_on_axis.append(
-                                    dtensor_placement_to_spmd_type(
-                                        per_leaf_placements[axis]
-                                    )
-                                )
-                        # NB: local spmd type assumes all output tensors have
-                        # the same output_type[axis] on this axis. While global
-                        # spmd type may have different types on different output
-                        # tensors. This is needed to explicitly tell the S(?)
-                        # from V.
-                        validated_global_result = (
-                            _validate_and_update_local_global_correspondence(
-                                output_type[axis], per_tensor_output_on_axis, axis
-                            )
-                        )
-                        # Upgrade V to P when global shard propagation
-                        # determines the output is Partial.
-                        if output_type[axis] is V and any(
-                            vgr is P for vgr in validated_global_result
-                        ):
-                            assert all(vgr is P for vgr in validated_global_result), (
-                                f"Inconsistent global results on axis {format_axis(axis)}: "
-                                f"expected all P, got {validated_global_result}"
-                            )
-                            output_type[axis] = P
-                            _set_result_type(result, output_type)
-                            if out is not None:
-                                _set_result_type(out, output_type)
-                    _set_result_partition_spec(result, output_specs)
-
-                if _TRACE:
-                    _trace_op(func, info.tensor_types, output_type)
 
         except SpmdTypeError as e:
             if e.context is None:
@@ -3062,6 +3092,107 @@ class _SpmdTypeMode(torch.overrides.TorchFunctionMode):
             raise
 
         return result
+
+    def _typecheck_torch_op(  # noqa: C901
+        self,
+        func,
+        result,
+        args: tuple,
+        kwargs: dict,
+        original_args: tuple,
+        original_kwargs: dict,
+        no_grads: set[int],
+        tensor_no_grad: list[bool],
+    ) -> None:
+        """Type a regular torch op (or a registered local autograd Function):
+        local rule (or a per-op override) plus in-place validation and global
+        shard propagation.
+
+        Receives the raw call and classifies the operands itself, like an
+        ``spmd_typecheck`` hook does.  The dispatcher classifies the same
+        arguments for its own purposes (error context, global-SPMD input
+        validation); that duplication is deliberate so that typing rules take
+        tensors, not pre-digested type lists.  ``no_grads`` and
+        ``tensor_no_grad`` cannot be recomputed here: they must be snapshotted
+        before the op runs, since autograd may flip ``requires_grad`` on an
+        in-place result.
+        """
+        info = _classify_args(args, kwargs)
+
+        # Local op (regular op or registered local autograd Function):
+        # infer output type from tensor types + scalars.
+        spec = _OP_REGISTRY.get(func)
+        input_types_list = list(info.tensor_types)
+        input_types_list = _collect_scalar_types(
+            input_types_list, original_args, original_kwargs, spec
+        )
+        # _collect_scalar_types may append entries for typed scalars;
+        # pad partition_specs with None (and no_grad with True, since
+        # scalars never receive gradients) to keep the lists aligned.
+        partition_specs = list(info.partition_specs)
+        no_grad = list(tensor_no_grad)
+        while len(partition_specs) < len(input_types_list):
+            partition_specs.append(None)
+            no_grad.append(True)
+
+        # Stage 1: cross-mesh reinterpret.
+        input_types_list, partition_specs = _auto_reinterpret_cross_mesh(
+            input_types_list, partition_specs
+        )
+
+        # Stage 2: local R/I/V/P propagation. Local first: infer R/I/V/P
+        # output types for all axes. Strict/permissive mode is enforced
+        # here (missing axis annotations raise in strict, get skipped in
+        # permissive). Global shard propagation runs after and operates
+        # only on axes present in output_type (filtered below).
+        if func in _DETERMINISTIC_FACTORIES and not input_types_list:
+            # Deterministic factory with no typed inputs: output is R.
+            output_type = _deterministic_factory_type(func)
+        elif func in _DETERMINISTIC_NEW_FACTORIES:
+            # new_zeros/new_ones/new_full: output shape differs from
+            # input, output is always R (identical values on all ranks).
+            output_type = _deterministic_factory_type(func)
+        elif not input_types_list:
+            # No typed tensor inputs and no scalars -- unknown factory.
+            output_type = _deterministic_factory_type(func)
+        elif (decomp_rule := _DECOMP_TYPE_RULES.get(func)) is not None:
+            output_type = decomp_rule(*input_types_list)
+        else:
+            linearity = spec.linearity if spec is not None else OpLinearity.NONLINEAR
+            if spec is not None and spec.nonlinear_args:
+                _validate_nonlinear_args(func, original_args, spec)
+            # NB: output_type may be further updated because global
+            # shard propagation below may promote local type V to P.
+            output_type = infer_output_type(
+                input_types_list,
+                no_grad=no_grad,
+                linearity=linearity,
+            )
+
+        # Validate mutation safety for in-place/out operations.
+        mutated = _get_mutated_tensors(func, args, kwargs, result)
+        if mutated:
+            _validate_mutation_types(func, mutated, output_type, no_grads)
+
+        _set_result_type(result, output_type)
+        out = original_kwargs.get("out")
+        if out is not None:
+            _set_result_type(out, output_type)
+
+        # Stage 3: global shard propagation.
+        self._typecheck_shard_propagation(
+            func,
+            result,
+            args,
+            kwargs,
+            out,
+            input_types_list,
+            partition_specs,
+            output_type,
+        )
+
+        if _TRACE:
+            _trace_op(func, info.tensor_types, output_type)
 
 
 @contextmanager
@@ -3167,8 +3298,8 @@ class _SpmdTypeBackwardCompatibleMode:
 
 # _NoopSaveInputs (from torch.utils.checkpoint) passes a dummy untyped
 # tensor alongside real model tensors.  It is an identity op that returns
-# its inputs unchanged.  We wrap in no_typecheck to avoid mixed-type
-# errors from the dummy tensor, then copy types from inputs to outputs.
+# its inputs unchanged.  The spmd_typecheck hook runs after the real apply
+# and only copies types from inputs to outputs by position.
 # NOTE: _NoopSaveInputs was removed in newer PyTorch versions.
 _NoopSaveInputs = getattr(
     __import__("torch.utils.checkpoint", fromlist=["_NoopSaveInputs"]),
@@ -3177,12 +3308,10 @@ _NoopSaveInputs = getattr(
 )
 if _NoopSaveInputs is not None:
 
-    def _noop_save_inputs_typecheck_forward(*args, **kwargs):
+    def _noop_save_inputs_spmd_typecheck(result, *, args):
         input_types = [
             get_local_type(a) if isinstance(a, torch.Tensor) else None for a in args
         ]
-        with no_typecheck():
-            result = _NoopSaveInputs.apply(*args, **kwargs)
         # Restore types on outputs by position.
         if isinstance(result, (tuple, list)):
             for r, lt in zip(result, input_types):
@@ -3193,9 +3322,5 @@ if _NoopSaveInputs is not None:
                 if lt:
                     _set_local_type(result, lt)
                     break
-        return result
 
-    _NoopSaveInputs.typecheck_forward = staticmethod(
-        _noop_save_inputs_typecheck_forward
-    )
-    register_autograd_function(_NoopSaveInputs)
+    _NoopSaveInputs.spmd_typecheck = staticmethod(_noop_save_inputs_spmd_typecheck)

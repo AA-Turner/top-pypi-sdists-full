@@ -211,6 +211,64 @@ def _no_agent_health_probe(monkeypatch):
 
 
 @pytest.fixture(autouse=True)
+def _no_agent_credential_probe(monkeypatch):
+    """#3371: default the credential-health gate's live ``/health`` probe to
+    fail-open (healthy) so the ~60 ``dispatch_review``/``dispatch`` call
+    sites that don't pass ``credential_fetcher=`` never make a real
+    ``httpx.get(".../health")`` call keyed off a fixture's bogus
+    ``host.tailnet`` hostname.
+
+    Exactly the same reasoning (and exactly the same shape) as
+    ``_no_agent_health_probe`` above: the real fetchers already degrade to
+    "assume healthy" on any probe failure, so this changes no test's
+    OUTCOME — it just stops the suite's default behaviour from depending
+    on network/DNS timing, and removes the second live probe per review
+    candidate that landing the gate would otherwise have added. Tests
+    exercising the gate itself pass an explicit ``credential_fetcher=``
+    (or monkeypatch these names to something stricter), which takes
+    priority and is unaffected.
+
+    BOTH names must be stubbed, and an earlier round of #3371 got this
+    wrong by dropping the second one. It is true that ``dispatch()`` /
+    ``pick_machine()`` / ``pick_machine_choice()`` take the probe as an
+    opt-in ``credential_fetcher=`` defaulting to ``None`` — but their
+    production CALLERS hardcode the real
+    ``coord.network.claude_credential_reachable`` unconditionally:
+    ``coord/mock_author.py``, ``coord/commands/milestone.py``,
+    ``coord/commands/dispatch.py``, ``coord/commands/dispatch_workers.py``,
+    ``coord/commands/plan_followup.py``, ``coord/dashboard/server.py``,
+    ``coord/decomposition_chat.py``, ``coord/milestone_chat.py``,
+    ``coord/new_issue_chat.py``, ``coord/refine_chat.py``,
+    ``coord/reconcile.py``, ``coord/serve_app.py``. So a test that drives
+    one of those commands with only ``coord.dispatch.dispatch_with_retry``
+    (or ``coord.dispatch.dispatch``) mocked — e.g.
+    ``tests/test_mock_author.py``'s dispatch tests,
+    ``tests/test_cli_milestone_dispatch.py`` — still reaches the real probe
+    *through its caller*, one hop before the seam it mocked, and fires a
+    live ``httpx.get("http://laptop.tailnet:7433/health")``.
+
+    Every one of those call sites does a FUNCTION-LOCAL ``from coord.network
+    import claude_credential_reachable``, resolved at call time, so patching
+    the module attribute here reaches all of them. This is the exact sibling
+    of ``fetch_status``'s stub in ``_no_dispatch_liveness_probe`` (#3353),
+    which is wired into these same call sites alongside
+    ``credential_fetcher``.
+
+    ``tests/test_network.py::TestClaudeCredentialReachable`` tests the real
+    function directly; it overrides this stub back to the real callable via
+    its own narrower class-scoped autouse fixture (a closer fixture is
+    instantiated after this one and wins), so the rest of the suite stays
+    hermetic without making the function itself untestable.
+    """
+    monkeypatch.setattr(
+        "coord.review._fetch_agent_claude_credential_ok", lambda *a, **k: True
+    )
+    monkeypatch.setattr(
+        "coord.network.claude_credential_reachable", lambda *a, **k: True
+    )
+
+
+@pytest.fixture(autouse=True)
 def _no_assign_repo_drift_probe(monkeypatch):
     """#2219: default `coord assign`'s live-agent repo-capability cross-check
     (``coord.commands.dispatch._repo_capability_refusal``) to fail-open
@@ -824,6 +882,29 @@ def _no_real_github_backoff_store(monkeypatch, tmp_path):
     """
     monkeypatch.setenv(
         "COORD_GITHUB_BACKOFF_STATE", str(tmp_path / "github-backoff-state.json")
+    )
+
+
+@pytest.fixture(autouse=True)
+def _no_real_machine_fault_store(monkeypatch, tmp_path):
+    """#3367: never let a test write the OPERATOR'S real
+    ``~/.coord/machine_faults.json``.
+
+    Same hazard as ``_no_real_github_backoff_store`` immediately above, one
+    file over: this one is ``coord.machine_fault``'s consecutive-fault
+    counter, which `_decide_review`/`_decide_work` (`coord/drive.py`) write
+    on every machine-fault classification and which can trigger a REAL
+    `coord.machine_pause.pause()` call once the streak crosses
+    `AUTO_PAUSE_THRESHOLD`. A leaked test write could plant a stale streak
+    that auto-pauses a real fleet machine the next time any test (or a
+    developer's own local run) happens to exercise this path.
+
+    ``coord.machine_fault._state_path`` reads
+    ``$COORD_MACHINE_FAULT_STATE`` first for exactly this redirect, the
+    same env-var seam ``_no_real_github_backoff_store`` uses.
+    """
+    monkeypatch.setenv(
+        "COORD_MACHINE_FAULT_STATE", str(tmp_path / "machine-fault-state.json")
     )
 
 

@@ -77,10 +77,10 @@ class RawCheckoutConfigurationsClient:
             Sort direction. Defaults to `desc`.
 
         first : typing.Optional[int]
-            Number of checkout configurations to return.
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            Cursor for the next page of results.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -213,7 +213,7 @@ class RawCheckoutConfigurationsClient:
             URL customers are sent to after checkout.
 
         three_ds_level : typing.Optional[CreateCheckoutConfigurationsRequestThreeDsLevel]
-            3D Secure behavior for this checkout.
+            3D Secure behavior for supported on-session card payments. `mandate_challenge` requires a 3DS challenge before payment processing; `mandate_if_required` mandates a challenge only when the payment processor requires it; `frictionless_if_required` uses the regular frictionless 3DS flow. Payments of $1,000 or more use `mandate_if_required` unless `mandate_challenge` is selected. Risk and authentication recovery requirements can override the preference. Applies in setup mode; `null` uses frictionless 3DS. Payment mode uses the plan policy.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -452,10 +452,10 @@ class AsyncRawCheckoutConfigurationsClient:
             Sort direction. Defaults to `desc`.
 
         first : typing.Optional[int]
-            Number of checkout configurations to return.
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            Cursor for the next page of results.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -591,7 +591,7 @@ class AsyncRawCheckoutConfigurationsClient:
             URL customers are sent to after checkout.
 
         three_ds_level : typing.Optional[CreateCheckoutConfigurationsRequestThreeDsLevel]
-            3D Secure behavior for this checkout.
+            3D Secure behavior for supported on-session card payments. `mandate_challenge` requires a 3DS challenge before payment processing; `mandate_if_required` mandates a challenge only when the payment processor requires it; `frictionless_if_required` uses the regular frictionless 3DS flow. Payments of $1,000 or more use `mandate_if_required` unless `mandate_challenge` is selected. Risk and authentication recovery requirements can override the preference. Applies in setup mode; `null` uses frictionless 3DS. Payment mode uses the plan policy.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

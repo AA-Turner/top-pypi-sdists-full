@@ -11,6 +11,7 @@ class UpgradeDBInstanceRequest(DaraModel):
         dbinstance_class: str = None,
         dbinstance_group_count: str = None,
         dbinstance_id: str = None,
+        effective_time: str = None,
         instance_spec: str = None,
         master_node_num: str = None,
         owner_id: int = None,
@@ -37,6 +38,7 @@ class UpgradeDBInstanceRequest(DaraModel):
         # 
         # This parameter is required.
         self.dbinstance_id = dbinstance_id
+        self.effective_time = effective_time
         # The specifications of segment nodes. For information about supported node specifications, see [Instance specifications](https://help.aliyun.com/document_detail/35406.html).
         # 
         # > This parameter is supported only for elastic storage mode instances.
@@ -114,6 +116,9 @@ class UpgradeDBInstanceRequest(DaraModel):
         if self.dbinstance_id is not None:
             result['DBInstanceId'] = self.dbinstance_id
 
+        if self.effective_time is not None:
+            result['EffectiveTime'] = self.effective_time
+
         if self.instance_spec is not None:
             result['InstanceSpec'] = self.instance_spec
 
@@ -165,6 +170,9 @@ class UpgradeDBInstanceRequest(DaraModel):
 
         if m.get('DBInstanceId') is not None:
             self.dbinstance_id = m.get('DBInstanceId')
+
+        if m.get('EffectiveTime') is not None:
+            self.effective_time = m.get('EffectiveTime')
 
         if m.get('InstanceSpec') is not None:
             self.instance_spec = m.get('InstanceSpec')

@@ -234,7 +234,8 @@ async def test_replay_failure_is_structurally_captured(monkeypatch) -> None:
     monkeypatch.setattr(
         "matrx_connect.streaming.error_capture.capture_error", fake_capture_error
     )
-    exc = RuntimeError("forced replay failure")
+    private = "PRIVATE_SENTINEL"
+    exc = RuntimeError(private)
     rows = [
         {
             "id": "failure-1",
@@ -248,21 +249,21 @@ async def test_replay_failure_is_structurally_captured(monkeypatch) -> None:
         exc, request_id="request-1", rows=rows, phase="execute"
     )
 
-    assert captured == [
-        (
-            exc,
-            {
-                "kind": "persistence_replay_failed",
-                "route": "matrx_ai.persistence.replay.replay_pending",
-                "error_type": "RuntimeError",
-                "request_id": "request-1",
-                "user_id": "user-1",
-                "conversation_id": "conversation-1",
-                "context": {
-                    "phase": "execute",
-                    "failure_row_ids": ["failure-1"],
-                    "table_targets": ["chat.tool_call"],
-                },
-            },
-        )
-    ]
+    assert len(captured) == 1
+    safe_exc, kwargs = captured[0]
+    assert isinstance(safe_exc, RuntimeError)
+    assert str(safe_exc) == "RuntimeError: replay execution failed"
+    assert private not in str(safe_exc)
+    assert kwargs == {
+        "kind": "persistence_replay_failed",
+        "route": "matrx_ai.persistence.replay.replay_pending",
+        "error_type": "RuntimeError",
+        "request_id": "request-1",
+        "user_id": "user-1",
+        "conversation_id": "conversation-1",
+        "context": {
+            "phase": "execute",
+            "failure_row_ids": ["failure-1"],
+            "table_targets": ["chat.tool_call"],
+        },
+    }

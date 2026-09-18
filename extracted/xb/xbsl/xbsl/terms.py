@@ -23,10 +23,7 @@ _reverse: dict[str, dict[str, str]] | None = None
 def _terms() -> dict[str, dict[str, str]]:
     global _cache
     if _cache is None:
-        try:
-            data = dataset.load_json("terms.json")
-        except Exception:  # noqa: BLE001 - no data, Russian spelling only
-            data = {}
+        data = dataset.load_optional("terms.json") or {}
         _cache = {section: dict(data.get(section) or {}) for section in SECTIONS}
     return _cache
 
@@ -45,10 +42,7 @@ def _common_pairs() -> dict[str, str]:
     """
     global _common
     if _common is None:
-        try:
-            data = dataset.load_json("terms_full.json")
-        except Exception:  # noqa: BLE001 - no data, Russian spelling only
-            data = {}
+        data = dataset.load_optional("terms_full.json") or {}
         _common = dict(data.get("common") or {})
     return _common
 
@@ -78,10 +72,7 @@ def _members_by_owner() -> dict[str, dict[str, str]]:
     """
     global _owners
     if _owners is None:
-        try:
-            data = dataset.load_json("terms_full.json")
-        except Exception:  # noqa: BLE001 - no data, no owner tables
-            data = {}
+        data = dataset.load_optional("terms_full.json") or {}
         _owners = {
             owner: dict(pairs) for owner, pairs in (data.get("members") or {}).items()
             if isinstance(pairs, dict)
@@ -99,10 +90,7 @@ def _type_bases() -> dict[str, list[str]]:
     """
     global _bases
     if _bases is None:
-        try:
-            kin = (dataset.load_json("stdlib.json") or {}).get("bases") or {}
-        except Exception:  # noqa: BLE001 - no data, no ancestors
-            kin = {}
+        kin = (dataset.load_optional("stdlib.json") or {}).get("bases") or {}
         _bases = {name: list(bases) for name, bases in kin.items() if isinstance(bases, list)}
     return _bases
 
@@ -175,6 +163,49 @@ def member_spellings(member: str) -> dict[str, list[str]]:
 _ENUM_CLASS_MARK = "G5Enum"
 
 
+_manager_owners: dict[str, str] | None = None
+
+
+def _manager_owner_table() -> dict[str, str]:
+    """{Russian element kind: the owner of the members table that spells its manager}.
+
+    The `manager_owners` section of terms_full.json. The extractor states a row only where the
+    distribution proves the join (see extract/terms.manager_owners): the members of a manager
+    are filed under the class of the compiler that builds it, and no name of the kind leads to
+    that class. Empty for data extracted before the section existed.
+    """
+    global _manager_owners
+    if _manager_owners is None:
+        data = dataset.load_optional("terms_full.json") or {}
+        table = data.get("manager_owners")
+        _manager_owners = {
+            kind: owner for kind, owner in (table.items() if isinstance(table, dict) else ())
+            if isinstance(kind, str) and isinstance(owner, str)
+        }
+    return _manager_owners
+
+
+def manager_member_english(kind: str, member: str) -> str | None:
+    """The English spelling of `member` as a member of the manager of an element `kind`, or None.
+
+    `ПравоНаОтчеты.Проверить()` calls the manager of a privilege on action, and `Проверить`
+    is Check there while other owners spell the word Verify or Validate. Only the owner the data
+    joins to the kind answers, and only from its own row: the manager has no ancestors in the
+    type catalog to inherit from. `kind` is the Russian name the metamodel gives the kind; the
+    serializer's English spelling of it is accepted as well.
+    """
+    if not kind or not member:
+        return None
+    table = _manager_owner_table()
+    owner = table.get(kind)
+    if owner is None:
+        russian = next((ru for ru, en in kinds_table().items() if en == kind), None)
+        owner = table.get(russian) if russian else None
+    if not owner:
+        return None
+    return (_members_by_owner().get(owner) or {}).get(member)
+
+
 _kinds: dict[str, str] | None = None
 
 
@@ -188,21 +219,23 @@ def kinds_table() -> dict[str, str]:
     """
     global _kinds
     if _kinds is None:
-        try:
-            data = dataset.load_json("terms.json")
-        except Exception:  # noqa: BLE001 - no data, Russian spelling only
-            data = {}
+        data = dataset.load_optional("terms.json") or {}
         _kinds = dict(data.get("kinds") or {})
     return _kinds
 
 
 def _reset() -> None:
-    """Drop the pairs when the data root or version changes (dataset hook).
+    """Drop the pairs when the data root or version changes, and when the data was missing.
 
-    Without this the process would keep answering from the previously pinned dataset - a
+    Without the first the process would keep answering from the previously pinned dataset - a
     pinned root with no terms.json still handed out the English spellings of the old one.
+    Without the second a process that looked for the dictionaries before they were installed
+    would keep the Russian spelling as the only one it knows, and every rule that matches a
+    platform name would pass over a project written in English (dataset.register_recheck).
     """
     global _cache, _reverse, _common, _common_reverse, _kinds, _facets, _owners, _bases
+    global _manager_owners
+    _manager_owners = None
     _facets = None
     _cache = None
     _reverse = None
@@ -214,6 +247,7 @@ def _reset() -> None:
 
 
 dataset.register_reset(_reset)
+dataset.register_recheck(_reset)
 
 
 def english(name: str, section: str) -> str | None:

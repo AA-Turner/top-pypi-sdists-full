@@ -9,7 +9,10 @@ agent harness).
 
 Every action returns the desktop's post-action screenshot as a native MCP
 image block (the desktop agent screenshots after each op), so the model always
-sees the result of what it just did.
+sees the result of what it just did — unless the server is built with
+``screenshots="on_request"``, in which case only the ``screenshot`` tool
+returns an image and every other action answers with text. That mode lets a
+harness that issues several tool calls per turn see one frame per group.
 """
 
 from __future__ import annotations
@@ -24,24 +27,33 @@ from plato.computer_use.ssh_sandbox import SshSandbox
 from plato.tools.definition import ToolDefinition
 from plato.tools.server import ToolServer
 
+ScreenshotMode = Literal["every_action", "on_request"]
 
-def _result_to_dict(result: ToolResult) -> dict:
+# Text acknowledgement for an action whose frame is withheld in on_request
+# mode; the model is told (tool descriptions + system block) to call
+# ``screenshot`` when it wants to see the result.
+_ACTION_DONE = "done"
+
+
+def _result_to_dict(result: ToolResult, *, include_screenshot: bool = True) -> dict:
     """Convert a ToolResult to the MCP result dict.
 
     ``screenshot_b64`` is picked up by ToolServer's image extraction and
     returned as a native ImageContent block (PNG frames from the desktop
-    agent) instead of bloating the text context.
+    agent) instead of bloating the text context. With
+    ``include_screenshot=False`` the frame is dropped and a bare action gets
+    a text acknowledgement instead (on_request mode).
     """
     out: dict = {}
     if result.output:
         out["output"] = result.output
     if result.error:
         out["error"] = result.error
-    if result.base64_image:
+    if result.base64_image and include_screenshot:
         out["screenshot_b64"] = result.base64_image
         out["media_type"] = result.media_type or "image/png"
     if not out:
-        out["output"] = "(no output)"
+        out["output"] = "(no output)" if include_screenshot else _ACTION_DONE
     return out
 
 
@@ -162,43 +174,62 @@ class RemoteComputerToolServer(ToolServer):
         name: str = "Remote Desktop Computer",
         host: str = "127.0.0.1",
         port: int = 8766,
+        screenshots: ScreenshotMode = "every_action",
     ) -> None:
         self._computer = computer
         # When set, bash and the file tools run over the persistent ssh
         # session on the mesh; the screen tools always use the desktop agent.
         self._sandbox = sandbox
+        self._frame_every_action = screenshots == "every_action"
         super().__init__(name=name, host=host, port=port)
+
+    @property
+    def screenshots(self) -> ScreenshotMode:
+        return "every_action" if self._frame_every_action else "on_request"
 
     def build_tools(self) -> list[ToolDefinition]:
         c = self._computer
         s = self._sandbox
+        framed = self._frame_every_action
+        # Tool descriptions promise a frame only when one is actually attached.
+        frame_note = (
+            " Returns a post-action screenshot."
+            if framed
+            else (" Returns a short text acknowledgement; call screenshot to see the result.")
+        )
 
         async def screenshot(args: ScreenshotInput) -> dict:
             return _result_to_dict(await c.screenshot())
 
         async def click(args: ClickInput) -> dict:
-            return _result_to_dict(await c.click(args.x, args.y, args.button, args.click_type))
+            return _result_to_dict(
+                await c.click(args.x, args.y, args.button, args.click_type), include_screenshot=framed
+            )
 
         async def type_text(args: TypeTextInput) -> dict:
-            return _result_to_dict(await c.type_text(args.text))
+            return _result_to_dict(await c.type_text(args.text), include_screenshot=framed)
 
         async def key(args: KeyInput) -> dict:
-            return _result_to_dict(await c.key(args.key))
+            return _result_to_dict(await c.key(args.key), include_screenshot=framed)
 
         async def scroll(args: ScrollInput) -> dict:
-            return _result_to_dict(await c.scroll(args.x, args.y, args.direction, args.amount))
+            return _result_to_dict(
+                await c.scroll(args.x, args.y, args.direction, args.amount), include_screenshot=framed
+            )
 
         async def drag(args: DragInput) -> dict:
-            return _result_to_dict(await c.drag(args.start_x, args.start_y, args.end_x, args.end_y))
+            return _result_to_dict(
+                await c.drag(args.start_x, args.start_y, args.end_x, args.end_y), include_screenshot=framed
+            )
 
         async def mouse_move(args: MouseMoveInput) -> dict:
-            return _result_to_dict(await c.mouse_move(args.x, args.y))
+            return _result_to_dict(await c.mouse_move(args.x, args.y), include_screenshot=framed)
 
         async def cursor_position(args: CursorPositionInput) -> dict:
             return _result_to_dict(await c.cursor_position())
 
         async def wait(args: WaitInput) -> dict:
-            return _result_to_dict(await c.wait(args.seconds))
+            return _result_to_dict(await c.wait(args.seconds), include_screenshot=framed)
 
         async def bash(args: BashInput) -> dict:
             if s is not None:
@@ -289,37 +320,40 @@ class RemoteComputerToolServer(ToolServer):
             ),
             ToolDefinition(
                 name="click",
-                description="Click on the remote desktop at pixel coordinates (or the current cursor position). Returns a post-click screenshot.",
+                description="Click on the remote desktop at pixel coordinates (or the current cursor position)."
+                + frame_note,
                 input_model=ClickInput,
                 handler=click,
             ),
             ToolDefinition(
                 name="type_text",
-                description="Type text on the remote desktop at the current keyboard focus. Returns a screenshot.",
+                description="Type text on the remote desktop at the current keyboard focus." + frame_note,
                 input_model=TypeTextInput,
                 handler=type_text,
             ),
             ToolDefinition(
                 name="key",
-                description="Press a key or key combination on the remote desktop (e.g. 'Return', 'ctrl+c'). Returns a screenshot.",
+                description="Press a key or key combination on the remote desktop (e.g. 'Return', 'ctrl+c')."
+                + frame_note,
                 input_model=KeyInput,
                 handler=key,
             ),
             ToolDefinition(
                 name="scroll",
-                description="Scroll the mouse wheel on the remote desktop at the given coordinates. Returns a screenshot.",
+                description="Scroll the mouse wheel on the remote desktop at the given coordinates." + frame_note,
                 input_model=ScrollInput,
                 handler=scroll,
             ),
             ToolDefinition(
                 name="drag",
-                description="Drag the mouse (left button held) from start to end coordinates on the remote desktop. Returns a screenshot.",
+                description="Drag the mouse (left button held) from start to end coordinates on the remote desktop."
+                + frame_note,
                 input_model=DragInput,
                 handler=drag,
             ),
             ToolDefinition(
                 name="mouse_move",
-                description="Move the mouse cursor to pixel coordinates on the remote desktop. Returns a screenshot.",
+                description="Move the mouse cursor to pixel coordinates on the remote desktop." + frame_note,
                 input_model=MouseMoveInput,
                 handler=mouse_move,
             ),
@@ -331,7 +365,11 @@ class RemoteComputerToolServer(ToolServer):
             ),
             ToolDefinition(
                 name="wait",
-                description="Wait the given number of seconds, then take a screenshot of the remote desktop.",
+                description=(
+                    "Wait the given number of seconds, then take a screenshot of the remote desktop."
+                    if framed
+                    else "Wait the given number of seconds (e.g. for a page to load)." + frame_note
+                ),
                 input_model=WaitInput,
                 handler=wait,
             ),

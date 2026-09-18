@@ -1,0 +1,32 @@
+# Render coturn/turnserver.production.conf onto the host with the existing secret.
+# /etc/matrx-browser is root:root 0700; the bind-mounted file is 65534:65533 0400.
+# This pinned image runs as nobody:nogroup and MUST be able to read its config.
+services:
+  relay:
+    image: coturn/coturn@sha256:e2bca2f79a4269d7240de5872ab60a9305013ad37296d2acf14f9510874346be
+    container_name: matrx-browser-relay
+    restart: unless-stopped
+    network_mode: host
+    volumes:
+      - /etc/matrx-browser/turnserver.conf:/etc/coturn/turnserver.conf:ro
+    entrypoint: ["/bin/sh", "-ec"]
+    command:
+      - |
+        config=/etc/coturn/turnserver.conf
+        test -r "$$config" &&
+          test "$$(grep -cx 'use-auth-secret' "$$config")" = 1 &&
+          test "$$(grep -c '^static-auth-secret=' "$$config")" = 1 &&
+          grep -Eq '^static-auth-secret=[^[:space:]<>]{24,}$$' "$$config" &&
+          ! grep -Eq '<[^>]+>' "$$config" &&
+          grep -qx 'realm=aimatrx.com' "$$config" &&
+          grep -qx 'min-port=49160' "$$config" &&
+          grep -qx 'max-port=49559' "$$config" &&
+          grep -qx 'total-quota=400' "$$config" &&
+          test "$$(grep -c '^listening-ip=' "$$config")" = 1 &&
+          test "$$(grep -c '^relay-ip=' "$$config")" = 1 &&
+          test -n "$$(sed -n 's/^listening-ip=//p' "$$config")" &&
+          test "$$(sed -n 's/^listening-ip=//p' "$$config")" = "$$(sed -n 's/^relay-ip=//p' "$$config")" || {
+            echo 'Refusing to start TURN without readable authenticated capacity configuration' >&2
+            exit 78
+          }
+        exec turnserver -c "$$config"

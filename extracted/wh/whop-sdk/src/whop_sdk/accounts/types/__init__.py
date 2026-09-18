@@ -20,15 +20,19 @@ if typing.TYPE_CHECKING:
     from .list_accounts_request_status import ListAccountsRequestStatus
     from .list_accounts_response import ListAccountsResponse
     from .list_accounts_response_page_info import ListAccountsResponsePageInfo
+    from .post_account_financing_approved_payload import PostAccountFinancingApprovedPayload
+    from .post_account_financing_approved_payload_api_version import PostAccountFinancingApprovedPayloadApiVersion
+    from .post_account_financing_approved_payload_type import PostAccountFinancingApprovedPayloadType
+    from .post_account_financing_denied_payload import PostAccountFinancingDeniedPayload
+    from .post_account_financing_denied_payload_api_version import PostAccountFinancingDeniedPayloadApiVersion
+    from .post_account_financing_denied_payload_type import PostAccountFinancingDeniedPayloadType
     from .post_account_updated_payload import PostAccountUpdatedPayload
     from .post_account_updated_payload_api_version import PostAccountUpdatedPayloadApiVersion
     from .post_account_updated_payload_type import PostAccountUpdatedPayloadType
     from .transfer_ownership_accounts_response import TransferOwnershipAccountsResponse
     from .update_accounts_request_banner_image import UpdateAccountsRequestBannerImage
     from .update_accounts_request_business_address import UpdateAccountsRequestBusinessAddress
-    from .update_accounts_request_business_type import UpdateAccountsRequestBusinessType
     from .update_accounts_request_home_preferences_item import UpdateAccountsRequestHomePreferencesItem
-    from .update_accounts_request_industry_group import UpdateAccountsRequestIndustryGroup
     from .update_accounts_request_logo import UpdateAccountsRequestLogo
     from .update_accounts_request_onboarding_type import UpdateAccountsRequestOnboardingType
     from .update_accounts_request_opengraph_image import UpdateAccountsRequestOpengraphImage
@@ -64,15 +68,19 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ListAccountsRequestStatus": ".list_accounts_request_status",
     "ListAccountsResponse": ".list_accounts_response",
     "ListAccountsResponsePageInfo": ".list_accounts_response_page_info",
+    "PostAccountFinancingApprovedPayload": ".post_account_financing_approved_payload",
+    "PostAccountFinancingApprovedPayloadApiVersion": ".post_account_financing_approved_payload_api_version",
+    "PostAccountFinancingApprovedPayloadType": ".post_account_financing_approved_payload_type",
+    "PostAccountFinancingDeniedPayload": ".post_account_financing_denied_payload",
+    "PostAccountFinancingDeniedPayloadApiVersion": ".post_account_financing_denied_payload_api_version",
+    "PostAccountFinancingDeniedPayloadType": ".post_account_financing_denied_payload_type",
     "PostAccountUpdatedPayload": ".post_account_updated_payload",
     "PostAccountUpdatedPayloadApiVersion": ".post_account_updated_payload_api_version",
     "PostAccountUpdatedPayloadType": ".post_account_updated_payload_type",
     "TransferOwnershipAccountsResponse": ".transfer_ownership_accounts_response",
     "UpdateAccountsRequestBannerImage": ".update_accounts_request_banner_image",
     "UpdateAccountsRequestBusinessAddress": ".update_accounts_request_business_address",
-    "UpdateAccountsRequestBusinessType": ".update_accounts_request_business_type",
     "UpdateAccountsRequestHomePreferencesItem": ".update_accounts_request_home_preferences_item",
-    "UpdateAccountsRequestIndustryGroup": ".update_accounts_request_industry_group",
     "UpdateAccountsRequestLogo": ".update_accounts_request_logo",
     "UpdateAccountsRequestOnboardingType": ".update_accounts_request_onboarding_type",
     "UpdateAccountsRequestOpengraphImage": ".update_accounts_request_opengraph_image",
@@ -126,15 +134,19 @@ __all__ = [
     "ListAccountsRequestStatus",
     "ListAccountsResponse",
     "ListAccountsResponsePageInfo",
+    "PostAccountFinancingApprovedPayload",
+    "PostAccountFinancingApprovedPayloadApiVersion",
+    "PostAccountFinancingApprovedPayloadType",
+    "PostAccountFinancingDeniedPayload",
+    "PostAccountFinancingDeniedPayloadApiVersion",
+    "PostAccountFinancingDeniedPayloadType",
     "PostAccountUpdatedPayload",
     "PostAccountUpdatedPayloadApiVersion",
     "PostAccountUpdatedPayloadType",
     "TransferOwnershipAccountsResponse",
     "UpdateAccountsRequestBannerImage",
     "UpdateAccountsRequestBusinessAddress",
-    "UpdateAccountsRequestBusinessType",
     "UpdateAccountsRequestHomePreferencesItem",
-    "UpdateAccountsRequestIndustryGroup",
     "UpdateAccountsRequestLogo",
     "UpdateAccountsRequestOnboardingType",
     "UpdateAccountsRequestOpengraphImage",

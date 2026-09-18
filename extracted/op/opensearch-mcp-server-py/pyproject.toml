@@ -1,19 +1,15 @@
 [project]
 name = "opensearch-mcp-server-py"
-version = "0.11.0"
+version = "0.12.0"
 description = "OpenSearch MCP Server"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "aiohttp>=3.13.4",
+    "aiohttp>=3.14.3",
     "boto3>=1.39.0",
     "click>=8.3.3",
     "idna>=3.15",
-    # Capped below 2.0: mcp 2.0 removes the @server.list_tools()/@server.call_tool()
-    # decorators and the request_ctx contextvar this server is built on, replacing
-    # them with constructor-injected handlers that receive request context explicitly.
-    # Porting to that API is tracked separately.
-    "mcp[cli]>=1.9.4,<2",
+    "mcp[cli]>=2.0.0",
     "numpy>=1.24.0",
     "opensearch-py==3.1.0",
     "pydantic>=2.11.3",

@@ -129,6 +129,23 @@ class ControllerState(BaseModel):
     human_input_enabled: bool
 
 
+class RtcIceServer(BaseModel):
+    """Ephemeral ICE material issued by the control plane, never persisted."""
+
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    urls: list[str] = Field(min_length=1)
+    username: str | None = Field(default=None, repr=False)
+    credential: str | None = Field(default=None, repr=False)
+
+
+class RtcConfig(BaseModel):
+    model_config = ConfigDict(extra="forbid", hide_input_in_errors=True)
+
+    iceServers: list[RtcIceServer] = Field(min_length=1)  # noqa: N815 - WebRTC wire shape
+    expires_at: datetime = Field(repr=False)
+
+
 class WorkerReplyEnvelope(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -356,6 +373,7 @@ class BootstrapRequest(WorkerCallEnvelope):
     callback_url: str
     callback_token: str
     display: DisplayConfig | None = None
+    rtc_config: RtcConfig | None = Field(default=None, repr=False)
 
 
 class BootstrapResponse(WorkerReplyEnvelope):
@@ -374,6 +392,7 @@ class HeartbeatRequest(WorkerCallEnvelope):
     lease_expires_at: datetime
     rotate_callback_token: bool = False
     access_still_valid: bool
+    rtc_config: RtcConfig | None = Field(default=None, repr=False)
 
 
 class HeartbeatResponse(WorkerReplyEnvelope):
@@ -478,6 +497,7 @@ class ControllerTransitionRequest(WorkerCallEnvelope):
     drain_timeout_ms: int = 30_000
     boundary_capture: CaptureRequest | None = None
     enable_human_input: bool
+    rtc_config: RtcConfig | None = Field(default=None, repr=False)
 
 
 class ControllerTransitionResponse(WorkerReplyEnvelope):

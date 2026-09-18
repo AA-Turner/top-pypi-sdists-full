@@ -8,127 +8,203 @@ pyo3::create_exception!(
     "Raised when the TOON decoder cannot parse the input. Subclass of ValueError. Carries `.line` (1-based int or None) and `.source` (raw line string or None) attributes."
 );
 
-/// Python bindings for TOON (Token-Oriented Object Notation)
+/// Python bindings for TOON (Token-Oriented Object Notation).
 ///
-/// TOON is a compact, human-readable serialization format optimized for
-/// Large Language Model contexts. This library provides a native Rust
-/// implementation with Python bindings for high-performance encoding
-/// and decoding of TOON data.
+/// TOON is a compact, human-readable serialization format aimed at Large
+/// Language Model contexts. This module exposes a `json`-like API backed by
+/// a native Rust implementation.
 ///
-/// # Quick Start
+/// # Quick start
 ///
 /// ```python
 /// import toons
 ///
-/// # Serialize Python objects to TOON
-/// data = {"name": "Alice", "age": 30, "tags": ["admin", "user"]}
-/// toon_str = toons.dumps(data)
-/// print(toon_str)
-/// # Output:
+/// toon_str = toons.dumps({"name": "Alice", "tags": ["admin", "user"]})
 /// # name: Alice
-/// # age: 30
 /// # tags[2]: admin,user
 ///
-/// # Deserialize TOON back to Python
 /// data = toons.loads(toon_str)
 ///
-/// # File operations
-/// with open('data.toon', 'w') as f:
+/// with open("data.toon", "w") as f:
 ///     toons.dump(data, f)
 ///
-/// with open('data.toon', 'r') as f:
+/// with open("data.toon", "r") as f:
 ///     data = toons.load(f)
-///
-/// # Custom indentation
-/// toon_str = toons.dumps(data, indent=4)
 /// ```
 #[pyo3::pymodule]
 mod toons {
+    use pyo3::exceptions::PyValueError;
     use pyo3::prelude::*;
     use pyo3::types::PyDict;
 
+    /// Version of this library.
     #[allow(non_upper_case_globals)]
     #[pymodule_export]
     const __version__: &str = env!("CARGO_PKG_VERSION");
 
+    /// Version of the TOON specification this library implements, as
+    /// recommended by spec Section 13. Independent of `__version__`.
+    #[allow(non_upper_case_globals)]
+    #[pymodule_export]
+    const __toon_spec__: &str = "4.1";
+
     #[pymodule_export]
     use super::ToonDecodeError;
 
+    /// Spaces per indentation level when the caller passes neither
+    /// `indent_size` nor its `indent` alias (spec Section 13 default).
+    const DEFAULT_INDENT_SIZE: usize = 2;
+
+    /// Validate the `delimiter` argument and return it as a single char.
+    fn parse_delimiter(delimiter: &str) -> PyResult<char> {
+        match delimiter {
+            "," => Ok(','),
+            "\t" => Ok('\t'),
+            "|" => Ok('|'),
+            other => Err(PyValueError::new_err(format!(
+                "delimiter must be ',', '\\t', or '|', got {:?}",
+                other
+            ))),
+        }
+    }
+
+    /// Resolve `indent_size` and its deprecated `indent` alias into one
+    /// value. Passing both is an error unless they agree.
+    fn resolve_indent(
+        indent_size: Option<usize>,
+        indent: Option<usize>,
+    ) -> PyResult<Option<usize>> {
+        match (indent_size, indent) {
+            (Some(size), Some(alias)) if size != alias => Err(PyValueError::new_err(
+                "indent_size and its alias indent disagree; pass only one",
+            )),
+            (Some(size), _) => Ok(Some(size)),
+            (None, alias) => Ok(alias),
+        }
+    }
+
+    /// Validate an encoder indentation, which must leave room for nesting.
+    fn check_encode_indent(indent_size: usize) -> PyResult<()> {
+        if indent_size < 2 {
+            return Err(PyValueError::new_err("indent_size must be >= 2"));
+        }
+        Ok(())
+    }
+
+    /// Validate a decoder indentation.
+    fn check_decode_indent(indent_size: Option<usize>) -> PyResult<()> {
+        if indent_size == Some(0) {
+            return Err(PyValueError::new_err("indent_size must be >= 1"));
+        }
+        Ok(())
+    }
+
     /// Deserialize a TOON formatted string to a Python object.
     ///
-    /// Parse a string containing TOON (Token-Oriented Object Notation) data
-    /// and return the corresponding Python object.
-    ///
     /// Args:
-    ///     s: A string containing TOON formatted data
-    ///     strict: If True (default), enforce strict TOON v3.0 compliance.
-    ///             If False, allow some leniency (e.g. blank lines in arrays).
+    ///     s: String containing TOON data.
+    ///     strict: If True (default), enforce strict TOON v4.1 compliance.
+    ///         If False, allow the documented leniencies, such as blank
+    ///         lines inside arrays and count mismatches.
+    ///     indent_size: Expected spaces per indentation level (default 2).
+    ///     indent: Deprecated alias of `indent_size`.
     ///
     /// Returns:
-    ///     A Python object (dict, list, or primitive) decoded from the TOON string
+    ///     The decoded Python object (dict, list, or primitive).
     ///
     /// Raises:
     ///     ToonDecodeError: If the input is malformed. Subclass of
     ///         `ValueError`; carries `.line` (1-based) and `.source`
-    ///         (raw line) attributes for programmatic access.
+    ///         (raw line) attributes.
+    ///     ValueError: If an option value is invalid.
     ///
     /// Example:
     ///     >>> import toons
-    ///     >>> data = toons.loads("name: Alice\nage: 30")
-    ///     >>> print(data)
+    ///     >>> toons.loads("name: Alice\nage: 30")
     ///     {'name': 'Alice', 'age': 30}
     #[pyfunction]
-    #[pyo3(signature = (s, *, strict=true, expand_paths=None, indent=None))]
+    #[pyo3(signature = (s, *, strict=true, indent_size=None, indent=None))]
     fn loads(
         py: Python,
         s: String,
         strict: bool,
-        expand_paths: Option<&str>,
+        indent_size: Option<usize>,
         indent: Option<usize>,
     ) -> PyResult<Py<PyAny>> {
-        let expand_mode = expand_paths.unwrap_or("off");
-        crate::deserialization::deserialize(py, &s, strict, expand_mode, indent)
+        let indent_size = resolve_indent(indent_size, indent)?;
+        check_decode_indent(indent_size)?;
+        crate::deserialization::deserialize(py, &s, strict, indent_size)
+    }
+
+    /// Deserialize TOON data read from a file-like object.
+    ///
+    /// Args:
+    ///     fp: File-like object with a read() method returning a string.
+    ///     strict: If True (default), enforce strict TOON v4.1 compliance.
+    ///     indent_size: Expected spaces per indentation level (default 2).
+    ///     indent: Deprecated alias of `indent_size`.
+    ///
+    /// Returns:
+    ///     The decoded Python object (dict, list, or primitive).
+    ///
+    /// Raises:
+    ///     ToonDecodeError: If the input is malformed. See `loads`.
+    ///     ValueError: If an option value is invalid.
+    ///
+    /// Example:
+    ///     >>> import toons
+    ///     >>> with open('data.toon', 'r') as f:
+    ///     ...     data = toons.load(f)
+    #[pyfunction]
+    #[pyo3(signature = (fp, *, strict=true, indent_size=None, indent=None))]
+    fn load(
+        py: Python,
+        fp: &Bound<'_, PyAny>,
+        strict: bool,
+        indent_size: Option<usize>,
+        indent: Option<usize>,
+    ) -> PyResult<Py<PyAny>> {
+        let indent_size = resolve_indent(indent_size, indent)?;
+        check_decode_indent(indent_size)?;
+        let content: String = fp.call_method0("read")?.extract()?;
+        crate::deserialization::deserialize(py, &content, strict, indent_size)
     }
 
     /// Convert a TOON formatted string to a JSON formatted string.
     ///
-    /// Parse a string containing TOON (Token-Oriented Object Notation) data
-    /// and return the corresponding JSON string using Python's standard
-    /// library json module.
+    /// The conversion goes through the standard library `json` module, so
+    /// the result matches `json.dumps(toons.loads(s), indent=indent)`.
     ///
     /// Args:
-    ///     s: A string containing TOON formatted data
-    ///     strict: If True (default), enforce strict TOON v3.0 compliance.
-    ///             If False, allow some leniency (e.g. blank lines in arrays).
-    ///     expand_paths: Path expansion mode: None, "off", "safe", "always".
-    ///     indent: Number of spaces per JSON indentation level, or None for
-    ///             compact JSON (default: 2)
+    ///     s: String containing TOON data.
+    ///     strict: If True (default), enforce strict TOON v4.1 compliance.
+    ///     indent_size: Expected spaces per TOON indentation level
+    ///         (default 2).
+    ///     indent: Spaces per JSON indentation level, or None (default) for
+    ///         compact JSON.
     ///
     /// Returns:
-    ///     A string containing JSON decoded from the TOON string
+    ///     The JSON representation of the decoded data.
     ///
     /// Raises:
-    ///     ToonDecodeError: If the input is malformed. See `loads` for details.
+    ///     ToonDecodeError: If the input is malformed. See `loads`.
+    ///     ValueError: If an option value is invalid.
     ///
     /// Example:
     ///     >>> import toons
-    ///     >>> json_str = toons.to_json("name: Alice\nage: 30")
-    ///     >>> print(json_str)
-    ///     {
-    ///       "name": "Alice",
-    ///       "age": 30
-    ///     }
+    ///     >>> toons.to_json("name: Alice\nage: 30")
+    ///     '{"name": "Alice", "age": 30}'
     #[pyfunction]
-    #[pyo3(signature = (s, *, strict=true, expand_paths=None, indent=None))]
+    #[pyo3(signature = (s, *, strict=true, indent_size=None, indent=None))]
     fn to_json(
         py: Python,
         s: String,
         strict: bool,
-        expand_paths: Option<&str>,
+        indent_size: Option<usize>,
         indent: Option<usize>,
     ) -> PyResult<String> {
-        let expand_mode = expand_paths.unwrap_or("off");
-        let parsed_obj = crate::deserialization::deserialize(py, &s, strict, expand_mode, None)?;
+        check_decode_indent(indent_size)?;
+        let parsed_obj = crate::deserialization::deserialize(py, &s, strict, indent_size)?;
         let json = py.import("json")?;
         let kwargs = PyDict::new(py);
         kwargs.set_item("indent", indent)?;
@@ -137,143 +213,79 @@ mod toons {
             .extract()
     }
 
-    /// Deserialize a TOON formatted file to a Python object.
-    ///
-    /// Read TOON data from a file-like object and return the corresponding
-    /// Python object.
-    ///
-    /// Args:
-    ///     fp: A file-like object with a read() method returning a string
-    ///     strict: If True (default), enforce strict TOON v3.0 compliance.
-    ///             If False, allow some leniency (e.g. blank lines in arrays).
-    ///
-    /// Returns:
-    ///     A Python object (dict, list, or primitive) decoded from the file
-    ///
-    /// Raises:
-    ///     ToonDecodeError: If the input is malformed. See `loads` for details.
-    ///
-    /// Example:
-    ///     >>> import toons
-    ///     >>> with open('data.toon', 'r') as f:
-    ///     ...     data = toons.load(f)
-    #[pyfunction]
-    #[pyo3(signature = (fp, *, strict=true, expand_paths=None, indent=None))]
-    fn load(
-        py: Python,
-        fp: &Bound<'_, PyAny>,
-        strict: bool,
-        expand_paths: Option<&str>,
-        indent: Option<usize>,
-    ) -> PyResult<Py<PyAny>> {
-        let expand_mode = expand_paths.unwrap_or("off");
-        let read_method = fp.getattr("read")?;
-        let content = read_method.call0()?;
-        let content_str: String = content.extract()?;
-        crate::deserialization::deserialize(py, &content_str, strict, expand_mode, indent)
-    }
-
     /// Serialize a Python object to a TOON formatted string.
     ///
-    /// Convert a Python object (dict, list, or primitive) to its TOON
-    /// representation.
-    ///
     /// Args:
-    ///     obj: A Python object to serialize (dict, list, str, int, float, bool, None)
-    ///     indent: Number of spaces per indentation level (default: 2, minimum: 2)
+    ///     obj: Object to serialize. dict, list, tuple, str, int, float,
+    ///         bool, None, and date/time/datetime objects are supported.
+    ///     indent_size: Spaces per indentation level (default 2, minimum 2).
+    ///     delimiter: Document delimiter for arrays and tables: ","
+    ///         (default), "\t", or "|".
+    ///     indent: Deprecated alias of `indent_size`.
     ///
     /// Returns:
-    ///     A string containing the TOON representation of the object
+    ///     The TOON representation of the object.
     ///
     /// Raises:
-    ///     ValueError: If indent is less than 2
+    ///     TypeError: If the object contains a type that cannot be encoded,
+    ///         or a non-string object key.
+    ///     ValueError: If an option value is invalid, or the object contains
+    ///         a reference cycle.
     ///
     /// Example:
     ///     >>> import toons
-    ///     >>> data = {"name": "Alice", "tags": ["admin", "user"]}
-    ///     >>> toon_str = toons.dumps(data)
-    ///     >>> print(toon_str)
+    ///     >>> print(toons.dumps({"name": "Alice", "tags": ["admin"]}))
     ///     name: Alice
-    ///     tags[2]: admin,user
-    ///
-    ///     >>> # Custom indentation
-    ///     >>> toon_str = toons.dumps(data, indent=4)
+    ///     tags[1]: admin
     #[pyfunction]
-    #[pyo3(signature = (obj, *, indent=2, delimiter=",", key_folding=None, flatten_depth=None))]
+    #[pyo3(signature = (obj, *, indent_size=None, delimiter=",", indent=None))]
     fn dumps(
-        py: Python,
+        _py: Python,
         obj: &Bound<'_, PyAny>,
-        indent: usize,
+        indent_size: Option<usize>,
         delimiter: &str,
-        key_folding: Option<&str>,
-        flatten_depth: Option<usize>,
+        indent: Option<usize>,
     ) -> PyResult<String> {
-        if indent < 2 {
-            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "indent must be >= 2",
-            ));
-        }
-        // key_folding: only enable when explicitly set to "safe", "on", or "always"
-        let enable_key_folding = matches!(key_folding, Some("safe") | Some("on") | Some("always"));
-        crate::serialization::serialize(
-            py,
-            obj,
-            delimiter.chars().next().unwrap(),
-            indent,
-            enable_key_folding,
-            flatten_depth,
-        )
+        let indent_size = resolve_indent(indent_size, indent)?.unwrap_or(DEFAULT_INDENT_SIZE);
+        check_encode_indent(indent_size)?;
+        crate::serialization::serialize(obj, parse_delimiter(delimiter)?, indent_size)
     }
 
-    /// Serialize a Python object to a TOON formatted file.
-    ///
-    /// Convert a Python object to TOON format and write it to a file-like object.
+    /// Serialize a Python object as TOON and write it to a file-like object.
     ///
     /// Args:
-    ///     obj: A Python object to serialize (dict, list, str, int, float, bool, None)
-    ///     fp: A file-like object with a write() method
-    ///     indent: Number of spaces per indentation level (default: 2, minimum: 2)
+    ///     obj: Object to serialize. See `dumps` for supported types.
+    ///     fp: File-like object with a write() method.
+    ///     indent_size: Spaces per indentation level (default 2, minimum 2).
+    ///     delimiter: Document delimiter for arrays and tables: ","
+    ///         (default), "\t", or "|".
+    ///     indent: Deprecated alias of `indent_size`.
     ///
     /// Raises:
-    ///     ValueError: If indent is less than 2
+    ///     TypeError: If the object contains a type that cannot be encoded,
+    ///         or a non-string object key.
+    ///     ValueError: If an option value is invalid, or the object contains
+    ///         a reference cycle.
     ///
     /// Example:
     ///     >>> import toons
-    ///     >>> data = {"name": "Alice", "age": 30}
     ///     >>> with open('data.toon', 'w') as f:
-    ///     ...     toons.dump(data, f)
-    ///
-    ///     >>> # Custom indentation
-    ///     >>> with open('data.toon', 'w') as f:
-    ///     ...     toons.dump(data, f, indent=4)
+    ///     ...     toons.dump({"name": "Alice"}, f)
     #[pyfunction]
-    #[pyo3(signature = (obj, fp, *, indent=2, delimiter=",", key_folding=None, flatten_depth=None))]
+    #[pyo3(signature = (obj, fp, *, indent_size=None, delimiter=",", indent=None))]
     fn dump(
-        py: Python,
+        _py: Python,
         obj: &Bound<'_, PyAny>,
         fp: &Bound<'_, PyAny>,
-        indent: usize,
+        indent_size: Option<usize>,
         delimiter: &str,
-        key_folding: Option<&str>,
-        flatten_depth: Option<usize>,
+        indent: Option<usize>,
     ) -> PyResult<()> {
-        if indent < 2 {
-            return Err(PyErr::new::<pyo3::exceptions::PyValueError, _>(
-                "indent must be >= 2",
-            ));
-        }
-        // key_folding: only enable when explicitly set to "safe", "on", or "always"
-        let enable_key_folding = matches!(key_folding, Some("safe") | Some("on") | Some("always"));
-        let toon_str = crate::serialization::serialize(
-            py,
-            obj,
-            delimiter.chars().next().unwrap(),
-            indent,
-            enable_key_folding,
-            flatten_depth,
-        )?;
-        let write_method = fp.getattr("write")?;
-        write_method.call1((toon_str,))?;
+        let indent_size = resolve_indent(indent_size, indent)?.unwrap_or(DEFAULT_INDENT_SIZE);
+        check_encode_indent(indent_size)?;
+        let toon_str =
+            crate::serialization::serialize(obj, parse_delimiter(delimiter)?, indent_size)?;
+        fp.call_method1("write", (toon_str,))?;
         Ok(())
     }
 }

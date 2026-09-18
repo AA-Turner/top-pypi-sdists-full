@@ -1000,6 +1000,7 @@ class SandboxClient:
         artifact_id: str | None = None,
         dataset: str = "base",
         tag: str | None = None,
+        restore_memory: bool = True,
         # blankl or plato-config mode
         cpus: int = 1,
         memory: int = 2048,
@@ -1028,6 +1029,9 @@ class SandboxClient:
             artifact_id: Artifact UUID.
             dataset: Dataset name.
             tag: Artifact tag.
+            restore_memory: Artifact/simulator modes. True (default) resumes
+                the memory snapshot; False cold-boots the VM from the
+                snapshot's disk only (nothing restored from memory).
             cpus: Number of CPUs.
             memory: Memory in MB.
             disk: Disk in MB.
@@ -1070,11 +1074,13 @@ class SandboxClient:
         config_messaging_port: int | None = None
 
         if mode == "artifact" and artifact_id:
-            self.console.print(f"[cyan]Mode:[/cyan] artifact ({artifact_id})")
-            env_config = Env.artifact(artifact_id)
+            boot = "" if restore_memory else ", cold boot from disk"
+            self.console.print(f"[cyan]Mode:[/cyan] artifact ({artifact_id}{boot})")
+            env_config = Env.artifact(artifact_id, restore_memory=restore_memory)
         elif mode == "simulator" and simulator_name:
-            self.console.print(f"[cyan]Mode:[/cyan] simulator ({simulator_name}:{tag})")
-            env_config = Env.simulator(simulator_name, tag=tag, dataset=dataset)
+            boot = "" if restore_memory else ", cold boot from disk"
+            self.console.print(f"[cyan]Mode:[/cyan] simulator ({simulator_name}:{tag}{boot})")
+            env_config = Env.simulator(simulator_name, tag=tag, dataset=dataset, restore_memory=restore_memory)
         elif mode == "blank":
             # Use provided simulator_name or default to "sandbox"
             sim_name = simulator_name or "sandbox"
@@ -1821,6 +1827,7 @@ class SandboxClient:
         dataset: str | None,
         target: str | None = None,
         mcp: ArtifactMcpConfig | None = None,
+        description: str | None = None,
     ) -> CreateCheckpointRequest:
         """Build the checkpoint payload; config mode packs local plato-config.yml + flows.
 
@@ -1829,12 +1836,17 @@ class SandboxClient:
         of the sims.plato.so fallback. Independent of ``mode``; when omitted the
         backend inherits the parent artifact's target.
 
+        ``description`` is free text stored on the artifact (shown in listings) — how a
+        throwaway or gate snapshot is told apart from a real one later.
+
         ``mcp`` is the artifact-level MCP endpoint config (enabled/port/path),
         which overrides the simulator's field by field. Also independent of
         ``mode``; when omitted — or when every one of its fields is unset — it
         is left off the request and the backend inherits the parent artifact's.
         """
         checkpoint_request = CreateCheckpointRequest()
+        if description:
+            checkpoint_request.description = description
         if target:
             checkpoint_request.target = target
             self.console.print(f"[dim]Artifact target: {target}[/dim]")
@@ -1902,8 +1914,9 @@ class SandboxClient:
         dataset: str,
         target: str | None = None,
         mcp: ArtifactMcpConfig | None = None,
+        description: str | None = None,
     ) -> AppApiV2SchemasSessionCreateSnapshotResponse:
-        checkpoint_request = self._build_checkpoint_request(mode, dataset, target, mcp)
+        checkpoint_request = self._build_checkpoint_request(mode, dataset, target, mcp, description)
 
         response = sessions_snapshot.sync(
             client=self._http,
@@ -1963,6 +1976,7 @@ class SandboxClient:
         dataset: str | None = None,
         target: str | None = None,
         mcp: ArtifactMcpConfig | None = None,
+        description: str | None = None,
     ) -> CreateSnapshotResult:
         """Full snapshot (disk + memory) of a single job — the per-job
         analog of the session-level snapshot.
@@ -1974,7 +1988,7 @@ class SandboxClient:
         ``mode="config"`` packs the local plato-config.yml + flows just like
         the session-level snapshot.
         """
-        checkpoint_request = self._build_checkpoint_request(mode, dataset, target, mcp)
+        checkpoint_request = self._build_checkpoint_request(mode, dataset, target, mcp, description)
         snapshot_request = AppApiV2SchemasSessionCreateSnapshotRequest(
             **checkpoint_request.model_dump(exclude_none=True)
         )
@@ -1997,6 +2011,7 @@ class SandboxClient:
         dataset: str | None = None,
         target: str | None = None,
         mcp: ArtifactMcpConfig | None = None,
+        description: str | None = None,
     ) -> CreateCheckpointResult:
         """Checkpoint a single job (one env in a multi-env session).
 
@@ -2009,7 +2024,7 @@ class SandboxClient:
         response = jobs_checkpoint.sync(
             client=self._http,
             job_id=job_id,
-            body=self._build_checkpoint_request(mode, dataset, target, mcp),
+            body=self._build_checkpoint_request(mode, dataset, target, mcp, description),
             x_api_key=self.api_key,
         )
 

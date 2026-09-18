@@ -62,7 +62,7 @@ class RequestLog(models.Model):
     date = models.DateTimeField(auto_now_add=True)
 
     def __str__(self) -> str:
-        return self.pk
+        return str(self.pk)
 
     def requestor(self) -> str:
         return self.request_info.split(":")[0]

@@ -40,7 +40,8 @@ class TestBatchStageInfo(unittest.TestCase):
                 index = 56,
                 total = 56,
                 stage_elapsed_seconds = 1.337,
-                sub_stage = ''
+                sub_stage = '',
+                sub_stage_elapsed_seconds = 1.337
             )
         else:
             return BatchStageInfo(

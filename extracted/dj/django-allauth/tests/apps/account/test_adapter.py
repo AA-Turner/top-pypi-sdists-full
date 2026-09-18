@@ -1,5 +1,7 @@
 import sys
 from http import HTTPStatus
+from types import SimpleNamespace
+from unittest.mock import patch
 
 from django.core.exceptions import PermissionDenied
 from django.http import HttpResponseRedirect
@@ -14,6 +16,16 @@ from allauth.core.exceptions import ImmediateHttpResponse
 class PreLoginRedirectAccountAdapter(DefaultAccountAdapter):
     def pre_login(self, *args, **kwargs):
         raise ImmediateHttpResponse(HttpResponseRedirect("/foo"))
+
+
+def test_login_attempts_cache_key_uses_lowered_login(db, rf):
+    adapter = DefaultAccountAdapter()
+    site = SimpleNamespace(domain="example.com")
+    with (patch("allauth.account.adapter.get_current_site", return_value=site),):
+        plain = adapter._get_login_attempts_cache_key(rf.get("/"), username="Admin")
+        accented = adapter._get_login_attempts_cache_key(rf.get("/"), username="Ádmin")
+    assert plain == "example.com:admin"
+    assert accented == "example.com:ádmin"
 
 
 def test_adapter_pre_login(settings, user, user_password, client):

@@ -6887,6 +6887,181 @@ def test_auto_revalidate_does_not_block_other_tick_loop_steps(
     )
 
 
+def test_lifespan_shutdown_drains_inflight_threadpool_work_3380(
+    file_db: Path, valid_config_path: Path, monkeypatch: pytest.MonkeyPatch, rw_db,
+) -> None:
+    """#3380: lifespan shutdown must wait for an in-flight ``run_in_threadpool``
+    call to finish, not merely cancel the asyncio task that's awaiting it.
+
+    ``anyio`` abandons the underlying OS thread on cancellation instead of
+    joining it (confirmed empirically while diagnosing #3380: the awaiting
+    task raises ``CancelledError`` as soon as ``.cancel()`` is requested,
+    while the thread keeps running the synchronous function to completion in
+    the background, unobserved). Before this fix, a tick whose
+    ``run_in_threadpool`` call was still in flight when shutdown fired kept
+    running well past the point where ``with TestClient(app):`` had already
+    returned — in production that background thread can go on to call
+    anything the tick function calls, including (for the real tick loops)
+    ``coord.db.get_connection()``; in a test session, landing there during a
+    LATER, unrelated test's setup — after that test's own autouse
+    ``coord_db`` fixture has (or has not yet) installed its own isolated-DB
+    override — trips the #1960 guard and misattributes it to whatever test
+    happens to be running at that moment.
+
+    This proves the directly-testable half of that mechanism: shutdown now
+    drains in-flight thread-pool work (the wrapped ``run_in_threadpool``
+    defined in ``_lifespan``) before returning, rather than returning while
+    the real thread is still running. RED before the fix (shutdown returns
+    almost immediately, well before the 0.3s blocking call finishes) / GREEN
+    after (shutdown blocks until the drain, up to a 5s budget).
+    """
+    import threading
+
+    _enable_merge_auto(valid_config_path)
+    cfg = load_config(valid_config_path)
+    assert cfg.merge.auto_revalidate is True
+
+    entered = threading.Event()
+    finished_at: list[float] = []
+
+    def _blocking_tick(config):  # noqa: ANN001, ARG001
+        entered.set()
+        time.sleep(0.3)
+        finished_at.append(time.monotonic())
+        return []
+
+    monkeypatch.setattr(serve_app_module, "_auto_revalidate_tick", _blocking_tick)
+    monkeypatch.setenv("COORD_RECONCILE_INTERVAL", "0.05")
+    _quiet_all_other_tick_intervals(monkeypatch)
+    monkeypatch.setenv("COORD_AUTO_REVALIDATE_INTERVAL", "0.05")
+
+    app = build_app(SqliteStore(file_db), cfg)
+
+    with TestClient(app):
+        assert entered.wait(timeout=2), (
+            "_auto_revalidate_loop never entered the blocking tick"
+        )
+        # Fall straight through to `with`'s __exit__ (lifespan shutdown)
+        # while the blocking call is still sleeping — the exact "shutdown
+        # fires mid-thread" window #3380 is about.
+    exit_returned_at = time.monotonic()
+
+    assert finished_at, (
+        "lifespan shutdown returned while a run_in_threadpool call was "
+        "still in flight (#3380) -- shutdown must drain in-flight "
+        "thread-pool work, not just cancel the asyncio task awaiting it"
+    )
+    assert finished_at[0] <= exit_returned_at, (
+        "the blocking tick finished AFTER shutdown had already returned -- "
+        "shutdown did not genuinely wait for it"
+    )
+
+
+def test_abandoned_tick_thread_cannot_trip_production_db_guard_3380(
+    file_db: Path, valid_config_path: Path, monkeypatch: pytest.MonkeyPatch, rw_db,
+) -> None:
+    """#3380: reproduces the reported symptom through the REAL
+    ``coord.db.get_connection()`` call a tick makes, not just the generic
+    "shutdown waits for a slow call" mechanism the sibling test above proves.
+
+    ``_wal_checkpoint_tick`` is one of the real ``_tick_loop`` steps that
+    calls ``coord.db.get_connection()`` directly (see its own docstring in
+    coord/serve_app.py). This test drives the real tick loop with a
+    deliberately slow WAL-checkpoint step, exits ``with TestClient(app):``
+    while that step is still in flight, and then -- standing in for the gap
+    between one pytest test's teardown (which calls ``coord.db.close()``,
+    per the autouse ``coord_db`` fixture in conftest.py) and the next test's
+    setup (which reinstalls the override) -- closes the override itself and
+    watches whether the abandoned background thread's own
+    ``get_connection()`` call resolves the real ``coord.db.DB_PATH`` and
+    trips the #1960 guard, exactly as the guard's own docstring predicts
+    ("a test that closes the override and lets the singleton fall back to
+    the real path").
+
+    Pre-fix (shutdown returns without draining): the tick's thread is still
+    sleeping when ``with`` exits; by the time it wakes and calls
+    ``get_connection()`` the override is already gone, so it resolves the
+    real path and ``ProductionDatabaseGuardError`` fires -- RED (verified by
+    temporarily reverting the ``_lifespan`` drain added by this commit; see
+    the commit message).
+
+    Post-fix: shutdown blocks until the tick's thread has actually finished
+    -- including its ``get_connection()`` call, made while the override this
+    test's own ``coord_db``/``rw_db`` fixtures installed is still active --
+    so the guard never fires, and closing the override afterwards touches
+    nothing still in flight -- GREEN.
+    """
+    import threading
+
+    from coord import db as coord_db_module
+
+    entered = threading.Event()
+    captured: list[BaseException | None] = []
+
+    def _slow_checkpoint(config):  # noqa: ANN001, ARG001
+        entered.set()
+        # Long enough that the near-instant asyncio-level cancellation on
+        # `with`'s __exit__ has already happened well before this thread
+        # gets anywhere near `get_connection()` -- the exact ordering #3380
+        # is about.
+        time.sleep(0.3)
+        try:
+            coord_db_module.get_connection()
+        except BaseException as exc:  # noqa: BLE001 -- capturing for the assertion below
+            captured.append(exc)
+        else:
+            captured.append(None)
+        return {"busy": 0, "log": 0, "checkpointed": 0}
+
+    monkeypatch.setattr(serve_app_module, "_wal_checkpoint_tick", _slow_checkpoint)
+    monkeypatch.setenv("COORD_RECONCILE_INTERVAL", "0.05")
+    _quiet_all_other_tick_intervals(monkeypatch)
+    # Set AFTER _quiet_all_other_tick_intervals -- that helper zeroes this
+    # same env var by default (it's one of the cadences it quiets).
+    monkeypatch.setenv("COORD_WAL_CHECKPOINT_INTERVAL", "0.01")
+
+    cfg = load_config(valid_config_path)
+    app = build_app(SqliteStore(file_db), cfg)
+
+    with TestClient(app):
+        assert entered.wait(timeout=2), (
+            "_tick_loop never reached the WAL-checkpoint step"
+        )
+        # Fall straight through to __exit__ (lifespan shutdown) while the
+        # checkpoint's thread is still sleeping -- shutdown firing mid-tick,
+        # same window as the sibling test above.
+
+    # Stand in for the conftest.py `coord_db` fixture's own teardown, which
+    # runs at the end of THIS test in real life -- do it explicitly, right
+    # now, so the "gap" (override closed, next test's override not yet
+    # installed) exists exactly while the background thread above may still
+    # be mid-sleep.
+    coord_db_module.close()
+    try:
+        deadline = time.monotonic() + 2
+        while not captured and time.monotonic() < deadline:
+            time.sleep(0.01)
+    finally:
+        # Reinstate an isolated override regardless of outcome, so this
+        # test's own teardown (and every test after it) is unaffected --
+        # `coord_db_module.close()` above already played out the "next
+        # test's setup hasn't happened yet" half; this is that setup
+        # happening.
+        coord_db_module.override_connection(rw_db)
+
+    assert captured, (
+        "the abandoned tick thread never reached get_connection() at all -- "
+        "a test-setup problem, not a #3380 result either way"
+    )
+    assert captured[0] is None, (
+        f"the abandoned background tick thread's get_connection() call hit "
+        f"the #1960 production-DB guard: {captured[0]!r} -- lifespan "
+        f"shutdown returned (letting this test proceed to close the "
+        f"override) before the tick's real thread had actually finished "
+        f"touching coord.db"
+    )
+
+
 # ── #1038: operational-tier audit hooks ──────────────────────────────────────
 
 

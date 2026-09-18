@@ -1,6 +1,7 @@
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from chalk._gen.chalk.container.v1 import service_pb2 as _service_pb2
 from chalk._gen.chalk.server.v1 import model_registry_pb2 as _model_registry_pb2
+from chalk._gen.chalk.volume.v2 import volume_pb2 as _volume_pb2
 from google.protobuf import field_mask_pb2 as _field_mask_pb2
 from google.protobuf import struct_pb2 as _struct_pb2
 from google.protobuf import timestamp_pb2 as _timestamp_pb2
@@ -140,7 +141,19 @@ class TrainingRun(_message.Message):
     ) -> None: ...
 
 class CreateTrainingRunRequest(_message.Message):
-    __slots__ = ("name", "data", "config", "resources", "image", "env", "secret_refs", "meta_data")
+    __slots__ = (
+        "name",
+        "data",
+        "config",
+        "resources",
+        "image",
+        "env",
+        "secret_refs",
+        "meta_data",
+        "volume_commits",
+        "max_retries",
+        "volume_mounts",
+    )
     class EnvEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -167,6 +180,9 @@ class CreateTrainingRunRequest(_message.Message):
     ENV_FIELD_NUMBER: _ClassVar[int]
     SECRET_REFS_FIELD_NUMBER: _ClassVar[int]
     META_DATA_FIELD_NUMBER: _ClassVar[int]
+    VOLUME_COMMITS_FIELD_NUMBER: _ClassVar[int]
+    MAX_RETRIES_FIELD_NUMBER: _ClassVar[int]
+    VOLUME_MOUNTS_FIELD_NUMBER: _ClassVar[int]
     name: str
     data: TrainingRunDataSource
     config: _struct_pb2.Struct
@@ -175,6 +191,9 @@ class CreateTrainingRunRequest(_message.Message):
     env: _containers.ScalarMap[str, str]
     secret_refs: _containers.RepeatedCompositeFieldContainer[_service_pb2.SecretRef]
     meta_data: _containers.MessageMap[str, _struct_pb2.Value]
+    volume_commits: _containers.RepeatedCompositeFieldContainer[_volume_pb2.CommitIntent]
+    max_retries: int
+    volume_mounts: _containers.RepeatedCompositeFieldContainer[_service_pb2.VolumeMount]
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -185,6 +204,9 @@ class CreateTrainingRunRequest(_message.Message):
         env: _Optional[_Mapping[str, str]] = ...,
         secret_refs: _Optional[_Iterable[_Union[_service_pb2.SecretRef, _Mapping]]] = ...,
         meta_data: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
+        volume_commits: _Optional[_Iterable[_Union[_volume_pb2.CommitIntent, _Mapping]]] = ...,
+        max_retries: _Optional[int] = ...,
+        volume_mounts: _Optional[_Iterable[_Union[_service_pb2.VolumeMount, _Mapping]]] = ...,
     ) -> None: ...
 
 class CreateTrainingRunResponse(_message.Message):
@@ -206,13 +228,24 @@ class GetTrainingRunResponse(_message.Message):
     def __init__(self, training_run: _Optional[_Union[TrainingRun, _Mapping]] = ...) -> None: ...
 
 class ListTrainingRunsFilters(_message.Message):
-    __slots__ = ("name", "statuses")
+    __slots__ = ("name", "statuses", "start_time", "end_time", "training_run_id")
     NAME_FIELD_NUMBER: _ClassVar[int]
     STATUSES_FIELD_NUMBER: _ClassVar[int]
+    START_TIME_FIELD_NUMBER: _ClassVar[int]
+    END_TIME_FIELD_NUMBER: _ClassVar[int]
+    TRAINING_RUN_ID_FIELD_NUMBER: _ClassVar[int]
     name: str
     statuses: _containers.RepeatedScalarFieldContainer[TrainingRunStatus]
+    start_time: _timestamp_pb2.Timestamp
+    end_time: _timestamp_pb2.Timestamp
+    training_run_id: str
     def __init__(
-        self, name: _Optional[str] = ..., statuses: _Optional[_Iterable[_Union[TrainingRunStatus, str]]] = ...
+        self,
+        name: _Optional[str] = ...,
+        statuses: _Optional[_Iterable[_Union[TrainingRunStatus, str]]] = ...,
+        start_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        training_run_id: _Optional[str] = ...,
     ) -> None: ...
 
 class ListTrainingRunsRequest(_message.Message):
@@ -299,18 +332,31 @@ class CancelTrainingRunResponse(_message.Message):
     def __init__(self) -> None: ...
 
 class CheckpointTrainingRunRequest(_message.Message):
-    __slots__ = ("training_run_id", "file_names", "artifact_spec")
+    __slots__ = ("training_run_id", "file_names", "artifact_spec", "metadata")
+    class MetadataEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: _struct_pb2.Value
+        def __init__(
+            self, key: _Optional[str] = ..., value: _Optional[_Union[_struct_pb2.Value, _Mapping]] = ...
+        ) -> None: ...
+
     TRAINING_RUN_ID_FIELD_NUMBER: _ClassVar[int]
     FILE_NAMES_FIELD_NUMBER: _ClassVar[int]
     ARTIFACT_SPEC_FIELD_NUMBER: _ClassVar[int]
+    METADATA_FIELD_NUMBER: _ClassVar[int]
     training_run_id: str
     file_names: _containers.RepeatedScalarFieldContainer[str]
     artifact_spec: _struct_pb2.Struct
+    metadata: _containers.MessageMap[str, _struct_pb2.Value]
     def __init__(
         self,
         training_run_id: _Optional[str] = ...,
         file_names: _Optional[_Iterable[str]] = ...,
         artifact_spec: _Optional[_Union[_struct_pb2.Struct, _Mapping]] = ...,
+        metadata: _Optional[_Mapping[str, _struct_pb2.Value]] = ...,
     ) -> None: ...
 
 class CheckpointTrainingRunResponse(_message.Message):

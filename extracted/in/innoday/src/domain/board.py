@@ -196,6 +196,14 @@ class BoardSyncHistory(SQLModel, table=True):
     #: a full sync of a quiet board finds 258 and writes none, and a report
     #: showing only found/created/updated/skipped leaves 258 unaccounted for.
     tickets_unchanged: int = Field(default=0)
+    #: Whether this attempt pulled the whole board rather than resuming from a
+    #: watermark. Recorded because an incremental sync is only safe if a full
+    #: one happens periodically: the watermark advances on every success, so a
+    #: ticket missed once falls outside every later window and nothing would
+    #: ever fetch it again. `_resume_point` reads this to force a full pull when
+    #: the last one has aged out. Rows written before the column exists read as
+    #: `False`, which errs towards reconciling sooner.
+    full_sync: bool = Field(default=False)
 
     # Error handling
     error_message: Optional[str] = Field(default=None)

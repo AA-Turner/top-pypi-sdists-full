@@ -192,11 +192,11 @@ def test_move_exp_nans_var(func_n, alpha):
 
     array = np.array([1.0, np.nan, 1.0])
     result = np.isnan(func(*[array] * n, alpha=alpha))
-    if func != move_exp_nancorr:
-        expected = np.array([True, True, False])
     if func == move_exp_nancorr:
         # Correlation of values that are all the same is undefined
         expected = np.array([True, True, True])
+    else:
+        expected = np.array([True, True, False])
     assert_allclose(result, expected)
 
     array = np.array([1.0, np.nan])
@@ -254,13 +254,15 @@ def test_move_exp_inf():
     expected = np.array([np.inf])
     assert_allclose(result, expected)
 
+    # `float16` isn't in `FloatArray`; numpy upcasts it to a supported gufunc loop at
+    # runtime, so the calls below are fine but don't type-check.
     array = np.array([0, 0, np.inf], dtype=np.float16)
-    result = move_exp_nanmean(array, alpha=1.0)
+    result = move_exp_nanmean(array, alpha=1.0)  # type: ignore
     expected = np.array([0, 0, np.inf])
     assert_array_equal(result, expected)
 
     array = np.array([0, np.inf, np.inf], dtype=np.float16)
-    result = move_exp_nanmean(array, alpha=1.0)
+    result = move_exp_nanmean(array, alpha=1.0)  # type: ignore
     # Unclear if the final value should remain `inf` or become `nan` — it's changing to
     # `nan` because `alpha=1`, and so we get `inf * 0`...
     expected = np.array([0, np.inf, np.nan])
@@ -312,7 +314,6 @@ def test_move_exp_endian(array):
     expected = move_exp_nanmean(array, alpha=0.25)
 
     array = array.astype(array.dtype.newbyteorder(">"))
-    # with pytest.warns(UserWarning):
     result = move_exp_nanmean(array, alpha=0.25)
 
     assert_allclose(result, expected)
@@ -364,3 +365,26 @@ def test_move_exp_alphas(array, alpha: float, func):
 
     result = c["numbagg"](array.T, alpha=alpha)(axis=0).T
     assert_allclose(result, expected)
+
+
+def test_move_exp_axis_tuple():
+    # Tuple axis should be unpacked to a single int and produce the same
+    # result as the equivalent integer axis.
+    array = np.array([1.0, 2.0, 3.0, 4.0])
+    expected = move_exp_nansum(array, alpha=0.5, axis=0)
+
+    result = move_exp_nansum(array, alpha=0.5, axis=(0,))
+    assert_allclose(result, expected)
+
+    # Same with an array alpha — the alpha-broadcasting branch must run after
+    # the axis tuple is unpacked.
+    alphas = np.full(array.shape[-1], 0.5)
+    result = move_exp_nansum(array, alpha=alphas, axis=(0,))
+    assert_allclose(result, expected)
+
+
+def test_move_exp_axis_empty_tuple():
+    # An empty tuple means no reduction — return the input unchanged.
+    array = np.array([1.0, 2.0, 3.0, 4.0])
+    result = move_exp_nansum(array, alpha=0.5, axis=())
+    assert_array_equal(result, array)

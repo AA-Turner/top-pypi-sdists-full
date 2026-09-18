@@ -1,5 +1,3 @@
-import warnings
-
 import numpy as np
 import pandas as pd
 import pytest
@@ -25,11 +23,28 @@ from numbagg.grouped import (
 )
 from numbagg.test.conftest import COMPARISONS
 
+
+def pandas_idxmax(grouped):
+    """
+    `SeriesGroupBy.idxmax` equivalent which returns `NaN` for all-NA groups.
+
+    numbagg's `group_nanargmax` returns `NaN` for a group with no valid values.
+    pandas deprecated that behavior in 2.1 and, as of 3.0, raises `ValueError`
+    instead, so we only call `idxmax` on groups which have a valid value.
+    """
+    return grouped.agg(lambda x: x.idxmax() if x.notna().any() else np.nan)
+
+
+def pandas_idxmin(grouped):
+    """As `pandas_idxmax`, for `group_nanargmin`."""
+    return grouped.agg(lambda x: x.idxmin() if x.notna().any() else np.nan)
+
+
 FUNCTIONS = [
     (group_nanall, lambda x: x.all(), None),
     (group_nanany, lambda x: x.any(), None),
-    (group_nanargmax, lambda x: x.idxmax(), np.nanargmax),
-    (group_nanargmin, lambda x: x.idxmin(), np.nanargmin),
+    (group_nanargmax, pandas_idxmax, np.nanargmax),
+    (group_nanargmin, pandas_idxmin, np.nanargmin),
     (group_nancount, lambda x: x.count(), None),
     (group_nanfirst, lambda x: x.first(), None),
     (group_nanlast, lambda x: x.last(), None),
@@ -64,19 +79,7 @@ FUNCTIONS_CONSTANT = [
 ]
 
 
-@pytest.fixture(autouse=True)
-def silence_pandas_idx_warnings():
-    # Not sure whether we adopt this behavior, but no need to litter with
-    # warnings in the meantime...
-    with warnings.catch_warnings():
-        warnings.filterwarnings(
-            "ignore",
-            message="The behavior of Series.* with all-NA values, or any-NA and skipna=False, is deprecated. In a future version this will raise ValueError",
-        )
-        yield
-
-
-@pytest.fixture(params=[np.float64, np.int32, np.bool_], scope="module")
+@pytest.fixture(params=[np.float64, np.int32, np.int64, np.bool_], scope="module")
 def dtype(request):
     return request.param
 
@@ -92,8 +95,10 @@ def labels(rs):
 
 @pytest.fixture(scope="module")
 def values(rs, labels, dtype):
-    if dtype == np.int32:
-        return rs.randint(-100, 100, size=200)
+    if dtype in (np.int32, np.int64):
+        # `randint` returns the platform's default integer — `int64` on 64-bit Linux —
+        # so the cast is what makes this fixture deliver the parametrized width.
+        return rs.randint(-100, 100, size=200).astype(dtype)
     elif dtype == np.float64:
         vals = rs.rand(200)
         vals = np.where(vals > 0.1, vals, np.nan)
@@ -103,6 +108,16 @@ def values(rs, labels, dtype):
         return rs.choice([True, False], size=200)
     else:
         raise ValueError(f"dtype {dtype} not supported")
+
+
+def test_values_fixture_dtype(values, dtype):
+    """The `values` fixture delivers the dtype it is parametrized with.
+
+    `np.random.RandomState.randint` returns the platform's default integer rather than
+    a fixed width, so the `int32` parametrization silently ran against `int64` on
+    64-bit Linux and the `int32` kernels went untested by everything using this fixture.
+    """
+    assert values.dtype == dtype
 
 
 @pytest.mark.parametrize("numbagg_func, pandas_func, _", FUNCTIONS)
@@ -124,6 +139,8 @@ def test_group_pandas_comparison(values, labels, numbagg_func, pandas_func, _, d
     elif dtype == np.bool_:
         if not numbagg_func.supports_bool:
             pytest.skip(f"{numbagg_func} doesn't support bools")
+        result = numbagg_func(values, labels)
+        assert_almost_equal(result, expected.values)
     else:
         result = numbagg_func(values, labels)
         assert_almost_equal(result, expected.values)
@@ -218,7 +235,7 @@ def test_groupby_mean_types(dtype):
     group = rs.choice([np.nan, 1, 2, 3, 4, 5], size=values.shape)
     expected = pd.Series(values).groupby(group).mean()
     result = groupby_mean_pandas(values, group)
-    assert_almost_equal(result, expected.values)  # type: ignore[arg-type,unused-ignore]
+    assert_almost_equal(result, expected.values)
 
 
 @pytest.mark.parametrize(
@@ -226,7 +243,7 @@ def test_groupby_mean_types(dtype):
     [
         (group_nansum, lambda x: x.sum(), 0),
         (group_nanprod, lambda x: x.prod(), 1),
-        (group_nanargmin, lambda x: x.idxmin(), np.nan),
+        (group_nanargmin, pandas_idxmin, np.nan),
     ],
 )
 def test_groupby_empty_numeric_operations(numbagg_func, pandas_func, exp):
@@ -364,7 +381,7 @@ def test_numeric_int_nanmean():
     labels = np.array([0, 0, 0, 1, 1, 2], dtype=np.int32)
 
     result = group_nanmean(values, labels)
-    assert_almost_equal(result, np.array([2, 4, 6]))
+    assert_almost_equal(result, np.array([2.0, 4.5, 6.0]))
 
 
 def test_numeric_int_nanmin():
@@ -416,12 +433,56 @@ def test_int8_again(dtype, func):
 
     expected = getattr(
         pd.DataFrame(array.T).groupby(by), func.__name__.removeprefix("group_nan")
-    )().T.astype(dtype)
+    )().T
+    if func.supports_ints:
+        expected = expected.astype(dtype)
 
     # https://github.com/numbagg/numbagg/issues/213
     assert_almost_equal(func(array, by, axis=-1), expected)
     # Amazingly it can also be more incorrect with another run!
     assert_almost_equal(func(array, by, axis=-1), expected)
+
+
+@pytest.mark.parametrize("dtype", [np.int8, np.int16])
+@pytest.mark.parametrize("func", [group_nansum, group_nanmean])
+def test_negative_labels_with_narrow_label_dtype(dtype, func):
+    """
+    Negative labels are still skipped when the labels array is too narrow to hold the
+    count and so gets upcast — the upcast dtype must stay signed.
+    """
+    # One more value than the labels dtype can count, which is what triggers the upcast.
+    n = int(np.iinfo(dtype).max) + 1
+    values = np.ones(n)
+    labels = np.zeros(n, dtype=dtype)
+    labels[n // 2 :] = -1
+
+    result = func(values, labels)
+
+    # Half the values are in label 0; the rest are dropped as unlabelled.
+    expected = np.array([n // 2 if func is group_nansum else 1.0])
+    assert_almost_equal(result, expected)
+    # The label dtype shouldn't change the answer.
+    assert_almost_equal(result, func(values, labels.astype(np.int64)))
+
+
+@pytest.mark.parametrize("dtype", [np.int8, np.int16])
+@pytest.mark.parametrize("func", [group_nansum, group_nanmean])
+def test_max_label_with_narrow_label_dtype(dtype, func):
+    """
+    A label at the labels dtype's maximum doesn't overflow the `num_labels` add. No
+    upcast happens here — `values.size` is well under the dtype's max — so this covers
+    a different path from `test_negative_labels_with_narrow_label_dtype`.
+    """
+    max_label = int(np.iinfo(dtype).max)
+    values = np.ones(10)
+    labels = np.full(10, max_label, dtype=dtype)
+
+    result = func(values, labels)
+
+    assert result.shape == (max_label + 1,)
+    assert_almost_equal(result[-1], 10.0 if func is group_nansum else 1.0)
+    # The label dtype shouldn't change the answer.
+    assert_almost_equal(result, func(values, labels.astype(np.int64)))
 
 
 def test_dimensionality():
@@ -552,3 +613,12 @@ def test_bool_input_with_supports_bool_false(func):
 
     with pytest.raises(TypeError, match="does not support boolean input"):
         func(values, labels, num_labels=2)
+
+
+def test_group_nanmean_bool():
+    """Regression test for #131: group_nanmean with bool input."""
+    values = np.array([True, True, False])
+    labels = np.array([0, 0, 0])
+    result = group_nanmean(values, labels)
+    expected = np.array([2 / 3])
+    assert_almost_equal(result, expected)

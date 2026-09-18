@@ -19,7 +19,7 @@ use uv_cache::Cache;
 use uv_configuration::{ActiveEnvironment, DependencyGroupsWithDefaults, ExcludeDependency};
 use uv_distribution_types::{Index, Requirement, RequirementSource};
 use uv_fs::{CWD, Simplified, normalize_path};
-use uv_normalize::{DEV_DEPENDENCIES, GroupName, PackageName};
+use uv_normalize::{DEV_DEPENDENCIES, DefaultGroups, GroupName, PackageName};
 use uv_once_map::OnceMap;
 use uv_pep440::VersionSpecifiers;
 use uv_pep508::{MarkerTree, VerbatimUrl};
@@ -29,8 +29,8 @@ use uv_warnings::warn_user_once;
 
 use crate::dependency_groups::{DependencyGroupError, FlatDependencyGroup, FlatDependencyGroups};
 use crate::pyproject::{
-    OverrideDependency, Project, PyProjectToml, PyprojectTomlError, Source, Sources, ToolUvSources,
-    ToolUvWorkspace, WorkspaceReference,
+    BuildConstraintDependency, OverrideDependency, Project, PyProjectToml, PyprojectTomlError,
+    Source, Sources, ToolUvSources, ToolUvWorkspace, WorkspaceReference,
 };
 
 /// The workspace project environment selected by configuration and command-line options.
@@ -243,6 +243,17 @@ pub enum WorkspaceErrorKind {
     // fail.
     #[error("Failed to normalize workspace member path")]
     Normalize(#[source] std::io::Error),
+}
+
+/// An error selecting the default dependency groups for a project.
+#[derive(Debug, thiserror::Error)]
+pub enum DefaultGroupsError {
+    #[error("Package `{0}` not found in workspace")]
+    MissingPackage(PackageName),
+    #[error(
+        "Default group `{0}` (from `tool.uv.default-groups`) is not defined in the project's `dependency-groups` table"
+    )]
+    MissingGroup(GroupName),
 }
 
 #[derive(Debug, Default, Clone, Hash, PartialEq, Eq)]
@@ -873,7 +884,7 @@ impl Workspace {
     }
 
     /// Returns the set of build constraints for the workspace.
-    pub fn build_constraints(&self) -> Vec<uv_pep508::Requirement<VerbatimParsedUrl>> {
+    pub fn build_constraints(&self) -> Vec<BuildConstraintDependency> {
         let Some(build_constraints) = self
             .pyproject_toml
             .tool
@@ -998,6 +1009,11 @@ impl Workspace {
     /// The `pyproject.toml` of the workspace.
     pub fn pyproject_toml(&self) -> &PyProjectToml {
         &self.pyproject_toml
+    }
+
+    /// Return the default dependency groups for the workspace root.
+    pub fn default_groups(&self) -> Result<DefaultGroups, DefaultGroupsError> {
+        self.pyproject_toml.default_groups()
     }
 
     /// Returns `true` if the path is excluded by the workspace.
@@ -1409,6 +1425,11 @@ impl WorkspaceMember {
     pub fn pyproject_toml(&self) -> &PyProjectToml {
         &self.pyproject_toml
     }
+
+    /// Return the default dependency groups for this workspace member.
+    fn default_groups(&self) -> Result<DefaultGroups, DefaultGroupsError> {
+        self.pyproject_toml.default_groups()
+    }
 }
 
 /// The current project and the workspace it is part of, with all of the workspace members.
@@ -1657,6 +1678,11 @@ impl ProjectWorkspace {
     /// Returns the current project as a [`WorkspaceMember`].
     pub fn current_project(&self) -> &WorkspaceMember {
         &self.workspace().packages[&self.project_name]
+    }
+
+    /// Return the default dependency groups for the current project.
+    fn default_groups(&self) -> Result<DefaultGroups, DefaultGroupsError> {
+        self.current_project().default_groups()
     }
 
     /// Set the `pyproject.toml` for the current project.
@@ -2285,6 +2311,38 @@ impl VirtualProject {
         match self {
             Self::Project(project) => project.current_project().pyproject_toml(),
             Self::NonProject(workspace) => &workspace.pyproject_toml,
+        }
+    }
+
+    /// Return the default dependency groups for the current project.
+    pub fn default_groups(&self) -> Result<DefaultGroups, DefaultGroupsError> {
+        match self {
+            Self::Project(project) => project.default_groups(),
+            Self::NonProject(workspace) => workspace.default_groups(),
+        }
+    }
+
+    /// Return the default dependency groups for a package selection.
+    ///
+    /// A single selected package uses that member's defaults. With zero or multiple packages,
+    /// use the current project's defaults. Every selected package must belong to the workspace.
+    pub fn default_groups_for_packages(
+        &self,
+        packages: &[PackageName],
+    ) -> Result<DefaultGroups, DefaultGroupsError> {
+        if let [name] = packages {
+            self.workspace()
+                .packages()
+                .get(name)
+                .ok_or_else(|| DefaultGroupsError::MissingPackage(name.clone()))?
+                .default_groups()
+        } else {
+            for name in packages {
+                if !self.workspace().packages().contains_key(name) {
+                    return Err(DefaultGroupsError::MissingPackage(name.clone()));
+                }
+            }
+            self.default_groups()
         }
     }
 

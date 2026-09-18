@@ -22,7 +22,7 @@ class NestedFieldsTest(EtreeMixin, unittest.TestCase):
             options=MailMergeOptions(merge_if_fields=True),
         ) as document:
             # self.assertEqual(document.get_merge_fields(), set(["fieldname"]))
-            self.assertEqual(document.get_merge_fields(), set(["", "fieldname"]))
+            self.assertEqual(document.get_merge_fields(), {"", "fieldname"})
 
             document.merge(fieldname="one")
 
@@ -57,7 +57,7 @@ class NestedFieldsTest(EtreeMixin, unittest.TestCase):
         Fields are disjoint, no interference between the two complex fields
         """
         values = {"fieldname": "one"}
-        document, root_elem = self.merge(
+        document, _root_elem = self.merge(
             "test_nested_if_outside.docx",
             values,
             mm_kwargs={"enable_experimental": True},
@@ -68,10 +68,10 @@ class NestedFieldsTest(EtreeMixin, unittest.TestCase):
             [],
         )
 
-        document, root_elem = self.merge(
+        document, _root_elem = self.merge(
             "test_nested_if_outside.docx",
             values,
-            mm_kwargs=dict(auto_update_fields_on_open=OptionAutoUpdateFields.AUTO, merge_if_fields=True),
+            mm_kwargs={"auto_update_fields_on_open": OptionAutoUpdateFields.AUTO, "merge_if_fields": True},
             # output="tests/output/test_output_nested_if_outside.docx"
         )
         self.assertListEqual(
@@ -79,10 +79,10 @@ class NestedFieldsTest(EtreeMixin, unittest.TestCase):
             [],
         )
 
-        document, root_elem = self.merge(
+        document, _root_elem = self.merge(
             "test_nested_if_outside.docx",
             values,
-            mm_kwargs=dict(auto_update_fields_on_open=OptionAutoUpdateFields.ALWAYS, merge_if_fields=True),
+            mm_kwargs={"auto_update_fields_on_open": OptionAutoUpdateFields.ALWAYS, "merge_if_fields": True},
             # output="tests/output/test_output_nested_if_outside.docx"
         )
         self.assertListEqual(
@@ -115,7 +115,7 @@ class NestedFieldsTest(EtreeMixin, unittest.TestCase):
             path.join(path.dirname(__file__), "test_nested_if_inside.docx"),
             options=MailMergeOptions(merge_if_fields=True),
         ) as document:
-            self.assertEqual(document.get_merge_fields(), set([""]))
+            self.assertEqual(document.get_merge_fields(), {""})
 
             document.merge(fieldname="five")
 
@@ -155,7 +155,7 @@ class NestedFieldsTest(EtreeMixin, unittest.TestCase):
         Fields are nested, auto update fields
         """
         values = {"fieldname": "one"}
-        document, root_elem = self.merge(
+        document, _root_elem = self.merge(
             "test_nested_if_inside.docx",
             values,
             mm_kwargs={},
@@ -166,10 +166,10 @@ class NestedFieldsTest(EtreeMixin, unittest.TestCase):
             [],
         )
 
-        document, root_elem = self.merge(
+        document, _root_elem = self.merge(
             "test_nested_if_inside.docx",
             values,
-            mm_kwargs=dict(auto_update_fields_on_open=OptionAutoUpdateFields.AUTO, merge_if_fields=True),
+            mm_kwargs={"auto_update_fields_on_open": OptionAutoUpdateFields.AUTO, "merge_if_fields": True},
             # output="tests/output/test_output_nested_if_inside.docx"
         )
         self.assertListEqual(

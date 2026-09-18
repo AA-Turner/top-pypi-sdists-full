@@ -37,7 +37,7 @@ class FlatList:
     __slots__ = [SLOT]
 
     def __init__(self, vals=None):
-        """ USE THE vals, NOT A COPY """
+        """USE THE vals, NOT A COPY"""
         # list.__init__(self)
         if is_null(vals):
             _set(self, SLOT, [])
@@ -295,6 +295,17 @@ class FlatList:
         return Null
 
 
+if utils._speedups:
+    # _ListBase SHARES _StoreBase LAYOUT WITH Data SO __class__ REASSIGNMENT
+    # (datas.__setitem__ ".") STAYS COMPATIBLE; getattr/get COLUMN EXTRACT AND
+    # iter/contains/len ARE C, THE PURE get REMAINS THE SLOW PATH (DOTTED KEYS,
+    # NON-dict ELEMENTS)
+    _pure_FlatList = FlatList
+    FlatList = utils._rebuild_class(
+        _pure_FlatList, utils._speedups._ListBase, {"__getattr__", "__iter__", "__contains__", "__len__", "get"}
+    )
+    utils._speedups._init_list(FlatList, _pure_FlatList.get)
+
 register_list(FlatList)
 
 
@@ -323,7 +334,7 @@ def list_to_data(v):
     """
     to_data, BUT WITHOUT CHECKS
     """
-    output = _new(FlatList)
+    output = FlatList.__new__(FlatList)
     _set(output, SLOT, v)
     return output
 

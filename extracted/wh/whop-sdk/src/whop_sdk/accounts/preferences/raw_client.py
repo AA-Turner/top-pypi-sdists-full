@@ -12,10 +12,13 @@ from ...core.pydantic_utilities import parse_obj_as
 from ...core.request_options import RequestOptions
 from ...core.serialization import convert_and_respect_annotation_metadata
 from ...errors.bad_request_error import BadRequestError
+from ...errors.conflict_error import ConflictError
 from ...errors.forbidden_error import ForbiddenError
 from ...errors.not_found_error import NotFoundError
 from ...errors.unauthorized_error import UnauthorizedError
+from ...types.v1error_response import V1ErrorResponse
 from .types.retrieve_preferences_response import RetrievePreferencesResponse
+from .types.update_preferences_request_ads_certifications_value import UpdatePreferencesRequestAdsCertificationsValue
 from .types.update_preferences_request_ads_payment_methods import UpdatePreferencesRequestAdsPaymentMethods
 from .types.update_preferences_request_ads_triple_whale_integration import (
     UpdatePreferencesRequestAdsTripleWhaleIntegration,
@@ -100,21 +103,27 @@ class RawPreferencesClient:
         self,
         account_id: str,
         *,
+        ads_certifications: typing.Optional[typing.Dict[str, UpdatePreferencesRequestAdsCertificationsValue]] = OMIT,
         ads_payment_methods: typing.Optional[UpdatePreferencesRequestAdsPaymentMethods] = OMIT,
         ads_reporting_currency: typing.Optional[str] = OMIT,
         ads_scheduling_timezone: typing.Optional[str] = OMIT,
         ads_triple_whale_integration: typing.Optional[UpdatePreferencesRequestAdsTripleWhaleIntegration] = OMIT,
         cards_auto_top_up: typing.Optional[bool] = OMIT,
+        cards_notifications: typing.Optional[bool] = OMIT,
         dispute_fighter_enabled: typing.Optional[bool] = OMIT,
+        economic_intelligence: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> HttpResponse[UpdatePreferencesResponse]:
         """
-        Updates the account's preferences. Each top-level key present in the body is replaced as a whole; omitted keys are left untouched. `ads_triple_whale_integration` takes the Data-In API key to connect with, or `null` to disconnect. `ads_payment_methods` always requires a `primary` entry. `backup` is optional and any pairing is allowed — two cards, `card`+`platform_balance`, or a single method — so a card-only advertiser can fund ads without a platform balance. The `primary` and `backup` must be different sources. A `platform_balance` entry may omit `id` to use the account's default Whop balance. Configuring a `card` requires a user token; account API keys can set up platform-balance billing only.
+        Updates the account's preferences. Each top-level key present in the body is replaced as a whole; omitted keys are left untouched. `ads_triple_whale_integration` takes the Data-In API key to connect with, or `null` to disconnect, plus an optional `shop_domain`. `ads_payment_methods` always requires a `primary` entry. `backup` is optional and any pairing is allowed — two cards, `card`+`platform_balance`, or a single method — so a card-only advertiser can fund ads without a platform balance. The `primary` and `backup` must be different sources. A `platform_balance` entry may omit `id` to use the account's default Whop balance. Configuring a `card` requires a user token; account API keys can set up platform-balance billing only.
 
         Parameters
         ----------
         account_id : str
             Account ID, prefixed `biz_`.
+
+        ads_certifications : typing.Optional[typing.Dict[str, UpdatePreferencesRequestAdsCertificationsValue]]
+            Opens an advertising certification application. Keyed by certification type (`prescription_drug_ads`); set the entry's `status` to `pending_information` to start, then answer the requested fields via `PATCH /verifications/{id}`. Only one application per type can be open at a time; every other status is set by Whop's review.
 
         ads_payment_methods : typing.Optional[UpdatePreferencesRequestAdsPaymentMethods]
             How the account pays for Whop Ads spend. `primary` is charged first; `backup` covers the charge when the primary fails.
@@ -126,13 +135,19 @@ class RawPreferencesClient:
             IANA timezone (e.g. `America/New_York`) used to interpret campaign start/end times and to bucket reports. Cannot be cleared once set — pass a new value to change it.
 
         ads_triple_whale_integration : typing.Optional[UpdatePreferencesRequestAdsTripleWhaleIntegration]
-            Connects or disconnects the Triple Whale integration. Requires a connected Shopify store, since Triple Whale keys spend records by Shopify shop.
+            Connects or disconnects the Triple Whale integration. Requires the `ad_campaign:create` scope. Connecting requires a shop domain to report spend against — either an explicit `shop_domain` (required for any merchant without a connected Shopify store, e.g. WooCommerce, a custom checkout, or a white-label platform's merchant) or a Shopify store connected on the Fulfillment page.
 
         cards_auto_top_up : typing.Optional[bool]
             Whether incoming funds are automatically moved to the account's cards balance. Requires a cards balance on the account.
 
+        cards_notifications : typing.Optional[bool]
+            Whether Whop Card notifications reach this account's team. Set it to `false` to stop every card email and push notification for the account — application status, verification and action-required alerts, card-ready alerts, declines, large charges, and cashback summaries. Cardholder onboarding invitations still send, because they carry the only link an invited cardholder can onboard with. Requesting a card is rejected while notifications are off, since the request reaches nobody. Cards on personal accounts are unaffected. Requires a cards balance on the account.
+
         dispute_fighter_enabled : typing.Optional[bool]
             Whether Whop assembles and files the evidence response when this account's payments are disputed. Off by default; enabling it also opts the account into the success fee charged only on disputes it wins.
+
+        economic_intelligence : typing.Optional[bool]
+            Whether economic intelligence is enabled for the account. Requires company:update permission and an existing ledger account.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -146,6 +161,11 @@ class RawPreferencesClient:
             f"accounts/{encode_path_param(account_id)}/preferences",
             method="PATCH",
             json={
+                "ads_certifications": convert_and_respect_annotation_metadata(
+                    object_=ads_certifications,
+                    annotation=typing.Dict[str, UpdatePreferencesRequestAdsCertificationsValue],
+                    direction="write",
+                ),
                 "ads_payment_methods": convert_and_respect_annotation_metadata(
                     object_=ads_payment_methods, annotation=UpdatePreferencesRequestAdsPaymentMethods, direction="write"
                 ),
@@ -157,7 +177,9 @@ class RawPreferencesClient:
                     direction="write",
                 ),
                 "cards_auto_top_up": cards_auto_top_up,
+                "cards_notifications": cards_notifications,
                 "dispute_fighter_enabled": dispute_fighter_enabled,
+                "economic_intelligence": economic_intelligence,
             },
             headers={
                 "content-type": "application/json",
@@ -215,6 +237,17 @@ class RawPreferencesClient:
                         typing.Any,
                         parse_obj_as(
                             type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),
@@ -302,21 +335,27 @@ class AsyncRawPreferencesClient:
         self,
         account_id: str,
         *,
+        ads_certifications: typing.Optional[typing.Dict[str, UpdatePreferencesRequestAdsCertificationsValue]] = OMIT,
         ads_payment_methods: typing.Optional[UpdatePreferencesRequestAdsPaymentMethods] = OMIT,
         ads_reporting_currency: typing.Optional[str] = OMIT,
         ads_scheduling_timezone: typing.Optional[str] = OMIT,
         ads_triple_whale_integration: typing.Optional[UpdatePreferencesRequestAdsTripleWhaleIntegration] = OMIT,
         cards_auto_top_up: typing.Optional[bool] = OMIT,
+        cards_notifications: typing.Optional[bool] = OMIT,
         dispute_fighter_enabled: typing.Optional[bool] = OMIT,
+        economic_intelligence: typing.Optional[bool] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncHttpResponse[UpdatePreferencesResponse]:
         """
-        Updates the account's preferences. Each top-level key present in the body is replaced as a whole; omitted keys are left untouched. `ads_triple_whale_integration` takes the Data-In API key to connect with, or `null` to disconnect. `ads_payment_methods` always requires a `primary` entry. `backup` is optional and any pairing is allowed — two cards, `card`+`platform_balance`, or a single method — so a card-only advertiser can fund ads without a platform balance. The `primary` and `backup` must be different sources. A `platform_balance` entry may omit `id` to use the account's default Whop balance. Configuring a `card` requires a user token; account API keys can set up platform-balance billing only.
+        Updates the account's preferences. Each top-level key present in the body is replaced as a whole; omitted keys are left untouched. `ads_triple_whale_integration` takes the Data-In API key to connect with, or `null` to disconnect, plus an optional `shop_domain`. `ads_payment_methods` always requires a `primary` entry. `backup` is optional and any pairing is allowed — two cards, `card`+`platform_balance`, or a single method — so a card-only advertiser can fund ads without a platform balance. The `primary` and `backup` must be different sources. A `platform_balance` entry may omit `id` to use the account's default Whop balance. Configuring a `card` requires a user token; account API keys can set up platform-balance billing only.
 
         Parameters
         ----------
         account_id : str
             Account ID, prefixed `biz_`.
+
+        ads_certifications : typing.Optional[typing.Dict[str, UpdatePreferencesRequestAdsCertificationsValue]]
+            Opens an advertising certification application. Keyed by certification type (`prescription_drug_ads`); set the entry's `status` to `pending_information` to start, then answer the requested fields via `PATCH /verifications/{id}`. Only one application per type can be open at a time; every other status is set by Whop's review.
 
         ads_payment_methods : typing.Optional[UpdatePreferencesRequestAdsPaymentMethods]
             How the account pays for Whop Ads spend. `primary` is charged first; `backup` covers the charge when the primary fails.
@@ -328,13 +367,19 @@ class AsyncRawPreferencesClient:
             IANA timezone (e.g. `America/New_York`) used to interpret campaign start/end times and to bucket reports. Cannot be cleared once set — pass a new value to change it.
 
         ads_triple_whale_integration : typing.Optional[UpdatePreferencesRequestAdsTripleWhaleIntegration]
-            Connects or disconnects the Triple Whale integration. Requires a connected Shopify store, since Triple Whale keys spend records by Shopify shop.
+            Connects or disconnects the Triple Whale integration. Requires the `ad_campaign:create` scope. Connecting requires a shop domain to report spend against — either an explicit `shop_domain` (required for any merchant without a connected Shopify store, e.g. WooCommerce, a custom checkout, or a white-label platform's merchant) or a Shopify store connected on the Fulfillment page.
 
         cards_auto_top_up : typing.Optional[bool]
             Whether incoming funds are automatically moved to the account's cards balance. Requires a cards balance on the account.
 
+        cards_notifications : typing.Optional[bool]
+            Whether Whop Card notifications reach this account's team. Set it to `false` to stop every card email and push notification for the account — application status, verification and action-required alerts, card-ready alerts, declines, large charges, and cashback summaries. Cardholder onboarding invitations still send, because they carry the only link an invited cardholder can onboard with. Requesting a card is rejected while notifications are off, since the request reaches nobody. Cards on personal accounts are unaffected. Requires a cards balance on the account.
+
         dispute_fighter_enabled : typing.Optional[bool]
             Whether Whop assembles and files the evidence response when this account's payments are disputed. Off by default; enabling it also opts the account into the success fee charged only on disputes it wins.
+
+        economic_intelligence : typing.Optional[bool]
+            Whether economic intelligence is enabled for the account. Requires company:update permission and an existing ledger account.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -348,6 +393,11 @@ class AsyncRawPreferencesClient:
             f"accounts/{encode_path_param(account_id)}/preferences",
             method="PATCH",
             json={
+                "ads_certifications": convert_and_respect_annotation_metadata(
+                    object_=ads_certifications,
+                    annotation=typing.Dict[str, UpdatePreferencesRequestAdsCertificationsValue],
+                    direction="write",
+                ),
                 "ads_payment_methods": convert_and_respect_annotation_metadata(
                     object_=ads_payment_methods, annotation=UpdatePreferencesRequestAdsPaymentMethods, direction="write"
                 ),
@@ -359,7 +409,9 @@ class AsyncRawPreferencesClient:
                     direction="write",
                 ),
                 "cards_auto_top_up": cards_auto_top_up,
+                "cards_notifications": cards_notifications,
                 "dispute_fighter_enabled": dispute_fighter_enabled,
+                "economic_intelligence": economic_intelligence,
             },
             headers={
                 "content-type": "application/json",
@@ -417,6 +469,17 @@ class AsyncRawPreferencesClient:
                         typing.Any,
                         parse_obj_as(
                             type_=typing.Any,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    ),
+                )
+            if _response.status_code == 409:
+                raise ConflictError(
+                    headers=dict(_response.headers),
+                    body=typing.cast(
+                        V1ErrorResponse,
+                        parse_obj_as(
+                            type_=V1ErrorResponse,  # type: ignore
                             object_=_response.json(),
                         ),
                     ),

@@ -83,10 +83,17 @@ from .color import (
     ColorOption,
     NoColorOption,
 )
+from .columns import (
+    ColumnSpec,
+    render_columns_markdown_table,
+    select_columns,
+    select_row,
+)
 from .command_doc import (
     HELP_FORMATS,
     INSTALLABLE_FORMATS,
     CommandDoc,
+    HelpFormat,
     HelpFormatOption,
     ManOption,
     format_manpage,
@@ -251,17 +258,13 @@ from .styling import (
 )
 from .table import (
     ColumnsOption,
-    ColumnSpec,
     SortByOption,
     TableFormat,
     TableFormatOption,
     column_sort_key,
     print_data,
     print_table,
-    render_columns_markdown_table,
     render_table,
-    select_columns,
-    select_row,
     serialize_data,
 )
 from .telemetry import TelemetryOption
@@ -355,6 +358,7 @@ __all__ = [
     "Formatter",
     "Group",
     "HelpCommand",
+    "HelpFormat",
     "HelpFormatOption",
     "HelpFormatter",
     "HelpKeywords",
@@ -607,13 +611,13 @@ _scrub_foreign_modules()
 del _scrub_foreign_modules
 
 
-__version__ = "9.2.0"
+__version__ = "9.3.0"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "0537b896769a526294863265f3367174454d6e33"
+__git_tag_sha__ = "08551d0525e53df5791777ab1952d7dea9448a55"
 
 
 _LAZY_TEST_TOOLING = {

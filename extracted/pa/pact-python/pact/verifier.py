@@ -111,6 +111,65 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 
+def _missing_contents_msg(name: str) -> str:
+    """
+    Error message for a message handler dictionary without a `contents` key.
+
+    Args:
+        name:
+            The name of the message whose handler is invalid.
+    """
+    return (
+        f"Message handler for {name!r} is missing the 'contents' key. Dictionary "
+        "values must be Message envelopes, such as {'contents': b'...', "
+        "'content_type': 'application/json'}, and not the raw payload."
+    )
+
+
+def _invalid_value_msg(name: str, value: object) -> str:
+    """
+    Error message for a message handler value of an unsupported type.
+
+    Args:
+        name:
+            The name of the message whose handler is invalid.
+
+        value:
+            The offending value.
+    """
+    return (
+        f"Invalid message handler value for {name!r}: expected a callable, bytes, "
+        f"or a Message dictionary, got {type(value).__name__}."
+    )
+
+
+def _validate_message_handlers(
+    handler: dict[str, Callable[..., Message] | Message | bytes],
+) -> None:
+    """
+    Check that every value of a message handler dictionary is usable.
+
+    The handler is only called during verification, at which point a failure is
+    reported by the underlying FFI as a failed interaction and its cause is
+    easily missed.
+
+    Args:
+        handler:
+            The dictionary mapping message names to handler values.
+
+    Raises:
+        TypeError:
+            If any value is neither a callable, bytes, nor a Message dictionary.
+    """
+    for name, value in handler.items():
+        if callable(value) or isinstance(value, bytes):
+            continue
+        if not isinstance(value, dict):
+            raise TypeError(_invalid_value_msg(name, value))
+        if "contents" not in value:
+            raise TypeError(_missing_contents_msg(name))
+
+
 class _ProviderTransport(TypedDict):
     """
     Provider transport information.
@@ -385,6 +444,12 @@ class Verifier:
         Raises:
             TypeError:
                 If the handler or its values are invalid.
+
+            KeyError:
+                If a message is requested which is not present in the
+                dictionary. As the handler is called during verification, this
+                is raised within the message relay server and surfaces as a
+                failed interaction.
         """
         logger.debug(
             "Setting message handler for verifier",
@@ -414,12 +479,19 @@ class Verifier:
             return self
 
         if isinstance(handler, dict):
+            _validate_message_handlers(handler)
 
             def _handler(
                 name: str,
                 metadata: dict[str, Any] | None,
             ) -> Message:
                 logger.info("Internal message produced called.")
+                if name not in handler:
+                    msg = (
+                        f"No message handler for {name!r}. "
+                        f"Known messages: {', '.join(sorted(handler))}"
+                    )
+                    raise KeyError(msg)
                 val = handler[name]
 
                 if callable(val):
@@ -430,14 +502,15 @@ class Verifier:
                 if isinstance(val, bytes):
                     return Message(contents=val, metadata=None, content_type=None)
                 if isinstance(val, dict):
+                    if "contents" not in val:
+                        raise TypeError(_missing_contents_msg(name))
                     return Message(
                         contents=val["contents"],
                         metadata=val.get("metadata"),
                         content_type=val.get("content_type"),
                     )
 
-                msg = "Invalid message handler value"
-                raise TypeError(msg)
+                raise TypeError(_invalid_value_msg(name, val))
 
             self._message_producer = MessageProducer(_handler)
             self.add_transport(
@@ -1151,9 +1224,9 @@ class Verifier:
     @overload
     def broker_source(
         self,
-        url: str | URL | None | Unset = UNSET,
+        url: str | URL | Unset | None = UNSET,
         *,
-        token: str | None | Unset = UNSET,
+        token: str | Unset | None = UNSET,
         selector: Literal[False] = False,
         use_env: bool = True,
     ) -> Self: ...
@@ -1161,10 +1234,10 @@ class Verifier:
     @overload
     def broker_source(
         self,
-        url: str | URL | None | Unset = UNSET,
+        url: str | URL | Unset | None = UNSET,
         *,
-        username: str | None | Unset = UNSET,
-        password: str | None | Unset = UNSET,
+        username: str | Unset | None = UNSET,
+        password: str | Unset | None = UNSET,
         selector: Literal[True],
         use_env: bool = True,
     ) -> BrokerSelectorBuilder: ...
@@ -1172,20 +1245,20 @@ class Verifier:
     @overload
     def broker_source(
         self,
-        url: str | URL | None | Unset = UNSET,
+        url: str | URL | Unset | None = UNSET,
         *,
-        token: str | None | Unset = UNSET,
+        token: str | Unset | None = UNSET,
         selector: Literal[True],
         use_env: bool = True,
     ) -> BrokerSelectorBuilder: ...
 
     def broker_source(  # noqa: PLR0913
         self,
-        url: str | URL | None | Unset = UNSET,
+        url: str | URL | Unset | None = UNSET,
         *,
-        username: str | None | Unset = UNSET,
-        password: str | None | Unset = UNSET,
-        token: str | None | Unset = UNSET,
+        username: str | Unset | None = UNSET,
+        password: str | Unset | None = UNSET,
+        token: str | Unset | None = UNSET,
         selector: bool = False,
         use_env: bool = True,
     ) -> BrokerSelectorBuilder | Self:
@@ -1306,7 +1379,18 @@ class Verifier:
             msg = "No transports have been set"
             raise RuntimeError(msg)
 
-        first, *rest = self._transports
+        # The first transport has special significance in the Pact FFI, and
+        # should always be the main HTTP(S) transport.
+        primary_idx = next(
+            (
+                i
+                for i, t in enumerate(self._transports)
+                if t["transport"].startswith("http")
+            ),
+            0,
+        )
+        first = self._transports[primary_idx]
+        rest = [t for i, t in enumerate(self._transports) if i != primary_idx]
 
         pact_ffi.verifier_set_provider_info(
             self._handle,

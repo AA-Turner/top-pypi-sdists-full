@@ -30,6 +30,7 @@ an existing modal keymap such as "Knife Tool Modal Map".
 
 ```../examples/bpy.types.KeyMaps.1.py```
 
+bpy.types.PreferencesAssetLibrary.rst
 bpy.types.ProjectAssetLibrary.rst
 
 :caption: Subclasses
@@ -515,6 +516,7 @@ bpy.types.GeometryNodeImageTexture.rst
 bpy.types.GeometryNodeImportCSV.rst
 bpy.types.GeometryNodeImportOBJ.rst
 bpy.types.GeometryNodeImportPLY.rst
+bpy.types.GeometryNodeImportSPZ.rst
 bpy.types.GeometryNodeImportSTL.rst
 bpy.types.GeometryNodeImportText.rst
 bpy.types.GeometryNodeImportVDB.rst
@@ -592,6 +594,7 @@ bpy.types.GeometryNodeOffsetCornerInFace.rst
 bpy.types.GeometryNodeOffsetPointInCurve.rst
 bpy.types.GeometryNodePoints.rst
 bpy.types.GeometryNodePointsOfCurve.rst
+bpy.types.GeometryNodePointsSetType.rst
 bpy.types.GeometryNodePointsToCurves.rst
 bpy.types.GeometryNodePointsToSDFGrid.rst
 bpy.types.GeometryNodePointsToVertices.rst
@@ -46550,6 +46553,63 @@ class GeometryNodeImportPLY(GeometryNode, NodeInternal, Node, bpy_struct):
         :return: The class or default when not found.
         """
 
+class GeometryNodeImportSPZ(GeometryNode, NodeInternal, Node, bpy_struct):
+    """Import a point cloud object that is rendered as gaussian splat from an SPZ file"""
+
+    inputs: _GeometryNodeImportSPZ_NodeInputs | None
+    outputs: _GeometryNodeImportSPZ_NodeOutputs | None
+
+    @classmethod
+    def is_registered_node_type(cls) -> bool:
+        """True if a registered node type
+
+        :return: Result
+        """
+
+    @classmethod
+    def input_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Input socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def output_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Output socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
 class GeometryNodeImportSTL(GeometryNode, NodeInternal, Node, bpy_struct):
     """Import a mesh from an STL file"""
 
@@ -50944,6 +51004,63 @@ class GeometryNodePointsOfCurve(GeometryNode, NodeInternal, Node, bpy_struct):
 
     inputs: _GeometryNodePointsOfCurve_NodeInputs | None
     outputs: _GeometryNodePointsOfCurve_NodeOutputs | None
+
+    @classmethod
+    def is_registered_node_type(cls) -> bool:
+        """True if a registered node type
+
+        :return: Result
+        """
+
+    @classmethod
+    def input_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Input socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def output_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Output socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class GeometryNodePointsSetType(GeometryNode, NodeInternal, Node, bpy_struct):
+    """Change the type of point cloud"""
+
+    inputs: _GeometryNodePointsSetType_NodeInputs | None
+    outputs: _GeometryNodePointsSetType_NodeOutputs | None
 
     @classmethod
     def is_registered_node_type(cls) -> bool:
@@ -88167,6 +88284,9 @@ class PointCloud(ID, bpy_struct):
     points: bpy_prop_collection[Point]
     """ (default None, readonly)"""
 
+    type: typing.Literal[bpy.stub_internal.rna_enums.PointcloudTypeItems]
+    """ Representation type of the pointcloud (default 'POINTS')"""
+
     def resize(self, size: int | None) -> None:
         """resize
 
@@ -88915,6 +89035,40 @@ class PreferencesApps(bpy_struct):
 class PreferencesAssetLibraries(bpy_struct):
     use_online_essentials: bool
     """ Include remote assets in the Essentials asset library. Downloading requires Online Access to be enabled under System > Network in the Preferences (default True)"""
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class PreferencesAssetLibrary(UserAssetLibrary, bpy_struct):
+    """An asset library defined in the Preferences, available whatever project or blend file is open"""
+
+    path: str
+    """ Path to a directory with .blend files to use as an asset library (default "", never None)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -90261,6 +90415,9 @@ class PrimitiveString(bpy_struct):
 
 class ProjectAssetLibrary(UserAssetLibrary, bpy_struct):
     """Settings to define a reusable library for Asset Browsers to use"""
+
+    path: str
+    """ Path to a directory with .blend files to use as an asset library (default "", never None, Supports template expressions)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -116981,9 +117138,6 @@ class UserAssetLibrary(bpy_struct):
     name: str
     """ Identifier (not necessarily unique) for the asset library (default "", never None)"""
 
-    path: str
-    """ Path to a directory with .blend files to use as an asset library (default "", never None)"""
-
     remote_url: str
     """ Remote URL to the asset library (default "", never None)"""
 
@@ -129334,6 +129488,17 @@ class _GeometryNodeImportPLY_NodeInputs(NodeInputs):
         :return:
         """
 
+class _GeometryNodeImportSPZ_NodeInputs(NodeInputs):
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[0] | typing.Literal["Path"]
+    ) -> NodeSocketStringFilePath:
+        """
+
+        :param key:
+        :return:
+        """
+
 class _GeometryNodeImportSTL_NodeInputs(NodeInputs):
     @typing.overload
     def __getitem__(
@@ -130670,6 +130835,27 @@ class _GeometryNodePointsOfCurve_NodeInputs(NodeInputs):
     def __getitem__(
         self, key: typing.Literal[2] | typing.Literal["Sort Index"]
     ) -> NodeSocketInt:
+        """
+
+        :param key:
+        :return:
+        """
+
+class _GeometryNodePointsSetType_NodeInputs(NodeInputs):
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[0] | typing.Literal["Points"]
+    ) -> NodeSocketGeometry:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[1] | typing.Literal["Type"]
+    ) -> NodeSocketMenu:
         """
 
         :param key:
@@ -142210,7 +142396,18 @@ class _GeometryNodeImportOBJ_NodeOutputs(NodeOutputs):
 class _GeometryNodeImportPLY_NodeOutputs(NodeOutputs):
     @typing.overload
     def __getitem__(
-        self, key: typing.Literal[0] | typing.Literal["Mesh"]
+        self, key: typing.Literal[0] | typing.Literal["Geometry"]
+    ) -> NodeSocketGeometry:
+        """
+
+        :param key:
+        :return:
+        """
+
+class _GeometryNodeImportSPZ_NodeOutputs(NodeOutputs):
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[0] | typing.Literal["Points"]
     ) -> NodeSocketGeometry:
         """
 
@@ -143518,6 +143715,17 @@ class _GeometryNodePointsOfCurve_NodeOutputs(NodeOutputs):
     def __getitem__(
         self, key: typing.Literal[1] | typing.Literal["Total"]
     ) -> NodeSocketInt:
+        """
+
+        :param key:
+        :return:
+        """
+
+class _GeometryNodePointsSetType_NodeOutputs(NodeOutputs):
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[0] | typing.Literal["Points"]
+    ) -> NodeSocketGeometry:
         """
 
         :param key:
@@ -148145,6 +148353,8 @@ DATA_PT_pathanim: bl_ui.properties_data_curve.DATA_PT_pathanim
 DATA_PT_pointcloud_attributes: (
     bl_ui.properties_data_pointcloud.DATA_PT_pointcloud_attributes
 )
+
+DATA_PT_pointcloud_type: bl_ui.properties_data_pointcloud.DATA_PT_pointcloud_type
 
 DATA_PT_pose: bl_ui.properties_data_armature.DATA_PT_pose
 

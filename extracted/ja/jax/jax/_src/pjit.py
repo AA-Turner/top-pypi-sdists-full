@@ -69,7 +69,8 @@ from jax._src.sharding_impls import (
     prepare_axis_resources, parse_flatten_op_sharding, canonicalize_sharding,
     _internal_use_concrete_mesh)
 from jax._src.layout import (Format, Layout, AutoLayoutSingleton,
-                             get_layout_for_vmap, AutoLayout)
+                             get_layout_for_vmap, AutoLayout, use_layout_mode,
+                             LayoutMode)
 from jax._src.state.types import RefEffect
 from jax._src.traceback_util import api_boundary
 from jax._src import flattree as ft
@@ -80,7 +81,7 @@ from jax._src.typing import Array, ArrayLike
 from jax._src.util import (
     HashableFunction, safe_map, safe_zip, wraps, distributed_debug_log,
     split_list, split_list_checked, weakref_lru_cache, merge_lists, subs_list,
-    fun_name, foreach)
+    fun_name, foreach, partition_list)
 from jax._src.lib import jax_jit
 
 map, unsafe_map = safe_map, map
@@ -351,7 +352,7 @@ def _canonicalize_inline(inline: bool | api.Inline) -> api.Inline:
   if isinstance(inline, api.Inline):
     return inline
   if inline is True:
-    return api.Inline.JAX_EARLY
+    return api.Inline.JAX_LATE
   if inline is False:
     return api.Inline.AUTO
   raise ValueError(f"Invalid inline option: {inline!r}")
@@ -1314,7 +1315,7 @@ class PjitLoweringResult:
 def _pjit_lower_jaxpr_to_fun(
     ctx: mlir.LoweringRuleContext, name: str, jaxpr: core.Jaxpr,
     in_shardings, out_shardings,
-    in_layouts, out_layouts) -> PjitLoweringResult:
+    in_layouts, out_layouts, *, detached: bool = False) -> PjitLoweringResult:
   effects = tuple(effects_lib.ordered_effects.filter_in(jaxpr.effects))
   const_args_and_avals = core.jaxpr_const_args(jaxpr)
   const_args, const_arg_avals = util.unzip2(const_args_and_avals)
@@ -1342,7 +1343,8 @@ def _pjit_lower_jaxpr_to_fun(
       out_avals=jaxpr.out_avals,
       arg_shardings=arg_shardings, result_shardings=result_shardings,
       use_sharding_annotations=False,
-      arg_layouts=in_layouts_expanded, result_layouts=out_layouts)
+      arg_layouts=in_layouts_expanded, result_layouts=out_layouts,
+      detached=detached)
   output_types = [mlir.aval_to_ir_types(mod_ctx, a) for a in ctx.avals_out]
   output_types = [mlir.token_type()] * len(effects) + output_types
   flat_output_types, output_treedef = mlir.ir_tree_registry.flatten(output_types)
@@ -1362,16 +1364,17 @@ def _pjit_lowering(ctx: mlir.LoweringRuleContext, *args, name: str,
     num_devices = axis_ctx.num_devices
   elif isinstance(axis_ctx, sharding_impls.SPMDAxisContext):
     num_devices = axis_ctx.mesh.size
+  is_jax_late = inline is api.Inline.JAX_LATE
   key = (jit_p, name, jaxpr, num_devices,
          pxla.SemanticallyEqualShardings(in_shardings, jaxpr.in_avals),
          pxla.SemanticallyEqualShardings(out_shardings, jaxpr.out_avals),
-         in_layouts, out_layouts)
+         in_layouts, out_layouts, is_jax_late)
 
   result = mod_ctx.cached_primitive_lowerings.get(key, None)
   if result is None:
     result = _pjit_lower_jaxpr_to_fun(
         ctx, name, jaxpr, in_shardings, out_shardings,
-        in_layouts, out_layouts)
+        in_layouts, out_layouts, detached=is_jax_late)
     mod_ctx.cached_primitive_lowerings[key] = result
 
   effects = result.effects
@@ -1388,7 +1391,7 @@ def _pjit_lowering(ctx: mlir.LoweringRuleContext, *args, name: str,
   with mlir.source_info_to_location(
       ctx.module_context, None,
       ctx.name_stack.extend(result.wrapped_name), ctx.traceback):
-    if inline is api.Inline.JAX_LATE:
+    if is_jax_late:
       results = jax_mlir_ext.inlined_func_call(result.func.operation, flat_args)
     else:
       call = func_dialect.CallOp(
@@ -1926,7 +1929,8 @@ def _dce_jaxpr_pjit(
     jaxpr: core.Jaxpr, used_outputs: tuple[bool, ...]
 ) -> tuple[core.Jaxpr, list[bool]]:
   # dce_jaxpr preserves attached consts (constvars are never pruned).
-  return pe.dce_jaxpr(jaxpr, used_outputs)
+  instantiate = [v.aval is core.abstract_token for v in jaxpr.invars]
+  return pe.dce_jaxpr(jaxpr, used_outputs, instantiate=instantiate)
 
 
 def dce_jaxpr_pjit_rule(used_outputs: list[bool], eqn: core.JaxprEqn
@@ -2540,27 +2544,75 @@ batching.fancy_primitive_batchers[layout_constraint_p] = _layout_constraint_batc
 
 # ------------------------- program_order --------------------------------------
 
-def program_order(f=None, *, enforce: bool):
-  kwargs = dict(enforce=enforce)
+program_order_p = core.Primitive("program_order")
+program_order_p.multiple_results = True
+program_order_p.skip_canonicalization = True
+
+def program_order(f=None, *, enforce: bool,
+                  exclude_argnames: str | Sequence[str] | None = None):
+  if enforce and exclude_argnames is not None:
+    raise ValueError("exclude_argnames cannot be used with enforce=True.")
+  kwargs = dict(enforce=enforce, exclude_argnames=exclude_argnames)
   if f is None:
     return lambda g: _program_order(g, **kwargs)
   return _program_order(f, **kwargs)
 
-def _program_order(fun, *, enforce):
+
+def _program_order(fun, *, enforce, exclude_argnames):
   @wraps(fun)
-  def wrapped(*args):
-    if not enforce:
-      return api.jit(fun)(*args)
-    traced = api.jit(fun).trace(*args)
-    jaxpr = traced.jaxpr
-    args_flat, _ = tree_flatten(args)
-    flat_outputs = eval_jaxpr_program_order(
-        jaxpr, jaxpr.consts, *traced._consts, *args_flat)
-    return tree_util.tree_unflatten(traced.out_tree, flat_outputs)
+  def wrapped(*args, **kwargs):
+    if enforce:
+      traced = api.jit(fun).trace(*args, **kwargs)
+      jaxpr = traced.jaxpr
+      args_flat, _ = tree_flatten(args)
+      flat_outputs = eval_jaxpr_program_order(
+          jaxpr, jaxpr.consts, *traced._consts, *args_flat)
+      return tree_util.tree_unflatten(traced.out_tree, flat_outputs)
+    else:
+      args_flat, in_tree = tree_flatten((args, kwargs))
+      if exclude_argnames is None:
+        arg_exclude_mask = (False,) * len(args_flat)
+      else:
+        fun_signature = inspect.signature(fun)
+        ex_argnums, ex_argnames, _, _ = resolve_argnums(
+            fun, fun_signature, None, exclude_argnames, None, None)
+        arg_exclude_mask = donation_vector(ex_argnums, ex_argnames, in_tree)
+      assert len(args_flat) == len(arg_exclude_mask)
+      traced = api.jit(fun).trace(*args, **kwargs)
+      assert in_tree == traced.in_tree
+      exclude_mask = (False,) * len(traced._consts) + arg_exclude_mask
+      out_flat = program_order_p.bind(
+          *traced._consts, *args_flat, call_jaxpr=traced.jaxpr,
+          exclude_mask=exclude_mask)
+      return tree_util.tree_unflatten(traced.out_tree, out_flat)
   return wrapped
 
-def eval_jaxpr_program_order(jaxpr, consts, *args) -> list[Any]:
+
+def opt_barrier_per_input(prev_outvars, prev_outs, cur_invars, cur_inps):
+  from jax._src.lax.lax import optimization_barrier, create_token  # type: ignore
+
+  token = create_token()
+  token, prev_outs = optimization_barrier((token, prev_outs))
+  prev_out_map = dict(zip(prev_outvars, prev_outs))
+  # Tokens are not DCEd by opt_barrier even if they are unused.
+  cur_inps = [prev_out_map[v] if v in prev_out_map
+              else optimization_barrier((token, cinp))[1]
+              for v, cinp in safe_zip(cur_invars, cur_inps)]
+  return prev_outs, cur_inps
+
+
+def insert_opt_barrier(prev_outvars, prev_outs, cur_invars, cur_inps):
   from jax._src.lax.lax import optimization_barrier  # type: ignore
+
+  in_cur_invars = [v in cur_invars for v in prev_outvars]
+  barrier_pouts, excluded_outs = partition_list(in_cur_invars, prev_outs)
+  barrier_pouts, cur_inps = optimization_barrier((barrier_pouts, cur_inps))
+  prev_outs = merge_lists(in_cur_invars, barrier_pouts, excluded_outs)
+  return prev_outs, cur_inps
+
+
+def eval_jaxpr_program_order(jaxpr, consts, *args) -> list[Any]:
+  from jax._src.lax.lax import create_token, optimization_barrier  # type: ignore
 
   def read(v) -> Any:
     return v.val if isinstance(v, core.Literal) else env[v]
@@ -2582,26 +2634,71 @@ def eval_jaxpr_program_order(jaxpr, consts, *args) -> list[Any]:
   foreach(write, jaxpr.invars, args)
   last_used = core.last_used(jaxpr)
   prev_eqn = None
-  for eqn in jaxpr.eqns:
-    bind_params = eqn.primitive.get_bind_params(eqn.params)
-    name_stack = source_info_util.current_name_stack() + eqn.source_info.name_stack
-    traceback = eqn.source_info.traceback
+  for cur_eqn in jaxpr.eqns:
+    bind_params = cur_eqn.primitive.get_bind_params(cur_eqn.params)
+    name_stack = source_info_util.current_name_stack() + cur_eqn.source_info.name_stack
+    traceback = cur_eqn.source_info.traceback
     with (source_info_util.user_context(traceback, name_stack=name_stack),
-          eqn.ctx.manager):
-      cur_inps = map(read, eqn.invars)
-      if prev_eqn is not None:
-        prev_outs = map(read, prev_eqn.outvars)
-        # TODO(yashkatariya): Maybe dedup prev_outs and cur_inps.
-        prev_outs, cur_inps = optimization_barrier((prev_outs, cur_inps))
-        eqn_write(prev_eqn, prev_outs)
-      ans = eqn.primitive.bind(*cur_inps, **bind_params)
-    eqn_write(eqn, ans)
-    prev_eqn = eqn
-    core.clean_up_dead_vars(eqn, env, last_used)
+          cur_eqn.ctx.manager):
+      cur_inps = map(read, cur_eqn.invars)
+      if not cur_inps:  # nullary
+        if prev_eqn is not None:
+          token = create_token()
+          prev_outs = map(read, prev_eqn.outvars)
+          prev_outs, token = optimization_barrier((prev_outs, token))
+          eqn_write(prev_eqn, prev_outs)
+          ans = api.jit(lambda token: cur_eqn.primitive.bind(**bind_params),
+                        inline=api.Inline.XLA_LATE)(token)
+        else:
+          ans = cur_eqn.primitive.bind(*cur_inps, **bind_params)
+      else:
+        if prev_eqn is not None:
+          is_literal = [isinstance(i, core.Literal) for i in cur_eqn.invars]
+          cur_invars, _ = partition_list(is_literal, cur_eqn.invars)
+          cur_inps, literal_inps = partition_list(is_literal, cur_inps)
+          prev_outs = map(read, prev_eqn.outvars)
+          if cur_eqn.primitive is program_order_p:
+            exclude_mask = cur_eqn.params['exclude_mask']
+            barrier_inps, excluded_inps = partition_list(exclude_mask, cur_inps)
+            if barrier_inps:
+              barrier_invars, _ = partition_list(exclude_mask, cur_invars)
+              prev_outs, barrier_inps = opt_barrier_per_input(
+                  prev_eqn.outvars, prev_outs, barrier_invars, barrier_inps)
+              cur_inps = merge_lists(exclude_mask, barrier_inps, excluded_inps)
+          elif cur_eqn.primitive is jit_p:
+            prev_outs, cur_inps = opt_barrier_per_input(
+                prev_eqn.outvars, prev_outs, cur_invars, cur_inps)
+          else:
+            prev_outs, cur_inps = insert_opt_barrier(
+                prev_eqn.outvars, prev_outs, cur_invars, cur_inps)
+          eqn_write(prev_eqn, prev_outs)
+          cur_inps = merge_lists(is_literal, cur_inps, literal_inps)
+        ans = cur_eqn.primitive.bind(*cur_inps, **bind_params)
+    eqn_write(cur_eqn, ans)
+    prev_eqn = cur_eqn
+    core.clean_up_dead_vars(cur_eqn, env, last_used)
   outvals = map(read, jaxpr.outvars)
   return outvals
 
 # ----------------------------- explicit layout --------------------------------
+
+def get_layout_mode_from_args(args):
+  layouts = [core.typeof(a).layout for a in args]
+  if not all(type(l) is type(layouts[0]) for l in layouts):
+    raise TypeError(
+        'All args passed to `explicit_layout` must have the same type of'
+        f' layout. Got {layouts=}')
+  l = layouts[0]
+  if isinstance(l, Layout):
+    return LayoutMode.JAX
+  # TODO(yashkatariya): Replace this with `isinstance(l, ArrayLayout)`.
+  elif type(l).__name__ == 'ArrayLayout':
+    return LayoutMode.PALLAS_TPU
+  elif type(l).__name__ == 'GPUTiledLayout':
+    return LayoutMode.PALLAS_GPU
+  else:
+    return LayoutMode.AUTO
+
 
 def explicit_layout(f=None, /, *, in_layouts=None):
   kwargs = dict(in_layouts=in_layouts)
@@ -2619,7 +2716,9 @@ def _explicit_layout(fun, *, in_layouts):
     else:
       _in_layouts = in_layouts
     args = relayout(args, _in_layouts)
-    out = fun(*args)
+    mode = get_layout_mode_from_args(args)
+    with use_layout_mode(mode):
+      out = fun(*args)
     return relayout(out, AutoLayout)
   return decorator
 

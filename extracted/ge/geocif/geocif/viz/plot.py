@@ -659,6 +659,13 @@ def _plot_map_pygmt(
     minx, miny, maxx, maxy = gdf.total_bounds
     padx = max(0.5, (maxx - minx) * 0.05)
     pady = max(0.5, (maxy - miny) * 0.05)
+    # Clamp to the globe. A near-global extent spans 360 degrees, and 5% padding
+    # takes it to 396 -- GMT then fails with "Map region exceeds 360 degrees" and
+    # plot_map silently falls back to matplotlib, so every world map was drawn by
+    # the fallback backend rather than PyGMT. Clamping only ever narrows, so a
+    # country-scale map (padding well inside the globe) is unaffected.
+    west, east = max(minx - padx, -180.0), min(maxx + padx, 180.0)
+    south, north = max(miny - pady, -90.0), min(maxy + pady, 90.0)
 
     if series == "qualitative":
         allcols = cmap if isinstance(cmap, list) else list(cmap.colors)
@@ -679,8 +686,7 @@ def _plot_map_pygmt(
 
     params = {
         "out_path": str(Path(dir_out) / fname),
-        "region": [float(minx - padx), float(maxx + padx),
-                   float(miny - pady), float(maxy + pady)],
+        "region": [west, east, south, north],
         "projection": _gmt_projection_for(name_country),
         "title": title or "", "label": label or "",
         "do_borders": bool(do_borders),

@@ -12,8 +12,10 @@ from __future__ import annotations
 import inspect
 import logging
 import socket
+import sys
 import warnings
 from functools import partial
+from importlib.metadata import PackageNotFoundError, version
 from inspect import Parameter, _ParameterKind
 from typing import TYPE_CHECKING, TypeVar
 
@@ -21,6 +23,31 @@ if TYPE_CHECKING:
     from collections.abc import Callable, Mapping
 
 logger = logging.getLogger(__name__)
+
+
+def user_agent() -> str:
+    """
+    Build the `User-Agent` header value for outbound HTTP requests.
+
+    Returns a string of the form
+    `pact-python/{version} requests/{requests_version} python/{py_version}`.
+
+    Returns:
+        The formatted `User-Agent` string.
+    """
+    try:
+        pact_ver = version("pact-python")
+    except PackageNotFoundError:
+        pact_ver = "unknown"
+
+    try:
+        requests_ver = version("requests")
+    except PackageNotFoundError:
+        requests_ver = "unknown"
+
+    py_ver = "{}.{}.{}".format(*sys.version_info[:3])
+    return f"pact-python/{pact_ver} requests/{requests_ver} python/{py_ver}"
+
 
 _PYTHON_FORMAT_TO_JAVA_DATETIME = {
     "a": "EEE",
@@ -82,8 +109,6 @@ def strftime_to_simple_date_format(python_format: str) -> str:
     Returns:
         The equivalent Java SimpleDateFormat format string.
     """
-    # Each Python format code is exactly two characters long, so we can
-    # safely iterate through the string.
     idx = 0
     result: str = ""
     escaped = False
@@ -93,14 +118,21 @@ def strftime_to_simple_date_format(python_format: str) -> str:
         idx += 1
 
         if c == "%":
-            c = python_format[idx]
+            # Format codes are two characters long, or three characters for
+            # `%:z`. Consume the remaining characters of the code.
+            code_len = 2 if python_format[idx : idx + 1] == ":" else 1
+            c = python_format[idx : idx + code_len]
+            idx += code_len
+            if len(c) < code_len:
+                msg = (
+                    f"Incomplete Python format code `%{c}` at end of "
+                    f"format string {python_format!r}"
+                )
+                raise ValueError(msg)
             if escaped:
                 result += "'"
                 escaped = False
             result += format_code_to_java_format(c)
-            # Increment another time to skip the second character of the
-            # Python format code.
-            idx += 1
             continue
 
         if c == "'":

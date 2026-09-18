@@ -23,6 +23,7 @@ from pathlib import Path
 
 from xbsl import i18n
 from xbsl.translation import dictionary as dictionary_module
+from xbsl.translation import platform_map
 
 try:
     import yaml
@@ -43,6 +44,67 @@ MESSAGES = {
               " tokens/phrases/literals формата словаря либо список JSON",
         "en": "no entries found in the edits file: it needs tokens/phrases/literals"
               " sections in the dictionary format, or a JSON list",
+    },
+    "translate.entries.no-key": {
+        "ru": "запись без ключа не записывается. Ключ – это имя, строка комментария или"
+              " тело литерала, смотря по виду записи.",
+        "en": "an entry without a key is not written. The key is a name, a comment line or"
+              " a literal body, depending on the kind.",
+    },
+    "translate.entries.platform-type": {
+        "ru": "ключ \"{key}\" – имя типа платформы ({platform}). Пара переименует и этот тип,"
+              " как только проект объявит тип с таким именем: перевод возьмёт слово пары в"
+              " каждом выражении типа, и английская сборка упадёт в файле, который про этот"
+              " узел ничего не знает. Переименуйте узел проекта либо уточните ключ владельцем"
+              " (<Владелец>.{key}).",
+        "en": "the key \"{key}\" names a platform type ({platform}). The pair renames that type"
+              " too as soon as the project declares a type of this name: the translation takes"
+              " the pair's word in every type expression, and the English build fails in a file"
+              " that knows nothing of the node. Rename the project's node, or qualify the key"
+              " with its owner (<Owner>.{key}).",
+    },
+    "translate.entries.platform-member": {
+        "ru": "ключ \"{key}\" – имя члена типа платформы, платформа пишет его {platform}."
+              " Обращение к члену у приёмника без выведенного типа берёт значение пары, и"
+              " компилятор его отвергает: возьмите написание платформы либо уточните ключ"
+              " владельцем (<Владелец>.{key}).",
+        "en": "the key \"{key}\" names a member of a platform type, and the platform spells it"
+              " {platform}. A member reached through a receiver of no inferred type takes the"
+              " pair's value, which the compiler refuses: use the platform's spelling, or"
+              " qualify the key with its owner (<Owner>.{key}).",
+    },
+    "translate.phrase.escaped-quote-key": {
+        "ru": "кавычка в ключе экранирована по правилам литерала. Фразу переводчик ищет по"
+              " строке комментария как есть, поэтому обратный слэш снят.",
+        "en": "the quote in the key was escaped the way a literal escapes it. The translator"
+              " looks a phrase up by the comment line as it stands, so the backslash was"
+              " taken off.",
+    },
+    "translate.phrase.escaped-quote-value": {
+        "ru": "кавычка в переводе экранирована по правилам литерала. Перевод подставляется"
+              " в комментарий как есть, поэтому обратный слэш снят.",
+        "en": "the quote in the translation was escaped the way a literal escapes it. The"
+              " translation goes into the comment as it stands, so the backslash was taken"
+              " off.",
+    },
+    "translate.phrase.trimmed-key": {
+        "ru": "ключ окружён пробелами. Переводчик читает строку комментария без отступа и"
+              " без хвостовых пробелов, поэтому они сняты.",
+        "en": "the key was padded with whitespace. The translator reads a comment line"
+              " without the indent and without the trailing spaces, so the padding was"
+              " taken off.",
+    },
+    "translate.phrase.newline-key": {
+        "ru": "фраза не занимает несколько строк: каждую строку комментария переводчик ищет"
+              " отдельно. Запишите строки отдельными записями.",
+        "en": "a phrase does not span several lines: the translator looks up each line of a"
+              " comment on its own. Write the lines as separate entries.",
+    },
+    "translate.phrase.newline-value": {
+        "ru": "перевод не занимает несколько строк: он подставляется внутрь одной строки"
+              " комментария. Уместите перевод в одну строку.",
+        "en": "a translation does not span several lines: it goes inside one comment line."
+              " Fit the translation on one line.",
     },
     "translate.page.truncated": {
         "ru": "показаны не все строки, осталось ещё {remaining}:"
@@ -353,11 +415,12 @@ _WORD_RE = re.compile(r"[A-Za-zА-Яа-яЁё_][A-Za-zА-Яа-яЁё_0-9]*")
 _LITERAL_RE = re.compile(r'"((?:[^"\\]|\\.)*)"')
 
 
-def _comment_bodies(path: Path, text: str) -> set[str]:
-    """Every comment payload of one file, spelled the way the TRANSLATOR keys a phrase.
+def _readings(path: Path, text: str) -> tuple[set[str], set[str]]:
+    """(comment payloads, literal keys) of one file, spelled the way the TRANSLATOR keys them.
 
     The suffix decides the reading; the text is what the file holds. `_comment_bodies_of`
-    does the work, so the same reading serves a file on disk and the lines a diff took out.
+    does the work for the comments, so the same reading serves a file on disk and the lines
+    a diff took out.
 
     The two readings have to agree character for character or a LIVE pair reads as an orphan -
     the one mistake `--prune` would act on. So this is not an imitation: a module is taken
@@ -365,6 +428,13 @@ def _comment_bodies(path: Path, text: str) -> set[str]:
     function the translating pass calls, block comments and `///` decoration included. A
     private regex of this module did neither, and answered a doc comment with a slash glued
     to the text.
+
+    Literals are read the same way. The string tokens of a module go through
+    `code.literal_keys`, which reads a string nested inside an interpolation whole, and a yaml
+    file goes through `yamlfile.literal_keys`, which runs the walk of the pass itself and keeps
+    what it asks the literals plane about - a presentation and a presentation template among
+    them. A double-quote pattern over the raw text missed both: on a live project `--unused`
+    offered four entries the English tree still needed.
 
     A resource - a stylesheet, a script, a page, a drawing - is read by `resourcefile`, the
     module the translating pass itself reads it with, for the same reason.
@@ -375,14 +445,46 @@ def _comment_bodies(path: Path, text: str) -> set[str]:
     the lexer cannot take - such a file translates to nothing anyway, so anything it yields
     is a bonus in the safe direction.
     """
-    if path.suffix in (".xbsl", ".xbql"):
-        from xbsl import engine
+    from xbsl import engine, lexer
+    from xbsl.translation import code as code_module
+    from xbsl.translation import yamlfile as yaml_module
 
-        try:
-            text = engine.load(path).text
-        except Exception:  # unreadable through the loader - the raw text still reads
-            pass
-    return _comment_bodies_of(path.suffix, text)
+    if path.suffix not in (".xbsl", ".xbql", ".yaml"):
+        return _comment_bodies_of(path.suffix, text), set()
+    try:
+        source = engine.load(path)
+        if path.suffix == ".yaml":
+            return _comment_bodies_of(path.suffix, text), yaml_module.literal_keys(source)
+        tokens = lexer.tokens(source)
+    except Exception:  # unreadable through the loader - the raw text still reads
+        return _comment_bodies_of(path.suffix, text), _fragment_literal_keys(path.suffix, text)
+    lines = {
+        payload
+        for token in tokens if token.kind == "COMMENT"
+        for _offset, _index, payload in code_module.comment_payloads(token)
+    }
+    return lines, code_module.literal_keys(tokens)
+
+
+def _fragment_literal_keys(suffix: str, text: str) -> set[str]:
+    """The literal keys of TEXT alone, read the way `_readings` reads a whole file.
+
+    What a diff hands over is not a file: a module fragment may open a string it never closes,
+    and removed yaml lines need not form a document (see `yamlfile.fragment_literal_keys`).
+    The caller only ever intersects the answer with the orphans of the whole project.
+    """
+    from xbsl import lexer
+    from xbsl.translation import code as code_module
+    from xbsl.translation import yamlfile as yaml_module
+
+    try:
+        if suffix in (".xbsl", ".xbql"):
+            return code_module.literal_keys(lexer.tokenize(text))
+        if suffix == ".yaml":
+            return yaml_module.fragment_literal_keys(text)
+    except Exception:  # a fragment the readers cannot take - the double-quote reading stays
+        pass
+    return set()
 
 
 def _comment_bodies_of(suffix: str, text: str) -> set[str]:
@@ -463,7 +565,9 @@ def _surfaces(root: Path, dictionary, *, deadline: float | None = None,
     forgets. The direction of the error matters more than its size here - a textual reading
     can call an orphan "used" (a name that also occurs in prose), and that only leaves an
     entry in place; it cannot call a LIVE entry an orphan, which is the mistake that would
-    delete a translation the project still needs.
+    delete a translation the project still needs. A comment line and a literal are the two
+    places where the text alone does not say what the key is, so both are keyed by the
+    translator's own readings as well (see `_readings`).
 
     `deadline` is a `time.monotonic()` value: the walk looks at the clock between files and
     stops once it is past, with `partial` set - an answer with a caveat in place of a call
@@ -506,7 +610,9 @@ def _read_surfaces(root: Path, path: Path, out: Surfaces) -> None:
         # code, and feeding them in would answer for a name no source declares any more.
         out.names.update(_WORD_RE.findall(text))
         out.literals.update(_LITERAL_RE.findall(text))
-    out.lines.update(_comment_bodies(path, text))
+    lines, literals = _readings(path, text)
+    out.lines.update(lines)
+    out.literals.update(literals)
 
 
 @dataclass
@@ -788,6 +894,7 @@ def _removal_of_diff(toplevel: Path, base: str, diff: str) -> Removal:
         if not resource:
             out.names.update(_WORD_RE.findall(text))
             out.literals.update(_LITERAL_RE.findall(text))
+            out.literals.update(_fragment_literal_keys(suffix, text))
         out.lines.update(_comment_bodies_of(suffix, text))
     for rel in seen:
         # A file that is gone took its PATH with it, and a path is a place a name may live -
@@ -841,9 +948,19 @@ def orphans_of(root: Path, dictionary_path: Path, dictionary=None,
     that has to answer within its client's patience passes the one, a command that wants to
     be seen moving passes the other.
     """
+    from xbsl.translation import code as code_module
+
     surfaces = _surfaces(root, dictionary, deadline=deadline, progress=progress)
     out = Orphans(read=surfaces.read, total=surfaces.total, partial=surfaces.partial)
-    for entry in read_entries(dictionary_path):
+    rows = read_entries(dictionary_path)
+    # A literal the plane names is replaced by its translation, and the pass then reads the
+    # interpolations of THAT text: a pattern standing there declares group names the plane is
+    # asked about, and no source spells them. The translation of an entry that is itself dead
+    # counts too - an extra key only keeps an entry in place.
+    for entry in rows:
+        if entry.kind == "literal":
+            surfaces.literals |= code_module.interpolated_literal_keys(entry.value)
+    for entry in rows:
         gone: list[str] = []
         if entry.kind == "phrase":
             gone = [] if entry.key in surfaces.lines else [entry.key]
@@ -987,7 +1104,8 @@ def write_entries(dictionary_path: Path, edits: list[dict], target: str = DEFAUL
         file.parent.mkdir(parents=True, exist_ok=True)
         file.write_text(text, encoding="utf-8", newline="")
     return {key: plan[key]
-            for key in ("changed", "added", "removed", "rewritten", "refused", "collisions")}
+            for key in ("changed", "added", "removed", "rewritten", "refused", "normalized",
+                        "collisions", "platform_names")}
 
 
 def plan_entries(dictionary_path: Path, edits: list[dict], target: str = DEFAULT_TARGET,
@@ -1008,6 +1126,10 @@ def plan_entries(dictionary_path: Path, edits: list[dict], target: str = DEFAULT
     for, the writer does not: a file written from the MCP tool used to arrive announcing that
     it came from the editor panel, and the line was corrected by hand afterwards.
 
+    Each plane is held to the shape its pass reads (`_literal_edit_refusal`, `_phrase_edit`):
+    an entry that could not fire is refused with the reason, and one that has a single
+    obvious reading is written by that reading and listed in `normalized`.
+
     The result is `{files: {path: the full new text}, changed, added, removed}`. Texts rather
     than writes are what an editor needs: the language server never writes to disk, so the
     client applies the result as a workspace edit and the user keeps undo.
@@ -1025,25 +1147,46 @@ def plan_entries(dictionary_path: Path, edits: list[dict], target: str = DEFAULT
     by_file: dict[Path, list[tuple[Entry, dict]]] = {}
     fresh: list[dict] = []
     refused: list[dict] = []
+    # What the writer read differently from the caller, and why. A correction that nobody is
+    # told about is the same silence as the entry that never fires.
+    normalized: list[dict] = []
     for edit in edits:
         key = str(edit.get("key") or "")
         kind = str(edit.get("kind") or "token")
-        if not key:
+        value = str(edit.get("value") or "")
+        if not key.strip():
+            # Dropped without a word until now, so a batch with a keyless row reported one
+            # entry fewer than it carried and nothing said which row went missing.
+            refused.append({"key": key, "kind": kind,
+                            "reason": i18n.t("translate.entries.no-key")})
             continue
         # A misspelled kind used to be written: the entry landed in a section named after it,
         # or the plan crashed on the unknown section. Refused here, where the value is in hand.
         reason = kind_refusal(kind, allow_any=False)
         if not reason and kind == "literal":
-            reason = _literal_edit_refusal(key, str(edit.get("value") or ""))
+            reason = _literal_edit_refusal(key, value)
+        if not reason and kind == "phrase":
+            reason = _phrase_edit_refusal(key, value)
         if reason:
             # Written now, refused at the next load - and the author would be a day away from
             # the entry by then. The same check answers here, while the value is still in hand.
             refused.append({"key": key, "kind": kind, "reason": reason})
             continue
+        # A key the dictionary already declares is addressed exactly as typed: that is how a
+        # pair written before this correction is repaired or taken out. A key that is new
+        # comes from the caller's keyboard, and the shape it must have is known here.
+        if kind == "phrase" and (kind, key) not in places:
+            key, value, notes = _phrase_edit(key, value)
+            if notes:
+                if (kind, key) in places:
+                    # The corrected key turns out to name an entry that is already there, so
+                    # this edit corrects THAT one rather than adding a second spelling of it.
+                    edit = {**edit, "key": key, "value": value}
+                normalized.extend({**note, "key": key, "kind": kind} for note in notes)
         if (kind, key) in places:
             decided[(kind, key)] = edit
         else:
-            fresh.append({"key": key, "kind": kind, "value": str(edit.get("value") or "")})
+            fresh.append({"key": key, "kind": kind, "value": value})
     for pair, edit in decided.items():
         for entry in places[pair]:
             by_file.setdefault(Path(entry.file), []).append((entry, edit))
@@ -1091,7 +1234,45 @@ def plan_entries(dictionary_path: Path, edits: list[dict], target: str = DEFAULT
     # the way collisions do.
     return {"files": files, "changed": changed, "added": added, "removed": removed,
             "rewritten": sorted(rewritten, key=lambda row: (row["file"], row["line"])),
-            "refused": refused, "collisions": _value_collisions(known, edits)}
+            "refused": refused, "normalized": normalized,
+            "collisions": _value_collisions(known, edits),
+            "platform_names": _platform_name_notes(edits)}
+
+
+def _platform_name_notes(edits: list[dict]) -> list[dict]:
+    """Edits whose KEY is a word the platform already carries - as a type, or as a member.
+
+    A pair renames its key everywhere in the project, the platform's own vocabulary included,
+    and the two surfaces that write pairs are where a person can still be told so. It is a
+    WARNING and not a refusal, and the reason is that the same shape is right more often than
+    it is wrong: a key that merely spells a platform type changes nothing in a type expression,
+    because the platform's word wins there, and dictionaries of live projects carry dozens of
+    such pairs that build. What turns the shape fatal is a TYPE the project declares under that
+    spelling - and the writer has one dictionary, not the project. The pass that does have the
+    project judges it there (see ProjectReport.collect_platform_type_clashes), where the verdict
+    can be proven rather than guessed.
+
+    Only a value that really renames the word is worth a line: a pair repeating the platform's
+    own spelling is no rename, an emptied value takes the pair OUT - which is one of the cures -
+    and a qualified key holds inside one namespace and never answers a type expression.
+    """
+    out: list[dict] = []
+    for edit in edits:
+        key = str(edit.get("key") or "")
+        value = str(edit.get("value") or "")
+        if str(edit.get("kind") or "token") != "token":
+            continue
+        clash = platform_map.name_clash(key, value)
+        if clash is None:
+            continue
+        shape, spellings = clash
+        message = ("translate.entries.platform-type" if shape == platform_map.TYPE_CLASH
+                   else "translate.entries.platform-member")
+        out.append({
+            "key": key, "value": value, "clash": shape, "spellings": list(spellings),
+            "reason": i18n.t(message, key=key, platform=", ".join(spellings)),
+        })
+    return out
 
 
 def _value_collisions(known: dict, edits: list[dict]) -> list[dict]:
@@ -1120,6 +1301,60 @@ def _value_collisions(known: dict, edits: list[dict]) -> list[dict]:
         if taken:
             out.append({"key": key, "value": value, "taken": sorted(taken)})
     return out
+
+
+#: A quote with a backslash in front of it - the way a STRING LITERAL spells an inner quote.
+#: A phrase carries no escaping at all, so the backslash in such a key is borrowed from the
+#: neighbouring plane and belongs to nothing here.
+_ESCAPED_QUOTE_RE = re.compile(r'\\(?=")')
+
+
+def _phrase_edit(key: str, value: str) -> tuple[str, str, list[dict]]:
+    """The phrase edit as the translating pass will read it, and what had to be corrected.
+
+    The two planes spell their entries by opposite conventions, and the neighbouring one is
+    the loud one: a literal is written with the escaping the source carries, and the
+    documentation shows `\\"` in every literals example. A phrase is the text of ONE comment
+    line with the marker and the decoration off - no escaping, no padding, no line break -
+    because that is the string the pass compares against. So a key spelled the literal way
+    matched no comment anywhere: the line stayed in the gaps, and the entry sat in the
+    dictionary looking like coverage.
+
+    Both sides are corrected, because both are read as that same text: the key decides
+    whether the pair fires, and the value is pasted into the comment as it stands.
+    """
+    notes: list[dict] = []
+    fixed_key = _phrase_side(key, "translate.phrase.escaped-quote-key", notes)
+    trimmed = fixed_key.strip()
+    if trimmed != fixed_key:
+        notes.append({"was": fixed_key, "now": trimmed,
+                      "reason": i18n.t("translate.phrase.trimmed-key")})
+        fixed_key = trimmed
+    fixed_value = _phrase_side(value, "translate.phrase.escaped-quote-value", notes)
+    return fixed_key, fixed_value, notes
+
+
+def _phrase_side(text: str, message: str, notes: list[str]) -> str:
+    """One side of a phrase entry with the literal escaping of a quote taken off."""
+    fixed = _ESCAPED_QUOTE_RE.sub("", text)
+    if fixed != text:
+        notes.append({"was": text, "now": fixed, "reason": i18n.t(message)})
+    return fixed
+
+
+def _phrase_edit_refusal(key: str, value: str) -> str:
+    """Why this phrase edit cannot be written; "" when it can.
+
+    A line break is the one shape no correction repairs. The pass keys every line of a
+    comment on its own, so a key on two lines names nothing whatever it is trimmed to; and a
+    value is written INSIDE one comment line, where a break would push the rest of the line
+    out of the comment and into the code.
+    """
+    if "\n" in key or "\r" in key:
+        return i18n.t("translate.phrase.newline-key")
+    if value and ("\n" in value or "\r" in value):
+        return i18n.t("translate.phrase.newline-value")
+    return ""
 
 
 def _literal_edit_refusal(key: str, value: str) -> str:

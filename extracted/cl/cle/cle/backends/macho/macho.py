@@ -14,15 +14,17 @@ from os import SEEK_CUR, SEEK_SET
 import archinfo
 from sortedcontainers import SortedKeyList
 
-from cle.backends.backend import AT, Backend, register_backend
+from cle.backends.backend import AT, Backend, FunctionHint, FunctionHintSource, register_backend
+from cle.backends.gopclntab import register_gopclntab_symbols
 from cle.backends.macho.binding import BindingHelper, MachOPointerRelocation, MachOSymbolRelocation, read_uleb
 from cle.backends.regions import Regions
+from cle.backends.symbol import Symbol
 from cle.errors import CLECompatibilityError, CLEInvalidBinaryError, CLEOperationError
 
 from .encrypted_sentinel_backer import CryptSentinel
 from .macho_enums import LoadCommands as LC
 from .macho_enums import MachoFiletype, MH_flags
-from .section import MachOSection
+from .section import TYPE_MASK, ZEROFILL_SECTION_TYPES, MachOSection
 from .segment import MachOSegment
 from .structs import (
     DYLD_CHAINED_PTR_START_NONE,
@@ -55,14 +57,15 @@ class SymbolList(SortedKeyList):
         super().__init__(**kwargs)
         self._symbol_cache = defaultdict(list)
 
-    def add(self, value: AbstractMachOSymbol):
+    def add(self, value: Symbol):
         super().add(value)
-        self._symbol_cache[
-            (
-                value.name,
-                value.library_ordinal,
-            )
-        ].append(value)
+        if isinstance(value, AbstractMachOSymbol):
+            self._symbol_cache[
+                (
+                    value.name,
+                    value.library_ordinal,
+                )
+            ].append(value)
 
     def get_by_name_and_ordinal(self, name: str, ordinal: int, include_stab=False) -> list[AbstractMachOSymbol]:
         if include_stab:
@@ -203,6 +206,11 @@ class MachO(Backend):
                 # We can't set the linked base to request this, because the MachO Backend implementation
                 # uses this to recalculate the addresses
                 self._custom_base_addr = 0
+            elif self.filetype == MachoFiletype.MH_OBJECT:
+                # A relocatable object is linked against 0, and carries one unnamed segment holding every
+                # section. Nothing is bound yet, so this is the same base-address situation as a dylib
+                # loaded as the main object.
+                self._custom_base_addr = 0
             elif self.filetype == MachoFiletype.MH_DYLIB and not self.is_main_bin:
                 # A Library is loaded as a dependency, this is fine, the loader will map it to somewhere above the main
                 # binary, so we don't need to do anything
@@ -250,6 +258,9 @@ class MachO(Backend):
                 self.do_binding()
 
         self._load_stubs()
+
+        # Go binaries keep a full function table even when stripped
+        self.gopclntab = register_gopclntab_symbols(self)
 
     @property
     def stubs(self):
@@ -790,6 +801,7 @@ class MachO(Backend):
             address += uleb[0]
 
             self.lc_function_starts.append(address)
+            self.function_hints.append(FunctionHint(address, 0, FunctionHintSource.MACHO_FUNCTION_STARTS))
             log.debug("Function start @ %#x (%#x)", uleb[0], address)
             i += uleb[1]
         log.debug("Done parsing function starts")
@@ -1024,12 +1036,13 @@ class MachO(Backend):
             # Clean segname and sectname
             section_sectname = section_sectname.replace(b"\0", b"")
             section_segname = section_segname.replace(b"\0", b"")
+            section_filesize = 0 if section_flags & TYPE_MASK in ZEROFILL_SECTION_TYPES else section_vsize
 
             # Create section
             sec = MachOSection(
                 section_foff,
                 section_vaddr,
-                section_vsize,
+                section_filesize,
                 section_vsize,
                 section_segname,
                 section_sectname,
@@ -1144,7 +1157,7 @@ class MachO(Backend):
                 self._dyld_imports.append(sym)
             else:
                 raise NotImplementedError(
-                    f"Multiple symbols with name {sym_name}" f"for library {self.imported_libraries[imp.lib_ordinal]}."
+                    f"Multiple symbols with name {sym_name}for library {self.imported_libraries[imp.lib_ordinal]}."
                 )
 
     def _parse_dyld_chained_fixups(self):
@@ -1236,7 +1249,11 @@ class MachO(Backend):
         sym.symbol_stubs
         """
         for sym in self.symbols:
-            if address == sym.relative_addr or address in sym.bind_xrefs or address in sym.symbol_stubs:
+            if address == sym.relative_addr:
+                return sym
+            if not isinstance(sym, AbstractMachOSymbol):
+                continue
+            if address in sym.bind_xrefs or address in sym.symbol_stubs:
                 return sym
         return None
 
@@ -1253,7 +1270,7 @@ class MachO(Backend):
         """
         result = []
         for sym in self.symbols:
-            if sym.is_stab and not include_stab:
+            if not include_stab and isinstance(sym, AbstractMachOSymbol) and sym.is_stab:
                 continue
 
             if fuzzy:

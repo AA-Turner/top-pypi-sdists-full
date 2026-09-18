@@ -105,6 +105,7 @@ class OBJECT_MT_modifier_add(ModifierAddMenu, _bpy_types.Menu):
     MODIFIER_TYPES_I18N_CONTEXT: typing.Any
     MODIFIER_TYPES_TO_ICONS: typing.Any
     MODIFIER_TYPES_TO_LABELS: typing.Any
+    bl_description: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
     bl_rna: typing.Any

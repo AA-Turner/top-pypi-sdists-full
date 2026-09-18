@@ -1188,8 +1188,8 @@ struct AnthropicMessagesStreamingState {
     type_: Option<String>,
     role: Option<String>,
     model: Option<String>,
-    /// Latest usage snapshot. `message_start` carries an initial value (input tokens, zero output
-    /// so far); `message_delta` updates it cumulatively. Last write wins.
+    /// Accumulated usage fields. `message_start` establishes input and cache counts, while a
+    /// `message_delta` may contain only the fields updated later in the stream.
     usage: Option<Json>,
     stop_reason: Option<String>,
     /// Stored as raw `Json` to preserve `null` (Anthropic's wire shape) versus omitted.
@@ -1245,7 +1245,7 @@ impl AnthropicMessagesStreamingState {
             self.type_ = Some(t.to_string());
         }
         if let Some(usage) = message.get("usage") {
-            self.usage = Some(usage.clone());
+            self.observe_usage(usage);
         }
     }
 
@@ -1302,6 +1302,15 @@ impl AnthropicMessagesStreamingState {
                     block.has_citations = true;
                 }
             }
+            "compaction_delta"
+                if block.skeleton.get("type").and_then(Json::as_str) == Some("compaction") =>
+            {
+                for field in ["content", "encrypted_content"] {
+                    if let Some(value) = delta.get(field) {
+                        block.skeleton.insert(field.to_string(), value.clone());
+                    }
+                }
+            }
             // thinking_delta, signature_delta, and any future delta types fall through; the block
             // skeleton retains whatever shape was set at content_block_start.
             _ => {}
@@ -1318,6 +1327,14 @@ impl AnthropicMessagesStreamingState {
             }
         }
         if let Some(usage) = event.get("usage") {
+            self.observe_usage(usage);
+        }
+    }
+
+    fn observe_usage(&mut self, usage: &Json) {
+        if let (Some(Json::Object(current)), Json::Object(update)) = (self.usage.as_mut(), usage) {
+            current.extend(update.clone());
+        } else {
             self.usage = Some(usage.clone());
         }
     }

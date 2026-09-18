@@ -26,6 +26,7 @@ from test.apps.catalog.openapi import litestar as openapi_litestar
 from test.apps.catalog.openapi import marshmallow as openapi_marshmallow
 from test.apps.catalog.openapi import nested as openapi_nested
 from test.apps.catalog.openapi import rails as openapi_rails
+from test.apps.catalog.openapi import restler as openapi_restler
 from test.apps.catalog.openapi import stateful as openapi_stateful
 from test.apps.catalog.openapi import supervisor as openapi_supervisor
 from test.apps.catalog.openapi import swagger_v2 as openapi_swagger_v2
@@ -305,6 +306,9 @@ class OpenAPIApps:
     def size_bound_planted_bug(self) -> OpenAPIServer:
         return _start(self.parent, openapi_error_feedback.size_bound_planted_bug())
 
+    def malformed_content_type_rejection(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_error_feedback.malformed_content_type_rejection())
+
     def format_planted_bug(self) -> OpenAPIServer:
         return _start(self.parent, openapi_error_feedback.format_planted_bug())
 
@@ -379,6 +383,9 @@ class OpenAPIApps:
 
     def litestar_planted_bug(self) -> OpenAPIServer:
         return _start(self.parent, openapi_litestar.planted_bug())
+
+    def restler_planted_bug(self) -> OpenAPIServer:
+        return _start(self.parent, openapi_restler.planted_bug())
 
     def swagger_v2_baseline(self) -> OpenAPIServer:
         return _start(self.parent, openapi_swagger_v2.baseline())

@@ -10,11 +10,11 @@ use uv_cli::TreeFormat;
 use uv_client::{BaseClientBuilder, RegistryClientBuilder};
 use uv_configuration::{ActiveEnvironment, Concurrency, DependencyGroups, TargetTriple};
 use uv_distribution_types::IndexCapabilities;
+use uv_lock::{PackageMap, TreeDisplay, TreeJsonTarget};
 use uv_normalize::DefaultGroups;
 use uv_normalize::PackageName;
 use uv_preview::{Preview, PreviewFeature};
 use uv_python::{ConfigDiscovery, PythonDownloads, PythonPreference, PythonRequest, PythonVersion};
-use uv_resolver::{PackageMap, TreeDisplay, TreeJsonTarget};
 use uv_scripts::Pep723Script;
 use uv_settings::PythonInstallMirrors;
 use uv_warnings::warn_user;
@@ -27,7 +27,7 @@ use crate::commands::project::lock::{LockMode, LockOperation};
 use crate::commands::project::lock_target::LockTarget;
 use crate::commands::project::{
     ProjectEnvironmentPolicy, ProjectInterpreter, ScriptInterpreter, UniversalState,
-    WorkspacePython, default_dependency_groups,
+    WorkspacePython,
 };
 use crate::commands::reporters::LatestVersionReporter;
 use crate::commands::{ExitStatus, UvError};
@@ -92,7 +92,7 @@ pub(crate) async fn tree(
 
     // Determine the groups to include.
     let default_groups = match target {
-        LockTarget::Workspace(workspace) => default_dependency_groups(workspace.pyproject_toml())?,
+        LockTarget::Workspace(workspace) => workspace.default_groups()?,
         LockTarget::Script(_) => DefaultGroups::default(),
     };
     let groups = groups.with_defaults(default_groups);

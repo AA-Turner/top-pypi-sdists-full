@@ -1,12 +1,11 @@
 from __future__ import annotations
 
-from typing import TypeVar
-
 import numpy as np
-from numba import bool_, float32, float64, int32, int64
+from numba import bool_, float32, float64, int32, int64, njit
 from numpy.typing import NDArray
 
 from numbagg.decorators import (
+    _ENABLE_CACHE,
     ndaggregate,
     ndfill,
     ndmatrix,
@@ -14,10 +13,34 @@ from numbagg.decorators import (
     ndreduce,
 )
 
-from .utils import FloatArray, NumericArray
+from .utils import FloatArrayT, NumericArray, NumericArrayT
 
-T = TypeVar("T", bound=NumericArray)
-F = TypeVar("F", bound=FloatArray)
+
+# Why `nancorrmatrix` & `nancovmatrix` offset each variable before accumulating:
+#
+# Both build `sum(x*y)` and `sum(x)`, then form the (co)variance as `sum(x*y)/n -
+# mean_x*mean_y`. Both terms scale with the square of the values, so when the
+# values are large relative to their spread the subtraction is almost entirely
+# cancellation. On standard-normal data offset by 1e8, `nancovmatrix` returned
+# -8.04 where the answer is -0.064, and `nancorrmatrix` returned NaN outright
+# (the variances came out non-positive, which the guard below maps to NaN).
+#
+# Covariance and correlation are both invariant to a per-variable offset, so
+# subtracting one changes nothing in exact arithmetic while keeping the
+# accumulated values on the scale of the spread rather than the scale of the data.
+# The accumulators are float64 for the same reason the moving functions promote:
+# a float32 `val_i * val_i` holds only ~7 digits of a number around 1e16.
+@njit(cache=_ENABLE_CACHE)
+def _first_valid_per_var(a):
+    """First non-NaN observation of each variable (row), as float64; 0.0 if none."""
+    n_vars = a.shape[0]
+    shift = np.zeros(n_vars, dtype=np.float64)
+    for i in range(n_vars):
+        for k in range(a.shape[1]):
+            if not np.isnan(a[i, k]):
+                shift[i] = np.float64(a[i, k])
+                break
+    return shift
 
 
 @ndaggregate.wrap(
@@ -60,7 +83,7 @@ def anynan(a: NumericArray, out: NumericArray) -> None:
         (float64[:], int64[:]),
     ]
 )
-def nancount(a: T, out: T) -> None:
+def nancount(a: NumericArrayT, out: NumericArrayT) -> None:
     non_missing = 0
     for ai in a:
         if not np.isnan(ai):
@@ -110,14 +133,13 @@ def nanmean(a, out):
     ],
     supports_ddof=True,
 )
-def nanvar(a: F, ddof: int, out: F) -> None:
+def nanvar(a: FloatArrayT, ddof: int, out: FloatArrayT) -> None:
     # Running two loops might seem inefficient, but it's 3x faster than a Welford's
     # algorithm. And if we don't compute the mean first, we get numerical instability
     # (which our tests capture so is easy to observe).
 
     asum = 0
     count = 0
-    # ddof = 1
     for ai in a:
         if not np.isnan(ai):
             asum += ai
@@ -141,7 +163,7 @@ def nanvar(a: F, ddof: int, out: F) -> None:
     ],
     supports_ddof=True,
 )
-def nanstd(a: F, ddof: int, out: F) -> None:
+def nanstd(a: FloatArrayT, ddof: int, out: FloatArrayT) -> None:
     asum = 0
     count = 0
     for ai in a:
@@ -293,7 +315,7 @@ def nanquantile(
 
 
 @ndfill.wrap()
-def bfill(a: T, limit: int, out: T) -> None:
+def bfill(a: NumericArrayT, limit: int, out: NumericArrayT) -> None:
     """Backward fill missing values."""
     lives_remaining = limit
     current = np.nan
@@ -312,7 +334,7 @@ def bfill(a: T, limit: int, out: T) -> None:
 
 
 @ndfill.wrap()
-def ffill(a: T, limit: int, out: T) -> None:
+def ffill(a: NumericArrayT, limit: int, out: NumericArrayT) -> None:
     """Forward fill missing values."""
     lives_remaining = limit
     current = np.nan
@@ -330,8 +352,10 @@ def ffill(a: T, limit: int, out: T) -> None:
 count = nancount
 
 
-def nanmedian(a: NDArray[np.float64], **kwargs) -> NDArray[np.float64]:
-    return nanquantile(a, quantiles=0.5, **kwargs)
+def nanmedian(
+    a: NDArray[np.float64], *, axis: int | tuple[int, ...] | None = None, **kwargs
+) -> np.ndarray:
+    return nanquantile(a, quantiles=0.5, axis=axis, **kwargs)
 
 
 @ndmatrix.wrap(
@@ -340,7 +364,7 @@ def nanmedian(a: NDArray[np.float64], **kwargs) -> NDArray[np.float64]:
         "(n,m)->(n,n)",
     )
 )
-def nancorrmatrix(a: F, out: F) -> None:
+def nancorrmatrix(a: FloatArrayT, out: FloatArrayT) -> None:
     """
     Compute correlation matrix treating NaN as missing values.
 
@@ -406,18 +430,25 @@ def nancorrmatrix(a: F, out: F) -> None:
     """
     n_vars, n_obs = a.shape
 
+    # Offset each variable by its first non-NaN observation, and accumulate in
+    # float64. See the note above `_first_valid_per_var` for why.
+    shift = _first_valid_per_var(a)
+
     # Allocate arrays for all pairs - optimized for cache locality
-    sums_i = np.zeros((n_vars, n_vars), dtype=a.dtype)
-    sums_j = np.zeros((n_vars, n_vars), dtype=a.dtype)
-    sums_sq_i = np.zeros((n_vars, n_vars), dtype=a.dtype)
-    sums_sq_j = np.zeros((n_vars, n_vars), dtype=a.dtype)
-    sums_ij = np.zeros((n_vars, n_vars), dtype=a.dtype)
+    sums_i = np.zeros((n_vars, n_vars), dtype=np.float64)
+    sums_j = np.zeros((n_vars, n_vars), dtype=np.float64)
+    sums_sq_i = np.zeros((n_vars, n_vars), dtype=np.float64)
+    sums_sq_j = np.zeros((n_vars, n_vars), dtype=np.float64)
+    sums_ij = np.zeros((n_vars, n_vars), dtype=np.float64)
     counts = np.zeros((n_vars, n_vars), dtype=np.int64)
 
     # Single pass through observations (excellent cache locality)
+    obs = np.empty(n_vars, dtype=np.float64)
     for k in range(n_obs):
-        # Load entire observation into cache once
-        obs = a[:, k]
+        # Load entire observation into cache once, offsetting as we go — once per
+        # variable rather than once per pair. NaNs stay NaN through the subtraction.
+        for i in range(n_vars):
+            obs[i] = np.float64(a[i, k]) - shift[i]
 
         # Process all variable pairs for this observation
         for i in range(n_vars):
@@ -470,7 +501,7 @@ def nancorrmatrix(a: F, out: F) -> None:
         "(n,m)->(n,n)",
     )
 )
-def nancovmatrix(a: F, out: F) -> None:
+def nancovmatrix(a: FloatArrayT, out: FloatArrayT) -> None:
     """
     Compute covariance matrix treating NaN as missing values.
 
@@ -491,16 +522,22 @@ def nancovmatrix(a: F, out: F) -> None:
     """
     n_vars, n_obs = a.shape
 
+    # See `nancorrmatrix` and the note above `_first_valid_per_var`.
+    shift = _first_valid_per_var(a)
+
     # Allocate arrays for all pairs - optimized for cache locality
-    sums_i = np.zeros((n_vars, n_vars), dtype=a.dtype)
-    sums_j = np.zeros((n_vars, n_vars), dtype=a.dtype)
-    sums_ij = np.zeros((n_vars, n_vars), dtype=a.dtype)
+    sums_i = np.zeros((n_vars, n_vars), dtype=np.float64)
+    sums_j = np.zeros((n_vars, n_vars), dtype=np.float64)
+    sums_ij = np.zeros((n_vars, n_vars), dtype=np.float64)
     counts = np.zeros((n_vars, n_vars), dtype=np.int64)
 
     # Single pass through observations (excellent cache locality)
+    obs = np.empty(n_vars, dtype=np.float64)
     for k in range(n_obs):
-        # Load entire observation into cache once
-        obs = a[:, k]
+        # Load entire observation into cache once, offsetting as we go — see
+        # `nancorrmatrix`.
+        for i in range(n_vars):
+            obs[i] = np.float64(a[i, k]) - shift[i]
 
         # Process all variable pairs for this observation
         for i in range(n_vars):

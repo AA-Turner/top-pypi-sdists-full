@@ -45,6 +45,7 @@ class RawBusinessesClient:
         referred_user_id: typing.Optional[str] = None,
         referred_username: typing.Optional[str] = None,
         tier: typing.Optional[ListBusinessesRequestTier] = None,
+        business_prefix_query: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SyncPager[ListBusinessesResponseDataItem, ListBusinessesResponse]:
         """
@@ -59,16 +60,16 @@ class RawBusinessesClient:
             When true, only businesses with pending or completed earnings paid to the caller.
 
         first : typing.Optional[int]
-            Number of partner businesses to return from the start of the window.
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            Cursor to fetch the page after (from page_info.end_cursor).
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            Number of partner businesses to return from the end of the window.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            Cursor to fetch the page before (from page_info.start_cursor).
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         order : typing.Optional[ListBusinessesRequestOrder]
             The field to sort partner businesses by.
@@ -90,6 +91,9 @@ class RawBusinessesClient:
 
         tier : typing.Optional[ListBusinessesRequestTier]
             Filter to referrals from a single tier: first, second, or blueprint.
+
+        business_prefix_query : typing.Optional[str]
+            Case-insensitive business-name prefix, or an exact `biz_` account ID. Surrounding whitespace is ignored; blank values apply no filter.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -116,6 +120,7 @@ class RawBusinessesClient:
                 "referred_user_id": referred_user_id,
                 "referred_username": referred_username,
                 "tier": tier,
+                "business_prefix_query": business_prefix_query,
             },
             request_options=request_options,
         )
@@ -148,6 +153,7 @@ class RawBusinessesClient:
                         referred_user_id=referred_user_id,
                         referred_username=referred_username,
                         tier=tier,
+                        business_prefix_query=business_prefix_query,
                         request_options=request_options,
                     )
                 return SyncPager(has_next=_has_next, items=_items, get_next=_get_next, response=_parsed_response)
@@ -268,6 +274,7 @@ class AsyncRawBusinessesClient:
         referred_user_id: typing.Optional[str] = None,
         referred_username: typing.Optional[str] = None,
         tier: typing.Optional[ListBusinessesRequestTier] = None,
+        business_prefix_query: typing.Optional[str] = None,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AsyncPager[ListBusinessesResponseDataItem, ListBusinessesResponse]:
         """
@@ -282,16 +289,16 @@ class AsyncRawBusinessesClient:
             When true, only businesses with pending or completed earnings paid to the caller.
 
         first : typing.Optional[int]
-            Number of partner businesses to return from the start of the window.
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            Cursor to fetch the page after (from page_info.end_cursor).
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            Number of partner businesses to return from the end of the window.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            Cursor to fetch the page before (from page_info.start_cursor).
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         order : typing.Optional[ListBusinessesRequestOrder]
             The field to sort partner businesses by.
@@ -313,6 +320,9 @@ class AsyncRawBusinessesClient:
 
         tier : typing.Optional[ListBusinessesRequestTier]
             Filter to referrals from a single tier: first, second, or blueprint.
+
+        business_prefix_query : typing.Optional[str]
+            Case-insensitive business-name prefix, or an exact `biz_` account ID. Surrounding whitespace is ignored; blank values apply no filter.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -339,6 +349,7 @@ class AsyncRawBusinessesClient:
                 "referred_user_id": referred_user_id,
                 "referred_username": referred_username,
                 "tier": tier,
+                "business_prefix_query": business_prefix_query,
             },
             request_options=request_options,
         )
@@ -373,6 +384,7 @@ class AsyncRawBusinessesClient:
                             referred_user_id=referred_user_id,
                             referred_username=referred_username,
                             tier=tier,
+                            business_prefix_query=business_prefix_query,
                             request_options=request_options,
                         )
 

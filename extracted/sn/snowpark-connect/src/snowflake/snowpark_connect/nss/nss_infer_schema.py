@@ -178,6 +178,7 @@ def infer_via_stage_file_schema(
     reader_options: dict | None = None,
     spark_conf: dict | None = None,
     stage_paths: list[str] | None = None,
+    glob_patterns: dict[str, str] | None = None,
 ) -> list[NssColumn]:
     """Infer the column list via the official ``INFER_STAGE_FILE_SCHEMA`` TVF.
 
@@ -235,8 +236,22 @@ def infer_via_stage_file_schema(
     # Decide on the *distinct* count and emit that same list, so the branch and the payload
     # cannot disagree (see ``normalize_locations``).
     distinct_paths = normalize_locations(stage_paths)
-    if len(distinct_paths) > 1:
-        location_clause = f"    LOCATIONS    => {quote_options_literal(build_locations_json(distinct_paths))},\n"
+    # A single path still needs LOCATIONS when it carries a glob pattern. Two globs in one
+    # directory collapse to one prefix and dedup to a single path, so the scalar arm ran and
+    # build_locations_json was never reached -- the union pattern was dead for exactly the case
+    # it was written for. Scalar LOCATION cannot carry the filter either: STAGE_FILE_READER has
+    # a top-level OPTIONS.PATTERN but INFER_STAGE_FILE_SCHEMA does not (its OPTIONS_JSON takes
+    # only SPARK_CONF / READER_OPTIONS), so narrowing only the read would leave the inferred
+    # schema polluted by the neighbours. A one-element LOCATIONS narrows both.
+    #
+    # Costs the ENABLE_FIX_3993064_NSS_TVF_LOCATIONS gate for single-path glob reads: on a
+    # gate-off deployment they now fail with the translated message instead of silently
+    # over-reading. Confined to globs -- a plain path or directory stays on scalar LOCATION.
+    use_locations = len(distinct_paths) > 1 or any(
+        p in (glob_patterns or {}) for p in distinct_paths
+    )
+    if use_locations:
+        location_clause = f"    LOCATIONS    => {quote_options_literal(build_locations_json(distinct_paths, glob_patterns))},\n"
     else:
         location_clause = f"    LOCATION     => '{sql_quote_literal(stage_path)}',\n"
     query = (
@@ -260,7 +275,7 @@ def infer_via_stage_file_schema(
         # so cannot trip the LOCATIONS gate. Its reader-side LOCATIONS rejection is still
         # caught lazily at the first materialization in map_read_csv / map_read_json
         # (SNOW-4019817).
-        if len(distinct_paths) > 1:
+        if use_locations:
             raise_if_locations_unsupported(exc, len(distinct_paths))
         raise
     return _nss_columns_from_tvf_rows(rows)

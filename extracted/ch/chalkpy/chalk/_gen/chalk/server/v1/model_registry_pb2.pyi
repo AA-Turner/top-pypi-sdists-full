@@ -742,22 +742,37 @@ class RunCriterion(_message.Message):
         direction: _Optional[_Union[RunCriterionDirection, str]] = ...,
     ) -> None: ...
 
+class CreateModelVersionFromArtifactOverride(_message.Message):
+    __slots__ = ("spec", "override_fields")
+    SPEC_FIELD_NUMBER: _ClassVar[int]
+    OVERRIDE_FIELDS_FIELD_NUMBER: _ClassVar[int]
+    spec: _model_artifact_pb2.ModelArtifactSpec
+    override_fields: _field_mask_pb2.FieldMask
+    def __init__(
+        self,
+        spec: _Optional[_Union[_model_artifact_pb2.ModelArtifactSpec, _Mapping]] = ...,
+        override_fields: _Optional[_Union[_field_mask_pb2.FieldMask, _Mapping]] = ...,
+    ) -> None: ...
+
 class CreateModelVersionFromArtifactRequest(_message.Message):
-    __slots__ = ("model_name", "model_artifact_id", "training_run", "aliases")
+    __slots__ = ("model_name", "model_artifact_id", "training_run", "aliases", "override")
     MODEL_NAME_FIELD_NUMBER: _ClassVar[int]
     MODEL_ARTIFACT_ID_FIELD_NUMBER: _ClassVar[int]
     TRAINING_RUN_FIELD_NUMBER: _ClassVar[int]
     ALIASES_FIELD_NUMBER: _ClassVar[int]
+    OVERRIDE_FIELD_NUMBER: _ClassVar[int]
     model_name: str
     model_artifact_id: str
     training_run: RunCriterion
     aliases: _containers.RepeatedScalarFieldContainer[str]
+    override: CreateModelVersionFromArtifactOverride
     def __init__(
         self,
         model_name: _Optional[str] = ...,
         model_artifact_id: _Optional[str] = ...,
         training_run: _Optional[_Union[RunCriterion, _Mapping]] = ...,
         aliases: _Optional[_Iterable[str]] = ...,
+        override: _Optional[_Union[CreateModelVersionFromArtifactOverride, _Mapping]] = ...,
     ) -> None: ...
 
 class CreateModelVersionFromArtifactResponse(_message.Message):
@@ -767,15 +782,21 @@ class CreateModelVersionFromArtifactResponse(_message.Message):
     def __init__(self, model_version: _Optional[_Union[ModelVersion, _Mapping]] = ...) -> None: ...
 
 class ListModelArtifactsRequest(_message.Message):
-    __slots__ = ("script_task_id", "cursor", "limit")
+    __slots__ = ("script_task_id", "training_run_id", "cursor", "limit")
     SCRIPT_TASK_ID_FIELD_NUMBER: _ClassVar[int]
+    TRAINING_RUN_ID_FIELD_NUMBER: _ClassVar[int]
     CURSOR_FIELD_NUMBER: _ClassVar[int]
     LIMIT_FIELD_NUMBER: _ClassVar[int]
     script_task_id: str
+    training_run_id: str
     cursor: str
     limit: int
     def __init__(
-        self, script_task_id: _Optional[str] = ..., cursor: _Optional[str] = ..., limit: _Optional[int] = ...
+        self,
+        script_task_id: _Optional[str] = ...,
+        training_run_id: _Optional[str] = ...,
+        cursor: _Optional[str] = ...,
+        limit: _Optional[int] = ...,
     ) -> None: ...
 
 class ListModelArtifactsResponse(_message.Message):

@@ -24,9 +24,7 @@ from .types.list_accounts_response import ListAccountsResponse
 from .types.transfer_ownership_accounts_response import TransferOwnershipAccountsResponse
 from .types.update_accounts_request_banner_image import UpdateAccountsRequestBannerImage
 from .types.update_accounts_request_business_address import UpdateAccountsRequestBusinessAddress
-from .types.update_accounts_request_business_type import UpdateAccountsRequestBusinessType
 from .types.update_accounts_request_home_preferences_item import UpdateAccountsRequestHomePreferencesItem
-from .types.update_accounts_request_industry_group import UpdateAccountsRequestIndustryGroup
 from .types.update_accounts_request_logo import UpdateAccountsRequestLogo
 from .types.update_accounts_request_onboarding_type import UpdateAccountsRequestOnboardingType
 from .types.update_accounts_request_opengraph_image import UpdateAccountsRequestOpengraphImage
@@ -89,16 +87,16 @@ class AccountsClient:
         Parameters
         ----------
         first : typing.Optional[int]
-            The number of accounts to return (default 10, max 50).
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            A cursor; returns accounts after this position.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            The number of accounts to return from the end of the range.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            A cursor; returns accounts before this position.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         order : typing.Optional[ListAccountsRequestOrder]
             The field to sort accounts by. `volume` requires `stats:read` on the parent account.
@@ -140,7 +138,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -176,7 +174,9 @@ class AccountsClient:
         country: typing.Optional[str] = OMIT,
         email: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        send_customer_emails: typing.Optional[bool] = OMIT,
         title: typing.Optional[str] = OMIT,
+        website: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Account:
         """
@@ -199,8 +199,14 @@ class AccountsClient:
         metadata : typing.Optional[typing.Dict[str, typing.Any]]
             Arbitrary key/value metadata to store on the account.
 
+        send_customer_emails : typing.Optional[bool]
+            Whether Whop sends transactional emails to customers on behalf of the connected account.
+
         title : typing.Optional[str]
             The display name of the account. Defaults to `metadata.external_id` or the owner's email when omitted.
+
+        website : typing.Optional[str]
+            The account's business website, as an `http` or `https` URL of at most 255 characters. Also added to the account's `social_links` as a `website` entry.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -215,7 +221,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -227,7 +233,9 @@ class AccountsClient:
             country=country,
             email=email,
             metadata=metadata,
+            send_customer_emails=send_customer_emails,
             title=title,
+            website=website,
             request_options=request_options,
         )
         return _response.data
@@ -251,7 +259,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -282,7 +290,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -302,13 +310,13 @@ class AccountsClient:
         banner_image: typing.Optional[UpdateAccountsRequestBannerImage] = OMIT,
         business_address: typing.Optional[UpdateAccountsRequestBusinessAddress] = OMIT,
         business_name: typing.Optional[str] = OMIT,
-        business_type: typing.Optional[UpdateAccountsRequestBusinessType] = OMIT,
+        business_type: typing.Optional[str] = OMIT,
         collect_vat_id: typing.Optional[bool] = OMIT,
         country: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
         featured_affiliate_product_id: typing.Optional[str] = OMIT,
         home_preferences: typing.Optional[typing.Sequence[UpdateAccountsRequestHomePreferencesItem]] = OMIT,
-        industry_group: typing.Optional[UpdateAccountsRequestIndustryGroup] = OMIT,
+        industry_group: typing.Optional[str] = OMIT,
         industry_type: typing.Optional[str] = OMIT,
         invoice_prefix: typing.Optional[str] = OMIT,
         logo: typing.Optional[UpdateAccountsRequestLogo] = OMIT,
@@ -337,6 +345,7 @@ class AccountsClient:
         three_ds_level: typing.Optional[UpdateAccountsRequestThreeDsLevel] = OMIT,
         title: typing.Optional[str] = OMIT,
         use_logo_as_opengraph_image_fallback: typing.Optional[bool] = OMIT,
+        website: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Account:
         """
@@ -362,7 +371,7 @@ class AccountsClient:
         business_name : typing.Optional[str]
             The legal business name used with the account's tax address.
 
-        business_type : typing.Optional[UpdateAccountsRequestBusinessType]
+        business_type : typing.Optional[str]
             High-level business category for the account. See the [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary) for valid values.
 
         collect_vat_id : typing.Optional[bool]
@@ -380,7 +389,7 @@ class AccountsClient:
         home_preferences : typing.Optional[typing.Sequence[UpdateAccountsRequestHomePreferencesItem]]
             Public account home page preferences.
 
-        industry_group : typing.Optional[UpdateAccountsRequestIndustryGroup]
+        industry_group : typing.Optional[str]
             Account industry group. See the [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary) for valid values.
 
         industry_type : typing.Optional[str]
@@ -453,13 +462,16 @@ class AccountsClient:
             Determines whether tax is included in the listed price or added at checkout.
 
         three_ds_level : typing.Optional[UpdateAccountsRequestThreeDsLevel]
-            Account-level 3D Secure behavior. Set `mandate_challenge` to require cardholder verification on supported card payments, or `null` to use the standard checkout flow.
+            3D Secure behavior for supported on-session card payments. `mandate_challenge` requires a 3DS challenge before payment processing; `mandate_if_required` mandates a challenge only when the payment processor requires it; `frictionless_if_required` uses the regular frictionless 3DS flow. Payments of $1,000 or more use `mandate_if_required` unless `mandate_challenge` is selected. Risk and authentication recovery requirements can override the preference. `null` uses the standard checkout flow.
 
         title : typing.Optional[str]
             The display name of the account.
 
         use_logo_as_opengraph_image_fallback : typing.Optional[bool]
             Whether the account uses its logo as the fallback Open Graph image.
+
+        website : typing.Optional[str]
+            The account's business website, as an `http` or `https` URL of at most 255 characters. Also added to the account's `social_links` as a `website` entry. Pass `null` to clear the website; existing social links are left unchanged.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -474,7 +486,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -522,6 +534,7 @@ class AccountsClient:
             three_ds_level=three_ds_level,
             title=title,
             use_logo_as_opengraph_image_fallback=use_logo_as_opengraph_image_fallback,
+            website=website,
             request_options=request_options,
         )
         return _response.data
@@ -615,7 +628,7 @@ class AccountsClient:
         )
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -709,7 +722,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -759,7 +772,7 @@ class AccountsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -832,16 +845,16 @@ class AsyncAccountsClient:
         Parameters
         ----------
         first : typing.Optional[int]
-            The number of accounts to return (default 10, max 50).
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            A cursor; returns accounts after this position.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            The number of accounts to return from the end of the range.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            A cursor; returns accounts before this position.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         order : typing.Optional[ListAccountsRequestOrder]
             The field to sort accounts by. `volume` requires `stats:read` on the parent account.
@@ -885,7 +898,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -928,7 +941,9 @@ class AsyncAccountsClient:
         country: typing.Optional[str] = OMIT,
         email: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        send_customer_emails: typing.Optional[bool] = OMIT,
         title: typing.Optional[str] = OMIT,
+        website: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Account:
         """
@@ -951,8 +966,14 @@ class AsyncAccountsClient:
         metadata : typing.Optional[typing.Dict[str, typing.Any]]
             Arbitrary key/value metadata to store on the account.
 
+        send_customer_emails : typing.Optional[bool]
+            Whether Whop sends transactional emails to customers on behalf of the connected account.
+
         title : typing.Optional[str]
             The display name of the account. Defaults to `metadata.external_id` or the owner's email when omitted.
+
+        website : typing.Optional[str]
+            The account's business website, as an `http` or `https` URL of at most 255 characters. Also added to the account's `social_links` as a `website` entry.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -969,7 +990,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -987,7 +1008,9 @@ class AsyncAccountsClient:
             country=country,
             email=email,
             metadata=metadata,
+            send_customer_emails=send_customer_emails,
             title=title,
+            website=website,
             request_options=request_options,
         )
         return _response.data
@@ -1013,7 +1036,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1052,7 +1075,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1078,13 +1101,13 @@ class AsyncAccountsClient:
         banner_image: typing.Optional[UpdateAccountsRequestBannerImage] = OMIT,
         business_address: typing.Optional[UpdateAccountsRequestBusinessAddress] = OMIT,
         business_name: typing.Optional[str] = OMIT,
-        business_type: typing.Optional[UpdateAccountsRequestBusinessType] = OMIT,
+        business_type: typing.Optional[str] = OMIT,
         collect_vat_id: typing.Optional[bool] = OMIT,
         country: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
         featured_affiliate_product_id: typing.Optional[str] = OMIT,
         home_preferences: typing.Optional[typing.Sequence[UpdateAccountsRequestHomePreferencesItem]] = OMIT,
-        industry_group: typing.Optional[UpdateAccountsRequestIndustryGroup] = OMIT,
+        industry_group: typing.Optional[str] = OMIT,
         industry_type: typing.Optional[str] = OMIT,
         invoice_prefix: typing.Optional[str] = OMIT,
         logo: typing.Optional[UpdateAccountsRequestLogo] = OMIT,
@@ -1113,6 +1136,7 @@ class AsyncAccountsClient:
         three_ds_level: typing.Optional[UpdateAccountsRequestThreeDsLevel] = OMIT,
         title: typing.Optional[str] = OMIT,
         use_logo_as_opengraph_image_fallback: typing.Optional[bool] = OMIT,
+        website: typing.Optional[str] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> Account:
         """
@@ -1138,7 +1162,7 @@ class AsyncAccountsClient:
         business_name : typing.Optional[str]
             The legal business name used with the account's tax address.
 
-        business_type : typing.Optional[UpdateAccountsRequestBusinessType]
+        business_type : typing.Optional[str]
             High-level business category for the account. See the [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary) for valid values.
 
         collect_vat_id : typing.Optional[bool]
@@ -1156,7 +1180,7 @@ class AsyncAccountsClient:
         home_preferences : typing.Optional[typing.Sequence[UpdateAccountsRequestHomePreferencesItem]]
             Public account home page preferences.
 
-        industry_group : typing.Optional[UpdateAccountsRequestIndustryGroup]
+        industry_group : typing.Optional[str]
             Account industry group. See the [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary) for valid values.
 
         industry_type : typing.Optional[str]
@@ -1229,13 +1253,16 @@ class AsyncAccountsClient:
             Determines whether tax is included in the listed price or added at checkout.
 
         three_ds_level : typing.Optional[UpdateAccountsRequestThreeDsLevel]
-            Account-level 3D Secure behavior. Set `mandate_challenge` to require cardholder verification on supported card payments, or `null` to use the standard checkout flow.
+            3D Secure behavior for supported on-session card payments. `mandate_challenge` requires a 3DS challenge before payment processing; `mandate_if_required` mandates a challenge only when the payment processor requires it; `frictionless_if_required` uses the regular frictionless 3DS flow. Payments of $1,000 or more use `mandate_if_required` unless `mandate_challenge` is selected. Risk and authentication recovery requirements can override the preference. `null` uses the standard checkout flow.
 
         title : typing.Optional[str]
             The display name of the account.
 
         use_logo_as_opengraph_image_fallback : typing.Optional[bool]
             Whether the account uses its logo as the fallback Open Graph image.
+
+        website : typing.Optional[str]
+            The account's business website, as an `http` or `https` URL of at most 255 characters. Also added to the account's `social_links` as a `website` entry. Pass `null` to clear the website; existing social links are left unchanged.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1252,7 +1279,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1306,6 +1333,7 @@ class AsyncAccountsClient:
             three_ds_level=three_ds_level,
             title=title,
             use_logo_as_opengraph_image_fallback=use_logo_as_opengraph_image_fallback,
+            website=website,
             request_options=request_options,
         )
         return _response.data
@@ -1401,7 +1429,7 @@ class AsyncAccountsClient:
         )
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1503,7 +1531,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1561,7 +1589,7 @@ class AsyncAccountsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

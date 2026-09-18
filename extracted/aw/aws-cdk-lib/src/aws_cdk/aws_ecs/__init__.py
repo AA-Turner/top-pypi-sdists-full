@@ -1719,8 +1719,9 @@ Managed Termination Protection to work.
 
 Managed instance draining facilitates graceful termination of Amazon ECS instances.
 This allows your service workloads to stop safely and be rescheduled to non-terminating instances.
-Infrastructure maintenance and updates are preformed without disruptions to workloads.
-To use managed instance draining, set enableManagedDraining to true.
+Infrastructure maintenance and updates are performed without disruptions to workloads.
+When `enableManagedDraining` is not specified (recommended), CloudFormation will implicitly
+enable managed draining. Set it to `true` for explicit enablement or `false` to disable.
 
 ```python
 # vpc: ec2.Vpc
@@ -4358,7 +4359,7 @@ class AsgCapacityProvider(
         :param id: -
         :param auto_scaling_group: The autoscaling group to add as a Capacity Provider. Warning: When passing an imported resource using ``AutoScalingGroup.fromAutoScalingGroupName`` along with ``enableManagedTerminationProtection: true``, the ``AsgCapacityProvider`` construct will not be able to enforce the option ``newInstancesProtectedFromScaleIn`` of the ``AutoScalingGroup``. In this case the constructor of ``AsgCapacityProvider`` will throw an exception.
         :param capacity_provider_name: The name of the capacity provider. If a name is specified, it cannot start with ``aws``, ``ecs``, or ``fargate``. If no name is specified, a default name in the CFNStackName-CFNResourceName-RandomString format is used. If the stack name starts with ``aws``, ``ecs``, or ``fargate``, a unique resource name is generated that starts with ``cp-``. Default: CloudFormation-generated name
-        :param enable_managed_draining: Managed instance draining facilitates graceful termination of Amazon ECS instances. This allows your service workloads to stop safely and be rescheduled to non-terminating instances. Infrastructure maintenance and updates are preformed without disruptions to workloads. To use managed instance draining, set enableManagedDraining to true. Default: - undefined, which means ECS will use its default behavior (ENABLED).
+        :param enable_managed_draining: Managed instance draining facilitates graceful termination of Amazon ECS instances. This allows your service workloads to stop safely and be rescheduled to non-terminating instances. Infrastructure maintenance and updates are performed without disruptions to workloads. When undefined (recommended), CloudFormation will implicitly enable managed draining. Set to true for explicit enablement or false to explicitly disable this feature. Default: - CloudFormation implicitly enables managed draining when not specified.
         :param enable_managed_scaling: When enabled the scale-in and scale-out actions of the cluster's Auto Scaling Group will be managed for you. This means your cluster will automatically scale instances based on the load your tasks put on the cluster. For more information, see `Using Managed Scaling <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/asg-capacity-providers.html#asg-capacity-providers-managed-scaling>`_ in the ECS Developer Guide. Default: true
         :param enable_managed_termination_protection: When enabled the Auto Scaling Group will only terminate EC2 instances that no longer have running non-daemon tasks. Scale-in protection will be automatically enabled on instances. When all non-daemon tasks are stopped on an instance, ECS initiates the scale-in process and turns off scale-in protection for the instance. The Auto Scaling Group can then terminate the instance. For more information see `Managed termination protection <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/cluster-auto-scaling.html#managed-termination-protection>`_ in the ECS Developer Guide. Managed scaling must also be enabled. Default: true
         :param instance_warmup_period: The period of time, in seconds, after a newly launched Amazon EC2 instance can contribute to CloudWatch metrics for Auto Scaling group. Must be between 0 and 10000. Default: 300
@@ -4472,7 +4473,7 @@ class AsgCapacityProviderProps(AddAutoScalingGroupCapacityOptions):
         :param topic_encryption_key: If ``AddAutoScalingGroupCapacityOptions.taskDrainTime`` is non-zero, then the ECS cluster creates an SNS Topic to as part of a system to drain instances of tasks when the instance is being shut down. If this property is provided, then this key will be used to encrypt the contents of that SNS Topic. See `SNS Data Encryption <https://docs.aws.amazon.com/sns/latest/dg/sns-data-encryption.html>`_ for more information. Default: The SNS Topic will not be encrypted.
         :param auto_scaling_group: The autoscaling group to add as a Capacity Provider. Warning: When passing an imported resource using ``AutoScalingGroup.fromAutoScalingGroupName`` along with ``enableManagedTerminationProtection: true``, the ``AsgCapacityProvider`` construct will not be able to enforce the option ``newInstancesProtectedFromScaleIn`` of the ``AutoScalingGroup``. In this case the constructor of ``AsgCapacityProvider`` will throw an exception.
         :param capacity_provider_name: The name of the capacity provider. If a name is specified, it cannot start with ``aws``, ``ecs``, or ``fargate``. If no name is specified, a default name in the CFNStackName-CFNResourceName-RandomString format is used. If the stack name starts with ``aws``, ``ecs``, or ``fargate``, a unique resource name is generated that starts with ``cp-``. Default: CloudFormation-generated name
-        :param enable_managed_draining: Managed instance draining facilitates graceful termination of Amazon ECS instances. This allows your service workloads to stop safely and be rescheduled to non-terminating instances. Infrastructure maintenance and updates are preformed without disruptions to workloads. To use managed instance draining, set enableManagedDraining to true. Default: - undefined, which means ECS will use its default behavior (ENABLED).
+        :param enable_managed_draining: Managed instance draining facilitates graceful termination of Amazon ECS instances. This allows your service workloads to stop safely and be rescheduled to non-terminating instances. Infrastructure maintenance and updates are performed without disruptions to workloads. When undefined (recommended), CloudFormation will implicitly enable managed draining. Set to true for explicit enablement or false to explicitly disable this feature. Default: - CloudFormation implicitly enables managed draining when not specified.
         :param enable_managed_scaling: When enabled the scale-in and scale-out actions of the cluster's Auto Scaling Group will be managed for you. This means your cluster will automatically scale instances based on the load your tasks put on the cluster. For more information, see `Using Managed Scaling <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/asg-capacity-providers.html#asg-capacity-providers-managed-scaling>`_ in the ECS Developer Guide. Default: true
         :param enable_managed_termination_protection: When enabled the Auto Scaling Group will only terminate EC2 instances that no longer have running non-daemon tasks. Scale-in protection will be automatically enabled on instances. When all non-daemon tasks are stopped on an instance, ECS initiates the scale-in process and turns off scale-in protection for the instance. The Auto Scaling Group can then terminate the instance. For more information see `Managed termination protection <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/cluster-auto-scaling.html#managed-termination-protection>`_ in the ECS Developer Guide. Managed scaling must also be enabled. Default: true
         :param instance_warmup_period: The period of time, in seconds, after a newly launched Amazon EC2 instance can contribute to CloudWatch metrics for Auto Scaling group. Must be between 0 and 10000. Default: 300
@@ -4620,10 +4621,14 @@ class AsgCapacityProviderProps(AddAutoScalingGroupCapacityOptions):
         '''Managed instance draining facilitates graceful termination of Amazon ECS instances.
 
         This allows your service workloads to stop safely and be rescheduled to non-terminating instances.
-        Infrastructure maintenance and updates are preformed without disruptions to workloads.
-        To use managed instance draining, set enableManagedDraining to true.
+        Infrastructure maintenance and updates are performed without disruptions to workloads.
 
-        :default: - undefined, which means ECS will use its default behavior (ENABLED).
+        When undefined (recommended), CloudFormation will implicitly enable managed draining.
+        Set to true for explicit enablement or false to explicitly disable this feature.
+
+        :default: - CloudFormation implicitly enables managed draining when not specified.
+
+        :see: https://docs.aws.amazon.com/AmazonECS/latest/developerguide/enable-managed-instance-draining.html
         '''
         result = self._values.get("enable_managed_draining")
         return typing.cast(typing.Optional[builtins.bool], result)

@@ -139,6 +139,7 @@ __all__ = (
     "AutoscalingAutoScalingGroupTypeDef",
     "AwsApiCallActionTypeDef",
     "BedrockGuardrailDetailsTypeDef",
+    "BedrockGuardrailResourceTypeDef",
     "BedrockGuardrailTypeDef",
     "BlockPublicAccessTypeDef",
     "BucketLevelPermissionsTypeDef",
@@ -752,6 +753,11 @@ ContentPolicyFilterTypeDef = TypedDict(
         "Action": NotRequired[ContentPolicyFilterActionType],
     },
 )
+
+class BedrockGuardrailResourceTypeDef(TypedDict):
+    Version: NotRequired[str]
+    GuardrailAction: NotRequired[GuardrailActionType]
+    GuardrailSource: NotRequired[GuardrailSourceType]
 
 class BucketPolicyTypeDef(TypedDict):
     AllowsPublicReadAccess: NotRequired[bool]
@@ -2725,6 +2731,7 @@ ResourceDataTypeDef = TypedDict(
         "Ec2Vpc": NotRequired[Ec2VpcTypeDef],
         "Ec2Image": NotRequired[Ec2ImageTypeDef],
         "CloudformationStack": NotRequired[CloudformationStackTypeDef],
+        "BedrockGuardrail": NotRequired[BedrockGuardrailResourceTypeDef],
     },
 )
 

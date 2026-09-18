@@ -1,4 +1,6 @@
-use anyhow::Result;
+use std::collections::BTreeMap;
+
+use anyhow::{Result, anyhow};
 use assert_cmd::assert::OutputAssertExt;
 use assert_fs::prelude::*;
 use async_zip::base::read::mem::ZipFileReader;
@@ -6,10 +8,12 @@ use futures::executor::block_on;
 use indoc::{formatdoc, indoc};
 use insta::assert_snapshot;
 use predicates::prelude::predicate;
+use sha2::{Digest, Sha256};
 use std::env::current_dir;
 use std::path::Path;
 use url::Url;
 use uv_static::EnvVars;
+use uv_test::packse::generate_wheel;
 use uv_test::{DEFAULT_PYTHON_VERSION, apply_filters, get_bin, uv_snapshot};
 use wiremock::{
     Mock, MockServer, ResponseTemplate,
@@ -2250,6 +2254,161 @@ fn build_fast_path_verbose() -> Result<()> {
     Ok(())
 }
 
+/// Exact backend pins must match the running uv version; compatible ranges can use the fast path.
+#[test]
+fn build_fast_path_exact_pin() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let project = context.temp_dir.child("project");
+    let pyproject_toml = project.child("pyproject.toml");
+
+    pyproject_toml.write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+
+        [build-system]
+        requires = ["uv_build==0.11.33"]
+        build-backend = "uv_build"
+    "#})?;
+    project.child("src/project/__init__.py").touch()?;
+
+    uv_snapshot!(context.filters(), context.build()
+        .arg("project")
+        .arg("--wheel")
+        .arg("--no-index"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    Building wheel...
+    error: Failed to build `[TEMP_DIR]/project`
+      cause: Failed to resolve requirements from `build-system.requires`
+      cause: No solution found when resolving: `uv-build==0.11.33`
+      cause: Because uv-build was not found in the provided package locations and you require uv-build==0.11.33, we can conclude that your requirements are unsatisfiable.
+
+    hint: Packages were unavailable because index lookups were disabled and no additional package locations were provided (try: `--find-links <uri>`)
+    ");
+
+    for requirement in [
+        format!("uv_build=={}", uv_version::version()),
+        "uv_build>=0.11,<0.12".to_string(),
+        "uv_build==0.11.*".to_string(),
+        "uv_build==0.11.33 ; python_version < '0'".to_string(),
+    ] {
+        pyproject_toml.write_str(&formatdoc! {r#"
+            [project]
+            name = "project"
+            version = "0.1.0"
+            requires-python = ">=3.12"
+
+            [build-system]
+            requires = ["{requirement}"]
+            build-backend = "uv_build"
+        "#})?;
+
+        context
+            .build()
+            .arg("project")
+            .arg("--wheel")
+            .arg("--no-index")
+            .assert()
+            .success();
+    }
+
+    Ok(())
+}
+
+/// Active exact build constraints must match the running uv version to use the fast path.
+#[test]
+fn build_fast_path_constraint_exact_pin() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let project = context.temp_dir.child("project");
+
+    project.child("pyproject.toml").write_str(indoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+
+        [build-system]
+        requires = ["uv_build>=0.11,<10000"]
+        build-backend = "uv_build"
+    "#})?;
+    project.child("src/project/__init__.py").touch()?;
+
+    let constraints = context.temp_dir.child("constraints.txt");
+    constraints.write_str("uv_build==0.11.33")?;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("./project")
+        .arg("--no-index")
+        .arg("--build-constraint")
+        .arg("constraints.txt"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    error: Failed to build `project @ file://[TEMP_DIR]/project`
+      cause: Failed to resolve requirements from `build-system.requires`
+      cause: No solution found when resolving: `uv-build>=0.11, <10000`
+      cause: Because uv-build was not found in the provided package locations and you require uv-build==0.11.33, we can conclude that your requirements are unsatisfiable.
+
+    hint: Packages were unavailable because index lookups were disabled and no additional package locations were provided (try: `--find-links <uri>`)
+    ");
+
+    constraints.write_str("uv_build>=0.11,==0.11.33")?;
+
+    uv_snapshot!(context.filters(), context.build()
+        .arg("project")
+        .arg("--wheel")
+        .arg("--no-index")
+        .arg("--build-constraint")
+        .arg("constraints.txt"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    Building wheel...
+    error: Failed to build `[TEMP_DIR]/project`
+      cause: Failed to resolve requirements from `build-system.requires`
+      cause: No solution found when resolving: `uv-build>=0.11, <10000`
+      cause: Because uv-build was not found in the provided package locations and you require uv-build==0.11.33, we can conclude that your requirements are unsatisfiable.
+
+    hint: Packages were unavailable because index lookups were disabled and no additional package locations were provided (try: `--find-links <uri>`)
+    ");
+
+    // Listing files requires the fast path and must reject the incompatible constraint.
+    uv_snapshot!(context.filters(), context.build()
+        .arg("project")
+        .arg("--wheel")
+        .arg("--list")
+        .arg("--build-constraint")
+        .arg("constraints.txt"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: Failed to build `[TEMP_DIR]/project`
+      cause: Can only use `--list` with a compatible uv build backend, but `project` is not compatible because `uv_build==0.11.33` does not match the running uv version
+    ");
+
+    for constraint in [
+        format!("uv_build=={}", uv_version::version()),
+        "uv_build==0.11.33 ; python_version < '0'".to_string(),
+        "uv_build==0.11.*".to_string(),
+        "other-package==0.11.33".to_string(),
+        "uv_build>=0.11,<0.12".to_string(),
+    ] {
+        constraints.write_str(&constraint)?;
+
+        context
+            .build()
+            .arg("project")
+            .arg("--wheel")
+            .arg("--no-index")
+            .arg("--build-constraint")
+            .arg("constraints.txt")
+            .assert()
+            .success();
+    }
+
+    Ok(())
+}
+
 /// Reject path-shaped script entry point names before writing wheel metadata.
 #[test]
 fn build_unsafe_script_entry_point_name() -> Result<()> {
@@ -3071,5 +3230,182 @@ fn build_no_gitignore() -> Result<()> {
         .child(".gitignore")
         .assert(predicate::path::missing());
 
+    Ok(())
+}
+
+#[test]
+fn build_workspace_constraint_hashes() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let mut build_hash = String::new();
+    for (name, version) in [("build-dependency", "1.0.0"), ("project", "0.1.0")] {
+        let (filename, wheel) = generate_wheel(
+            &name.parse()?,
+            &version.parse()?,
+            &[],
+            &BTreeMap::new(),
+            None,
+            "py3-none-any",
+            &[],
+        );
+        if name == "build-dependency" {
+            build_hash = hex::encode(Sha256::digest(&wheel));
+        }
+        context
+            .temp_dir
+            .child("wheels")
+            .child(filename)
+            .write_binary(&wheel)?;
+    }
+    let context = context.with_filter((build_hash.clone(), "[BUILD_HASH]"));
+    context.temp_dir.child("backend.py").write_str(indoc! {r#"
+        import shutil
+        from pathlib import Path
+
+        import build_dependency
+
+        Path(__file__).with_name("backend-executed").touch()
+
+        def build_wheel(wheel_directory, config_settings=None, metadata_directory=None):
+            source = Path(__file__).parent / "wheels" / "project-0.1.0-py3-none-any.whl"
+            shutil.copyfile(source, Path(wheel_directory) / source.name)
+            return source.name
+    "#})?;
+    let pyproject = context.temp_dir.child("pyproject.toml");
+    let constraints = context.temp_dir.child("constraints.txt");
+    let incorrect_hash = "0".repeat(64);
+    pyproject.write_str(&formatdoc! {r#"
+        [project]
+        name = "project"
+        version = "0.1.0"
+        requires-python = ">=3.12"
+
+        [build-system]
+        requires = ["build-dependency==1.0.0"]
+        build-backend = "backend"
+        backend-path = ["."]
+
+        [tool.uv]
+        no-index = true
+        find-links = ["wheels"]
+        build-constraint-dependencies = [
+            {{ requirement = "build-dependency==1.0.0", hashes = ["sha256:{incorrect_hash}"] }},
+        ]
+    "#})?;
+    constraints.write_str(&format!(
+        "build-dependency==1.0.0 --hash=sha256:{build_hash}\n"
+    ))?;
+
+    // Workspace hashes are checked even without command-line constraints.
+    uv_snapshot!(context.filters(), context.build()
+        .arg("--wheel")
+        .arg("--no-cache"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    Building wheel...
+    error: Failed to build `[TEMP_DIR]/`
+      cause: Failed to install requirements from `build-system.requires`
+      cause: Failed to download `build-dependency==1.0.0`
+      cause: Hash mismatch for `build-dependency==1.0.0`
+
+             Expected:
+               sha256:0000000000000000000000000000000000000000000000000000000000000000
+
+             Computed:
+               sha256:[BUILD_HASH]
+    ");
+    context
+        .temp_dir
+        .child("backend-executed")
+        .assert(predicate::path::missing());
+
+    // Workspace constraints follow command-line constraints, so their hashes take precedence.
+    uv_snapshot!(context.filters(), context.build()
+        .arg("--wheel")
+        .arg("--no-cache")
+        .args(["--build-constraint", "constraints.txt"]), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    Building wheel...
+    error: Failed to build `[TEMP_DIR]/`
+      cause: Failed to install requirements from `build-system.requires`
+      cause: Failed to download `build-dependency==1.0.0`
+      cause: Hash mismatch for `build-dependency==1.0.0`
+
+             Expected:
+               sha256:0000000000000000000000000000000000000000000000000000000000000000
+
+             Computed:
+               sha256:[BUILD_HASH]
+    ");
+    context
+        .temp_dir
+        .child("backend-executed")
+        .assert(predicate::path::missing());
+
+    // An explicit opt-out applies to hashes in both workspace and command-line constraints.
+    uv_snapshot!(context.filters(), context.build()
+        .arg("--wheel")
+        .arg("--no-cache")
+        .args(["--build-constraint", "constraints.txt", "--no-verify-hashes"]), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Building wheel...
+    Successfully built dist/project-0.1.0-py3-none-any.whl
+    ");
+    fs_err::remove_file(context.temp_dir.child("backend-executed"))?;
+
+    let registry_pyproject = context.read("pyproject.toml");
+    let wheel = context
+        .temp_dir
+        .child("wheels/build_dependency-1.0.0-py3-none-any.whl");
+    let wheel_url =
+        Url::from_file_path(wheel.path()).map_err(|()| anyhow!("invalid wheel path"))?;
+    let requirement = format!("build-dependency @ {wheel_url}");
+    pyproject.write_str(&registry_pyproject.replace(
+        "requirement = \"build-dependency==1.0.0\"",
+        &format!("requirement = \"{requirement}\""),
+    ))?;
+    constraints.write_str(&format!("{requirement} --hash=sha256:{build_hash}\n"))?;
+    uv_snapshot!(context.filters(), context.build()
+        .arg("--wheel")
+        .arg("--no-cache")
+        .args(["--build-constraint", "constraints.txt"]), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    Building wheel...
+    error: Failed to build `[TEMP_DIR]/`
+      cause: Failed to install requirements from `build-system.requires`
+      cause: Failed to read `build-dependency @ file://[TEMP_DIR]/wheels/build_dependency-1.0.0-py3-none-any.whl`
+      cause: Hash mismatch for `build-dependency @ file://[TEMP_DIR]/wheels/build_dependency-1.0.0-py3-none-any.whl`
+
+             Expected:
+               sha256:0000000000000000000000000000000000000000000000000000000000000000
+
+             Computed:
+               sha256:[BUILD_HASH]
+    ");
+    context
+        .temp_dir
+        .child("backend-executed")
+        .assert(predicate::path::missing());
+
+    // A correct workspace hash also takes precedence over an incorrect command-line hash.
+    constraints.write_str(&format!(
+        "build-dependency==1.0.0 --hash=sha256:{incorrect_hash}\n"
+    ))?;
+    pyproject.write_str(&registry_pyproject.replace(&incorrect_hash, &build_hash))?;
+    uv_snapshot!(context.filters(), context.build()
+        .arg("--wheel")
+        .arg("--no-cache")
+        .args(["--build-constraint", "constraints.txt"]), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Building wheel...
+    Successfully built dist/project-0.1.0-py3-none-any.whl
+    ");
+    context
+        .temp_dir
+        .child("backend-executed")
+        .assert(predicate::path::exists());
     Ok(())
 }

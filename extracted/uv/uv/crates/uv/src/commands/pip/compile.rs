@@ -15,7 +15,8 @@ use uv_cache::Cache;
 use uv_client::{BaseClientBuilder, RegistryClientBuilder};
 use uv_configuration::{
     BuildIsolation, BuildOptions, Concurrency, Constraints, ExcludeDependency, ExtrasSpecification,
-    IndexStrategy, NoBinary, NoBuild, NoSources, Override, PipCompileFormat, Reinstall, Upgrade,
+    HashCheckingMode, IndexStrategy, NoBinary, NoBuild, NoSources, Override, PipCompileFormat,
+    Reinstall, Upgrade,
 };
 use uv_configuration::{KeyringProviderType, TargetTriple};
 use uv_dispatch::{BuildDispatch, SharedState};
@@ -28,6 +29,7 @@ use uv_distribution_types::{
 use uv_fs::{CWD, Simplified};
 use uv_git::ResolvedRepositoryReference;
 use uv_install_wheel::LinkMode;
+use uv_lock::PylockToml;
 use uv_normalize::PackageName;
 use uv_pep440::Version;
 use uv_preview::{Preview, PreviewFeature};
@@ -37,12 +39,11 @@ use uv_python::{
     PythonPreference, PythonRequest, PythonVersion, VersionRequest,
 };
 use uv_requirements::{
-    GroupsSpecification, LockedRequirements, RequirementsSource, RequirementsSpecification,
-    is_pylock_toml, read_pylock_toml_requirements, read_requirements_txt,
+    GroupsSpecification, RequirementsSource, RequirementsSpecification, is_pylock_toml,
 };
 use uv_resolver::{
     AnnotationStyle, DependencyMode, DisplayResolutionGraph, ExcludeNewer, FlatIndex, ForkStrategy,
-    InMemoryIndex, OptionsBuilder, Prerelease, PylockToml, PythonRequirement, ResolutionMode,
+    InMemoryIndex, OptionsBuilder, Prerelease, PythonRequirement, ResolutionMode,
     ResolverEnvironment,
 };
 use uv_settings::PythonInstallMirrors;
@@ -53,6 +54,9 @@ use uv_warnings::warn_user;
 use uv_workspace::WorkspaceCache;
 use uv_workspace::pyproject::ExtraBuildDependencies;
 
+use crate::commands::locked_requirements::{
+    LockedRequirements, read_pylock_toml_requirements, read_requirements_txt,
+};
 use crate::commands::pip::loggers::DefaultResolveLogger;
 use crate::commands::pip::{operations, resolution_markers, resolution_tags};
 use crate::commands::reporters::PythonDownloadReporter;
@@ -70,7 +74,7 @@ pub(crate) async fn pip_compile(
     constraints_from_workspace: Vec<Requirement>,
     overrides_from_workspace: Vec<Override<Requirement>>,
     excludes_from_workspace: Vec<ExcludeDependency>,
-    build_constraints_from_workspace: Vec<Requirement>,
+    build_constraints_from_workspace: Vec<NameRequirementSpecification>,
     environments: SupportedEnvironments,
     required_environments: SupportedEnvironments,
     extras: ExtrasSpecification,
@@ -252,16 +256,12 @@ pub(crate) async fn pip_compile(
         .collect();
 
     // Read build constraints.
-    let build_constraints: Vec<NameRequirementSpecification> =
+    let build_constraints = Constraints::from_specifications(
         operations::read_constraints(build_constraints, &client_builder)
             .await?
             .into_iter()
-            .chain(
-                build_constraints_from_workspace
-                    .into_iter()
-                    .map(NameRequirementSpecification::from),
-            )
-            .collect();
+            .chain(build_constraints_from_workspace),
+    );
 
     // If all the metadata could be statically resolved, validate that every extra was used. If we
     // need to resolve metadata via PEP 517, we don't know which extras are used until much later.
@@ -501,14 +501,12 @@ pub(crate) async fn pip_compile(
         }
     };
 
-    // Don't enforce hashes in `pip compile`.
-    let build_hashes = HashStrategy::default();
-    let build_constraints = Constraints::from_requirements(
-        build_constraints
-            .iter()
-            .map(|constraint| constraint.requirement.clone()),
-    );
-
+    // Verify hashes on pinned build constraints, if any.
+    let build_hashes = HashStrategy::from_constraints(
+        &build_constraints,
+        Some(&interpreter.to_resolver_marker_environment()),
+        HashCheckingMode::Verify,
+    )?;
     // Lower the extra build dependencies, if any.
     let extra_build_requires =
         LoweredExtraBuildDependencies::from_non_lowered(extra_build_dependencies.clone())
@@ -624,7 +622,8 @@ pub(crate) async fn pip_compile(
         PipCompileFormat::RequirementsTxt => {
             if include_marker_expression {
                 if let Some(marker_env) = resolver_env.marker_environment() {
-                    let relevant_markers = resolution.marker_tree(&top_level_index, marker_env)?;
+                    let relevant_markers =
+                        resolution.marker_tree(top_level_index.distributions(), marker_env)?;
                     if let Some(relevant_markers) = relevant_markers.contents() {
                         writeln!(
                             writer,

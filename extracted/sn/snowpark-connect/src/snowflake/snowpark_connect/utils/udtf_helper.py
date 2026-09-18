@@ -152,7 +152,7 @@ CREATE OR REPLACE TEMPORARY PROCEDURE {sproc_name}(
 RETURNS STRING
 LANGUAGE PYTHON
 RUNTIME_VERSION = '{python_version}'
-PACKAGES = ('pyspark>=3.5.0,<4', 'cloudpickle', 'snowflake-snowpark-python', 'grpcio>=1.48.1', 'snowflake-telemetry-python')
+PACKAGES = ('pyspark>=3.5.0,<4', 'cloudpickle', 'snowflake-snowpark-python', 'grpcio>=1.48.1', 'protobuf>=3.20.2,<6.34', 'snowflake-telemetry-python')
 HANDLER = 'create'
 EXECUTE AS CALLER
 AS $$
@@ -281,7 +281,7 @@ CREATE OR REPLACE TEMPORARY PROCEDURE {sproc_name}(
 RETURNS STRING
 LANGUAGE PYTHON
 RUNTIME_VERSION = '{python_version}'
-PACKAGES = ('pyspark>=3.5.0,<4', 'cloudpickle', 'snowflake-snowpark-python', 'grpcio>=1.48.1', 'pandas', 'pyarrow', 'snowflake-telemetry-python')
+PACKAGES = ('pyspark>=3.5.0,<4', 'cloudpickle', 'snowflake-snowpark-python', 'grpcio>=1.48.1', 'protobuf>=3.20.2,<6.34', 'pandas', 'pyarrow', 'snowflake-telemetry-python')
 HANDLER = 'create'
 EXECUTE AS CALLER
 AS $$
@@ -354,7 +354,7 @@ CREATE OR REPLACE TEMPORARY PROCEDURE {create_apply_udtf_name}(
 RETURNS STRING
 LANGUAGE PYTHON
 RUNTIME_VERSION = '{python_version}'
-PACKAGES = ('pyspark>=3.5.0,<4', 'cloudpickle', 'snowflake-snowpark-python', 'grpcio>=1.48.1', 'pandas', 'pyarrow', 'numpy', 'snowflake-telemetry-python')
+PACKAGES = ('pyspark>=3.5.0,<4', 'cloudpickle', 'snowflake-snowpark-python', 'grpcio>=1.48.1', 'protobuf>=3.20.2,<6.34', 'pandas', 'pyarrow', 'numpy', 'snowflake-telemetry-python')
 HANDLER = 'create'
 EXECUTE AS CALLER
 AS $$
@@ -533,7 +533,7 @@ CREATE OR REPLACE TEMPORARY PROCEDURE {create_cogroup_udtf_name}(
 RETURNS STRING
 LANGUAGE PYTHON
 RUNTIME_VERSION = '{python_version}'
-PACKAGES = ('pyspark>=3.5.0,<4', 'cloudpickle', 'snowflake-snowpark-python', 'grpcio>=1.48.1', 'pandas', 'pyarrow', 'numpy')
+PACKAGES = ('pyspark>=3.5.0,<4', 'cloudpickle', 'snowflake-snowpark-python', 'grpcio>=1.48.1', 'protobuf>=3.20.2,<6.34', 'pandas', 'pyarrow', 'numpy')
 HANDLER = 'create'
 EXECUTE AS CALLER
 AS $$

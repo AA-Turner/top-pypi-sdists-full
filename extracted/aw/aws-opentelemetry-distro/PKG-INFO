@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: aws-opentelemetry-distro
-Version: 0.19.0
+Version: 0.20.0
 Summary: AWS OpenTelemetry Python Distro
 Project-URL: Homepage, https://github.com/aws-observability/aws-otel-python-instrumentation/tree/main/aws-opentelemetry-distro
 Author: Amazon Web Services
@@ -47,7 +47,6 @@ Requires-Dist: opentelemetry-instrumentation-kafka-python==0.65b0
 Requires-Dist: opentelemetry-instrumentation-logging==0.65b0
 Requires-Dist: opentelemetry-instrumentation-mysql==0.65b0
 Requires-Dist: opentelemetry-instrumentation-mysqlclient==0.65b0
-Requires-Dist: opentelemetry-instrumentation-openai-agents-v2==0.1.0
 Requires-Dist: opentelemetry-instrumentation-pika==0.65b0
 Requires-Dist: opentelemetry-instrumentation-psycopg2==0.65b0
 Requires-Dist: opentelemetry-instrumentation-pymemcache==0.65b0

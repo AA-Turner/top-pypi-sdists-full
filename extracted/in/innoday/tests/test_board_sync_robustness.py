@@ -10,7 +10,7 @@ than raising. Neither had any test cover, which is how both shipped.
    the result dict still reported ``success`` and positive created counts.
 """
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from unittest.mock import AsyncMock
 from uuid import uuid4
 
@@ -662,3 +662,59 @@ class TestReopeningClearsCompletedAt:
         db_session.commit()
         db_session.refresh(stored)
         assert stored.completed_at == original
+
+
+class TestWhichKindOfPullRanIsRecorded:
+    """`full_sync` on the history row is what schedules the next reconciliation.
+
+    Found by mutation: setting it unconditionally to `False` broke nothing,
+    because nothing read the *written* value back. The consequence is quiet
+    rather than loud — `_resume_point` then sees no recent full pull, forces one
+    every time, and the incremental path it exists to enable never runs again.
+    Safe, and silently pointless.
+    """
+
+    @pytest.mark.asyncio
+    async def test_a_full_pull_is_recorded_as_full(
+        self, db_engine, db_session, board, monkeypatch
+    ):
+        monkeypatch.setattr(bss, "engine", db_engine)
+        db_session.add(board)
+        db_session.commit()
+        history = _sync_history(db_session, board)
+        service = BoardSyncService()
+        monkeypatch.setattr(
+            service, "_get_adapter", AsyncMock(return_value=_fake_adapter([]))
+        )
+
+        # No `since` and no baseline, so this is the first-sync full pull.
+        result = await service.sync_board_tickets(
+            board.id, history.id, token="tok", options={}
+        )
+
+        assert result["full_sync"] is True
+        db_session.refresh(history)
+        assert history.full_sync is True
+
+    @pytest.mark.asyncio
+    async def test_a_resumed_pull_is_recorded_as_incremental(
+        self, db_engine, db_session, board, monkeypatch
+    ):
+        monkeypatch.setattr(bss, "engine", db_engine)
+        board.last_sync_at = datetime.now(timezone.utc) - timedelta(hours=2)
+        db_session.add(board)
+        db_session.commit()
+        history = _sync_history(db_session, board)
+        service = BoardSyncService()
+        monkeypatch.setattr(
+            service, "_get_adapter", AsyncMock(return_value=_fake_adapter([]))
+        )
+
+        since = datetime.now(timezone.utc) - timedelta(hours=1)
+        result = await service.sync_board_tickets(
+            board.id, history.id, token="tok", options={"since": since.isoformat()}
+        )
+
+        assert result["full_sync"] is False
+        db_session.refresh(history)
+        assert history.full_sync is False

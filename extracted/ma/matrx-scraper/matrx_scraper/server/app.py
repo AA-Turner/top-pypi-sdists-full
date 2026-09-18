@@ -29,6 +29,7 @@ from matrx_scraper.db import PACKAGE_DB_NAME
 from matrx_scraper.db.web import WEB_DB_NAME
 from matrx_scraper.server.config import ServerConfig
 from matrx_utils import capture_error
+from matrx_utils.block_sink import block_sink_configured
 
 _DEFAULT_CORS_ORIGIN_REGEX = (
     r"^(?:"
@@ -184,6 +185,10 @@ def _readiness_snapshot() -> tuple[dict[str, object], int]:
             domain_config_healthy = bool(getattr(get_ext("domain_config"), "healthy", False))
         except Exception:
             domain_config_healthy = False
+    from matrx_scraper.ocr_health import ocr_status
+    from matrx_scraper.proxy_health import proxy_health_snapshot
+
+    ocr = ocr_status()
     checks = {
         "database": is_database_registered(PACKAGE_DB_NAME),
         "orm": is_database_registered(PACKAGE_DB_NAME),
@@ -194,10 +199,23 @@ def _readiness_snapshot() -> tuple[dict[str, object], int]:
         "files_database": is_database_registered(FILES_DB_NAME),
         "file_access_checker": get_access_checker() is not None,
         "file_manager": has_ext("file_manager"),
+        # A REAL engine probe, never an import check: the wrapper installed
+        # without the `tesseract` binary is exactly the state that made every
+        # scanned PDF fail in production while readiness said "ok"
+        # (acquisition-frontier, 2026-09-17). Reported but NOT in `required` —
+        # a scraper with no OCR still serves every other content type, and
+        # holding it at 503 would trade one broken class for all of them. The
+        # loudness is the visible check plus the boot banner below.
+        "ocr": ocr.available,
         "canonical_file_pipeline": bool(
             has_ext("canonical_file_pipeline_ready") and get_ext("canonical_file_pipeline_ready")
         ),
         "filesystem": bool(base_dir and Path(base_dir).is_dir() and os.access(base_dir, os.W_OK)),
+        # A BLOCK IS A FINDING. Unconfigured, `announce_block` is a documented no-op, which
+        # is exactly how this service discarded every wall it hit for weeks while reporting
+        # itself healthy (board row H7). The boot gate proves a round trip; this is the
+        # second, independent layer that refuses to call a ledger-less server ready.
+        "block_ledger": block_sink_configured(),
     }
     try:
         file_manager = get_ext("file_manager")
@@ -244,6 +262,9 @@ def _readiness_snapshot() -> tuple[dict[str, object], int]:
     # that cannot fail. A store that failed to start reported READY while every
     # fetch silently ran on default policy.
     required.add("domain_config")
+    # Same reasoning, one class worse: a cache-less server is slow and a
+    # ledger-less server is silently lossy. Required unconditionally.
+    required.add("block_ledger")
     # The browser pool is required on any image that CAN run it. The gate is a
     # real import probe, not a toggle: an image built without the `browser`
     # extra genuinely cannot render, and holding it at not-ready forever would
@@ -251,11 +272,20 @@ def _readiness_snapshot() -> tuple[dict[str, object], int]:
     if PLAYWRIGHT_AVAILABLE:
         required.add("browser_pool")
     failed = sorted(name for name in required if not checks[name])
+    # Degraded-but-serving capabilities say so BY NAME. A caller (and a human
+    # reading /health/ready) must be able to tell "this host cannot OCR" from
+    # "this PDF has no text", and "the proxy pool is refusing tunnels" from
+    # "that site blocked us" — both were indistinguishable before 2026-09-17.
+    degraded: dict[str, object] = {}
+    if not ocr.available:
+        degraded["ocr"] = ocr.reason
     return (
         {
             "status": "ok" if not failed else "not_ready",
             **checks,
             "failed_components": failed,
+            "degraded": degraded,
+            "proxy_pool": proxy_health_snapshot(),
         },
         200 if not failed else 503,
     )
@@ -464,6 +494,40 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
     from matrx_utils import configure_error_capture
 
     configure_error_capture(record_error)
+
+    # 🚨 A BLOCK IS A FINDING, and for weeks this service threw every one of them away
+    # (board row H7). The sink itself is installed by the package, off the database binding
+    # above (`matrx_scraper.db.web._wire_block_ledger`), so it cannot be forgotten by a new
+    # entrypoint — but "wired" is not the claim that matters. The claim that matters is that
+    # an announced block becomes a row, and only a round trip can make it: announce one,
+    # read it back, delete it.
+    #
+    # FATAL on purpose, like `cache` and `domain_config` below. A scraper that cannot record
+    # what it could not get is a scraper reporting itself healthy while silently discarding
+    # the deliverable — which is exactly the failure that produced this code, and exactly the
+    # failure nobody saw for a month.
+    try:
+        from matrx_scraper.blocks import self_test_block_ledger
+
+        _probe_id = await self_test_block_ledger()
+        print(
+            f"[scraper-server] block ledger proven: an announced block became row {_probe_id} "
+            "in platform.acquisition_block and was removed again",
+            file=sys.stderr,
+            flush=True,
+        )
+    except Exception as e:
+        _fatal_capability(
+            "block_ledger",
+            e,
+            breaks="Every wall this service hits — every login page, paywall, bot check, "
+            "proxy refusal and dead status — disappears. The screen tells the person "
+            "nothing came back and no finding is ever recorded for anyone to act on.",
+            fix="The block sink is installed by matrx_scraper.db.web when the database "
+            "binds, so a failure here is the TABLE, not the wiring: confirm "
+            "platform.acquisition_block exists in the ONE database (Matrx Main) and that "
+            "SUPABASE_MATRIX_USER can SELECT, INSERT and DELETE it.",
+        )
 
     # ONE DATABASE runtime proof (this service is the incident site): ask every
     # registered pool which physical Postgres it actually reached and scream if

@@ -644,6 +644,15 @@ def sandbox_start(
         False, "--from-config", "-c", help="Use plato-config.yml", rich_help_panel="Config Mode"
     ),
     artifact_id: str = typer.Option(None, "--artifact-id", "-a", help="Artifact UUID", rich_help_panel="Artifact Mode"),
+    restore_memory: bool = typer.Option(
+        True,
+        "--restore-memory/--no-restore-memory",
+        help=(
+            "Artifact and simulator modes: resume the memory snapshot (default), or cold-boot the VM from the "
+            "snapshot's disk only - a fresh boot in which nothing is restored from memory."
+        ),
+        rich_help_panel="Artifact Mode",
+    ),
     blank: bool = typer.Option(False, "--blank", "-b", help="Create blank VM", rich_help_panel="Blank Mode"),
     # blank args
     cpus: int = typer.Option(2, "--cpus", help="CPUs (blank VM)", rich_help_panel="Blank Mode"),
@@ -753,6 +762,7 @@ def sandbox_start(
                 mode="simulator",
                 simulator_name=simulator,
                 dataset=dataset,
+                restore_memory=restore_memory,
                 connect_network=connect_network,
                 timeout=timeout,
                 provider=provider,
@@ -780,6 +790,7 @@ def sandbox_start(
                 mode="artifact",
                 artifact_id=artifact_id,
                 dataset=dataset,
+                restore_memory=restore_memory,
                 connect_network=connect_network,
                 timeout=timeout,
                 provider=provider,
@@ -997,6 +1008,13 @@ def sandbox_snapshot(
             "--mcp-path", help="HTTP path the MCP endpoint is served at, e.g. /api/mcp. Implies --mcp-enabled."
         ),
     ] = None,
+    description: Annotated[
+        str | None,
+        typer.Option(
+            "--description",
+            help="Free text stored on the artifact, e.g. to mark a throwaway or gate snapshot for later cleanup.",
+        ),
+    ] = None,
     wait: Annotated[
         bool,
         typer.Option(
@@ -1028,6 +1046,7 @@ def sandbox_snapshot(
         plato sandbox snapshot --target grist.web.plato.so   # Record the routing domain on the artifact
         plato sandbox snapshot --mcp-port 3000 --mcp-path /api/mcp   # Serve MCP from the artifact (implies --mcp-enabled)
         plato sandbox snapshot --no-mcp-enabled   # Turn the artifact's MCP endpoint off
+        plato sandbox snapshot --description 'ci gate: safe to delete'   # Label the artifact
     """
     # Raised outside sandbox_context so a bad flag is a usage error, not a run failure.
     mcp = mcp_config_from_flags(mcp_enabled, mcp_port, mcp_path)
@@ -1043,7 +1062,12 @@ def sandbox_snapshot(
                 raise SandboxStateError("job_id")
             out.console.print("[dim]Attached sandbox — full snapshot of only this env's job[/dim]")
             full_response = client.snapshot_job_full(
-                job_id=require(job_id, "job_id"), mode=mode, dataset=dataset, target=target, mcp=mcp
+                job_id=require(job_id, "job_id"),
+                mode=mode,
+                dataset=dataset,
+                target=target,
+                mcp=mcp,
+                description=description,
             )
             _report_snapshot(client, out, full_response, wait=wait, timeout=timeout)
             return
@@ -1052,7 +1076,12 @@ def sandbox_snapshot(
                 raise SandboxStateError("job_id")
             out.console.print("Creating job checkpoint...")
             response = client.snapshot_job(
-                job_id=require(job_id, "job_id"), mode=mode, dataset=dataset, target=target, mcp=mcp
+                job_id=require(job_id, "job_id"),
+                mode=mode,
+                dataset=dataset,
+                target=target,
+                mcp=mcp,
+                description=description,
             )
             _report_snapshot(client, out, response, wait=wait, timeout=timeout)
             return
@@ -1064,6 +1093,7 @@ def sandbox_snapshot(
             dataset=require(dataset, "dataset"),
             target=target,
             mcp=mcp,
+            description=description,
         )
         _report_snapshot(client, out, response, wait=wait, timeout=timeout)
 

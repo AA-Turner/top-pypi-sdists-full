@@ -267,6 +267,7 @@ lint = [
     "dspy",
     "google-adk",
     "google-genai",
+    "google-cloud-discoveryengine",
     "instructor",
     "litellm>=1.83.10",
     "livekit-agents",
@@ -278,6 +279,7 @@ lint = [
     "huggingface-hub",
     "numpy",
     "strands-agents",
+    "typesafe-sdk",
     "temporalio",
     "pydantic-ai",
     "opentelemetry-instrumentation-openai==0.59.1",
@@ -462,6 +464,9 @@ latest = "google-genai==2.23.0"
 "1.75.0" = "google-genai==1.75.0"
 "1.30.0" = "google-genai==1.30.0"
 
+[tool.braintrust.matrix.google-cloud-discoveryengine]
+latest = "google-cloud-discoveryengine==0.20.3"
+
 [tool.braintrust.matrix.dspy]
 latest = "dspy==3.3.1"
 "2.6.0" = "dspy==2.6.0"
@@ -497,6 +502,9 @@ latest = "openrouter==1.1.139"
 [tool.braintrust.matrix.mistralai]
 latest = "mistralai==2.10.0"
 "1.12.4" = "mistralai==1.12.4"
+
+[tool.braintrust.matrix.typesafe-sdk]
+latest = "typesafe-sdk==0.6.0"
 
 [tool.braintrust.matrix.huggingface-hub]
 # Floor pinned to 0.32.0: the earliest release that exposes the
@@ -571,6 +579,7 @@ cursor_sdk = ["cursor-sdk"]
 crewai = ["crewai"]
 dspy = ["dspy"]
 google_genai = ["google-genai"]
+google_discoveryengine = ["google-cloud-discoveryengine"]
 huggingface_hub = ["huggingface-hub"]
 harbor = ["harbor"]
 instructor = ["instructor"]
@@ -585,6 +594,7 @@ openrouter = ["openrouter"]
 pipecat = ["pipecat-ai"]
 pydantic_ai = ["pydantic-ai-integration", "pydantic-ai-wrap-openai"]
 strands = ["strands-agents"]
+typesafe = ["typesafe-sdk"]
 
 [tool.braintrust.vendor-packages]
 ai-sdk = "ai"
@@ -604,6 +614,7 @@ cursor-sdk = "cursor_sdk"
 dspy = "dspy"
 google-adk = "google.adk"
 google-genai = "google.genai"
+google-cloud-discoveryengine = "google.cloud.discoveryengine_v1"
 litellm = "litellm"
 livekit-agents = "livekit.agents"
 mistralai = "mistralai"
@@ -615,3 +626,4 @@ pipecat-ai = "pipecat"
 strands-agents = "strands"
 temporalio = "temporalio"
 transformers = "transformers"
+typesafe-sdk = "typesafe_sdk"

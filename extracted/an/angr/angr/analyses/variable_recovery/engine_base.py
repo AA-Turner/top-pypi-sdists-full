@@ -4,9 +4,7 @@ import contextlib
 import logging
 from typing import Any, cast
 
-import claripy
-
-from angr import ailment
+from angr import ailment, claripy
 from angr.analyses.typehoon import typeconsts, typevars
 from angr.analyses.typehoon.typevars import AddN, DerivedTypeVariable, Load, Store, SubN, TypeVariable
 from angr.analyses.variable_recovery.variable_recovery_base import VariableRecoveryStateBase
@@ -94,6 +92,11 @@ class SimEngineVRBase[VRStateType: VariableRecoveryStateBase, BlockType: BlockPr
             return None
         return self.state.function.addr
 
+    @property
+    def block_idx(self) -> int | None:
+        # variable accesses are keyed on (block addr, block idx, stmt idx); non-AIL blocks have no idx
+        return cast(ailment.Block, self.block).idx if isinstance(self.block, ailment.Block) else None
+
     def _top(self, bits):
         return RichR(self.state.top(bits))
 
@@ -160,7 +163,7 @@ class SimEngineVRBase[VRStateType: VariableRecoveryStateBase, BlockType: BlockPr
 
             variable_manager = self.state.variable_manager[self.func_addr]
             var_candidates: list[tuple[SimVariable, int | None]] = variable_manager.find_variables_by_stmt(
-                self.block.addr, self.stmt_idx, "memory"
+                self.block.addr, self.stmt_idx, "memory", block_idx=self.block_idx
             )
 
             # find the correct variable
@@ -264,7 +267,7 @@ class SimEngineVRBase[VRStateType: VariableRecoveryStateBase, BlockType: BlockPr
                 self.block.addr,
                 self.stmt_idx,
                 "memory",
-                block_idx=cast(ailment.Block, self.block).idx if isinstance(self.block, ailment.Block) else None,
+                block_idx=self.block_idx,
             )
 
             # find the correct variable
@@ -333,7 +336,7 @@ class SimEngineVRBase[VRStateType: VariableRecoveryStateBase, BlockType: BlockPr
         if dst is not None:
             existing_vars: set[tuple[SimVariable, int | None]] = self.state.variable_manager[
                 self.func_addr
-            ].find_variables_by_atom(self.block.addr, self.stmt_idx, dst)
+            ].find_variables_by_atom(self.block.addr, self.stmt_idx, dst, block_idx=self.block_idx)
         else:
             existing_vars = set()
         if not existing_vars:
@@ -415,7 +418,7 @@ class SimEngineVRBase[VRStateType: VariableRecoveryStateBase, BlockType: BlockPr
         if dst is not None:
             existing_vars: set[tuple[SimVariable, int | None]] = self.state.variable_manager[
                 self.func_addr
-            ].find_variables_by_atom(self.block.addr, self.stmt_idx, dst)
+            ].find_variables_by_atom(self.block.addr, self.stmt_idx, dst, block_idx=self.block_idx)
         else:
             existing_vars = set()
         if not existing_vars:
@@ -568,7 +571,7 @@ class SimEngineVRBase[VRStateType: VariableRecoveryStateBase, BlockType: BlockPr
         if not stored:
             # remove existing variables linked to this statement
             existing_vars = self.state.variable_manager[self.func_addr].find_variables_by_stmt(
-                self.block.addr, self.stmt_idx, "memory"
+                self.block.addr, self.stmt_idx, "memory", block_idx=self.block_idx
             )
             codeloc = self._codeloc()
             if existing_vars:
@@ -587,11 +590,11 @@ class SimEngineVRBase[VRStateType: VariableRecoveryStateBase, BlockType: BlockPr
 
         if atom is None:
             existing_vars = self.state.variable_manager[self.func_addr].find_variables_by_stmt(
-                self.block.addr, self.stmt_idx, "memory"
+                self.block.addr, self.stmt_idx, "memory", block_idx=self.block_idx
             )
         else:
             existing_vars = self.state.variable_manager[self.func_addr].find_variables_by_atom(
-                self.block.addr, self.stmt_idx, atom
+                self.block.addr, self.stmt_idx, atom, block_idx=self.block_idx
             )
         if not existing_vars:
             variable = SimStackVariable(
@@ -664,9 +667,13 @@ class SimEngineVRBase[VRStateType: VariableRecoveryStateBase, BlockType: BlockPr
     ):
         variable_manager = self.state.variable_manager["global"]
         if stmt is None:
-            existing_vars = variable_manager.find_variables_by_stmt(self.block.addr, self.stmt_idx, "memory")
+            existing_vars = variable_manager.find_variables_by_stmt(
+                self.block.addr, self.stmt_idx, "memory", block_idx=self.block_idx
+            )
         else:
-            existing_vars = variable_manager.find_variables_by_atom(self.block.addr, self.stmt_idx, stmt)
+            existing_vars = variable_manager.find_variables_by_atom(
+                self.block.addr, self.stmt_idx, stmt, block_idx=self.block_idx
+            )
 
         if offset is None or elem_size is None:
             # trivial case
@@ -933,7 +940,7 @@ class SimEngineVRBase[VRStateType: VariableRecoveryStateBase, BlockType: BlockPr
             # failed to map the address to a known variable
             # remove existing variables linked to this variable
             existing_vars = self.state.variable_manager[self.func_addr].find_variables_by_atom(
-                self.block.addr, self.stmt_idx, expr
+                self.block.addr, self.stmt_idx, expr, block_idx=self.block_idx
             )
             if existing_vars:
                 for existing_var, _ in list(existing_vars):
@@ -971,9 +978,13 @@ class SimEngineVRBase[VRStateType: VariableRecoveryStateBase, BlockType: BlockPr
     ) -> RichR[claripy.ast.BV]:
         variable_manager = self.state.variable_manager["global"]
         if expr is None:
-            existing_vars = variable_manager.find_variables_by_stmt(self.block.addr, self.stmt_idx, "memory")
+            existing_vars = variable_manager.find_variables_by_stmt(
+                self.block.addr, self.stmt_idx, "memory", block_idx=self.block_idx
+            )
         else:
-            existing_vars = variable_manager.find_variables_by_atom(self.block.addr, self.stmt_idx, expr)
+            existing_vars = variable_manager.find_variables_by_atom(
+                self.block.addr, self.stmt_idx, expr, block_idx=self.block_idx
+            )
 
         # if offset is None or elem_size is None:
         #     # trivial case
@@ -1062,7 +1073,7 @@ class SimEngineVRBase[VRStateType: VariableRecoveryStateBase, BlockType: BlockPr
                 if expr is not None:
                     existing_vars: set[tuple[SimVariable, int | None]] = self.state.variable_manager[
                         self.func_addr
-                    ].find_variables_by_atom(self.block.addr, self.stmt_idx, expr)
+                    ].find_variables_by_atom(self.block.addr, self.stmt_idx, expr, block_idx=self.block_idx)
                 else:
                     existing_vars = set()
                 if not existing_vars:
@@ -1163,7 +1174,7 @@ class SimEngineVRBase[VRStateType: VariableRecoveryStateBase, BlockType: BlockPr
                     self.block.addr,
                     self.stmt_idx,
                     "register",
-                    block_idx=cast(ailment.Block, self.block).idx if isinstance(self.block, ailment.Block) else None,
+                    block_idx=self.block_idx,
                 )
                 existing_vars: list[tuple[SimVariable, int | None]] = []
                 for var_candidate, var_offset in var_candidates:
@@ -1179,7 +1190,7 @@ class SimEngineVRBase[VRStateType: VariableRecoveryStateBase, BlockType: BlockPr
                     self.block.addr,
                     self.stmt_idx,
                     "memory",
-                    block_idx=cast(ailment.Block, self.block).idx if isinstance(self.block, ailment.Block) else None,
+                    block_idx=self.block_idx,
                 )
                 existing_vars: list[tuple[SimVariable, int | None]] = []
                 for var_candidate, var_offset in var_candidates:
@@ -1292,7 +1303,7 @@ class SimEngineVRBase[VRStateType: VariableRecoveryStateBase, BlockType: BlockPr
                     self.block.addr,
                     self.stmt_idx,
                     expr,  # pyright: ignore[reportArgumentType]
-                    block_idx=cast(ailment.Block, self.block).idx if isinstance(self.block, ailment.Block) else None,
+                    block_idx=self.block_idx,
                 )
                 if not var_candidates:
                     var = SimConstantVariable(
@@ -1339,7 +1350,11 @@ class SimEngineVRBase[VRStateType: VariableRecoveryStateBase, BlockType: BlockPr
             else MAX_POINTSTO_BITS
         )
 
-        if offset >= 4096:
+        if offset < 0:
+            if self._likely_pointer(offset + (1 << self.arch.bits)):
+                # a mapped address that we reached by wrapping around; tv is the actual offset
+                return self.tv_manager.new_tv()
+        elif offset >= 4096:
             if self._likely_pointer(offset):
                 # tv is the actual offset
                 return self.tv_manager.new_tv()

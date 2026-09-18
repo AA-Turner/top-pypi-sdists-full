@@ -4,10 +4,6 @@ pub use crate::source_tree::*;
 pub use crate::sources::*;
 pub use crate::specification::*;
 pub use crate::unnamed::*;
-pub use crate::upgrade::{
-    LockedRequirements, read_lock_requirements, read_pylock_toml_requirements,
-    read_requirements_txt,
-};
 
 use uv_distribution_types::{Dist, DistErrorKind, Requirement, RequirementSource};
 
@@ -17,7 +13,6 @@ mod source_tree;
 mod sources;
 mod specification;
 mod unnamed;
-mod upgrade;
 
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
@@ -38,6 +33,9 @@ pub enum Error {
     HashStrategy(#[from] uv_types::HashStrategyError),
 
     #[error(transparent)]
+    FlatIndex(#[from] Box<uv_client::FlatIndexError>),
+
+    #[error(transparent)]
     WheelFilename(#[from] uv_distribution_filename::WheelFilenameError),
 
     #[error(transparent)]
@@ -49,6 +47,7 @@ impl Error {
     pub fn is_user_failure(&self) -> bool {
         match self {
             Self::Dist(_, _, error) | Self::Distribution(error) => error.is_user_failure(),
+            Self::FlatIndex(error) => error.is_user_failure(),
             Self::DistributionTypes(_) | Self::HashStrategy(_) | Self::WheelFilename(_) => true,
             Self::Io(error) => matches!(
                 error.kind(),

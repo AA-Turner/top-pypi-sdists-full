@@ -69,13 +69,9 @@ class Frame(
     ):
         """
         :param body: a box widget for the body of the frame
-        :type body: Widget
         :param header: a flow widget for above the body (or None)
-        :type header: Widget
         :param footer: a flow widget for below the body (or None)
-        :type footer: Widget
         :param focus_part:  'header', 'footer' or 'body'
-        :type focus_part: str | Widget
         :raises ValueError: *focus_part* is not one of the three frame parts.
         """
         super().__init__()
@@ -136,7 +132,7 @@ class Frame(
         """
         warnings.warn(
             f"method `{self.__class__.__name__}.get_header` is deprecated, "
-            f"standard property `{self.__class__.__name__}.header` should be used instead."
+            f"standard property `{self.__class__.__name__}.header` should be used instead. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -155,7 +151,7 @@ class Frame(
         """
         warnings.warn(
             f"method `{self.__class__.__name__}.set_header` is deprecated, "
-            f"standard property `{self.__class__.__name__}.header` should be used instead."
+            f"standard property `{self.__class__.__name__}.header` should be used instead. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -182,7 +178,7 @@ class Frame(
         """
         warnings.warn(
             f"method `{self.__class__.__name__}.get_body` is deprecated, "
-            f"standard property {self.__class__.__name__}.body should be used instead."
+            f"standard property {self.__class__.__name__}.body should be used instead. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -201,7 +197,7 @@ class Frame(
         """
         warnings.warn(
             f"method `{self.__class__.__name__}.set_body` is deprecated, "
-            f"standard property `{self.__class__.__name__}.body` should be used instead."
+            f"standard property `{self.__class__.__name__}.body` should be used instead. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -230,7 +226,7 @@ class Frame(
         """
         warnings.warn(
             f"method `{self.__class__.__name__}.get_footer` is deprecated, "
-            f"standard property `{self.__class__.__name__}.footer` should be used instead."
+            f"standard property `{self.__class__.__name__}.footer` should be used instead. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -249,7 +245,7 @@ class Frame(
         """
         warnings.warn(
             f"method `{self.__class__.__name__}.set_footer` is deprecated, "
-            f"standard property `{self.__class__.__name__}.footer` should be used instead."
+            f"standard property `{self.__class__.__name__}.footer` should be used instead. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -263,7 +259,6 @@ class Frame(
         that is in focus: `'body', 'header'` or `'footer'`.
 
         :returns: one of 'header', 'footer' or 'body'.
-        :rtype: str
         """
         return self.focus_part
 
@@ -273,7 +268,6 @@ class Frame(
         Determine which part of the frame is in focus.
 
         :param part: 'header', 'footer' or 'body'
-        :type part: str
         :raises IndexError: *part* is not one of the three frame parts, or names a part this Frame does not have.
         """
         if part not in {"header", "footer", "body"}:
@@ -289,15 +283,14 @@ class Frame(
         that is in focus: `'body', 'header'` or `'footer'`.
 
         :returns: one of 'header', 'footer' or 'body'.
-        :rtype: str
 
         .. deprecated:: 1.1.0
             Use the container property :attr:`focus_position` instead.
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "included for backwards compatibility."
-            "You should rather use the container property `.focus_position` to get this value."
+            "included for backwards compatibility. "
+            "You should rather use the container property `.focus_position` to get this value. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -315,8 +308,8 @@ class Frame(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "included for backwards compatibility."
-            "You should rather use the container property `.focus_position` to set this value."
+            "included for backwards compatibility. "
+            "You should rather use the container property `.focus_position` to set this value. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -374,14 +367,14 @@ class Frame(
             __slots__ = ()
 
             def __len__(inner_self) -> int:
-                return len(inner_self.keys())
+                return len(self._contents_keys())
 
             __getitem__ = self._contents__getitem__  # type: ignore[assignment]
             __setitem__ = self._contents__setitem__  # type: ignore[assignment]
             __delitem__ = self._contents__delitem__  # type: ignore[assignment]
 
             def __iter__(inner_self) -> Iterator[str]:
-                yield from inner_self.keys()
+                yield from self._contents_keys()
 
             def __repr__(inner_self) -> str:
                 return f"<{inner_self.__class__.__name__}({dict(inner_self)}) for {self}>"  # type: ignore[misc]
@@ -486,12 +479,9 @@ class Frame(
         Calculate the number of rows for the header and footer.
 
         :param size: See :meth:`Widget.render` for details
-        :type size: widget size
         :param focus: ``True`` if this widget is in focus
-        :type focus: bool
         :returns: `(head rows, foot rows),(orig head, orig foot)`
                   orig head/foot are from rows() calls.
-        :rtype: (int, int), (int, int)
         """
         (maxcol, maxrow) = size
         frows = hrows = 0

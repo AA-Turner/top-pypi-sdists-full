@@ -3604,6 +3604,8 @@ class SourceExcitation(SourceExcitationInternal):
         _name = name if name else f"point_{layer}_{x}_{y}"
         location = [x, y]
         terminal = PointTerminal.create(self._pedb.layout, net, layer, _name, location)
+        # set default to True to let AEDT manage the port assignment automatically (e.g. for Q3D conductor ports)
+        terminal.is_auto_port = True
         if terminal.is_null:
             raise RuntimeError(
                 f"Failed to create terminal. Input arguments: x={x}, y={y}, layer={layer}, net={net}, name={name}."
@@ -3649,9 +3651,9 @@ class SourceExcitation(SourceExcitationInternal):
 
         return terminal
 
-    def create_edge_terminal(self, primitive_name, x, y, name=""):
+    def create_edge_terminal(self, primitive_name, x, y, name="") -> EdgeTerminal:
         primitive = self._pedb.layout.find_primitive(name=primitive_name)[0]
-        point_on_edge = CorePointData([x, y])
+        point_on_edge = CorePointData([self._pedb.value(x), self._pedb.value(y)])
         pos_edge = [CorePrimitiveEdge.create(primitive.core, point_on_edge)]
         terminal = EdgeTerminal.create(layout=primitive.layout, name=name, edges=pos_edge, net=primitive.net)
 

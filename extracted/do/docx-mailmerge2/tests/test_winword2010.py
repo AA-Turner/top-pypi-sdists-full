@@ -3,8 +3,8 @@ import unittest
 from os import path
 
 from lxml import etree
-from mailmerge import NAMESPACES, MailMerge
 
+from mailmerge import NAMESPACES, MailMerge
 from tests.utils import EtreeMixin, get_document_body_part
 
 
@@ -13,8 +13,7 @@ class Windword2010Test(EtreeMixin, unittest.TestCase):
         with MailMerge(path.join(path.dirname(__file__), "test_winword2010.docx")) as document:
             self.assertEqual(
                 document.get_merge_fields(),
-                set(
-                    [
+                {
                         "Titel",
                         "Voornaam",
                         "Achternaam",
@@ -23,8 +22,7 @@ class Windword2010Test(EtreeMixin, unittest.TestCase):
                         "Plaats",
                         "Provincie",
                         "Land_of_regio",
-                    ]
-                ),
+                    },
             )
 
             document.merge(
@@ -42,7 +40,7 @@ class Windword2010Test(EtreeMixin, unittest.TestCase):
                 document.write(outfile)
 
         expected_tree = etree.fromstring(
-            '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="w14 wp14">'  # noqa
+            '<w:document xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" mc:Ignorable="w14 wp14">'
             "<w:body>"
             '<w:p w:rsidR="00886208" w:rsidRDefault="00886208">'
             "<w:r>"
@@ -188,13 +186,13 @@ class Windword2010Test(EtreeMixin, unittest.TestCase):
             "</w:p>"
             '<w:sectPr w:rsidR="00886208" w:rsidRPr="00886208">'
             '<w:pgSz w:h="16838" w:w="11906"/>'
-            '<w:pgMar w:bottom="1417" w:footer="708" w:gutter="0" w:header="708" w:left="1417" w:right="1417" w:top="1417"/>'  # noqa
+            '<w:pgMar w:bottom="1417" w:footer="708" w:gutter="0" w:header="708" w:left="1417" w:right="1417" w:top="1417"/>'
             '<w:cols w:space="708"/>'
             '<w:docGrid w:linePitch="360"/>'
             "</w:sectPr>"
             "</w:body>"
-            "</w:document>"  # noqa
+            "</w:document>"
         )
 
         self.assert_equal_tree(expected_tree, get_document_body_part(document).getroot())
-        self.assertIsNone(document.get_settings().getroot().find("{%(w)s}mailMerge" % NAMESPACES))
+        self.assertIsNone(document.get_settings().getroot().find("{{{w}}}mailMerge".format(**NAMESPACES)))

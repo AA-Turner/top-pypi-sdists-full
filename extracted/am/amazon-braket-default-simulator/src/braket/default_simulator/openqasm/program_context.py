@@ -853,15 +853,15 @@ class AbstractProgramContext(ABC):
     def add_gate_instruction(
         self, gate_name: str, target: tuple[int, ...], params, ctrl_modifiers: list[int], power: int
     ):
-        """Add Braket gate to the circuit.
+        r"""Add Braket gate to the circuit.
         Args:
             gate_name (str): name of the built-in Braket gate.
             target (tuple[int]): control_qubits + target_qubits.
             ctrl_modifiers (list[int]): Quantum state on which to control the
                 operation. Must be a binary sequence of same length as number of qubits in
                 `control-qubits` in target. For example "0101", [0, 1, 0, 1], 5 all represent
-                controlling on qubits 0 and 2 being in the \\|0⟩ state and qubits 1 and 3 being
-                in the \\|1⟩ state.
+                controlling on qubits 0 and 2 being in the \|0⟩ state and qubits 1 and 3 being
+                in the \|1⟩ state.
             power(float): Integer or fractional power to raise the gate to.
         """
 
@@ -1902,11 +1902,6 @@ class ProgramContext(AbstractProgramContext):
             path.exit_frame(path.frame_number - 1)
 
     @staticmethod
-    def _resolve_index(indices) -> int:
-        """Resolve the integer index from an IndexedIdentifier's index list."""
-        return indices[0][0].value
-
-    @staticmethod
     def _get_path_measurement_result(path: SimulationPath, qubit_idx: int) -> int:
         """Get the most recent measurement outcome for a qubit on a path."""
         return path.measurements[qubit_idx][-1]
@@ -1925,7 +1920,9 @@ class ProgramContext(AbstractProgramContext):
         """Get the FramedVariable for ``name`` on the given path."""
         return path.get_variable(name)
 
-    def _update_classical_from_measurement(self, qubit_target, classical_destination) -> None:
+    def _update_classical_from_measurement(
+        self, qubit_target, classical_destination, classical_targets=None
+    ) -> None:
         """Update classical variables per path with measurement outcomes.
 
         After _measure_and_branch has branched paths and recorded measurement
@@ -1942,26 +1939,33 @@ class ProgramContext(AbstractProgramContext):
             path = self._paths[path_idx]
 
             if isinstance(classical_destination, IndexedIdentifier):
-                self._update_indexed_target(path, qubit_target, classical_destination)
+                self._update_indexed_target(
+                    path, qubit_target, classical_destination, classical_targets
+                )
             else:
                 self._update_identifier_target(path, qubit_target, classical_destination)
 
     def _update_indexed_target(
-        self, path: SimulationPath, qubit_target, classical_destination: IndexedIdentifier
+        self,
+        path: SimulationPath,
+        qubit_target,
+        classical_destination: IndexedIdentifier,
+        classical_targets: Iterable[int],
     ) -> None:
-        """Update a single indexed classical variable on one path.
+        """Update an indexed classical variable on one path.
 
-        Handles the ``b[i] = measure q[j]`` case.
+        Handles the ``b[i] = measure q[j]`` case. ``classical_targets`` holds the destination
+        indices already resolved by the interpreter, one per measured qubit.
         """
         base_name = (
             classical_destination.name.name
             if hasattr(classical_destination.name, "name")
             else classical_destination.name
         )
-        index = self._resolve_index(classical_destination.indices)
-        meas_result = self._get_path_measurement_result(path, qubit_target[0])
         framed_var = self._ensure_path_variable(path, base_name)
-        self._set_value_at_index(framed_var.value, index, meas_result)
+        for qubit_idx, index in zip(qubit_target, classical_targets):
+            meas_result = self._get_path_measurement_result(path, qubit_idx)
+            self._set_value_at_index(framed_var.value, index, meas_result)
 
     def _update_identifier_target(
         self, path: SimulationPath, qubit_target, classical_destination: Identifier
@@ -2006,7 +2010,7 @@ class ProgramContext(AbstractProgramContext):
         classical_destination,
     ) -> None:
         self._measure_and_branch(target)
-        self._update_classical_from_measurement(target, classical_destination)
+        self._update_classical_from_measurement(target, classical_destination, classical_targets)
         if classical_targets is not None:
             self._circuit.add_measure(
                 target,

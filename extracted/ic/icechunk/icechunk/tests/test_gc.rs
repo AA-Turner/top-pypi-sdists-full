@@ -5,7 +5,7 @@ use std::{
 };
 
 use bytes::Bytes;
-use chrono::{DateTime, Utc};
+use chrono::{DateTime, TimeDelta, Utc};
 use futures::{StreamExt as _, TryStreamExt as _};
 use icechunk::{
     Repository, RepositoryConfig, Storage,
@@ -15,7 +15,7 @@ use icechunk::{
         ManifestSplitDim, ManifestSplitDimCondition, ManifestSplittingConfig,
     },
     format::{
-        ByteRange, ChunkIndices, Path, format_constants::SpecVersionBin,
+        ByteRange, ChunkIndices, Path, SnapshotId, format_constants::SpecVersionBin,
         manifest::ChunkPayload, snapshot::ArrayShape,
     },
     new_in_memory_storage,
@@ -23,7 +23,7 @@ use icechunk::{
     refs::Ref,
     repository::VersionInfo,
     session::get_chunk,
-    storage::latency::LatencyStorage,
+    storage::{ListInfo, latency::LatencyStorage},
 };
 use icechunk_macros::tokio_test;
 use pretty_assertions::assert_eq;
@@ -139,12 +139,7 @@ async fn do_test_gc(
 
     // verify doing gc without dangling objects doesn't change the repo
 
-    // GC compares the cutoff against each object's `created_at`, which on a real
-    // store is its second-precision, server-clock `LastModified`. Sleep so the
-    // cutoff clears second-truncation and clock skew (in-memory needs only 1ms;
-    // see `threshold_between_commits`).
-    tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-    let now = Utc::now();
+    let now = cutoff_after_all_listed(&repo).await?;
     let gc_config = GCConfig::clean_all(
         now,
         now,
@@ -202,15 +197,12 @@ async fn do_test_gc(
     }
 
     // Create 5 anonymous snapshots (detached, not on any branch). The first two
-    // are expired, the last three kept. Take the cutoff between the groups from
-    // `Utc::now()` after a sleep so it clears the second-truncation + clock skew
-    // of the server-side `created_at` (`LastModified`) that GC deletes by
+    // are expired, the last three kept. The sleep keeps anon[1] and anon[2] in
+    // different listed seconds.
     let mut anon_snaps = vec![];
-    let mut cutoff = None;
     for i in 0..5 {
         if i == 2 {
             tokio::time::sleep(std::time::Duration::from_secs(2)).await;
-            cutoff = Some(Utc::now());
         }
         let mut session = repo.writable_session("main").await?;
         let bytes = Bytes::copy_from_slice(&(100i8 + i as i8).to_be_bytes());
@@ -222,8 +214,11 @@ async fn do_test_gc(
         anon_snaps.push(snap_id);
     }
 
-    // anon[0..2] were created before the cutoff, anon[2..5] after it.
-    let cutoff = cutoff.expect("cutoff set at i == 2");
+    // One second past anon[1] deletes it whether the store lists whole seconds
+    // or milliseconds, and still precedes anon[2].
+    let listed = listed_snapshots(&repo).await?;
+    let anon1 = listed.iter().find(|s| s.id == anon_snaps[1]).expect("anon[1] is listed");
+    let cutoff = anon1.created_at + TimeDelta::seconds(1);
     let gc_config = GCConfig::clean_all(
         cutoff,
         cutoff,
@@ -243,6 +238,65 @@ async fn do_test_gc(
     }
 
     Ok(())
+}
+
+/// Tigris lists whole-second timestamps.
+/// The write falls anywhere inside the second the listing reports.
+/// GC must keep the object when the cutoff falls inside that second.
+#[tokio_test]
+#[ignore = "needs credentials from env"]
+async fn test_gc_cutoff_inside_listed_second_in_tigris()
+-> Result<(), Box<dyn std::error::Error>> {
+    let prefix = format!("test_cutoff_{}", Utc::now().timestamp_millis());
+    let storage = common::make_tigris_integration_storage(prefix)?;
+    let repo = Repository::create(None, Arc::clone(&storage), HashMap::new(), None, true)
+        .await?;
+    let mut session = repo.writable_session("main").await?;
+    session.add_group(Path::root(), Bytes::new()).await?;
+    session.commit("base").execute().await?;
+
+    let mut session = repo.writable_session("main").await?;
+    session.add_group(Path::try_from("/dangling").unwrap(), Bytes::new()).await?;
+    let dangling = session.commit("dangling").anonymous().execute().await?;
+
+    let listed = listed_snapshots(&repo).await?;
+    let created_at =
+        listed.iter().find(|s| s.id == dangling).expect("dangling is listed").created_at;
+
+    // The cutoff falls inside the listed second, after the write instant.
+    let cutoff = created_at + TimeDelta::milliseconds(500);
+
+    let gc_config = GCConfig::clean_all(
+        cutoff,
+        cutoff,
+        None,
+        NonZeroU16::new(50).unwrap(),
+        NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroU16::new(500).unwrap(),
+        false,
+    );
+    let summary =
+        garbage_collect(Arc::clone(repo.asset_manager()), &gc_config, None, 100).await?;
+    assert_eq!(summary.snapshots_deleted, 0);
+    repo.readonly_session(&VersionInfo::SnapshotId(dangling)).await?;
+
+    Ok(())
+}
+
+/// Cutoff past every listed snapshot, from the store clock.
+/// The extra second covers whole-second listings.
+async fn cutoff_after_all_listed(
+    repo: &Repository,
+) -> Result<DateTime<Utc>, Box<dyn std::error::Error>> {
+    let listed = listed_snapshots(repo).await?;
+    let newest = listed.iter().map(|s| s.created_at).max().expect("snapshots listed");
+    Ok(newest + TimeDelta::seconds(1))
+}
+
+async fn listed_snapshots(
+    repo: &Repository,
+) -> Result<Vec<ListInfo<SnapshotId>>, Box<dyn std::error::Error>> {
+    Ok(repo.asset_manager().list_snapshots().await?.try_collect().await?)
 }
 
 async fn branch_commit_messages(repo: &Repository, branch: &str) -> Vec<String> {
@@ -460,7 +514,7 @@ async fn do_test_expire_and_garbage_collect(
         Vec::from(["5", "Repository initialized"])
     );
 
-    let now = Utc::now();
+    let now = cutoff_after_all_listed(&repo).await?;
     let gc_config = GCConfig::clean_all(
         now,
         now,
@@ -769,8 +823,8 @@ async fn test_gc_retains_snapshot_between_flushed_and_created_at()
     let b = commit_group(&repo, "feat", "/b").await?;
     let c = commit_group(&repo, "feat", "/c").await?;
 
-    // Expire /b (both branch tips are protected): /c is re-parented to the
-    // root, harvesting pruned_ancestor_tx_logs = [a, b].
+    // Expire /b. Expiration keeps both branch tips. It re-parents /c to
+    // the root, so /c gets pruned_ancestor_tx_logs = [a, b].
     let result = expire(
         Arc::clone(&am),
         Utc::now() + chrono::Duration::days(1),
@@ -825,12 +879,155 @@ async fn test_gc_retains_snapshot_between_flushed_and_created_at()
     Ok(())
 }
 
+/// Expire never deletes files. `pruned_ancestor_tx_logs` lives only on the
+/// repo info, so the release of a snapshot destroys its pruned refs. GC
+/// deletes a tx log only when no repo-info snapshot owns or references it.
+/// The released snapshot's file can outlive its logs. A later GC removes
+/// the stranded file.
+#[tokio_test]
+async fn test_gc_deletes_pruned_tx_logs_of_expire_released_snapshot()
+-> Result<(), Box<dyn std::error::Error>> {
+    let inner: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
+    // Write latency separates the `created_at` of consecutive writes. The
+    // cutoff can then land between /b's tx log and /c's files.
+    let storage: Arc<dyn Storage + Send + Sync> =
+        Arc::new(LatencyStorage::new(inner, 20, 0));
+    let repo = Repository::create(None, Arc::clone(&storage), HashMap::new(), None, true)
+        .await?;
+    let am = Arc::clone(repo.asset_manager());
+
+    let a = commit_group(&repo, "main", "/a").await?;
+    repo.create_branch("feat", &a).await?;
+    let b = commit_group(&repo, "feat", "/b").await?;
+    let c = commit_group(&repo, "feat", "/c").await?;
+
+    // Expire /b. Expiration keeps both branch tips. It re-parents /c to
+    // the root, so /c gets pruned_ancestor_tx_logs = [a, b].
+    let result = expire(
+        Arc::clone(&am),
+        Utc::now() + chrono::Duration::days(1),
+        ExpiredRefAction::Ignore,
+        ExpiredRefAction::Ignore,
+        None,
+        100,
+    )
+    .await?;
+    assert_eq!(result.released_snapshots.len(), 1);
+    assert!(result.edited_snapshots.contains(&c));
+    let (repo_info, _) = am.fetch_repo_info().await?;
+    assert_eq!(
+        repo_info.find_snapshot(&c)?.pruned_ancestor_tx_logs,
+        vec![a.clone(), b.clone()]
+    );
+
+    // Run GC while /c still holds the refs. The refs protect the tx logs
+    // of /a and /b, so GC deletes no tx log. The released snapshot file of
+    // /b is unprotected garbage, and GC removes it.
+    let now = Utc::now();
+    let gc_config = GCConfig::clean_all(
+        now,
+        now,
+        None,
+        NonZeroU16::new(50).unwrap(),
+        NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroU16::new(500).unwrap(),
+        false,
+    );
+    let summary = garbage_collect(Arc::clone(&am), &gc_config, None, 100).await?;
+    assert_eq!(summary.snapshots_deleted, 1);
+    assert_eq!(summary.transaction_logs_deleted, 0);
+    am.fetch_transaction_log(&a).await?;
+    am.fetch_transaction_log(&b).await?;
+
+    // Drop the feat ref and expire again. The expiration releases /c from
+    // the repo info and destroys its pruned refs. The file of /c stays on
+    // disk.
+    repo.delete_branch("feat").await?;
+    let result = expire(
+        Arc::clone(&am),
+        Utc::now() + chrono::Duration::days(1),
+        ExpiredRefAction::Ignore,
+        ExpiredRefAction::Ignore,
+        None,
+        100,
+    )
+    .await?;
+    assert!(result.released_snapshots.contains(&c));
+
+    // Set the cutoff just below the `created_at` of /c's files. The delete
+    // window then contains /b's tx log but not /c's files.
+    let c_snapshot_created_at = am
+        .list_snapshots()
+        .await?
+        .try_collect::<Vec<_>>()
+        .await?
+        .into_iter()
+        .find(|s| s.id == c)
+        .expect("snapshot /c not listed")
+        .created_at;
+    let c_tx_created_at = am
+        .list_transaction_logs()
+        .await?
+        .try_collect::<Vec<_>>()
+        .await?
+        .into_iter()
+        .find(|t| t.id == c)
+        .expect("tx log /c not listed")
+        .created_at;
+    let cutoff = c_snapshot_created_at.min(c_tx_created_at);
+    let gc_config = GCConfig::clean_all(
+        cutoff,
+        cutoff,
+        None,
+        NonZeroU16::new(50).unwrap(),
+        NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroU16::new(500).unwrap(),
+        false,
+    );
+    let summary = garbage_collect(Arc::clone(&am), &gc_config, None, 100).await?;
+
+    // GC deletes only /b's tx log: no repo-info snapshot references it
+    // anymore. /a's log survives as the tip of main. /c's files are too
+    // new for the gate, and /b's snapshot file is already gone.
+    assert_eq!(summary.snapshots_deleted, 0);
+    assert_eq!(summary.transaction_logs_deleted, 1);
+    assert!(am.fetch_transaction_log(&b).await.is_err());
+    am.fetch_transaction_log(&a).await?;
+
+    // The snapshot file of /c stays on disk. The repo info no longer
+    // contains /c.
+    let on_disk: Vec<_> = am.list_snapshots().await?.try_collect().await?;
+    assert!(on_disk.iter().any(|s| s.id == c));
+    let (repo_info, _) = am.fetch_repo_info().await?;
+    assert!(repo_info.find_snapshot(&c).is_err());
+
+    // A follow-up GC whose cutoff passes /c's files removes the stranded
+    // snapshot file and its tx log.
+    let now = Utc::now();
+    let gc_config = GCConfig::clean_all(
+        now,
+        now,
+        None,
+        NonZeroU16::new(50).unwrap(),
+        NonZeroUsize::new(512 * 1024 * 1024).unwrap(),
+        NonZeroU16::new(500).unwrap(),
+        false,
+    );
+    let summary = garbage_collect(Arc::clone(&am), &gc_config, None, 100).await?;
+    assert_eq!(summary.snapshots_deleted, 1);
+    assert_eq!(summary.transaction_logs_deleted, 1);
+    let on_disk: Vec<_> = am.list_snapshots().await?.try_collect().await?;
+    assert!(!on_disk.iter().any(|s| s.id == c));
+    assert!(am.fetch_transaction_log(&c).await.is_err());
+    Ok(())
+}
+
 /// Commit a single new group on `branch` and return the new snapshot id.
 async fn commit_group(
     repo: &Repository,
     branch: &str,
     path: &str,
-) -> Result<icechunk::format::SnapshotId, Box<dyn std::error::Error>> {
+) -> Result<SnapshotId, Box<dyn std::error::Error>> {
     let mut session = repo.writable_session(branch).await?;
     let path = if path == "/" { Path::root() } else { Path::try_from(path).unwrap() };
     session.add_group(path, Bytes::new()).await?;
@@ -1513,5 +1710,76 @@ async fn test_expire_deletes_branch_sharing_tip_with_main()
     assert!(branches.contains("main"));
     assert!(!branches.contains("feature"));
 
+    Ok(())
+}
+
+/// GC deadlocked when freed decode permits went to snapshot fetches nobody polled any more.
+#[tokio_test]
+async fn test_gc_completes_with_one_decode_slot() -> Result<(), Box<dyn std::error::Error>>
+{
+    let inner: Arc<dyn Storage + Send + Sync> = new_in_memory_storage().await?;
+    // Without read latency every fetch completes at once and the deadlock never forms.
+    let storage: Arc<dyn Storage + Send + Sync> =
+        Arc::new(LatencyStorage::new(inner, 0, 5));
+    let repo = Repository::create(
+        Some(RepositoryConfig {
+            inline_chunk_threshold_bytes: Some(0),
+            ..Default::default()
+        }),
+        Arc::clone(&storage),
+        HashMap::new(),
+        None,
+        true,
+    )
+    .await?;
+    let arrays: Vec<Path> =
+        (0..3).map(|i| format!("/array{i}").try_into().unwrap()).collect();
+    let mut session = repo.writable_session("main").await?;
+    session.add_group(Path::root(), Bytes::new()).await?;
+    for path in &arrays {
+        session
+            .add_array(
+                path.clone(),
+                ArrayShape::new(vec![(100, 100)]).unwrap(),
+                None,
+                Bytes::new(),
+            )
+            .await?;
+    }
+    session.commit("arrays").execute().await?;
+    for idx in 0..100u32 {
+        let mut session = repo.writable_session("main").await?;
+        for path in &arrays {
+            let payload =
+                session.get_chunk_writer()?(Bytes::from(vec![idx as u8; 8])).await?;
+            session
+                .set_chunk_ref(path.clone(), ChunkIndices(vec![idx]), Some(payload))
+                .await?;
+        }
+        session.commit(format!("commit {idx}")).execute().await?;
+    }
+
+    // The writing repository has everything cached; GC must fetch and decode.
+    let repo = Repository::open(
+        Some(RepositoryConfig { max_concurrent_decodes: Some(1), ..Default::default() }),
+        Arc::clone(&storage),
+        HashMap::new(),
+    )
+    .await?;
+    let config = GCConfig::clean_all(
+        Utc::now(),
+        Utc::now(),
+        None,
+        NonZeroU16::new(25).unwrap(),
+        NonZeroUsize::new(64 * 1024 * 1024).unwrap(),
+        NonZeroU16::new(8).unwrap(),
+        true,
+    );
+    let summary = tokio::time::timeout(
+        std::time::Duration::from_secs(120),
+        garbage_collect(Arc::clone(repo.asset_manager()), &config, None, 100),
+    )
+    .await??;
+    assert_eq!(summary.snapshots_deleted, 0);
     Ok(())
 }

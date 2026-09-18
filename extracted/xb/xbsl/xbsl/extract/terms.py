@@ -41,6 +41,7 @@ import re
 import struct
 import zipfile
 from collections import Counter, defaultdict
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from xbsl.extract import _distro, classcode
@@ -219,17 +220,64 @@ def _dominant(counter: Counter) -> str | None:
     return None
 
 
+@dataclass
+class ManagerEvidence:
+    """What the compiled classes say about the metaobjects built for elements of a project.
+
+    `constructed` - the metaobject classes (`<Name>CtMetaObject`) a class of the compiler
+    constructs from a project type, the type the compiler gives one element of a project;
+    `stated` - {such a class: {Russian member: English}} of the terms its own code builds.
+    Filled by _scan_meta_objects, judged by manager_owners.
+
+    Both are keyed by the FULL internal name of the class, package and all. Kept by the simple
+    name, two namesakes in different packages were one row: the first one met decided what the
+    pair "states", and a class that states nothing could be joined to a kind on the terms of a
+    namesake nothing constructs.
+    """
+
+    constructed: set[str] = field(default_factory=set)
+    stated: dict[str, dict[str, str]] = field(default_factory=dict)
+
+
+#: The suffix of a compile-time metaobject class and of the type of one element of a project.
+_CT_META_SUFFIX = "CtMetaObject"
+_PROJECT_TYPE_ARGUMENT_RE = re.compile(r"L[\w/$]+G5ProjectType;")
+
+
+def _note_manager_evidence(managers: ManagerEvidence, class_name: str, data: bytes) -> None:
+    """Record what the class `class_name` (full internal name) says about project metaobjects."""
+    if b"G5ProjectType" in data and _CT_META_SUFFIX.encode() in data:
+        for built, descriptor in classcode.constructions(data):
+            parameters = descriptor.partition(")")[0]
+            if built.endswith(_CT_META_SUFFIX) and _PROJECT_TYPE_ARGUMENT_RE.search(parameters):
+                managers.constructed.add(built)
+    if not class_name.endswith(_CT_META_SUFFIX) or class_name in managers.stated:
+        return
+    stated: dict[str, str] = {}
+    for called, pushed in classcode.builder_calls(data):
+        if len(pushed) < 2:
+            continue
+        if not any(called.endswith(factory) for factory in classcode.TERM_FACTORIES):
+            continue
+        english, russian = pushed[-2], pushed[-1]
+        if _is_term_pair(english, russian):
+            stated[russian] = english
+    managers.stated[class_name] = stated
+
+
 def _scan_meta_objects(
-    car: zipfile.ZipFile,
+    car: zipfile.ZipFile, managers: ManagerEvidence | None = None,
 ) -> tuple[dict[str, dict[str, str]], dict[str, str], dict[str, str]]:
     """({owner type: {ru: en}}, {ru: en}, {ru type: en type}) from the compiled classes.
 
     The third table is the types the classes DECLARE as terms (see _declared_type) - the
     pairs of the types the reference pages never describe. The flat table is the
     neighbourhood's, and the terms the classes state answer where it settled nothing.
+    `managers`, when given, collects on the same walk what manager_owners needs.
 
     A class without a single Cyrillic byte cannot hold a pair and is skipped before parsing -
-    that check alone drops the overwhelming majority of the classes.
+    that check alone drops the overwhelming majority of the classes. The classes that construct
+    the metaobjects hold no pair and are read before that check.
     """
     members: dict[str, dict[str, str]] = defaultdict(dict)
     variants: dict[str, Counter] = defaultdict(Counter)
@@ -249,6 +297,8 @@ def _scan_meta_objects(
                 data = jar.read(inner)
             except (zipfile.BadZipFile, KeyError):
                 continue
+            if managers is not None:
+                _note_manager_evidence(managers, inner[:-len(".class")], data)
             if b"\xd0" not in data and b"\xd1" not in data:
                 continue
             strings = _constant_pool(data)
@@ -320,9 +370,133 @@ def _scan_meta_objects(
             common[ru] = best
     return (
         {owner: dict(sorted(names.items())) for owner, names in sorted(members.items())},
-        common,
+        # Sorted like its neighbours above and below: `common` is filed in SCAN order (as a
+        # class of the distribution happens to be read), and terms_full.json wrote it that way
+        # verbatim - a re-extraction that changed no spelling still moved hundreds of unrelated
+        # lines, because the scan order of the same distribution is not the alphabet.
+        dict(sorted(common.items())),
         dict(sorted(declared_types.items())),
     )
+
+
+def manager_owners(
+    car: zipfile.ZipFile, members: dict[str, dict[str, str]], managers: ManagerEvidence,
+) -> dict[str, str]:
+    """{Russian element kind: the owner of `members` that spells the manager of that kind}.
+
+    A project names an element and calls the methods of its manager on the name:
+    `ПравоНаОтчеты.Проверить()`. The pair of such a method is in the members table, but
+    under the class of the compiler that builds the manager (`PrivilegeOnActionManager`), and
+    nothing else in the data joins that class to the kind. The kind's own name does not lead
+    there: the manager of a catalog is not the only class named after a catalog, and the
+    manager of a privilege on action is built by the environment of the access keys, which picks
+    it by a flag of the project type - no rule of names reads that.
+
+    So the join is stated only where three sources of the distribution say the same thing:
+    - the compiler builds the metaobject class from the project type of an element (a class
+      constructs it with such a type among the arguments of the constructor);
+    - the class builds the terms of the manager's members itself;
+    - the template of the kind documents exactly those members: the Russian names in the
+      help page of the template (`<Kind>Name_ru`), the English ones in the language-server
+      page of the same template, which the compiler generated from the template project.
+    The members row of the owner must hold those pairs and nothing else - the runtime answers
+    from the whole row. A kind two classes fit, or a class two kinds fit, is left out: the
+    manager is then not proven, and the call stays the gap it was.
+    """
+    from xbsl.extract import stdlib  # the template pages and their kinds are read there
+
+    kinds, _unmapped = stdlib._template_kinds(car)
+    entries = set(car.namelist())
+    markdown = _template_markdown_pages(car)
+    owners_of_kind: dict[str, set[str]] = {}
+    kinds_of_owner: dict[str, set[str]] = {}
+    for template, kind in sorted(kinds.items()):
+        page = f"{stdlib.TEMPLATE_BASE}{template}_ru/index.html"
+        if page not in entries or template not in markdown:
+            continue
+        props, methods, events = stdlib.page_members(
+            car.read(page).decode("utf-8", "replace"), inherited=False)
+        russian = props | methods | events
+        english = _template_markdown_members(markdown[template], template)
+        if not russian or not english:
+            continue
+        for class_name in sorted(managers.constructed):
+            stated = managers.stated.get(class_name) or {}
+            owner = _META_SUFFIX.sub("", class_name.rsplit("/", 1)[-1])
+            if (stated and set(stated) == russian and set(stated.values()) == english
+                    and members.get(owner) == stated):
+                owners_of_kind.setdefault(kind, set()).add(owner)
+                kinds_of_owner.setdefault(owner, set()).add(kind)
+    out: dict[str, str] = {}
+    for kind, found in sorted(owners_of_kind.items()):
+        owner = next(iter(found))
+        if len(found) == 1 and len(kinds_of_owner[owner]) == 1:
+            out[kind] = owner
+    return out
+
+
+def _template_parts() -> list[str]:
+    """`DeveloperName`, `ProjectName`, `SubsystemName` - where the templates of the kinds live."""
+    from xbsl.extract import stdlib
+
+    return stdlib.TEMPLATE_BASE.rstrip("/").split("/")[-3:]
+
+
+def _template_markdown_pages(car: zipfile.ZipFile) -> dict[str, str]:
+    """{template: the language-server page of its own type} (`PrivilegeOnActionName`)."""
+    from xbsl.extract import stdlib
+
+    prefix = stdlib.LSP_DOCS_BASE + "_".join(_template_parts()) + "_"
+    pages: dict[str, str] = {}
+    for entry in car.namelist():
+        if not entry.endswith(".jar") or not stdlib.LSP_JAR_RE.search(entry):
+            continue
+        try:
+            jar = zipfile.ZipFile(io.BytesIO(car.read(entry)))
+        except (zipfile.BadZipFile, KeyError):
+            continue
+        for inner in jar.namelist():
+            template = inner[len(prefix):-len(".md")] if inner.startswith(prefix) else ""
+            if not inner.endswith(".md") or not template or "." in template:
+                continue  # a facet of a template (`Name.Object`) is not the template's own type
+            pages.setdefault(template, jar.read(inner).decode("utf-8", "replace"))
+    return pages
+
+
+_MD_HEADING_RE = re.compile(r"^# ([^#\n]+)#([^\n]+)$", re.M)
+_MD_DEFINED_RE = re.compile(r"^\*\*Определен:\*\*\s*\*\*([^*\n]+)\*\*", re.M)
+
+
+def _template_markdown_members(text: str, template: str) -> set[str]:
+    """The English names of the members the template's own type declares on its page.
+
+    Each member heading is followed by the type that defines it. The type's own name is the
+    one most members name - an inherited member names its ancestor - and a constructor is
+    named after the type itself, which is no member.
+    """
+    qualified = "::".join((*_template_parts(), template))
+    found: list[tuple[str, str]] = []
+    for match in _MD_HEADING_RE.finditer(text):
+        if match.group(1).strip() != qualified:
+            continue
+        defined = _MD_DEFINED_RE.search(text, match.end())
+        following = _MD_HEADING_RE.search(text, match.end())
+        owner = defined.group(1) if defined and (
+            following is None or defined.start() < following.start()) else ""
+        found.append((match.group(2).strip(), owner))
+    owners = [owner for _member, owner in found if owner]
+    if not owners:
+        return set()
+    # A genuine tie (two owners naming the same number of methods) has to be broken the same
+    # way every run: `set(owners)` iterates in a per-process hash order, so the same page used
+    # to hand different runs of `xbsl extract` a different owner - and with it a different
+    # member set - for no reason the distribution gives. Sorting the candidates first makes
+    # `max` fall back to the alphabetically earliest one, deterministically.
+    own = max(sorted(set(owners)), key=owners.count)
+    return {
+        member.split("(", 1)[0] for member, owner in found
+        if owner == own and not member.startswith(qualified)
+    }
 
 
 #: The serializer's own element-kind enum: what an English project writes into ElementKind.
@@ -334,6 +508,14 @@ _KIND_EN_RE = re.compile(r"^[A-Z][0-9A-Za-z]*$")
 _CYRILLIC_RE = re.compile(r"[А-Яа-яЁё]")
 
 
+def _kind_pairs(strings: list[str]) -> dict[str, str]:
+    """{Russian element kind: English spelling} from adjacent constant-pool strings."""
+    return {
+        ru: en for en, ru in zip(strings, strings[1:])
+        if _KIND_EN_RE.match(en) and _KIND_RU_RE.match(ru) and _CYRILLIC_RE.search(ru)
+    }
+
+
 def scan_kind_table(car: zipfile.ZipFile) -> dict[str, str]:
     """{Russian element kind: English spelling} from the serializer's kind enum, or empty.
 
@@ -342,7 +524,14 @@ def scan_kind_table(car: zipfile.ZipFile) -> dict[str, str]:
     mapping kinds through the dictionary lost such objects from every by-kind view. The
     enum class pairs the spellings the same way the type classes do: the English constant
     right before the Russian one.
+
+    A distribution may carry several copies of the enum. The first one in archive order is
+    often a rearranged constant pool whose pair walk yields only `HttpСервис` and
+    `SoapСервис`; among the copies the fullest table is the one the rest of the extractor
+    needs. The walk does not depend on the platform version: it was seen at least on
+    9.2.9+12 and 9.3.1+4, and a later build is handled the same way.
     """
+    best: dict[str, str] = {}
     for entry in car.namelist():
         if not entry.endswith(".jar") or not _PLATFORM_JAR_RE.search(entry):
             continue
@@ -353,12 +542,10 @@ def scan_kind_table(car: zipfile.ZipFile) -> dict[str, str]:
         for inner in jar.namelist():
             if not inner.endswith("/" + _KIND_ENUM_CLASS):
                 continue
-            strings = _constant_pool(jar.read(inner))
-            return {
-                ru: en for en, ru in zip(strings, strings[1:])
-                if _KIND_EN_RE.match(en) and _KIND_RU_RE.match(ru) and _CYRILLIC_RE.search(ru)
-            }
-    return {}
+            table = _kind_pairs(_constant_pool(jar.read(inner)))
+            if len(table) > len(best):
+                best = table
+    return best
 
 
 #: The query language is a separate grammar (TreeSQL); its keyword pairs live in one class.
@@ -490,9 +677,11 @@ def extract(dist: Path) -> tuple[dict[str, dict[str, str]], dict[str, set[str]]]
                     continue
 
     with zipfile.ZipFile(car) as z:
-        members, common, declared_types = _scan_meta_objects(z)
+        managers = ManagerEvidence()
+        members, common, declared_types = _scan_meta_objects(z, managers)
         query = _scan_query_terms(z)
         kind_table = scan_kind_table(z)
+        manager_table = manager_owners(z, members, managers)
 
     # A type the reference pages never describe is still paired by its own classes: the
     # favorites branch has no page and had no row here, so a receiver of that type found no
@@ -510,7 +699,7 @@ def extract(dist: Path) -> tuple[dict[str, dict[str, str]], dict[str, set[str]]]
     return {
         "types": types, "facets": facets, "properties": properties, "enums": enums,
         "members": members, "common": common, "query": query, "kinds": kind_table,
-        "class_types": class_types,
+        "class_types": class_types, "manager_owners": manager_table,
     }, conflicts
 
 
@@ -541,7 +730,8 @@ def main(argv=None) -> None:
     small = {"meta": meta, **{name: dict(sorted(sections[name].items()))
                               for name in ("types", "facets", "properties", "enums", "query",
                                            "kinds")}}
-    full = {"meta": meta, "members": sections["members"], "common": sections["common"]}
+    full = {"meta": meta, "members": sections["members"], "common": sections["common"],
+            "manager_owners": sections["manager_owners"]}
 
     version_dir = _distro.version_dir(version)
     version_dir.mkdir(parents=True, exist_ok=True)
@@ -564,6 +754,9 @@ def main(argv=None) -> None:
     print(f"  kinds: {len(sections['kinds'])} видов элементов (написания сериализатора)")
     print(f"Записано: {out_full}")
     print(f"  members: {len(sections['members'])} типов, common: {len(sections['common'])} имён")
+    owners = sections["manager_owners"]
+    listed = ", ".join(f"{kind} -> {owner}" for kind, owner in owners.items())
+    print(f"  manager_owners: {len(owners)} видов элементов" + (f" ({listed})" if listed else ""))
 
 
 if __name__ == "__main__":

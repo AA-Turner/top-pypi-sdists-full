@@ -12,6 +12,12 @@ import pytest
 from coord import network
 from coord.models import Machine
 
+# #3371: captured at import time, i.e. before `tests/conftest.py`'s autouse
+# `_no_agent_credential_probe` swaps the module attribute for a fail-open stub.
+# `TestClaudeCredentialReachable` below restores this real callable for its own
+# tests only; see that class's fixture.
+_REAL_CLAUDE_CREDENTIAL_REACHABLE = network.claude_credential_reachable
+
 
 def _m(
     name: str = "laptop", host: str = "laptop.tailnet", *, health_timeout: float | None = None
@@ -494,3 +500,83 @@ class TestCheckHostResolution:
         with patch.object(network, "resolve_host_ip", return_value="100.118.111.76"):
             result = network.check_host_resolution(machine, ts_map)
         assert result.matches is True
+
+
+class TestClaudeCredentialReachable:
+    """#3371: the live half of the single source of truth — is a machine's
+    claude credential NOT confirmed dead right now."""
+
+    @pytest.fixture(autouse=True)
+    def _real_credential_probe(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        """Undo `tests/conftest.py`'s global `_no_agent_credential_probe`
+        stub for this class only.
+
+        That stub keeps the ~dozen production call sites that hardcode
+        `claude_credential_reachable` from firing live `/health` GETs at
+        fixture hostnames like `laptop.tailnet`. This class is the one
+        place that must exercise the real function, and it does so
+        hermetically by patching `network.httpx.get`. A class-level autouse
+        fixture is instantiated after the conftest-level one of the same
+        scope, so this re-patch wins.
+        """
+        monkeypatch.setattr(
+            network, "claude_credential_reachable", _REAL_CLAUDE_CREDENTIAL_REACHABLE
+        )
+
+    def test_the_global_stub_is_overridden_here(self) -> None:
+        """Guard the fixture above: if conftest's autouse stub ever won the
+        ordering race, every other test in this class would silently assert
+        against `lambda *a, **k: True` and pass for the wrong reason."""
+        assert network.claude_credential_reachable is _REAL_CLAUDE_CREDENTIAL_REACHABLE
+
+    def test_dead_credential_reports_false(self) -> None:
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = {
+            "tool_versions": {
+                "claude": {"found": False, "ok": False, "capability": None},
+            },
+        }
+        with patch.object(network.httpx, "get", return_value=resp):
+            assert network.claude_credential_reachable(_m()) is False
+
+    def test_healthy_credential_reports_true(self) -> None:
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = {
+            "tool_versions": {
+                "claude": {"found": True, "ok": True, "capability": None},
+            },
+        }
+        with patch.object(network.httpx, "get", return_value=resp):
+            assert network.claude_credential_reachable(_m()) is True
+
+    def test_missing_tool_versions_fails_open(self) -> None:
+        """An agent that predates #3326's probe (no `claude` entry at all,
+        or no `tool_versions` key) must not be newly treated as dead."""
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.return_value = {"machine": "laptop"}
+        with patch.object(network.httpx, "get", return_value=resp):
+            assert network.claude_credential_reachable(_m()) is True
+
+    def test_network_error_fails_open(self) -> None:
+        """A probe that CAN'T answer must never itself exclude a host —
+        only a probe that answers "dead" may (see the module docstring)."""
+        with patch.object(
+            network.httpx, "get", side_effect=httpx.ConnectTimeout("slow")
+        ):
+            assert network.claude_credential_reachable(_m()) is True
+
+    def test_non_200_fails_open(self) -> None:
+        resp = MagicMock()
+        resp.status_code = 500
+        with patch.object(network.httpx, "get", return_value=resp):
+            assert network.claude_credential_reachable(_m()) is True
+
+    def test_invalid_json_fails_open(self) -> None:
+        resp = MagicMock()
+        resp.status_code = 200
+        resp.json.side_effect = ValueError("nope")
+        with patch.object(network.httpx, "get", return_value=resp):
+            assert network.claude_credential_reachable(_m()) is True

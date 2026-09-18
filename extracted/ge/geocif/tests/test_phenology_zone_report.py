@@ -295,6 +295,44 @@ class TestCurrentVsHistory(unittest.TestCase):
             self.assertTrue(np.isnan(west[column]), column)
         self.assertEqual(west.window_opens, "2027-01-30")
 
+    def test_which_side_of_the_window_is_reported(self):
+        """A low in-window share is unreadable without the side it fell on.
+
+        Kenya West 2026: 100 % of cropland started BEFORE the window, a median
+        57 days ahead of the calendar date. Its 0 % in-window share and 6.7th
+        percentile read as a failed season unless the split is published.
+        """
+        # west starts 40 d early (outside), east 40 d late (outside)
+        current = np.array([[-40, -40, 40, 40], [-40, -40, 40, 40]], dtype="float64")
+        out = zr.current_vs_history(
+            current, self.history, ZONE_ID, ZONE_NAMES, WEIGHTS,
+            as_of=dt.date(2026, 6, 1), planting_dates=self.plant,
+            harvest_year=2026, window_days=30,
+        )
+        west = out[out.zone == "west"].iloc[0]
+        east = out[out.zone == "east"].iloc[0]
+        self.assertAlmostEqual(west.share_in_window, 0.0)
+        self.assertAlmostEqual(west.share_before_window, 1.0)   # early, not absent
+        self.assertAlmostEqual(west.share_after_window, 0.0)
+        self.assertAlmostEqual(east.share_before_window, 0.0)
+        self.assertAlmostEqual(east.share_after_window, 1.0)    # late
+        # both started; only the timing differs
+        self.assertAlmostEqual(west.share_started, 1.0)
+        self.assertAlmostEqual(east.share_started, 1.0)
+
+    def test_the_three_shares_account_for_everything_that_started(self):
+        rng = np.random.default_rng(3)
+        current = rng.normal(0, 40, size=(2, 4))
+        out = zr.current_vs_history(
+            current, self.history, ZONE_ID, ZONE_NAMES, WEIGHTS,
+            as_of=dt.date(2026, 6, 1), planting_dates=self.plant,
+            harvest_year=2026, window_days=30,
+        )
+        for _, row in out.iterrows():
+            total = (row.share_before_window + row.share_in_window
+                     + row.share_after_window)
+            self.assertAlmostEqual(total, row.share_started, places=9, msg=row.zone)
+
     def test_a_missing_planting_date_is_not_open_not_a_crash(self):
         out = zr.current_vs_history(
             np.zeros((2, 4)), self.history, ZONE_ID, ZONE_NAMES, WEIGHTS,

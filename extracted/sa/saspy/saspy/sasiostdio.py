@@ -3508,16 +3508,17 @@ Will use HTML5 for this SASsession.""")
                                      sep=colsep, lineterminator=rowsep, dtype=dts, na_values=miss, keep_default_na=False,
                                      encoding='utf-8', quoting=quoting, **kwargs)
 
-                    for col in df.columns:
-                        if df[col].isnull().all():
-                            df[col] = df[col].astype(dts[col])
-                            df[col] = np.nan
+                    if not custom_schema:  # from_pandas(schema=...) already handles all-null columns correctly
+                        for col in df.columns:
+                            if df[col].isnull().all():
+                                df[col] = df[col].astype(dts[col])
+                                df[col] = np.nan
 
                     rows_read += len(df)
                     if static_columns:
                         df[[col[0] for col in static_columns]] = tuple([col[1] for col in static_columns])
 
-                    if k_dts is None:  # don't override these if user provided their own dtypes
+                    if k_dts is None and not custom_schema:  # don't override these if user provided their own dtypes or schema
                         for i in range(nvars):
                             if vartype[i] == 'N':
                                 if varcat[i] in self._sb.sas_date_fmts + self._sb.sas_time_fmts + self._sb.sas_datetime_fmts:
@@ -3917,19 +3918,7 @@ Will use HTML5 for this SASsession.""")
                         for i in ts_cols:
                             col_name = dvarlist[i]
                             str_col = pa_table.column(col_name)
-                            if varcat[i] in self._sb.sas_date_fmts:
-                                fmt = '%Y-%m-%d'
-                            elif varcat[i] in self._sb.sas_time_fmts:
-                                fmt = '%H:%M:%S.%f'
-                            else:
-                                fmt = '%Y-%m-%dT%H:%M:%S.%f'
-                            try:
-                                ts_col = pc.strptime(str_col, format=fmt, unit='ms', error_is_null=coerce_timestamp_errors)
-                            except Exception:
-                                if not coerce_timestamp_errors:
-                                    raise ValueError(f"The column {col_name} contains an unparseable timestamp. "
-                                       "Set coerce_timestamp_errors=True to cast as Null")
-                                ts_col = pc.strptime(str_col, format=fmt, unit='ms', error_is_null=True)
+                            ts_col = self._sb._parse_sas_ts_string(str_col, varcat[i], col_name, coerce_timestamp_errors)
                             pa_table = pa_table.set_column(pa_table.column_names.index(col_name), col_name, ts_col)
 
                     # Ensure schema matches for concat

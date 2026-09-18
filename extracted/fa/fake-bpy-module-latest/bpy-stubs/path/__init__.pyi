@@ -82,12 +82,20 @@ def ensure_ext(filepath: str, ext: str, *, case_sensitive: bool = False) -> str:
     """
 
 def is_autoexec(
-    path: bytes | str, *, canonicalize: bool = False, strip_filename: bool = False
+    path: bytes | str,
+    *,
+    skip_overrides: bool = False,
+    canonicalize: bool = False,
+    strip_filename: bool = False,
 ) -> bool:
     """Return false when a directory is excluded from running scripts automatically,
     see `bpy.types.PreferencesFilePaths.autoexec_paths`.
 
-        :param path: The directory to check, expected to end with a path separator.
+        :param path: The directory to check, expected to end with a path separator,
+    must not be empty.
+        :param skip_overrides: Only check the excluded paths, skipping the preference to enable
+    automatic script execution & any command line override.
+    When false, the result is the default for "Trusted Source" when opening the path.
         :param canonicalize: Resolve the path first,
     disable when its known to be resolved.
         :param strip_filename: Use the directory of path, otherwise it is a directory already.

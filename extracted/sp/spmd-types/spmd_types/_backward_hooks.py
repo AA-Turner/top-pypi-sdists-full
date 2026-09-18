@@ -97,10 +97,22 @@ def install() -> None:
     if _orig_setup_input_hook is not None:
         return
 
-    from spmd_types._checker import register_autograd_function
+    def _spmd_typecheck(outputs, *, args):
+        # BackwardHookFunction is the identity on its tensor arguments: each
+        # output carries its input's type and sharding (rules imports runtime,
+        # so import lazily here).
+        from spmd_types import rules
 
-    BackwardHookFunction.typecheck_forward = staticmethod(BackwardHookFunction.apply)
-    register_autograd_function(BackwardHookFunction)
+        if len(outputs) != len(args):
+            raise SpmdTypeError(
+                "BackwardHookFunction returned a different number of values than "
+                f"it received ({len(outputs)} vs. {len(args)})"
+            )
+        for out, arg in zip(outputs, args):
+            if isinstance(out, torch.Tensor) and isinstance(arg, torch.Tensor):
+                rules.einsum("...->...", arg, linear_in=(0,), out=out)
+
+    BackwardHookFunction.spmd_typecheck = staticmethod(_spmd_typecheck)
 
     _orig_setup_input_hook = _torch_hooks.BackwardHook.setup_input_hook
     _orig_setup_output_hook = _torch_hooks.BackwardHook.setup_output_hook

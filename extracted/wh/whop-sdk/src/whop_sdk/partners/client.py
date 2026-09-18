@@ -7,6 +7,7 @@ import typing
 from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
+from ..types.partner import Partner
 from .raw_client import AsyncRawPartnersClient, RawPartnersClient
 from .types.create_partners_response import CreatePartnersResponse
 from .types.leaderboard_partners_request_period import LeaderboardPartnersRequestPeriod
@@ -16,6 +17,7 @@ from .types.referred_users_partners_response_data_item import ReferredUsersPartn
 
 if typing.TYPE_CHECKING:
     from .businesses.client import AsyncBusinessesClient, BusinessesClient
+    from .links.client import AsyncLinksClient, LinksClient
 
 
 class PartnersClient:
@@ -23,6 +25,7 @@ class PartnersClient:
         self._raw_client = RawPartnersClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
         self._businesses: typing.Optional[BusinessesClient] = None
+        self._links: typing.Optional[LinksClient] = None
 
     @property
     def with_raw_response(self) -> RawPartnersClient:
@@ -54,7 +57,7 @@ class PartnersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -90,7 +93,7 @@ class PartnersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -122,16 +125,16 @@ class PartnersClient:
             When true, only referred users with at least one business that has generated earnings.
 
         first : typing.Optional[int]
-            Number of referred users to return from the start of the window.
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            Cursor to fetch the page after (from page_info.end_cursor).
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            Number of referred users to return from the end of the window.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            Cursor to fetch the page before (from page_info.start_cursor).
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -146,7 +149,7 @@ class PartnersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -167,6 +170,39 @@ class PartnersClient:
             request_options=request_options,
         )
 
+    def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Partner:
+        """
+        Retrieves the authenticated user's public profile, enrollment date, partner verification timestamp, verification waitlist status, active direct business referral count, and default payout rates. Use me or the authenticated user's own user ID; other users are not accessible. Users who have not enrolled have a null joined_at. Retrieve referral URLs and promotion links from GET /partners/links.
+
+        Parameters
+        ----------
+        id : str
+            The authenticated partner's user ID, prefixed user_, or me. Other users' profiles are not accessible.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Partner
+            partner retrieved
+
+        Examples
+        --------
+        from whop_sdk import Whop
+
+        client = Whop(
+            "2026-09-15",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+        client.partners.retrieve(
+            id="me",
+        )
+        """
+        _response = self._raw_client.retrieve(id, request_options=request_options)
+        return _response.data
+
     @property
     def businesses(self):
         if self._businesses is None:
@@ -175,12 +211,21 @@ class PartnersClient:
             self._businesses = BusinessesClient(client_wrapper=self._client_wrapper)
         return self._businesses
 
+    @property
+    def links(self):
+        if self._links is None:
+            from .links.client import LinksClient  # noqa: E402
+
+            self._links = LinksClient(client_wrapper=self._client_wrapper)
+        return self._links
+
 
 class AsyncPartnersClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._raw_client = AsyncRawPartnersClient(client_wrapper=client_wrapper)
         self._client_wrapper = client_wrapper
         self._businesses: typing.Optional[AsyncBusinessesClient] = None
+        self._links: typing.Optional[AsyncLinksClient] = None
 
     @property
     def with_raw_response(self) -> AsyncRawPartnersClient:
@@ -214,7 +259,7 @@ class AsyncPartnersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -258,7 +303,7 @@ class AsyncPartnersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -296,16 +341,16 @@ class AsyncPartnersClient:
             When true, only referred users with at least one business that has generated earnings.
 
         first : typing.Optional[int]
-            Number of referred users to return from the start of the window.
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            Cursor to fetch the page after (from page_info.end_cursor).
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            Number of referred users to return from the end of the window.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            Cursor to fetch the page before (from page_info.start_cursor).
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -322,7 +367,7 @@ class AsyncPartnersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -350,6 +395,47 @@ class AsyncPartnersClient:
             request_options=request_options,
         )
 
+    async def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Partner:
+        """
+        Retrieves the authenticated user's public profile, enrollment date, partner verification timestamp, verification waitlist status, active direct business referral count, and default payout rates. Use me or the authenticated user's own user ID; other users are not accessible. Users who have not enrolled have a null joined_at. Retrieve referral URLs and promotion links from GET /partners/links.
+
+        Parameters
+        ----------
+        id : str
+            The authenticated partner's user ID, prefixed user_, or me. Other users' profiles are not accessible.
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        Partner
+            partner retrieved
+
+        Examples
+        --------
+        import asyncio
+
+        from whop_sdk import AsyncWhop
+
+        client = AsyncWhop(
+            "2026-09-15",
+            idempotency_key="YOUR_IDEMPOTENCY_KEY",
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.partners.retrieve(
+                id="me",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.retrieve(id, request_options=request_options)
+        return _response.data
+
     @property
     def businesses(self):
         if self._businesses is None:
@@ -357,3 +443,11 @@ class AsyncPartnersClient:
 
             self._businesses = AsyncBusinessesClient(client_wrapper=self._client_wrapper)
         return self._businesses
+
+    @property
+    def links(self):
+        if self._links is None:
+            from .links.client import AsyncLinksClient  # noqa: E402
+
+            self._links = AsyncLinksClient(client_wrapper=self._client_wrapper)
+        return self._links

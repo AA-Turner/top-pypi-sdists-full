@@ -70,6 +70,7 @@ class DanfeConfig:
     logo: Union[str, BytesIO, bytes] = None
     margins: Margins = field(default_factory=Margins)
     receipt_pos: ReceiptPosition = ReceiptPosition.TOP
+    carrier_receipt: bool = False
     decimal_config: DecimalConfig = field(default_factory=DecimalConfig)
     tax_configuration: TaxConfiguration = TaxConfiguration.STANDARD_ICMS_IPI
     invoice_display: InvoiceDisplay = InvoiceDisplay.FULL_DETAILS

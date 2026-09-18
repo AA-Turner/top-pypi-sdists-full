@@ -105,6 +105,20 @@ def read_and_validate_result(
     return True, instance, ""
 
 
+# Agents run one-shot: ending the turn ends the process. Without this, an agent
+# that backgrounds a sub-agent and ends its turn "until the notification
+# arrives" is terminated with the sub-agent still running and no result file,
+# and the whole call is re-run as a continuation attempt.
+_LIFECYCLE_RULE = (
+    " You run one-shot: the moment you end your turn your process EXITS, anything still "
+    "running in the background (sub-agents, shell jobs) is killed with it, and no "
+    "notification will ever wake you. Background work is fine — keep doing other work "
+    "while it runs — but the LAST thing you do before ending your turn must be: wait for "
+    "every background task still running (your harness's blocking wait tool, e.g. "
+    "TaskOutput, not a hand-written polling loop), collect its output, then write this file."
+)
+
+
 def build_result_protocol_block(
     call_id: str,
     schema: dict | None,
@@ -128,7 +142,7 @@ def build_result_protocol_block(
             f"{schema_json}\n"
             "```\n"
             "Write ONLY the JSON to that file — no markdown fences, no prose. This file is "
-            "the sole channel for your result; anything you print to stdout is ignored."
+            "the sole channel for your result; anything you print to stdout is ignored." + _LIFECYCLE_RULE
         )
     target = f"{base}/{call_id}/result.md"
     return (
@@ -139,7 +153,7 @@ def build_result_protocol_block(
         "That directory ALREADY EXISTS — copy the path above exactly (do not retype it, "
         "and do not create a new directory: if the target directory seems missing, your "
         "path is mistyped). This file is the sole channel "
-        "for your result; anything you print to stdout is ignored."
+        "for your result; anything you print to stdout is ignored." + _LIFECYCLE_RULE
     )
 
 

@@ -5,6 +5,7 @@ Handles authentication and credential management.
 """
 
 import argparse
+from typing import Any, Dict, Optional
 
 import httpx
 from rich.console import Console
@@ -12,6 +13,7 @@ from rich.panel import Panel
 from rich.prompt import Confirm
 from rich.table import Table
 
+from src.cli.client import APIError, InnoDayAPIClient
 from src.cli.config import CLIConfig
 from src.cli.utils.formatters import (
     format_datetime,
@@ -57,6 +59,27 @@ class AuthCommands:
             "--revoke",
             metavar="ID",
             help="Revoke a token by id (from the list)",
+        )
+        # **Minting belongs here, not only in the browser.** `/ui/<org>/tokens`
+        # revokes every active token before minting -- deliberate, because one
+        # person with five tokens cannot say which one their laptop is using.
+        # That is the wrong shape for a second token with a *job*: a scheduled
+        # sweep, a CI runner. Those want one more credential, named, alongside
+        # the one already in use, and this route adds rather than replaces.
+        tokens_parser.add_argument(
+            "--create",
+            metavar="NAME",
+            help="Mint an additional token under NAME, leaving existing ones "
+            "alone. Printed once and unrecoverable afterwards",
+        )
+        tokens_parser.add_argument(
+            "--expires-days",
+            dest="expires_days",
+            type=int,
+            metavar="N",
+            help="Expire the new token after N days. Omitted, it does not "
+            "expire -- which is what an unattended job needs, and why the "
+            "choice is visible here rather than defaulted quietly",
         )
 
         # Auth identity — which name the board calls you, per project
@@ -204,45 +227,47 @@ class AuthCommands:
 
     @staticmethod
     async def _handle_tokens(args: argparse.Namespace, config: CLIConfig) -> int:
-        """List (or revoke) the caller's InnoDay CLI auth tokens.
+        """List, mint, or revoke the caller's InnoDay CLI auth tokens.
 
-        Talks to the token-management endpoints with the stored Bearer token.
-        Requires an active login (`innoday login`) since these routes are
-        authenticated.
+        **Through `InnoDayAPIClient`, like every other command.** This handler
+        used to build its own `httpx` client carrying only the Bearer header, so
+        against a deployment with `TEAM_ACCESS_SECRET` set -- which is the
+        deployed API, and therefore in practice always -- every call answered
+        `401 Missing or invalid X-Team-Secret header`. Listing and revoking your
+        own tokens could not be done from the CLI at all. Its sibling
+        `_handle_identity` attaches the secret by hand a few lines below; the
+        client attaches it for you, which is the difference between a rule to
+        remember and one that cannot be forgotten.
         """
-        token = config.get_cli_token()
-        if not token:
+        if not config.get_cli_token():
             console.print(format_warning("Not logged in — run `innoday login` first."))
             return 1
 
-        base_url = config.get_api_url().rstrip("/")
-        headers = {"Authorization": f"Bearer {token}"}
         revoke_id = getattr(args, "revoke", None)
+        create_name = getattr(args, "create", None)
+        if revoke_id and create_name:
+            console.print(
+                format_error("Pass --create or --revoke, not both — they disagree.")
+            )
+            return 1
 
+        api_client = InnoDayAPIClient(config)
         try:
-            async with httpx.AsyncClient(timeout=httpx.Timeout(15.0)) as client:
-                if revoke_id:
-                    response = await client.delete(
-                        f"{base_url}/api/v1/auth/tokens/{revoke_id}",
-                        headers=headers,
-                    )
-                    if response.status_code in (200, 204):
-                        console.print(format_success(f"Revoked token {revoke_id}"))
-                        return 0
-                    console.print(
-                        format_error(
-                            f"Could not revoke token (HTTP {response.status_code}): "
-                            f"{response.text[:200]}"
-                        )
-                    )
-                    return 1
-
-                response = await client.get(
-                    f"{base_url}/api/v1/auth/tokens", headers=headers
+            if revoke_id:
+                return await AuthCommands._revoke_token(api_client, revoke_id)
+            if create_name:
+                return await AuthCommands._create_token(
+                    api_client, create_name, getattr(args, "expires_days", None)
                 )
-        except httpx.HTTPError as exc:
+            response = await api_client.get("/api/v1/auth/tokens")
+        except APIError as exc:
             console.print(format_error(f"Failed to reach InnoDay: {exc}"))
             return 1
+        finally:
+            # `finally` runs before a `return` inside the `try` propagates, so
+            # this closes the client on every path, the two early returns
+            # included.
+            await api_client.close()
 
         if response.status_code != 200:
             console.print(
@@ -273,6 +298,77 @@ class AuthCommands:
             )
 
         console.print(table)
+        return 0
+
+    @staticmethod
+    async def _revoke_token(api_client, token_id: str) -> int:
+        """Revoke one token by id."""
+        response = await api_client.delete(f"/api/v1/auth/tokens/{token_id}")
+        if response.status_code in (200, 204):
+            console.print(format_success(f"Revoked token {token_id}"))
+            return 0
+        console.print(
+            format_error(
+                f"Could not revoke token (HTTP {response.status_code}): "
+                f"{response.text[:200]}"
+            )
+        )
+        return 1
+
+    @staticmethod
+    async def _create_token(
+        api_client, name: str, expires_days: Optional[int] = None
+    ) -> int:
+        """Mint one more token, alongside whatever is already there.
+
+        **Adds, never replaces.** The browser form revokes every active token
+        before minting -- right for a person who has lost theirs, wrong for
+        adding a second with a job to do. Revoking the token your own shell is
+        holding, in order to hand one to a scheduled sweep, is a way to lose an
+        afternoon.
+
+        The raw value is printed once and cannot be recovered afterwards: only
+        its SHA-256 is stored. So it is printed on its own line, unadorned, for
+        a copy that has to be exact.
+        """
+        body: Dict[str, Any] = {"name": name}
+        if expires_days is not None:
+            body["expires_days"] = expires_days
+
+        response = await api_client.post("/api/v1/auth/tokens", json=body)
+        if response.status_code not in (200, 201):
+            console.print(
+                format_error(
+                    f"Could not create token (HTTP {response.status_code}): "
+                    f"{response.text[:200]}"
+                )
+            )
+            return 1
+
+        payload = response.json() or {}
+        raw = payload.get("token")
+        if not raw:
+            # A 200 with no token is not a success -- it is a contract change,
+            # and reporting it as one saves the next person guessing why their
+            # paste is empty.
+            console.print(
+                format_error("InnoDay returned no token value. Nothing was stored.")
+            )
+            return 1
+
+        console.print(format_success(f"Created token '{payload.get('name') or name}'"))
+        console.print(raw)
+        expires = payload.get("expires_at")
+        console.print(
+            f"[dim]Expires: {format_datetime(expires)}[/dim]"
+            if expires
+            else "[dim]Does not expire. Revoke it with "
+            "`innoday auth tokens --revoke <id>` when it is no longer needed.[/dim]"
+        )
+        console.print(
+            "[yellow]Shown once — it cannot be retrieved again. "
+            "Store it somewhere you trust.[/yellow]"
+        )
         return 0
 
     @staticmethod

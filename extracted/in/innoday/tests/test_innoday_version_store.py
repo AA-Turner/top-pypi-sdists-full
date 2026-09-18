@@ -1072,7 +1072,7 @@ class TestTheApiClientIsClosedBeforeTheLoopIs:
 
     def _args(self):
         args = MagicMock()
-        for name in ("repo", "commit", "summary", "token", "org", "topics"):
+        for name in ("repo", "commit", "branch", "summary", "token", "org", "topics"):
             setattr(args, name, None)
         for name in ("hotfix", "assume_yes", "as_json", "prs", "commits"):
             setattr(args, name, False)

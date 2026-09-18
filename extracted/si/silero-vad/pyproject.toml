@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 [project]
 name = "silero-vad"
-version = "6.2.1"
+version = "6.2.2"
 authors = [
   {name="Silero Team", email="hello@silero.ai"},
 ]
@@ -30,7 +30,7 @@ classifiers = [
 dependencies = [
   "packaging",
   "torch>=1.12.0",
-  "torchaudio>=0.12.0",
+  "torchaudio>=0.12.0,<2.10",
 ]
 
 [project.urls]

@@ -23,6 +23,7 @@ from pydantic import BaseModel, ConfigDict, Field, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
 from typing_extensions import Annotated
 from mixpeek.models.sync_job_status import SyncJobStatus
+from mixpeek.models.sync_job_trigger import SyncJobTrigger
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -35,6 +36,7 @@ class SyncJobModel(BaseModel):
     internal_id: StrictStr = Field(description="Organization scope identifier.")
     namespace_id: StrictStr = Field(description="Namespace scope identifier.")
     status: Optional[SyncJobStatus] = Field(default=None, description="Current status of the sync job.")
+    trigger: Optional[SyncJobTrigger] = Field(default=None, description="What started this job: scheduled (the polling loop), manual (a person, through the trigger endpoint), or resume (continuation of a sliced run). None on records written before this field shipped, which means 'not recorded' and NOT 'unknown trigger' — those jobs carry the free-form metadata.triggered_by string instead.")
     phase: Optional[StrictStr] = Field(default=None, description="Human-readable phase within a RUNNING job for observability (e.g. 'discovering', 'downloading', 'verifying', 're-verifying', 'idle'). Optional and descriptive — distinct from `status`, which is the coarse lifecycle state. Lets a sync that is re-verifying already-synced files (low net-new throughput, low percent) read as healthy rather than stuck. Back-compatible: older jobs have None.")
     total_files: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="Total files expected for this sync run.")
     files_synced: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Number of files synced successfully in this job.")
@@ -51,7 +53,7 @@ class SyncJobModel(BaseModel):
     lag_seconds: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=None, description="Seconds since the latest progress update for running jobs.")
     current_cursor: Optional[StrictStr] = Field(default=None, description="Latest provider cursor/page token captured for this job.")
     progress: Optional[Dict[str, Any]] = Field(default=None, description="Derived progress summary for API observability.")
-    __properties: ClassVar[List[str]] = ["sync_job_id", "sync_config_id", "internal_id", "namespace_id", "status", "phase", "total_files", "files_synced", "files_failed", "files_verified", "started_at", "completed_at", "updated_at", "error", "resumed_via", "metadata", "progress_percent", "throughput_files_per_min", "lag_seconds", "current_cursor", "progress"]
+    __properties: ClassVar[List[str]] = ["sync_job_id", "sync_config_id", "internal_id", "namespace_id", "status", "trigger", "phase", "total_files", "files_synced", "files_failed", "files_verified", "started_at", "completed_at", "updated_at", "error", "resumed_via", "metadata", "progress_percent", "throughput_files_per_min", "lag_seconds", "current_cursor", "progress"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -109,6 +111,7 @@ class SyncJobModel(BaseModel):
             "internal_id": obj.get("internal_id"),
             "namespace_id": obj.get("namespace_id"),
             "status": obj.get("status"),
+            "trigger": obj.get("trigger"),
             "phase": obj.get("phase"),
             "total_files": obj.get("total_files"),
             "files_synced": obj.get("files_synced") if obj.get("files_synced") is not None else 0,

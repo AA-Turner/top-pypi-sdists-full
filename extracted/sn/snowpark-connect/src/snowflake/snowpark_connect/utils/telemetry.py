@@ -921,8 +921,13 @@ class Telemetry:
                 / ``"drop"`` / ``"replace"``.
             ref_type: ``"branch"``, ``"tag"``, or ``"ref"`` (an unresolved
                 ``VERSION AS OF`` name that may be either a branch or a tag).
-            catalog_kind: ``"managed"`` / ``"cld_glue"`` / ``"cld_unity"`` /
-                ``"horizon"`` when cheaply available at the call site; omitted otherwise.
+            catalog_kind: ``"cld"`` / ``"managed"`` when cheaply available at the
+                call site; omitted otherwise. Matches the vocabulary emitted by
+                ``report_iceberg_incremental_read`` (SNOW-3957372), which is the
+                first caller to emit this dimension for real. Deliberately coarse:
+                Glue vs Unity vs Horizon isn't cheaply derivable (``CLDInfo`` only
+                carries ``is_cld``), and ``"managed"`` means "non-CLD session"
+                rather than "Snowflake-managed table".
             outcome: ``"attempted"`` (SCOS dispatched it -- default) or ``"rejected"``
                 (SCOS refused it at translate time). Execution success is separate;
                 see the Note below.
@@ -965,6 +970,52 @@ class Telemetry:
             "detail": detail,
         }
         summary["iceberg_wap"].append({k: v for k, v in event.items() if v is not None})
+
+    @safe
+    def report_iceberg_incremental_read(
+        self,
+        *,
+        bound_kind: str,
+        surface: str,
+        catalog_kind: str | None = None,
+    ) -> None:
+        """Record a Spark Iceberg incremental read per request (SNOW-3957372).
+
+        Appends an event to ``summary["iceberg_incremental_read"]`` for each
+        incremental read -- a read bounded by ``start-snapshot-id`` and/or
+        ``end-snapshot-id``. Records no table/snapshot identifiers.
+
+        Args:
+            bound_kind: ``"start_only"`` (start set, open-ended to latest),
+                ``"closed"`` (both start and end set), or ``"end_only"`` (end set,
+                from the beginning -- only valid on the ``.changes`` surface).
+            surface: ``"plain_table"`` for the ``SPARK_INCREMENTAL_READ`` path, or
+                ``"changelog"`` for a ``.changes`` metadata read routed to
+                ``ICEBERG_CHANGELOG_SCAN`` (both are Iceberg incremental reads).
+            catalog_kind: ``"cld"`` / ``"managed"`` when known at the call site.
+                Derived from the session-level ``is_in_cld_context()`` hint, so
+                ``"managed"`` means "non-CLD session", not "Snowflake-managed table".
+
+        Note:
+            Emitted at translate time; join the request-level ``was_successful`` on
+            the same summary row for execution outcome.
+        """
+        if self._not_in_request():
+            return
+
+        summary = self._request_summary.get()
+
+        if "iceberg_incremental_read" not in summary:
+            summary["iceberg_incremental_read"] = []
+
+        event = {
+            "bound_kind": bound_kind,
+            "surface": surface,
+            "catalog_kind": catalog_kind,
+        }
+        summary["iceberg_incremental_read"].append(
+            {k: v for k, v in event.items() if v is not None}
+        )
 
     @safe
     def report_native_function_target(self, target: str) -> None:

@@ -72,7 +72,6 @@ class Columns(
         """Sizing supported by widget.
 
         :return: Calculated widget sizing
-        :rtype: frozenset[Sizing]
 
         Due to the nature of container with mutable contents, this method cannot be cached.
 
@@ -453,7 +452,7 @@ class Columns(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "only for backwards compatibility. You should use the new standard container `contents`."
+            "only for backwards compatibility. You should use the new standard container `contents`. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -476,7 +475,7 @@ class Columns(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "only for backwards compatibility. You should use the new standard container `contents`."
+            "only for backwards compatibility. You should use the new standard container `contents`. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -509,8 +508,8 @@ class Columns(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "for backwards compatibility only."
-            "You should use the new standard container property .contents to modify Pile contents."
+            "for backwards compatibility only. "
+            "You should use the new standard container property .contents to modify Columns contents. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -550,8 +549,8 @@ class Columns(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "for backwards compatibility only."
-            "You should use the new standard container property .contents to modify Pile contents."
+            "for backwards compatibility only. "
+            "You should use the new standard container property .contents to modify Columns contents. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -585,7 +584,7 @@ class Columns(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "only for backwards compatibility.You should use the new standard container property `contents`."
+            "only for backwards compatibility. You should use the new standard container property `contents`. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -608,7 +607,7 @@ class Columns(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "only for backwards compatibility.You should use the new standard container property `contents`."
+            "only for backwards compatibility. You should use the new standard container property `contents`. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -685,7 +684,6 @@ class Columns(
             for ``'given'`` or a weight value (number) for ``'weight'``
         :param box_widget: set to `True` if this widget is to be treated as a box
             widget when the Columns widget itself is treated as a flow widget.
-        :type box_widget: bool
         :raises ColumnsError: *width_type* and *width_amount* are not a valid combination.
         """
         if width_type == WHSettings.PACK:
@@ -703,14 +701,13 @@ class Columns(
         Set the column in focus by its index in :attr:`widget_list`.
 
         :param num: index of focus-to-be entry
-        :type num: int
 
         .. deprecated:: 1.1.0
             Use the standard container property :attr:`focus_position` instead.
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "only for backwards compatibility.You may also use the new standard container property `focus_position`."
+            "only for backwards compatibility. You may also use the new standard container property `focus_position`. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -726,7 +723,7 @@ class Columns(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "only for backwards compatibility.You may also use the new standard container property `focus_position`."
+            "only for backwards compatibility. You may also use the new standard container property `focus_position`. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -745,8 +742,8 @@ class Columns(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "only for backwards compatibility."
-            "You may also use the new standard container property `focus_position` to get the focus."
+            "only for backwards compatibility. "
+            "You may also use the new standard container property `focus_position` to get the focus. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -776,8 +773,8 @@ class Columns(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "only for backwards compatibility."
-            "You may also use the new standard container property `focus` to get the focus."
+            "only for backwards compatibility. "
+            "You may also use the new standard container property `focus` to get the focus. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -826,8 +823,8 @@ class Columns(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "only for backwards compatibility."
-            "You may also use the new standard container property `focus_position` to get the focus."
+            "only for backwards compatibility. "
+            "You may also use the new standard container property `focus_position` to get the focus. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -844,8 +841,8 @@ class Columns(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "only for backwards compatibility."
-            "You may also use the new standard container property `focus_position` to get the focus."
+            "only for backwards compatibility. "
+            "You may also use the new standard container property `focus_position` to get the focus. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -1142,7 +1139,6 @@ class Columns(
 
         :param size: see :meth:`Widget.render` for details
         :param focus: ``True`` if this widget is in focus
-        :type focus: bool
         :raises ColumnsError: the Columns has no visible column to render.
         """
         widths, _, size_args = self.get_column_sizes(size, focus)
@@ -1338,9 +1334,7 @@ class Columns(
         Pass keypress to the focus column.
 
         :param size: Widget size correct for the supported sizing
-        :type size: tuple[()] | tuple[int] | tuple[int, int]
         :param key: a single keystroke value
-        :type key: str
         """
         if self.focus_position is None:
             return key

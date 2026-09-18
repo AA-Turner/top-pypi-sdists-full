@@ -52,8 +52,24 @@ class ExpressionTyper:
 
     @staticmethod
     def _join_df_with_outer_dataframes(df: DataFrame) -> DataFrame:
+        """Widen ``df`` with the outer scopes so a correlated reference can be typed.
+
+        An outer DataFrame that is already part of ``df`` is skipped. Row-level
+        DML publishes its target container under the statement's plan_id and
+        types the predicate against that same container, so for
+        ``DELETE FROM t WHERE EXISTS (SELECT 1 FROM s WHERE t.id = s.id)`` the
+        target turns up as both the base and the only outer DataFrame. Snowpark
+        rejects ``df.join(df)`` outright (SnowparkJoinException 1103, "cannot
+        join a DataFrame with itself"), and the join would contribute no columns
+        anyway -- they are already in ``df``.
+        """
+        joined_ids = {id(df)}
         for outer_df_container in get_outer_dataframes():
-            df = df.join(outer_df_container.dataframe)
+            outer_df = outer_df_container.dataframe
+            if id(outer_df) in joined_ids:
+                continue
+            joined_ids.add(id(outer_df))
+            df = df.join(outer_df)
 
         return df
 

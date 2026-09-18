@@ -1649,7 +1649,12 @@ async def _apply_post_prep(content: str, option: PostPrepOption, *, language: st
     if option == PostPrepOption.NONE:
         return StageResult(stage="post_prep", success=True, output=content)
 
-    stage = f"post_prep_{option}"
+    # ONE stage key for every option and outcome: the pipeline starts this stage
+    # as "post_prep" (STAGE_STARTED, checkpoint key, agent_run_stage.stage_key),
+    # so the result must finish under the same key. The option is in the run
+    # request and the log line; a per-option key made STAGE_DONE name a stage no
+    # client saw start, duplicating the live step (2026-09-17).
+    stage = "post_prep"
     try:
         match option:
             case PostPrepOption.TRANSLATION:
@@ -1721,7 +1726,7 @@ async def _apply_post_prep(content: str, option: PostPrepOption, *, language: st
                     error=f"unknown post-prep option '{option}' — using original content",
                 )
     except Exception as exc:  # noqa: BLE001 — soft stage: record + keep original content
-        vcprint(f"[PodcastGenerator] {stage} failed: {exc}", color="red")
+        vcprint(f"[PodcastGenerator] {stage} ({option}) failed: {exc}", color="red")
         return StageResult(stage=stage, success=False, error=str(exc))
 
     stage_result = _to_stage(stage, result)

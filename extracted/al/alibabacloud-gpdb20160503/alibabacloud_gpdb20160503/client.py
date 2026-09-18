@@ -21162,6 +21162,8 @@ class Client(OpenApiClient):
             query['DBInstanceDescription'] = request.dbinstance_description
         if not DaraCore.is_null(request.dbinstance_id):
             query['DBInstanceId'] = request.dbinstance_id
+        if not DaraCore.is_null(request.effective_time):
+            query['EffectiveTime'] = request.effective_time
         if not DaraCore.is_null(request.master_aispec):
             query['MasterAISpec'] = request.master_aispec
         if not DaraCore.is_null(request.master_cu):
@@ -21198,6 +21200,8 @@ class Client(OpenApiClient):
             query['DBInstanceDescription'] = request.dbinstance_description
         if not DaraCore.is_null(request.dbinstance_id):
             query['DBInstanceId'] = request.dbinstance_id
+        if not DaraCore.is_null(request.effective_time):
+            query['EffectiveTime'] = request.effective_time
         if not DaraCore.is_null(request.master_aispec):
             query['MasterAISpec'] = request.master_aispec
         if not DaraCore.is_null(request.master_cu):
@@ -26020,6 +26024,8 @@ class Client(OpenApiClient):
             query['DBInstanceGroupCount'] = request.dbinstance_group_count
         if not DaraCore.is_null(request.dbinstance_id):
             query['DBInstanceId'] = request.dbinstance_id
+        if not DaraCore.is_null(request.effective_time):
+            query['EffectiveTime'] = request.effective_time
         if not DaraCore.is_null(request.instance_spec):
             query['InstanceSpec'] = request.instance_spec
         if not DaraCore.is_null(request.master_node_num):
@@ -26078,6 +26084,8 @@ class Client(OpenApiClient):
             query['DBInstanceGroupCount'] = request.dbinstance_group_count
         if not DaraCore.is_null(request.dbinstance_id):
             query['DBInstanceId'] = request.dbinstance_id
+        if not DaraCore.is_null(request.effective_time):
+            query['EffectiveTime'] = request.effective_time
         if not DaraCore.is_null(request.instance_spec):
             query['InstanceSpec'] = request.instance_spec
         if not DaraCore.is_null(request.master_node_num):
@@ -26144,6 +26152,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.dbinstance_id):
             query['DBInstanceId'] = request.dbinstance_id
+        if not DaraCore.is_null(request.effective_time):
+            query['EffectiveTime'] = request.effective_time
         if not DaraCore.is_null(request.major_version):
             query['MajorVersion'] = request.major_version
         if not DaraCore.is_null(request.minor_version):
@@ -26184,6 +26194,8 @@ class Client(OpenApiClient):
         query = {}
         if not DaraCore.is_null(request.dbinstance_id):
             query['DBInstanceId'] = request.dbinstance_id
+        if not DaraCore.is_null(request.effective_time):
+            query['EffectiveTime'] = request.effective_time
         if not DaraCore.is_null(request.major_version):
             query['MajorVersion'] = request.major_version
         if not DaraCore.is_null(request.minor_version):

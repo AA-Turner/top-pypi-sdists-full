@@ -4,12 +4,39 @@ import typing
 
 import pydantic
 from ...core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from ...types.file import File
 from .list_verifications_response_data_item_requested_information_item_errors_item import (
     ListVerificationsResponseDataItemRequestedInformationItemErrorsItem,
+)
+from .list_verifications_response_data_item_requested_information_item_response_type import (
+    ListVerificationsResponseDataItemRequestedInformationItemResponseType,
+)
+from .list_verifications_response_data_item_requested_information_item_selection_mode import (
+    ListVerificationsResponseDataItemRequestedInformationItemSelectionMode,
 )
 
 
 class ListVerificationsResponseDataItemRequestedInformationItem(UniversalBaseModel):
+    action_url: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    URL for a related action, such as completing liveness verification or viewing a payment. Absent when no action is available.
+    """
+
+    details_label: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Follow-up prompt shown with this requirement.
+    """
+
+    details_required: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether the follow-up response is required when visible.
+    """
+
+    details_visible_for: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
+    """
+    Selected option values that make the follow-up prompt visible.
+    """
+
     errors: typing.Optional[typing.List[ListVerificationsResponseDataItemRequestedInformationItemErrorsItem]] = (
         pydantic.Field(default=None)
     )
@@ -42,9 +69,43 @@ class ListVerificationsResponseDataItemRequestedInformationItem(UniversalBaseMod
     What is needed: a document name such as `bank_statement`, or a field key such as `ssn` or `identity_document`. Handle unrecognized values by `type`.
     """
 
+    response_type: typing.Optional[ListVerificationsResponseDataItemRequestedInformationItemResponseType] = (
+        pydantic.Field(default=None)
+    )
+    """
+    Optional native input format for a text response.
+    """
+
+    selection_mode: typing.Optional[ListVerificationsResponseDataItemRequestedInformationItemSelectionMode] = (
+        pydantic.Field(default=None)
+    )
+    """
+    Whether a question with `options` accepts one value or multiple values.
+    """
+
+    supporting_documents: typing.Optional[typing.List[File]] = pydantic.Field(default=None)
+    """
+    Documents supplied with the requirement for context.
+    """
+
+    supporting_files_explanation_allowed: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether a written explanation may replace required supporting files.
+    """
+
+    supporting_files_required: typing.Optional[bool] = pydantic.Field(default=None)
+    """
+    Whether this requirement also needs supporting files.
+    """
+
+    supporting_files_visible_for: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
+    """
+    Selected option values that make the supporting-file input visible.
+    """
+
     type: str = pydantic.Field()
     """
-    What to send as the answer, so you never have to infer it: `files` (a document, as a list of its pages), `id_document` (send `documents` with the slot keys for the ID you are uploading), `text`, `date`, `phone` or `select` (send `value`), or `address` (send `address`).
+    What to send as the answer, so you never have to infer it: `files` (a document, as a list of its pages), `id_document` (send `documents` with the slot keys for the ID you are uploading), `text`, `date`, `phone` or `select` (send `value`), `text_with_files` (send `value` and optional `files`), `address` (send `address`), or `liveness` (open `action_url`, then send `value` as `true` after completion).
     """
 
     if IS_PYDANTIC_V2:

@@ -43,7 +43,7 @@ class TestProjectCreateParameters(unittest.TestCase):
                 shares_translation_memory = True, 
                 tm_ids = ["abcd1234cdef1234abcd1234cdef1234"], 
                 term_base_ids = ["abcd1234cdef1234abcd1234cdef1234"], 
-                project_image = '[B@187bb01c', 
+                project_image = '[B@18ae64b5', 
                 remove_project_image = True, 
                 account_id = 'abcd1234', 
                 point_of_contact = 'abcd1234', 
@@ -63,6 +63,7 @@ class TestProjectCreateParameters(unittest.TestCase):
                 autotranslate_use_machine_translation = True, 
                 autotranslate_use_translation_memory = True, 
                 autotranslate_overwrite_unverified_translations = True, 
+                fallback_for_unverified_translations = False, 
                 autocomplete_job_enabled = False, 
                 job_locking_enabled = False, 
                 smart_suggest_enabled = True, 
@@ -71,7 +72,7 @@ class TestProjectCreateParameters(unittest.TestCase):
                 translation_keys_sort_collation = 'unicode_ci', 
                 default_encoding = 'UTF-8', 
                 cldr_version = 'cldr48', 
-                placeholder_styles = ["angular","iOS"]
+                placeholder_styles = ["rails_i18n","java_properties"]
             )
         else :
             return ProjectCreateParameters(

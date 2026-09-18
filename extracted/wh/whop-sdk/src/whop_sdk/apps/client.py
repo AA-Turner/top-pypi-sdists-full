@@ -25,9 +25,6 @@ from .types.update_apps_request_app_type import UpdateAppsRequestAppType
 from .types.update_apps_request_icon import UpdateAppsRequestIcon
 from .types.update_apps_request_oauth_client_type import UpdateAppsRequestOauthClientType
 from .types.update_apps_request_status import UpdateAppsRequestStatus
-from .types.update_permissions_app_request_requested_permissions_item import (
-    UpdatePermissionsAppRequestRequestedPermissionsItem,
-)
 from .types.update_permissions_apps_request_requested_permissions_item import (
     UpdatePermissionsAppsRequestRequestedPermissionsItem,
 )
@@ -102,16 +99,16 @@ class AppsClient:
             Sort direction.
 
         first : typing.Optional[int]
-            The number of apps to return (default 20, max 100).
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            A cursor; returns apps after this position.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            The number of apps to return from the end of the range.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            A cursor; returns apps before this position.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -126,7 +123,7 @@ class AppsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -205,7 +202,7 @@ class AppsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -225,69 +222,14 @@ class AppsClient:
         )
         return _response.data
 
-    def update_permissions_app(
-        self,
-        app_id: str,
-        *,
-        requested_permissions: typing.Sequence[UpdatePermissionsAppRequestRequestedPermissionsItem],
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> bool:
-        """
-        Updates the permission requirements for an app
-
-        Required permissions:
-         - `developer:update_app_authorization`
-
-        Parameters
-        ----------
-        app_id : str
-            The ID of the app the permission requirements are being updated for
-
-        requested_permissions : typing.Sequence[UpdatePermissionsAppRequestRequestedPermissionsItem]
-            The permissions that the app will request off of users when a user installs the app.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        bool
-            A successful response
-
-        Examples
-        --------
-        from whop_sdk import Whop
-        from whop_sdk.apps import UpdatePermissionsAppRequestRequestedPermissionsItem
-
-        client = Whop(
-            "2026-09-02-2",
-            idempotency_key="YOUR_IDEMPOTENCY_KEY",
-            token="YOUR_TOKEN",
-        )
-        client.apps.update_permissions_app(
-            app_id="app_id",
-            requested_permissions=[
-                UpdatePermissionsAppRequestRequestedPermissionsItem(
-                    action="action",
-                    is_required=True,
-                    justification="justification",
-                )
-            ],
-        )
-        """
-        _response = self._raw_client.update_permissions_app(
-            app_id, requested_permissions=requested_permissions, request_options=request_options
-        )
-        return _response.data
-
     def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> App:
         """
-        Retrieves an app by ID, claimed route, or proxy domain id. Credential fields (api_key, default_api_key, secrets) render `null` unless the caller has the corresponding developer permission on the owning account.
+        Retrieves an app by ID, claimed route, active verified custom hostname, or proxy domain id. Custom hostnames return 404 for inactive assignments, suspended accounts, or deleted apps. Credential fields (api_key, default_api_key, secrets) render `null` unless the caller has the corresponding developer permission on the owning account.
 
         Parameters
         ----------
         id : str
-            App ID (prefixed `app_`), the app's claimed route, or its proxy domain id.
+            App ID (prefixed `app_`). Retrieval also accepts the app's claimed route, an active verified custom hostname, or its proxy domain id.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -302,7 +244,7 @@ class AppsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -320,7 +262,7 @@ class AppsClient:
         Parameters
         ----------
         id : str
-            App ID (prefixed `app_`), the app's claimed route, or its proxy domain id.
+            App ID (prefixed `app_`). Retrieval also accepts the app's claimed route, an active verified custom hostname, or its proxy domain id.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -335,7 +277,7 @@ class AppsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -378,7 +320,7 @@ class AppsClient:
         Parameters
         ----------
         id : str
-            App ID (prefixed `app_`), the app's claimed route, or its proxy domain id.
+            App ID (prefixed `app_`). Retrieval also accepts the app's claimed route, an active verified custom hostname, or its proxy domain id.
 
         app_store_description : typing.Optional[str]
             The detailed description shown on the app store's in-depth app view page.
@@ -453,7 +395,7 @@ class AppsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -514,7 +456,7 @@ class AppsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -563,13 +505,13 @@ class AppsClient:
             End of the time window as an ISO 8601 timestamp. Defaults to now.
 
         first : typing.Optional[int]
-            The number of log lines to return (max 500).
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            A cursor for fetching logs after a previous page.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         before : typing.Optional[str]
-            A cursor for fetching logs before a later page.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -584,7 +526,7 @@ class AppsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -642,7 +584,7 @@ class AppsClient:
         from whop_sdk.apps import UpdatePermissionsAppsRequestRequestedPermissionsItem
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -729,16 +671,16 @@ class AsyncAppsClient:
             Sort direction.
 
         first : typing.Optional[int]
-            The number of apps to return (default 20, max 100).
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            A cursor; returns apps after this position.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            The number of apps to return from the end of the range.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            A cursor; returns apps before this position.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -755,7 +697,7 @@ class AsyncAppsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -843,7 +785,7 @@ class AsyncAppsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -869,77 +811,14 @@ class AsyncAppsClient:
         )
         return _response.data
 
-    async def update_permissions_app(
-        self,
-        app_id: str,
-        *,
-        requested_permissions: typing.Sequence[UpdatePermissionsAppRequestRequestedPermissionsItem],
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> bool:
-        """
-        Updates the permission requirements for an app
-
-        Required permissions:
-         - `developer:update_app_authorization`
-
-        Parameters
-        ----------
-        app_id : str
-            The ID of the app the permission requirements are being updated for
-
-        requested_permissions : typing.Sequence[UpdatePermissionsAppRequestRequestedPermissionsItem]
-            The permissions that the app will request off of users when a user installs the app.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        bool
-            A successful response
-
-        Examples
-        --------
-        import asyncio
-
-        from whop_sdk import AsyncWhop
-        from whop_sdk.apps import UpdatePermissionsAppRequestRequestedPermissionsItem
-
-        client = AsyncWhop(
-            "2026-09-02-2",
-            idempotency_key="YOUR_IDEMPOTENCY_KEY",
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.apps.update_permissions_app(
-                app_id="app_id",
-                requested_permissions=[
-                    UpdatePermissionsAppRequestRequestedPermissionsItem(
-                        action="action",
-                        is_required=True,
-                        justification="justification",
-                    )
-                ],
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._raw_client.update_permissions_app(
-            app_id, requested_permissions=requested_permissions, request_options=request_options
-        )
-        return _response.data
-
     async def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> App:
         """
-        Retrieves an app by ID, claimed route, or proxy domain id. Credential fields (api_key, default_api_key, secrets) render `null` unless the caller has the corresponding developer permission on the owning account.
+        Retrieves an app by ID, claimed route, active verified custom hostname, or proxy domain id. Custom hostnames return 404 for inactive assignments, suspended accounts, or deleted apps. Credential fields (api_key, default_api_key, secrets) render `null` unless the caller has the corresponding developer permission on the owning account.
 
         Parameters
         ----------
         id : str
-            App ID (prefixed `app_`), the app's claimed route, or its proxy domain id.
+            App ID (prefixed `app_`). Retrieval also accepts the app's claimed route, an active verified custom hostname, or its proxy domain id.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -956,7 +835,7 @@ class AsyncAppsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -980,7 +859,7 @@ class AsyncAppsClient:
         Parameters
         ----------
         id : str
-            App ID (prefixed `app_`), the app's claimed route, or its proxy domain id.
+            App ID (prefixed `app_`). Retrieval also accepts the app's claimed route, an active verified custom hostname, or its proxy domain id.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -997,7 +876,7 @@ class AsyncAppsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1046,7 +925,7 @@ class AsyncAppsClient:
         Parameters
         ----------
         id : str
-            App ID (prefixed `app_`), the app's claimed route, or its proxy domain id.
+            App ID (prefixed `app_`). Retrieval also accepts the app's claimed route, an active verified custom hostname, or its proxy domain id.
 
         app_store_description : typing.Optional[str]
             The detailed description shown on the app store's in-depth app view page.
@@ -1123,7 +1002,7 @@ class AsyncAppsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1192,7 +1071,7 @@ class AsyncAppsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1247,13 +1126,13 @@ class AsyncAppsClient:
             End of the time window as an ISO 8601 timestamp. Defaults to now.
 
         first : typing.Optional[int]
-            The number of log lines to return (max 500).
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            A cursor for fetching logs after a previous page.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         before : typing.Optional[str]
-            A cursor for fetching logs before a later page.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1270,7 +1149,7 @@ class AsyncAppsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1337,7 +1216,7 @@ class AsyncAppsClient:
         from whop_sdk.apps import UpdatePermissionsAppsRequestRequestedPermissionsItem
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

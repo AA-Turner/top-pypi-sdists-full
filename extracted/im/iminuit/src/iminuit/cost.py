@@ -157,7 +157,9 @@ def log_or_zero(x):
         Elementwise contains log(x) for x > 0 and zero otherwise.
     """
     # return 0 for x <= 0
-    r = np.zeros_like(x)
+    # integers truncate the logarithm; x * 1.0 promotes integer input
+    # to float but keeps the precision and works in numba.
+    r = np.zeros_like(x * 1.0)
     ma = x > 0
     r[ma] = np.log(x[ma])
     return r
@@ -177,6 +179,16 @@ def _replace_none(x, replacement):
     if x is None:
         return replacement
     return x
+
+
+def _exclusion_from_mask(mask: NDArray, n: int) -> NDArray:
+    # Return a boolean array of length n that is True for excluded entries.
+    # mask may be a boolean array or an array of indices of selected entries.
+    if mask.dtype == bool:
+        return ~mask
+    excluded = np.ones(n, dtype=bool)
+    excluded[mask] = False
+    return excluded
 
 
 def chi2(y: ArrayLike, ye: ArrayLike, ym: ArrayLike) -> float:
@@ -273,9 +285,18 @@ def poisson_chi2(n: ArrayLike, mu: ArrayLike) -> float:
     return 2 * np.sum(n * (log_or_zero(n) - log_or_zero(mu)) + mu - n)
 
 
+def _n_over_mu_or_zero(n: NDArray, mu: NDArray) -> NDArray:
+    # log_or_zero is constant for mu <= 0, so the derivative vanishes in those bins
+    try:
+        with np.errstate(divide="raise", invalid="raise"):
+            return n / mu
+    except FloatingPointError:
+        return np.divide(n, mu, out=np.zeros_like(mu, dtype=float), where=mu > 0)
+
+
 def _poisson_chi2_grad(n: NDArray, mu: NDArray, gmu: NDArray) -> NDArray:
     assert gmu.ndim == 2
-    return 2 * np.sum((1.0 - n / mu) * gmu, axis=1)
+    return 2 * np.sum((1.0 - _n_over_mu_or_zero(n, mu)) * gmu, axis=1)
 
 
 def multinomial_chi2(n: ArrayLike, mu: ArrayLike) -> float:
@@ -307,7 +328,7 @@ def multinomial_chi2(n: ArrayLike, mu: ArrayLike) -> float:
 
 def _multinomial_chi2_grad(n: NDArray, mu: NDArray, gmu: NDArray) -> NDArray:
     assert gmu.ndim == 2
-    return -2 * np.sum(n / mu * gmu, axis=1)
+    return -2 * np.sum(_n_over_mu_or_zero(n, mu) * gmu, axis=1)
 
 
 def template_chi2_jsc(n: ArrayLike, mu: ArrayLike, mu_var: ArrayLike) -> float:
@@ -533,8 +554,7 @@ class Cost(abc.ABC):
         return len(self._parameters)
 
     @abc.abstractmethod
-    def _ndata(self):
-        NotImplemented  # pragma: no cover
+    def _ndata(self): ...  # pragma: no cover
 
     @property
     def verbose(self):
@@ -758,8 +778,6 @@ class CostSum(Cost, ABCSequence):
             Dict that maps an index to dict of keyword arguments. This can be
             used to pass keyword arguments to a visualize method of a component with
             that index.
-        **kwargs :
-            Other keyword arguments are forwarded to all components.
         """
         from matplotlib import pyplot as plt
 
@@ -767,7 +785,7 @@ class CostSum(Cost, ABCSequence):
 
         fig = plt.gcf()
         fig.set_figwidth(n * fig.get_figwidth() / 1.5)
-        _, ax = plt.subplots(1, n, num=fig.number)
+        _, ax = plt.subplots(1, n, num=fig.number, squeeze=False, clear=True)
 
         if component_kwargs is None:
             component_kwargs = {}
@@ -777,7 +795,7 @@ class CostSum(Cost, ABCSequence):
             if not hasattr(comp, "visualize"):
                 continue
             kwargs = component_kwargs.get(k, {})
-            plt.sca(ax[i])
+            plt.sca(ax[0, i])
             comp.visualize(cargs, **kwargs)
             i += 1
 
@@ -831,7 +849,11 @@ class MaskedCost(Cost):
         self._update_cache()
 
     def _update_cache(self):
-        self._masked = self._data[_replace_none(self._mask, ...)]
+        masked = self._data[_replace_none(self._mask, ...)]
+        if self._data.flags.f_contiguous and not self._data.flags.c_contiguous:
+            # fancy indexing returns a C-ordered copy, keep the layout of _data
+            masked = np.asfortranarray(masked)
+        self._masked = masked
 
 
 class MaskedCostWithPulls(MaskedCost):
@@ -854,7 +876,8 @@ class MaskedCostWithPulls(MaskedCost):
         -------
         array
             Array of pull values. If the cost function is masked, the array contains NaN
-            values where the mask value is False.
+            values where the mask value is False. Data points with zero error also
+            yield NaN.
 
         Notes
         -----
@@ -905,14 +928,18 @@ class UnbinnedCost(MaskedCost):
         self._model = model
         self._log = log
         self._model_grad = grad
-        super().__init__(_model_parameters(model, name), _norm(data), verbose)
+        super().__init__(
+            _model_parameters(model, name), _norm(data, copy=True), verbose
+        )
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def pdf(self):
         """Get probability density model."""
         ...  # pragma: no cover
 
-    @abc.abstractproperty
+    @property
+    @abc.abstractmethod
     def scaled_pdf(self):
         """Get number density model."""
         ...  # pragma: no cover
@@ -1042,7 +1069,9 @@ class UnbinnedNLL(UnbinnedCost):
     @property
     def scaled_pdf(self):
         """Get number density model."""
-        scale = np.prod(self.data.shape)
+        # number of data points: for multivariate data of shape (D, N) this
+        # is N, the last axis; for 1D data of shape (N,) it is also N
+        scale = self.data.shape[-1]
         if self._log:
             return lambda *args: scale * np.exp(self._model(*args))
         return lambda *args: scale * self._model(*args)
@@ -1337,7 +1366,7 @@ class BinnedCost(MaskedCostWithPulls):
         else:
             self._xe = tuple(_norm(xei) for xei in xe)
 
-        n = _norm(n)
+        n = _norm(n, copy=True)
 
         is_weighted = n.ndim > self._ndim and n.shape[-1] == 2
 
@@ -1434,7 +1463,11 @@ class BinnedCost(MaskedCostWithPulls):
         # mask values where error is zero
         ma = err == 0
         if self.mask is not None:
-            ma = ~self.mask
+            # the mask acts on the first dimension; broadcast the per-bin
+            # exclusion across the remaining dimensions before combining
+            excluded = _exclusion_from_mask(self.mask, n.shape[0])
+            excluded = excluded.reshape((-1,) + (1,) * (n.ndim - 1))
+            ma = ma | excluded
         n[ma] = np.nan
         err[ma] = np.nan
         return n, err
@@ -1771,7 +1804,7 @@ class Template(BinnedCost):
         except KeyError:
             raise ValueError(
                 f"method {method} is not understood, allowed values: {known_methods}"
-            )
+            ) from None
 
         if method == "hpd":
             warnings.warn(
@@ -1793,8 +1826,8 @@ class Template(BinnedCost):
         self._model_len = np.prod(self._xe_shape)
 
     def _pred(self, args: Sequence[float]) -> Tuple[NDArray, NDArray]:
-        mu: NDArray = 0  # type:ignore
-        mu_var: NDArray = 0  # type:ignore
+        mu = np.zeros(self._data.shape[: self._ndim])
+        mu_var = np.zeros_like(mu)
         i = 0
         for t1, t2 in self._model_data:
             if isinstance(t1, np.ndarray) and isinstance(t2, np.ndarray):
@@ -1813,10 +1846,12 @@ class Template(BinnedCost):
                 # subtraction, we set negative values to zero
                 d[d < 0] = 0
                 mu += d
-                mu_var += np.ones_like(mu) * 1e-300
+                # add a tiny floor to the variance to avoid exactly zero values;
+                # a scalar add avoids allocating full temporaries
+                mu_var += 1e-300
                 i += t2
             else:  # never arrive here
-                assert False  # pragma: no cover
+                raise AssertionError  # pragma: no cover
         return mu, mu_var
 
     def _value(self, args: Sequence[float]) -> float:
@@ -1985,8 +2020,9 @@ class BinnedNLL(BinnedCostWithModel):
         ma = self.mask
         if ma is not None:
             p /= np.sum(p[ma])
-        # scale probabilities with total number of entries of unmasked bins in histogram
-        return p * np.sum(self._counts())
+        # scale probabilities with total number of entries of unmasked bins in
+        # histogram; not cached, so that in-place edits of the counts are visible
+        return p * self._counts().sum()
 
     def _value(self, args: Sequence[float]) -> float:
         mu = self._pred(args)
@@ -2001,11 +2037,14 @@ class BinnedNLL(BinnedCostWithModel):
         # normalise probability of remaining bins
         if ma is not None:
             psum = np.sum(p[ma])
-            pg = pg / psum - p * np.sum(pg[:, ma]) / psum**2
+            # sum over all bin axes; pg[:, ma] keeps the trailing axes of a
+            # multi-dimensional histogram, so it needs a reshape to broadcast over p
+            corr = np.sum(pg[:, ma].reshape(len(pg), -1), axis=1)
+            pg = pg / psum - p * corr.reshape((-1,) + (1,) * p.ndim) / psum**2
             p /= psum
         # scale probabilities with total number of entries of unmasked bins in histogram
         n = self._counts()
-        ntot = np.sum(n)
+        ntot = n.sum()
         mu = p * ntot
         gmu = pg * ntot
         ma = self.mask
@@ -2145,9 +2184,7 @@ class LeastSquares(MaskedCostWithPulls):
     @property
     def x(self):
         """Get explanatory variables."""
-        if self._ndim == 1:
-            return self.data[:, 0]
-        return self.data.T[: self._ndim]
+        return self._x_columns(self.data)
 
     @x.setter
     def x(self, value):
@@ -2275,8 +2312,13 @@ class LeastSquares(MaskedCostWithPulls):
         self.loss = loss
 
         x = np.atleast_2d(x)
-        data = np.column_stack(np.broadcast_arrays(*x, y, yerror))
+        # .T of the stack is Fortran-ordered, so columns are contiguous views
+        data = np.stack(np.broadcast_arrays(*x, y, yerror)).T
         super().__init__(_model_parameters(model, name), data, verbose)
+
+    def _x_columns(self, data: NDArray) -> NDArray:
+        t = data.T
+        return t[0] if self._ndim == 1 else t[: self._ndim]
 
     def _ndata(self):
         return len(self._masked)
@@ -2345,22 +2387,21 @@ class LeastSquares(MaskedCostWithPulls):
         ye = self.yerror.copy()
         ym = self.prediction(args)
 
+        ma = ye == 0
         if self.mask is not None:
-            ma = ~self.mask
-            y[ma] = np.nan
-            ye[ma] = np.nan
+            ma = ma | _exclusion_from_mask(self.mask, y.shape[0])
+        y[ma] = np.nan
+        ye[ma] = np.nan
         return (y - ym) / ye
 
     def _pred(self, args: Sequence[float]) -> NDArray:
-        x = self._masked.T[0] if self._ndim == 1 else self._masked.T[: self._ndim]
-        ym = self._model(x, *args)
+        ym = self._model(self._x_columns(self._masked), *args)
         return _normalize_output(ym, "model", self._ndata())
 
     def _pred_grad(self, args: Sequence[float]) -> NDArray:
         if self._model_grad is None:
             raise ValueError("no gradient available")  # pragma: no cover
-        x = self._masked.T[0] if self._ndim == 1 else self._masked.T[: self._ndim]
-        ymg = self._model_grad(x, *args)
+        ymg = self._model_grad(self._x_columns(self._masked), *args)
         return _normalize_output(ymg, "model gradient", self.npar, self._ndata())
 
     def _value(self, args: Sequence[float]) -> float:
@@ -2428,13 +2469,14 @@ class NormalConstraint(Cost):
         """
         tp_args = (args,) if isinstance(args, str) else tuple(args)
         nargs = len(tp_args)
-        self._expected = _norm(value)
+        # copy, since the setters write into these arrays
+        self._expected = _norm(value, copy=True)
         if self._expected.ndim > 1:
             raise ValueError("value must be a scalar or one-dimensional")
         # args can be a vector of values, in this case we have nargs == 1
         if nargs > 1 and len(self._expected) != nargs:
             raise ValueError("size of value does not match size of args")
-        self._cov = _norm(error)
+        self._cov = _norm(error, copy=True)
         if len(self._cov) != len(self._expected):
             raise ValueError("size of error does not match size of value")
         if self._cov.ndim < 2:
@@ -2530,12 +2572,11 @@ class NormalConstraint(Cost):
         plt.ylim(-n + 0.5, 0.5)
 
 
-def _norm(value: ArrayLike) -> NDArray:
+def _norm(value: ArrayLike, copy: bool = False) -> NDArray:
     value = np.atleast_1d(value)
-    dtype = value.dtype
-    if dtype.kind != "f":
-        value = value.astype(np.float64)
-    return value
+    dtype = value.dtype if value.dtype.kind == "f" else np.float64
+    # copy=None means copy only if needed (numpy 2), and is False in numpy 1
+    return np.array(value, dtype=dtype, copy=copy or None)
 
 
 def _covinv(array):
@@ -2548,10 +2589,10 @@ def _normalize_output(x, kind, *shape, msg=None):
             msg = f"{kind} should return numpy array, but returns {type(x)}"
         else:
             msg = f"{kind} should return numpy array {msg}, but returns {type(x)}"
-        warnings.warn(msg, PerformanceWarning)
+        warnings.warn(msg, PerformanceWarning, stacklevel=2)
         x = np.array(x)
         if x.dtype.kind != "f":
-            return x.astype(float)
+            x = x.astype(float)
     if x.ndim < len(shape):
         return x.reshape(*shape)
     elif x.shape != shape:

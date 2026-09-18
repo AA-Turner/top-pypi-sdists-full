@@ -130,7 +130,8 @@ fn test_native_pymodule_entrypoint_registers_bindings() {
         let module = PyModule::new(py, "_native_entrypoint").unwrap();
         crate::_native(&module).unwrap();
         assert!(module.getattr("ScopeStack").is_ok());
-        assert!(module.getattr("initialize_plugins").is_ok());
+        assert!(module.getattr("initialize").is_ok());
+        assert!(module.getattr("validate").is_ok());
         assert!(module.getattr("set_latency_sensitivity").is_ok());
     });
 }
@@ -388,10 +389,8 @@ fn test_plugin_bindings_validate_configure_and_clear() {
         crate::py_plugin::register(&plugin_module).unwrap();
 
         assert!(plugin_module.getattr("PluginContext").is_ok());
-        assert!(plugin_module.getattr("validate_plugin_config").is_ok());
-        assert!(plugin_module.getattr("initialize_plugins").is_ok());
-        assert!(plugin_module.getattr("clear_plugin_configuration").is_ok());
-        assert!(plugin_module.getattr("active_plugin_report").is_ok());
+        assert!(plugin_module.getattr("validate").is_ok());
+        assert!(plugin_module.getattr("initialize").is_ok());
         assert!(plugin_module.getattr("list_plugin_kinds").is_ok());
         assert!(plugin_module.getattr("register_plugin").is_ok());
         assert!(plugin_module.getattr("deregister_plugin").is_ok());
@@ -401,7 +400,7 @@ fn test_plugin_bindings_validate_configure_and_clear() {
         assert!(adaptive_module.getattr("AdaptiveRuntime").is_ok());
         assert!(adaptive_module.getattr("set_latency_sensitivity").is_ok());
 
-        let report_config = crate::convert::json_to_py(
+        let report_request = crate::convert::json_to_py(
             py,
             &json!({
                 "version": 1,
@@ -418,13 +417,13 @@ fn test_plugin_bindings_validate_configure_and_clear() {
         )
         .unwrap();
         let report = plugin_module
-            .getattr("validate_plugin_config")
+            .getattr("validate")
             .unwrap()
-            .call1((report_config.bind(py),))
+            .call1((report_request.bind(py),))
             .unwrap();
         let report_json = crate::convert::py_to_json(&report).unwrap();
         assert!(
-            report_json["diagnostics"]
+            report_json["config"]["diagnostics"]
                 .as_array()
                 .unwrap()
                 .iter()
@@ -461,8 +460,8 @@ async def llm_stream_execution_intercept(request, next):
 def tool_request_intercept(name, value):
     return value
 
-async def tool_execution_intercept(name, value, next):
-    downstream = await next(value)
+async def tool_execution_intercept(context, next):
+    downstream = await next(context.args)
     return ToolOutcome(downstream.result, annotation=downstream.annotation)
 
 class CoveragePlugin:
@@ -503,7 +502,7 @@ class CoveragePlugin:
             ))
             .unwrap();
 
-        let plugin_report_config = crate::convert::json_to_py(
+        let plugin_report_request = crate::convert::json_to_py(
             py,
             &json!({
                 "version": 1,
@@ -516,13 +515,13 @@ class CoveragePlugin:
         )
         .unwrap();
         let plugin_report = plugin_module
-            .getattr("validate_plugin_config")
+            .getattr("validate")
             .unwrap()
-            .call1((plugin_report_config.bind(py),))
+            .call1((plugin_report_request.bind(py),))
             .unwrap();
         let plugin_report_json = crate::convert::py_to_json(&plugin_report).unwrap();
         assert!(
-            plugin_report_json["diagnostics"]
+            plugin_report_json["config"]["diagnostics"]
                 .as_array()
                 .unwrap()
                 .iter()
@@ -562,42 +561,42 @@ class CoveragePlugin:
         )
         .unwrap();
 
-        let helpers = load_module(
+        let lifecycle_helpers = load_module(
             py,
             r#"
-import asyncio
+async def initialize(module, config):
+    return await module.initialize(config)
 
-async def initialize_plugins(module, config):
-    return await module.initialize_plugins(config)
+async def close(activation):
+    await activation.close()
 "#,
         );
+        let mut activation = None;
         with_event_loop(py, |event_loop| {
-            let configured = event_loop
-                .call_method1(
-                    "run_until_complete",
-                    (helpers
-                        .getattr("initialize_plugins")
-                        .unwrap()
-                        .call1((plugin_module.clone(), configured_plugin_config.bind(py)))
-                        .unwrap(),),
-                )
+            let initialized = lifecycle_helpers
+                .getattr("initialize")
+                .unwrap()
+                .call1((plugin_module.clone(), configured_plugin_config.bind(py)))
                 .unwrap();
-            let configured_json = crate::convert::py_to_json(&configured).unwrap();
+            let configured = event_loop
+                .call_method1("run_until_complete", (initialized,))
+                .unwrap();
+            let configured_json = crate::convert::py_to_json(
+                &configured.getattr("report").expect("activation report"),
+            )
+            .unwrap();
             assert!(
-                configured_json["diagnostics"]
+                configured_json["config"]["diagnostics"]
                     .as_array()
                     .unwrap()
                     .iter()
                     .any(|diag| diag["code"] == "plugin.coverage_plugin_validate")
             );
+            activation = Some(configured.unbind());
         });
 
-        let active_report = plugin_module
-            .getattr("active_plugin_report")
-            .unwrap()
-            .call0()
-            .unwrap();
-        assert!(!active_report.is_none());
+        let activation = activation.expect("activation should be retained");
+        let active_report = activation.bind(py).getattr("report").unwrap();
         let active_report_json = crate::convert::py_to_json(&active_report).unwrap();
         assert!(active_report_json.is_object());
 
@@ -615,11 +614,16 @@ async def initialize_plugins(module, config):
                 .any(|kind| kind == "adaptive")
         );
 
-        plugin_module
-            .getattr("clear_plugin_configuration")
-            .unwrap()
-            .call0()
-            .unwrap();
+        with_event_loop(py, |event_loop| {
+            let close = lifecycle_helpers
+                .getattr("close")
+                .unwrap()
+                .call1((activation.bind(py),))
+                .unwrap();
+            event_loop
+                .call_method1("run_until_complete", (close,))
+                .unwrap();
+        });
 
         let removed = plugin_module
             .getattr("deregister_plugin")
@@ -804,8 +808,8 @@ fn test_async_exec_and_intercept_wrappers() {
 async def tool_exec(args):
     return ToolResult({"tool": args["x"] + 1}, {"source": "python-exec"})
 
-async def tool_intercept(name, args, next):
-    downstream = await next({"x": args["x"] + 1})
+async def tool_intercept(context, next):
+    downstream = await next({"x": context.args["x"] + 1})
     result = dict(downstream.result)
     result["wrapped"] = True
     return ToolOutcome(result, annotation=downstream.annotation)
@@ -853,9 +857,15 @@ async def llm_intercept(name, request, next):
                     })
                 });
                 assert_eq!(
-                    tool_intercept("tool", json!({"x": 2}), tool_next)
-                        .await
-                        .unwrap(),
+                    tool_intercept(
+                        nemo_relay::api::runtime::ToolExecutionContext::new(
+                            "tool",
+                            json!({"x": 2}),
+                        ),
+                        tool_next,
+                    )
+                    .await
+                    .unwrap(),
                     nemo_relay::api::tool::ToolExecutionInterceptOutcome::annotated(
                         json!({"next": 3, "wrapped": true}),
                         json!({"source": "python-next"})
@@ -949,7 +959,7 @@ fn test_async_wrapper_error_paths_and_sync_stream_intercept() {
 async def tool_exec_fail(args):
     raise RuntimeError("tool exec boom")
 
-async def tool_intercept_fail(name, args, next):
+async def tool_intercept_fail(context, next):
     raise RuntimeError("tool intercept boom")
 
 async def llm_exec_fail(request):
@@ -1013,11 +1023,17 @@ async def llm_stream_intercept_fail(request, next):
                 let tool_next: ToolExecutionNextFn =
                     Arc::new(|args| Box::pin(async move { Ok(args.into()) }));
                 assert!(
-                    tool_intercept("tool", json!({"x": 1}), tool_next)
-                        .await
-                        .unwrap_err()
-                        .to_string()
-                        .contains("tool intercept boom")
+                    tool_intercept(
+                        nemo_relay::api::runtime::ToolExecutionContext::new(
+                            "tool",
+                            json!({"x": 1}),
+                        ),
+                        tool_next,
+                    )
+                    .await
+                    .unwrap_err()
+                    .to_string()
+                    .contains("tool intercept boom")
                 );
 
                 let llm_exec = wrap_py_llm_exec_fn(llm_exec_fail_py);

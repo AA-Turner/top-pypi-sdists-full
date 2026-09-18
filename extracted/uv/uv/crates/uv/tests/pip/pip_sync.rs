@@ -3537,7 +3537,7 @@ fn require_hashes_wrong_algorithm() -> Result<()> {
 
     let requirements_txt = context.temp_dir.child("requirements.txt");
     requirements_txt
-        .write_str("anyio==4.0.0 --hash=sha512:cfdb2b588b9fc25ede96d8db56ed50848b0b649dca3dd1df0b11f683bb9e0b5f")?;
+        .write_str("anyio==4.0.0 --hash=sha512:cfdb2b588b9fc25ede96d8db56ed50848b0b649dca3dd1df0b11f683bb9e0b5fcfdb2b588b9fc25ede96d8db56ed50848b0b649dca3dd1df0b11f683bb9e0b5f")?;
 
     uv_snapshot!(context.pip_sync()
         .arg("requirements.txt")
@@ -3549,7 +3549,7 @@ fn require_hashes_wrong_algorithm() -> Result<()> {
       cause: Hash mismatch for `anyio==4.0.0`
 
              Expected:
-               sha512:cfdb2b588b9fc25ede96d8db56ed50848b0b649dca3dd1df0b11f683bb9e0b5f
+               sha512:cfdb2b588b9fc25ede96d8db56ed50848b0b649dca3dd1df0b11f683bb9e0b5fcfdb2b588b9fc25ede96d8db56ed50848b0b649dca3dd1df0b11f683bb9e0b5f
 
              Computed:
                sha256:cfdb2b588b9fc25ede96d8db56ed50848b0b649dca3dd1df0b11f683bb9e0b5f
@@ -3755,6 +3755,12 @@ fn require_hashes_wheel_url_mismatch() -> Result<()> {
                sha256:cfdb2b588b9fc25ede96d8db56ed50848b0b649dca3dd1df0b11f683bb9e0b5f
     "
     );
+
+    // A rejected wheel must not be published to the archive cache.
+    context
+        .cache_dir
+        .child("archive-v0")
+        .assert(predicates::path::missing());
 
     Ok(())
 }
@@ -3996,6 +4002,12 @@ fn require_hashes_wheel_path_mismatch() -> Result<()> {
                sha256:a34996d4bd5abb2336e14ff0a2d22b92cfd0f0ed344e6883041ce01953276a13
     "
     );
+
+    // A rejected wheel must not be published to the archive cache.
+    context
+        .cache_dir
+        .child("archive-v0")
+        .assert(predicates::path::missing());
 
     Ok(())
 }
@@ -4309,10 +4321,10 @@ fn require_hashes_at_least_one() -> Result<()> {
     error: `md5` hashes are insecure and cannot be used with `--require-hashes` but no other hashes are available for: anyio==4.0.0
     ");
 
-    // Request `anyio` with a `sha256` hash.
+    // Request `anyio` with an uppercase `sha256` hash.
     let requirements_txt = context.temp_dir.child("requirements.txt");
     requirements_txt
-        .write_str("anyio==4.0.0 --hash=sha256:f7ed51751b2c2add651e5747c891b47e26d2a21be5d32d9311dfe9692f3e5d7a")?;
+        .write_str("anyio==4.0.0 --hash=sha256:F7ED51751B2C2ADD651E5747C891B47E26D2A21BE5D32D9311DFE9692F3E5D7A")?;
 
     uv_snapshot!(context.pip_sync()
         .arg("requirements.txt")
@@ -4370,7 +4382,7 @@ fn require_hashes_at_least_one() -> Result<()> {
     // This should be true even if the second hash is wrong.
     let requirements_txt = context.temp_dir.child("requirements.txt");
     requirements_txt
-        .write_str("anyio==4.0.0 --hash=sha256:f7ed51751b2c2add651e5747c891b47e26d2a21be5d32d9311dfe9692f3e5d7a --hash=md5:1234")?;
+        .write_str("anyio==4.0.0 --hash=sha256:f7ed51751b2c2add651e5747c891b47e26d2a21be5d32d9311dfe9692f3e5d7a --hash=md5:12341234123412341234123412341234")?;
 
     uv_snapshot!(context.pip_sync()
         .arg("requirements.txt")
@@ -4434,7 +4446,9 @@ fn require_hashes_find_links_no_hash() -> Result<()> {
 
     // Second, use an incorrect hash.
     let requirements_txt = context.temp_dir.child("requirements.txt");
-    requirements_txt.write_str("basic-package==0.1.0 --hash=sha256:123")?;
+    requirements_txt.write_str(
+        "basic-package==0.1.0 --hash=sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    )?;
 
     uv_snapshot!(context.pip_sync()
         .arg("requirements.txt")
@@ -4451,7 +4465,7 @@ fn require_hashes_find_links_no_hash() -> Result<()> {
       cause: Hash mismatch for `basic-package==0.1.0`
 
              Expected:
-               sha256:123
+               sha256:0000000000000000000000000000000000000000000000000000000000000000
 
              Computed:
                sha256:7b6229db79b5800e4e98a351b5628c1c8a944533a2d428aeeaa7275a30d4ea82
@@ -4549,7 +4563,9 @@ fn require_hashes_find_links_invalid_hash() -> Result<()> {
 
     // First, request some other hash.
     let requirements_txt = context.temp_dir.child("requirements.txt");
-    requirements_txt.write_str("example-a-961b4c22==1.0.0 --hash=sha256:123")?;
+    requirements_txt.write_str(
+        "example-a-961b4c22==1.0.0 --hash=sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    )?;
 
     uv_snapshot!(context.pip_sync()
         .arg("requirements.txt")
@@ -4564,7 +4580,7 @@ fn require_hashes_find_links_invalid_hash() -> Result<()> {
       cause: Hash mismatch for `example-a-961b4c22==1.0.0`
 
              Expected:
-               sha256:123
+               sha256:0000000000000000000000000000000000000000000000000000000000000000
 
              Computed:
                sha256:5d69f0b590514103234f0c3526563856f04d044d8d0ea1073a843ae429b3187e
@@ -4723,6 +4739,41 @@ fn require_hashes_registry_valid_hash() -> Result<()> {
     Ok(())
 }
 
+/// Verify the index's wheel hash even when no explicit hash policy is requested.
+#[test]
+fn index_wheel_hash_mismatch() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    context
+        .temp_dir
+        .child("requirements.txt")
+        .write_str("example-a-961b4c22==1.0.0")?;
+
+    uv_snapshot!(context.pip_sync()
+        .env_remove(EnvVars::UV_EXCLUDE_NEWER)
+        .arg("requirements.txt")
+        .arg("--only-binary=:all:")
+        .arg("--index-url")
+        .arg("https://astral-test.github.io/astral-test-hash/invalid-hash/simple-html/"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    error: Failed to download `example-a-961b4c22==1.0.0`
+      cause: Hash mismatch for `example-a-961b4c22==1.0.0`
+
+             Expected:
+               sha256:8838f9d005ff0432b258ba648d9cabb1cbdf06ac29d14f788b02edae544032ea
+
+             Computed:
+               sha256:5d69f0b590514103234f0c3526563856f04d044d8d0ea1073a843ae429b3187e
+    ");
+
+    context
+        .cache_dir
+        .child("archive-v0")
+        .assert(predicates::path::missing());
+    Ok(())
+}
+
 /// Using `--index-url`, and the registry serves us an incorrect hash.
 #[test]
 fn require_hashes_registry_invalid_hash() -> Result<()> {
@@ -4730,7 +4781,9 @@ fn require_hashes_registry_invalid_hash() -> Result<()> {
 
     // First, request some other hash.
     let requirements_txt = context.temp_dir.child("requirements.txt");
-    requirements_txt.write_str("example-a-961b4c22==1.0.0 --hash=sha256:123")?;
+    requirements_txt.write_str(
+        "example-a-961b4c22==1.0.0 --hash=sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    )?;
 
     uv_snapshot!(context.pip_sync()
         .env_remove(EnvVars::UV_EXCLUDE_NEWER)
@@ -4746,7 +4799,7 @@ fn require_hashes_registry_invalid_hash() -> Result<()> {
       cause: Hash mismatch for `example-a-961b4c22==1.0.0`
 
              Expected:
-               sha256:123
+               sha256:0000000000000000000000000000000000000000000000000000000000000000
 
              Computed:
                sha256:5d69f0b590514103234f0c3526563856f04d044d8d0ea1073a843ae429b3187e
@@ -4779,8 +4832,8 @@ fn require_hashes_registry_invalid_hash() -> Result<()> {
     "
     );
 
-    // Third, request the correct hash, that the registry _thinks_ is correct. We should accept
-    // it, since it's already cached under this hash.
+    // Third, request the correct hash despite the registry's incorrect hash. The explicit policy
+    // takes precedence, and the rejected downloads must not have populated the cache.
     let requirements_txt = context.temp_dir.child("requirements.txt");
     requirements_txt
         .write_str("example-a-961b4c22==1.0.0 --hash=sha256:5d69f0b590514103234f0c3526563856f04d044d8d0ea1073a843ae429b3187e")?;
@@ -4801,8 +4854,7 @@ fn require_hashes_registry_invalid_hash() -> Result<()> {
     "
     );
 
-    // Fourth, request the correct hash, that the registry _thinks_ is correct, but without the
-    // cache. We _should_ accept it, but we currently don't.
+    // The explicit policy must also take precedence when refreshing the cache.
     let requirements_txt = context.temp_dir.child("requirements.txt");
     requirements_txt
         .write_str("example-a-961b4c22==1.0.0 --hash=sha256:5d69f0b590514103234f0c3526563856f04d044d8d0ea1073a843ae429b3187e")?;
@@ -4927,6 +4979,26 @@ fn require_hashes_url_invalid() -> Result<()> {
                sha256:b6a85871a79d2e3b22d2d1b94ac2824226a63c6b741c88f7ae975f18b6778374
     "
     );
+
+    Ok(())
+}
+
+/// Reject malformed URL hashes without downloading the distribution.
+#[test]
+fn require_hashes_url_malformed() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let requirements_txt = context.temp_dir.child("requirements.txt");
+    requirements_txt.write_str(
+        "iniconfig @ https://files.pythonhosted.org/packages/iniconfig-2.0.0-py3-none-any.whl#subdirectory=src&sha256=123",
+    )?;
+
+    uv_snapshot!(context.pip_sync()
+        .arg("requirements.txt")
+        .arg("--require-hashes"), @"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: Invalid hash digest length (expected 64 hexadecimal characters, found 3)
+    ");
 
     Ok(())
 }
@@ -5787,7 +5859,9 @@ fn pep_751_validates_cached_remote_archive_size() -> Result<()> {
         .assert()
         .success();
 
-    context.temp_dir.child("pylock.toml").write_str(&formatdoc! {
+    context.reset_venv();
+
+    let pylock = formatdoc! {
         r#"
         lock-version = "1.0"
         created-by = "uv"
@@ -5795,20 +5869,222 @@ fn pep_751_validates_cached_remote_archive_size() -> Result<()> {
         [[packages]]
         name = "a"
         version = "1.0.0"
-        archive = {{ url = "{wheel_url}", size = 1, hashes = {{ sha256 = "f936eedc194aa91ca01a4c6c9981136ca6c75ce6df47e3951b12522881dce809" }} }}
+        archive = {{ url = "{wheel_url}", size = 921, hashes = {{ sha256 = "f936eedc194aa91ca01a4c6c9981136ca6c75ce6df47e3951b12522881dce809" }} }}
         "#,
-    })?;
+    };
+    context.temp_dir.child("pylock.toml").write_str(&pylock)?;
 
     uv_snapshot!(context.filters(), context.pip_sync()
         .arg("--preview")
         .arg("--offline")
-        .arg("--reinstall")
+        .arg("pylock.toml"), @r#"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Installed 1 package in [TIME]
+     + a==1.0.0 (from http://[LOCALHOST]/files/a-1.0.0-py3-none-any.whl)
+    "#);
+
+    context.reset_venv();
+
+    context
+        .temp_dir
+        .child("pylock.toml")
+        .write_str(&pylock.replace("size = 921", "size = 1"))?;
+
+    uv_snapshot!(context.filters(), context.pip_sync()
+        .arg("--preview")
+        .arg("--offline")
         .arg("pylock.toml"), @"
     exit_code: 1 (failure)
     ----- stderr -----
     error: Failed to download `a @ http://[LOCALHOST]/files/a-1.0.0-py3-none-any.whl`
       cause: Size mismatch for `a @ http://[LOCALHOST]/files/a-1.0.0-py3-none-any.whl`: expected 1 bytes, but downloaded 921 bytes
     ");
+
+    Ok(())
+}
+
+#[test]
+fn pep_751_validates_cached_registry_wheel_size() -> Result<()> {
+    let server = PackseServer::new("simple/single-package.toml");
+    let context = uv_test::test_context!("3.12");
+    let pylock = formatdoc! {
+        r#"
+        lock-version = "1.0"
+        created-by = "uv"
+
+        [[packages]]
+        name = "a"
+        version = "1.0.0"
+        index = "{index}"
+        wheels = [{{ url = "{wheel_url}", size = 921, hashes = {{ sha256 = "f936eedc194aa91ca01a4c6c9981136ca6c75ce6df47e3951b12522881dce809" }} }}]
+        "#,
+        index = server.index_url(),
+        wheel_url = server.file_url("a-1.0.0-py3-none-any.whl"),
+    };
+    context.temp_dir.child("pylock.toml").write_str(&pylock)?;
+    context
+        .pip_sync()
+        .arg("--preview")
+        .arg("--index-url")
+        .arg(server.index_url())
+        .arg("pylock.toml")
+        .assert()
+        .success();
+
+    context.reset_venv();
+    uv_snapshot!(context.filters(), context.pip_sync()
+        .arg("--preview")
+        .arg("--index-url")
+        .arg(server.index_url())
+        .arg("--offline")
+        .arg("pylock.toml"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Installed 1 package in [TIME]
+     + a==1.0.0
+    ");
+
+    context.reset_venv();
+    context
+        .temp_dir
+        .child("pylock.toml")
+        .write_str(&pylock.replace("size = 921", "size = 1"))?;
+    uv_snapshot!(context.filters(), context.pip_sync()
+        .arg("--preview")
+        .arg("--index-url")
+        .arg(server.index_url())
+        .arg("--offline")
+        .arg("pylock.toml"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: Failed to download `a==1.0.0`
+      cause: Size mismatch for `a==1.0.0`: expected 1 bytes, but downloaded 921 bytes
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn pep_751_validates_cached_registry_sdist_size() -> Result<()> {
+    let server = PackseServer::new("simple/single-package.toml");
+    let context = uv_test::test_context!("3.12");
+    let (_, hash) = server
+        .files()
+        .find(|(filename, _)| *filename == "a-1.0.0.tar.gz")
+        .expect("source distribution");
+    let pylock = formatdoc! {
+        r#"
+        lock-version = "1.0"
+        created-by = "uv"
+
+        [[packages]]
+        name = "a"
+        version = "1.0.0"
+        index = "{index}"
+        sdist = {{ url = "{sdist_url}", size = 607, hashes = {{ sha256 = "{hash}" }} }}
+        "#,
+        index = server.index_url(),
+        sdist_url = server.file_url("a-1.0.0.tar.gz"),
+    };
+    context.temp_dir.child("pylock.toml").write_str(&pylock)?;
+    context
+        .pip_sync()
+        .arg("--preview")
+        .arg("--index-url")
+        .arg(server.index_url())
+        .arg("pylock.toml")
+        .assert()
+        .success();
+
+    context.reset_venv();
+    uv_snapshot!(context.filters(), context.pip_sync()
+        .arg("--preview")
+        .arg("--index-url")
+        .arg(server.index_url())
+        .arg("--offline")
+        .arg("pylock.toml"), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Installed 1 package in [TIME]
+     + a==1.0.0
+    ");
+
+    context.reset_venv();
+    context
+        .temp_dir
+        .child("pylock.toml")
+        .write_str(&pylock.replace("size = 607", "size = 1"))?;
+    uv_snapshot!(context.filters(), context.pip_sync()
+        .arg("--preview")
+        .arg("--index-url")
+        .arg(server.index_url())
+        .arg("--offline")
+        .arg("pylock.toml"), @"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: Failed to download and build `a==1.0.0`
+      cause: Size mismatch for `a==1.0.0`: expected 1 bytes, but downloaded 607 bytes
+    ");
+
+    Ok(())
+}
+
+#[test]
+fn pep_751_validates_cached_url_sdist_size() -> Result<()> {
+    let server = PackseServer::new("simple/single-package.toml");
+    let context = uv_test::test_context!("3.12");
+    let (_, hash) = server
+        .files()
+        .find(|(filename, _)| *filename == "a-1.0.0.tar.gz")
+        .expect("source distribution");
+    let pylock = formatdoc! {
+        r#"
+        lock-version = "1.0"
+        created-by = "uv"
+
+        [[packages]]
+        name = "a"
+        version = "1.0.0"
+        archive = {{ url = "{sdist_url}", size = 607, hashes = {{ sha256 = "{hash}" }} }}
+        "#,
+        sdist_url = server.file_url("a-1.0.0.tar.gz"),
+    };
+    context.temp_dir.child("pylock.toml").write_str(&pylock)?;
+    context
+        .pip_sync()
+        .arg("--preview")
+        .arg("--index-url")
+        .arg(server.index_url())
+        .arg("pylock.toml")
+        .assert()
+        .success();
+
+    context.reset_venv();
+    uv_snapshot!(context.filters(), context.pip_sync()
+        .arg("--preview")
+        .arg("--offline")
+        .arg("pylock.toml"), @r#"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Installed 1 package in [TIME]
+     + a==1.0.0 (from http://[LOCALHOST]/files/a-1.0.0.tar.gz)
+    "#);
+
+    context.reset_venv();
+    context
+        .temp_dir
+        .child("pylock.toml")
+        .write_str(&pylock.replace("size = 607", "size = 1"))?;
+    uv_snapshot!(context.filters(), context.pip_sync()
+        .arg("--preview")
+        .arg("--offline")
+        .arg("pylock.toml"), @r#"
+    exit_code: 1 (failure)
+    ----- stderr -----
+    error: Failed to download and build `a @ http://[LOCALHOST]/files/a-1.0.0.tar.gz`
+      cause: Size mismatch for `a @ http://[LOCALHOST]/files/a-1.0.0.tar.gz`: expected 1 bytes, but downloaded 607 bytes
+    "#);
 
     Ok(())
 }

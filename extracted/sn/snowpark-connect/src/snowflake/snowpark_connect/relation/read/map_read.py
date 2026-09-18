@@ -518,6 +518,30 @@ def _read_file(
         classify_source_path(source_path) for source_path in clean_source_paths
     ]
 
+    # Before get_paths_from_stage, which is the last point the paths still carry their own
+    # bucket: for cloud URLs it synthesizes one stage from clean_source_paths[0] and strips
+    # every path's bucket, so afterwards a second bucket is indistinguishable from the first.
+    # NSS-only by design — the COPY path groups multi-stage reads per stage and unions them.
+    nss_glob_patterns_by_path: dict[str, str] = {}
+    nss_read_needs_glob_patterns = False
+    if read_format in ("csv", "json"):
+        from snowflake.snowpark_connect.config import is_nss_enabled
+        from snowflake.snowpark_connect.nss.nss_scan_options import (
+            nss_glob_patterns,
+            raise_if_multiple_storage_locations,
+            raise_if_named_stage_files_missing,
+        )
+
+        if is_nss_enabled():
+            if len(clean_source_paths) > 1:
+                raise_if_multiple_storage_locations(clean_source_paths)
+                # F7: a LOCATIONS element resolving to zero files contributes silently, so a
+                # mistyped path returns fewer rows with no error where Spark raises.
+                raise_if_named_stage_files_missing(
+                    session, clean_source_paths, path_classifications
+                )
+            nss_read_needs_glob_patterns = True
+
     paths = get_paths_from_stage(
         clean_source_paths,
         session,
@@ -543,6 +567,22 @@ def _read_file(
         else path
         for classification, path in zip(path_classifications, paths)
     ]
+
+    if nss_read_needs_glob_patterns:
+        # Keyed by the location the TVF builders will actually emit, which means AFTER both
+        # rewrites above:
+        #   * get_paths_from_stage moves every non-@ source onto an auto-created stage
+        #     (s3://bucket/dir/ -> @DB.SCH.STG_x/dir), so keying by the source attaches
+        #     nothing at all for s3/azure/local;
+        #   * the trailing-slash append just above then changes the string again, but only for
+        #     the branches that stripped it -- _path_for_stage_mapping and parse_azure_url
+        #     preserve it while S3FileSystem._strip_protocol and
+        #     _local_path_stage_relative_suffix rstrip it. Keying before the append therefore
+        #     worked for @stage and azure and was silently dead for s3/s3a/local, which is
+        #     exactly the half-fix a hand-written test could not see.
+        # Still ahead of the quoting below, which is the form normalize_stage_paths unquotes
+        # back to. Anything that rewrites a path after this point must move this call too.
+        nss_glob_patterns_by_path = nss_glob_patterns(clean_source_paths, paths)
 
     paths = [_quote_stage_path(path) for path in paths]
 
@@ -614,6 +654,7 @@ def _read_file(
                 paths,
                 CsvReaderConfig(options),
                 skip_partition_discovery=skip_partition_discovery,
+                glob_patterns=nss_glob_patterns_by_path,
             )
         case "json":
             from snowflake.snowpark_connect.relation.read.map_read_json import (
@@ -628,6 +669,7 @@ def _read_file(
                 paths,
                 JsonReaderConfig(options),
                 skip_partition_discovery=skip_partition_discovery,
+                glob_patterns=nss_glob_patterns_by_path,
             ).without_materialization()
 
         case "parquet":

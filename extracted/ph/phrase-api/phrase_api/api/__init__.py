@@ -9,6 +9,7 @@ from phrase_api.api.automation_events_api import AutomationEventsApi
 from phrase_api.api.automations_api import AutomationsApi
 from phrase_api.api.blacklisted_keys_api import BlacklistedKeysApi
 from phrase_api.api.branches_api import BranchesApi
+from phrase_api.api.checks_api import ChecksApi
 from phrase_api.api.comment_reactions_api import CommentReactionsApi
 from phrase_api.api.comment_replies_api import CommentRepliesApi
 from phrase_api.api.comments_api import CommentsApi
@@ -34,6 +35,7 @@ from phrase_api.api.keys_figma_attachments_api import KeysFigmaAttachmentsApi
 from phrase_api.api.linked_keys_api import LinkedKeysApi
 from phrase_api.api.locale_downloads_api import LocaleDownloadsApi
 from phrase_api.api.locales_api import LocalesApi
+from phrase_api.api.machine_translation_api import MachineTranslationApi
 from phrase_api.api.members_api import MembersApi
 from phrase_api.api.notification_groups_api import NotificationGroupsApi
 from phrase_api.api.notifications_api import NotificationsApi

@@ -159,9 +159,34 @@ async def test_error_handling_catch(env):
     # Per the docs, a step error propagates to run() and is catchable with
     # `except Exception`. Neither the concrete type nor the original message is
     # guaranteed to survive the RPC layer, so we assert the reliable contract:
-    # the error was caught and a message was produced.
+    # the error was caught and a message was produced, and that the SDK's own
+    # error translation did not blow up (e.g. IndexError while parsing it).
     assert status["output"]["caught"] is not None
+    assert status["output"]["caught"] != "IndexError"
     assert status["output"]["message"]
+
+
+async def test_duplicate_step_names(env):
+    instance = await env.MY_WORKFLOW.create(
+        {"params": {"mode": "duplicate_step_names"}}
+    )
+    status = await _poll(instance)
+    assert status["status"] == "complete", f"unexpected status: {dict(status)!r}"
+    assert status["output"]["concurrent"] == [1, 2]
+    assert status["output"]["uses"] == 20
+
+
+async def test_step_output_conversion(env):
+    instance = await env.MY_WORKFLOW.create(
+        {"params": {"mode": "step_output_conversion"}}
+    )
+    status = await _poll(instance)
+    assert status["status"] == "complete", f"unexpected status: {dict(status)!r}"
+    out = status["output"]
+    assert out["when_is_datetime"] is True
+    assert out["year"] == 2026
+    assert out["nothing_is_none"] is True
+    assert out["nested_nothing_is_none"] is True
 
 
 # The tests below pass pre-converted (to_js) objects, the legacy pattern from the

@@ -130,6 +130,7 @@ from mixpeek.models.batch_phases import BatchPhases
 from mixpeek.models.batch_progress import BatchProgress
 from mixpeek.models.batch_query_item import BatchQueryItem
 from mixpeek.models.batch_stage_info import BatchStageInfo
+from mixpeek.models.batch_stage_timing import BatchStageTiming
 from mixpeek.models.batch_statistics import BatchStatistics
 from mixpeek.models.batch_step_info import BatchStepInfo
 from mixpeek.models.batch_type import BatchType
@@ -207,6 +208,7 @@ from mixpeek.models.cancel_migration_request import CancelMigrationRequest
 from mixpeek.models.cancel_migration_response import CancelMigrationResponse
 from mixpeek.models.cancel_subscription_request import CancelSubscriptionRequest
 from mixpeek.models.cancel_subscription_response import CancelSubscriptionResponse
+from mixpeek.models.cancellation_outcome import CancellationOutcome
 from mixpeek.models.change_event_response import ChangeEventResponse
 from mixpeek.models.chunk_strategy import ChunkStrategy
 from mixpeek.models.clarification_option import ClarificationOption
@@ -376,6 +378,9 @@ from mixpeek.models.document_diagnostics_response import DocumentDiagnosticsResp
 from mixpeek.models.document_graph_extractor_params import DocumentGraphExtractorParams
 from mixpeek.models.document_group import DocumentGroup
 from mixpeek.models.document_id_strategy import DocumentIdStrategy
+from mixpeek.models.document_lineage import DocumentLineage
+from mixpeek.models.document_lineage_response import DocumentLineageResponse
+from mixpeek.models.document_lineage_step import DocumentLineageStep
 from mixpeek.models.document_list_stats import DocumentListStats
 from mixpeek.models.document_ref import DocumentRef
 from mixpeek.models.document_response import DocumentResponse
@@ -1143,6 +1148,7 @@ from mixpeek.models.sync_health_metric import SyncHealthMetric
 from mixpeek.models.sync_job_list_response import SyncJobListResponse
 from mixpeek.models.sync_job_model import SyncJobModel
 from mixpeek.models.sync_job_status import SyncJobStatus
+from mixpeek.models.sync_job_trigger import SyncJobTrigger
 from mixpeek.models.sync_list_response import SyncListResponse
 from mixpeek.models.sync_metrics_response import SyncMetricsResponse
 from mixpeek.models.sync_mode import SyncMode

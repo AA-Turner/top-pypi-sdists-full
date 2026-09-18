@@ -21809,7 +21809,7 @@ class ReplicationRule:
         :param filter: A filter that identifies the subset of objects to which the replication rule applies. Default: - applies to all objects
         :param id: A unique identifier for the rule. The maximum value is 255 characters. Default: - auto generated random ID
         :param kms_key: The customer managed AWS KMS key stored in AWS Key Management Service (KMS) for the destination bucket. Amazon S3 uses this key to encrypt replica objects. Amazon S3 only supports symmetric encryption KMS keys. Default: - Amazon S3 uses the AWS managed KMS key for encryption
-        :param metrics: A container specifying replication metrics-related settings enabling replication metrics and events. When a value is set, metrics will be output to indicate whether the replication took longer than the specified time. Default: - Replication metrics are not enabled
+        :param metrics: A container specifying replication metrics-related settings to configure ``Status`` of replication metrics and ``EventThreshold`` . The specified eventThreshold duration takes effect only when ``replicationTimeControl`` is enabled . Otherwise, the duration is ignored and replication metrics are enabled without an event threshold. Default: - Replication metrics are not enabled
         :param priority: The priority indicates which rule has precedence whenever two or more replication rules conflict. Amazon S3 will attempt to replicate objects according to all replication rules. However, if there are two or more rules with the same destination bucket, then objects will be replicated according to the rule with the highest priority. The higher the number, the higher the priority. It is essential to specify priority explicitly when the replication configuration has multiple rules. Default: 0
         :param replica_modifications: Specifies whether Amazon S3 replicates modifications on replicas. Default: false
         :param replication_time_control: Specifying S3 Replication Time Control (S3 RTC), including whether S3 RTC is enabled and the time when all objects and operations on objects must be replicated. Default: - S3 Replication Time Control is not enabled
@@ -21987,11 +21987,14 @@ class ReplicationRule:
 
     @builtins.property
     def metrics(self) -> typing.Optional["ReplicationTimeValue"]:
-        '''A container specifying replication metrics-related settings enabling replication metrics and events.
+        '''A container specifying replication metrics-related settings to configure ``Status`` of replication metrics and ``EventThreshold`` .
 
-        When a value is set, metrics will be output to indicate whether the replication took longer than the specified time.
+        The specified eventThreshold duration takes effect only when ``replicationTimeControl`` is enabled .
+        Otherwise, the duration is ignored and replication metrics are enabled without an event threshold.
 
         :default: - Replication metrics are not enabled
+
+        :see: https://docs.aws.amazon.com/AmazonS3/latest/userguide/repl-metrics.html
         '''
         result = self._values.get("metrics")
         return typing.cast(typing.Optional["ReplicationTimeValue"], result)

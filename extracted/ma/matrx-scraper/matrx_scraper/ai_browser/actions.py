@@ -20,7 +20,7 @@ import base64
 import logging
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from matrx_scraper.ai_browser.session import (
     BrowserSession,
@@ -58,6 +58,18 @@ ECHO_CAP = 200  # caller's OWN input echoed back (fill value, typed text)
 LABEL_CAP = 80  # caller's OWN input echoed into a human-readable label
 
 
+def _failure_type(exc: Exception) -> str:
+    """Name the failure class of a Playwright exception.
+
+    A timeout is the single most common operational failure and the only one an
+    agent should consider retrying — calling it the catch-all 'browser' hid it
+    from the caller AND from the action-event ledger. Classified by exception
+    NAME because Playwright lives behind the `browser` extra and must not be
+    imported here.
+    """
+    return "timeout" if type(exc).__name__ == "TimeoutError" else "browser"
+
+
 def _cap_text(text: str, limit: int) -> tuple[str, int, bool]:
     """Cap `text` at `limit` characters, visibly.
 
@@ -77,14 +89,42 @@ def _cap_text(text: str, limit: int) -> tuple[str, int, bool]:
 
 
 class _BaseResult(BaseModel):
+    """`success` states ONE thing: the action actually happened.
+
+    🚨 It may never be True beside an error. On 2026-09-17 a click that raised
+    ``Page.click: Timeout 10000ms exceeded.`` reached a caller as
+    ``success: true`` with that message sitting in the same payload, and the
+    caller — reasonably — believed the click landed. The validator below makes
+    that shape unconstructible for EVERY result in this family, here and in
+    ``cloud_browser/worker/commands.py``, which imports these models rather
+    than re-declaring them. Guard: ``tests/test_browser_action_success_honesty.py``.
+
+    The downgrade is never silent (it logs and always names an error class):
+    a result that trips it is a defect in its author, not a runtime condition.
+    """
+
     success: bool
     session_id: str | None = None
     error_message: str | None = None
     # 'blocked' is the SSRF gate firing (see ai_browser/url_guard.py) and is
-    # kept distinct from 'validation' so it greps out on its own.
+    # kept distinct from 'validation' so it greps out on its own. 'no_effect'
+    # is an action that completed without doing anything (see `scroll`).
     error_type: str | None = (
-        None  # 'not_found' | 'timeout' | 'navigation' | 'browser' | 'validation' | 'blocked'
+        None  # 'not_found' | 'timeout' | 'navigation' | 'browser' | 'validation' | 'blocked' | 'no_effect'
     )
+
+    @model_validator(mode="after")
+    def _success_never_survives_an_error(self) -> _BaseResult:
+        if self.success and (self.error_message or self.error_type):
+            logger.warning(
+                "browser_action_success_downgraded model=%s error_type=%s",
+                type(self).__name__,
+                self.error_type or "browser",
+            )
+            self.success = False
+            if not self.error_type:
+                self.error_type = "browser"
+        return self
 
 
 class _CappedResult(_BaseResult):
@@ -172,9 +212,24 @@ class EvalJsResult(_BaseResult):
 
 
 class ScrollResult(_BaseResult):
+    """A scroll reports the position it started from, not just where it ended.
+
+    `scroll_y: 0` on its own cannot tell "the page is at the top because it just
+    went there" from "nothing moved at all" — the 2026-09-17 defect.
+    """
+
     direction: str | None = None
     pixels: int | None = None
     scroll_y: int | None = None
+    scroll_y_before: int | None = None
+    #: Did the scroll position actually change?
+    moved: bool = False
+    #: Is the container at the far end in the requested direction?
+    at_end: bool = False
+    #: Named, dedicated field for a move that did not happen:
+    #: 'already_at_end' | 'already_at_start' (honest, non-failing) or
+    #: 'not_scrollable' (a failure — the region does not scroll here).
+    no_effect_reason: str | None = None
 
 
 class GetHtmlResult(_CappedResult):
@@ -188,6 +243,30 @@ class GetTextResult(_CappedResult):
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────
+
+
+#: One probe, run before AND after a scroll, so the action can say whether it
+#: actually moved anything instead of reporting the end position alone.
+#: Returns ``{pos, max}`` for the window, or for `selector`'s element, or null
+#: when the selector matches nothing.
+_SCROLL_STATE_JS = (
+    "(sel) => {"
+    " const el = sel ? document.querySelector(sel) : null;"
+    " if (sel && !el) return null;"
+    " const pos = sel ? el.scrollTop : (window.scrollY || 0);"
+    " const height = sel ? el.scrollHeight : (document.documentElement.scrollHeight || 0);"
+    " const view = sel ? el.clientHeight : (window.innerHeight || 0);"
+    " return {pos: pos, max: Math.max(0, height - view)};"
+    "}"
+)
+
+
+def _scroll_pos(state: Any) -> int:
+    return int((state or {}).get("pos") or 0)
+
+
+def _scroll_max(state: Any) -> int:
+    return int((state or {}).get("max") or 0)
 
 
 async def _resolve_session(
@@ -333,7 +412,7 @@ async def click(
         return ClickResult(
             success=False,
             session_id=session_id,
-            error_type="browser",
+            error_type=_failure_type(exc),
             error_message=f"Click failed: {exc}",
         )
 
@@ -367,7 +446,7 @@ async def fill(
         return FillResult(
             success=False,
             session_id=session_id,
-            error_type="browser",
+            error_type=_failure_type(exc),
             error_message=f"Fill failed: {exc}",
         )
 
@@ -430,7 +509,7 @@ async def type_text(
         return TypeResult(
             success=False,
             session_id=session_id,
-            error_type="browser",
+            error_type=_failure_type(exc),
             error_message=f"Type failed: {exc}",
         )
 
@@ -478,7 +557,7 @@ async def select_option(
         return SelectOptionResult(
             success=False,
             session_id=session_id,
-            error_type="browser",
+            error_type=_failure_type(exc),
             error_message=f"Select failed: {exc}",
         )
 
@@ -534,7 +613,7 @@ async def screenshot(
         return ScreenshotResult(
             success=False,
             session_id=session_id,
-            error_type="browser",
+            error_type=_failure_type(exc),
             error_message=f"Screenshot failed: {exc}",
         )
 
@@ -666,7 +745,7 @@ async def get_element(
         return GetElementResult(
             success=False,
             session_id=session_id,
-            error_type="browser",
+            error_type=_failure_type(exc),
             error_message=f"get_element failed: {exc}",
         )
 
@@ -748,7 +827,7 @@ async def query_selectors(
         return QuerySelectorsResult(
             success=False,
             session_id=session_id,
-            error_type="browser",
+            error_type=_failure_type(exc),
             error_message=f"query failed: {exc}",
         )
 
@@ -798,7 +877,7 @@ async def eval_js(
         return EvalJsResult(
             success=False,
             session_id=session_id,
-            error_type="browser",
+            error_type=_failure_type(exc),
             error_message=f"eval_js failed: {exc}",
         )
 
@@ -830,6 +909,16 @@ async def scroll(
             success=False, session_id=session_id, error_type=error_type, error_message=message
         )
     try:
+        before = await session.page.evaluate(_SCROLL_STATE_JS, selector)
+        if before is None:
+            return ScrollResult(
+                success=False,
+                session_id=session_id,
+                direction=direction,
+                pixels=pixels,
+                error_type="not_found",
+                error_message=f"No element matches the scroll selector: {selector}",
+            )
         if selector:
             await session.page.evaluate(
                 "([sel, dir, px]) => {"
@@ -850,21 +939,54 @@ async def scroll(
             else:
                 delta = -pixels if direction == "up" else pixels
                 await session.page.evaluate(f"window.scrollBy(0, {delta})")
-        scroll_y = await session.page.evaluate("window.scrollY")
-        return ScrollResult(
-            success=True,
-            session_id=session_id,
-            direction=direction,
-            pixels=pixels,
-            scroll_y=int(scroll_y) if scroll_y is not None else None,
-        )
+        after = await session.page.evaluate(_SCROLL_STATE_JS, selector)
     except Exception as exc:
         return ScrollResult(
             success=False,
             session_id=session_id,
-            error_type="browser",
+            direction=direction,
+            pixels=pixels,
+            error_type=_failure_type(exc),
             error_message=f"Scroll failed: {exc}",
         )
+
+    start = _scroll_pos(before)
+    end = _scroll_pos(after)
+    moved = end != start
+    forward = direction in ("down", "bottom")
+    at_end = (start >= _scroll_max(before) - 1) if forward else (start <= 0)
+    common = {
+        "session_id": session_id,
+        "direction": direction,
+        "pixels": pixels,
+        "scroll_y": end,
+        "scroll_y_before": start,
+        "moved": moved,
+        "at_end": at_end if not moved else (end >= _scroll_max(after) - 1 if forward else end <= 0),
+    }
+    if moved:
+        return ScrollResult(success=True, **common)
+    if at_end:
+        # An honest non-move: the caller asked to go further in a direction that
+        # has no further. It is a fine outcome — but it is SAID, in its own
+        # field, never left as a bare success.
+        return ScrollResult(
+            success=True,
+            no_effect_reason="already_at_end" if forward else "already_at_start",
+            **common,
+        )
+    where = f"the element matching {selector}" if selector else "the page"
+    return ScrollResult(
+        success=False,
+        error_type="no_effect",
+        error_message=(
+            f"Scroll had no effect: {where} did not move (still at {end}) and is not at the "
+            "end. The scrollable region is probably an inner element — pass `selector` for "
+            "the container that actually scrolls."
+        ),
+        no_effect_reason="not_scrollable",
+        **common,
+    )
 
 
 async def get_html(
@@ -898,7 +1020,7 @@ async def get_html(
         return GetHtmlResult(
             success=False,
             session_id=session_id,
-            error_type="browser",
+            error_type=_failure_type(exc),
             error_message=f"get_html failed: {exc}",
         )
 
@@ -935,7 +1057,7 @@ async def get_text(
         return GetTextResult(
             success=False,
             session_id=session_id,
-            error_type="browser",
+            error_type=_failure_type(exc),
             error_message=f"get_text failed: {exc}",
         )
 

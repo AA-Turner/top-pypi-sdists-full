@@ -28,6 +28,7 @@ if typing.TYPE_CHECKING:
     from .bounty_submissions.client import AsyncBountySubmissionsClient, BountySubmissionsClient
     from .card_transactions.client import AsyncCardTransactionsClient, CardTransactionsClient
     from .cards.client import AsyncCardsClient, CardsClient
+    from .cashback_rules.client import AsyncCashbackRulesClient, CashbackRulesClient
     from .chat_channels.client import AsyncChatChannelsClient, ChatChannelsClient
     from .checkout_configurations.client import AsyncCheckoutConfigurationsClient, CheckoutConfigurationsClient
     from .company_token_transactions.client import AsyncCompanyTokenTransactionsClient, CompanyTokenTransactionsClient
@@ -42,9 +43,12 @@ if typing.TYPE_CHECKING:
     from .disputes.client import AsyncDisputesClient, DisputesClient
     from .dm_channels.client import AsyncDmChannelsClient, DmChannelsClient
     from .dm_members.client import AsyncDmMembersClient, DmMembersClient
+    from .domains.client import AsyncDomainsClient, DomainsClient
+    from .economic_intelligence.client import AsyncEconomicIntelligenceClient, EconomicIntelligenceClient
     from .entries.client import AsyncEntriesClient, EntriesClient
     from .events.client import AsyncEventsClient, EventsClient
     from .experiences.client import AsyncExperiencesClient, ExperiencesClient
+    from .experiments.client import AsyncExperimentsClient, ExperimentsClient
     from .exports.client import AsyncExportsClient, ExportsClient
     from .fee_markups.client import AsyncFeeMarkupsClient, FeeMarkupsClient
     from .files.client import AsyncFilesClient, FilesClient
@@ -64,6 +68,7 @@ if typing.TYPE_CHECKING:
     from .partners.client import AsyncPartnersClient, PartnersClient
     from .payment_method_domains.client import AsyncPaymentMethodDomainsClient, PaymentMethodDomainsClient
     from .payment_methods.client import AsyncPaymentMethodsClient, PaymentMethodsClient
+    from .payment_rules.client import AsyncPaymentRulesClient, PaymentRulesClient
     from .payments.client import AsyncPaymentsClient, PaymentsClient
     from .payout_accounts.client import AsyncPayoutAccountsClient, PayoutAccountsClient
     from .payout_methods.client import AsyncPayoutMethodsClient, PayoutMethodsClient
@@ -74,7 +79,6 @@ if typing.TYPE_CHECKING:
     from .products.client import AsyncProductsClient, ProductsClient
     from .promo_codes.client import AsyncPromoCodesClient, PromoCodesClient
     from .reactions.client import AsyncReactionsClient, ReactionsClient
-    from .recommended_actions.client import AsyncRecommendedActionsClient, RecommendedActionsClient
     from .refunds.client import AsyncRefundsClient, RefundsClient
     from .resolution_center_cases.client import AsyncResolutionCenterCasesClient, ResolutionCenterCasesClient
     from .reviews.client import AsyncReviewsClient, ReviewsClient
@@ -142,7 +146,7 @@ class Whop:
     from whop_sdk import Whop
 
     client = Whop(
-        "2026-09-02-2",
+        "2026-09-15",
         idempotency_key="YOUR_IDEMPOTENCY_KEY",
         token="YOUR_TOKEN",
     )
@@ -153,7 +157,7 @@ class Whop:
         *,
         base_url: typing.Optional[str] = None,
         environment: WhopEnvironment = WhopEnvironment.DEFAULT,
-        api_version_date: typing.Optional[str] = "2026-09-02-2",
+        api_version_date: typing.Optional[str] = "2026-09-15",
         idempotency_key: typing.Optional[str] = None,
         token: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         headers: typing.Optional[typing.Dict[str, str]] = None,
@@ -202,6 +206,7 @@ class Whop:
         self._bounty_submissions: typing.Optional[BountySubmissionsClient] = None
         self._card_transactions: typing.Optional[CardTransactionsClient] = None
         self._cards: typing.Optional[CardsClient] = None
+        self._cashback_rules: typing.Optional[CashbackRulesClient] = None
         self._chat_channels: typing.Optional[ChatChannelsClient] = None
         self._checkout_configurations: typing.Optional[CheckoutConfigurationsClient] = None
         self._company_token_transactions: typing.Optional[CompanyTokenTransactionsClient] = None
@@ -216,9 +221,12 @@ class Whop:
         self._disputes: typing.Optional[DisputesClient] = None
         self._dm_channels: typing.Optional[DmChannelsClient] = None
         self._dm_members: typing.Optional[DmMembersClient] = None
+        self._domains: typing.Optional[DomainsClient] = None
+        self._economic_intelligence: typing.Optional[EconomicIntelligenceClient] = None
         self._entries: typing.Optional[EntriesClient] = None
         self._events: typing.Optional[EventsClient] = None
         self._experiences: typing.Optional[ExperiencesClient] = None
+        self._experiments: typing.Optional[ExperimentsClient] = None
         self._exports: typing.Optional[ExportsClient] = None
         self._fee_markups: typing.Optional[FeeMarkupsClient] = None
         self._files: typing.Optional[FilesClient] = None
@@ -238,6 +246,7 @@ class Whop:
         self._partners: typing.Optional[PartnersClient] = None
         self._payment_method_domains: typing.Optional[PaymentMethodDomainsClient] = None
         self._payment_methods: typing.Optional[PaymentMethodsClient] = None
+        self._payment_rules: typing.Optional[PaymentRulesClient] = None
         self._payments: typing.Optional[PaymentsClient] = None
         self._payout_accounts: typing.Optional[PayoutAccountsClient] = None
         self._payout_methods: typing.Optional[PayoutMethodsClient] = None
@@ -248,7 +257,6 @@ class Whop:
         self._products: typing.Optional[ProductsClient] = None
         self._promo_codes: typing.Optional[PromoCodesClient] = None
         self._reactions: typing.Optional[ReactionsClient] = None
-        self._recommended_actions: typing.Optional[RecommendedActionsClient] = None
         self._refunds: typing.Optional[RefundsClient] = None
         self._resolution_center_cases: typing.Optional[ResolutionCenterCasesClient] = None
         self._reviews: typing.Optional[ReviewsClient] = None
@@ -410,6 +418,14 @@ class Whop:
         return self._cards
 
     @property
+    def cashback_rules(self):
+        if self._cashback_rules is None:
+            from .cashback_rules.client import CashbackRulesClient  # noqa: E402
+
+            self._cashback_rules = CashbackRulesClient(client_wrapper=self._client_wrapper)
+        return self._cashback_rules
+
+    @property
     def chat_channels(self):
         if self._chat_channels is None:
             from .chat_channels.client import ChatChannelsClient  # noqa: E402
@@ -522,6 +538,22 @@ class Whop:
         return self._dm_members
 
     @property
+    def domains(self):
+        if self._domains is None:
+            from .domains.client import DomainsClient  # noqa: E402
+
+            self._domains = DomainsClient(client_wrapper=self._client_wrapper)
+        return self._domains
+
+    @property
+    def economic_intelligence(self):
+        if self._economic_intelligence is None:
+            from .economic_intelligence.client import EconomicIntelligenceClient  # noqa: E402
+
+            self._economic_intelligence = EconomicIntelligenceClient(client_wrapper=self._client_wrapper)
+        return self._economic_intelligence
+
+    @property
     def entries(self):
         if self._entries is None:
             from .entries.client import EntriesClient  # noqa: E402
@@ -544,6 +576,14 @@ class Whop:
 
             self._experiences = ExperiencesClient(client_wrapper=self._client_wrapper)
         return self._experiences
+
+    @property
+    def experiments(self):
+        if self._experiments is None:
+            from .experiments.client import ExperimentsClient  # noqa: E402
+
+            self._experiments = ExperimentsClient(client_wrapper=self._client_wrapper)
+        return self._experiments
 
     @property
     def exports(self):
@@ -698,6 +738,14 @@ class Whop:
         return self._payment_methods
 
     @property
+    def payment_rules(self):
+        if self._payment_rules is None:
+            from .payment_rules.client import PaymentRulesClient  # noqa: E402
+
+            self._payment_rules = PaymentRulesClient(client_wrapper=self._client_wrapper)
+        return self._payment_rules
+
+    @property
     def payments(self):
         if self._payments is None:
             from .payments.client import PaymentsClient  # noqa: E402
@@ -776,14 +824,6 @@ class Whop:
 
             self._reactions = ReactionsClient(client_wrapper=self._client_wrapper)
         return self._reactions
-
-    @property
-    def recommended_actions(self):
-        if self._recommended_actions is None:
-            from .recommended_actions.client import RecommendedActionsClient  # noqa: E402
-
-            self._recommended_actions = RecommendedActionsClient(client_wrapper=self._client_wrapper)
-        return self._recommended_actions
 
     @property
     def refunds(self):
@@ -977,7 +1017,7 @@ class AsyncWhop:
     from whop_sdk import AsyncWhop
 
     client = AsyncWhop(
-        "2026-09-02-2",
+        "2026-09-15",
         idempotency_key="YOUR_IDEMPOTENCY_KEY",
         token="YOUR_TOKEN",
     )
@@ -988,7 +1028,7 @@ class AsyncWhop:
         *,
         base_url: typing.Optional[str] = None,
         environment: WhopEnvironment = WhopEnvironment.DEFAULT,
-        api_version_date: typing.Optional[str] = "2026-09-02-2",
+        api_version_date: typing.Optional[str] = "2026-09-15",
         idempotency_key: typing.Optional[str] = None,
         token: typing.Optional[typing.Union[str, typing.Callable[[], str]]] = None,
         headers: typing.Optional[typing.Dict[str, str]] = None,
@@ -1037,6 +1077,7 @@ class AsyncWhop:
         self._bounty_submissions: typing.Optional[AsyncBountySubmissionsClient] = None
         self._card_transactions: typing.Optional[AsyncCardTransactionsClient] = None
         self._cards: typing.Optional[AsyncCardsClient] = None
+        self._cashback_rules: typing.Optional[AsyncCashbackRulesClient] = None
         self._chat_channels: typing.Optional[AsyncChatChannelsClient] = None
         self._checkout_configurations: typing.Optional[AsyncCheckoutConfigurationsClient] = None
         self._company_token_transactions: typing.Optional[AsyncCompanyTokenTransactionsClient] = None
@@ -1051,9 +1092,12 @@ class AsyncWhop:
         self._disputes: typing.Optional[AsyncDisputesClient] = None
         self._dm_channels: typing.Optional[AsyncDmChannelsClient] = None
         self._dm_members: typing.Optional[AsyncDmMembersClient] = None
+        self._domains: typing.Optional[AsyncDomainsClient] = None
+        self._economic_intelligence: typing.Optional[AsyncEconomicIntelligenceClient] = None
         self._entries: typing.Optional[AsyncEntriesClient] = None
         self._events: typing.Optional[AsyncEventsClient] = None
         self._experiences: typing.Optional[AsyncExperiencesClient] = None
+        self._experiments: typing.Optional[AsyncExperimentsClient] = None
         self._exports: typing.Optional[AsyncExportsClient] = None
         self._fee_markups: typing.Optional[AsyncFeeMarkupsClient] = None
         self._files: typing.Optional[AsyncFilesClient] = None
@@ -1073,6 +1117,7 @@ class AsyncWhop:
         self._partners: typing.Optional[AsyncPartnersClient] = None
         self._payment_method_domains: typing.Optional[AsyncPaymentMethodDomainsClient] = None
         self._payment_methods: typing.Optional[AsyncPaymentMethodsClient] = None
+        self._payment_rules: typing.Optional[AsyncPaymentRulesClient] = None
         self._payments: typing.Optional[AsyncPaymentsClient] = None
         self._payout_accounts: typing.Optional[AsyncPayoutAccountsClient] = None
         self._payout_methods: typing.Optional[AsyncPayoutMethodsClient] = None
@@ -1083,7 +1128,6 @@ class AsyncWhop:
         self._products: typing.Optional[AsyncProductsClient] = None
         self._promo_codes: typing.Optional[AsyncPromoCodesClient] = None
         self._reactions: typing.Optional[AsyncReactionsClient] = None
-        self._recommended_actions: typing.Optional[AsyncRecommendedActionsClient] = None
         self._refunds: typing.Optional[AsyncRefundsClient] = None
         self._resolution_center_cases: typing.Optional[AsyncResolutionCenterCasesClient] = None
         self._reviews: typing.Optional[AsyncReviewsClient] = None
@@ -1245,6 +1289,14 @@ class AsyncWhop:
         return self._cards
 
     @property
+    def cashback_rules(self):
+        if self._cashback_rules is None:
+            from .cashback_rules.client import AsyncCashbackRulesClient  # noqa: E402
+
+            self._cashback_rules = AsyncCashbackRulesClient(client_wrapper=self._client_wrapper)
+        return self._cashback_rules
+
+    @property
     def chat_channels(self):
         if self._chat_channels is None:
             from .chat_channels.client import AsyncChatChannelsClient  # noqa: E402
@@ -1357,6 +1409,22 @@ class AsyncWhop:
         return self._dm_members
 
     @property
+    def domains(self):
+        if self._domains is None:
+            from .domains.client import AsyncDomainsClient  # noqa: E402
+
+            self._domains = AsyncDomainsClient(client_wrapper=self._client_wrapper)
+        return self._domains
+
+    @property
+    def economic_intelligence(self):
+        if self._economic_intelligence is None:
+            from .economic_intelligence.client import AsyncEconomicIntelligenceClient  # noqa: E402
+
+            self._economic_intelligence = AsyncEconomicIntelligenceClient(client_wrapper=self._client_wrapper)
+        return self._economic_intelligence
+
+    @property
     def entries(self):
         if self._entries is None:
             from .entries.client import AsyncEntriesClient  # noqa: E402
@@ -1379,6 +1447,14 @@ class AsyncWhop:
 
             self._experiences = AsyncExperiencesClient(client_wrapper=self._client_wrapper)
         return self._experiences
+
+    @property
+    def experiments(self):
+        if self._experiments is None:
+            from .experiments.client import AsyncExperimentsClient  # noqa: E402
+
+            self._experiments = AsyncExperimentsClient(client_wrapper=self._client_wrapper)
+        return self._experiments
 
     @property
     def exports(self):
@@ -1533,6 +1609,14 @@ class AsyncWhop:
         return self._payment_methods
 
     @property
+    def payment_rules(self):
+        if self._payment_rules is None:
+            from .payment_rules.client import AsyncPaymentRulesClient  # noqa: E402
+
+            self._payment_rules = AsyncPaymentRulesClient(client_wrapper=self._client_wrapper)
+        return self._payment_rules
+
+    @property
     def payments(self):
         if self._payments is None:
             from .payments.client import AsyncPaymentsClient  # noqa: E402
@@ -1611,14 +1695,6 @@ class AsyncWhop:
 
             self._reactions = AsyncReactionsClient(client_wrapper=self._client_wrapper)
         return self._reactions
-
-    @property
-    def recommended_actions(self):
-        if self._recommended_actions is None:
-            from .recommended_actions.client import AsyncRecommendedActionsClient  # noqa: E402
-
-            self._recommended_actions = AsyncRecommendedActionsClient(client_wrapper=self._client_wrapper)
-        return self._recommended_actions
 
     @property
     def refunds(self):

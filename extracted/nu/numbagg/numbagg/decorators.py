@@ -3,6 +3,7 @@ from __future__ import annotations
 import abc
 import functools
 import importlib
+import inspect
 import logging
 import os
 import sys
@@ -21,6 +22,7 @@ from numpy.typing import NDArray
 from numbagg.utils import (
     FloatArray,
     NumbaTypes,
+    NumericArrayT,
     Targets,
     move_axes,
 )
@@ -32,8 +34,9 @@ logger = logging.getLogger(__name__)
 
 def _set_fast_math() -> set[str] | bool:
     """
-    If "NUMBAGG_FASTMATH" is set to True, enable fastmath optimizations.\n
-    We exclude the "no nans" and "no infs" flags.\n
+    If "NUMBAGG_FASTMATH" is set to True, enable fastmath optimizations.
+
+    We exclude the "no nans" and "no infs" flags.
     see https://llvm.org/docs/LangRef.html#fast-math-flags
     """
     if os.getenv("NUMBAGG_FASTMATH", "False").lower() in ("true", "1", "t"):
@@ -95,7 +98,6 @@ def gufunc_string_signature(
 
 
 T = TypeVar("T", bound="NumbaBase")
-A = TypeVar("A", bound=FloatArray)
 
 
 class NumbaBase:
@@ -111,9 +113,11 @@ class NumbaBase:
         self.supports_parallel: bool = supports_parallel
         self._target_cpu: bool = not supports_parallel
         functools.wraps(func)(self)
+        # Override the signature from functools.wraps with the actual public API
+        self.__signature__ = inspect.signature(self.__call__)
 
     def __repr__(self) -> str:
-        return f"numbagg.{self.__name__}"  # type: ignore[attr-defined]
+        return f"numbagg.{self.__name__}"  # ty:ignore[unresolved-attribute]
 
     @classmethod
     def wrap(cls: type[T], *args, **kwargs) -> Callable[..., T]:
@@ -197,6 +201,12 @@ class ndaggregate(NumbaBaseSimple):
     ) -> None:
         self.supports_ddof: bool = supports_ddof
         super().__init__(func, signature, supports_parallel)
+        # Remove ddof from signature for functions that don't support it
+        if not supports_ddof:
+            params = [
+                p for p in self.__signature__.parameters.values() if p.name != "ddof"
+            ]
+            self.__signature__ = self.__signature__.replace(parameters=params)
 
     def _optimize_axis_order(
         self, arr: np.ndarray, axes: tuple[int, ...]
@@ -226,7 +236,7 @@ class ndaggregate(NumbaBaseSimple):
     ):
         if axis is None:
             axis = tuple(range(arrays[0].ndim))
-        elif not isinstance(axis, Iterable):
+        elif not isinstance(axis, tuple):
             axis = (axis,)
 
         # Optimize axis order based on memory layout for better performance
@@ -262,6 +272,25 @@ class ndaggregate(NumbaBaseSimple):
         return vectorize(self.func)
 
 
+def _normalize_min_count(window: int, min_count: int | None) -> int:
+    """Resolve and validate `min_count` against `window` for a moving function.
+
+    A `min_count` above `window` is unsatisfiable — no window ever holds that many
+    values, so every output value would be NaN. pandas and bottleneck both reject it
+    rather than return that array, and a caller reads an all-NaN result as data, not
+    as an argument error.
+    """
+    if min_count is None:
+        return window
+    if min_count < 0:
+        raise ValueError(f"min_count must be positive: {min_count}")
+    if min_count > window:
+        raise ValueError(
+            f"min_count ({min_count}) cannot be greater than window ({window})"
+        )
+    return min_count
+
+
 class ndmove(NumbaBaseSimple):
     """Create an N-dimensional moving window function along one dimension.
 
@@ -281,17 +310,6 @@ class ndmove(NumbaBaseSimple):
                         out[i] += a[i - j]
     """
 
-    def __init__(
-        self,
-        func: Callable[..., Any],
-        signature: list[NumbaTypes] = [
-            (numba.float32[:], numba.int32, numba.float32[:]),
-            (numba.float64[:], numba.int64, numba.float64[:]),
-        ],
-        **kwargs: Any,
-    ):
-        super().__init__(func, signature, **kwargs)
-
     def __call__(
         self,
         *arr: FloatArray,
@@ -300,10 +318,7 @@ class ndmove(NumbaBaseSimple):
         axis: int | tuple[int, ...] = -1,
         **kwargs,
     ) -> FloatArray:
-        if min_count is None:
-            min_count = window
-        elif min_count < 0:
-            raise ValueError(f"min_count must be positive: {min_count}")
+        min_count = _normalize_min_count(window, min_count)
 
         # If an empty tuple is passed, there's no reduction to do, so we return the
         # original array.
@@ -350,33 +365,14 @@ class ndmoveexp(NumbaBaseSimple):
 
     """
 
-    def __init__(
-        self,
-        func: Callable[..., Any],
-        signature: list[NumbaTypes] = [
-            (numba.float64[:], numba.int64, numba.float64[:]),
-            (numba.float32[:], numba.int32, numba.float32[:]),
-        ],
-        **kwargs: Any,
-    ):
-        super().__init__(func, signature, **kwargs)
-
     def __call__(
         self,
         *arr: FloatArray,
         alpha: float | FloatArray,
         min_weight: float = 0,
-        axis: int = -1,
+        axis: int | tuple[int, ...] = -1,
         **kwargs,
     ) -> FloatArray:
-        if not isinstance(alpha, np.ndarray):
-            alpha = np.broadcast_to(alpha, arr[0].shape[axis])  # type: ignore[assignment,unused-ignore]
-            alpha_axis = -1
-        elif alpha.ndim == 1:
-            alpha_axis = -1
-        else:
-            alpha_axis = axis
-
         # If an empty tuple is passed, there's no reduction to do, so we return the
         # original array.
         # Ref https://github.com/pydata/xarray/pull/5178/files#r616168398
@@ -392,6 +388,14 @@ class ndmoveexp(NumbaBaseSimple):
                     f"Only one axis can be passed to {self.func}; got {axis}"
                 )
             (axis,) = axis
+
+        if not isinstance(alpha, np.ndarray):
+            alpha = np.broadcast_to(alpha, arr[0].shape[axis])
+            alpha_axis = -1
+        elif alpha.ndim == 1:
+            alpha_axis = -1
+        else:
+            alpha_axis = axis
 
         # Axes is `axis` for each array (most often just one array), and then either
         # `-1` or `axis` for alphas, depending on whether a full array was passed or not.
@@ -454,12 +458,12 @@ class ndfill(NumbaBase):
 
     def __call__(
         self,
-        arr: A,
+        arr: NumericArrayT,
         *,
         limit: None | int = None,
         axis: int = -1,
         **kwargs,
-    ) -> A:
+    ) -> NumericArrayT:
         """Call the dynamically compiled function."""
         if limit is None:
             limit = arr.shape[axis]
@@ -569,7 +573,13 @@ class groupndreduce(NumbaBase):
         # multiple dimensions, we could refine it down; would need to consider for
         # axis being None or a tuple, though.)
         if np.iinfo(labels.dtype).max < values.size:
-            dtype = np.min_scalar_type(values.size)
+            # The dtype has to stay signed: negative labels mean "not in any group", so
+            # widening into an unsigned dtype would turn them into huge positive labels.
+            dtype = next(
+                np.dtype(candidate)
+                for candidate in (np.int16, np.int32, np.int64)
+                if np.iinfo(candidate).max >= values.size
+            )
             logger.debug(
                 f"values' size {values.size} is greater than the max of {labels.dtype}. "
                 f"We're casting the labels array to a larger dtype {dtype} to avoid the risk of overflow. "
@@ -581,14 +591,16 @@ class groupndreduce(NumbaBase):
 
         if values.dtype == np.bool_:
             if not self.supports_bool:
+                func_name = getattr(self.func, "__name__", "<unknown>")
                 raise TypeError(
-                    f"{self.func.__name__} does not support boolean input. "
+                    f"{func_name} does not support boolean input. "
                     "Convert to a numeric type first."
                 )
             values = values.astype(np.int32)
 
         if num_labels is None:
-            num_labels = np.max(labels) + 1
+            # `int` so that a label at the dtype's maximum doesn't overflow the add.
+            num_labels = int(np.max(labels)) + 1
 
         target = self.target
 
@@ -695,8 +707,9 @@ class ndmatrix(NumbaBase):
     ):
         # Require at least 2D input
         if a.ndim < 2:
+            func_name = getattr(self.func, "__name__", "<unknown>")
             raise ValueError(
-                f"{self.func.__name__} requires at least a 2D array with shape (..., vars, obs). "
+                f"{func_name} requires at least a 2D array with shape (..., vars, obs). "
                 "For 1D arrays, use nanvar for variance calculations."
             )
 
@@ -732,15 +745,17 @@ class ndmovematrix(NumbaBase):
     for each window position (e.g., moving correlation/covariance matrices).
 
     Broadcasting and Dimension Conventions:
-    - Core dimensions: `(n, m), (), () -> (m, n, n)` where n=variables, m=observations
+    - Core dimensions: `(m, n), (), () -> (m, n, n)` where m=observations, n=variables.
+      Note this is observations-first, the opposite of the variables-first order that
+      the static `ndmatrix` functions take.
     - Conceptual: The observations dimension is preserved and becomes the time axis,
       with n×n variable matrices added at the end for each time point
     - Broadcasting: Works with arbitrary leading dimensions
 
     Examples:
-    - 2D input `(3, 100)` -> output `(100, 3, 3)` - matrix at each time
-    - 3D input `(batch=2, vars=3, obs=100)` -> output `(2, 100, 3, 3)`
-    - 4D input `(2, 5, 3, 100)` -> output `(2, 5, 100, 3, 3)`
+    - 2D input `(100, 3)` -> output `(100, 3, 3)` - matrix at each time
+    - 3D input `(batch=2, obs=100, vars=3)` -> output `(2, 100, 3, 3)`
+    - 4D input `(2, 5, 100, 3)` -> output `(2, 5, 100, 3, 3)`
 
     Each time step contains a matrix computed from the rolling window ending at that time.
     """
@@ -764,14 +779,12 @@ class ndmovematrix(NumbaBase):
         a = np.asarray(a)
 
         if a.ndim < 2:
+            func_name = getattr(self.func, "__name__", "<unknown>")
             raise ValueError(
-                f"{self.func.__name__} requires at least a 2D array with shape (..., obs, vars)."
+                f"{func_name} requires at least a 2D array with shape (..., obs, vars)."
             )
 
-        if min_count is None:
-            min_count = window
-        elif min_count < 0:
-            raise ValueError(f"min_count must be positive: {min_count}")
+        min_count = _normalize_min_count(window, min_count)
 
         # Moving matrix functions use fixed convention: (..., obs, vars) -> (..., obs, vars, vars)
         # No axis parameter - dimensions are fixed for consistency
@@ -829,7 +842,7 @@ class ndquantile(NumbaBase):
 
         if axis is None:
             axis = tuple(range(a.ndim))
-        elif not isinstance(axis, Iterable):
+        elif not isinstance(axis, tuple):
             axis = (axis,)
 
         a = move_axes(a, axis)
@@ -844,7 +857,8 @@ class ndquantile(NumbaBase):
         # fixture; I can't figure out where it's coming from, and can't reproduce it
         # locally. So I'm ignoring so that we can still raise errors on other
         # warnings.
-        if self.func.__name__ in ["nanquantile"]:
+        func_name = getattr(self.func, "__name__", "")
+        if func_name in ["nanquantile"]:
             warn: Literal["ignore", "warn"] = "ignore"
         else:
             warn = "warn"
@@ -979,11 +993,12 @@ class ndreduce(NumbaBase):
     def __call__(
         self, arr: NDArray[Any], *args, axis: tuple[int, ...] | int | None = None
     ):
-        # TODO: `nanmin` & `nanmix` raises a warning here for the default test
+        # TODO: `nanmin` & `nanmax` raises a warning here for the default test
         # fixture; I can't figure out where it's coming from, and can't reproduce it
         # locally. So I'm ignoring so that we can still raise errors on other
         # warnings.
-        if self.func.__name__ in ["nanmin", "nanmax"]:
+        func_name = getattr(self.func, "__name__", "")
+        if func_name in ["nanmin", "nanmax"]:
             warn: Literal["ignore", "warn"] = "ignore"
         else:
             warn = "warn"
@@ -1011,16 +1026,18 @@ class ndmoveexpmatrix(NumbaBase):
     for each time position using exponential decay (e.g., moving correlation/covariance matrices).
 
     Broadcasting and Dimension Conventions:
-    - Core dimensions: `(n, m), (m), () -> (m, n, n)` where n=variables, m=observations
+    - Core dimensions: `(m, n), (m), () -> (m, n, n)` where m=observations, n=variables.
+      Note this is observations-first, the opposite of the variables-first order that
+      the static `ndmatrix` functions take.
     - Conceptual: The observations dimension is preserved and becomes the time axis,
       with n×n variable matrices added at the end for each time point
     - Broadcasting: Works with arbitrary leading dimensions
     - Alpha parameter: Supports scalar or array broadcasting
 
     Examples:
-    - 2D input `(3, 100)` -> output `(100, 3, 3)` - matrix at each time
-    - 3D input `(batch=2, vars=3, obs=100)` -> output `(2, 100, 3, 3)`
-    - 4D input `(2, 5, 3, 100)` -> output `(2, 5, 100, 3, 3)`
+    - 2D input `(100, 3)` -> output `(100, 3, 3)` - matrix at each time
+    - 3D input `(batch=2, obs=100, vars=3)` -> output `(2, 100, 3, 3)`
+    - 4D input `(2, 5, 100, 3)` -> output `(2, 5, 100, 3, 3)`
 
     Each time step contains a matrix computed using exponentially weighted observations
     up to that time, with more recent observations having higher weight.
@@ -1045,8 +1062,9 @@ class ndmoveexpmatrix(NumbaBase):
         a = np.asarray(a)
 
         if a.ndim < 2:
+            func_name = getattr(self.func, "__name__", "<unknown>")
             raise ValueError(
-                f"{self.func.__name__} requires at least a 2D array with shape (..., obs, vars)."
+                f"{func_name} requires at least a 2D array with shape (..., obs, vars)."
             )
 
         # Exponential moving matrix functions use fixed convention: (..., obs, vars) -> (..., obs, vars, vars)
@@ -1055,7 +1073,7 @@ class ndmoveexpmatrix(NumbaBase):
 
         # Handle alpha parameter - broadcast to observations dimension (second-to-last)
         if not isinstance(alpha, np.ndarray):
-            alpha = np.broadcast_to(alpha, a.shape[-2])  # type: ignore[assignment,unused-ignore]
+            alpha = np.broadcast_to(alpha, a.shape[-2])
 
         gufunc = self.gufunc(target=self.target)
         with np.errstate(invalid="ignore", divide="ignore"):
@@ -1112,7 +1130,8 @@ def _thread_backend() -> str:
 
     Returns the backend name: "tbb", "omp", or "workqueue".
     """
-    layer_choice = cast(str, numba.config.THREADING_LAYER)
+    # numba.config attributes are not in type stubs
+    layer_choice = cast(str, numba.config.THREADING_LAYER)  # ty:ignore[unresolved-attribute]
 
     # Direct backend name (not a category)
     if layer_choice not in _LAYER_CATEGORIES:
@@ -1121,7 +1140,8 @@ def _thread_backend() -> str:
     # Category like "default", "safe", "threadsafe", "forksafe"
     allowed_backends = _LAYER_CATEGORIES[layer_choice]
 
-    for backend in cast(list[str], numba.config.THREADING_LAYER_PRIORITY):
+    # numba.config attributes are not in type stubs
+    for backend in cast(list[str], numba.config.THREADING_LAYER_PRIORITY):  # ty:ignore[unresolved-attribute]
         if backend in allowed_backends and _is_backend_available(backend):
             return backend
 

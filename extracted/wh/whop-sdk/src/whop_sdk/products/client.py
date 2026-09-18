@@ -9,6 +9,7 @@ from ..types.product import Product
 from ..types.product_list_item import ProductListItem
 from .raw_client import AsyncRawProductsClient, RawProductsClient
 from .types.create_products_request_custom_cta import CreateProductsRequestCustomCta
+from .types.create_products_request_gallery_images_item import CreateProductsRequestGalleryImagesItem
 from .types.create_products_request_global_affiliate_status import CreateProductsRequestGlobalAffiliateStatus
 from .types.create_products_request_member_affiliate_status import CreateProductsRequestMemberAffiliateStatus
 from .types.delete_products_response import DeleteProductsResponse
@@ -16,6 +17,7 @@ from .types.list_products_request_direction import ListProductsRequestDirection
 from .types.list_products_request_plan_types_item import ListProductsRequestPlanTypesItem
 from .types.list_products_response import ListProductsResponse
 from .types.update_products_request_banner_image import UpdateProductsRequestBannerImage
+from .types.update_products_request_gallery_images_item import UpdateProductsRequestGalleryImagesItem
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -99,16 +101,16 @@ class ProductsClient:
             The field to sort results by. Account lists default to `created_at`. Marketplace lists default to `discoverable_at` and accept `created_at` or `discoverable_at`. Cannot be combined with `query`.
 
         first : typing.Optional[int]
-            The number of products to return (default and max 100).
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            A cursor; returns products after this position.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            The number of products to return from the end of the range.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            A cursor; returns products before this position.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         created_after : typing.Optional[str]
             Only return products created after this ISO 8601 timestamp.
@@ -129,7 +131,7 @@ class ProductsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -174,6 +176,7 @@ class ProductsClient:
         custom_cta_url: typing.Optional[str] = OMIT,
         custom_statement_descriptor: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
+        gallery_images: typing.Optional[typing.Sequence[CreateProductsRequestGalleryImagesItem]] = OMIT,
         global_affiliate_percentage: typing.Optional[float] = OMIT,
         global_affiliate_status: typing.Optional[CreateProductsRequestGlobalAffiliateStatus] = OMIT,
         headline: typing.Optional[str] = OMIT,
@@ -213,6 +216,9 @@ class ProductsClient:
 
         description : typing.Optional[str]
             A written description displayed on the product page.
+
+        gallery_images : typing.Optional[typing.Sequence[CreateProductsRequestGalleryImagesItem]]
+            Images or videos displayed in the product gallery, in display order. Replaces the existing gallery. Send an empty array to clear it; omit or pass null to leave it unchanged. A banner image does not populate the gallery.
 
         global_affiliate_percentage : typing.Optional[float]
             The commission rate affiliates earn.
@@ -263,7 +269,7 @@ class ProductsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -279,6 +285,7 @@ class ProductsClient:
             custom_cta_url=custom_cta_url,
             custom_statement_descriptor=custom_statement_descriptor,
             description=description,
+            gallery_images=gallery_images,
             global_affiliate_percentage=global_affiliate_percentage,
             global_affiliate_status=global_affiliate_status,
             headline=headline,
@@ -317,7 +324,7 @@ class ProductsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -350,7 +357,7 @@ class ProductsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -367,6 +374,7 @@ class ProductsClient:
         *,
         banner_image: typing.Optional[UpdateProductsRequestBannerImage] = OMIT,
         description: typing.Optional[str] = OMIT,
+        gallery_images: typing.Optional[typing.Sequence[UpdateProductsRequestGalleryImagesItem]] = OMIT,
         headline: typing.Optional[str] = OMIT,
         labels: typing.Optional[typing.Sequence[str]] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
@@ -389,6 +397,9 @@ class ProductsClient:
 
         description : typing.Optional[str]
             A written description displayed on the product page.
+
+        gallery_images : typing.Optional[typing.Sequence[UpdateProductsRequestGalleryImagesItem]]
+            Images or videos displayed in the product gallery, in display order. Replaces the existing gallery. Send an empty array to clear it; omit or pass null to leave it unchanged. A banner image does not populate the gallery.
 
         headline : typing.Optional[str]
             A short marketing headline for the product page.
@@ -424,7 +435,7 @@ class ProductsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -436,6 +447,7 @@ class ProductsClient:
             id,
             banner_image=banner_image,
             description=description,
+            gallery_images=gallery_images,
             headline=headline,
             labels=labels,
             metadata=metadata,
@@ -449,7 +461,7 @@ class ProductsClient:
 
     def publish(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Product:
         """
-        Submits a product to the whop.com marketplace for review. The product moves to `pending_review`; a Whop reviewer approves it before it goes live.
+        Submits a product to the whop.com marketplace for review. The product moves to `pending_review`; a Whop reviewer approves it before it goes live. Requires a logo, a headline, and at least one gallery image or video; the request fails naming whichever is missing.
 
         Parameters
         ----------
@@ -469,7 +481,7 @@ class ProductsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -502,7 +514,7 @@ class ProductsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -592,16 +604,16 @@ class AsyncProductsClient:
             The field to sort results by. Account lists default to `created_at`. Marketplace lists default to `discoverable_at` and accept `created_at` or `discoverable_at`. Cannot be combined with `query`.
 
         first : typing.Optional[int]
-            The number of products to return (default and max 100).
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            A cursor; returns products after this position.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            The number of products to return from the end of the range.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            A cursor; returns products before this position.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         created_after : typing.Optional[str]
             Only return products created after this ISO 8601 timestamp.
@@ -624,7 +636,7 @@ class AsyncProductsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -676,6 +688,7 @@ class AsyncProductsClient:
         custom_cta_url: typing.Optional[str] = OMIT,
         custom_statement_descriptor: typing.Optional[str] = OMIT,
         description: typing.Optional[str] = OMIT,
+        gallery_images: typing.Optional[typing.Sequence[CreateProductsRequestGalleryImagesItem]] = OMIT,
         global_affiliate_percentage: typing.Optional[float] = OMIT,
         global_affiliate_status: typing.Optional[CreateProductsRequestGlobalAffiliateStatus] = OMIT,
         headline: typing.Optional[str] = OMIT,
@@ -715,6 +728,9 @@ class AsyncProductsClient:
 
         description : typing.Optional[str]
             A written description displayed on the product page.
+
+        gallery_images : typing.Optional[typing.Sequence[CreateProductsRequestGalleryImagesItem]]
+            Images or videos displayed in the product gallery, in display order. Replaces the existing gallery. Send an empty array to clear it; omit or pass null to leave it unchanged. A banner image does not populate the gallery.
 
         global_affiliate_percentage : typing.Optional[float]
             The commission rate affiliates earn.
@@ -767,7 +783,7 @@ class AsyncProductsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -789,6 +805,7 @@ class AsyncProductsClient:
             custom_cta_url=custom_cta_url,
             custom_statement_descriptor=custom_statement_descriptor,
             description=description,
+            gallery_images=gallery_images,
             global_affiliate_percentage=global_affiliate_percentage,
             global_affiliate_status=global_affiliate_status,
             headline=headline,
@@ -829,7 +846,7 @@ class AsyncProductsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -872,7 +889,7 @@ class AsyncProductsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -895,6 +912,7 @@ class AsyncProductsClient:
         *,
         banner_image: typing.Optional[UpdateProductsRequestBannerImage] = OMIT,
         description: typing.Optional[str] = OMIT,
+        gallery_images: typing.Optional[typing.Sequence[UpdateProductsRequestGalleryImagesItem]] = OMIT,
         headline: typing.Optional[str] = OMIT,
         labels: typing.Optional[typing.Sequence[str]] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
@@ -917,6 +935,9 @@ class AsyncProductsClient:
 
         description : typing.Optional[str]
             A written description displayed on the product page.
+
+        gallery_images : typing.Optional[typing.Sequence[UpdateProductsRequestGalleryImagesItem]]
+            Images or videos displayed in the product gallery, in display order. Replaces the existing gallery. Send an empty array to clear it; omit or pass null to leave it unchanged. A banner image does not populate the gallery.
 
         headline : typing.Optional[str]
             A short marketing headline for the product page.
@@ -954,7 +975,7 @@ class AsyncProductsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -972,6 +993,7 @@ class AsyncProductsClient:
             id,
             banner_image=banner_image,
             description=description,
+            gallery_images=gallery_images,
             headline=headline,
             labels=labels,
             metadata=metadata,
@@ -985,7 +1007,7 @@ class AsyncProductsClient:
 
     async def publish(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Product:
         """
-        Submits a product to the whop.com marketplace for review. The product moves to `pending_review`; a Whop reviewer approves it before it goes live.
+        Submits a product to the whop.com marketplace for review. The product moves to `pending_review`; a Whop reviewer approves it before it goes live. Requires a logo, a headline, and at least one gallery image or video; the request fails naming whichever is missing.
 
         Parameters
         ----------
@@ -1007,7 +1029,7 @@ class AsyncProductsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -1048,7 +1070,7 @@ class AsyncProductsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

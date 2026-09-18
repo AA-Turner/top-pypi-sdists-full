@@ -250,7 +250,8 @@ class TestBatchModel(unittest.TestCase):
                         index = 56, 
                         total = 56, 
                         stage_elapsed_seconds = 1.337, 
-                        sub_stage = '', ), 
+                        sub_stage = '', 
+                        sub_stage_elapsed_seconds = 1.337, ), 
                     phases = mixpeek.models.batch_phases.BatchPhases(
                         dispatch = mixpeek.models.batch_phase_detail.BatchPhaseDetail(
                             processed = 56, 
@@ -269,7 +270,13 @@ class TestBatchModel(unittest.TestCase):
                     overshoot_percent = 1.337, 
                     queue_position = 56, 
                     stage_history = [
-                        { }
+                        mixpeek.models.batch_stage_timing.BatchStageTiming(
+                            name = '', 
+                            index = 56, 
+                            total = 56, 
+                            started_at = 1.337, 
+                            ended_at = 1.337, 
+                            duration_seconds = 1.337, )
                         ], 
                     documents_written = 56, 
                     chunk_stats = mixpeek.models.batch_chunk_stats.BatchChunkStats(

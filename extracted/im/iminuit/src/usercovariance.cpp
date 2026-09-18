@@ -16,8 +16,15 @@ bool operator==(const MnUserCovariance& a, const MnUserCovariance& b) {
 namespace py = pybind11;
 using namespace ROOT::Minuit2;
 
+MnUserCovariance make_covariance(std::vector<double> data, unsigned n) {
+  // Minuit2 does not check this and then reads past the end of the data
+  if (data.size() != n * (n + 1) / 2)
+    throw py::value_error("data length does not match n * (n + 1) / 2");
+  return MnUserCovariance{std::move(data), n};
+}
+
 MnUserCovariance init(py::sequence seq, unsigned n) {
-  return MnUserCovariance{py::cast<std::vector<double>>(seq), n};
+  return make_covariance(py::cast<std::vector<double>>(seq), n);
 }
 
 void bind_usercovariance(py::module m) {
@@ -27,7 +34,12 @@ void bind_usercovariance(py::module m) {
 
       .def("__getitem__",
            [](const MnUserCovariance& self, py::object args) {
-             const auto tup = py::cast<std::pair<int, int>>(args);
+             auto tup = py::cast<std::pair<int, int>>(args);
+             const int n = static_cast<int>(self.Nrow());
+             if (tup.first < 0) tup.first += n;
+             if (tup.second < 0) tup.second += n;
+             if (tup.first < 0 || tup.first >= n || tup.second < 0 || tup.second >= n)
+               throw py::index_error();
              return self(tup.first, tup.second);
            })
 
@@ -40,8 +52,10 @@ void bind_usercovariance(py::module m) {
             return py::make_tuple(self.Data(), self.Nrow());
           },
           [](py::tuple tp) {
-            return MnUserCovariance(tp[0].cast<std::vector<double>>(),
-                                    tp[1].cast<double>());
+            if (tp.size() != 2)
+              throw std::runtime_error("MnUserCovariance invalid state");
+            return make_covariance(tp[0].cast<std::vector<double>>(),
+                                   tp[1].cast<unsigned>());
           }))
 
       ;

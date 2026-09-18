@@ -983,34 +983,25 @@ def enum_flag(name, default, *args, **kwargs) -> Flag[str]:
 
 already_configured_with_absl = False
 
-mesh_context_manager = config_ext.Config(
+mesh_context_manager = config_ext.Config[Any](
     'mesh_context_manager',
     (),
     include_in_jit_key=True,
     include_in_trace_context=True,
 )
-abstract_mesh_context_manager = config_ext.Config(
-    'abstract_mesh_context_manager',
-    None,
-    include_in_jit_key=True,
-    include_in_trace_context=True,
-)
-device_context = config_ext.Config(
-    'device_context', None, include_in_jit_key=True
-)
-compute_on_context_manager = config_ext.Config(
+compute_on_context_manager = config_ext.Config[Any](
     'compute_on_context_manager',
     None,
     include_in_jit_key=True,
     include_in_trace_context=True,
 )
-xla_metadata_context_manager = config_ext.Config(
+xla_metadata_context_manager = config_ext.Config[Any](
     'xla_metadata_context_manager',
     None,
     include_in_jit_key=True,
     include_in_trace_context=True,
 )
-pallas_tpu_interpret_mode_context_manager = config_ext.Config(
+pallas_tpu_interpret_mode_context_manager = config_ext.Config[Any](
     'pallas_tpu_interpret_mode_context_manager',
     None,
     include_in_jit_key=True,
@@ -2373,17 +2364,6 @@ jax_pallas_enable_debug_checks = bool_state(
     include_in_trace_context=True,
 )
 
-jax_pallas_use_mosaic_gpu = bool_state(
-    name='jax_pallas_use_mosaic_gpu',
-    default=bool_env('JAX_PALLAS_USE_MOSAIC_GPU', True),
-    help=(
-        'If True, lower Pallas kernels to the experimental Mosaic GPU'
-        ' dialect, instead of Triton IR.'
-    ),
-    include_in_jit_key=True,
-    include_in_trace_context=True,
-)
-
 jax_mosaic_allow_hlo = bool_state(
     name='jax_mosaic_allow_hlo',
     default=False,
@@ -2409,3 +2389,43 @@ jax_pallas_auto_assign_collective_ids = enum_state(
     ),
     include_in_jit_key=True,
 )
+
+jax_pallas_auto_assign_collective_ids_limit = int_state(
+    name='jax_pallas_auto_assign_collective_ids_limit',
+    default=25,
+    help='Maximum number of auto-assigned collective IDs before erroring.',
+    include_in_jit_key=True,
+)
+
+mtls_cert_file = optional_string_state(
+    name='jax_mtls_cert_file',
+    default=None,
+    help=('Path to the PEM-encoded certificate chain used to secure the '
+          'jax.distributed coordination service with mutual TLS. Must be set '
+          'together with jax_mtls_key_file and jax_mtls_ca_file. See '
+          'jax.distributed.initialize().'))
+
+mtls_key_file = optional_string_state(
+    name='jax_mtls_key_file',
+    default=None,
+    help='Path to the PEM-encoded private key for jax_mtls_cert_file.')
+
+mtls_ca_file = optional_string_state(
+    name='jax_mtls_ca_file',
+    default=None,
+    help=('Path to the PEM-encoded CA bundle used to verify the peer when the '
+          'jax.distributed coordination service uses mutual TLS.'))
+
+mtls_peer_uri_prefix = optional_string_state(
+    name='jax_mtls_peer_uri_prefix',
+    default=None,
+    help=('If set, when the jax.distributed coordination service uses mutual '
+          'TLS, accept the peer if and only if a URI SAN of its certificate '
+          'starts with this prefix, instead of standard host name '
+          'verification. See jax.distributed.initialize().'))
+
+distributed_verify_secure_credentials = bool_state(
+    name='jax_distributed_verify_secure_credentials',
+    default=False,
+    help=('If true, jax.distributed.initialize() aborts instead of using '
+          'insecure channels.'))

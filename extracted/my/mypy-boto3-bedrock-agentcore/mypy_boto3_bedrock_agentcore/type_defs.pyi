@@ -462,6 +462,8 @@ __all__ = (
     "SessionLimitsTypeDef",
     "SessionMetadataShapeTypeDef",
     "SessionSummaryTypeDef",
+    "SessionTraceIdsOutputTypeDef",
+    "SessionTraceIdsTypeDef",
     "SkillDefinitionTypeDef",
     "SkillMdDefinitionTypeDef",
     "SpanContextTypeDef",
@@ -709,6 +711,14 @@ class SecretsManagerLocationTypeDef(TypedDict):
 class SessionFilterConfigOutputTypeDef(TypedDict):
     startTime: NotRequired[datetime]
     endTime: NotRequired[datetime]
+
+class SessionTraceIdsOutputTypeDef(TypedDict):
+    sessionId: str
+    traceIds: list[str]
+
+class SessionTraceIdsTypeDef(TypedDict):
+    sessionId: str
+    traceIds: Sequence[str]
 
 class FilterValueTypeDef(TypedDict):
     stringValue: NotRequired[str]
@@ -1661,13 +1671,14 @@ class ListBrowserSessionsResponseTypeDef(TypedDict):
 class CertificateLocationTypeDef(TypedDict):
     secretsManager: NotRequired[SecretsManagerLocationTypeDef]
 
-class CloudWatchFilterConfigOutputTypeDef(TypedDict):
-    sessionIds: NotRequired[list[str]]
-    timeRange: NotRequired[SessionFilterConfigOutputTypeDef]
-
 class OnlineEvaluationConfigSourceOutputTypeDef(TypedDict):
     onlineEvaluationConfigArn: str
     timeRange: NotRequired[SessionFilterConfigOutputTypeDef]
+
+class CloudWatchFilterConfigOutputTypeDef(TypedDict):
+    sessionIds: NotRequired[list[str]]
+    timeRange: NotRequired[SessionFilterConfigOutputTypeDef]
+    sessionTraceIds: NotRequired[list[SessionTraceIdsOutputTypeDef]]
 
 CloudWatchLogsFilterTypeDef = TypedDict(
     "CloudWatchLogsFilterTypeDef",
@@ -2134,6 +2145,7 @@ MemoryRecordMetadataValueUnionTypeDef = Union[
 class CloudWatchFilterConfigTypeDef(TypedDict):
     sessionIds: NotRequired[Sequence[str]]
     timeRange: NotRequired[SessionFilterConfigTypeDef]
+    sessionTraceIds: NotRequired[Sequence[SessionTraceIdsTypeDef]]
 
 class OnlineEvaluationConfigSourceTypeDef(TypedDict):
     onlineEvaluationConfigArn: str

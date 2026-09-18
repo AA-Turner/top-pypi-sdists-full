@@ -6,6 +6,8 @@ You can look up the interface of data classes that iminuit uses here.
 
 from __future__ import annotations
 import inspect
+import operator
+import importlib.util
 from collections import OrderedDict
 from argparse import Namespace
 from iminuit import _repr_html, _repr_text, _deprecated
@@ -33,7 +35,7 @@ from typing import (
     get_origin,
 )
 import abc
-from time import monotonic
+from time import perf_counter
 import warnings
 import sys
 from dataclasses import dataclass, asdict
@@ -97,8 +99,7 @@ class BasicView(abc.ABC):
         return NotImplemented  # pragma: no cover
 
     @abc.abstractmethod
-    def _set(self, idx: int, value: Any) -> None:
-        NotImplemented  # pragma: no cover
+    def _set(self, idx: int, value: Any) -> None: ...  # pragma: no cover
 
     def __getitem__(self, key: Key) -> Any:
         """
@@ -151,7 +152,9 @@ class BasicView(abc.ABC):
 
 def _ndim(obj: Any) -> int:
     nd = 0
-    while isinstance(obj, Iterable):
+    # A str is Iterable, but indexing it yields another str, which would
+    # cause an infinite loop here; treat it (and other str-likes) as scalar.
+    while isinstance(obj, Iterable) and not isinstance(obj, str):
         nd += 1
         for x in obj:
             if x is not None:
@@ -184,6 +187,7 @@ class ErrorView(BasicView):
                 "Assigned errors must be positive. "
                 "Non-positive values are replaced by a heuristic.",
                 IMinuitWarning,
+                stacklevel=2,
             )
             value = _guess_initial_step(value)
         self._minuit._last_state.set_error(idx, value)
@@ -289,6 +293,16 @@ class Matrix(np.ndarray):
         else:
             self._var2pos = getattr(obj, "_var2pos", {})
 
+    def _is_square(self) -> bool:
+        return self.ndim == 2 and self.shape[0] == self.shape[1]
+
+    def _names(self) -> Tuple[str, ...]:
+        # Positional labels if names are unknown or stale, e.g. after numpy
+        # fancy indexing produced a non-square matrix.
+        if self._is_square() and self.shape[0] == len(self._var2pos):
+            return tuple(self._var2pos)
+        return tuple(str(i) for i in range(len(self)))
+
     def __getitem__(  # type:ignore
         self,
         key: Union[Key, Tuple[Key, Key], Iterable[Key], NDArray],
@@ -308,15 +322,25 @@ class Matrix(np.ndarray):
         if isinstance(key, slice):
             # slice returns square matrix
             sl = trafo(key)
-            return super().__getitem__((sl, sl))
-        if isinstance(key, (str, tuple)):
-            return super().__getitem__(trafo(key))
-        if isinstance(key, Iterable) and not isinstance(key, np.ndarray):
+            sub = super().__getitem__((sl, sl))
+            positions = range(len(self))[sl]
+        elif isinstance(key, Iterable) and not isinstance(
+            key, (str, tuple, np.ndarray)
+        ):
             # iterable returns square matrix
-            index2 = [trafo(k) for k in key]  # type:ignore
-            t = super().__getitem__(index2).T  # type:ignore
-            return np.ndarray.__getitem__(t, index2).T  # type:ignore
-        return super().__getitem__(key)
+            key = list(key)
+            if key and all(isinstance(k, (bool, np.bool_)) for k in key):
+                positions = list(np.flatnonzero(key))
+            else:
+                positions = [trafo(k) for k in key]
+            sub = super().__getitem__(np.ix_(positions, positions))
+        else:
+            return super().__getitem__(trafo(key))
+
+        # names of the square sub-matrix, if the names of this matrix are known
+        names = tuple(var2pos) if len(var2pos) == len(self) else ()
+        sub._var2pos = {names[p]: i for i, p in enumerate(positions)} if names else {}
+        return sub
 
     def to_dict(self) -> Dict[Tuple[str, str], float]:
         """
@@ -325,7 +349,7 @@ class Matrix(np.ndarray):
         Since the matrix is symmetric, the dict only contains the upper triangular
         matrix.
         """
-        names = tuple(self._var2pos)
+        names = self._names()
         d = {}
         for i, pi in enumerate(names):
             for j in range(i, len(names)):
@@ -351,7 +375,7 @@ class Matrix(np.ndarray):
         x     1   -0
         y    -0    4
         """
-        names = tuple(self._var2pos)  # type:ignore
+        names = self._names()
         nums = _repr_text.matrix_format(self)
         tab = []
         n = len(self)
@@ -377,11 +401,13 @@ class Matrix(np.ndarray):
 
     def __str__(self):
         """Get user-friendly text representation."""
-        if self.ndim != 2:
+        if not self._is_square():
             return repr(self)
         return _repr_text.matrix(self)
 
     def _repr_html_(self):
+        if not self._is_square():
+            return f"<pre>{repr(self)}</pre>"
         return _repr_html.matrix(self)
 
     def _repr_pretty_(self, p, cycle):
@@ -675,6 +701,8 @@ class FMin:
 
     def __eq__(self, other: object) -> bool:
         """Return True if all attributes are equal."""
+        if not isinstance(other, FMin):
+            return NotImplemented
 
         def relaxed_equal(k: str, a: object, b: object) -> bool:
             a = getattr(a, k)
@@ -837,7 +865,8 @@ class Params(tuple):
                 if p.name == key:
                     key = i
                     break
-        assert isinstance(key, (int, slice))
+            else:
+                raise KeyError(key)
         return super(Params, self).__getitem__(key)
 
     def __str__(self) -> str:
@@ -950,18 +979,26 @@ class MErrors(OrderedDict):
         else:
             p.text(str(self))
 
-    def __getitem__(self, key: Union[int, str]) -> MError:
+    def __getitem__(self, key: Union[SupportsIndex, str]) -> MError:
         """Get item at key, which can be an index or a parameter name."""
-        if isinstance(key, int):
-            if key < 0:
-                key += len(self)
-            if key < 0 or key >= len(self):
+        if not isinstance(key, str):
+            # Accept any integer-like key (including numpy integers) by
+            # converting it with operator.index, which raises TypeError for
+            # non-integer, non-str keys.
+            try:
+                index = operator.index(key)
+            except TypeError:
+                raise TypeError(
+                    f"key must be an integer or parameter name, not {key!r}"
+                ) from None
+            if index < 0:
+                index += len(self)
+            if index < 0 or index >= len(self):
                 raise IndexError("index out of range")
             for i, k in enumerate(self):
-                if i == key:
+                if i == index:
                     key = k
                     break
-        assert isinstance(key, str)
         return OrderedDict.__getitem__(self, key)
 
 
@@ -1016,10 +1053,10 @@ class _Timer:
         self.value = fmin.time if fmin else 0.0
 
     def __enter__(self):
-        self.value += monotonic()
+        self.value -= perf_counter()
 
     def __exit__(self, *args):
-        self.value = monotonic() - self.value
+        self.value += perf_counter()
 
 
 @_deprecated.deprecated(
@@ -1117,9 +1154,13 @@ def merge_signatures(
 
     for f in callables:
         amap = []
-        for i, (k, ann) in enumerate(describe(f, annotations=True).items()):
+        for k, ann in describe(f, annotations=True).items():
             if k in args:
-                amap.append(args.index(k))
+                i = args.index(k)
+                amap.append(i)
+                # an annotation from a later callable fills a missing one
+                if anns[i] is None:
+                    anns[i] = ann
             else:
                 amap.append(len(args))
                 args.append(k)
@@ -1233,6 +1274,11 @@ def describe(callable, *, annotations=False):
         def fcn(a, b, c=1): ...
         # describe returns [a, b, c];
         # positional arguments with default values are detected
+
+        def fcn(a, b, *, c=1): ...
+        # describe returns [a, b];
+        # keyword-only arguments are ignored, since the function is called
+        # with positional arguments only
     """
     if _address_of_cfunc(callable) != 0:
         return {} if annotations else []
@@ -1273,6 +1319,9 @@ def _describe_impl_inspect(callable):
         # stop when keyword argument is encountered
         if par.kind is inspect.Parameter.VAR_KEYWORD:
             break
+        # stop at keyword-only arguments, the FCN calls the function positionally
+        if par.kind is inspect.Parameter.KEYWORD_ONLY:
+            break
         r[name] = _get_limit(par.annotation)
     return r
 
@@ -1304,7 +1353,7 @@ def _describe_impl_docstring(callable):
 
     nbrace = 1
     ich = 0
-    for ich, ch in enumerate(doc[start:]):
+    for ich, ch in enumerate(doc[start:]):  # noqa: B007
         if ch == "(":
             nbrace += 1
         elif ch == ")":
@@ -1363,8 +1412,8 @@ def _get_limit(
         # have a lot of problems, see https://peps.python.org/pep-0649.
         try:
             annotation = eval(annotation, None, typing.__dict__)
-        except NameError:
-            # We ignore unknown annotations to fix issue #846.
+        except Exception:
+            # We ignore annotations that cannot be evaluated to fix issue #846.
             # I cannot replicate here what inspect.signature(..., eval_str=True) does.
             # I need a dict with the global objects at the call site of describe, but
             # it is not globals(). Anyway, when using strings, only the annotations
@@ -1377,8 +1426,8 @@ def _get_limit(
     if get_origin(annotation) is not Annotated:
         return None
 
-    tp, *constraints = get_args(annotation)
-    assert tp is float
+    # The base type (first argument) is irrelevant for limit extraction.
+    _, *constraints = get_args(annotation)
     lower = -np.inf
     upper = np.inf
     for c in constraints:
@@ -1388,7 +1437,7 @@ def _get_limit(
             if c.stop is not None:
                 upper = c.stop
             continue
-        if isinstance(c, Sequence):
+        if isinstance(c, Sequence) and not isinstance(c, (str, bytes)):
             lower, upper = c
             continue
 
@@ -1442,8 +1491,13 @@ def _key2index(
     if isinstance(key, slice):
         return _key2index_from_slice(var2pos, key)
     if not isinstance(key, str) and isinstance(key, Iterable):
-        # convert boolean masks into list of indices
-        if isinstance(key[0], bool):
+        # convert into a list so we can index it and check for emptiness;
+        # this also materializes generators and numpy arrays
+        key = list(key)
+        # convert boolean masks into list of indices; np.bool_ is not a
+        # subclass of bool, so we must check for it explicitly, otherwise
+        # numpy booleans would be silently interpreted as integer indices
+        if key and isinstance(key[0], (bool, np.bool_)):
             key = [k for k in range(len(var2pos)) if key[k]]
         return [_key2index_item(var2pos, k) for k in key]
     return _key2index_item(var2pos, key)
@@ -1574,7 +1628,7 @@ def _histogram_segments(mask, xe, masked):
 
 
 def _smart_sampling(f, xmin, xmax, start=20, tol=5e-3, maxiter=20, maxtime=10):
-    t0 = monotonic()
+    t0 = perf_counter()
     x = np.linspace(xmin, xmax, start)
     ynew = f(x)
     ymin = np.min(ynew)
@@ -1590,14 +1644,14 @@ def _smart_sampling(f, xmin, xmax, start=20, tol=5e-3, maxiter=20, maxtime=10):
                 f"Iteration limit {maxiter} in smart sampling reached, "
                 f"produced {len(y)} points"
             )
-            warnings.warn(msg, RuntimeWarning)
+            warnings.warn(msg, RuntimeWarning, stacklevel=2)
             break
-        if monotonic() - t0 > maxtime:
+        if perf_counter() - t0 > maxtime:
             msg = (
                 f"Time limit {maxtime} in smart sampling reached, "
                 f"produced {len(y)} points"
             )
-            warnings.warn(msg, RuntimeWarning)
+            warnings.warn(msg, RuntimeWarning, stacklevel=2)
             break
         xnew = 0.5 * (a + b)
         ynew = f(xnew)
@@ -1742,10 +1796,11 @@ def is_positive_definite(m: ArrayLike) -> bool:
         # maybe check this first https://en.wikipedia.org/wiki/Diagonally_dominant_matrix
         # and only try cholesky if that fails
         try:
-            np.linalg.cholesky(m)
+            ll = np.linalg.cholesky(m)
         except np.linalg.LinAlgError:
             return False
-        return True
+        # some LAPACK builds (e.g. pyodide) return NaN instead of raising
+        return bool(np.all(np.isfinite(ll)))
     return False
 
 
@@ -1765,11 +1820,10 @@ def is_jupyter() -> bool:
 def is_module_available(module: str) -> bool:
     """Return True if a module is available."""
     try:
-        import importlib
-
-        importlib.import_module(module)
-        return True
+        # find_spec only inspects metadata; it is much cheaper than a full import.
+        return importlib.util.find_spec(module) is not None
     except ModuleNotFoundError:
+        # raised if a parent package of a dotted name is missing
         return False
 
 

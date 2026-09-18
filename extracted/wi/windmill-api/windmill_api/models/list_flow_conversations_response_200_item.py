@@ -20,6 +20,7 @@ class ListFlowConversationsResponse200Item:
         created_at (datetime.datetime): When the conversation was created
         updated_at (datetime.datetime): When the conversation was last updated
         created_by (str): Username who created the conversation
+        is_test (bool): Started from the flow editor's test panel rather than a deployed run
         title (Union[Unset, None, str]): Optional title for the conversation
     """
 
@@ -29,6 +30,7 @@ class ListFlowConversationsResponse200Item:
     created_at: datetime.datetime
     updated_at: datetime.datetime
     created_by: str
+    is_test: bool
     title: Union[Unset, None, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
@@ -41,6 +43,7 @@ class ListFlowConversationsResponse200Item:
         updated_at = self.updated_at.isoformat()
 
         created_by = self.created_by
+        is_test = self.is_test
         title = self.title
 
         field_dict: Dict[str, Any] = {}
@@ -53,6 +56,7 @@ class ListFlowConversationsResponse200Item:
                 "created_at": created_at,
                 "updated_at": updated_at,
                 "created_by": created_by,
+                "is_test": is_test,
             }
         )
         if title is not UNSET:
@@ -75,6 +79,8 @@ class ListFlowConversationsResponse200Item:
 
         created_by = d.pop("created_by")
 
+        is_test = d.pop("is_test")
+
         title = d.pop("title", UNSET)
 
         list_flow_conversations_response_200_item = cls(
@@ -84,6 +90,7 @@ class ListFlowConversationsResponse200Item:
             created_at=created_at,
             updated_at=updated_at,
             created_by=created_by,
+            is_test=is_test,
             title=title,
         )
 

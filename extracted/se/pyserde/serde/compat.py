@@ -15,13 +15,10 @@ import uuid
 import typing
 import typing_extensions
 from collections import defaultdict, deque, Counter
-from collections.abc import Iterator, Sequence, MutableSequence
+from collections.abc import Callable, Hashable, Iterator, Sequence, MutableSequence
 from collections.abc import Mapping, MutableMapping, Set, MutableSet
 from dataclasses import is_dataclass
-from typing import TypeVar, Generic, Any, ClassVar, Optional, NewType, Union, Hashable, Callable
-
-import typing_inspect
-from typing_extensions import TypeGuard, ParamSpec
+from typing import TypeVar, Generic, Any, ClassVar, Optional, NewType, Union, TypeGuard, ParamSpec
 
 # `typing_extensions.TypeAliasType` isn't always an alias to `typing.TypeAliasType`
 # depending on certain versions of `typing_extensions` and python.
@@ -302,7 +299,7 @@ def union_args(typ: Any) -> tuple[type[Any], ...]:
         if not i2:
             types.append(i1)
         elif is_none(i2):
-            types.append(Optional[i1])
+            types.append(Optional[i1])  # noqa: UP045
         else:
             types.extend((i1, i2))
     return tuple(types)
@@ -333,19 +330,16 @@ def dataclass_fields(cls: type[Any]) -> Iterator[dataclasses.Field]:  # type: ig
     return iter(raw_fields)
 
 
-TypeLike = Union[type[Any], typing.Any]
+TypeLike = type[Any] | typing.Any
 
 
 def iter_types(cls: type[Any]) -> list[type[Any]]:
     """
     Iterate field types recursively.
-
-    The correct return type is `Iterator[Union[Type, typing._specialform]],
-    but `typing._specialform` doesn't exist for python 3.6. Use `Any` instead.
     """
-    lst: set[Union[type[Any], Any]] = set()
+    lst: set[type[Any] | Any] = set()
 
-    def recursive(cls: Union[type[Any], Any]) -> None:
+    def recursive(cls: type[Any] | Any) -> None:
         if cls in lst:
             return
 
@@ -454,10 +448,10 @@ def iter_literals(cls: type[Any]) -> list[TypeLike]:
     """
     Iterate over all literals that are used in the dataclass
     """
-    lst: set[Union[type[Any], Any]] = set()
+    lst: set[type[Any] | Any] = set()
     stack: list[TypeLike] = []  # To prevent infinite recursion
 
-    def recursive(cls: Union[type[Any], Any]) -> None:
+    def recursive(cls: type[Any] | Any) -> None:
         if cls in stack:
             return
 
@@ -512,15 +506,14 @@ def is_union(typ: Any) -> bool:
     except Exception:
         pass
 
-    # Python 3.10+ Union operator e.g. str | int
-    try:
-        if isinstance(typ, types.UnionType):
-            return True
-    except Exception:
-        pass
+    return _is_union_type(typ)
 
-    # typing.Union
-    return typing_inspect.is_union_type(typ)  # type: ignore
+
+def _is_union_type(typ: Any) -> bool:
+    """
+    Test if the type is `typing.Union` (bare or subscripted) or a PEP 604 union e.g. `str | int`.
+    """
+    return typ is Union or typing.get_origin(typ) is Union or isinstance(typ, types.UnionType)
 
 
 # Not memoized: the result depends on the order of the union arguments
@@ -539,25 +532,9 @@ def is_opt(typ: Any) -> bool:
     False
     """
 
-    # Python 3.10+ Union operator e.g. str | None
-    is_union_type = False
-    try:
-        if isinstance(typ, types.UnionType):
-            is_union_type = True
-    except Exception:
-        pass
-
-    # typing.Optional
-    is_typing_union = typing_inspect.is_optional_type(typ)
-
     args = type_args(typ)
     if args:
-        return (
-            (is_union_type or is_typing_union)
-            and len(args) == 2
-            and not is_none(args[0])
-            and is_none(args[1])
-        )
+        return _is_union_type(typ) and len(args) == 2 and not is_none(args[0]) and is_none(args[1])
     else:
         return typ is Optional
 

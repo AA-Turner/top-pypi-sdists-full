@@ -96,6 +96,7 @@ from .formats import (
 )
 from .schema import (
     ConfigValidator,
+    ValidationReport,
     _merge_into_template,
     _normalize_conf,
     _opaque_paths,
@@ -166,6 +167,22 @@ rename on Click's own side does not silently stop excluding it.
 """
 
 
+_EXPLICIT_SOURCES = frozenset({
+    ParameterSource.COMMANDLINE,
+    ParameterSource.ENVIRONMENT,
+    ParameterSource.PROMPT,
+})
+"""The parameter sources a user sets on purpose.
+
+Listed outright: the {class}`~click.core.ParameterSource` ordering does not
+split the explicit members from the rest, since `DEFAULT` and `DEFAULT_MAP`
+fall between them.
+"""
+
+_JSON_ENCODED_TYPES = frozenset({list, tuple, set, frozenset, dict})
+"""Parameter types a typeless format carries as JSON-serialized strings."""
+
+
 class Sentinel(Enum):
     """Enum used to define sentinel values.
 
@@ -206,15 +223,73 @@ def _join_format_labels(formats: Iterable[ConfigFormat]) -> str:
     return f"{', '.join(labels[:-1])} or {labels[-1]}"
 
 
+def _coerce_scalar(target_type: type | None, raw_value: str, subject: str) -> Any:
+    """Convert text read from a typeless format to a parameter's Python type.
+
+    An INI file and an argfile hold text only, so the parameter each entry
+    feeds decides how its text is read: a `bool` takes the spellings
+    {attr}`~configparser.ConfigParser.BOOLEAN_STATES` accepts, a container is
+    JSON-decoded, and an entry matching no parameter keeps its text.
+
+    :param target_type: the parameter's Python type, or `None` when the entry
+        matches no parameter.
+    :param raw_value: the text to convert.
+    :param subject: how an error message names the entry.
+    :return: the converted value.
+    :raises ValueError: when `target_type` has no conversion, or `raw_value`
+        does not read as one.
+    """
+    try:
+        if target_type in (None, str):
+            return raw_value
+        if target_type is bool:
+            return ConfigParser.BOOLEAN_STATES[raw_value.strip().lower()]
+        if target_type is int:
+            return int(raw_value)
+        if target_type is float:
+            return float(raw_value)
+        if target_type in _JSON_ENCODED_TYPES:
+            return json.loads(raw_value)
+    # A JSONDecodeError is a ValueError.
+    except (KeyError, ValueError) as ex:
+        raise ValueError(f"Cannot convert {subject} to {target_type} type.") from ex
+    raise ValueError(
+        f"Cannot handle the conversion of {subject} to {target_type} type."
+    )
+
+
+def _exit_on_validation_error(
+    ctx: click.Context,
+    report: ValidationReport,
+    location: Path | URL | None = None,
+) -> None:
+    """Log the first error of a failed validation and exit the CLI with code `1`.
+
+    A passing report returns silently. The exit fires before any subcommand
+    callback does, so the user reads one critical line rather than a
+    traceback, and code `1` matches what `--validate-config` answers for the
+    same failure.
+
+    :param location: the file the report is about, named in the message when
+        several were validated.
+    """
+    if report.ok:
+        return
+    where = f" in {location}" if location is not None else ""
+    logger.critical(f"Configuration validation error{where}: {report.errors[0]}")
+    ctx.exit(1)
+
+
 class ConfigOption(ExtraOption, ParamStructure):
     """A pre-configured option adding `--config LOCATION`."""
 
     def __init__(
         self,
         param_decls: Sequence[str] | None = None,
-        metavar="LOCATION",
-        type=UNPROCESSED,
-        help=_(
+        *,
+        metavar: str = "LOCATION",
+        type: click.ParamType | Any = UNPROCESSED,
+        help: str = _(
             "Location of the configuration file. Supports local path with glob patterns "
             "or remote URL.",
         ),
@@ -228,15 +303,13 @@ class ConfigOption(ExtraOption, ParamStructure):
         show_file_patterns: bool | None = None,
         roaming: bool = True,
         force_posix: bool = False,
-        search_pattern_flags: int = (
-            glob.GLOBSTAR
-            | glob.FOLLOW
-            | glob.DOTGLOB
-            | glob.BRACE
-            | glob.SPLIT
-            | glob.GLOBTILDE
-            | glob.NODIR
-        ),
+        search_pattern_flags: int = glob.GLOBSTAR
+        | glob.FOLLOW
+        | glob.DOTGLOB
+        | glob.BRACE
+        | glob.SPLIT
+        | glob.GLOBTILDE
+        | glob.NODIR,
         search_parents: bool = False,
         stop_at: Path | str | Literal[Sentinel.VCS] | None = Sentinel.VCS,
         cascade: bool = False,
@@ -247,7 +320,7 @@ class ConfigOption(ExtraOption, ParamStructure):
         schema_strict: bool = False,
         fallback_sections: Sequence[str] = (),
         config_validators: Sequence[ConfigValidator] = (),
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         """Takes as input a path to a file or folder, a glob pattern, or an URL.
 
@@ -1175,9 +1248,7 @@ class ConfigOption(ExtraOption, ParamStructure):
         and mypy. Returns `(None, None)` when no valid `pyproject.toml` is
         found.
         """
-        for location, conf in self._search_pyproject_cwd_all():
-            return location, conf
-        return None, None
+        return next(iter(self._search_pyproject_cwd_all()), (None, None))
 
     def read_and_parse_all_conf(
         self,
@@ -1303,9 +1374,7 @@ class ConfigOption(ExtraOption, ParamStructure):
 
         Returns `(None, None)` if files were found but none could be parsed.
         """
-        for location, conf in self.read_and_parse_all_conf(pattern):
-            return location, conf
-        return None, None
+        return next(iter(self.read_and_parse_all_conf(pattern)), (None, None))
 
     def load_ini_config(self, content: str) -> dict[str, Any]:
         """Utility method to parse INI configuration file.
@@ -1354,32 +1423,11 @@ class ConfigOption(ExtraOption, ParamStructure):
                         )
                     target_type = dedup_types.pop()
 
-                value: Any
-
-                if target_type in (None, str):
-                    value = ini_config.get(section_id, option_id)
-
-                elif target_type is int:
-                    value = ini_config.getint(section_id, option_id)
-
-                elif target_type is float:
-                    value = ini_config.getfloat(section_id, option_id)
-
-                elif target_type is bool:
-                    value = ini_config.getboolean(section_id, option_id)
-
-                # Types not natively supported by INI format are loaded as
-                # JSON-serialized strings.
-                elif target_type in (list, tuple, set, frozenset, dict):
-                    value = json.loads(ini_config.get(section_id, option_id))
-
-                else:
-                    raise ValueError(
-                        f"Cannot handle the conversion of [{section_id}]:{option_id} "
-                        f"INI config item to {target_type} type."
-                    )
-
-                sub_conf[option_id] = value
+                sub_conf[option_id] = _coerce_scalar(
+                    target_type,
+                    ini_config.get(section_id, option_id),
+                    f"[{section_id}]:{option_id} INI config item",
+                )
 
             # Place collected options at the right level of the dict tree.
             conf = always_merger.merge(
@@ -1449,31 +1497,7 @@ class ConfigOption(ExtraOption, ParamStructure):
                 if param.multiple
                 else self.get_param_type(param)
             )
-            try:
-                if target_type is bool:
-                    # Mirror configparser's getboolean() accepted spellings.
-                    lowered = raw_value.strip().lower()
-                    if lowered in ("1", "yes", "true", "on"):
-                        return True
-                    if lowered in ("0", "no", "false", "off"):
-                        return False
-                    raise ValueError(f"not a boolean: {raw_value!r}")
-                if target_type is int:
-                    return int(raw_value)
-                if target_type is float:
-                    return float(raw_value)
-                if target_type in (list, tuple, set, frozenset, dict):
-                    return json.loads(raw_value)
-                if target_type in (None, str):
-                    return raw_value
-            except (ValueError, json.JSONDecodeError) as ex:
-                raise ValueError(
-                    f"Cannot convert {decl} value {raw_value!r} to {target_type} type."
-                ) from ex
-            raise ValueError(
-                f"Cannot handle the conversion of {decl} value {raw_value!r} "
-                f"to {target_type} type."
-            )
+            return _coerce_scalar(target_type, raw_value, f"{decl} value {raw_value!r}")
 
         conf: dict[str, Any] = {}
         index = 0
@@ -1768,11 +1792,7 @@ class ConfigOption(ExtraOption, ParamStructure):
                 blocked_params=self.excluded_params,
                 collect_all=False,
             )
-            if not report.ok:
-                logger.critical(
-                    f"Configuration validation error in {location}: {report.errors[0]}"
-                )
-                ctx.exit(1)
+            _exit_on_validation_error(ctx, report, location)
             assert report.merged_conf is not None  # params_template is always set.
             per_file_conf.append(report.merged_conf)
 
@@ -1795,9 +1815,7 @@ class ConfigOption(ExtraOption, ParamStructure):
             strict=self.strict,
             collect_all=False,
         )
-        if not report.ok:
-            logger.critical(f"Configuration validation error: {report.errors[0]}")
-            ctx.exit(1)
+        _exit_on_validation_error(ctx, report)
 
         # Install one default_map layer per file, lowest precedence first.
         for merged_conf in reversed(per_file_conf):
@@ -1871,27 +1889,15 @@ class ConfigOption(ExtraOption, ParamStructure):
 
         assert self.name is not None  # Always set for Option subclasses.
 
-        # Listed explicitly: the ParameterSource IntEnum ordering does not
-        # cleanly split explicit from non-explicit sources, since DEFAULT and
-        # DEFAULT_MAP fall between the user-set members.
-        explicit_sources = {
-            ParameterSource.COMMANDLINE,
-            ParameterSource.ENVIRONMENT,
-            ParameterSource.PROMPT,
-        }
+        explicit_conf = ctx.get_parameter_source(self.name) in _EXPLICIT_SOURCES
 
         if path_pattern is NO_CONFIG:
             logger.debug(f"{NO_CONFIG} received.")
-            source = ctx.get_parameter_source(self.name)
-            explicit = source is not None and source in explicit_sources
-            if explicit:
+            if explicit_conf:
                 info_msg("Skip configuration file loading altogether.")
             else:
                 logger.debug("Configuration file autodiscovery disabled by default.")
             return
-
-        conf_source = ctx.get_parameter_source(self.name)
-        explicit_conf = conf_source is not None and conf_source in explicit_sources
 
         # Print configuration location to the user if it was explicitly set.
         # Normalize to string to both allow parsing as a glob pattern or URL.
@@ -1974,10 +1980,7 @@ class ConfigOption(ExtraOption, ParamStructure):
                 logger.debug(f"Initial defaults: {ctx.default_map}")
 
                 # Run every check through the unified pipeline. collect_all=False
-                # fails fast: the first error is surfaced as a clean critical-level
-                # log and the context exits 1, before any subcommand callback fires,
-                # rather than letting an exception bubble up as a traceback. Exit
-                # code 1 matches `--validate-config` for the same failure mode.
+                # fails fast on the first error.
                 report = run_config_validation(
                     user_conf,
                     app_name=self._app_section_name(ctx),
@@ -1991,11 +1994,7 @@ class ConfigOption(ExtraOption, ParamStructure):
                     blocked_params=self.excluded_params,
                     collect_all=False,
                 )
-                if not report.ok:
-                    logger.critical(
-                        f"Configuration validation error: {report.errors[0]}"
-                    )
-                    ctx.exit(1)
+                _exit_on_validation_error(ctx, report)
 
                 # Validation passed. Install the recognized values into default_map,
                 # publish the typed schema instance built by the pipeline, then apply
@@ -2040,15 +2039,16 @@ class NoConfigOption(ExtraOption):
     def __init__(
         self,
         param_decls: Sequence[str] | None = None,
-        help=_(
+        *,
+        help: str = _(
             "Ignore all configuration files and only use command line parameters and "
             "environment variables.",
         ),
-        is_flag=True,
-        flag_value=NO_CONFIG,
-        is_eager=True,
-        expose_value=False,
-        **kwargs,
+        is_flag: bool = True,
+        flag_value: Any = NO_CONFIG,
+        is_eager: bool = True,
+        expose_value: bool = False,
+        **kwargs: Any,
     ) -> None:
         """`flag_value=NO_CONFIG` is the `Sentinel` enum member that
         signals "skip configuration loading" to {class}`ConfigOption`. Click
@@ -2102,6 +2102,7 @@ class ValidateConfigOption(ExtraOption):
     def __init__(
         self,
         param_decls: Sequence[str] | None = None,
+        *,
         type: click.ParamType | Any = UNPROCESSED,
         metavar: str = "LOCATION",
         is_eager: bool = True,
@@ -2225,7 +2226,6 @@ def ensure_config_loaded(ctx: click.Context) -> None:
     config_option = search_params(ctx.command.params, ConfigOption)
     if config_option is None:
         return
-    assert isinstance(config_option, ConfigOption)
     if config_option.callback is None:
         return
     opts = replay_raw_args(ctx)
@@ -2379,6 +2379,7 @@ class ExportConfigOption(ExtraOption):
     def __init__(
         self,
         param_decls: Sequence[str] | None = None,
+        *,
         type: click.ParamType | Any = None,
         metavar: str = "FORMAT",
         is_eager: bool = True,

@@ -14,6 +14,8 @@
 # ==============================================================================
 
 import itertools
+from jax._src import dtypes
+from jax._src import typing
 from jax.experimental.mosaic.gpu import fragmented_array as fa
 from jaxlib.mlir import ir
 from jaxlib.mlir.dialects import llvm
@@ -30,11 +32,15 @@ class MMALayouts:
   layouts for MMA operands based on warp configuration.
   """
 
-  def __init__(self, element_type: ir.Type, *, m_warps: int = 4):
+  def __init__(self, element_type: ir.Type | typing.DTypeLike, *, m_warps: int = 4):
     if m_warps not in (1, 2, 4):
       raise ValueError(f"m_warps must be 1, 2, or 4, but got {m_warps=}")
     n_warps = 4 // m_warps
-    elems_per_reg = 32 // utils.bitwidth(element_type)
+    if isinstance(element_type, ir.Type):
+      bitwidth = utils.bitwidth(element_type)
+    else:
+      bitwidth = dtypes.itemsize_bits(element_type)
+    elems_per_reg = 32 // bitwidth
     k = 8 * elems_per_reg
     sub_k = 4 * elems_per_reg
     self.lhs = fa.TiledLayout(
@@ -58,6 +64,27 @@ class MMALayouts:
         vector_dim=-1,
         _check_canonical=False,
     ).canonicalize()
+
+  @classmethod
+  def for_shape(
+      cls, element_type: ir.Type | typing.DTypeLike, m: int, n: int
+  ) -> "MMALayouts":
+    """Returns `MMALayouts` with `m_warps` selected for the given MMA shape.
+
+    The four warps of the warpgroup are distributed as `m_warps` along the M
+    dimension and `n_warps = 4 // m_warps` along the N dimension. We pick the
+    largest valid `m_warps` so that the accumulator tile `(m_warps * 16,
+    n_warps * 8)` evenly divides the `(m, n)` shape.
+    """
+    for m_warps in (4, 2, 1):
+      n_warps = 4 // m_warps
+      if m % (m_warps * 16) == 0 and n % (n_warps * 8) == 0:
+        return cls(element_type, m_warps=m_warps)
+    raise ValueError(
+        f"No valid m_warps in (1, 2, 4) for MMA shape {(m, n)=}: the "
+        "accumulator tile (m_warps * 16, (4 // m_warps) * 8) must evenly "
+        "divide the shape."
+    )
 
 
 def _ptx_dtype_str(dtype: ir.Type, *, is_signed: bool | None = None) -> str:

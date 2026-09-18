@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nncf
-Version: 3.3.0
+Version: 3.4.0
 Summary: Neural Networks Compression Framework
 Author: Intel
 Author-email: maksim.proshin@intel.com
@@ -18,7 +18,7 @@ Requires-Dist: numpy<2.5.0,>=1.24.0
 Requires-Dist: openvino-telemetry>=2023.2.0
 Requires-Dist: packaging>=20.0
 Requires-Dist: psutil
-Requires-Dist: pydot<=3.0.4,>=1.4.1
+Requires-Dist: pydot<=4.0.1,>=1.4.1
 Requires-Dist: rich>=13.5.2
 Requires-Dist: safetensors>=0.4.1
 Requires-Dist: scikit-learn>=0.24.0

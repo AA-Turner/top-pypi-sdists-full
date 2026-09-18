@@ -4,7 +4,7 @@ Lives in services rather than beside the dashboard that renders it: the GitHub
 sync needs the same rules to decide whether to open the next planned release, and
 a service importing from a router package points the dependency the wrong way.
 
-Three ideas do the work here:
+Four ideas do the work here:
 
 * **The high-water mark.** Board sync *used to* create a PLANNED release row every
   time a synced ticket carried a version-shaped label, and nothing ever closed
@@ -18,6 +18,14 @@ Three ideas do the work here:
   no more -- IN_PROGRESS, the version being cut, and PLANNED, the version being
   filled, conventionally the next two minor versions. Shipping rotates them;
   anything open beyond them is archived. See ``ensure_pipeline``.
+* **The hotfix track runs beside the slots, not in them.** A hotfix is a release
+  that moves the **Z** in ``vX.Y.Z`` instead of the Y. Until now such a version
+  did not exist as a record until the moment of cutting -- it was computed by
+  scanning GitHub tags -- so there was nothing to plan tickets into and a hotfix
+  necessarily shipped empty. A patch of the last released line is now an ordinary
+  open release row, and every rule above is written to step around it: it does
+  not occupy a slot, it cannot be archived for being a third open version, and
+  shipping it rotates nothing. See :func:`hotfix_releases`.
 """
 
 import re
@@ -203,6 +211,89 @@ def latest_release(releases: List[Release]) -> Optional[Release]:
     return max(shipped, key=lambda r: semver_key(r.version))
 
 
+def hotfix_releases(releases: List[Release]) -> List[Release]:
+    """The open patch rows on the last released line, lowest first.
+
+    **What "the last released line" means, precisely.** Take the highest released
+    semver version -- :func:`latest_release`, the same high-water mark every other
+    rule here is anchored to. Its ``major.minor`` is *the* line. An open row is on
+    the hotfix track when it shares that ``major.minor`` and sorts strictly above
+    the high-water mark, which on a shared line can only mean a higher Z. So with
+    ``v1.9.0`` released, ``v1.9.1`` is a hotfix; with ``v1.9.1`` released as well,
+    ``v1.9.2`` is the next one. Exactly one line at a time is patchable, and it is
+    always the newest one.
+
+    **A patch opened on an older line is not a hotfix and is not exempt.** Ship
+    ``v1.9.0`` then ``v1.10.0``, and ``v1.9.1`` is below the high-water mark: the
+    project has already moved past that line, so tagging it would be a release out
+    of chronology and nothing downstream could order it. Such a row falls under
+    rule 1 of :func:`reconcile_statuses` exactly as it did before this track
+    existed -- it is treated as history someone forgot to close. That is the
+    pre-existing behaviour for *every* open row below the mark and it is
+    deliberately not special-cased here: the place to refuse a patch on a dead
+    line is whoever is asking for one, not the reconciler cleaning up after it.
+
+    **A project with nothing released has no line to patch.** ``latest_release``
+    is ``None``, so this is empty and ``v0.1.1`` on such a project is not a
+    hotfix at all -- it is an ordinary forward version competing for the two
+    slots, and the slot rules treat it as one. Nothing has shipped, so there is
+    nothing to fix; the version to open is the one you intend to cut.
+
+    Pure and session-free like the rest of this module.
+    """
+    newest = latest_release(releases)
+    if newest is None:
+        return []
+
+    high_water = semver_key(newest.version)
+    line = high_water[1:3]
+    return sorted(
+        (
+            release
+            for release in releases
+            if release.status in _UPCOMING_STATUS_ORDER
+            and is_semver(release.version)
+            and semver_key(release.version)[1:3] == line
+            and semver_key(release.version) > high_water
+        ),
+        key=lambda release: semver_key(release.version),
+    )
+
+
+def is_hotfix(version: str, releases: List[Release]) -> bool:
+    """Whether ``version`` moves the **Z** on an ``X.Y`` line that already shipped.
+
+    The question :func:`hotfix_releases` asks, but about a version that has *since
+    been released* -- at which point it is the high-water mark itself and can no
+    longer be compared against it. So this looks the other way: is there a
+    RELEASED row on the same ``major.minor`` with a lower Z? If there is, this
+    version patched something, and the caller is watching a hotfix ship rather
+    than a minor.
+
+    Deliberately **not** anchored to the newest line, unlike ``hotfix_releases``.
+    By the time a hotfix has shipped it *is* the newest line, and a caller
+    reacting to a release that has already been recorded needs an answer that
+    does not depend on when it is asked.
+
+    ``v1.9.0`` is never a hotfix however much has shipped before it -- the Z is
+    zero, so it opened its line rather than patching one. Nor is ``v1.9.1`` on a
+    project whose very first release it is: with no ``v1.9.0`` on record it is not
+    fixing anything, it is simply where that project started.
+    """
+    if not is_semver(version):
+        return False
+    _, major, minor, patch = semver_key(version)
+    if patch == 0:
+        return False
+    return any(
+        release.status == ReleaseStatus.RELEASED
+        and is_semver(release.version)
+        and semver_key(release.version)[1:3] == (major, minor)
+        and semver_key(release.version)[3] < patch
+        for release in releases
+    )
+
+
 def reconcile_statuses(releases: List[Release]) -> int:
     """Enforce the shape a project's releases are supposed to have.
 
@@ -220,6 +311,22 @@ def reconcile_statuses(releases: List[Release]) -> int:
     2. Of what genuinely remains ahead, the *lowest* version is the one in
        progress -- you ship in order. Any other IN_PROGRESS is demoted to PLANNED.
 
+    **The hotfix track is exempt from rule 2, and pinned PLANNED.** A patch of the
+    last released line (:func:`hotfix_releases`) is ahead of the high-water mark
+    and *lower* than either forward minor slot, so feeding it to rule 2 would make
+    it the version in progress and demote the minor the project is actually
+    cutting -- ``v1.9.1`` would take over from ``v1.10.0`` simply by existing.
+    Rule 2 orders one queue, and these are two.
+
+    Pinned PLANNED rather than left as found because IN_PROGRESS means one
+    specific thing on a project: the single version ``release_being_cut`` names
+    and blastoff cuts next. A hotfix is not reached by working down a queue; it is
+    asked for, by name, when something is broken. Keeping the track PLANNED is
+    what guarantees ``next_release``, ``release_being_cut`` and the version
+    store's ``_in_progress_version`` all keep pointing at the minor -- and PLANNED
+    is in no way a lesser status for the one thing that matters here, which is
+    that tickets can be planned into it.
+
     Non-semver tags are left alone entirely: `rancher-FINAL` is not a version, has
     no position in the order, and guessing at its status would be inventing.
 
@@ -232,12 +339,22 @@ def reconcile_statuses(releases: List[Release]) -> int:
     ]
     high_water = max(shipped_keys) if shipped_keys else None
 
+    # By identity, not by version string: these are the very rows in `releases`,
+    # and comparing versions would mean re-deciding the membership question
+    # `hotfix_releases` has already answered.
+    hotfix_track = {id(release) for release in hotfix_releases(releases)}
+
     changed = 0
     ahead: List[Release] = []
     for release in releases:
         if release.status not in _UPCOMING_STATUS_ORDER or not is_semver(
             release.version
         ):
+            continue
+        if id(release) in hotfix_track:
+            if release.status != ReleaseStatus.PLANNED:
+                release.status = ReleaseStatus.PLANNED
+                changed += 1
             continue
         if high_water is not None and semver_key(release.version) <= high_water:
             release.status = ReleaseStatus.RELEASED
@@ -415,6 +532,12 @@ def ensure_pipeline(
     row-per-version-label behaviour produced. Closed history below the high-water
     mark is untouched and unbounded -- past versions are a record, not a queue.
 
+    **The two are two *minors*.** A patch of the last released line is a hotfix,
+    which is a separate track running beside the pipeline rather than inside it:
+    it is neither counted toward the cap nor archived for exceeding it, and no
+    slot is ever opened as one. ``bump(cursor, "minor")`` below is still the only
+    version this function invents.
+
     Two slots rather than one because they answer different questions and a
     single "next release" had to be both. What is closing out and what is being
     filled are not the same version, and a planning surface with nothing to drop
@@ -470,12 +593,21 @@ def ensure_pipeline(
     newest_shipped = latest_release(releases)
     high_water = semver_key(newest_shipped.version) if newest_shipped else None
 
+    # The hotfix track is not a slot and is not counted against the cap. Without
+    # this, `innoday releases create v1.9.1` on a project cutting v1.10.0 with
+    # v1.11.0 planned would make three rows "ahead", and the next sync -- not the
+    # create, which does no pipeline work at all -- would archive v1.11.0 for
+    # being a third open version. A planned minor destroyed by opening a hotfix,
+    # hours later, by a background job. See `hotfix_releases`.
+    hotfix_track = {id(release) for release in hotfix_releases(releases)}
+
     ahead = sorted(
         (
             release
             for release in releases
             if release.status in _UPCOMING_STATUS_ORDER
             and is_semver(release.version)
+            and id(release) not in hotfix_track
             and (high_water is None or semver_key(release.version) > high_water)
         ),
         key=lambda release: semver_key(release.version),
@@ -525,3 +657,138 @@ def ensure_pipeline(
             existing.status = slots[position]
 
     return created
+
+
+class RevertBlocked(Exception):
+    """Withdrawing this release would leave the project's history inconsistent.
+
+    Carries the reason as its message, because the caller's whole job with it is
+    to hand that sentence back to whoever asked.
+    """
+
+
+def latest_released(releases: List[Release]) -> Optional[Release]:
+    """The most recently *released* row, by the clock rather than by version.
+
+    Not :func:`latest_release`, which answers "highest released version". The two
+    stop agreeing the moment a patch exists: cut v1.9.0, the pipeline opens
+    v1.10.0 and v1.11.0, then ship the hotfix v1.9.1 -- the newest release is
+    v1.9.1 while the highest version anywhere is v1.11.0, and a rule about
+    "the last release" means the former.
+
+    Falls back to version order among rows with no ``released_at``, so a record
+    written before that column was populated still sorts somewhere sensible
+    rather than disappearing from the comparison.
+    """
+    shipped = [r for r in releases if r.status == ReleaseStatus.RELEASED]
+    if not shipped:
+        return None
+    dated = [r for r in shipped if _shipped_at(r) is not None]
+    if dated:
+        return max(dated, key=_shipped_at)
+    return max(shipped, key=lambda r: semver_key(r.version))
+
+
+def _shipped_at(release: Release):
+    """When this release happened, tolerating rows written before it was stamped.
+
+    ``released_at`` is the right answer and the one to trust. But a release row
+    created straight as ``released`` used to be stored without one, so older
+    records carry only the moment they appeared -- which, for a row a cut
+    conjured, is the same moment.
+    """
+    return release.released_at or release.created_at
+
+
+def plan_revert(releases: List[Release], target: Release):
+    """What taking ``target`` back has to do to put the project where it was.
+
+    **A revert is an undo of the last cut, not a hole punched in history.**
+    Before this existed, ``releases delete`` stamped ``deleted_at`` and stopped:
+    the successors that shipping had opened were left standing, and the version
+    that was withdrawn simply vanished. Taking back a freshly-cut ``v0.1.0``
+    left ``v0.2.0 in_progress`` and ``v0.3.0 planned`` behind it, so the next
+    cut would have shipped v0.2.0 and skipped v0.1.0 altogether -- and putting
+    that right took four commands, in the correct order, run by someone who had
+    worked out what the rotation had done.
+
+    Two rules, and they are the same rule seen from either end:
+
+    * **One step, and the step is the most recent release** -- by the clock, not
+      by version number. Tagging across a project's repositories happens in an
+      exact chronology; an undo walks back along it rather than reaching into
+      the middle.
+    * **Undoing a cut undoes what that cut created, and nothing else.** Shipping
+      a minor promotes slot 2 and opens a new one above it; taking it back
+      removes those rows and returns it to IN_PROGRESS. A hotfix creates no such
+      rows, so taking one back removes none.
+
+    That second rule is provenance, not ordering, and the distinction is the
+    whole reason this was rewritten. Sorting by version said "everything above
+    the target belongs to it", which is true for a minor and **false for a
+    hotfix**: reverting v1.9.1 would have withdrawn the v1.10.0 already in
+    flight and the v1.11.0 planned behind it, because both sort higher. A row
+    belongs to the cut only if it was created *after* that cut shipped.
+
+    Returns ``(withdraw, restore)``: rows to stamp ``deleted_at`` on, and the row
+    to return to IN_PROGRESS, or ``None`` when the revert is a plain removal. A
+    released target is *restored*, never withdrawn -- the version has to stay
+    addressable, because tickets join a release by version string.
+
+    Raises :class:`RevertBlocked` rather than returning a verdict: every caller
+    would otherwise have to remember to check one, and forgetting is how the
+    unguarded version behaved.
+
+    ``releases`` is the project's live rows, deleted ones already excluded.
+    """
+    if not is_semver(target.version):
+        raise RevertBlocked(
+            f"{target.version} is not a semantic version, so there is no place "
+            "for it in the release chronology. Taking it back could leave the "
+            "pipeline in a state nothing can reason about."
+        )
+
+    if target.status == ReleaseStatus.RELEASED:
+        newest = latest_released(releases)
+        if newest is not None and newest.id != target.id:
+            raise RevertBlocked(
+                f"{newest.version} was released after {target.version}, so "
+                f"{target.version} is not the last release. Take back "
+                f"{newest.version} first -- a release comes off the top of the "
+                "chronology, one step at a time."
+            )
+
+        # **Only what this cut created.** A forward row that already existed
+        # when the release shipped was opened by an earlier one, and belongs to
+        # it. Compared against `released_at` rather than by version, because a
+        # hotfix ships below rows that are already open above it.
+        cut_at = _shipped_at(target)
+        opened_by_this_cut = [
+            r
+            for r in releases
+            if r.id != target.id
+            and r.status != ReleaseStatus.RELEASED
+            and cut_at is not None
+            and r.created_at is not None
+            and r.created_at >= cut_at
+        ]
+        return opened_by_this_cut, target
+
+    # An upcoming row is not part of the chronology yet -- nothing has shipped
+    # it -- so the rule there is still "off the top", by version.
+    above = [
+        r
+        for r in releases
+        if r.id != target.id
+        and is_semver(r.version)
+        and semver_key(r.version) > semver_key(target.version)
+    ]
+    if above:
+        newest = max(above, key=lambda r: semver_key(r.version))
+        raise RevertBlocked(
+            f"{newest.version} sits above {target.version}. Withdraw it first -- "
+            "upcoming releases come off the top, so the pipeline is never left "
+            "with a gap in the middle."
+        )
+
+    return [target], None

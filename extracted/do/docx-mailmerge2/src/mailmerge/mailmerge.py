@@ -1,6 +1,7 @@
+from __future__ import annotations
+
 import os
 import warnings
-from typing import Optional
 
 # import locale
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -30,18 +31,18 @@ class MailMergeDocx:
         content_types_zi = self.zip.getinfo("[Content_Types].xml")
         content_types = etree.parse(self.zip.open(content_types_zi), parser=None)
         self.category_part_map["content_types"] = [content_types_zi]
-        self.parts[content_types_zi] = dict(part=content_types)
-        for file in content_types.findall("{%(ct)s}Override" % NAMESPACES):
-            part_type = file.attrib["ContentType" % NAMESPACES]
+        self.parts[content_types_zi] = {"part": content_types}
+        for file in content_types.findall("{{{ct}}}Override".format(**NAMESPACES)):
+            part_type = file.attrib["ContentType"]
             category = CONTENT_TYPES_PARTS.get(part_type)
             if category:
                 zi, self.parts[zi] = self.__get_tree_of_file(file)
                 self.category_part_map.setdefault(category, []).append(zi)
 
     def __get_tree_of_file(self, file):
-        fn = file.attrib["PartName" % NAMESPACES].split("/", 1)[1]
+        fn = file.attrib["PartName"].split("/", 1)[1]
         zi = self.zip.getinfo(fn)
-        return zi, dict(zi=zi, file=file, part=etree.parse(self.zip.open(zi), parser=None))
+        return zi, {"zi": zi, "file": file, "part": etree.parse(self.zip.open(zi), parser=None)}
 
     def get_parts(self, category_part_map=None):
         """return all the parts based on category_part_map"""
@@ -54,11 +55,11 @@ class MailMergeDocx:
     def get_relations_part(self, part_zi):
         """returns the relations document for the given part"""
 
-        rel_fn = "word/_rels/%s.rels" % os.path.basename(part_zi.filename)
+        rel_fn = f"word/_rels/{os.path.basename(part_zi.filename)}.rels"
         if rel_fn in self.zip.namelist():
             zi = self.zip.getinfo(rel_fn)
             rel_root = etree.parse(self.zip.open(zi), parser=None)
-            self.parts[zi] = dict(zi=zi, part=rel_root)
+            self.parts[zi] = {"zi": zi, "part": rel_root}
             return rel_root
         # else:
         #     print(rel_fn, self.zip.namelist())
@@ -111,7 +112,7 @@ class MailMerge:
     def __init__(
         self,
         file,
-        options: Optional[MailMergeOptions] = None,
+        options: MailMergeOptions | None = None,
         remove_empty_tables=None,
         auto_update_fields_on_open=None,
         keep_fields=None,
@@ -187,7 +188,7 @@ class MailMerge:
     def __setattr__(self, name, value):
         if name in MailMergeOptions.__annotations__:
             warnings.warn(
-                "setting configuration values has been deprecated. Use .options.{} = <value>".format(name),
+                f"setting configuration values has been deprecated. Use .options.{name} = <value>",
                 category=DeprecationWarning,
                 stacklevel=2,
             )
@@ -217,7 +218,7 @@ class MailMerge:
         if settings_part:
             settings_root = settings_part.getroot()
             if not self._has_unmerged_fields:
-                mail_merge = settings_root.find("{%(w)s}mailMerge" % NAMESPACES)
+                mail_merge = settings_root.find("{{{w}}}mailMerge".format(**NAMESPACES))
                 if mail_merge is not None:
                     settings_root.remove(mail_merge)
 
@@ -227,12 +228,12 @@ class MailMerge:
                 or self.auto_update_fields_on_open == OptionAutoUpdateFields.ALWAYS
             )
             if add_update_fields_setting:
-                update_fields_elem = settings_root.find("{%(w)s}updateFields" % NAMESPACES)
+                update_fields_elem = settings_root.find("{{{w}}}updateFields".format(**NAMESPACES))
                 if not update_fields_elem:
                     update_fields_elem = etree.SubElement(
-                        settings_root, "{%(w)s}updateFields" % NAMESPACES, attrib=None, nsmap=None
+                        settings_root, "{{{w}}}updateFields".format(**NAMESPACES), attrib=None, nsmap=None
                     )
-                update_fields_elem.set("{%(w)s}val" % NAMESPACES, "true")
+                update_fields_elem.set("{{{w}}}val".format(**NAMESPACES), "true")
 
     def write(self, file, empty_value=""):
         self._has_unmerged_fields = bool(self.get_merge_fields())

@@ -21,7 +21,8 @@ in use throughout the package. We never import matrx-orm here.
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
+from collections.abc import Callable, Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass
 from typing import Any
 
@@ -121,6 +122,57 @@ def register_table(table: str, model_cls: ModelLike) -> None:
     _tables[normalized] = entry
     if _policy_registrar is not None:
         _apply_policy(_policy_registrar, entry)
+
+
+@contextmanager
+def override_table(table: str, model_cls: ModelLike) -> Iterator[ModelLike]:
+    """Bind ``table`` to ``model_cls`` for the duration of the block, then put it back.
+
+    THE ONLY sanctioned way to bind a stand-in over a key a real Model also uses.
+
+    ``register_table`` is deliberately FIRST-WRITER-WINS: a conflicting call is
+    refused and the original stays authoritative. That is right for a host,
+    which wires the package once at startup. It makes a plain
+    ``register_table`` in a TEST permanent — the stand-in owns the key for the
+    rest of the process and the real Model can never take it back. Measured
+    2026-09-17: a test bound a ``_PackageMessage`` stub (no ``bulk_create``)
+    over ``chat.message``, and every later ``chat.message`` flush in the same
+    process lost its ops to
+    ``AttributeError: type object '_PackageMessage' has no attribute 'bulk_create'``
+    — passing alone, failing in the suite.
+
+    This bypasses the conflict check ON PURPOSE and restores the previous
+    binding (or its absence) on exit, so the leak cannot outlive the block.
+    Use it in tests; a host wires the real thing with ``register_table``.
+    """
+    normalized = table.strip()
+    previous = _tables.get(normalized)
+    _tables[normalized] = RegisteredTable(name=normalized, model_cls=model_cls)
+    if _policy_registrar is not None:
+        _apply_policy(_policy_registrar, _tables[normalized])
+    try:
+        yield model_cls
+    finally:
+        if previous is None:
+            _tables.pop(normalized, None)
+        else:
+            _tables[normalized] = previous
+
+
+def stand_ins_left_registered() -> dict[str, str]:
+    """Registered tables whose Model cannot actually write — the leak, by name.
+
+    A Coordinator table is written with ``bulk_create``/``bulk_update``. An entry
+    missing either is a test stand-in that escaped its scope: it cannot be
+    displaced (first-writer-wins) and it silently loses every op queued for that
+    table. Returns ``{table: class name}``; empty is the healthy state.
+    """
+    return {
+        name: getattr(entry.model_cls, "__name__", str(entry.model_cls))
+        for name, entry in _tables.items()
+        if not callable(getattr(entry.model_cls, "bulk_create", None))
+        or not callable(getattr(entry.model_cls, "bulk_update", None))
+    }
 
 
 def _coercion_candidates(table: str) -> list[str]:

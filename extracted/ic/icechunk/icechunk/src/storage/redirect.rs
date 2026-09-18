@@ -1,6 +1,6 @@
 //! Read-only storage that follows HTTP redirects to the underlying backend.
 
-use std::{ops::Range, pin::Pin, sync::Arc};
+use std::{collections::HashSet, ops::Range, pin::Pin, sync::Arc};
 
 use async_trait::async_trait;
 use bytes::Bytes;
@@ -99,7 +99,7 @@ impl RedirectStorage {
         let res = client.execute(req).await.map_err(|e| {
             StorageErrorKind::BadRedirect(format!(
                 "Request to redirect url ({}) failed, cannot find target Storage instance: {e}",
-                &self.url
+                self.url
             ))
         }).capture()?;
         let storage_url = res.headers().get("location").ok_or_else(|| {
@@ -108,7 +108,7 @@ impl RedirectStorage {
             )
         }).capture()?.to_str().map_err(|e| {
             StorageErrorKind::BadRedirect(format!(
-                "Request to redirect url ({}) doesn't return a proper redirect to a known Storage protocol: {e}", &self.url
+                "Request to redirect url ({}) doesn't return a proper redirect to a known Storage protocol: {e}", self.url
             ))
         }).capture()?;
 
@@ -377,6 +377,18 @@ impl Storage for RedirectStorage {
         prefix: &str,
     ) -> StorageResult<BoxStream<'a, StorageResult<ListInfo<String>>>> {
         self.backend().await?.list_objects(settings, prefix).await
+    }
+
+    async fn list_objects_with_id_first_chars<'a>(
+        &'a self,
+        settings: &Settings,
+        prefix: &str,
+        first_chars: &HashSet<char>,
+    ) -> StorageResult<BoxStream<'a, StorageResult<ListInfo<String>>>> {
+        self.backend()
+            .await?
+            .list_objects_with_id_first_chars(settings, prefix, first_chars)
+            .await
     }
 
     async fn delete_batch(

@@ -17,9 +17,9 @@ from plato.agents.browser_tooling import (
     AGENT_BROWSER_PATH_EXPORT,
 )
 from plato.agents.computer_use_mcp import (
-    COMPUTER_USE_MCP_INSTRUCTIONS,
     SANDBOX_FILE_TOOLS_INSTRUCTIONS,
     ComputerUseMcp,
+    computer_use_mcp_instructions,
 )
 from plato.agents.config import AgentConfig
 from plato.agents.schema import get_agent_schema
@@ -174,7 +174,7 @@ class BaseAgent(ABC, Generic[ConfigT]):
         """
         if not self.config.computer_use_mcp_enabled:
             return prompt
-        block = COMPUTER_USE_MCP_INSTRUCTIONS
+        block = computer_use_mcp_instructions(self.config)
         if self.config.computer_use_ssh_host:
             block = f"{block}\n\n{SANDBOX_FILE_TOOLS_INSTRUCTIONS}"
         if not prompt:

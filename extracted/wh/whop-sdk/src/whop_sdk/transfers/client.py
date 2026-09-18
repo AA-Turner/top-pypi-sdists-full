@@ -7,6 +7,7 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.pagination import AsyncPager, SyncPager
 from ..core.request_options import RequestOptions
 from .raw_client import AsyncRawTransfersClient, RawTransfersClient
+from .types.create_transfers_request_feed_type import CreateTransfersRequestFeedType
 from .types.create_transfers_request_type import CreateTransfersRequestType
 from .types.create_transfers_response import CreateTransfersResponse
 from .types.list_recipients_transfers_response import ListRecipientsTransfersResponse
@@ -75,16 +76,16 @@ class TransfersClient:
             Only transfers created strictly after this ISO 8601 timestamp.
 
         first : typing.Optional[int]
-            Number of transfers to return from the start of the window.
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            Cursor to fetch the page after (from page_info.end_cursor).
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            Number of transfers to return from the end of the window.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            Cursor to fetch the page before (from page_info.start_cursor).
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -99,7 +100,7 @@ class TransfersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -132,6 +133,8 @@ class TransfersClient:
         currency: typing.Optional[str] = OMIT,
         destination_id: typing.Optional[str] = OMIT,
         expires_at: typing.Optional[dt.datetime] = OMIT,
+        feed_id: typing.Optional[str] = OMIT,
+        feed_type: typing.Optional[CreateTransfersRequestFeedType] = OMIT,
         idempotence_key: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         notes: typing.Optional[str] = OMIT,
@@ -158,6 +161,12 @@ class TransfersClient:
 
         expires_at : typing.Optional[dt.datetime]
             claim_link only. Link expiry as an ISO 8601 timestamp. Defaults to 24 hours from creation.
+
+        feed_id : typing.Optional[str]
+            Ledger transfers only. The feed the transfer was initiated from. Given with `feed_type`, the payment receipt posts into that feed instead of a direct message.
+
+        feed_type : typing.Optional[CreateTransfersRequestFeedType]
+            Ledger transfers only. The type of the feed named by `feed_id`.
 
         idempotence_key : typing.Optional[str]
             Ledger transfers and wallet sends. A unique key that makes retries safe. Retrying with the same key returns the original transfer, or attaches to the original wallet send, instead of moving money twice.
@@ -187,7 +196,7 @@ class TransfersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -202,6 +211,8 @@ class TransfersClient:
             currency=currency,
             destination_id=destination_id,
             expires_at=expires_at,
+            feed_id=feed_id,
+            feed_type=feed_type,
             idempotence_key=idempotence_key,
             metadata=metadata,
             notes=notes,
@@ -229,13 +240,13 @@ class TransfersClient:
             The account sending the money: a company account ID (`biz_`), or a user ID (`user_`) for that user's own personal balance.
 
         query : typing.Optional[str]
-            Search anyone on Whop by name or username, plus your own accounts by name or ID. An exact business ID (`biz_`) returns that business first. Omit it to get the team around the balance, the people you follow, and your own accounts. The list is the same whether the balance belongs to a company or to you. Searching from a `biz_` origin additionally requires the member:basic:read scope. A credential scoped to a single company is the exception to the search itself: it only ever sees that company's own people. Complete email addresses return no matches.
+            Search anyone on Whop by name or username, plus your own accounts by name or ID. An exact business ID (`biz_`) returns that business first. Omit it to get the team around the balance, the people you follow, and your own accounts. The list is the same whether the balance belongs to a company or to you. Searching from a `biz_` origin additionally requires the member:basic:read scope. A credential scoped to a single company is the exception to the search itself: it only ever sees that company's own people. Complete email addresses return no matches. Search results are limited to 20 recipients.
 
         first : typing.Optional[int]
-            Number of recipients per page. Search queries preserve the dashboard's 20-result maximum.
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            Cursor to fetch the page after (from page_info.end_cursor).
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -250,7 +261,7 @@ class TransfersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -291,7 +302,7 @@ class TransfersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -357,16 +368,16 @@ class AsyncTransfersClient:
             Only transfers created strictly after this ISO 8601 timestamp.
 
         first : typing.Optional[int]
-            Number of transfers to return from the start of the window.
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            Cursor to fetch the page after (from page_info.end_cursor).
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            Number of transfers to return from the end of the window.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            Cursor to fetch the page before (from page_info.start_cursor).
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -383,7 +394,7 @@ class AsyncTransfersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -423,6 +434,8 @@ class AsyncTransfersClient:
         currency: typing.Optional[str] = OMIT,
         destination_id: typing.Optional[str] = OMIT,
         expires_at: typing.Optional[dt.datetime] = OMIT,
+        feed_id: typing.Optional[str] = OMIT,
+        feed_type: typing.Optional[CreateTransfersRequestFeedType] = OMIT,
         idempotence_key: typing.Optional[str] = OMIT,
         metadata: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
         notes: typing.Optional[str] = OMIT,
@@ -449,6 +462,12 @@ class AsyncTransfersClient:
 
         expires_at : typing.Optional[dt.datetime]
             claim_link only. Link expiry as an ISO 8601 timestamp. Defaults to 24 hours from creation.
+
+        feed_id : typing.Optional[str]
+            Ledger transfers only. The feed the transfer was initiated from. Given with `feed_type`, the payment receipt posts into that feed instead of a direct message.
+
+        feed_type : typing.Optional[CreateTransfersRequestFeedType]
+            Ledger transfers only. The type of the feed named by `feed_id`.
 
         idempotence_key : typing.Optional[str]
             Ledger transfers and wallet sends. A unique key that makes retries safe. Retrying with the same key returns the original transfer, or attaches to the original wallet send, instead of moving money twice.
@@ -480,7 +499,7 @@ class AsyncTransfersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -501,6 +520,8 @@ class AsyncTransfersClient:
             currency=currency,
             destination_id=destination_id,
             expires_at=expires_at,
+            feed_id=feed_id,
+            feed_type=feed_type,
             idempotence_key=idempotence_key,
             metadata=metadata,
             notes=notes,
@@ -528,13 +549,13 @@ class AsyncTransfersClient:
             The account sending the money: a company account ID (`biz_`), or a user ID (`user_`) for that user's own personal balance.
 
         query : typing.Optional[str]
-            Search anyone on Whop by name or username, plus your own accounts by name or ID. An exact business ID (`biz_`) returns that business first. Omit it to get the team around the balance, the people you follow, and your own accounts. The list is the same whether the balance belongs to a company or to you. Searching from a `biz_` origin additionally requires the member:basic:read scope. A credential scoped to a single company is the exception to the search itself: it only ever sees that company's own people. Complete email addresses return no matches.
+            Search anyone on Whop by name or username, plus your own accounts by name or ID. An exact business ID (`biz_`) returns that business first. Omit it to get the team around the balance, the people you follow, and your own accounts. The list is the same whether the balance belongs to a company or to you. Searching from a `biz_` origin additionally requires the member:basic:read scope. A credential scoped to a single company is the exception to the search itself: it only ever sees that company's own people. Complete email addresses return no matches. Search results are limited to 20 recipients.
 
         first : typing.Optional[int]
-            Number of recipients per page. Search queries preserve the dashboard's 20-result maximum.
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            Cursor to fetch the page after (from page_info.end_cursor).
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -551,7 +572,7 @@ class AsyncTransfersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -601,7 +622,7 @@ class AsyncTransfersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

@@ -3660,7 +3660,8 @@ def build_app(
             dispatch,
             post_briefing,
         )
-        from coord.network import fetch_status
+        from coord.dispatch_liveness import github_issue_liveness_fetcher
+        from coord.network import claude_credential_reachable, fetch_status
         from coord.state import (
             clear_proposals, load_dispatched, load_proposals as load_p,
             record_dispatched,
@@ -3769,7 +3770,23 @@ def build_app(
                 # "every candidate unreachable" refusal is raised, caught
                 # by the `except Exception` below and reported per-proposal
                 # instead of silently becoming a POST timeout.
-                response = dispatch(p, config, status_fetcher=_status_fetcher)
+                #
+                # #3371: wire the STRUCTURAL CREDENTIAL-HEALTH GATE to a
+                # real live probe here too — the #3353 review's own
+                # "overlooked fourth call site" note above is exactly the
+                # trap a mechanism-but-not-wired credential gate would
+                # repeat.
+                # #3376 review round 1: same "mechanism exists but nothing
+                # calls it" gap the credential probe above closed for
+                # #3371 — wire the other two STRUCTURAL DISPATCH-LIVENESS
+                # GATE predicates so this route (the same `dispatch()`
+                # chokepoint `coord approve` funnels through) refuses on an
+                # already-closed issue or already-merged branch too.
+                response = dispatch(
+                    p, config, status_fetcher=_status_fetcher,
+                    credential_fetcher=claude_credential_reachable,
+                    issue_liveness_fetcher=github_issue_liveness_fetcher(config),
+                )
                 assignment_id = response.get("id", "pending")
                 if repo:
                     record_dispatched(

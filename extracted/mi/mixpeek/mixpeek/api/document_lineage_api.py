@@ -20,6 +20,7 @@ from typing_extensions import Annotated
 from pydantic import Field, StrictBool, StrictStr
 from typing import Any, Dict, List, Optional
 from typing_extensions import Annotated
+from mixpeek.models.document_lineage_response import DocumentLineageResponse
 
 from mixpeek.api_client import ApiClient, RequestSerialized
 from mixpeek.api_response import ApiResponse
@@ -353,7 +354,7 @@ class DocumentLineageApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> Dict[str, object]:
+    ) -> DocumentLineageResponse:
         """Get document lineage
 
         Get the complete processing lineage for a document. Shows the full chain of transformations from the root bucket object through all collection processing stages.
@@ -394,7 +395,7 @@ class DocumentLineageApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, object]",
+            '200': "DocumentLineageResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
@@ -430,7 +431,7 @@ class DocumentLineageApi:
         _content_type: Optional[StrictStr] = None,
         _headers: Optional[Dict[StrictStr, Any]] = None,
         _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
-    ) -> ApiResponse[Dict[str, object]]:
+    ) -> ApiResponse[DocumentLineageResponse]:
         """Get document lineage
 
         Get the complete processing lineage for a document. Shows the full chain of transformations from the root bucket object through all collection processing stages.
@@ -471,7 +472,7 @@ class DocumentLineageApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, object]",
+            '200': "DocumentLineageResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",
@@ -548,7 +549,7 @@ class DocumentLineageApi:
         )
 
         _response_types_map: Dict[str, Optional[str]] = {
-            '200': "Dict[str, object]",
+            '200': "DocumentLineageResponse",
             '400': "ErrorResponse",
             '401': "ErrorResponse",
             '403': "ErrorResponse",

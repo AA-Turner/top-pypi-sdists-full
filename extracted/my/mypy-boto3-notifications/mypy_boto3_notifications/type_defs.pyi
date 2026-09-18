@@ -129,6 +129,7 @@ __all__ = (
     "MessageComponentsSummaryTypeDef",
     "MessageComponentsTypeDef",
     "NotificationConfigurationStructureTypeDef",
+    "NotificationEventAttachmentTypeDef",
     "NotificationEventOverviewTypeDef",
     "NotificationEventSummaryTypeDef",
     "NotificationEventTypeDef",
@@ -150,6 +151,7 @@ __all__ = (
     "UntagResourceRequestTypeDef",
     "UpdateEventRuleRequestTypeDef",
     "UpdateEventRuleResponseTypeDef",
+    "UpdateManagedNotificationChannelAssociationRequestTypeDef",
     "UpdateNotificationConfigurationRequestTypeDef",
     "UpdateNotificationConfigurationResponseTypeDef",
 )
@@ -174,10 +176,12 @@ class AssociateChannelRequestTypeDef(TypedDict):
 class AssociateManagedNotificationAccountContactRequestTypeDef(TypedDict):
     contactIdentifier: AccountContactTypeType
     managedNotificationConfigurationArn: str
+    isSensitiveEventsSubscribed: NotRequired[bool]
 
 class AssociateManagedNotificationAdditionalChannelRequestTypeDef(TypedDict):
     channelArn: str
     managedNotificationConfigurationArn: str
+    isSensitiveEventsSubscribed: NotRequired[bool]
 
 class AssociateOrganizationalUnitRequestTypeDef(TypedDict):
     organizationalUnitId: str
@@ -288,6 +292,7 @@ class ManagedNotificationChannelAssociationSummaryTypeDef(TypedDict):
     channelIdentifier: str
     channelType: ChannelTypeType
     overrideOption: NotRequired[ChannelAssociationOverrideOptionType]
+    isSensitiveEventsSubscribed: NotRequired[bool]
 
 TimestampTypeDef = Union[datetime, str]
 
@@ -362,6 +367,12 @@ TextPartValueTypeDef = TypedDict(
         "url": NotRequired[str],
     },
 )
+
+class NotificationEventAttachmentTypeDef(TypedDict):
+    displayName: str
+    contentType: str
+    attachmentDownloadUrl: NotRequired[str]
+
 MediaElementTypeDef = TypedDict(
     "MediaElementTypeDef",
     {
@@ -402,6 +413,11 @@ class UpdateEventRuleRequestTypeDef(TypedDict):
     arn: str
     eventPattern: NotRequired[str]
     regions: NotRequired[Sequence[str]]
+
+class UpdateManagedNotificationChannelAssociationRequestTypeDef(TypedDict):
+    managedNotificationConfigurationArn: str
+    channelIdentifier: str
+    isSensitiveEventsSubscribed: NotRequired[bool]
 
 class UpdateNotificationConfigurationRequestTypeDef(TypedDict):
     arn: str
@@ -518,6 +534,7 @@ class MessageComponentsTypeDef(TypedDict):
     headline: NotRequired[str]
     paragraphSummary: NotRequired[str]
     completeDescription: NotRequired[str]
+    markupDescription: NotRequired[str]
     dimensions: NotRequired[list[DimensionTypeDef]]
 
 class GetNotificationsAccessForOrganizationResponseTypeDef(TypedDict):
@@ -592,6 +609,7 @@ class ListManagedNotificationEventsRequestPaginateTypeDef(TypedDict):
     source: NotRequired[str]
     organizationalUnitId: NotRequired[str]
     relatedAccount: NotRequired[str]
+    includeSensitiveEvents: NotRequired[bool]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListManagedNotificationEventsRequestTypeDef(TypedDict):
@@ -603,6 +621,7 @@ class ListManagedNotificationEventsRequestTypeDef(TypedDict):
     nextToken: NotRequired[str]
     organizationalUnitId: NotRequired[str]
     relatedAccount: NotRequired[str]
+    includeSensitiveEvents: NotRequired[bool]
 
 class ListNotificationEventsRequestPaginateTypeDef(TypedDict):
     startTime: NotRequired[TimestampTypeDef]
@@ -716,6 +735,7 @@ ManagedNotificationEventTypeDef = TypedDict(
         "startTime": NotRequired[datetime],
         "endTime": NotRequired[datetime],
         "organizationalUnitId": NotRequired[str],
+        "attachments": NotRequired[list[NotificationEventAttachmentTypeDef]],
     },
 )
 

@@ -77,6 +77,41 @@ def _safe_trace(steps) -> list:
 
 bp_guard = Blueprint("guard", __name__)
 
+
+@bp_guard.get("/api/guard/checks")
+def api_guard_checks():
+    """Catalogue and confirmed preferences from the node that runs checks."""
+    from clawmetry.guard_checks import catalogue
+    body = _ls_call("query_guard_checks")
+    return jsonify(body if isinstance(body, dict) else catalogue())
+
+
+@bp_guard.post("/api/guard/checks/<kind>")
+def api_guard_check_update(kind):
+    from clawmetry.guard_checks import PREFIX, validate
+    if not _same_origin_ok():
+        return jsonify(ok=False, message="Open Guard on this node to change its checks."), 403
+    body = request.get_json(silent=True)
+    if not isinstance(body, dict):
+        return jsonify(ok=False, message="Choose on or off for this check."), 400
+    try:
+        validate(kind, body.get("enabled"))
+    except ValueError:
+        return jsonify(ok=False, message="Choose a known check and turn it on or off."), 400
+    value = "true" if body["enabled"] else "false"
+    _ls_write("set_guard_check", kind=kind, enabled=body["enabled"])
+    saved = _ls_call("get_node_setting", key=PREFIX + kind)
+    if saved != value:
+        return jsonify(ok=False, message="Could not save this check. Make sure the node is running, then try again."), 503
+    try:
+        from clawmetry.audit import audit_event
+        audit_event("guard.check.changed", actor="dashboard", target=kind,
+                    result="saved", metadata={"enabled": body["enabled"]})
+    except Exception:
+        log.warning("Could not record Guard check settings audit")
+    return jsonify(ok=True, kind=kind, enabled=body["enabled"], applied=True,
+                   checks=_ls_call("query_guard_checks"))
+
 # Actions a caller may ask for. `resume` is control-only (there is no policy
 # that resumes; a human decides that). Anything not in here is refused rather
 # than passed through to a signal helper.
@@ -362,7 +397,8 @@ _SEVERITY_RANK = {"info": 0, "warning": 1, "critical": 2}
 try:  # pragma: no cover - trivial fallback
     from clawmetry.repo_scan import WORKSPACE_KINDS as _WORKSPACE_KINDS
 except Exception:  # noqa: BLE001
-    _WORKSPACE_KINDS = ("repo_config_exec", "agent_config_tamper")
+    _WORKSPACE_KINDS = ("repo_config_exec", "agent_config_tamper",
+                        "package_manifest_exec", "agent_component_change")
 
 
 def _incident_rank(inc) -> tuple:
@@ -385,6 +421,24 @@ def _incident_rank(inc) -> tuple:
     except (TypeError, ValueError):
         count = 0
     return (spend, sev, count)
+
+
+def _observe_only_runtime(session_row):
+    """``clawmetry.otlp_guard.observe_only_runtime``, or None when absent."""
+    try:
+        from clawmetry.otlp_guard import observe_only_runtime
+        return observe_only_runtime(session_row)
+    except Exception:  # noqa: BLE001 - a missing module must not blank the tab
+        return None
+
+
+def _observe_only_support(runtime):
+    try:
+        from clawmetry.otlp_guard import observe_only_support
+        return observe_only_support(runtime)
+    except Exception:  # noqa: BLE001
+        return {"controllable": False, "actions": [], "state": "unsupported",
+                "reason": "Seen only in exported telemetry; nothing here can control it."}
 
 
 def _share_verdict(meta):
@@ -478,6 +532,10 @@ def build_guard_sessions_body(limit: int = 50, call=None,
             # Framework references (REQ-GOV-FWM-002). A row written before the
             # references existed is labelled from the current contract.
             "frameworks": _frameworks_for(details),
+            # Seen only in received telemetry, after the action ran; never
+            # prevented (REQ-OBS-OTG-001). None for a machine-observed session.
+            "observation": details.get("observation")
+            if isinstance(details.get("observation"), dict) else None,
         }
         # A session can trip several detectors at once. The one that gets the
         # row is the one that costs the most to ignore, falling back to
@@ -510,7 +568,12 @@ def build_guard_sessions_body(limit: int = 50, call=None,
         # ``sync._detector_runtime``). Trusting the column here would hand
         # ``runtime_control_support`` the wrong runtime for every family
         # session and disable controls that work.
-        runtime = _session_runtime(sid, s.get("agent_type") or "")
+        # A session materialised from received spans names its own runtime,
+        # and nothing on this machine can signal it (AC-OBS-OTG-001.7). The
+        # id-prefix guess below reads ``openclaw`` for it on a Free install,
+        # which hid it from a runtime filter and lit OpenClaw's buttons.
+        observed_runtime = _observe_only_runtime(s)
+        runtime = observed_runtime or _session_runtime(sid, s.get("agent_type") or "")
         meta = s.get("metadata")
         meta = meta if isinstance(meta, dict) else {}
         # ``sessions.cwd`` is the COLUMN the rest of the product keys on, and
@@ -532,7 +595,10 @@ def build_guard_sessions_body(limit: int = 50, call=None,
             cost = round(float(s.get("cost_usd") or 0), 4)
         except (TypeError, ValueError):
             cost = 0.0
-        support = _runtime_supports_signals(runtime, sid, cwd)
+        if observed_runtime:
+            support = _observe_only_support(runtime)
+        else:
+            support = _runtime_supports_signals(runtime, sid, cwd)
         out.append({
             "session_id": sid,
             "runtime": runtime,
@@ -1049,3 +1115,56 @@ def _with_decision_evidence(row: dict) -> dict:
         out.setdefault("frameworks", {})
         out.setdefault("evidence_level", "configured")
     return out
+
+
+@bp_guard.route("/api/guard/inventory")
+def api_guard_inventory():
+    """What the agent runtimes on this machine load, and what changed recently.
+
+    MCP servers, skills, plugins, instruction files and hook and settings files,
+    each with its source, readers, version, content hash and first/last seen
+    (REQ-GOV-SCI-001, clawmetry/agent_inventory.py). Read-only over the local
+    store, which the daemon fills. ``scanned`` is False until the daemon has
+    inventoried anything, and ``store_available`` is False when the store could
+    not be read, so the tab can say which of the two it is rather than draw an
+    empty table for both.
+    """
+    try:
+        limit = max(1, min(int(request.args.get("limit", 500)), 2000))
+    except (TypeError, ValueError):
+        limit = 500
+    try:
+        from clawmetry import agent_inventory as _inv
+        window = _inv.window_secs()
+    except Exception:  # noqa: BLE001
+        window = 3600
+    data = _ls_call("query_agent_inventory", limit=limit)
+    now = int(time.time())
+    if not isinstance(data, dict) or "components" not in data:
+        return jsonify({"components": [], "count": 0, "recent": 0,
+                        "scanned": False, "store_available": False,
+                        "last_scan": 0, "window_secs": window,
+                        "server_time": now})
+    horizon = (now - window) * 1000
+    comps = []
+    for c in data.get("components") or []:
+        if not isinstance(c, dict):
+            continue
+        row = dict(c)
+        try:
+            changed_at = int(row.get("changed_at") or 0)
+        except (TypeError, ValueError):
+            changed_at = 0
+        row["recent"] = (str(row.get("last_change") or "") in ("new", "changed", "removed")
+                         and changed_at >= horizon)
+        comps.append(row)
+    return jsonify({
+        "components": comps,
+        "count": len(comps),
+        "recent": sum(1 for c in comps if c["recent"]),
+        "scanned": int(data.get("scopes") or 0) > 0,
+        "store_available": True,
+        "last_scan": int(data.get("last_scan") or 0),
+        "window_secs": window,
+        "server_time": now,
+    })

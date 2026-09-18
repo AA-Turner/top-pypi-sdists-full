@@ -44,7 +44,12 @@ dev = [
   "ruff",
   "setuptools_scm",
   "tabulate",
+  "ty>=0.0.2",
 ]
+
+[tool.ty.rules]
+# Warn when type: ignore comments become unnecessary (e.g., if upstream adds stubs)
+unused-ignore-comment = "warn"
 
 [tool.setuptools_scm]
 fallback_version = "999"
@@ -56,7 +61,7 @@ target-version = "py310"
 [tool.ruff.lint]
 
 # E402: module level import not at top of file
-# E501: line too long - let black worry about that
+# E501: line too long - let the formatter worry about that
 # E731: do not assign a lambda expression, use a def
 ignore = ["E402", "E501", "E731"]
 select = [
@@ -70,34 +75,14 @@ select = [
 [tool.ruff.lint.isort]
 known-first-party = ["numbagg"]
 
-[tool.ruff.lint.flake8-tidy-imports]
-ban-relative-imports = "all"
-
-[tool.mypy]
-check_untyped_defs = true
-enable_error_code = "redundant-self"
-files = "numbagg"
-show_error_codes = true
-show_error_context = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-
-# Much of the numerical computing stack doesn't have type annotations yet.
-[[tool.mypy.overrides]]
-ignore_missing_imports = true
-module = [
-  "bottleneck.*",
-  "pandas.*",
-  "numba.*",
-  "pytest.*",
-  "setuptools",
-  "tabulate.*",
-  "jq.*",
-]
-
 [tool.pytest.ini_options]
 addopts = ["--benchmark-disable", "--benchmark-warmup=on", "--doctest-modules"]
 markers = [
   "nightly: Tests not to be run on each commit", #
   "slow: Tests not to be run on each loop",
 ]
+
+[tool.mypy]
+# Config for stubtest (mypy itself is not used for type checking)
+ignore_missing_imports = true
+ignore_errors = true

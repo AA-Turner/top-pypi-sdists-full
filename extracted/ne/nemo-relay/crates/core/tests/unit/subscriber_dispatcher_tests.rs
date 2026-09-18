@@ -17,6 +17,7 @@ use crate::error::FlowError;
 use std::collections::BTreeMap;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
+use uuid::Uuid;
 
 #[test]
 fn publication_context_and_completed_delivery_restore_the_calling_thread() {
@@ -915,6 +916,38 @@ fn synchronous_transform_panics_drop_only_the_current_event() {
         sanitize_event_snapshot(event, Some(transform), Vec::new(), Vec::new(), None);
 
     assert!(published.is_none());
+    assert!(nested.is_empty());
+}
+
+#[test]
+fn transforms_preserve_the_captured_propagation_root() {
+    let root_uuid = Uuid::now_v7();
+    let parent_uuid = Uuid::now_v7();
+    let event = Event::Mark(MarkEvent::new(
+        BaseEvent::builder()
+            .name("transformed-propagation-root")
+            .propagation_root_uuid(root_uuid)
+            .propagation_parent_uuid(parent_uuid)
+            .build(),
+        None,
+        None,
+    ));
+    let transform: super::EventTransformFn = Box::new(|_| {
+        Box::pin(async {
+            Event::Mark(MarkEvent::new(
+                BaseEvent::builder().name("replacement-event").build(),
+                None,
+                None,
+            ))
+        })
+    });
+
+    let (published, nested) =
+        sanitize_event_snapshot(event, Some(transform), Vec::new(), Vec::new(), None);
+
+    let published = published.unwrap();
+    assert_eq!(published.propagation_root_uuid(), Some(root_uuid));
+    assert_eq!(published.propagation_parent_uuid(), Some(parent_uuid));
     assert!(nested.is_empty());
 }
 

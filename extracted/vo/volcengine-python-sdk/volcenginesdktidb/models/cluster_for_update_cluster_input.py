@@ -33,7 +33,7 @@ class ClusterForUpdateClusterInput(object):
                             and the value is json key in definition.
     """
     swagger_types = {
-        'annotations': 'list[AnnotationForUpdateClusterInput]',
+        'annotations': 'str',
         'audit_log_config': 'AuditLogConfigForUpdateClusterInput',
         'auto_scaling': 'AutoScalingForUpdateClusterInput',
         'automated_backup_policy': 'AutomatedBackupPolicyForUpdateClusterInput',
@@ -43,14 +43,13 @@ class ClusterForUpdateClusterInput(object):
         'encryption_config': 'EncryptionConfigForUpdateClusterInput',
         'endpoints': 'EndpointsForUpdateClusterInput',
         'high_availability_type': 'str',
-        'labels': 'list[LabelForUpdateClusterInput]',
+        'labels': 'str',
         'name': 'str',
         'project_name': 'str',
         'region_id': 'str',
         'service_plan': 'str',
         'spending_limit': 'SpendingLimitForUpdateClusterInput',
         'state': 'str',
-        'tags': 'list[TagForUpdateClusterInput]',
         'update_time': 'str',
         'user_prefix': 'str',
         'version': 'str',
@@ -76,7 +75,6 @@ class ClusterForUpdateClusterInput(object):
         'service_plan': 'ServicePlan',
         'spending_limit': 'SpendingLimit',
         'state': 'State',
-        'tags': 'Tags',
         'update_time': 'UpdateTime',
         'user_prefix': 'UserPrefix',
         'version': 'Version',
@@ -84,7 +82,7 @@ class ClusterForUpdateClusterInput(object):
         'zones': 'Zones'
     }
 
-    def __init__(self, annotations=None, audit_log_config=None, auto_scaling=None, automated_backup_policy=None, cluster_id=None, create_time=None, display_name=None, encryption_config=None, endpoints=None, high_availability_type=None, labels=None, name=None, project_name=None, region_id=None, service_plan=None, spending_limit=None, state=None, tags=None, update_time=None, user_prefix=None, version=None, vpc_id=None, zones=None, _configuration=None):  # noqa: E501
+    def __init__(self, annotations=None, audit_log_config=None, auto_scaling=None, automated_backup_policy=None, cluster_id=None, create_time=None, display_name=None, encryption_config=None, endpoints=None, high_availability_type=None, labels=None, name=None, project_name=None, region_id=None, service_plan=None, spending_limit=None, state=None, update_time=None, user_prefix=None, version=None, vpc_id=None, zones=None, _configuration=None):  # noqa: E501
         """ClusterForUpdateClusterInput - a model defined in Swagger"""  # noqa: E501
         if _configuration is None:
             _configuration = Configuration()
@@ -107,7 +105,6 @@ class ClusterForUpdateClusterInput(object):
         self._service_plan = None
         self._spending_limit = None
         self._state = None
-        self._tags = None
         self._update_time = None
         self._user_prefix = None
         self._version = None
@@ -149,8 +146,6 @@ class ClusterForUpdateClusterInput(object):
             self.spending_limit = spending_limit
         if state is not None:
             self.state = state
-        if tags is not None:
-            self.tags = tags
         if update_time is not None:
             self.update_time = update_time
         if user_prefix is not None:
@@ -168,7 +163,7 @@ class ClusterForUpdateClusterInput(object):
 
 
         :return: The annotations of this ClusterForUpdateClusterInput.  # noqa: E501
-        :rtype: list[AnnotationForUpdateClusterInput]
+        :rtype: str
         """
         return self._annotations
 
@@ -178,7 +173,7 @@ class ClusterForUpdateClusterInput(object):
 
 
         :param annotations: The annotations of this ClusterForUpdateClusterInput.  # noqa: E501
-        :type: list[AnnotationForUpdateClusterInput]
+        :type: str
         """
 
         self._annotations = annotations
@@ -385,7 +380,7 @@ class ClusterForUpdateClusterInput(object):
 
 
         :return: The labels of this ClusterForUpdateClusterInput.  # noqa: E501
-        :rtype: list[LabelForUpdateClusterInput]
+        :rtype: str
         """
         return self._labels
 
@@ -395,7 +390,7 @@ class ClusterForUpdateClusterInput(object):
 
 
         :param labels: The labels of this ClusterForUpdateClusterInput.  # noqa: E501
-        :type: list[LabelForUpdateClusterInput]
+        :type: str
         """
 
         self._labels = labels
@@ -539,27 +534,6 @@ class ClusterForUpdateClusterInput(object):
             )
 
         self._state = state
-
-    @property
-    def tags(self):
-        """Gets the tags of this ClusterForUpdateClusterInput.  # noqa: E501
-
-
-        :return: The tags of this ClusterForUpdateClusterInput.  # noqa: E501
-        :rtype: list[TagForUpdateClusterInput]
-        """
-        return self._tags
-
-    @tags.setter
-    def tags(self, tags):
-        """Sets the tags of this ClusterForUpdateClusterInput.
-
-
-        :param tags: The tags of this ClusterForUpdateClusterInput.  # noqa: E501
-        :type: list[TagForUpdateClusterInput]
-        """
-
-        self._tags = tags
 
     @property
     def update_time(self):

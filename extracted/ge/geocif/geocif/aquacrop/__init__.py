@@ -33,4 +33,23 @@ Pipeline (per country × crop × season × year in LOOCV):
 
 __version__ = "0.1.0"
 
-from . import aquacrop_runner  # noqa: F401
+# `aquacrop_runner` is imported lazily (PEP 562). It pulls in `aquacrop-ospy`,
+# an optional extra, so importing it eagerly here made every leaf module in this
+# package unreachable without that dependency -- including `calendar`, which is
+# pure pandas/datetime and is the single home of the half-month block logic that
+# geocif.phenology and geocif.cropcal both reuse. `geocif.aquacrop.calendar` and
+# `from geocif.aquacrop import aquacrop_runner` both still work; only the cost
+# moved to first use.
+__all__ = ["aquacrop_runner", "calendar"]
+
+
+def __getattr__(name):
+    if name in __all__:
+        import importlib
+
+        return importlib.import_module(f".{name}", __name__)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def __dir__():
+    return sorted(set(globals()) | set(__all__))

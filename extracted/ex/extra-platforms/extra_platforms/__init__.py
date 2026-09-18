@@ -235,6 +235,7 @@ from .detection import (
     is_xterm,
     is_zellij,
     is_zsh,
+    shell_from_path,
 )
 from .group import (
     Group,
@@ -430,7 +431,7 @@ Pytest optional.
 """
 
 
-__version__ = "13.9.0"
+__version__ = "13.10.0"
 
 
 def _initialize_group_detection_functions() -> None:
@@ -971,6 +972,7 @@ __all__ = (
     "is_zellij",
     "is_zsh",
     "reduce",
+    "shell_from_path",
     "traits_from_ids",
 )
 """Expose all package-wide elements.

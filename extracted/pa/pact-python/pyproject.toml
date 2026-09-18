@@ -2,7 +2,7 @@
 
 [project]
 name = "pact-python"
-version = "3.4.0"
+version = "3.4.1"
 description = "Tool for creating and verifying consumer-driven contracts using the Pact framework."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -73,7 +73,7 @@ dependencies = [
 # Linting and formatting tools use a more narrow specification to ensure
 # developper consistency. All other dependencies are as above.
 dev = [
-  "ruff==0.15.12",
+  "ruff==0.16.8",
   { include-group = "docs" },
   { include-group = "example" },
   { include-group = "example-v2" },
@@ -92,9 +92,9 @@ docs = [
   "mkdocs-github-admonitions-plugin==0.1.1",
   "mkdocs-literate-nav==0.6.3",
   "mkdocs-llmstxt==0.5.0",
-  "mkdocs-material[recommended,git,imaging]==9.7.6",
+  "mkdocs-material[recommended,git,imaging]==9.7.7",
   "mkdocs-section-index==0.3.12",
-  "mkdocstrings[python]==1.0.4",
+  "mkdocstrings[python]==1.0.6",
   "pathspec==1.1.1",
 ]
 example = [
@@ -123,7 +123,7 @@ test = [
   "testcontainers~=4.0",
 ]
 types = [
-  "mypy==1.20.2",
+  "mypy==2.3.1",
   "types-grpcio~=1.0",
   "types-protobuf~=7.34",
   "types-requests~=2.0",
@@ -280,6 +280,7 @@ build-backend = "hatchling.build"
     select = ["ALL"]
 
     ignore = [
+      "CPY001",  # Require copyright notice at the top of files
       "D200",  # Require single line docstrings to be on one line.
       "D203",  # Require blank line before class docstring
       "D212",  # Multi-line docstring summary must start at the first line

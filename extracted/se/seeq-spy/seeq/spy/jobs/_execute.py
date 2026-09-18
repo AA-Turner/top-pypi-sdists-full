@@ -4,18 +4,24 @@ import logging
 import os
 import re
 import subprocess
-import sys
 from datetime import datetime
 from pathlib import Path
 from typing import Union, Optional
+
+import sys
 
 from seeq import spy, sdk
 from seeq.base import util
 from seeq.spy import _datalab
 from seeq.spy._errors import *
+from seeq.spy.jobs._execute_logging import (build_logging_execute_preprocessor, get_executor_logger,
+                                            is_log_level_trace_from_executor)
 
 RESULTS_FOLDER = '_Job Results/'
 CELL_EXECUTION_TIMEOUT = 86400
+
+# create_merged_notebook() prepends the execution notebook's login cell to the scheduled notebook's cells
+LOGIN_CELL_COUNT = 1
 
 
 class ExecutionInstance:
@@ -53,39 +59,28 @@ class ExecutionInstance:
         """
         Logger to be used for logging inside executor container
         """
-        if self._logger is not None:
-            return self._logger
-
-        log_level = get_log_level_from_executor()
-
-        # python logging doesnt have TRACE
-        log_level = "DEBUG" if log_level == "TRACE" else log_level
-
-        executor_logger = logging.getLogger("executor_logger")
-        exec_handler = logging.StreamHandler(sys.stdout)
-        exec_formatter = logging.Formatter(
-            f'%(levelname)s - Notebook {self.file_path.replace("%", "%%")} with jobKey {self.job_key} %(message)s')
-        exec_handler.setFormatter(exec_formatter)
-        executor_logger.addHandler(exec_handler)
-        executor_logger.setLevel(log_level)
-
-        self._logger = executor_logger
-        return executor_logger
+        if self._logger is None:
+            self._logger = get_executor_logger(self.file_path, self.job_key)
+        return self._logger
 
     def execute(self):
-        _login()
         execution_start_time = datetime.now()
-
-        # Abort if scheduled notebook does not exist
-        if not Path(self.file_path).exists():
-            message = f'The notebook cannot be found at the scheduled path: {self.file_path}'
-            self._unschedule_and_notify(message)
-            self._report_job_result_to_appserver(start_time=execution_start_time, error=message)
-            self.logger.error('not found, aborting')
-            return
 
         # noinspection PyBroadException
         try:
+            # Log in first so that the failure handling below is able to reach Appserver
+            self.logger.info(f'logging in to {self.seeq_server_url}')
+            _login()
+            self.logger.info('logged in, preparing the notebook for execution')
+
+            # Abort if scheduled notebook does not exist
+            if not Path(self.file_path).exists():
+                message = f'The notebook cannot be found at the scheduled path: {self.file_path}'
+                self._unschedule_and_notify(message)
+                self._report_job_result_to_appserver(start_time=execution_start_time, error=message)
+                self.logger.error('not found, aborting')
+                return
+
             # Create the new scheduled notebook with login cell
             self.create_merged_notebook()
 
@@ -166,7 +161,6 @@ class ExecutionInstance:
         with util.safe_open(self.merged_notebook_path, 'w', encoding='utf-8') as f_notebook_merged:
             nbformat.write(nb_notebook_merged, f_notebook_merged)
 
-        # Log to executor
         self.logger.debug('successfully merged execution notebook with scheduled notebook')
 
     def execute_merged_notebook(self):
@@ -204,13 +198,15 @@ class ExecutionInstance:
             raise SPyDependencyNotFound(f'`nbconvert` is not installed. Please use `pip install seeq-spy[jobs]` '
                                         f'to use this feature.')
 
-        proc = nbconvert.preprocessors.ExecutePreprocessor(timeout=CELL_EXECUTION_TIMEOUT,
-                                                           allow_errors=True,
-                                                           kernel_name=kernel_name, )
+        proc = build_logging_execute_preprocessor(self.logger, self.job_result_path, LOGIN_CELL_COUNT,
+                                                  timeout=CELL_EXECUTION_TIMEOUT,
+                                                  allow_errors=True,
+                                                  kernel_name=kernel_name)
+        preprocess_start_time = datetime.now()
         proc.preprocess(nb_notebook_merged, {'metadata': {'path': Path(self.file_path).parent}})
+        execution_duration = (datetime.now() - preprocess_start_time).total_seconds()
 
-        # Log to executor
-        self.logger.debug('successfully executed merged notebook')
+        self.logger.info(f'successfully executed merged notebook in {execution_duration:.3f} seconds')
 
         # Python logger has no TRACE level. Special logging case here since dumping notebook
         # contents can clog the log
@@ -218,7 +214,7 @@ class ExecutionInstance:
             self.logger.debug(f'executed notebook contents from {self.merged_notebook_path}:{nb_notebook_merged}')
 
         # Remove login cell from notebook
-        del nb_notebook_merged['cells'][0]
+        del nb_notebook_merged['cells'][:LOGIN_CELL_COUNT]
 
         # Count the number of errors in the notebook so we can report them back to Appserver
         num_errors = 0
@@ -251,12 +247,12 @@ class ExecutionInstance:
 
         if num_errors > 0:
             self.execution_warning = f'{num_errors} error(s) were encountered during execution.'
+            self.logger.warning(f'encountered {num_errors} error(s) while executing the notebook cells')
 
         # Write the scheduled notebook
         with util.safe_open(self.merged_notebook_path, 'w', encoding='utf-8') as f_notebook_merged:
             nbformat.write(nb_notebook_merged, f_notebook_merged)
 
-        # Log to executor
         self.logger.debug('successfully edited merged notebook')
 
         # The executed notebook will be returned if spy.jobs.execute was called by a user
@@ -289,7 +285,6 @@ class ExecutionInstance:
         if self.execution_warning:
             self.execution_warning += f' Check the notebook result at /{self.job_result_path} for details.'
 
-        # Log to executor
         self.logger.debug('successfully exported merged notebook')
 
     def _build_email_content(self, subject: str, skipped_execution: bool, error_message: str) -> str:
@@ -392,23 +387,25 @@ def execute():
     file_path = os.environ.get('SEEQ_SDL_FILE_PATH', '')
     job_key = os.environ.get('SEEQ_SDL_JOB_KEY', '')
 
-    spy_job_command = 'from seeq import spy; from seeq.spy.jobs._execute import ExecutionInstance; spy.jobs._execute.ExecutionInstance().execute();'
+    spy_job_command = ('from seeq import spy; from seeq.spy.jobs._execute import ExecutionInstance; '
+                       'spy.jobs._execute.ExecutionInstance().execute();')
 
-    # Run the Spy job as a subprocess. Let stdout/stderr go to the parent process
-    process = subprocess.Popen(['python3', '-c', spy_job_command])
+    logger = get_executor_logger(file_path, job_key)
+    logger.info(f'starting the execution subprocess using {sys.executable}')
+
+    # Run the Spy job as a subprocess. Let stdout/stderr go to the parent process.
+    # Use sys.executable rather than 'python3' so that the subprocess is the same interpreter the container started
+    # with.
+    process = subprocess.Popen([sys.executable, '-c', spy_job_command])
 
     # Wait for the subprocess to finish and get the exit status
     exit_code = process.wait()
 
-    job_status_message = f'Notebook {file_path.replace("%", "%%")} with jobKey {job_key}'
-
     if exit_code == 0:
-        job_status_message += " completed successfully."
+        logger.info('completed successfully.')
     else:
         reason = 'terminated' if exit_code in [-9, -15, 137] else 'failed'
-        job_status_message += f" {reason} with exit code {exit_code}."
-
-    print(job_status_message)
+        logger.error(f'{reason} with exit code {exit_code}.')
 
 
 def _compose_filename(index: str, label: str, scheduled_file_filename: str, scheduled_file_folder: Path,
@@ -432,14 +429,6 @@ def _login():
     spy.login(url=os.environ.get('SEEQ_SERVER_URL'), private_url=os.environ.get('SEEQ_PRIVATE_URL'),
               auth_token=os.environ.get('SEEQ_SDL_AUTH_TOKEN'),
               ignore_ssl_errors=os.environ.get('SEEQ_VERIFY_SSL') != '1', quiet=True)
-
-
-def get_log_level_from_executor() -> str:
-    return str(os.environ.get('LOG_LEVEL', 'INFO')).upper()
-
-
-def is_log_level_trace_from_executor() -> bool:
-    return get_log_level_from_executor() == "TRACE"
 
 
 def is_notify_on_skipped_execution() -> bool:

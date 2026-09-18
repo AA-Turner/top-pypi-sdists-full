@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 
 from coord.config import INTERACTIVE_SESSION_TYPES, Config
 from coord.dispatch import AGENT_PORT, ASSIGN_POST_TIMEOUT_SECS
+from coord.dispatch_liveness import check_dispatch_liveness, record_dispatch_refusal
 from coord.models import (
     WORK_LIKE_TYPES,
     Assignment,
@@ -1750,11 +1751,38 @@ def _resolve_retry_provider(
     return resolved
 
 
+def _issue_liveness_from_cache(
+    board: Board, repo_name: str, issue_number: int
+) -> tuple[bool, bool]:
+    """#3376: local-only ``issue_liveness_fetcher`` for `_reassign` —
+    "issue closed" from the local `issues` cache table (`coord.state.
+    get_cached_issue_state`, `None` reads as "unknown", never as closed),
+    "branch merged" from this already-fetched *board*'s own completed
+    assignments (mirrors `coord.drive_queue.IssueFacts.merged`'s
+    derivation: a work-like assignment for this issue whose status is
+    ``"merged"``). Neither call touches GitHub — same "no live probe from
+    a passive tick" posture as the ``cached_labels`` lookup beside this
+    function's one caller.
+    """
+    from coord.state import get_cached_issue_state  # noqa: PLC0415
+
+    issue_closed = get_cached_issue_state(repo_name, issue_number) == "closed"
+    branch_merged = any(
+        a.repo_name == repo_name
+        and a.issue_number == issue_number
+        and a.status == "merged"
+        for a in board.completed
+    )
+    return issue_closed, branch_merged
+
+
 def _reassign(
     failed: Assignment, board: Board, config: Config,
     *,
     model: str | None = None,
     issue_labels: list[str] | None = None,
+    credential_fetcher=None,
+    issue_liveness_fetcher=None,
 ) -> Assignment | None:
     """Re-dispatch a failed assignment to a machine with spare capacity.
 
@@ -1771,6 +1799,34 @@ def _reassign(
     retry fell through to the repo/global default regardless of which
     label originally routed the issue.
 
+    *credential_fetcher* (#3371) is an optional ``(machine: Machine) ->
+    bool`` callable — ``True`` means "still routable", matching
+    ``coord.network.claude_credential_reachable``'s contract (that is also
+    the default `reconcile()` wires in at this function's one call site
+    below). `None` (the default here) performs no probe at all and
+    excludes nothing — same opt-in shape as `coord.dispatch.dispatch`'s
+    *status_fetcher*/*credential_fetcher*, kept opt-in on this LOWER-level
+    function specifically so every existing direct caller/test of
+    `_reassign` stays byte-for-byte unaffected; the real wiring happens
+    one level up, at `reconcile()`'s own call site, which IS a production
+    entry point.
+
+    *issue_liveness_fetcher* (#3376) is an optional ``(repo_name: str,
+    issue_number: int) -> (issue_closed: bool, branch_merged: bool)``
+    callable — the other two predicates of the same STRUCTURAL DISPATCH-
+    LIVENESS GATE `coord.dispatch.dispatch()` itself checks (see
+    `coord.dispatch_liveness`). `None` (the default here) performs no
+    check and skips nothing — same opt-in shape as *credential_fetcher*
+    above, for the same reason: the real wiring happens at `reconcile()`'s
+    own call site. Unlike *credential_fetcher* (a machine FILTER — an
+    unhealthy machine is simply excluded from *candidates*), a positive
+    hit here means the auto-reassign attempt itself is pointless — #3367's
+    own incident was exactly this shape one layer up (four auto-retried
+    review dispatches against a dead host); #3376 generalizes it to "is
+    the thing being retried still real at all", so this returns ``None``
+    (skip, exactly like "no candidate machines") rather than trying
+    another machine.
+
     Raises :class:`UnsupportedRetryType` when ``failed.type`` is not in
     :data:`coord.models.WORK_LIKE_TYPES` — a ``smoke``/``review``/other
     non-work row must not be silently re-dispatched as a fresh
@@ -1783,6 +1839,27 @@ def _reassign(
     """
     if failed.type not in WORK_LIKE_TYPES:
         raise UnsupportedRetryType(failed.type, failed.review_of_assignment_id)
+
+    if issue_liveness_fetcher is not None:
+        issue_closed, branch_merged = issue_liveness_fetcher(
+            failed.repo_name, failed.issue_number
+        )
+        refusal = check_dispatch_liveness(
+            repo_name=failed.repo_name,
+            issue_number=failed.issue_number,
+            machine_name=failed.machine_name or "",
+            issue_closed=issue_closed,
+            branch_merged=branch_merged,
+        )
+        if refusal is not None:
+            record_dispatch_refusal(
+                refusal,
+                repo_name=failed.repo_name,
+                issue_number=failed.issue_number,
+                machine_name=failed.machine_name or "",
+                assignment_type=failed.type,
+            )
+            return None
 
     from coord.machine_pause import paused_set
     paused = paused_set(config.machines)
@@ -1832,6 +1909,15 @@ def _reassign(
     def can_run_provider(m: Machine) -> bool:
         return machine_supports_provider(m, resolved_provider_name, config.providers)
 
+    # #3371: STRUCTURAL CREDENTIAL-HEALTH FILTER, same opt-in shape as the
+    # #1711 capability filter just above — a retry must never route BACK
+    # onto a machine a live probe just confirmed can't authenticate. `None`
+    # (the default) excludes nothing, so every existing caller/test of
+    # `_reassign` is unaffected; `reconcile()`'s own call site below wires
+    # `coord.network.claude_credential_reachable`.
+    def credential_ok(m: Machine) -> bool:
+        return credential_fetcher is None or credential_fetcher(m)
+
     candidates = [
         m for m in config.machines
         if m.can_work_on(failed.repo_name)
@@ -1840,11 +1926,12 @@ def _reassign(
         and can_run_provider(m)
         and m.name != failed.machine_name
         and m.name not in paused
+        and credential_ok(m)
     ]
     if not candidates:
         # Fall back to including the same machine that failed last time —
-        # paused machines (and #1711 capability-lacking machines) stay
-        # excluded even from the fallback.
+        # paused machines (and #1711 capability-lacking, #3371 credential-
+        # dead machines) stay excluded even from the fallback.
         candidates = [
             m for m in config.machines
             if m.can_work_on(failed.repo_name)
@@ -1852,6 +1939,7 @@ def _reassign(
             and has_room(m)
             and can_run_provider(m)
             and m.name not in paused
+            and credential_ok(m)
         ]
     if not candidates:
         return None
@@ -2680,8 +2768,26 @@ def reconcile(board: Board, config: Config) -> list[str]:
                 failed_a.repo_name, failed_a.issue_number,
             )
             try:
+                # #3371: wire the STRUCTURAL CREDENTIAL-HEALTH FILTER to a
+                # real live probe — `reconcile()` is the production
+                # auto-reassign path (daemon tick loop / `coord reconcile`
+                # / `coord notify`), not a test, so a dead-credential host
+                # must actually be excluded, not just excludable.
+                from coord.network import claude_credential_reachable  # noqa: PLC0415
+
+                # #3376: wire the other two DISPATCH-LIVENESS predicates —
+                # #3367's own incident was this exact auto-reassign path
+                # burning a retry budget on a dispatch that could never
+                # matter. `_issue_liveness_from_cache` reads only local,
+                # already-fetched state (the local `issues` cache table,
+                # this same in-memory `board`) — no GitHub call from this
+                # passive tick, matching `cached_labels` just above.
                 reassigned = _reassign(
                     failed_a, board, config, issue_labels=cached_labels,
+                    credential_fetcher=claude_credential_reachable,
+                    issue_liveness_fetcher=lambda repo, num: (
+                        _issue_liveness_from_cache(board, repo, num)
+                    ),
                 )
             except RetryProviderMismatch:
                 # Refuse rather than substitute (#2323) — leave the failed

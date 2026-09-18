@@ -19,7 +19,7 @@ import logging
 from contextlib import suppress
 from typing import TYPE_CHECKING, Any
 
-from plato.computer_use.mcp_server import RemoteComputerToolServer
+from plato.computer_use.mcp_server import RemoteComputerToolServer, ScreenshotMode
 from plato.computer_use.remote_computer import RemoteDesktopComputer
 from plato.computer_use.ssh_sandbox import SshSandbox
 from plato.sims.ubuntu_vm import AsyncClient as VMAsyncClient
@@ -67,6 +67,27 @@ needs quoting or escaping. `grep` and `glob` search it."""
 Without one the `computer` server exposes no file or search tools, so naming
 them would point the model at tools it does not have.
 """
+
+COMPUTER_USE_MCP_INSTRUCTIONS_ON_REQUEST = """## Remote Desktop (`computer` MCP server)
+
+The `computer` MCP tools control a remote Ubuntu desktop VM — a separate
+machine from the one your shell runs on. Its screen, apps, and files are only
+reachable through these tools; in particular, use the MCP `bash` tool (not
+your own shell) for commands on the desktop VM. Only `screenshot` returns an
+image; every other action answers with a short text acknowledgement. You may
+issue several actions in one turn — they run in order — and should end each
+group with `screenshot` to verify the result before continuing. Coordinates
+are real pixels in the most recent screenshot."""
+"""Variant of the block for ``computer_use_mcp_screenshots="on_request"``: the
+model has to ask for frames, so it is told to batch actions and close each
+group with a screenshot."""
+
+
+def computer_use_mcp_instructions(config: AgentConfig) -> str:
+    """The system-prompt block matching the configured screenshot mode."""
+    if config.computer_use_mcp_screenshots == "on_request":
+        return COMPUTER_USE_MCP_INSTRUCTIONS_ON_REQUEST
+    return COMPUTER_USE_MCP_INSTRUCTIONS
 
 
 def computer_use_mcp_server_entry(config: AgentConfig) -> dict[str, Any] | None:
@@ -131,6 +152,7 @@ class ComputerUseMcp:
         ssh_user: str = "root",
         port: int = COMPUTER_USE_MCP_PORT,
         logger: logging.Logger | None = None,
+        screenshots: ScreenshotMode = "every_action",
     ) -> None:
         self._vm_url = vm_url
         # Both or neither: a host without a key (or vice versa) is a config
@@ -141,6 +163,7 @@ class ComputerUseMcp:
         self._ssh_key = ssh_key
         self._ssh_user = ssh_user
         self._port = port
+        self._screenshots: ScreenshotMode = screenshots
         self._logger = logger or logging.getLogger(__name__)
         self._vm_client = None
         self._sandbox = None
@@ -159,6 +182,7 @@ class ComputerUseMcp:
             ssh_key=config.computer_use_ssh_key,
             ssh_user=config.computer_use_ssh_user,
             logger=logger,
+            screenshots=config.computer_use_mcp_screenshots,
         )
 
     @property
@@ -201,7 +225,9 @@ class ComputerUseMcp:
                 self._logger.info("computer-use MCP: bash/file tools over ssh to %s", self._ssh_host)
                 self._sandbox = SshSandbox(self._ssh_host, self._ssh_key, user=self._ssh_user, logger=self._logger)
                 await self._sandbox.start()
-            self._server = RemoteComputerToolServer(computer, sandbox=self._sandbox, port=self._port)
+            self._server = RemoteComputerToolServer(
+                computer, sandbox=self._sandbox, port=self._port, screenshots=self._screenshots
+            )
             await self._server.start()
         except BaseException:
             # Don't leak the VM client / half-started server when startup

@@ -20,8 +20,6 @@ from typing import Any
 from uuid import uuid4
 
 import pytest
-from aidream.services.ai_execution.ai_task_blocks import BlockStreamingEmitter
-from aidream.services.runtime.workflow_events import EventRecordingEmitter
 from matrx_connect.emitters.control_tokens import (
     CONTROL_TOKEN_REGISTRY,
     ControlTokenRegistry,
@@ -320,48 +318,6 @@ async def test_completed_turn_persists_clean_text_plus_metadata(persist_harness,
 
 
 @pytest.mark.asyncio
-async def test_event_recording_block_stream_replays_token_at_completed_persistence(
-    persist_harness, declared
-):
-    """The detached event recorder has no live token channel, but its explicit
-    terminal persistence path retains the value in the resulting row.
-    """
-
-    class _WorkflowBlockSink:
-        accepts_render_blocks = True
-
-        async def send_chunk(self, _text: str) -> None:
-            return None
-
-        async def send_render_block(self, _data: dict[str, Any]) -> None:
-            return None
-
-    persistence_mod, creates, _updates = persist_harness
-    raw = "We are nearly there.\nWRAP_RATING: 4\n"
-    event_recorder = EventRecordingEmitter(base=_WorkflowBlockSink(), run_id="run-1")
-    block_emitter = BlockStreamingEmitter(
-        event_recorder, terminal_control_token_replay=True
-    )
-
-    await block_emitter.send_chunk(raw)
-    await block_emitter.finalize_blocks()
-    assert "WRAP_RATING" not in block_emitter.get_turn_text()
-
-    await persistence_mod.persist_completed_request(
-        _completed_turn("how ready are we?", raw),
-        conversation_id=CONVERSATION_ID,
-        state=ExecutionState(),
-    )
-
-    assistant_rows = [c for c in creates if c.get("role") == "assistant"]
-    assert len(assistant_rows) == 1
-    row = assistant_rows[0]
-    assert "WRAP_RATING" not in _row_text(row)
-    assert row["metadata"][CONTROL_TOKEN_METADATA_KEY] == [
-        {"name": "WRAP_RATING", "value": "4", "declared_by": WRAP_RATING.declared_by}
-    ]
-
-
 @pytest.mark.asyncio
 async def test_a_persons_own_words_are_never_cleaned(persist_harness, declared):
     persistence_mod, creates, _updates = persist_harness

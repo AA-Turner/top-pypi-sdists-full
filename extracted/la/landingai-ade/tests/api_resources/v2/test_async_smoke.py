@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Any, Dict
 
 import httpx
@@ -46,6 +47,28 @@ async def test_async_extract() -> None:
 
 @respx.mock
 @pytest.mark.asyncio
+async def test_async_extract_folds_both_option_shorthands() -> None:
+    # The async mirrors share `_build_extract_body` with the sync methods, but the
+    # kwargs are declared four times over (sync/async x run/create) -- a shorthand
+    # added to only some of them is exactly the kind of drift that reads fine in a
+    # diff. Pin both async entry points.
+    client = AsyncLandingAIADE(apikey=APIKEY)
+
+    sync_route = respx.post("https://api.ade.landing.ai/v2/extract").mock(
+        return_value=httpx.Response(200, json=EXTRACT_BODY)
+    )
+    await client.v2.extract(schema={"type": "object"}, markdown="m", strict=True, grounding=False)
+    assert json.loads(sync_route.calls.last.request.content)["options"] == {"strict": True, "grounding": False}
+
+    job_route = respx.post("https://api.ade.landing.ai/v2/extract/jobs").mock(
+        return_value=httpx.Response(202, json={"job_id": "e1", "status": "pending"})
+    )
+    await client.v2.extract_jobs.create(schema={"type": "object"}, markdown="m", grounding=False)
+    assert json.loads(job_route.calls.last.request.content)["options"] == {"grounding": False}
+
+
+@respx.mock
+@pytest.mark.asyncio
 async def test_async_extract_jobs_create_get_and_wait() -> None:
     """AsyncExtractJobsResource had zero coverage prior to this test: exercise
     create/get/wait end to end on the async client with a fake clock so no real
@@ -72,3 +95,25 @@ async def test_async_extract_jobs_create_get_and_wait() -> None:
     waited = await client.v2.extract_jobs.wait("e1", timeout=30, poll_interval=0.01, _monotonic=lambda: next(ticks))
     assert waited.status is JobStatus.COMPLETED
     assert isinstance(waited.result, V2ExtractResult)
+
+
+@respx.mock
+@pytest.mark.asyncio
+async def test_async_job_lists_send_page_size_as_camel_case() -> None:
+    # The async `list` mirrors carry the renamed `pageSize` query parameter too.
+    client = AsyncLandingAIADE(apikey=APIKEY)
+    empty: Dict[str, Any] = {"jobs": [], "has_more": False}
+
+    parse_route = respx.get("https://api.ade.landing.ai/v2/parse/jobs").mock(
+        return_value=httpx.Response(200, json=empty)
+    )
+    await client.v2.parse_jobs.list(page_size=5)
+    assert parse_route.calls.last.request.url.params["pageSize"] == "5"
+    assert "page_size" not in parse_route.calls.last.request.url.params
+
+    extract_route = respx.get("https://api.ade.landing.ai/v2/extract/jobs").mock(
+        return_value=httpx.Response(200, json=empty)
+    )
+    await client.v2.extract_jobs.list(page_size=25)
+    assert extract_route.calls.last.request.url.params["pageSize"] == "25"
+    assert "page_size" not in extract_route.calls.last.request.url.params

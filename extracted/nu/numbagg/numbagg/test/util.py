@@ -27,10 +27,7 @@ def array_generator(func_name, dtypes):
     "Iterator that yields arrays to use for unit testing."
 
     # define nan and inf
-    if func_name in ("partition", "argpartition"):
-        nan: float = 0
-    else:
-        nan = np.nan
+    nan = np.nan
     if func_name in ("move_sum", "move_mean", "move_std", "move_var"):
         # these functions can't handle inf
         inf: float = 8
@@ -60,7 +57,6 @@ def array_generator(func_name, dtypes):
     yield np.array([[1.0, 2], [3, 4]], dtype=np.float64)[..., np.newaxis]  # issue #183
 
     # ties
-    yield np.array([0, 0, 0], dtype=np.float64)
     yield np.array([0, 0, 0], dtype=np.float64)
     yield np.array([1, 1, 1], dtype=np.float64)
 
@@ -107,7 +103,7 @@ def array_generator(func_name, dtypes):
                     idx = rs.rand(*a.shape) < 0.2
                     a[idx] *= -1
                 rs.shuffle(a)
-                for shape in shapes:  # type: ignore
+                for shape in shapes:  # ty:ignore[not-iterable]
                     yield a.reshape(shape)
 
     # non-contiguous arrays
@@ -128,7 +124,7 @@ def array_generator(func_name, dtypes):
         # 3d
         a3 = np.arange(24).reshape(2, 3, 4).astype(dtype)
         for start in range(2):
-            for step in range(1, 2):
+            for step in range(1, 3):
                 yield a3[start::step]
                 yield a3[:, start::step]
                 yield a3[:, :, start::step]

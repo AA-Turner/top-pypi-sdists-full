@@ -2150,7 +2150,8 @@ class FyersModel:
                 - date_format (int): 0 for epoch, 1 for 'yyyy-mm-dd'.
                 - range_from (str): Start date or epoch value.
                 - range_to (str): End date or epoch value.
-                - greeks (int): Set to 1 to include Greeks in the response.
+                - include_oi (int): Set to 1 to include open interest in the response.
+                - include_greeks (int): Set to 1 to include Greeks in the response.
 
         Returns:
             The response JSON as a dictionary.

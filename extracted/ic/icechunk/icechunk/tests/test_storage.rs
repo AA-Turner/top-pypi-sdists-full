@@ -1,4 +1,10 @@
-use std::{collections::HashMap, env, future::Future, pin::Pin, sync::Arc};
+use std::{
+    collections::{HashMap, HashSet},
+    env,
+    future::Future,
+    pin::Pin,
+    sync::Arc,
+};
 
 use bytes::Bytes;
 use chrono::Utc;
@@ -7,13 +13,14 @@ use icechunk::{
     ObjectStorage, Repository, RepositoryConfig, Storage,
     asset_manager::AssetManager,
     config::{
-        DEFAULT_MAX_CONCURRENT_REQUESTS, S3Credentials, S3Options, S3StaticCredentials,
+        DEFAULT_MAX_CONCURRENT_REQUESTS, GcsCredentials, S3Credentials, S3Options,
+        S3StaticCredentials,
     },
     error::ICError,
     format::{
-        CHUNKS_FILE_PATH, ChunkId, MANIFESTS_FILE_PATH, Path, SNAPSHOTS_FILE_PATH,
-        SnapshotId, TRANSACTION_LOGS_FILE_PATH, format_constants::SpecVersionBin,
-        snapshot::Snapshot,
+        CHUNKS_FILE_PATH, ChunkId, MANIFESTS_FILE_PATH, OBJECT_ID_FIRST_CHARS, Path,
+        SNAPSHOTS_FILE_PATH, SnapshotId, TRANSACTION_LOGS_FILE_PATH,
+        format_constants::SpecVersionBin, snapshot::Snapshot,
     },
     new_local_filesystem_storage,
     refs::{RefData, RefErrorKind},
@@ -21,8 +28,8 @@ use icechunk::{
     storage::{
         self, ConcurrencySettings, ETag, Generation, RepositoryCreation, S3Storage,
         StorageErrorKind, StorageResult, VersionInfo, VersionedUpdateResult, mk_client,
-        new_http_storage, new_in_memory_storage, new_redirect_storage, new_s3_storage,
-        s3_storage,
+        new_gcs_storage, new_http_storage, new_in_memory_storage, new_redirect_storage,
+        new_s3_storage, s3_storage,
     },
 };
 use icechunk_arrow_object_store::object_store::azure::AzureConfigKey;
@@ -71,7 +78,7 @@ async fn mk_s3_storage(
         Vec::new(),
         None,
     )
-    .expect("Creating minio storage failed");
+    .expect("Creating S3 storage failed");
 
     Ok(storage)
 }
@@ -125,32 +132,6 @@ async fn mk_azure_blob_storage(
     Ok(storage)
 }
 
-/// We use `MinIO` in addition to our main `RustFS` because it's a
-/// *normalizing* store: it maps leading-slash keys `"/x"` to `"x"`,
-/// unlike rustfs which rejects them
-async fn mk_minio_storage(prefix: &str) -> StorageResult<Arc<dyn Storage + Send + Sync>> {
-    let options = S3Options::default()
-        .with_region("us-east-1")
-        .with_endpoint_url("http://localhost:4202")
-        .with_allow_http(true)
-        .with_force_path_style(true);
-    let credentials = S3Credentials::Static(S3StaticCredentials {
-        access_key_id: "minioadmin".into(),
-        secret_access_key: "minioadmin".into(),
-        session_token: None,
-        expires_after: None,
-    });
-    new_s3_storage(
-        options,
-        "testbucket".to_string(),
-        Some(prefix.to_string()),
-        Some(credentials),
-        Vec::new(),
-        Vec::new(),
-        None,
-    )
-}
-
 #[expect(clippy::expect_used)]
 async fn with_storage<F, Fut>(
     permission: Permission,
@@ -187,11 +168,6 @@ where
         format!("{}/", common::get_random_prefix("with_storage")).as_str(),
     )
     .await?;
-    let s6 = mk_minio_storage(common::get_random_prefix("with_storage").as_str()).await?;
-    let s6slash = mk_minio_storage(
-        format!("{}/", common::get_random_prefix("with_storage")).as_str(),
-    )
-    .await?;
     let dir = tempdir().expect("cannot create temp dir");
     let s5 = new_local_filesystem_storage(dir.path())
         .await
@@ -206,8 +182,6 @@ where
         ("s3_object_store_slash", s3slash),
         ("azure_blob", s4),
         ("azure_blob_slash", s4slash),
-        ("minio", s6),
-        ("minio_slash", s6slash),
     ];
 
     if let Ok(e) = env::var("AWS_BUCKET")
@@ -638,6 +612,144 @@ async fn test_list_objects() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[tokio_test]
+async fn test_list_objects_with_id_first_chars() -> Result<(), Box<dyn std::error::Error>>
+{
+    with_storage(Permission::Modify, |_, storage| async move {
+        let settings = storage.default_settings().await?;
+        for path in
+            ["foo/0a", "foo/0b", "foo/1a", "foo/Za", "foo/bar/0c", "foo0/0d", "0e"]
+        {
+            storage
+                .put_object(&settings, path, Bytes::new(), None, Default::default(), None)
+                .await?
+                .must_write()?;
+        }
+
+        for prefix in ["foo", "foo/"] {
+            let mut obs: Vec<_> = storage
+                .list_objects_with_id_first_chars(
+                    &settings,
+                    prefix,
+                    &HashSet::from(['0', 'Z']),
+                )
+                .await?
+                .map_ok(|li| li.id)
+                .try_collect()
+                .await?;
+            obs.sort();
+            assert_eq!(obs, vec!["0a".to_string(), "0b".to_string(), "Za".to_string()]);
+        }
+
+        Ok(())
+    })
+    .await?;
+    Ok(())
+}
+
+#[tokio_test]
+async fn test_list_objects_with_id_first_chars_at_bucket_root()
+-> Result<(), Box<dyn std::error::Error>> {
+    let (access_key_id, secret_access_key) = Permission::Modify.keys();
+    let storage = ObjectStorage::new_s3(
+        "testbucket".to_string(),
+        None,
+        Some(S3Credentials::Static(S3StaticCredentials {
+            access_key_id: access_key_id.into(),
+            secret_access_key: secret_access_key.into(),
+            session_token: None,
+            expires_after: None,
+        })),
+        Some(
+            S3Options::default()
+                .with_region("us-east-1")
+                .with_endpoint_url("http://localhost:4200")
+                .with_allow_http(true)
+                .with_force_path_style(true),
+        ),
+        Vec::new(),
+        Vec::new(),
+    )
+    .await?;
+    let settings = storage.default_settings().await?;
+    let dir = common::get_random_prefix("root_first_chars");
+    for id in ["0a", "1a", "Za"] {
+        storage
+            .put_object(
+                &settings,
+                &format!("{dir}/{id}"),
+                Bytes::new(),
+                None,
+                Default::default(),
+                None,
+            )
+            .await?
+            .must_write()?;
+    }
+
+    let mut obs: Vec<_> = storage
+        .list_objects_with_id_first_chars(&settings, &dir, &HashSet::from(['0', 'Z']))
+        .await?
+        .map_ok(|li| li.id)
+        .try_collect()
+        .await?;
+    obs.sort();
+    assert_eq!(obs, vec!["0a".to_string(), "Za".to_string()]);
+    Ok(())
+}
+
+#[tokio_test]
+async fn test_gcs_list_objects_with_id_first_chars()
+-> Result<(), Box<dyn std::error::Error>> {
+    let storage = new_gcs_storage(
+        "al-public-test-bucket".to_string(),
+        Some("verification-copy".to_string()),
+        Some(GcsCredentials::Anonymous),
+        None,
+        Vec::new(),
+        Vec::new(),
+    )?;
+    let settings = storage.default_settings().await?;
+    for prefix in [
+        CHUNKS_FILE_PATH,
+        MANIFESTS_FILE_PATH,
+        SNAPSHOTS_FILE_PATH,
+        TRANSACTION_LOGS_FILE_PATH,
+    ] {
+        let all: HashSet<String> = storage
+            .list_objects(&settings, prefix)
+            .await?
+            .map_ok(|li| li.id)
+            .try_collect()
+            .await?;
+        assert!(!all.is_empty(), "no objects under {prefix}");
+        let split: HashSet<String> = storage
+            .list_objects_with_id_first_chars(&settings, prefix, &OBJECT_ID_FIRST_CHARS)
+            .await?
+            .map_ok(|li| li.id)
+            .try_collect()
+            .await?;
+        assert_eq!(split, all);
+
+        let first_char =
+            all.iter().filter_map(|id| id.chars().next()).min().unwrap_or('0');
+        let one_char: HashSet<String> = storage
+            .list_objects_with_id_first_chars(
+                &settings,
+                prefix,
+                &HashSet::from([first_char]),
+            )
+            .await?
+            .map_ok(|li| li.id)
+            .try_collect()
+            .await?;
+        let expected: HashSet<String> =
+            all.into_iter().filter(|id| id.starts_with(first_char)).collect();
+        assert_eq!(one_char, expected);
+    }
+    Ok(())
+}
+
+#[tokio_test]
 async fn conditional_create_conflicts_with_existing()
 -> Result<(), Box<dyn std::error::Error>> {
     // Exercises the readback's `NotOurWrite` branch (metadata-enabled
@@ -686,7 +798,7 @@ async fn assert_lost_response_recovers_with_fresh_etag(
     multipart: bool,
     requester_pays: bool,
 ) -> Result<(), Box<dyn std::error::Error>> {
-    // minio ignores the requester-pays header; setting it only exercises the
+    // rustfs ignores the requester-pays header; setting it only exercises the
     // requester-pays branch of the readback HEAD.
     let (access_key_id, secret_access_key) = Permission::Modify.keys();
     let storage = new_s3_storage(
@@ -1590,10 +1702,7 @@ async fn test_write_headers_reach_s3_compatible_storage()
 -> Result<(), Box<dyn std::error::Error>> {
     // (label, endpoint, access_key, secret_key); these are the root credentials
     // of each local emulator and have full access to `testbucket`.
-    let emulators = [
-        ("rustfs", "http://localhost:4200", "test123", "test123"),
-        ("minio", "http://localhost:4202", "minioadmin", "minioadmin"),
-    ];
+    let emulators = [("rustfs", "http://localhost:4200", "test123", "test123")];
 
     for (name, endpoint, access_key_id, secret_access_key) in emulators {
         let options = S3Options::default()

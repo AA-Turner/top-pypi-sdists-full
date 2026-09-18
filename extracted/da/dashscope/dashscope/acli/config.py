@@ -174,7 +174,13 @@ class MCPServerConfig:
 
 @dataclass
 class SubagentConfig:
-    """Per-subagent configuration overrides (model, temperature, max_turns)."""
+    """Per-subagent overrides. Only ``max_turns`` is applied.
+
+    ``model`` and ``temperature`` are accepted, validated and persisted by
+    ``/subagents config``, but a subagent shares the parent's provider,
+    whose model and sampling parameters are fixed when it is constructed.
+    Nothing reads them.
+    """
 
     model: str = ""
     temperature: float = 0.0
@@ -247,6 +253,8 @@ class Config:
     #   "dangerous" - only DANGEROUS prompts; CONFIRM auto-passes
     confirm_mode: str = "dangerous"
     max_turns: int = 50
+    # LLM request timeout (providers/profile.py). run_command has its own,
+    # separate limit: see acli.tools.shell.default_timeout().
     timeout: int = 30
     mcp_servers: list[MCPServerConfig] = field(default_factory=list)
     memory_enabled: bool = True

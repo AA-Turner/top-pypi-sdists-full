@@ -30,6 +30,12 @@ def minimize(
     For a general description of the arguments of this function, see
     ``scipy.optimize.minimize``. We list only a few in the following.
 
+    .. note::
+
+        Unlike ``scipy.optimize.minimize``, where ``callback`` is invoked once per
+        iteration, here ``callback`` is invoked on *every* function evaluation. This
+        is a deviation from the scipy API.
+
     Parameters
     ----------
     method: str
@@ -67,7 +73,9 @@ def minimize(
         raise ValueError("Constraints are not supported by Minuit, only bounds")
 
     if hess or hessp:
-        warnings.warn("hess and hessp arguments cannot be handled and are ignored")
+        warnings.warn(
+            "hess and hessp arguments cannot be handled and are ignored", stacklevel=2
+        )
 
     def wrapped(func, args, callback=None):
         if callback is None:
@@ -93,7 +101,11 @@ def minimize(
     m = Minuit(wrapped_fun, x0, grad=wrapped_grad)
     if bounds is not None:
         if isinstance(bounds, Bounds):
-            m.limits = [(a, b) for a, b in zip(bounds.lb, bounds.ub)]
+            # scipy.optimize.Bounds allows scalar lb/ub, which broadcast over all
+            # parameters; mirror that here so e.g. Bounds(0, 1) works.
+            lb = np.broadcast_to(bounds.lb, len(x0))
+            ub = np.broadcast_to(bounds.ub, len(x0))
+            m.limits = [(a, b) for a, b in zip(lb, ub)]
         else:
             m.limits = bounds
     if tol:
@@ -103,10 +115,14 @@ def minimize(
     if options:
         m.print_level = 2 if options.get("disp", False) else 0
         if "maxiter" in options:
-            warnings.warn("maxiter not supported, acts like maxfun instead")
+            warnings.warn(
+                "maxiter not supported, acts like maxfun instead", stacklevel=2
+            )
         if "maxfev" in options:
             warnings.warn(
-                "maxfev is deprecated, use maxfun instead", DeprecationWarning
+                "maxfev is deprecated, use maxfun instead",
+                DeprecationWarning,
+                stacklevel=2,
             )
         ncall = options.get("maxfun", options.get("maxfev", options.get("maxiter", 0)))
         errors = options.get("eps", None)
@@ -126,7 +142,7 @@ def minimize(
         if m.accurate:
             message += "."
         else:
-            message += ", but uncertainties are unrealiable."
+            message += ", but uncertainties are unreliable."
     else:
         message = "Optimization failed."
         fmin = m.fmin

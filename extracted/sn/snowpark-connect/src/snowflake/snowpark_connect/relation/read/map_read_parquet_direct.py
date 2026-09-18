@@ -47,6 +47,7 @@ from snowflake.snowpark.types import (
     StringType,
     TimestampTimeZone,
     TimestampType,
+    _IntegralType,
 )
 from snowflake.snowpark_connect.dataframe_container import DataFrameContainer
 from snowflake.snowpark_connect.relation.read.metadata_utils import (
@@ -746,11 +747,38 @@ def type_to_pd_ddl(t: DataType) -> str:
     matching, handled by MATCH_BY_COLUMN_NAME). So we quote nested field names case-preserved and
     only delegate scalar leaves to the shared helper.
     """
-    from snowflake.snowpark.types import ArrayType, MapType, StructType
+    from snowflake.snowpark.types import (
+        ArrayType,
+        ByteType,
+        MapType,
+        ShortType,
+        StructType,
+    )
     from snowflake.snowpark_connect.relation.write.map_write import (
         _snowpark_type_to_iceberg_ddl,
     )
 
+    if isinstance(t, (ByteType, ShortType)):
+        # SNOW-3293520: the loose-parquet iceberg table has no 8/16-bit integer type. A user
+        # ByteType/ShortType would otherwise render TINYINT/SMALLINT, which CREATE ICEBERG TABLE
+        # rejects ("Unsupported data type 'TINYINT'/'SMALLINT' for iceberg"); NUMBER(3,0)/(5,0)
+        # is also wrong -- int8/int16 are physically INT32 in parquet, so a DECIMAL column fails
+        # the scan's type check (100496 'INT' vs 'DECIMAL'). Declare iceberg INT (matches the
+        # physical type, reads losslessly); the read-back projects onto the user's Byte/Short
+        # output schema, so the surfaced type is still tinyint/smallint.
+        return "INT"
+    if isinstance(t, _IntegralType) and getattr(t, "_precision", None) is not None:
+        # SNOW-3293520: the no-schema PD path derives column types from Snowpark's
+        # read.parquet().schema, which casts VARIANT via a bare ``$1:c::NUMBER`` and so
+        # reports every scale-0 NUMBER(p,0) parquet column as LongType(_precision=p) (p up
+        # to 38). _snowpark_type_to_iceberg_ddl ignores _precision and declares BIGINT, so a
+        # real NUMBER(38,0) column is read into a 19-digit BIGINT -- lossy -> 100496. Route
+        # these through convert_sp_to_sf_type, which under the server's
+        # _is_snowpark_connect_compatible_mode preserves the width as NUMBER(p, 0). Genuine
+        # ints (no _precision, e.g. a user schema) keep their native BIGINT/INT width below.
+        from snowflake.snowpark._internal.type_utils import convert_sp_to_sf_type
+
+        return convert_sp_to_sf_type(t, is_iceberg=True)
     if isinstance(t, StructType):
         inner = ", ".join(
             f"{_quote(analyzer_utils.unquote_if_quoted(f.name))} {type_to_pd_ddl(f.datatype)}"
@@ -768,10 +796,22 @@ def type_to_pd_ddl(t: DataType) -> str:
         # silently downgrades an isAdjustedToUTC=true (instant / TIMESTAMP_LTZ) column to NTZ, so the
         # UTC instant is read back as a naive wall-clock (off by the session offset) vs Spark. SCOS's
         # schema discovery correctly infers LTZ (INFER_SCHEMA USE_LOGICAL_TYPE=TRUE); we must preserve
-        # it in the loose-parquet DDL. str() of the enum yields 'ltz'/'ntz'/'tz'. (The same latent bug
-        # affects the write path via that helper -- tracked separately.)
+        # it in the loose-parquet DDL. str() of the enum yields 'ltz'/'ntz'/'tz'.
+        #
+        # SNOW-3293520: a *user-supplied* Spark TimestampType arrives as Snowpark TimestampType()
+        # whose tz is TimestampTimeZone.DEFAULT ('default') -- NOT 'ltz'. Spark's TimestampType is
+        # LTZ/instant semantics (and Snowflake's session default for a bare TIMESTAMP is LTZ), so the
+        # unqualified/'default' case must map to TIMESTAMP_LTZ, not TIMESTAMP_NTZ. Declaring NTZ for a
+        # user TimestampType over an isAdjustedToUTC=true file is a logical-type mismatch that disables
+        # the scan's scale-rescale read-compat (100502 on a MILLIS file) and, on micros, silently
+        # reinterprets the instant. Only an explicit TimestampNTZType ('ntz') maps to NTZ. (The same
+        # latent write-path bug via that helper is tracked separately.)
         tz = str(getattr(t, "tz", "ntz"))
-        return {"ltz": "TIMESTAMP_LTZ", "tz": "TIMESTAMP_TZ"}.get(tz, "TIMESTAMP_NTZ")
+        return {
+            "ltz": "TIMESTAMP_LTZ",
+            "tz": "TIMESTAMP_TZ",
+            "ntz": "TIMESTAMP_NTZ",
+        }.get(tz, "TIMESTAMP_LTZ")
     return _snowpark_type_to_iceberg_ddl(t)
 
 

@@ -66,7 +66,10 @@ from click_extra.execution import (
     CPU_COUNT,
     DEFAULT_JOBS,
     PROMPT,
+    _escaped_process_groups,
     _logical_cpu_count,
+    _parse_proc_stat,
+    _posix_process_table,
     install_interrupt_handler,
     terminate_live_processes,
 )
@@ -939,7 +942,8 @@ def test_run_cli_streams_output_at_debug_with_label(caplog):
 
     The tag rides the record's ``label`` attribute, not the message text: the
     default :class:`click_extra.logging.Formatter` renders it glued to the level
-    name (``debug:probe: line1``).
+    name (``debug:probe: line1``). The prompt line carries it too, so the
+    command and its output read as one call when several children interleave.
     """
     code = "import sys; print('line1'); print('line2'); print('boom', file=sys.stderr)"
     with caplog.at_level(logging.DEBUG):
@@ -952,12 +956,12 @@ def test_run_cli_streams_output_at_debug_with_label(caplog):
     assert "line1" in streamed
     assert "line2" in streamed
     assert "boom" in streamed
-    # Only the streamed output lines carry the tag, all at the output level.
-    assert all(
-        record.levelno == logging.DEBUG
-        for record in caplog.records
-        if getattr(record, "label", None) == "probe"
-    )
+    labeled = [r for r in caplog.records if getattr(r, "label", None) == "probe"]
+    prompts = [r for r in labeled if strip_ansi(r.getMessage()).startswith(PROMPT)]
+    # One prompt line at the command level, every other tagged line at the output
+    # level.
+    assert [r.levelno for r in prompts] == [logging.INFO]
+    assert all(r.levelno == logging.DEBUG for r in labeled if r not in prompts)
 
 
 def test_highlight_bin_name():
@@ -1059,18 +1063,27 @@ def test_format_cli_prompt_honors_an_explicit_theme():
 
 
 def test_run_cli_merged_streams():
-    """merge_streams interleaves stderr into stdout and nulls the stderr field."""
+    """merge_stderr interleaves stderr into stdout and nulls the stderr field."""
     code = dedent("""\
         import sys
         print("to out")
         sys.stdout.flush()
         print("to err", file=sys.stderr)
         """)
-    result = run_cli((sys.executable, "-c", code), merge_streams=True)
+    result = run_cli((sys.executable, "-c", code), merge_stderr=True)
     # run_cli() types both streams as str; merging nulls stderr at runtime.
     stderr: str | None = result.stderr
     assert stderr is None
     assert "to out" in result.stdout
+    assert "to err" in result.stdout
+
+
+def test_run_cli_merge_streams_is_deprecated():
+    """`merge_streams` still merges, warning at the caller."""
+    code = 'import sys; print("to err", file=sys.stderr)'
+    with pytest.warns(DeprecationWarning, match="use merge_stderr= instead") as record:
+        result = run_cli((sys.executable, "-c", code), merge_streams=True)
+    assert Path(record[0].filename).name == Path(__file__).name
     assert "to err" in result.stdout
 
 
@@ -1152,17 +1165,32 @@ def _assert_process_dies(pid: int, deadline_seconds: float = 5.0) -> None:
     pytest.fail(f"PID {pid} survived the process-group kill.")
 
 
+GRANDCHILD_SESSIONS = pytest.mark.parametrize(
+    "grandchild_session",
+    (
+        pytest.param(False, id="same-group"),
+        # A grandchild leading a session of its own has left the child's process
+        # group, like the `make test` supervisor CPAN.pm forks and detaches with
+        # setsid().
+        pytest.param(True, id="own-session"),
+    ),
+)
+"""Run a group-kill test on a grandchild inside the child's group and outside it."""
+
+
 @skip_windows
-def test_run_cli_timeout_new_session_kills_grandchildren():
-    """A timed-out start_new_session child takes its whole process group down:
+@GRANDCHILD_SESSIONS
+def test_run_cli_timeout_new_session_kills_grandchildren(grandchild_session):
+    """A timed-out start_new_session child takes its whole process tree down:
     the grandchild is reaped along with it instead of surviving as an orphan
     holding the inherited output pipe open."""
-    code = dedent("""\
+    code = dedent(f"""\
         import subprocess, sys, time
         grandchild = subprocess.Popen(
             (sys.executable, "-c", "import time; time.sleep(30)"),
+            start_new_session={grandchild_session},
         )
-        print(f"grandchild={grandchild.pid}", flush=True)
+        print(f"grandchild={{grandchild.pid}}", flush=True)
         time.sleep(30)
         """)
     start = monotonic()
@@ -1208,7 +1236,8 @@ def test_run_cli_registers_live_process_then_discards_it():
 
 
 @skip_windows
-def test_terminate_live_processes_signals_whole_group(tmp_path):
+@GRANDCHILD_SESSIONS
+def test_terminate_live_processes_signals_whole_group(tmp_path, grandchild_session):
     """Interrupting a start_new_session child reaps its grandchild too: the
     group never received the terminal's SIGINT (it left the foreground group),
     so terminate_live_processes() is its only kill path and must cover the
@@ -1225,6 +1254,7 @@ def test_terminate_live_processes_signals_whole_group(tmp_path):
         import os, subprocess, sys, time
         grandchild = subprocess.Popen(
             (sys.executable, "-c", "import time; time.sleep(30)"),
+            start_new_session={grandchild_session},
         )
         pid_file = {str(pid_file)!r}
         with open(pid_file + ".tmp", "w", encoding="utf-8") as f:
@@ -1253,6 +1283,51 @@ def test_terminate_live_processes_signals_whole_group(tmp_path):
     assert not _LIVE_PROCESSES
     assert not _GROUP_LEADERS
     _assert_process_dies(int(pid_file.read_text(encoding="utf-8")))
+
+
+@pytest.mark.parametrize(
+    ("stat", "expected"),
+    (
+        ("4242 (python3) S 1 4242 4242 0 -1 4194304", (1, 4242)),
+        # The command name may hold spaces and parentheses of its own.
+        ("4242 (a (b) c) R 17 99 99 0 -1", (17, 99)),
+        ("4242 (python3)", None),
+        ("not a stat line", None),
+    ),
+)
+def test_parse_proc_stat(stat, expected):
+    assert _parse_proc_stat(stat) == expected
+
+
+@skip_windows
+def test_posix_process_table_lists_this_process():
+    table = _posix_process_table()
+    assert table[os.getpid()] == (os.getppid(), os.getpgid(0))
+
+
+@skip_windows
+def test_escaped_process_groups():
+    """Only the groups of descendants outside the leader's group are returned.
+
+    The IDs sit above the largest PID any platform allocates, so none of them
+    can be the group of the running test process.
+    """
+    leader = 10_000_000
+    table = {
+        leader: (1, leader),
+        leader + 1: (leader, leader),
+        # A grandchild that called setsid(), and its own child.
+        leader + 2: (leader, leader + 2),
+        leader + 3: (leader + 2, leader + 2),
+        # A great-grandchild that left the group below a member that stayed.
+        leader + 4: (leader + 1, leader + 4),
+        # Not a descendant.
+        leader + 5: (1, leader + 5),
+        # Groups killpg() must never be handed.
+        leader + 6: (leader, 1),
+        leader + 7: (leader, os.getpgid(0)),
+    }
+    assert _escaped_process_groups(leader, table) == {leader + 2, leader + 4}
 
 
 def test_terminate_live_processes_ignores_already_reaped():

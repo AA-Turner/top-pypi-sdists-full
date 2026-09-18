@@ -239,15 +239,23 @@ class ReleasesCommands:
 
         # releases delete
         delete_parser = subparsers.add_parser(
-            "delete",
-            help="Withdraw a release record, freeing its version",
-            description="Withdraw a release by version. The record is hidden "
-            "rather than destroyed, and its version becomes available to cut "
-            "again. Does NOT remove tags or GitHub Releases -- those are named "
-            "so you can remove them yourself.",
+            "revert",
+            aliases=["delete"],
+            help="Take back the last release, undoing the cut",
+            description="Take back a release by version. A release that shipped "
+            "is returned to in_progress and the versions its rotation opened "
+            "are removed, so the project is exactly where it was before the "
+            "cut; one that never shipped is simply withdrawn and its version "
+            "freed. Releases come off the top -- a version with a released one "
+            "above it is refused. Does NOT remove tags or GitHub Releases -- "
+            "those are named so you can remove them yourself.",
         )
         delete_parser.add_argument(
-            "version", help="Release version string (e.g. v1.4.0)"
+            "version",
+            nargs="?",
+            help="Release version to take back (e.g. v1.4.0). Omit it to take "
+            "back the most recent release -- which is the only one you can "
+            "take back anyway.",
         )
         delete_parser.add_argument(
             "--org-id",
@@ -340,7 +348,11 @@ class ReleasesCommands:
             return await ReleasesCommands._handle_create(args, config)
         elif command == "update":
             return await ReleasesCommands._handle_update(args, config)
-        elif command == "delete":
+        elif command in ("delete", "revert"):
+            # `revert` is the honest verb and the one to reach for: a release
+            # that shipped is taken back, not deleted, and only the last one can
+            # be. `delete` stays because it is what every existing script and
+            # runbook says.
             return await ReleasesCommands._handle_delete(args, config)
         else:
             console.print(format_error("No releases command specified"))
@@ -847,6 +859,36 @@ class ReleasesCommands:
             return 1
 
     @staticmethod
+    async def _newest_release(api_client, org_id: str, project_id: str):
+        """The version this project released most recently, by the clock.
+
+        **Not the highest version.** The two stop agreeing the moment a hotfix
+        exists: ship v1.9.0, the pipeline opens v1.10.0 and v1.11.0, then ship
+        v1.9.1 -- the last release is v1.9.1 while the highest version anywhere
+        is v1.11.0. Sorting by version here would offer to take back a release
+        that never happened.
+        """
+        try:
+            response = await api_client.get(
+                f"/organizations/{org_id}/releases",
+                params={"project_id": project_id, "status": "released"},
+            )
+            if response.status_code != 200:
+                return None
+            rows = response.json() or []
+        except Exception:
+            return None
+
+        if not rows:
+            return None
+        dated = [r for r in rows if r.get("released_at")]
+        if dated:
+            return max(dated, key=lambda r: r["released_at"])["version"]
+        # Nothing carries a date: fall back to the order the API returned,
+        # which is version-descending, rather than guessing.
+        return rows[0]["version"]
+
+    @staticmethod
     async def _handle_delete(args: argparse.Namespace, config: CLIConfig) -> int:
         """Withdraw a release, then check it actually went.
 
@@ -881,6 +923,25 @@ class ReleasesCommands:
                 console.print(format_error("No project specified"))
                 return 1
 
+            # **No version named means the most recent release**, which is the
+            # only one that can be taken back anyway -- so asking for it by name
+            # is ceremony that mostly exists to be got wrong. Resolved here
+            # rather than server-side so the name appears in the confirmation
+            # the caller has to type back.
+            if not getattr(args, "version", None):
+                newest = await ReleasesCommands._newest_release(
+                    api_client, org_id, project_id
+                )
+                if newest is None:
+                    console.print(
+                        format_error(
+                            "This project has no released version to take back."
+                        )
+                    )
+                    return 1
+                args.version = newest
+                console.print(format_info(f"Most recent release: {newest}"))
+
             lookup = await api_client.get(
                 f"/organizations/{org_id}/releases/by-version/{args.version}",
                 params={"project_id": project_id},
@@ -905,17 +966,25 @@ class ReleasesCommands:
             status = looked_up.get("status")
 
             if not getattr(args, "yes", False):
-                console.print(
-                    format_warning(
-                        f"Withdraw release {args.version} (status: {status})? "
-                        "Its version becomes available to cut again."
-                    )
-                )
                 if status == "released":
                     console.print(
                         format_warning(
-                            "This one was actually released -- its tags and "
-                            "GitHub Releases will still exist afterwards."
+                            f"Take back release {args.version}? It returns to "
+                            "in_progress and the versions its rotation opened "
+                            "are removed, putting the project back where it was "
+                            "before the cut."
+                        )
+                    )
+                    console.print(
+                        format_warning(
+                            "Its tags and GitHub Releases will still exist afterwards."
+                        )
+                    )
+                else:
+                    console.print(
+                        format_warning(
+                            f"Withdraw release {args.version} (status: {status})? "
+                            "Its version becomes available to cut again."
                         )
                     )
                 if input("Type the version to confirm: ").strip() != args.version:
@@ -934,18 +1003,43 @@ class ReleasesCommands:
                 )
                 return 1
 
+            outcome = {}
+            if response.status_code == 200 and response.text:
+                try:
+                    outcome = response.json()
+                except ValueError:
+                    outcome = {}
+            restored = bool(outcome.get("restored"))
+
             # Verify, rather than trust the status code. The whole reason to
             # withdraw a release is to free the version; saying so without
             # checking is how the archive path misled people in the first place.
+            #
+            # **What "free" means depends on which of the two things happened.**
+            # A release that shipped is *restored* rather than withdrawn -- it
+            # goes back to being the version this project cuts next -- so it is
+            # still resolvable, and must be. Only a release that never shipped
+            # disappears.
             recheck = await api_client.get(
                 f"/organizations/{org_id}/releases/by-version/{args.version}",
                 params={"project_id": project_id},
             )
-            still_there = (
-                recheck.status_code == 200
-                and recheck.json().get("status") != "unregistered"
+            resolved = (
+                recheck.json()
+                if recheck.status_code == 200
+                else {"status": "unregistered"}
             )
-            if still_there:
+            now = resolved.get("status", "unregistered")
+
+            if restored and now != "in_progress":
+                console.print(
+                    format_error(
+                        f"Reported success, but {args.version} is '{now}' rather "
+                        "than in_progress. The cut was NOT fully taken back."
+                    )
+                )
+                return 1
+            if not restored and now != "unregistered":
                 console.print(
                     format_error(
                         f"Reported success, but {args.version} is still "
@@ -955,13 +1049,43 @@ class ReleasesCommands:
                 )
                 return 1
 
-            console.print(
-                format_success(
-                    f"Release {args.version} withdrawn. That version is free to "
-                    "cut again."
+            if restored:
+                console.print(
+                    format_success(
+                        f"Release {args.version} taken back. It is in progress "
+                        "again, and is what this project cuts next."
+                    )
                 )
-            )
+                withdrawn = outcome.get("withdrawn") or []
+                if withdrawn:
+                    console.print(
+                        format_info(
+                            "  Removed, having been opened by its rotation: "
+                            + ", ".join(withdrawn)
+                        )
+                    )
+                opened = outcome.get("opened") or []
+                if opened:
+                    console.print(
+                        format_info(
+                            "  Re-opened to refill the pipeline: " + ", ".join(opened)
+                        )
+                    )
+            else:
+                console.print(
+                    format_success(
+                        f"Release {args.version} withdrawn. That version is free "
+                        "to cut again."
+                    )
+                )
+
             if status == "released":
+                # **Named, not a placeholder.** This printed a command with a
+                # literal `<org>/<repo>` in it, because the endpoint returned no
+                # body and the CLI had nothing else to put there -- so the one
+                # piece of cleanup the caller has to do by hand came with
+                # instructions they had to finish writing themselves.
+                repos = outcome.get("repo_names") or []
                 console.print(
                     format_warning(
                         "Tags and GitHub Releases were NOT removed. Until they "
@@ -969,12 +1093,25 @@ class ReleasesCommands:
                         "'already exists' rather than tagging them:"
                     )
                 )
-                console.print(
-                    format_info(
-                        f"  gh release list --repo <org>/<repo> | grep {args.version}\n"
-                        f"  gh release delete {args.version} --repo <org>/<repo> --cleanup-tag"
+                if repos:
+                    github_org = resolved.get("github_org") or "<org>"
+                    console.print(
+                        format_info(
+                            "\n".join(
+                                f"  gh release delete {args.version} --repo "
+                                f"{github_org}/{repo} --cleanup-tag"
+                                for repo in repos
+                            )
+                        )
                     )
-                )
+                else:
+                    console.print(
+                        format_info(
+                            "  This release did not record which repositories it "
+                            "covered, so they cannot be named here. "
+                            f"`gh release list --repo <org>/<repo> | grep {args.version}`"
+                        )
+                    )
             return 0
         finally:
             await api_client.close()

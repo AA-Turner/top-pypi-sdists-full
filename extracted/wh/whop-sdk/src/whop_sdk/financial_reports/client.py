@@ -82,7 +82,7 @@ class FinancialReportsClient:
             Exclusive end of the report window as an ISO 8601 timestamp. Required for platform-wide (global) reports.
 
         group_by : typing.Optional[RetrieveFinancialReportsRequestGroupBy]
-            Grouping granularity for report rows.
+            Grouping granularity for report rows. Hourly grouping is supported for account-level balance activity reports only; hourly periods are timestamps in the requested timezone.
 
         timezone : typing.Optional[str]
             IANA timezone (for example `America/New_York`) used to bucket report periods. Defaults to UTC. `from` and `to` remain exact instants.
@@ -115,7 +115,7 @@ class FinancialReportsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -215,7 +215,7 @@ class AsyncFinancialReportsClient:
             Exclusive end of the report window as an ISO 8601 timestamp. Required for platform-wide (global) reports.
 
         group_by : typing.Optional[RetrieveFinancialReportsRequestGroupBy]
-            Grouping granularity for report rows.
+            Grouping granularity for report rows. Hourly grouping is supported for account-level balance activity reports only; hourly periods are timestamps in the requested timezone.
 
         timezone : typing.Optional[str]
             IANA timezone (for example `America/New_York`) used to bucket report periods. Defaults to UTC. `from` and `to` remain exact instants.
@@ -250,7 +250,7 @@ class AsyncFinancialReportsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

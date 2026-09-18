@@ -37,8 +37,8 @@ with Spinner("Brewing tea"):
 ```{caution}
 The spinner draws with carriage returns and ANSI control codes, so it is a
 no-op whenever its output stream is not a TTY (a pipe, a file, a captured
-test buffer, a CI log), unless `enabled` is forced. This keeps redirected
-output and machine-readable formats clean.
+test buffer, a CI log), unless `live="always"` forces it. This keeps
+redirected output and machine-readable formats clean.
 ```
 
 ```{note}
@@ -60,9 +60,11 @@ from gettext import gettext as _
 from typing import TypeVar, cast
 
 import click
+from click._utils import UNSET
 
 from . import context
-from .color import COLOR_DISABLING_TERMS, is_a_tty
+from ._deprecated import warn_deprecated_argument
+from .color import COLOR_DISABLING_TERMS, invocation_color, is_a_tty
 from .humanize import format_duration
 from .layout import cell_width
 from .parameters import ExtraOption
@@ -72,15 +74,20 @@ from .spinner_presets import (
     SpinnerPreset,
 )
 from .styling import Style
+from .theme import KO_GLYPH, OK_GLYPH, get_current_theme
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterable, Sequence
     from types import TracebackType
-    from typing import IO, Any, Literal, Protocol, TextIO
+    from typing import IO, Any, Literal, Protocol, TextIO, TypeAlias
 
     from click._termui_impl import ProgressBar
+    from click._utils import T_UNSET
     from typing_extensions import Self
+
+    TLive: TypeAlias = Literal["auto", "always", "never"]
+    """Where a spinner or a progress bar may draw, see {data}`LIVE_MODES`."""
 
     class _LiveLine(Protocol):
         """A live terminal line other output must cooperate with.
@@ -115,6 +122,7 @@ if TYPE_CHECKING:
         def advance(self, done: int) -> None: ...
         def echo(self, message: str) -> None: ...
         def finish(self, ok: bool, summary: str) -> None: ...
+        def stop(self) -> None: ...
 
 
 _ACTIVE_LINES: list[_LiveLine] = []
@@ -178,21 +186,74 @@ def active_spinner(stream: IO[str] | None = None) -> Spinner | None:
     return None
 
 
-def _stream_enabled(enabled: bool | None, stream: IO[str]) -> bool:
+def _color_enabled(stream: IO[str]) -> bool:
+    """Decide whether output to `stream` may carry ANSI color.
+
+    Follows the invocation's reconciled color first, so `--color` / `--no-color`
+    and the `NO_COLOR` / `FORCE_COLOR` family have already been honored. It is
+    read through {func}`~click_extra.color.invocation_color`, never `ctx.color`
+    alone, because a trail line and a spinner can be rendered on a worker thread
+    the thread-local command context does not reach. Outside a CLI it falls back
+    to those two environment variables and a dumb/unknown `TERM` (see
+    {data}`~click_extra.color.COLOR_DISABLING_TERMS`), then to TTY detection.
+    """
+    color = invocation_color()
+    if color is not None:
+        return color
+    # Mirror resolve_color_env()'s enabling-wins reconciliation outside a command
+    # context: FORCE_COLOR wins, then a dumb/unknown TERM or NO_COLOR forces plain
+    # text, so this fallback agrees with the env path no context has resolved yet.
+    if "FORCE_COLOR" in os.environ:
+        return True
+    if os.environ.get("TERM", "").lower() in COLOR_DISABLING_TERMS:
+        return False
+    if "NO_COLOR" in os.environ:
+        return False
+    return is_a_tty(stream)
+
+
+LIVE_MODES: tuple[str, ...] = ("auto", "always", "never")
+"""The values of the `live` argument of {class}`Spinner` and {class}`OperationTrail`.
+
+- `"auto"`: draw only on an interactive terminal that can move the cursor.
+- `"always"`: draw on any stream, a pipe or a captured buffer included.
+- `"never"`: never draw.
+"""
+
+
+def _check_live(live: str) -> None:
+    """Reject a `live` value outside {data}`LIVE_MODES`.
+
+    :raises ValueError: if `live` is not one of {data}`LIVE_MODES`.
+    """
+    if live not in LIVE_MODES:
+        raise ValueError('live must be "auto", "always" or "never".')
+
+
+def _can_draw(live: str, stream: IO[str]) -> bool:
     """Resolve whether a cursor-driven display may draw on `stream`.
 
-    Honors an explicit `enabled` override; otherwise auto-detects, drawing only
-    on an interactive terminal that can move the cursor. That rules out
+    `"always"` and `"never"` decide on their own. `"auto"` draws only on an
+    interactive terminal that can move the cursor. That rules out
     non-interactive streams (a pipe, file or captured buffer, which are not a
     TTY) and `TERM=dumb` / `TERM=unknown` terminals, whose lack of cursor
     control would smear the output instead of updating it in place. Shared by
     {class}`Spinner` and the {class}`OperationTrail` progress-bar indicator.
     """
-    if enabled is not None:
-        return enabled
+    if live != "auto":
+        return live == "always"
     if os.environ.get("TERM", "").lower() in COLOR_DISABLING_TERMS:
         return False
     return is_a_tty(stream)
+
+
+def _stream_or_stderr(stream: IO[str] | None) -> IO[str]:
+    """The stream a line is drawn on: the one given, or {data}`sys.stderr`.
+
+    Read at the moment of drawing rather than at construction, so a stream
+    swapped in afterwards (as test harnesses do) is honored.
+    """
+    return stream if stream is not None else sys.stderr
 
 
 class Spinner:
@@ -230,11 +291,14 @@ class Spinner:
         interval: float | None = None,
         delay: float = 0.0,
         style: Style | None = None,
-        timer: bool | Callable[[float], str] = False,
+        label_style: Style | None = None,
+        timer: bool | Callable[[float], str] | None = None,
+        timer_style: Style | None = None,
         stream: IO[str] | None = None,
-        enabled: bool | None = None,
+        live: TLive = "auto",
         hide_cursor: bool = True,
         beep: bool = False,
+        enabled: bool | T_UNSET | None = UNSET,
     ) -> None:
         """Configure (but do not start) the spinner.
 
@@ -259,24 +323,44 @@ class Spinner:
         :param style: a {class}`~click_extra.styling.Style` applied to the spinner
             glyph, label and timer (`Style(fg="cyan", bold=True)`). Color is
             decoupled from animation: `--no-color` / `NO_COLOR` strip it while
-            the spinner keeps spinning (see {class}`ProgressOption`).
+            the spinner keeps spinning (see {class}`ProgressOption`). The strip
+            reaches escapes embedded in `label` itself too, so a label styled
+            by hand is as safe as one styled through these arguments.
+        :param label_style: a {class}`~click_extra.styling.Style` for the label
+            alone, in place of `style` there. It also paints the label of the
+            kept {meth}`ok` / {meth}`fail` line, which `style` leaves plain. It
+            outlives a reassigned {attr}`label`, where styling embedded in the
+            text has to be applied again at every step.
         :param timer: append the elapsed wall-clock time to the spinner, and to
-            any final {meth}`ok` / {meth}`fail` line. `True` uses
-            {func}`~click_extra.humanize.format_duration` for the default
-            compact format (`2.3s`, `1:05`, then `1:02:03`). Pass a callable
-            `(seconds: float) -> str` to format the duration yourself, like
-            ``timer=lambda s: f"{s / 60:.0f}m"`` for whole minutes.
+            any final {meth}`ok` / {meth}`fail` line. `None` (the default)
+            follows the CLI's `--time` / `--no-time` flag, as an
+            {class}`OperationTrail` does. `True` forces it on with
+            {func}`~click_extra.humanize.format_duration`'s compact format
+            (`2.3s`, `1:05`, then `1:02:03`), `False` forces it off, and a
+            callable `(seconds: float) -> str` formats the duration yourself,
+            like ``timer=lambda s: f"{s / 60:.0f}m"`` for whole minutes.
+        :param timer_style: a {class}`~click_extra.styling.Style` for the timer,
+            parentheses included, in place of `style` there
+            (`Style(dim=True)` to set the clock back from the label). A `timer`
+            callable formats only the duration, so it cannot reach the
+            parentheses: this can. Also paints the timer of the kept {meth}`ok`
+            / {meth}`fail` line.
         :param stream: where to draw; defaults to {data}`sys.stderr` so the
             spinner never mixes into `stdout` data.
-        :param enabled: force the spinner on or off. `None` (the default)
-            auto-detects, animating only when `stream` is a TTY.
+        :param live: where the animation may draw: `"auto"` (the default) on an
+            interactive terminal only, `"always"` on any stream, `"never"`
+            nowhere. A spinner that does not draw still writes its {meth}`ok` /
+            {meth}`fail` line. Map a CLI's `--no-progress` to `"never"`.
         :param hide_cursor: hide the text cursor while spinning and restore it on
             stop.
         :param beep: ring the terminal bell once when the spinner stops. It
             fires only when the spinner was active, so a disabled or redirected
             spinner stays silent.
-        :raises ValueError: if `style` carries a color or attribute that
-            cannot be rendered.
+        :param enabled: deprecated, use `live` instead: `None` stands for
+            `"auto"`, `True` for `"always"` and `False` for `"never"`.
+        :raises ValueError: if `style`, `label_style` or `timer_style` carries a
+            color or attribute that cannot be rendered, or if `live` is not one
+            of {data}`~click_extra.spinner.LIVE_MODES`.
         """
         # Support a bare `@Spinner` decorator (no parentheses): the first
         # positional is then the wrapped function, not a text label. `@Spinner(…)`
@@ -313,21 +397,31 @@ class Spinner:
             self.interval = spinner.interval
         else:
             self.interval = 0.1
+        _check_live(live)
+        if enabled is not UNSET:
+            warn_deprecated_argument("Spinner", "enabled", "live=")
+            live = "auto" if enabled is None else "always" if enabled else "never"
         self.reverse = reverse
         self.delay = delay
         self.style = style
-        self.timer = timer
+        self.label_style = label_style
+        # None follows the --time flag, resolved here on the constructing thread:
+        # the animation thread never sees the Click context the flag lives in.
+        self.timer = _resolve_timer(timer)
+        self.timer_style = timer_style
         self.stream = stream
-        self.enabled = enabled
+        self.live = live
         self.hide_cursor = hide_cursor
         self.beep = beep
 
-        # Validate the style once, so a bad color or attribute fails loudly here
+        # Validate each style once, so a bad color or attribute fails loudly here
         # instead of silently killing the draw thread (cloup builds and applies
         # the style lazily on first call, where the error would surface off-thread).
-        if style is not None:
+        for candidate in (style, label_style, timer_style):
+            if candidate is None:
+                continue
             try:
-                style("")
+                candidate("")
             except (TypeError, ValueError) as error:
                 raise ValueError(f"Invalid spinner style: {error}") from error
 
@@ -341,50 +435,25 @@ class Spinner:
         self._stop_time: float | None = None
 
     def _resolve_stream(self) -> IO[str]:
-        """Return the explicit `stream`, or default to {data}`sys.stderr`.
+        """The `stream` given, or {data}`sys.stderr`: see {func}`_stream_or_stderr`."""
+        return _stream_or_stderr(self.stream)
 
-        Resolved lazily so a stream swapped in after construction (as test
-        harnesses do) is honored.
+    def _resolve_live(self, stream: IO[str]) -> bool:
+        """Decide whether to animate on `stream`, as {attr}`live` says.
+
+        See {func}`_can_draw` for the resolution.
         """
-        return self.stream if self.stream is not None else sys.stderr
-
-    def _resolve_enabled(self, stream: IO[str]) -> bool:
-        """Decide whether to animate, honoring an explicit `enabled` override.
-
-        Auto-detection (`enabled=None`) animates only on an interactive terminal
-        that can move the cursor. That rules out non-interactive streams (a pipe,
-        file or captured buffer, which are not a TTY) and `TERM=dumb` /
-        `TERM=unknown` terminals, whose lack of cursor control would smear a trail
-        of frames down the screen instead of animating in place.
-        """
-        return _stream_enabled(self.enabled, stream)
+        return _can_draw(self.live, stream)
 
     def _resolve_color_enabled(self, stream: IO[str]) -> bool:
         """Decide whether to apply ANSI color, orthogonally to whether it animates.
 
-        Color follows Click Extra's reconciled {attr}`ctx.color
-        <click.Context.color>` when a command context is active, so `--color` /
-        `--no-color` and the `NO_COLOR` / `FORCE_COLOR` family have already
-        been honored. Outside a CLI it falls back to those two environment variables
-        and a dumb/unknown `TERM` (see
-        {data}`~click_extra.color.COLOR_DISABLING_TERMS`), then to TTY detection.
-        This is independent of {meth}`_resolve_enabled`: a spinner can spin in plain
-        text (a TTY under `NO_COLOR`), which is exactly the decoupling
-        {class}`ProgressOption` documents.
+        See {func}`_color_enabled` for the resolution. This is independent of
+        {meth}`_resolve_live`: a spinner can spin in plain text (a TTY under
+        `NO_COLOR`), which is exactly the decoupling {class}`ProgressOption`
+        documents.
         """
-        ctx = click.get_current_context(silent=True)
-        if ctx is not None and ctx.color is not None:
-            return ctx.color
-        # Mirror resolve_color_env()'s enabling-wins reconciliation outside a command
-        # context: FORCE_COLOR wins, then a dumb/unknown TERM or NO_COLOR forces plain
-        # text, so this fallback agrees with the env path no context has resolved yet.
-        if "FORCE_COLOR" in os.environ:
-            return True
-        if os.environ.get("TERM", "").lower() in COLOR_DISABLING_TERMS:
-            return False
-        if "NO_COLOR" in os.environ:
-            return False
-        return is_a_tty(stream)
+        return _color_enabled(stream)
 
     def _style(self, text: str, *, color: bool | None = None) -> str:
         """Apply the configured {class}`~click_extra.styling.Style`, or return bare.
@@ -400,9 +469,21 @@ class Spinner:
             its own answer to whether ANSI survives.
         :return: the text, styled or bare.
         """
+        return self._paint(text, self.style, color=color)
+
+    def _paint(
+        self, text: str, style: Style | None, *, color: bool | None = None
+    ) -> str:
+        """Apply `style` to `text` when color is on and there is text to paint.
+
+        :param style: the style to apply, used as given: no fallback to
+            {attr}`style`.
+        :param color: see {meth}`_style`.
+        :return: the text, styled or bare.
+        """
         enabled = self._color_enabled if color is None else color
-        if enabled and self.style is not None:
-            return self.style(text)
+        if enabled and style is not None and text:
+            return style(text)
         return text
 
     @property
@@ -422,7 +503,7 @@ class Spinner:
 
         `True` only once an animation frame was actually rendered. It stays
         `False` for a disabled spinner (off a TTY, on a `TERM=dumb` terminal,
-        or with `enabled=False`) and for a call that finishes within `delay`,
+        or with `live="never"`) and for a call that finishes within `delay`,
         before the first frame. Reset by {meth}`start`.
 
         Use it to gate output that should mirror the spinner's visibility.
@@ -462,12 +543,36 @@ class Spinner:
         what the spinner draws, instead of a second guess at it that drifts the
         first time this composition changes.
 
+        Without `label_style` or `timer_style`, `style` paints the line as one
+        run. With either, each part is painted on its own, carrying its leading
+        space, and a part with no style of its own falls back to `style`. With
+        color off, every escape is stripped, the ones embedded in the label
+        included.
+
         :param frame: one of {attr}`frames`, the glyph the line opens with.
         :param color: see {meth}`_style`.
-        :return: the line, ANSI escape sequences included.
+        :return: the line, ANSI escape sequences included when color is on.
         """
         label = f" {self.label}" if self.label else ""
-        return self._style(f"{frame}{label}{self._clock()}", color=color)
+        clock = self._clock()
+        if self.label_style is None and self.timer_style is None:
+            line = self._style(f"{frame}{label}{clock}", color=color)
+        else:
+            line = (
+                self._style(frame, color=color)
+                + self._paint(
+                    label,
+                    self.style if self.label_style is None else self.label_style,
+                    color=color,
+                )
+                + self._paint(
+                    clock,
+                    self.style if self.timer_style is None else self.timer_style,
+                    color=color,
+                )
+            )
+        enabled = self._color_enabled if color is None else color
+        return line if enabled else click.unstyle(line)
 
     def frame_lines(self, *, color: bool = True) -> tuple[str, ...]:
         """Every line this spinner's animation draws, one per frame.
@@ -525,7 +630,7 @@ class Spinner:
     def start(self) -> None:
         """Begin animating on a background thread, unless the spinner is disabled.
 
-        A disabled spinner (non-TTY stream, or `enabled=False`) returns at once
+        A disabled spinner (non-TTY stream, or `live="never"`) returns at once
         without spawning a thread or emitting anything (but still records the
         start time, so a later {meth}`ok` / {meth}`fail` can report a duration).
         """
@@ -536,7 +641,7 @@ class Spinner:
         self._stop_time = None
         stream = self._resolve_stream()
         self._color_enabled = self._resolve_color_enabled(stream)
-        if not self._resolve_enabled(stream):
+        if not self._resolve_live(stream):
             return
         # The spinner is about to emit ANSI control codes: make sure a Windows
         # console will interpret rather than echo them.
@@ -655,10 +760,6 @@ class Spinner:
         Degrades to a plain line when color is disabled or the spinner was never
         shown, so the outcome is still recorded off a TTY.
         """
-        # Lazy import to avoid a circular dependency with theme (as parameters.py
-        # does); the active theme is resolved here, not frozen at construction.
-        from .theme import KO_GLYPH, OK_GLYPH, get_current_theme
-
         glyph = symbol if symbol is not None else (OK_GLYPH if success else KO_GLYPH)
         if style is None:
             theme = get_current_theme()
@@ -669,11 +770,18 @@ class Spinner:
         stream = self._resolve_stream()
         color_enabled = self._resolve_color_enabled(stream)
         self.stop()
-        label = f" {self.label}" if self.label else ""
-        clock = self._clock()
+        label = self._paint(
+            f" {self.label}" if self.label else "",
+            self.label_style,
+            color=color_enabled,
+        )
+        clock = self._paint(self._clock(), self.timer_style, color=color_enabled)
         marker = paint(glyph) if color_enabled else glyph
+        line = f"{marker}{label}{clock}"
+        if not color_enabled:
+            line = click.unstyle(line)
         with self._lock:
-            stream.write(f"{marker}{label}{clock}\n")
+            stream.write(f"{line}\n")
             stream.flush()
 
     def _animate(self, stream: IO[str]) -> None:
@@ -759,10 +867,6 @@ def trail_glyph(ok: bool) -> str:
     theme's `success` slot, or the failure glyph
     {data}`~click_extra.theme.KO_GLYPH` painted with its `error` slot.
     """
-    # Lazy import to avoid a circular dependency with theme, as Spinner._finalize
-    # does; the active theme is resolved at call time, not import time.
-    from .theme import KO_GLYPH, OK_GLYPH, get_current_theme
-
     theme = get_current_theme()
     return theme.success(OK_GLYPH) if ok else theme.error(KO_GLYPH)
 
@@ -804,8 +908,7 @@ def _resolve_timer(
 
     An explicit `bool` or callable is returned unchanged; `None` (the trail
     default) follows the CLI's `--time` / `--no-time` flag via
-    {func}`_time_flag_active`, mirroring how `enabled=None` auto-detects the
-    terminal.
+    {func}`_time_flag_active`, mirroring how `live="auto"` detects the terminal.
     """
     return _time_flag_active() if timer is None else timer
 
@@ -826,7 +929,7 @@ class _SpinnerIndicator:
         unit: str,
         total: int,
         delay: float,
-        enabled: bool | None,
+        live: TLive,
         stream: IO[str] | None,
         spinner: SpinnerPreset | None = None,
         timer: bool | Callable[[float], str] = True,
@@ -847,7 +950,7 @@ class _SpinnerIndicator:
             f"{label} 0/{total} {unit}",
             spinner=spinner,
             delay=delay,
-            enabled=enabled,
+            live=live,
             timer=False if self._eta_bar is not None else timer,
             stream=stream,
         )
@@ -880,6 +983,10 @@ class _SpinnerIndicator:
 
     def echo(self, message: str) -> None:
         self._spinner.echo(message)
+
+    def stop(self) -> None:
+        """Halt the spinner and erase its line, with no kept line. Idempotent."""
+        self._spinner.stop()
 
     def finish(self, ok: bool, summary: str) -> None:
         """Leave the spinner's kept `✓`/`✘` ``summary`` line, elapsed included."""
@@ -928,7 +1035,7 @@ class _BarIndicator:
         unit: str,
         total: int,
         delay: float,
-        enabled: bool | None,
+        live: TLive,
         stream: IO[str] | None,
         timer: bool | Callable[[float], str] = True,
         clock: Literal["elapsed", "eta"] = "elapsed",
@@ -937,7 +1044,7 @@ class _BarIndicator:
         self._unit = unit
         self._total = total
         self._delay = delay
-        self._enabled = enabled
+        self._live = live
         self._stream = stream
         self._timer = timer
         self._clock = clock
@@ -951,11 +1058,11 @@ class _BarIndicator:
         self._ticker: threading.Thread | None = None
 
     def _resolve_stream(self) -> IO[str]:
-        return self._stream if self._stream is not None else sys.stderr
+        return _stream_or_stderr(self._stream)
 
     def __enter__(self) -> Self:
         stream = self._resolve_stream()
-        self._on = _stream_enabled(self._enabled, stream)
+        self._on = _can_draw(self._live, stream)
         self._start = time.monotonic()
         # show_pos renders the `{done}/{total}` tally; item_show_func appends the
         # counted unit after it (and, in elapsed mode, a running clock), echoing
@@ -1087,9 +1194,12 @@ class _BarIndicator:
                 if self._timer
                 else ""
             )
+            line = f"{trail_line(ok, summary)}{clock}"
+            if not _color_enabled(stream):
+                line = click.unstyle(line)
             # Erase the bar, keep the finisher in its place, restore the cursor
             # Click hid via BEFORE_BAR.
-            stream.write(f"\r\x1b[K{trail_line(ok, summary)}{clock}\n\x1b[?25h")
+            stream.write(f"\r\x1b[K{line}\n\x1b[?25h")
             stream.flush()
             self._drawn = False
 
@@ -1137,10 +1247,14 @@ class OperationTrail:
       it. Serves sequential and concurrent batches alike, and needs a known
       `total`.
 
-    All render only on an interactive stream unless `enabled` forces the
-    matter, so pipes, CI logs and captured test buffers stay clean. The running
-    `✓` tally is kept as outcomes land ({attr}`ok_count`), so a caller computes
-    no counts of its own.
+    The aggregate indicators redraw in place, which a pipe or a CI log cannot
+    do, so by default they draw only on an interactive terminal, and `live`
+    changes where they draw. The `✓`/`✘` lines and the finisher only append, so
+    they print on any stream, in plain text where color is off. Where no
+    indicator draws, every rendering echoes each outcome as it lands, as the
+    sequential one does. `visible=False` silences all of it. The running `✓`
+    tally is kept as outcomes land ({attr}`ok_count`), so a caller computes no
+    counts of its own.
 
     Thread-safe: {meth}`mark` may be called from worker threads. Use it as a
     context manager whenever it may run concurrently, to bound the aggregate
@@ -1175,10 +1289,12 @@ class OperationTrail:
         progress_bar: bool = False,
         timer: bool | Callable[[float], str] | None = None,
         clock: Literal["elapsed", "eta"] = "elapsed",
-        enabled: bool | None = None,
+        visible: bool = True,
+        live: TLive = "auto",
         echo_sequential: bool = True,
         delay: float = 0.0,
         stream: IO[str] | None = None,
+        enabled: bool | T_UNSET | None = UNSET,
     ) -> None:
         """Configure (but do not start) the trail.
 
@@ -1215,20 +1331,31 @@ class OperationTrail:
             progress bar and the concurrent spinner honor `"eta"` (the spinner
             reuses Click's progress-bar estimate, since the trail knows its
             `total`). Per-operation and finisher times are always elapsed.
-        :param enabled: force the trail on or off. `None` (the default)
-            auto-detects: the sequential echo renders only on an interactive
-            stream, and the aggregate indicator applies its own TTY gate.
-        :param echo_sequential: whether a sequential batch echoes its outcome
-            lines and finisher at all. Turn it off when the batch has another
-            output that is the real product (a result table) and the trail
-            would be noise; an aggregate indicator is unaffected.
+        :param visible: whether the trail shows anything. `False` silences the
+            lines, the finisher and the aggregate indicator, while
+            {attr}`ok_count` keeps counting.
+        :param live: where the aggregate indicator may draw: `"auto"` (the
+            default) on an interactive terminal only, `"always"` on any stream,
+            `"never"` nowhere. Where it does not draw, each outcome line prints
+            as it lands. Map a CLI's `--no-progress` here, so the lines stay.
+        :param echo_sequential: whether the batch echoes its outcome lines and
+            finisher as plain lines at all: in a sequential batch, in a batch
+            whose aggregate indicator cannot draw on the stream, and in one that
+            finishes before its indicator first draws. Turn it off when the
+            batch has another output that is the real product (a result table)
+            and the trail would be noise. An indicator that did draw is
+            unaffected.
         :param delay: seconds before the aggregate indicator first draws: a
-            fast batch then completes without ever flashing one.
+            fast batch then completes without ever flashing one, its lines
+            echoed plainly at {meth}`finish` instead (see `echo_sequential`).
         :param stream: where to render; defaults to {data}`sys.stderr` so the
             trail never mixes into `stdout` data.
+        :param enabled: deprecated, use `visible` and `live` instead: `False`
+            stands for `visible=False`, and `True` for `live="always"`.
         :raises ValueError: if `progress_bar` is set without a positive
-            `total`, or together with `spinner`, or if `clock` is neither
-            `"elapsed"` nor `"eta"`.
+            `total`, or together with `spinner`, if `clock` is neither
+            `"elapsed"` nor `"eta"`, or if `live` is not one of
+            {data}`~click_extra.spinner.LIVE_MODES`.
         """
         if progress_bar and total <= 0:
             raise ValueError("progress_bar=True requires a positive total.")
@@ -1236,6 +1363,13 @@ class OperationTrail:
             raise ValueError("progress_bar= and spinner= are mutually exclusive.")
         if clock not in ("elapsed", "eta"):
             raise ValueError('clock must be "elapsed" or "eta".')
+        _check_live(live)
+        if enabled is not UNSET:
+            warn_deprecated_argument("OperationTrail", "enabled", "visible= and live=")
+            if enabled is False:
+                visible = False
+            elif enabled is True:
+                live = "always"
         self.label = label
         self.unit = unit
         self.total = total
@@ -1245,7 +1379,8 @@ class OperationTrail:
         self.timer = _resolve_timer(timer)
         self.clock = clock
         self.spinner_preset = spinner
-        self.enabled = enabled
+        self.visible = visible
+        self.live = live
         self.stream = stream
         self._delay = delay
         self._lock = threading.Lock()
@@ -1254,16 +1389,22 @@ class OperationTrail:
         self._start = time.monotonic()
         self._indicator: _AggregateIndicator | None = None
         self._buffer: list[str] = []
+        # Whether outcome lines may reach the stream as plain text: the trail is
+        # the batch's output and is visible. A plain line needs no cursor
+        # control, so this holds for a pipe or a file as for a terminal.
+        self._echo_plain = echo_sequential and visible
+        # The mode the aggregate indicator gets: a hidden trail draws nothing,
+        # whatever `live` says.
+        self._indicator_live: TLive = live if visible else "never"
         # An aggregate indicator (a progress bar, or a spinner for a concurrent
-        # batch) owns the live line; the plain sequential echo runs only when
-        # there is none. Gate it on an interactive stream unless `enabled`
-        # forces the matter, mirroring the indicator's own TTY gate.
-        if self.concurrent or progress_bar or not echo_sequential or enabled is False:
-            self._echo = False
-        elif enabled is True:
-            self._echo = True
-        else:
-            self._echo = is_a_tty(stream if stream is not None else sys.stderr)
+        # batch) owns the live line only on a stream it can draw on, under the
+        # same resolution the indicator applies. There, lines wait for its first
+        # frame, and finish() echoes them for a batch it never drew. Elsewhere
+        # no indicator ever draws, so lines echo as they are marked.
+        self._indicator_draws = (self.concurrent or progress_bar) and _can_draw(
+            self._indicator_live, _stream_or_stderr(stream)
+        )
+        self._echo = self._echo_plain and not self._indicator_draws
 
     def __enter__(self) -> Self:
         if self.progress_bar:
@@ -1272,7 +1413,7 @@ class OperationTrail:
                 unit=self.unit,
                 total=self.total,
                 delay=self._delay,
-                enabled=self.enabled,
+                live=self._indicator_live,
                 stream=self.stream,
                 timer=self.timer,
                 clock=self.clock,
@@ -1283,7 +1424,7 @@ class OperationTrail:
                 unit=self.unit,
                 total=self.total,
                 delay=self._delay,
-                enabled=self.enabled,
+                live=self._indicator_live,
                 stream=self.stream,
                 spinner=self.spinner_preset,
                 timer=self.timer,
@@ -1299,14 +1440,39 @@ class OperationTrail:
         exc_val: BaseException | None,
         exc_tb: TracebackType | None,
     ) -> None:
-        if self._indicator is not None:
-            self._indicator.__exit__(exc_type, exc_val, exc_tb)
-            self._indicator = None
+        indicator = self._indicator
+        if indicator is None:
+            return
+        # Leaving without a finisher keeps every outcome line, as finish() does.
+        # Lines the indicator drew are already on screen, past any still buffered
+        # behind a first frame that fell due after the last mark. Lines of a batch
+        # it never drew echo plainly, on the same terms as in finish().
+        with self._lock:
+            if indicator.shown:
+                self._flush()
+            replay = self._buffer if self._echo_plain else []
+            self._buffer = []
+        indicator.__exit__(exc_type, exc_val, exc_tb)
+        self._indicator = None
+        for text in replay:
+            self._echo_line(text)
 
     @property
     def ok_count(self) -> int:
         """How many marked outcomes have succeeded so far."""
         return self._ok
+
+    def _render_line(self, ok: bool, message: str) -> str:
+        """Format one `✓`/`✘` line for the trail's stream, plain when color is off.
+
+        The glyph is painted unconditionally by {func}`trail_line`, and a line
+        flushed above a drawn indicator reaches the stream through a raw write,
+        not through {func}`click.echo`'s strip. So the strip happens here, and
+        takes any escape embedded in `message` along with the glyph's.
+        """
+        line = trail_line(ok, message)
+        stream = _stream_or_stderr(self.stream)
+        return line if _color_enabled(stream) else click.unstyle(line)
 
     def _echo_line(self, message: str) -> None:
         """Print one rendered line to the trail's stream."""
@@ -1329,12 +1495,12 @@ class OperationTrail:
             self._done += 1
             if ok:
                 self._ok += 1
-            if self._indicator is not None:
-                self._buffer.append(trail_line(ok, message))
+            if self._echo:
+                self._echo_line(self._render_line(ok, message))
+            elif self._indicator is not None:
+                self._buffer.append(self._render_line(ok, message))
                 self._indicator.advance(self._done)
                 self._flush()
-            elif self._echo:
-                self._echo_line(trail_line(ok, message))
 
     def _flush(self) -> None:
         # Caller holds the lock. Drain buffered lines once the indicator is
@@ -1349,21 +1515,38 @@ class OperationTrail:
     def finish(self, ok: bool, summary: str) -> None:
         """Render the persistent `✓`/`✘` ``{summary}`` finisher.
 
-        With an aggregate indicator, it becomes the indicator's kept line (a
-        spinner's {meth}`Spinner.ok` / {meth}`Spinner.fail` line, or the bar's
-        replacement line); sequential without one, a plain echoed line. The
-        batch's elapsed time since construction is appended when `timer` is on
-        (the default).
+        With an aggregate indicator that drew, it becomes the indicator's kept
+        line (a spinner's {meth}`Spinner.ok` / {meth}`Spinner.fail` line, or the
+        bar's replacement line); otherwise, a plain echoed line. The batch's
+        elapsed time since construction is appended when `timer` is on.
+
+        A batch finishing inside `delay` never draws its indicator, so none of
+        its buffered lines reached the stream. When the trail is the batch's
+        output (`echo_sequential` and `visible`), they are echoed plainly along
+        with the finisher, the way a sequential batch prints them: how fast a
+        batch ran must not decide whether its record exists.
         """
-        if self._indicator is not None:
+        indicator = self._indicator
+        if indicator is not None:
             with self._lock:
-                self._flush()
-            self._indicator.finish(ok, summary)
-        elif self._echo:
-            if self.timer:
-                elapsed = time.monotonic() - self._start
-                summary = f"{summary} ({_format_timer(self.timer, elapsed)})"
-            self._echo_line(trail_line(ok, summary))
+                drew = indicator.shown
+                if drew:
+                    self._flush()
+                replay, self._buffer = self._buffer, []
+            if drew or not self._echo_plain:
+                indicator.finish(ok, summary)
+                return
+            # Tear the indicator down first, so a first frame falling due right
+            # now cannot draw over the replayed lines.
+            indicator.stop()
+            for text in replay:
+                self._echo_line(text)
+        elif not self._echo:
+            return
+        if self.timer:
+            elapsed = time.monotonic() - self._start
+            summary = f"{summary} ({_format_timer(self.timer, elapsed)})"
+        self._echo_line(self._render_line(ok, summary))
 
     def operation(self) -> _Operation:
         """Start a timed operation, returning a handle to record its outcome.
@@ -1429,7 +1612,7 @@ class ProgressOption(ExtraOption):
     The spinner is therefore silenced by two things only, neither of them color:
 
     - **non-interactive output** -- a pipe, file, CI log, or `TERM=dumb`
-      terminal that cannot move the cursor (see `Spinner._resolve_enabled`);
+      terminal that cannot move the cursor (see `Spinner._resolve_live`);
     - **explicit intent** -- `--no-progress` or `--accessible`.
     ```
 
@@ -1456,15 +1639,16 @@ class ProgressOption(ExtraOption):
     def __init__(
         self,
         param_decls: Sequence[str] | None = None,
-        is_flag=True,
-        default=True,
-        is_eager=True,
-        expose_value=False,
-        help=_(
+        *,
+        is_flag: bool = True,
+        default: bool = True,
+        is_eager: bool = True,
+        expose_value: bool = False,
+        help: str = _(
             "Show progress indicators during long operations. Disabled for "
             "non-interactive output (pipes, dumb terminals, CI) and by --accessible."
         ),
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         if not param_decls:
             param_decls = ("--progress/--no-progress",)

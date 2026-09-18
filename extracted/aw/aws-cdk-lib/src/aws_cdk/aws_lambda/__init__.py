@@ -1782,6 +1782,14 @@ S3 Files uses the same NFS infrastructure as Amazon EFS. To mount the file syste
 * **Mount targets** (`CfnMountTarget`) — ENIs placed in your VPC subnets that allow NFS clients (like Lambda) to connect. Each mount target needs a security group that permits inbound NFS traffic (TCP port 2049).
 * **Access point** (`CfnAccessPoint`) — defines the POSIX user identity and root directory path that Lambda uses when accessing the file system. This scopes and isolates the function's view of the file system.
 
+You can optionally configure `directS3Read` to stream eligible reads directly from the S3 bucket for higher throughput instead of routing them through the file system mount using `DirectS3Read.enabled(bucket)`, `DirectS3Read.enabledWithoutGrant()`, `DirectS3Read.auto()`, or `DirectS3Read.disabled()`.
+
+To use direct reads, the function's execution role needs the `s3:GetObject` and `s3:GetObjectVersion` permissions on the backing bucket for a direct read to succeed (if a direct read fails, Lambda falls back to reading through the file system). `DirectS3Read.enabled(bucket)` grants these permissions to the execution role automatically. Use `DirectS3Read.enabledWithoutGrant()` when the role already has read access through another policy; you are then responsible for the grant (and `kms:Decrypt` if the bucket is encrypted with a customer-managed key). `DirectS3Read.auto()` adds no permissions, so the role must already hold them for a service-initiated direct read to succeed.
+
+Use `DirectS3Read.disabled()` to opt-out from this feature.
+
+> Visit [S3FilesConfig](https://docs.aws.amazon.com/AWSCloudFormation/latest/TemplateReference/aws-properties-lambda-function-s3filesconfig.html) for more details.
+
 ```python
 import aws_cdk as cdk
 import aws_cdk.aws_ec2 as ec2
@@ -1852,7 +1860,10 @@ fn = lambda_.Function(self, "MyFunction",
     handler="index.handler",
     code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler")),
     vpc=vpc,
-    filesystem=lambda_.FileSystem.from_s3_files_access_point(access_point, "/mnt/s3files")
+    filesystem=lambda_.FileSystem.from_s3_files_access_point(access_point, "/mnt/s3files",
+        # Enables direct reads and grants s3:GetObject/s3:GetObjectVersion on the bucket to the execution role.
+        direct_s3_read=lambda_.DirectS3Read.enabled(bucket)
+    )
 )
 ```
 
@@ -18765,6 +18776,158 @@ class DestinationType(enum.Enum):
     '''Success.'''
 
 
+class DirectS3Read(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_lambda.DirectS3Read",
+):
+    '''The DirectS3Read configuration for an S3 Files filesystem mount.
+
+    Direct reads let Lambda read objects straight from the backing S3 bucket for
+    higher throughput, instead of routing every read through the file system mount.
+
+    Create one with a factory method:
+
+    - ``DirectS3Read.enabled(bucket)`` — turn direct reads on and grant the execution
+      role read access to ``bucket``.
+    - ``DirectS3Read.enabledWithoutGrant()`` — turn direct reads on but add no S3
+      permissions; grant read access to the execution role yourself.
+    - ``DirectS3Read.auto()`` — let the service decide based on the function's memory.
+    - ``DirectS3Read.disabled()`` — always read through the mount.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        import aws_cdk as cdk
+        import aws_cdk.aws_ec2 as ec2
+        import aws_cdk.aws_s3 as s3
+        import aws_cdk.aws_s3files as s3files
+        
+        
+        vpc = ec2.Vpc(self, "Vpc")
+        
+        # Versioning is required — S3 Files relies on object versions for consistency.
+        bucket = s3.Bucket(self, "Bucket", versioned=True)
+        
+        # S3 Files assumes this role to sync data between S3 and the file system.
+        role = iam.Role(self, "S3FilesRole",
+            assumed_by=iam.ServicePrincipal("elasticfilesystem.amazonaws.com")
+        )
+        
+        # S3 permissions: read/write access to the bucket and objects
+        role.add_to_policy(iam.PolicyStatement(
+            actions=["s3:ListBucket*"],
+            resources=[bucket.bucket_arn]
+        ))
+        role.add_to_policy(iam.PolicyStatement(
+            actions=["s3:AbortMultipartUpload", "s3:DeleteObject", "s3:GetObject*", "s3:List*", "s3:PutObject*"],
+            resources=[bucket.arn_for_objects("*")]
+        ))
+        
+        # EventBridge permissions: S3 Files creates rules prefixed "DO-NOT-DELETE-S3-Files"
+        # to detect S3 object changes and trigger data synchronization.
+        role.add_to_policy(iam.PolicyStatement(
+            actions=["events:DeleteRule", "events:DisableRule", "events:EnableRule", "events:PutRule", "events:PutTargets", "events:RemoveTargets"
+            ],
+            resources=[f"arn:{cdk.Aws.PARTITION}:events:*:*:rule/DO-NOT-DELETE-S3-Files*"],
+            conditions={"StringEquals": {"events:ManagedBy": "elasticfilesystem.amazonaws.com"}}
+        ))
+        role.add_to_policy(iam.PolicyStatement(
+            actions=["events:DescribeRule", "events:ListRuleNamesByTarget", "events:ListRules", "events:ListTargetsByRule"],
+            resources=[f"arn:{cdk.Aws.PARTITION}:events:*:*:rule/*"]
+        ))
+        
+        file_system = s3files.CfnFileSystem(self, "S3FilesFs",
+            bucket=bucket.bucket_arn,
+            role_arn=role.role_arn
+        )
+        
+        sg = ec2.SecurityGroup(self, "MountTargetSG", vpc=vpc)
+        
+        # Create a mount target in each private subnet so Lambda can reach the file system via NFS.
+        vpc.private_subnets.for_each((subnet, i) =>
+              new s3files.CfnMountTarget(this, `MountTarget${i}`, {
+                fileSystemId: fileSystem.attrFileSystemId,
+                subnetId: subnet.subnetId,
+                securityGroups: [sg.securityGroupId],
+              }))
+        
+        # The access point defines the POSIX identity and root path Lambda uses on the file system.
+        access_point = s3files.CfnAccessPoint(self, "AccessPoint",
+            file_system_id=file_system.attr_file_system_id,
+            root_directory=s3files.CfnAccessPoint.RootDirectoryProperty(
+                path="/export/lambda",
+                creation_permissions=s3files.CfnAccessPoint.CreationPermissionsProperty(owner_gid="1001", owner_uid="1001", permissions="750")
+            ),
+            posix_user=s3files.CfnAccessPoint.PosixUserProperty(gid="1001", uid="1001")
+        )
+        
+        fn = lambda_.Function(self, "MyFunction",
+            runtime=lambda_.Runtime.NODEJS_LATEST,
+            handler="index.handler",
+            code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler")),
+            vpc=vpc,
+            filesystem=lambda_.FileSystem.from_s3_files_access_point(access_point, "/mnt/s3files",
+                # Enables direct reads and grants s3:GetObject/s3:GetObjectVersion on the bucket to the execution role.
+                direct_s3_read=lambda_.DirectS3Read.enabled(bucket)
+            )
+        )
+    '''
+
+    @jsii.member(jsii_name="auto")
+    @builtins.classmethod
+    def auto(cls) -> "DirectS3Read":
+        '''Let the service decide whether to use direct S3 read based on the function's memory configuration: direct reads are active for functions with 512 MB or more of memory.
+
+        No S3 read permissions are added; the execution role must already hold them for a
+        service-initiated direct read to succeed, otherwise reads fall back to the mount.
+        '''
+        return typing.cast("DirectS3Read", jsii.sinvoke(cls, "auto", []))
+
+    @jsii.member(jsii_name="disabled")
+    @builtins.classmethod
+    def disabled(cls) -> "DirectS3Read":
+        '''Disable direct S3 read;
+
+        all reads are routed through the S3 Files file system's
+        high-performance storage.
+        '''
+        return typing.cast("DirectS3Read", jsii.sinvoke(cls, "disabled", []))
+
+    @jsii.member(jsii_name="enabled")
+    @builtins.classmethod
+    def enabled(cls, bucket: "_aws_s3_01158f40.IBucket") -> "DirectS3Read":
+        '''Enable direct S3 reads, bypassing the mount for higher throughput, and grant the function's execution role ``s3:GetObject`` and ``s3:GetObjectVersion`` on the bucket's objects so that direct reads can succeed.
+
+        Unlike ``auto()``, this enables direct reads regardless of the function's memory size,
+        including functions with less than 512 MB of memory.
+
+        If the bucket is encrypted with a customer-managed KMS key, also grant the execution
+        role ``kms:Decrypt`` on that key yourself.
+
+        :param bucket: the S3 bucket backing the S3 Files file system.
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__ee6c8948965405f9b5815ae03127e56ff8b2e2826097201066c0de99ae029fd4)
+            check_type(argname="argument bucket", value=bucket, expected_type=type_hints["bucket"])
+        return typing.cast("DirectS3Read", jsii.sinvoke(cls, "enabled", [bucket]))
+
+    @jsii.member(jsii_name="enabledWithoutGrant")
+    @builtins.classmethod
+    def enabled_without_grant(cls) -> "DirectS3Read":
+        '''Enable direct S3 reads, bypassing the mount for higher throughput, without adding any S3 read permissions.
+
+        Like ``enabled()``, this enables direct reads regardless of the function's memory size,
+        including functions with less than 512 MB of memory.
+
+        Use this when the execution role already has ``s3:GetObject``/``s3:GetObjectVersion`` on the
+        backing bucket (for example through a managed policy or a bucket policy). You are
+        responsible for granting those permissions; without them, direct reads silently fall
+        back to reading through the file system.
+        '''
+        return typing.cast("DirectS3Read", jsii.sinvoke(cls, "enabledWithoutGrant", []))
+
+
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_lambda.DlqDestinationConfig",
     jsii_struct_bases=[],
@@ -21225,17 +21388,22 @@ class FileSystem(
         cls,
         ap: "_aws_s3files_4d021423.IAccessPointRef",
         mount_path: builtins.str,
+        *,
+        direct_s3_read: typing.Optional["DirectS3Read"] = None,
     ) -> "FileSystem":
         '''Mount the filesystem from Amazon S3 Files.
 
         :param ap: the S3 Files access point.
         :param mount_path: the target path in the lambda runtime environment.
+        :param direct_s3_read: The DirectS3Read configuration for the S3 Files filesystem. Use ``DirectS3Read.enabled(bucket)``, ``DirectS3Read.enabledWithoutGrant()``, ``DirectS3Read.auto()``, or ``DirectS3Read.disabled()`` to control whether Lambda reads objects directly from S3 instead of through the mount. Default: - DirectS3Read is not set. The service default is AUTO.
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__dfd6f52dc8ee2573cb2e7fead72468f4b4e8850c96fb5718ef3fd9d6ea99bec0)
             check_type(argname="argument ap", value=ap, expected_type=type_hints["ap"])
             check_type(argname="argument mount_path", value=mount_path, expected_type=type_hints["mount_path"])
-        return typing.cast("FileSystem", jsii.sinvoke(cls, "fromS3FilesAccessPoint", [ap, mount_path]))
+        options = S3FilesOptions(direct_s3_read=direct_s3_read)
+
+        return typing.cast("FileSystem", jsii.sinvoke(cls, "fromS3FilesAccessPoint", [ap, mount_path, options]))
 
     @builtins.property
     @jsii.member(jsii_name="config")
@@ -29811,6 +29979,132 @@ class S3CodeV2(
         return typing.cast(builtins.bool, jsii.get(self, "isInline"))
 
 
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_lambda.S3FilesOptions",
+    jsii_struct_bases=[],
+    name_mapping={"direct_s3_read": "directS3Read"},
+)
+class S3FilesOptions:
+    def __init__(
+        self,
+        *,
+        direct_s3_read: typing.Optional["DirectS3Read"] = None,
+    ) -> None:
+        '''Options for mounting an S3 Files filesystem.
+
+        :param direct_s3_read: The DirectS3Read configuration for the S3 Files filesystem. Use ``DirectS3Read.enabled(bucket)``, ``DirectS3Read.enabledWithoutGrant()``, ``DirectS3Read.auto()``, or ``DirectS3Read.disabled()`` to control whether Lambda reads objects directly from S3 instead of through the mount. Default: - DirectS3Read is not set. The service default is AUTO.
+
+        :exampleMetadata: infused
+
+        Example::
+
+            import aws_cdk as cdk
+            import aws_cdk.aws_ec2 as ec2
+            import aws_cdk.aws_s3 as s3
+            import aws_cdk.aws_s3files as s3files
+            
+            
+            vpc = ec2.Vpc(self, "Vpc")
+            
+            # Versioning is required — S3 Files relies on object versions for consistency.
+            bucket = s3.Bucket(self, "Bucket", versioned=True)
+            
+            # S3 Files assumes this role to sync data between S3 and the file system.
+            role = iam.Role(self, "S3FilesRole",
+                assumed_by=iam.ServicePrincipal("elasticfilesystem.amazonaws.com")
+            )
+            
+            # S3 permissions: read/write access to the bucket and objects
+            role.add_to_policy(iam.PolicyStatement(
+                actions=["s3:ListBucket*"],
+                resources=[bucket.bucket_arn]
+            ))
+            role.add_to_policy(iam.PolicyStatement(
+                actions=["s3:AbortMultipartUpload", "s3:DeleteObject", "s3:GetObject*", "s3:List*", "s3:PutObject*"],
+                resources=[bucket.arn_for_objects("*")]
+            ))
+            
+            # EventBridge permissions: S3 Files creates rules prefixed "DO-NOT-DELETE-S3-Files"
+            # to detect S3 object changes and trigger data synchronization.
+            role.add_to_policy(iam.PolicyStatement(
+                actions=["events:DeleteRule", "events:DisableRule", "events:EnableRule", "events:PutRule", "events:PutTargets", "events:RemoveTargets"
+                ],
+                resources=[f"arn:{cdk.Aws.PARTITION}:events:*:*:rule/DO-NOT-DELETE-S3-Files*"],
+                conditions={"StringEquals": {"events:ManagedBy": "elasticfilesystem.amazonaws.com"}}
+            ))
+            role.add_to_policy(iam.PolicyStatement(
+                actions=["events:DescribeRule", "events:ListRuleNamesByTarget", "events:ListRules", "events:ListTargetsByRule"],
+                resources=[f"arn:{cdk.Aws.PARTITION}:events:*:*:rule/*"]
+            ))
+            
+            file_system = s3files.CfnFileSystem(self, "S3FilesFs",
+                bucket=bucket.bucket_arn,
+                role_arn=role.role_arn
+            )
+            
+            sg = ec2.SecurityGroup(self, "MountTargetSG", vpc=vpc)
+            
+            # Create a mount target in each private subnet so Lambda can reach the file system via NFS.
+            vpc.private_subnets.for_each((subnet, i) =>
+                  new s3files.CfnMountTarget(this, `MountTarget${i}`, {
+                    fileSystemId: fileSystem.attrFileSystemId,
+                    subnetId: subnet.subnetId,
+                    securityGroups: [sg.securityGroupId],
+                  }))
+            
+            # The access point defines the POSIX identity and root path Lambda uses on the file system.
+            access_point = s3files.CfnAccessPoint(self, "AccessPoint",
+                file_system_id=file_system.attr_file_system_id,
+                root_directory=s3files.CfnAccessPoint.RootDirectoryProperty(
+                    path="/export/lambda",
+                    creation_permissions=s3files.CfnAccessPoint.CreationPermissionsProperty(owner_gid="1001", owner_uid="1001", permissions="750")
+                ),
+                posix_user=s3files.CfnAccessPoint.PosixUserProperty(gid="1001", uid="1001")
+            )
+            
+            fn = lambda_.Function(self, "MyFunction",
+                runtime=lambda_.Runtime.NODEJS_LATEST,
+                handler="index.handler",
+                code=lambda_.Code.from_asset(path.join(__dirname, "lambda-handler")),
+                vpc=vpc,
+                filesystem=lambda_.FileSystem.from_s3_files_access_point(access_point, "/mnt/s3files",
+                    # Enables direct reads and grants s3:GetObject/s3:GetObjectVersion on the bucket to the execution role.
+                    direct_s3_read=lambda_.DirectS3Read.enabled(bucket)
+                )
+            )
+        '''
+        if __debug__:
+            type_hints = cached_type_hints(_typecheckingstub__c344cca6c54594a30ddab1f88d1e4f7f94d3000e8caa5acac22b71af00059794)
+            check_type(argname="argument direct_s3_read", value=direct_s3_read, expected_type=type_hints["direct_s3_read"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if direct_s3_read is not None:
+            self._values["direct_s3_read"] = direct_s3_read
+
+    @builtins.property
+    def direct_s3_read(self) -> typing.Optional["DirectS3Read"]:
+        '''The DirectS3Read configuration for the S3 Files filesystem.
+
+        Use ``DirectS3Read.enabled(bucket)``, ``DirectS3Read.enabledWithoutGrant()``,
+        ``DirectS3Read.auto()``, or ``DirectS3Read.disabled()`` to control whether Lambda reads
+        objects directly from S3 instead of through the mount.
+
+        :default: - DirectS3Read is not set. The service default is AUTO.
+        '''
+        result = self._values.get("direct_s3_read")
+        return typing.cast(typing.Optional["DirectS3Read"], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "S3FilesOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
 class ScalingOptions(
     metaclass=jsii.JSIIMeta,
     jsii_type="aws-cdk-lib.aws_lambda.ScalingOptions",
@@ -38055,6 +38349,7 @@ __all__ = [
     "DestinationConfig",
     "DestinationOptions",
     "DestinationType",
+    "DirectS3Read",
     "DlqDestinationConfig",
     "DockerBuildAssetOptions",
     "DockerImageCode",
@@ -38138,6 +38433,7 @@ __all__ = [
     "RuntimeManagementMode",
     "S3Code",
     "S3CodeV2",
+    "S3FilesOptions",
     "ScalingOptions",
     "SchemaRegistryProps",
     "SingletonFunction",
@@ -40656,6 +40952,12 @@ def _typecheckingstub__41a2f579cde815bb4d51953e99d89f497d631429035e443b4e0c86170
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__ee6c8948965405f9b5815ae03127e56ff8b2e2826097201066c0de99ae029fd4(
+    bucket: _aws_s3_01158f40.IBucket,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__2ac0cd879a29ceed59bd2456c1e1ffddc2206dcdfd5aa4e94b3add2e47fcf5c0(
     *,
     destination: builtins.str,
@@ -40880,6 +41182,8 @@ def _typecheckingstub__7962f6f4b398747cd2f496a8d711eb02f71c477dc2809a700efdcc9fa
 def _typecheckingstub__dfd6f52dc8ee2573cb2e7fead72468f4b4e8850c96fb5718ef3fd9d6ea99bec0(
     ap: _aws_s3files_4d021423.IAccessPointRef,
     mount_path: builtins.str,
+    *,
+    direct_s3_read: typing.Optional[DirectS3Read] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -41619,6 +41923,13 @@ def _typecheckingstub__b41ca6a89b02f4abbd158513a5c812e15217b49cbb3e409cff1690bdb
 
 def _typecheckingstub__304505e97ff3b397f5306079c5410e06bb217281e1cc348ada6eef6ae77771f2(
     _scope: _constructs_77d1e7e8.Construct,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__c344cca6c54594a30ddab1f88d1e4f7f94d3000e8caa5acac22b71af00059794(
+    *,
+    direct_s3_read: typing.Optional[DirectS3Read] = None,
 ) -> None:
     """Type checking stubs"""
     pass

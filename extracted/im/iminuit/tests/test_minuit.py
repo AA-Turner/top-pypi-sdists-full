@@ -1,5 +1,6 @@
 # type:ignore
 import platform
+import warnings
 import pytest
 import numpy as np
 from numpy.testing import assert_allclose, assert_equal
@@ -366,6 +367,25 @@ def test_wrong_use_of_array_init():
         m.migrad()
 
 
+@pytest.mark.parametrize(
+    "wrap", [lambda v: np.array(v), lambda v: np.array([v]), lambda v: np.float64(v)]
+)
+def test_cost_returns_size_one_array(wrap):
+    # cost functions that return a numpy scalar or a size-1 array (0-d or
+    # shape (1,)) must be accepted; numpy >= 2 no longer converts size-1
+    # arrays via float(), which used to silently break such functions.
+    m = Minuit(lambda x, y: wrap(x**2 + (y - 1) ** 2), x=1, y=0)
+    m.migrad()
+    assert m.valid
+    assert_allclose(m.values, (0, 1), atol=1e-3)
+
+
+def test_cost_returns_wrong_size_array():
+    m = Minuit(lambda x: np.array([x, x]), x=1)
+    with pytest.raises(RuntimeError, match="must return a scalar"):
+        m.migrad()
+
+
 def test_reset():
     m = Minuit(func0, x=0, y=0)
     m.migrad()
@@ -699,6 +719,22 @@ def test_mncontour(grad, cl, experimental):
     assert_allclose((x + xm.upper, y + ym.upper), cmax, atol=1e-2)
 
 
+def test_mncontour_experimental_real_dtype():
+    # np.linalg.eig returns complex dtype even for symmetric input on
+    # numpy >= 2.5; the covariance block here is symmetric, so eigh
+    # (real dtype) must be used instead
+    pytest.importorskip("scipy.optimize")
+
+    m = Minuit(func0, x=1.0, y=2.0)
+    m.migrad()
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        pts = m.mncontour("x", "y", size=10, experimental=True)
+    pts = np.asarray(pts)
+    assert pts.dtype.kind == "f"
+    assert np.all(np.isfinite(pts))
+
+
 @pytest.mark.parametrize("experimental", (False, True))
 def test_mncontour_limits(experimental):
     pytest.importorskip("scipy.optimize")
@@ -894,6 +930,31 @@ def test_mnprofile_bad_grid():
         m.mnprofile("y", grid=[[10, 20]])
 
 
+def test_normalize_key_negative_and_numpy_int():
+    m = Minuit(func0, x=0, y=0)
+    m.migrad()
+
+    # negative index
+    x, y, _ = m.mnprofile(-1, size=3)
+    x2, y2, _ = m.mnprofile(1, size=3)
+    assert_allclose(x, x2)
+
+    # numpy integer index
+    x3, y3, _ = m.mnprofile(np.int64(0), size=3)
+    x4, y4, _ = m.mnprofile(0, size=3)
+    assert_allclose(x3, x4)
+
+    # out-of-range index gives a clear error mentioning the correct max
+    with pytest.raises(ValueError, match="out of range"):
+        m.mnprofile(2)
+    with pytest.raises(ValueError, match="out of range"):
+        m.mnprofile(-3)
+
+    # a key that is neither a string nor index-able is reported as unknown
+    with pytest.raises(ValueError, match="unknown parameter 1.5"):
+        m.mnprofile(1.5)
+
+
 def test_contour_subtract():
     m = Minuit(func0, x=1.0, y=2.0)
     m.migrad()
@@ -963,6 +1024,20 @@ def test_grad():
     g = m.grad([2.0, 5.0])
     assert v == func0(2.0, 5.0)
     assert_equal(g, func0_grad(2.0, 5.0))
+
+
+def test_g2_and_hessian():
+    m = Minuit(func0, grad=func0_grad, g2=func0_g2, x=0, y=0)
+    assert m.g2 is func0_g2
+    assert_equal(m.g2(2.0, 5.0), func0_g2(2.0, 5.0))
+
+    m = Minuit(func0, grad=func0_grad, hessian=func0_hessian, x=0, y=0)
+    assert m.hessian is func0_hessian
+    assert_equal(m.hessian(2.0, 5.0), func0_hessian(2.0, 5.0))
+
+    m = Minuit(func0, x=0, y=0)
+    assert m.g2 is None
+    assert m.hessian is None
 
 
 def test_values(minuit):
@@ -1169,6 +1244,16 @@ def test_errordef():
         m.errordef = 0
 
 
+def test_errordef_updates_covariance():
+    m = Minuit(lambda x: x**2, 0)
+    m.migrad()
+    assert_allclose(m.covariance[0, 0], 1)
+    m.errordef = 0.5
+    assert_allclose(m.errors["x"] ** 2, 0.5)
+    assert_allclose(m.covariance[0, 0], 0.5)
+    assert m.fmin.errordef == 0.5
+
+
 def test_print_level():
     from iminuit._core import MnPrint
 
@@ -1309,6 +1394,38 @@ def test_hesse_without_migrad():
     m.hesse()
     assert not m.accurate
     assert m.fmin.hesse_failed
+
+
+def test_hesse_without_migrad_nonzero_fval():
+    # f(x) at the start value is not zero, Hesse needs a proper step size
+    m = Minuit(lambda x: (x - 1) ** 2, x=0)
+    m.errordef = Minuit.LEAST_SQUARES
+    m.hesse()
+    assert not m.fmin.hesse_failed
+    assert m.covariance is not None
+    assert m.errors["x"] == approx(1.0, abs=1e-4)
+    assert m.fmin.nfcn > 0
+
+
+def test_hesse_after_modifying_values():
+    m = Minuit(lambda x, y: (x - 1) ** 2 + (y - 2) ** 2, x=0, y=0)
+    m.errordef = Minuit.LEAST_SQUARES
+    m.migrad()
+    m.values["x"] = 0
+    m.hesse()
+    assert not m.fmin.hesse_failed
+    assert m.covariance is not None
+    assert m.errors["x"] == approx(1.0, abs=1e-4)
+    assert m.errors["y"] == approx(1.0, abs=1e-4)
+
+
+def test_fmin_time_accumulates():
+    m = Minuit(lambda x: x**2, x=1)
+    m.migrad()
+    t1 = m.fmin.time
+    assert t1 > 0
+    m.hesse()
+    assert m.fmin.time >= t1
 
 
 def test_edm_goal():
@@ -1557,6 +1674,27 @@ def test_cfunc():
     assert_allclose(m.values, (0, 1, 2), atol=1e-8)
 
 
+def test_cfunc_throw_nan():
+    nb = pytest.importorskip("numba")
+
+    c_sig = nb.types.double(nb.types.uintc, nb.types.CPointer(nb.types.double))
+
+    @nb.cfunc(c_sig)
+    def fcn(n, x):
+        return np.nan
+
+    m = Minuit(fcn, (1, 2))
+    assert m._fcn._cfcn is True
+    m.migrad()
+    assert m.nfcn > 0
+
+    m.reset()
+    m.throw_nan = True
+    with pytest.raises(RuntimeError, match="result is NaN"):
+        m.migrad()
+    assert m.nfcn > 0
+
+
 @pytest.mark.parametrize("cl", (0.5, None, 0.9))
 @pytest.mark.parametrize("experimental", (False, True))
 def test_confidence_level(cl, experimental):
@@ -1646,6 +1784,42 @@ def test_pickle(grad):
     assert m2.fmin.ngrad == m.fmin.ngrad
 
 
+def func_simple(x, y):
+    return (x - 1) ** 2 + (y - 2) ** 2
+
+
+@pytest.mark.parametrize("copy_fn", ("pickle", "deepcopy"))
+def test_pickle_reuses_minimum(copy_fn):
+    import pickle
+    import copy
+
+    m = Minuit(func_simple, x=0, y=0)
+    m.migrad()
+
+    if copy_fn == "pickle":
+        m2 = pickle.loads(pickle.dumps(m))
+    else:
+        m2 = copy.deepcopy(m)
+
+    # the copy must see its own minimum state, not an equal-but-distinct copy
+    assert m2._last_state is m2._fmin._src.state
+
+    n1 = m.fmin.nfcn
+    n2 = m2.fmin.nfcn
+
+    m.hesse()
+    m2.hesse()
+
+    # hesse must not restart the minimization on the copy
+    assert m2.fmin.algorithm == "Migrad"
+    assert m2.fmin.nfcn - n2 == m.fmin.nfcn - n1
+
+    # modifying the copy still does not change the stored minimum
+    m2.values["x"] = 3
+    assert m2._last_state is not m2._fmin._src.state
+    assert m2._fmin._src.state[0].value == approx(1, abs=1e-3)
+
+
 def test_minos_new_min():
     xref = [1.0]
     m = Minuit(lambda x: (x - xref[0]) ** 2, x=0)
@@ -1661,6 +1835,19 @@ def test_minos_new_min():
     # ...but interval is correct
     assert m.merrors["x"].lower == approx(-0.9, abs=1e-2)
     assert m.merrors["x"].upper == approx(1.1, abs=1e-2)
+
+
+@pytest.mark.parametrize("algorithm", ("migrad", "simplex", "scan"))
+def test_minos_cleared_by_new_minimization(algorithm):
+    m = Minuit(func0, x=0, y=0)
+    m.migrad()
+    m.minos()
+    assert len(m.merrors) == 2
+    assert m.params[0].merror is not None
+    m.values = (5, 5)
+    getattr(m, algorithm)()
+    assert len(m.merrors) == 0
+    assert m.params[0].merror is None
 
 
 def test_minos_without_migrad():
@@ -1811,3 +1998,114 @@ def test_migrad_iterative_with_precision():
     m2.migrad(iterate=1)
 
     assert m2.fmin.nfcn < m1.fmin.nfcn
+
+
+def test_mncontour_experimental_per_param_limits():
+    pytest.importorskip("scipy.optimize")
+
+    def cost(x, y):
+        return x**2 + y**2
+
+    m = Minuit(cost, x=0.5, y=0.5)
+    m.limits["x"] = (-0.3, 5)
+    m.limits["y"] = (-5, 0.3)
+    m.migrad()
+
+    cont = m.mncontour(0, 1, size=30, experimental=True)
+    # regression: y was clamped with the limits of x
+    assert np.all(cont[:, 0] >= -0.3 - 1e-9)
+    assert np.all(cont[:, 1] <= 0.3 + 1e-9)
+
+    cont0 = m.mncontour(0, 1, size=30, experimental=False)
+    assert np.all(cont0[:, 0] >= -0.3 - 1e-9)
+    assert np.all(cont0[:, 1] <= 0.3 + 1e-9)
+
+
+def test_fixto_does_not_mutate_fmin():
+    # fixto after migrad must not mutate the (immutable) FunctionMinimum state
+    m = Minuit(func0, x=0, y=0)
+    m.migrad()
+    values_before = [p.value for p in m.fmin._src.state]
+
+    # before fixto, _last_state is a reference to the FunctionMinimum's state
+    assert not m._fmin_does_not_exist_or_last_state_was_modified()
+
+    m.fixto("x", 1.0)
+
+    # the stored FunctionMinimum must be unchanged
+    values_after = [p.value for p in m.fmin._src.state]
+    assert values_after == values_before
+    assert values_before[0] != 1.0
+
+    # fixto modified _last_state, so the next hesse must rebuild from a seed
+    assert m._fmin_does_not_exist_or_last_state_was_modified()
+
+
+@pytest.mark.parametrize(
+    "attr,value",
+    (
+        ("values", 1.0),
+        ("errors", 3.0),
+        ("fixed", True),
+        ("limits", (-10, 10)),
+    ),
+)
+def test_modification_does_not_mutate_fmin(attr, value):
+    m = Minuit(func0, x=0, y=0)
+    m.migrad()
+
+    # _last_state is a reference to the FunctionMinimum state until it is modified
+    assert m._last_state is m._fmin._src.state
+    fmin = m.fmin
+    state_before = [(p.value, p.error, p.is_fixed) for p in m._fmin._src.state]
+
+    getattr(m, attr)["x"] = value
+
+    assert m._last_state is not m._fmin._src.state
+    assert m.fmin is fmin
+    assert [(p.value, p.error, p.is_fixed) for p in m._fmin._src.state] == state_before
+
+
+def test_scan_does_not_mutate_init_state():
+    m = Minuit(func0, x=0, y=0)
+    m.limits = (-10, 10)
+    init_params = m.init_params
+    m.scan(ncall=20)
+    assert m.init_params == init_params
+    assert m.values != [p.value for p in init_params]
+
+
+def test_reset_resets_all_counters():
+    m = Minuit(func0, grad=func0_grad, x=0, y=0)
+    m.migrad()
+    # all four FCN counters are reset, including _ng2 and _nhessian which
+    # reset() previously left untouched
+    m._fcn._ng2 = 7
+    m._fcn._nhessian = 3
+    assert m._fcn._nfcn > 0
+    assert m._fcn._ngrad > 0
+    m.reset()
+    assert m._fcn._nfcn == 0
+    assert m._fcn._ngrad == 0
+    assert m._fcn._ng2 == 0
+    assert m._fcn._nhessian == 0
+
+
+def test_scan_all_fixed():
+    m = Minuit(func0, x=1, y=2)
+    m.fixed = True
+    with pytest.raises(RuntimeError, match="all parameters are fixed"):
+        m.scan()
+
+
+def test_scan_many_free_params():
+    # with many free parameters, the old code computed nstep == 1 (degenerate);
+    # the scan should still vary every parameter and find the minimum
+    def cost(*par):
+        return sum((p - i) ** 2 for i, p in enumerate(par))
+
+    n = 5
+    m = Minuit(cost, *([0.0] * n), name=[f"p{i}" for i in range(n)])
+    m.limits = (-5, 5)
+    m.scan(ncall=20)
+    assert_allclose(m.values, range(n), atol=1.0)

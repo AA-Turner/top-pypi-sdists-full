@@ -23,7 +23,7 @@ from contextlib import nullcontext
 from functools import cached_property, reduce
 from gettext import gettext as _
 from operator import getitem
-from typing import TypeVar
+from typing import TypeVar, overload
 
 import click
 import cloup
@@ -38,11 +38,18 @@ from click.core import (
 from deepmerge import always_merger
 
 from . import context
+from ._deprecated import warn_deprecated_argument
 
 # Imported under a private name so this module's namespace does not resurrect
 # the moved helper: its canonical home is click_extra._utils, and the public
 # `parameters.patch_attr` spelling resolves through the deprecation hook below.
 from ._utils import patch_attr as _patch_attr
+from .columns import (
+    ColumnSpec,
+    render_columns_markdown_table,
+    select_columns,
+    select_row,
+)
 from .envvar import param_envvar_ids
 from .styling import Style
 from .types import EnumChoice
@@ -54,56 +61,85 @@ if TYPE_CHECKING:
     from typing import Any, ClassVar, Literal
 
     from boltons.urlutils import URL
+    from click._utils import T_UNSET
 
 logger = logging.getLogger(__name__)
 
 P = TypeVar("P", bound=click.Parameter)
-"""Type variable bound to {class}`click.Parameter`, letting
-{func}`require_sibling_param` return the exact subclass it was asked to find."""
+"""Type variable bound to {class}`click.Parameter`, letting {func}`search_params`,
+{func}`last_param` and {func}`require_sibling_param` return the exact subclass
+they were asked to find."""
 
 #: Separator joining the keys of a parameter's fully-qualified path
 #: (`cli.subcommand.param`).
 PARAM_PATH_SEP = "."
 
 
+@overload
 def search_params(
     params: Iterable[click.Parameter],
-    klass: type[click.Parameter],
+    klass: type[P],
     include_subclasses: bool = True,
-    unique: bool = True,
-) -> list[click.Parameter] | click.Parameter | None:
-    """Search a particular class of parameter in a list and return them.
+    *,
+    unique: Literal[True] = ...,
+) -> P | None: ...
+
+
+@overload
+def search_params(
+    params: Iterable[click.Parameter],
+    klass: type[P],
+    include_subclasses: bool = True,
+    *,
+    unique: Literal[False],
+) -> list[P] | None: ...
+
+
+def search_params(
+    params: Iterable[click.Parameter],
+    klass: type[P],
+    include_subclasses: bool = True,
+    *,
+    unique: bool | T_UNSET = UNSET,
+) -> P | list[P] | None:
+    """Return the one parameter of class `klass` in `params`, or `None`.
+
+    The result is typed as `klass` itself, so a caller needs no `isinstance`
+    check to use what it found.
 
     :param params: list of parameter instances to search in.
-    :param klass: the class of the parameters to look for.
-    :param include_subclasses: if `True`, includes in the results all parameters subclassing
-        the provided `klass`. If `False`, only matches parameters which are strictly instances of `klass`.
-        Defaults to `True`.
-    :param unique: if `True`, raise an error if more than one parameter of the
-        provided `klass` is found. Defaults to `True`.
+    :param klass: the class of the parameter to look for.
+    :param include_subclasses: if `True` (the default), a parameter subclassing
+        `klass` matches too. If `False`, only a parameter of exactly `klass`
+        does.
+    :param unique: deprecated. `False` returned every match as a list: filter
+        `params` yourself instead, as {func}`last_param` does.
+    :raises RuntimeError: if more than one parameter matches.
     """
     param_list = [
         p
         for p in params
-        if (include_subclasses and isinstance(p, klass))
-        or (not include_subclasses and p.__class__ is klass)
+        if isinstance(p, klass) and (include_subclasses or p.__class__ is klass)
     ]
+    if unique is not UNSET:
+        warn_deprecated_argument(
+            "search_params", "unique", "a list comprehension over params"
+        )
+        if not unique:
+            return param_list or None
     if not param_list:
         return None
-    if unique:
-        if len(param_list) != 1:
-            raise RuntimeError(
-                f"More than one {klass.__name__} parameters found on command: "
-                f"{param_list}"
-            )
-        return param_list.pop()
-    return param_list
+    if len(param_list) != 1:
+        raise RuntimeError(
+            f"More than one {klass.__name__} parameters found on command: {param_list}"
+        )
+    return param_list[0]
 
 
 def last_param(
     params: Iterable[click.Parameter],
-    klass: type[click.Parameter],
-) -> click.Parameter | None:
+    klass: type[P],
+) -> P | None:
     """Return the last parameter of exactly `klass` in *params*, or `None`.
 
     Unlike {func}`search_params`, this matches the exact `klass` (no subclasses)
@@ -115,8 +151,8 @@ def last_param(
     :param params: the command's parameter list to scan.
     :param klass: the exact parameter class to look for.
     """
-    options = search_params(params, klass, include_subclasses=False, unique=False)
-    return options[-1] if options else None  # type: ignore[index]
+    options = [p for p in params if isinstance(p, klass) and p.__class__ is klass]
+    return options[-1] if options else None
 
 
 def require_sibling_param(
@@ -138,11 +174,8 @@ def require_sibling_param(
     :param klass: the sibling parameter class to look for.
     """
     sibling = search_params(params, klass)
-    if not isinstance(sibling, klass):
-        # RuntimeError (not the type-implied TypeError) is intentional: it keeps
-        # the historical --no-config contract and unifies all call sites on one
-        # exception type for a missing-or-wrong-type sibling.
-        raise RuntimeError(  # noqa: TRY004
+    if sibling is None:
+        raise RuntimeError(
             f"{'/'.join(requester.opts)} {type(requester).__name__} must be used "
             f"alongside {klass.__name__}."
         )
@@ -400,14 +433,15 @@ class _ParameterMixin:
             and isinstance(self.type, EnumChoice)
             # Turns out UNSET is also an Enum member, so we need to ignore it.
             and default_value is not UNSET
+            # A `None` default means no default: leave it for Click, which turns
+            # it into `None` or an empty tuple. Stringified, it would read as a
+            # choice called `None` and fail its own validation.
+            and default_value is not None
         ):
             if self.multiple or self.nargs == -1:
-                # A `None` default is not iterable; leave it for Click to turn
-                # into an empty tuple.
-                if default_value is not None:
-                    default_value = tuple(
-                        self.type.get_choice_string(member) for member in default_value
-                    )
+                default_value = tuple(
+                    self.type.get_choice_string(member) for member in default_value
+                )
             else:
                 default_value = self.type.get_choice_string(default_value)
 
@@ -1143,8 +1177,6 @@ def render_params_table(
         ColumnsOption,
         TableFormatOption,
         print_table,
-        select_columns,
-        select_row,
     )
     from .theme import KO_GLYPH, OK_GLYPH, get_current_theme
 
@@ -1181,13 +1213,12 @@ def render_params_table(
 
     # Locate a --config option to fill the "allowed in conf?" column.
     config_option = search_params(cmd.get_params(subject_ctx), ConfigOption)
-    assert config_option is None or isinstance(config_option, ConfigOption)
 
     # Resolve the table format: an explicit context entry wins, else a sibling
     # --table-format option, else the default.
     if context.get(subject_ctx, context.TABLE_FORMAT) is None:
         table_option = search_params(cmd.get_params(subject_ctx), TableFormatOption)
-        if table_option and isinstance(table_option, TableFormatOption):
+        if table_option is not None:
             table_fmt, _ = table_option.consume_value(subject_ctx, opts)
             table_option.init_formatter(
                 subject_ctx,
@@ -1203,7 +1234,7 @@ def render_params_table(
     # sibling --columns option, else the provided default.
     if context.get(subject_ctx, context.COLUMNS) is None:
         cols_option = search_params(cmd.get_params(subject_ctx), ColumnsOption)
-        if cols_option and isinstance(cols_option, ColumnsOption):
+        if cols_option is not None:
             cols_value, _ = cols_option.consume_value(subject_ctx, opts)
             cols_option.init_columns(
                 subject_ctx,
@@ -1313,10 +1344,8 @@ class ShowParamsOption(ExtraOption, ParamStructure):
     ```
     """
 
-    from .table import ColumnSpec as _ColumnSpec
-
-    TABLE_HEADERS: ClassVar[tuple[_ColumnSpec, ...]] = (
-        _ColumnSpec(
+    TABLE_HEADERS: ClassVar[tuple[ColumnSpec, ...]] = (
+        ColumnSpec(
             id="id",
             label="ID",
             description=(
@@ -1328,7 +1357,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "spelling of the last segment."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="spec",
             label="Spec.",
             description=(
@@ -1338,7 +1367,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "#click.Parameter)."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="help",
             label="Help",
             optional=True,
@@ -1352,7 +1381,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "rendered `--help` screen."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="class",
             label="Class",
             description=(
@@ -1372,7 +1401,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "(#click_extra.parameters.ExtraOption))."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="param_type",
             label="Param type",
             description=(
@@ -1385,7 +1414,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "or a Click Extra type."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="python_type",
             label="Python type",
             description=(
@@ -1401,7 +1430,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "the Click `Param type`."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="hidden",
             label="Hidden",
             description=(
@@ -1413,7 +1442,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "which does not support hiding."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="exposed",
             label="Exposed",
             description=(
@@ -1425,7 +1454,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "exposed."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="allowed_in_conf",
             label="Allowed in conf?",
             description=(
@@ -1437,7 +1466,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "when the CLI has no [`--config` option](config.md)."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="envvars",
             label="Env. vars.",
             description=(
@@ -1448,7 +1477,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "[Environment variables](envvar.md)."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="default",
             label="Default",
             description=(
@@ -1457,7 +1486,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "#click.Parameter.get_default), rendered as its Python `repr()`."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="is_flag",
             label="Is flag",
             description=(
@@ -1468,7 +1497,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "(https://click.palletsprojects.com/en/stable/api/#click.Argument)."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="flag_value",
             label="Flag value",
             description=(
@@ -1480,7 +1509,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "(like `@option('--upper', 'transform', flag_value='upper')`)."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="is_bool_flag",
             label="Is bool flag",
             description=(
@@ -1489,7 +1518,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "boolean flag, as opposed to a flag-value style option."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="multiple",
             label="Multiple",
             description=(
@@ -1499,7 +1528,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "values into a tuple."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="nargs",
             label="Nargs",
             description=(
@@ -1509,7 +1538,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "default; `-1` denotes a variadic argument."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="prompt",
             label="Prompt",
             description=(
@@ -1519,7 +1548,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "the command line. Empty when no prompt is configured."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="confirmation_prompt",
             label="Confirmation prompt",
             description=(
@@ -1529,7 +1558,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "confirmation."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="value",
             label="Value",
             description=(
@@ -1539,7 +1568,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "from the merged sources (CLI, environment, config file, default)."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="source",
             label="Source",
             description=(
@@ -1549,7 +1578,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
                 "`ENVIRONMENT`, `DEFAULT_MAP`, or `DEFAULT`."
             ),
         ),
-        _ColumnSpec(
+        ColumnSpec(
             id="config_file",
             label="Config file",
             optional=True,
@@ -1568,7 +1597,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
     )
     """Rich column registry for the `--params` table.
 
-    Each entry is a {class}`click_extra.table.ColumnSpec` carrying the column's
+    Each entry is a {class}`click_extra.columns.ColumnSpec` carrying the column's
     stable `id` (used by `--columns` and as structured-format key), its
     display `label`, and a MyST/Markdown `description` consumed by the
     documentation's auto-generated *Available columns* section. Iteration
@@ -1586,10 +1615,10 @@ class ShowParamsOption(ExtraOption, ParamStructure):
         return tuple(col.id for col in cls.TABLE_HEADERS)
 
     @classmethod
-    def default_columns(cls) -> tuple[_ColumnSpec, ...]:
+    def default_columns(cls) -> tuple[ColumnSpec, ...]:
         """Return the columns rendered when `--columns` asks for no projection.
 
-        Every column but the {attr}`~click_extra.table.ColumnSpec.optional` ones,
+        Every column but the {attr}`~click_extra.columns.ColumnSpec.optional` ones,
         which stay addressable by ID and out of the way until named.
         """
         return tuple(col for col in cls.TABLE_HEADERS if not col.optional)
@@ -1606,7 +1635,7 @@ class ShowParamsOption(ExtraOption, ParamStructure):
 
     @classmethod
     def find_column(cls, column_id: str):
-        """Return the {class}`~click_extra.table.ColumnSpec` matching `column_id`.
+        """Return the {class}`~click_extra.columns.ColumnSpec` matching `column_id`.
 
         Raises `KeyError` if no column has this ID; callers should convert
         the error into a {class}`click.UsageError` when surfaced to a user.
@@ -1626,21 +1655,19 @@ class ShowParamsOption(ExtraOption, ParamStructure):
         `docs/parameters.md`: editing a description here automatically
         rebuilds the docs table on the next `sphinx-build`.
         """
-        # Imported here to avoid a circular import: table imports from this module.
-        from .table import render_columns_markdown_table
-
         return render_columns_markdown_table(cls.TABLE_HEADERS)
 
     def __init__(
         self,
         param_decls: Sequence[str] | None = None,
-        is_flag=True,
-        expose_value=False,
-        is_eager=True,
-        help=_(
+        *,
+        is_flag: bool = True,
+        expose_value: bool = False,
+        is_eager: bool = True,
+        help: str = _(
             "Show all CLI parameters, their provenance, defaults and value, then exit.",
         ),
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         if not param_decls:
             param_decls = ("--params",)

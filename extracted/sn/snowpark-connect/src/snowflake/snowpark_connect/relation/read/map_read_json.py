@@ -808,6 +808,7 @@ def map_read_json(
     options: JsonReaderConfig,
     *,
     skip_partition_discovery: bool = False,
+    glob_patterns: dict[str, str] | None = None,
 ) -> DataFrameContainer:
     """
     Read a JSON file into a Snowpark DataFrame.
@@ -936,6 +937,7 @@ def map_read_json(
                 corrupt_record_column=corrupt_record_column_name,
                 reader_options=nss_infer_reader_options,
                 stage_paths=nss_stage_paths,
+                glob_patterns=glob_patterns,
             )
             if not nss_columns:
                 ensure_nss_empty_schema_has_visible_files(
@@ -1025,6 +1027,7 @@ def map_read_json(
             session=session,
             stage_path=nss_stage_path,
             stage_paths=nss_stage_paths,
+            glob_patterns=glob_patterns,
             file_format=nss_format_name,
             columns=nss_columns,
             reader_options=nss_reader_options,
@@ -1048,7 +1051,9 @@ def map_read_json(
                 df, rel.common.plan_id
             )
         except SnowparkSQLException as exc:
-            if len(nss_stage_paths) > 1:
+            if len(nss_stage_paths) > 1 or any(
+                p in (glob_patterns or {}) for p in nss_stage_paths
+            ):
                 raise_if_locations_unsupported(exc, len(nss_stage_paths))
             raise
         # Memoizable in df_cache_map, but not materialized (SNOW-3717231).

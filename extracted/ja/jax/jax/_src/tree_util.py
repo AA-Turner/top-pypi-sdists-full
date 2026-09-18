@@ -341,7 +341,10 @@ def register_pytree_node_class(cls: Typ) -> Typ:
   a class-oriented interface.
 
   Args:
-    cls: a type to register as a pytree
+    cls: a type to register as a pytree. The class must define a
+      ``tree_flatten`` method and a ``tree_unflatten`` class method, which
+      implement ``flatten_func`` and ``unflatten_func`` as described in
+      :func:`jax.tree_util.register_pytree_node`.
 
   Returns:
     The input class ``cls`` is returned unchanged after being added to JAX's pytree
@@ -362,16 +365,19 @@ def register_pytree_node_class(cls: Typ) -> Typ:
     >>> import jax
     >>> @jax.tree_util.register_pytree_node_class
     ... class MyContainer:
-    ...   def __init__(self, x, y):
-    ...     self.x = x
-    ...     self.y = y
+    ...   def __init__(self, name, x, y):
+    ...     self.name = name  # static metadata
+    ...     self.x = x        # array data
+    ...     self.y = y        # array data
     ...   def tree_flatten(self):
-    ...     return ((self.x, self.y), None)
+    ...     children = (self.x, self.y)
+    ...     aux_data = self.name
+    ...     return (children, aux_data)
     ...   @classmethod
     ...   def tree_unflatten(cls, aux_data, children):
-    ...     return cls(*children)
+    ...     return cls(aux_data, *children)
     ...
-    >>> m = MyContainer(jnp.zeros(4), jnp.arange(4))
+    >>> m = MyContainer('m', jnp.zeros(4), jnp.arange(4))
     >>> def f(m):
     ...   return m.x + 2 * m.y
     >>> jax.jit(f)(m)
@@ -1010,7 +1016,7 @@ def register_dataclass(
   registries use the optimized C++ dataclass builtin instead of the argument
   functions.
 
-  See :ref:`pytrees-custom-pytree-nodes` for more information about registering pytrees.
+  See :ref:`jax-101-custom-pytrees` for more information about registering pytrees.
 
   Args:
     nodetype: a Python type to treat as an internal pytree node. This is assumed
@@ -1061,9 +1067,9 @@ def register_dataclass(
     >>> m
     MyStruct(x=Array([1., 1., 1.], dtype=float32), y=Array([0, 1, 2], dtype=int32), op='add')
 
-    Starting in JAX v0.4.36, the ``data_fields`` and ``meta_fields`` arguments are optional
-    for :func:`~dataclasses.dataclass` inputs, with fields defaulting to ``data_fields``
-    unless marked as static using `static` metadata in :func:`dataclasses.field`.
+    Since JAX v0.9.0, the ``data_fields`` and ``meta_fields`` arguments can be left
+    out, and all fields will be considered ``data_fields`` unless marked by
+    :func:`jax.tree.static`:
 
     >>> import jax
     >>> from dataclasses import dataclass, field
@@ -1073,7 +1079,7 @@ def register_dataclass(
     ... class MyStruct:
     ...   x: jax.Array  # defaults to non-static data field
     ...   y: jax.Array  # defaults to non-static data field
-    ...   op: str = field(metadata=dict(static=True))  # marked as static meta field.
+    ...   op: str = jax.tree.static()  # marked as static meta field.
     ...
     >>> m = MyStruct(x=jnp.ones(3), y=jnp.arange(3), op='add')
     >>> m

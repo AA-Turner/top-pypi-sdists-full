@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: mf2py
-Version: 2.0.1
+Version: 2.0.2
 Summary: Microformats parser
 License: MIT
 Author: Tom Morris
@@ -14,6 +14,13 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
 Classifier: Topic :: Text Processing :: Markup :: HTML
 Requires-Dist: beautifulsoup4 (>=4.11.1,<5.0.0)
 Requires-Dist: html5lib (>=1.1,<2.0)
@@ -75,7 +82,7 @@ Import the library:
                                                'rels': ['webmention']}},
  'debug': {'description': 'mf2py - microformats2 parser for python',
            'source': 'https://github.com/microformats/mf2py',
-           'version': '2.0.0',
+           'version': '2.0.2',
            'markup parser': 'html5lib'}}
 
 ```

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pyserde
-Version: 0.32.2
+Version: 0.33.0
 Summary: Yet another serialization library on top of dataclasses
 Project-URL: Repository, https://github.com/yukinarit/pyserde
 Project-URL: Homepage, https://github.com/yukinarit/pyserde
@@ -30,20 +30,18 @@ License-File: LICENSE
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: <4.0,>=3.10
+Requires-Python: <4.0,>=3.11
 Requires-Dist: beartype>=0.18.4
 Requires-Dist: casefy
 Requires-Dist: jinja2
 Requires-Dist: plum-dispatch>=2.3
-Requires-Dist: typing-extensions<4.17.0,>=4.1.0
-Requires-Dist: typing-inspect>=0.4.0
+Requires-Dist: typing-extensions<4.17.0,>=4.13.0
 Provides-Extra: all
 Requires-Dist: jaxtyping; extra == 'all'
 Requires-Dist: msgpack; extra == 'all'
@@ -52,7 +50,6 @@ Requires-Dist: orjson; extra == 'all'
 Requires-Dist: pyyaml; extra == 'all'
 Requires-Dist: sqlalchemy>2; extra == 'all'
 Requires-Dist: tomli-w; extra == 'all'
-Requires-Dist: tomli; (python_version < '3.11') and extra == 'all'
 Provides-Extra: jaxtyping
 Requires-Dist: jaxtyping; extra == 'jaxtyping'
 Provides-Extra: msgpack
@@ -65,7 +62,6 @@ Provides-Extra: sqlalchemy
 Requires-Dist: sqlalchemy>2; extra == 'sqlalchemy'
 Provides-Extra: toml
 Requires-Dist: tomli-w; extra == 'toml'
-Requires-Dist: tomli; (python_version < '3.11') and extra == 'toml'
 Provides-Extra: yaml
 Requires-Dist: pyyaml; extra == 'yaml'
 Description-Content-Type: text/markdown
@@ -81,9 +77,6 @@ Description-Content-Type: text/markdown
   </a>
   <a href="https://github.com/yukinarit/pyserde/actions/workflows/test.yml">
     <img alt="GithubActions" src="https://github.com/yukinarit/pyserde/actions/workflows/test.yml/badge.svg">
-  </a>
-  <a href="https://codecov.io/gh/yukinarit/pyserde">
-    <img alt="CodeCov" src="https://codecov.io/gh/yukinarit/pyserde/branch/main/graph/badge.svg">
   </a>
 </p>
 <p align="center">
@@ -171,6 +164,7 @@ Happy coding with pyserde! 🚀
 - [PEP604 Allow writing union types as X | Y](https://github.com/yukinarit/pyserde/blob/main/docs/en/getting-started.md#pep585-and-pep604)
 - [PEP681 Data Class Transform](https://github.com/yukinarit/pyserde/blob/main/docs/en/decorators.md#serde)
 - [PEP695 Type Parameter Syntax](https://peps.python.org/pep-0695/)
+- [PEP747 Annotating Type Forms](https://peps.python.org/pep-0747/)
 - [Case Conversion](https://github.com/yukinarit/pyserde/blob/main/docs/en/class-attributes.md#rename_all)
 - [Rename](https://github.com/yukinarit/pyserde/blob/main/docs/en/field-attributes.md#rename)
 - [Alias](https://github.com/yukinarit/pyserde/blob/main/docs/en/field-attributes.md#alias)

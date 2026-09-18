@@ -9,11 +9,13 @@ if TYPE_CHECKING:
     from ..models.ai_agent_input_transforms_enabled_tools import AiAgentInputTransformsEnabledTools
     from ..models.ai_agent_input_transforms_max_completion_tokens import AiAgentInputTransformsMaxCompletionTokens
     from ..models.ai_agent_input_transforms_max_iterations import AiAgentInputTransformsMaxIterations
+    from ..models.ai_agent_input_transforms_memory_id import AiAgentInputTransformsMemoryId
     from ..models.ai_agent_input_transforms_memory_type_0 import AiAgentInputTransformsMemoryType0
     from ..models.ai_agent_input_transforms_memory_type_1 import AiAgentInputTransformsMemoryType1
     from ..models.ai_agent_input_transforms_memory_type_2 import AiAgentInputTransformsMemoryType2
     from ..models.ai_agent_input_transforms_output_schema import AiAgentInputTransformsOutputSchema
     from ..models.ai_agent_input_transforms_output_type import AiAgentInputTransformsOutputType
+    from ..models.ai_agent_input_transforms_previous_messages import AiAgentInputTransformsPreviousMessages
     from ..models.ai_agent_input_transforms_provider_type_0 import AiAgentInputTransformsProviderType0
     from ..models.ai_agent_input_transforms_provider_type_1 import AiAgentInputTransformsProviderType1
     from ..models.ai_agent_input_transforms_provider_type_2 import AiAgentInputTransformsProviderType2
@@ -32,13 +34,15 @@ class AiAgentInputTransforms:
     """Input parameters for the AI agent mapped to their values
 
     Attributes:
-        user_message (AiAgentInputTransformsUserMessage): The user's prompt/message to the AI agent. Supports variable
-            interpolation with flow.input syntax.
         provider (Union['AiAgentInputTransformsProviderType0', 'AiAgentInputTransformsProviderType1',
             'AiAgentInputTransformsProviderType2', Unset]): Provider configuration - can be static (ProviderConfig),
             JavaScript expression, or AI-determined
         output_type (Union[Unset, AiAgentInputTransformsOutputType]): Output format type.
             Valid values: 'text' (default) - plain text response, 'image' - image generation
+        user_message (Union[Unset, AiAgentInputTransformsUserMessage]): The user's prompt/message to the AI agent.
+            Supports variable interpolation with
+            flow.input syntax. Required unless memory is off and `previous_messages` supplies
+            the prompt; image output always needs it.
         system_prompt (Union[Unset, AiAgentInputTransformsSystemPrompt]): System instructions that guide the AI's
             behavior, persona, and response style. Optional.
         streaming (Union[Unset, AiAgentInputTransformsStreaming]): Boolean. If true, stream the AI response
@@ -48,6 +52,18 @@ class AiAgentInputTransforms:
         memory (Union['AiAgentInputTransformsMemoryType0', 'AiAgentInputTransformsMemoryType1',
             'AiAgentInputTransformsMemoryType2', Unset]): Memory configuration - can be static (MemoryConfig), JavaScript
             expression, or AI-determined
+        memory_id (Union[Unset, AiAgentInputTransformsMemoryId]): String. Names the memory this step reads and writes,
+            overriding the memory id the run
+            was started with (the chat conversation, an app chat session or the `memory_id` run
+            parameter). Leave unset to use the run's memory id. A fixed value shares one memory
+            across every run; an expression such as `flow_input.customer_id` keeps one memory per
+            key. When it evaluates to an empty value the agent runs without memory. Read only
+            while `memory` is `window`: it is ignored when memory is off, and an older `auto` or
+            `manual` memory reads neither history input.
+        previous_messages (Union[Unset, AiAgentInputTransformsPreviousMessages]): Array of MemoryMessage. History
+            supplied by the flow, sent between the system prompt
+            and the user message. Read only while `memory` is off or absent: managed memory
+            ignores it, and an older `auto` or `manual` memory reads neither history input.
         output_schema (Union[Unset, AiAgentInputTransformsOutputSchema]): JSON Schema object defining structured output
             format. Used when you need the AI to return data in a specific shape.
             Supports standard JSON Schema properties: type, properties, required, items, enum, pattern, minLength,
@@ -81,7 +97,6 @@ class AiAgentInputTransforms:
             Range: 1-1000.
     """
 
-    user_message: "AiAgentInputTransformsUserMessage"
     provider: Union[
         "AiAgentInputTransformsProviderType0",
         "AiAgentInputTransformsProviderType1",
@@ -89,6 +104,7 @@ class AiAgentInputTransforms:
         Unset,
     ] = UNSET
     output_type: Union[Unset, "AiAgentInputTransformsOutputType"] = UNSET
+    user_message: Union[Unset, "AiAgentInputTransformsUserMessage"] = UNSET
     system_prompt: Union[Unset, "AiAgentInputTransformsSystemPrompt"] = UNSET
     streaming: Union[Unset, "AiAgentInputTransformsStreaming"] = UNSET
     memory: Union[
@@ -97,6 +113,8 @@ class AiAgentInputTransforms:
         "AiAgentInputTransformsMemoryType2",
         Unset,
     ] = UNSET
+    memory_id: Union[Unset, "AiAgentInputTransformsMemoryId"] = UNSET
+    previous_messages: Union[Unset, "AiAgentInputTransformsPreviousMessages"] = UNSET
     output_schema: Union[Unset, "AiAgentInputTransformsOutputSchema"] = UNSET
     user_attachments: Union[Unset, "AiAgentInputTransformsUserAttachments"] = UNSET
     enabled_tools: Union[Unset, "AiAgentInputTransformsEnabledTools"] = UNSET
@@ -110,8 +128,6 @@ class AiAgentInputTransforms:
         from ..models.ai_agent_input_transforms_memory_type_1 import AiAgentInputTransformsMemoryType1
         from ..models.ai_agent_input_transforms_provider_type_0 import AiAgentInputTransformsProviderType0
         from ..models.ai_agent_input_transforms_provider_type_1 import AiAgentInputTransformsProviderType1
-
-        user_message = self.user_message.to_dict()
 
         provider: Union[Dict[str, Any], Unset]
         if isinstance(self.provider, Unset):
@@ -135,6 +151,10 @@ class AiAgentInputTransforms:
         output_type: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.output_type, Unset):
             output_type = self.output_type.to_dict()
+
+        user_message: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.user_message, Unset):
+            user_message = self.user_message.to_dict()
 
         system_prompt: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.system_prompt, Unset):
@@ -163,6 +183,14 @@ class AiAgentInputTransforms:
             if not isinstance(self.memory, Unset):
                 memory = self.memory.to_dict()
 
+        memory_id: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.memory_id, Unset):
+            memory_id = self.memory_id.to_dict()
+
+        previous_messages: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.previous_messages, Unset):
+            previous_messages = self.previous_messages.to_dict()
+
         output_schema: Union[Unset, Dict[str, Any]] = UNSET
         if not isinstance(self.output_schema, Unset):
             output_schema = self.output_schema.to_dict()
@@ -189,21 +217,23 @@ class AiAgentInputTransforms:
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "user_message": user_message,
-            }
-        )
+        field_dict.update({})
         if provider is not UNSET:
             field_dict["provider"] = provider
         if output_type is not UNSET:
             field_dict["output_type"] = output_type
+        if user_message is not UNSET:
+            field_dict["user_message"] = user_message
         if system_prompt is not UNSET:
             field_dict["system_prompt"] = system_prompt
         if streaming is not UNSET:
             field_dict["streaming"] = streaming
         if memory is not UNSET:
             field_dict["memory"] = memory
+        if memory_id is not UNSET:
+            field_dict["memory_id"] = memory_id
+        if previous_messages is not UNSET:
+            field_dict["previous_messages"] = previous_messages
         if output_schema is not UNSET:
             field_dict["output_schema"] = output_schema
         if user_attachments is not UNSET:
@@ -224,11 +254,13 @@ class AiAgentInputTransforms:
         from ..models.ai_agent_input_transforms_enabled_tools import AiAgentInputTransformsEnabledTools
         from ..models.ai_agent_input_transforms_max_completion_tokens import AiAgentInputTransformsMaxCompletionTokens
         from ..models.ai_agent_input_transforms_max_iterations import AiAgentInputTransformsMaxIterations
+        from ..models.ai_agent_input_transforms_memory_id import AiAgentInputTransformsMemoryId
         from ..models.ai_agent_input_transforms_memory_type_0 import AiAgentInputTransformsMemoryType0
         from ..models.ai_agent_input_transforms_memory_type_1 import AiAgentInputTransformsMemoryType1
         from ..models.ai_agent_input_transforms_memory_type_2 import AiAgentInputTransformsMemoryType2
         from ..models.ai_agent_input_transforms_output_schema import AiAgentInputTransformsOutputSchema
         from ..models.ai_agent_input_transforms_output_type import AiAgentInputTransformsOutputType
+        from ..models.ai_agent_input_transforms_previous_messages import AiAgentInputTransformsPreviousMessages
         from ..models.ai_agent_input_transforms_provider_type_0 import AiAgentInputTransformsProviderType0
         from ..models.ai_agent_input_transforms_provider_type_1 import AiAgentInputTransformsProviderType1
         from ..models.ai_agent_input_transforms_provider_type_2 import AiAgentInputTransformsProviderType2
@@ -239,7 +271,6 @@ class AiAgentInputTransforms:
         from ..models.ai_agent_input_transforms_user_message import AiAgentInputTransformsUserMessage
 
         d = src_dict.copy()
-        user_message = AiAgentInputTransformsUserMessage.from_dict(d.pop("user_message"))
 
         def _parse_provider(
             data: object,
@@ -296,6 +327,13 @@ class AiAgentInputTransforms:
             output_type = UNSET
         else:
             output_type = AiAgentInputTransformsOutputType.from_dict(_output_type)
+
+        _user_message = d.pop("user_message", UNSET)
+        user_message: Union[Unset, AiAgentInputTransformsUserMessage]
+        if isinstance(_user_message, Unset):
+            user_message = UNSET
+        else:
+            user_message = AiAgentInputTransformsUserMessage.from_dict(_user_message)
 
         _system_prompt = d.pop("system_prompt", UNSET)
         system_prompt: Union[Unset, AiAgentInputTransformsSystemPrompt]
@@ -360,6 +398,20 @@ class AiAgentInputTransforms:
 
         memory = _parse_memory(d.pop("memory", UNSET))
 
+        _memory_id = d.pop("memory_id", UNSET)
+        memory_id: Union[Unset, AiAgentInputTransformsMemoryId]
+        if isinstance(_memory_id, Unset):
+            memory_id = UNSET
+        else:
+            memory_id = AiAgentInputTransformsMemoryId.from_dict(_memory_id)
+
+        _previous_messages = d.pop("previous_messages", UNSET)
+        previous_messages: Union[Unset, AiAgentInputTransformsPreviousMessages]
+        if isinstance(_previous_messages, Unset):
+            previous_messages = UNSET
+        else:
+            previous_messages = AiAgentInputTransformsPreviousMessages.from_dict(_previous_messages)
+
         _output_schema = d.pop("output_schema", UNSET)
         output_schema: Union[Unset, AiAgentInputTransformsOutputSchema]
         if isinstance(_output_schema, Unset):
@@ -403,12 +455,14 @@ class AiAgentInputTransforms:
             max_iterations = AiAgentInputTransformsMaxIterations.from_dict(_max_iterations)
 
         ai_agent_input_transforms = cls(
-            user_message=user_message,
             provider=provider,
             output_type=output_type,
+            user_message=user_message,
             system_prompt=system_prompt,
             streaming=streaming,
             memory=memory,
+            memory_id=memory_id,
+            previous_messages=previous_messages,
             output_schema=output_schema,
             user_attachments=user_attachments,
             enabled_tools=enabled_tools,

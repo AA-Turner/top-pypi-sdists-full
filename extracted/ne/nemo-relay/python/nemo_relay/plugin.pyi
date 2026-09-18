@@ -2,9 +2,10 @@
 # SPDX-License-Identifier: Apache-2.0
 
 import os
-from collections.abc import Callable, Sequence
+from collections.abc import Callable
+from contextlib import AbstractAsyncContextManager
 from types import TracebackType
-from typing import AsyncContextManager, Literal, Protocol, Self, TypedDict
+from typing import Literal, Protocol, Self, TypeAlias, TypedDict
 
 from nemo_relay import (
     Event,
@@ -22,6 +23,10 @@ from nemo_relay import (
     ToolRequestIntercept,
     ToolSanitizeGuardrail,
 )
+from nemo_relay.adaptive import ComponentSpec as AdaptiveComponentSpec
+from nemo_relay.model_pricing import ComponentSpec as PricingComponentSpec
+from nemo_relay.observability import ComponentSpec as ObservabilityComponentSpec
+from nemo_relay.pii_redaction import ComponentSpec as PiiRedactionComponentSpec
 from nemo_relay.runtime_registrations import ConditionalMiddlewareGuardrail, RuntimeRegistrationKind
 
 UnsupportedBehavior = Literal["ignore", "warn", "error"]
@@ -49,6 +54,41 @@ class RuntimeDiagnostic(_RuntimeDiagnosticRequired, total=False):
 class ConfigReport(TypedDict):
     diagnostics: list[ConfigDiagnostic]
     runtime_diagnostics: list[RuntimeDiagnostic]
+
+DynamicPluginCheckState = Literal["unknown", "valid", "invalid"]
+
+class _DynamicPluginValidationStatusRequired(TypedDict):
+    manifest: DynamicPluginCheckState
+    compatibility: DynamicPluginCheckState
+    integrity: DynamicPluginCheckState
+    environment: DynamicPluginCheckState
+    authenticity: DynamicPluginCheckState
+    policy_satisfied: DynamicPluginCheckState
+
+class DynamicPluginValidationStatus(_DynamicPluginValidationStatusRequired, total=False):
+    checked_at: str | None
+    message: str | None
+
+class DynamicPluginFailure(TypedDict):
+    phase: str
+    code: str
+    message: str
+
+class _DynamicPluginValidationReportRequired(TypedDict):
+    plugin_id: str
+    manifest_ref: str
+    kind: DynamicPluginKind
+    status: DynamicPluginValidationStatus
+    selected: bool
+
+class DynamicPluginValidationReport(_DynamicPluginValidationReportRequired, total=False):
+    failure: DynamicPluginFailure | None
+
+class PluginHostReport(TypedDict):
+    config: ConfigReport
+    dynamic_plugins: list[DynamicPluginValidationReport]
+    config_paths: list[str]
+    resolved_config: JsonObject
 
 class PluginContext(Protocol):
     def register_subscriber(self, name: str, callback: Callable[[Event], None]) -> None: ...
@@ -129,39 +169,30 @@ class ComponentSpec:
     ) -> None: ...
     def to_dict(self) -> JsonObject: ...
 
+PluginComponentSpec: TypeAlias = (
+    ComponentSpec
+    | AdaptiveComponentSpec
+    | ObservabilityComponentSpec
+    | PricingComponentSpec
+    | PiiRedactionComponentSpec
+)
+
 class PluginConfig:
     version: int
-    components: list[object]
+    components: list[PluginComponentSpec]
     policy: ConfigPolicy
 
     def __init__(
         self,
         version: int = 1,
-        components: list[object] = ...,
+        components: list[PluginComponentSpec] = ...,
         policy: ConfigPolicy = ...,
-    ) -> None: ...
-    def to_dict(self) -> JsonObject: ...
-
-class DynamicPluginActivationSpec:
-    plugin_id: str
-    kind: DynamicPluginKind
-    manifest_ref: str
-    environment_ref: str | None
-    config: JsonObject
-
-    def __init__(
-        self,
-        plugin_id: str,
-        kind: DynamicPluginKind,
-        manifest_ref: str,
-        environment_ref: str | None = None,
-        config: JsonObject = ...,
     ) -> None: ...
     def to_dict(self) -> JsonObject: ...
 
 class PluginHostActivation:
     @property
-    def report(self) -> ConfigReport: ...
+    def report(self) -> PluginHostReport: ...
     @property
     def is_active(self) -> bool: ...
     async def close(self) -> None: ...
@@ -173,19 +204,19 @@ class PluginHostActivation:
         traceback: TracebackType | None,
     ) -> None: ...
 
-def load_dynamic_plugin_activation_specs(
-    plugin_config_path: str | os.PathLike[str],
-) -> list[DynamicPluginActivationSpec]: ...
-def validate(config: PluginConfig | JsonObject) -> ConfigReport: ...
-async def initialize(config: PluginConfig | JsonObject) -> ConfigReport: ...
-async def initialize_with_dynamic_plugins(
+async def initialize(
     config: PluginConfig | JsonObject,
-    dynamic_plugins: Sequence[DynamicPluginActivationSpec | JsonObject],
+    additional_plugins_toml: str | os.PathLike[str] | None = None,
 ) -> PluginHostActivation: ...
-def clear() -> None: ...
-async def clear_async() -> None: ...
-def plugin(config: PluginConfig | JsonObject) -> AsyncContextManager[ConfigReport]: ...
-def report() -> ConfigReport | None: ...
+def activate(
+    config: PluginConfig | JsonObject,
+    additional_plugins_toml: str | os.PathLike[str] | None = None,
+) -> AbstractAsyncContextManager[PluginHostActivation]: ...
+def validate(
+    config: PluginConfig | JsonObject,
+    additional_plugins_toml: str | os.PathLike[str] | None = None,
+) -> PluginHostReport: ...
+def validate_exact(config: PluginConfig | JsonObject) -> PluginHostReport: ...
 def list_kinds() -> list[str]: ...
 def register(plugin_kind: str, plugin: Plugin) -> None: ...
 def deregister(plugin_kind: str) -> bool: ...

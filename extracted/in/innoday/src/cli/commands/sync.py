@@ -125,6 +125,13 @@ class SyncCommands:
             default=DEFAULT_SYNC_WAIT_TIMEOUT,
         )
         parser.add_argument(
+            "--full",
+            action="store_true",
+            help="Re-pull every ticket instead of resuming from the last "
+            "successful sync. The repair path for a board you suspect has "
+            "drifted; the default is incremental and much faster",
+        )
+        parser.add_argument(
             "--scope",
             # Derived from the enum, never typed out beside it. `default` is a
             # plain string already in `choices` because argparse does not pass
@@ -381,6 +388,7 @@ class SyncCommands:
         # assembled while tickets were still arriving (#741). Waiting is what
         # makes the order mean anything; `--no-wait` has nothing to wait for and
         # so keeps the old straight-through run.
+        full = bool(getattr(args, "full", False))
         wait = not getattr(args, "no_wait", False)
         wait_timeout = getattr(args, "wait_timeout", None)
 
@@ -393,6 +401,7 @@ class SyncCommands:
                 project_id,
                 config,
                 since=since,
+                full=full,
                 wait=wait,
                 wait_timeout=wait_timeout,
             )
@@ -431,6 +440,7 @@ class SyncCommands:
         config,
         *,
         since: Optional[str] = None,
+        full: bool = False,
         wait: bool = True,
         wait_timeout: Optional[float] = None,
     ) -> int:
@@ -462,7 +472,10 @@ class SyncCommands:
 
         # No credential is read from this machine and none is sent: the
         # server resolves the board's own credential from Vault (#609).
-        sync_data = {"full_sync": False, "dry_run": False, "force": False}
+        # **Incremental unless asked otherwise.** With neither flag the server
+        # resumes from the last successful sync's start, so a quiet board is a
+        # few seconds rather than a full re-pull of every issue.
+        sync_data = {"full_sync": full, "dry_run": False, "force": False}
         if since:
             sync_data["since"] = since
 

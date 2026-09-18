@@ -135,8 +135,22 @@ class PactBuildHook(BuildHookInterface[Any]):
         Get the platform tag from the current system tags.
 
         This is used to determine the target platform for the Pact library.
+
+        On Linux, the generic `linux_{arch}` tag conveys no information about
+        the platform's C library, so the more specific `manylinux`/`musllinux`
+        tag is preferred when one is available.
+
+        Returns:
+            The most specific platform tag supported by the current system.
         """
-        return next(t.platform for t in sys_tags())
+        platforms = (t.platform for t in sys_tags())
+        preferred = next(platforms)
+        if preferred.startswith("linux_"):
+            return next(
+                (p for p in platforms if not p.startswith("linux_")),
+                preferred,
+            )
+        return preferred
 
     def _install(self, version: str) -> Mapping[str, str]:
         """
@@ -320,12 +334,12 @@ class PactBuildHook(BuildHookInterface[Any]):
         else:
             extra_libs = []
 
+        source = self._patch_header(header.read_text())
+
         ffibuilder = cffi.FFI()
         ffibuilder.cdef(
             "\n".join(
-                line
-                for line in header.read_text().splitlines()
-                if not line.strip().startswith("#")
+                line for line in source.splitlines() if not line.strip().startswith("#")
             )
         )
 
@@ -348,7 +362,7 @@ class PactBuildHook(BuildHookInterface[Any]):
 
         ffibuilder.set_source(
             "ffi",
-            header.read_text(),
+            source,
             libraries=["pact_ffi", *extra_libs],
             library_dirs=[str(lib.parent)],
             extra_link_args=linker_args,
@@ -367,6 +381,42 @@ class PactBuildHook(BuildHookInterface[Any]):
 
         self.app.display_debug(f"Compiled CFFI bindings to {extension}")
         return extension
+
+    def _patch_header(self, source: str) -> str:
+        """
+        Patch the upstream header so that CFFI can compile it.
+
+        The upstream `pact.h` emits the callback parameter of
+        `pactffi_register_plugin_log_callback` as an opaque struct passed by
+        value, which cannot be compiled. The Rust signature is
+        `Option<extern "C" fn(...)>`, whose ABI is a nullable function pointer.
+        See https://github.com/pact-foundation/pact-reference/issues/544.
+
+        Args:
+            source:
+                The contents of the upstream `pact.h`.
+
+        Returns:
+            The header contents with the callback declared as a function
+            pointer.
+        """
+        opaque = "typedef struct Option_PluginLogCallback Option_PluginLogCallback;"
+        if opaque not in source:
+            return source
+        self.app.display_debug("Patching Option_PluginLogCallback in pact.h")
+        return source.replace(
+            opaque,
+            "typedef void (*PluginLogCallback)("
+            "const char *plugin_instance_id, "
+            "const char *test_run_id, "
+            "const char *level, "
+            "const char *target, "
+            "const char *message);",
+        ).replace(
+            "void pactffi_register_plugin_log_callback("
+            "struct Option_PluginLogCallback callback);",
+            "void pactffi_register_plugin_log_callback(PluginLogCallback callback);",
+        )
 
     def _download(self, url: str) -> Path:
         """

@@ -25,13 +25,13 @@ need the annotation APIs.
 from __future__ import annotations
 
 import builtins
-import inspect
 import logging
 import os
-from contextlib import AbstractContextManager, contextmanager
-from typing import Any, Callable, overload, TypeAlias
+from contextlib import _GeneratorContextManager, contextmanager
+from typing import Any, Callable, overload, TypeAlias, TypeVar
 
 import torch
+from spmd_types._coverage import _mark_asserted
 from spmd_types._frame import _get_user_frame
 from spmd_types._local_registration import (  # noqa: F401
     register_local_autograd_function,
@@ -50,6 +50,7 @@ from spmd_types.types import (
     _check_orthogonality,
     DeviceMeshAxis,
     format_axis,
+    I,
     LocalSpmdType,
     normalize_axis,
     normalize_local_type,
@@ -59,6 +60,7 @@ from spmd_types.types import (
     PerMeshAxisLocalSpmdType,
     PerMeshAxisSpmdType,
     PerMeshAxisSpmdTypes,
+    R,
     Shard,
     shard_types_to_partition_spec,
     SpmdType,
@@ -370,6 +372,7 @@ def assert_type(  # noqa: C901
             PartitionSpec info.
         SpmdTypeError: If existing local SPMD type doesn't match.
     """
+    _mark_asserted(tensor)
     if isinstance(tensor, (list, tuple)):
         result = [assert_type(t, type, partition_spec) for t in tensor]
         return builtins.type(tensor)(result)
@@ -731,6 +734,42 @@ def mutate_type(
     return _set_local_type(tensor, new_type)
 
 
+@api_boundary
+def reinterpret_no_grad(
+    tensor: torch.Tensor,
+    axis: DeviceMeshAxis,
+    *,
+    dst: PerMeshAxisSpmdType,
+) -> torch.Tensor:
+    """Reinterpret ``R`` as ``I``, or vice versa, when no gradient can flow.
+
+    ``R`` and ``I`` have identical forward values and differ only in their
+    backward behavior, so changing between them is safe for a tensor with
+    ``requires_grad=False``. The tensor data is not modified.
+    """
+    if tensor.requires_grad:
+        raise ValueError("reinterpret_no_grad requires tensor.requires_grad=False")
+    dst_local = to_local_type(dst)
+    if dst_local not in (R, I):
+        raise ValueError(f"reinterpret_no_grad requires dst=R or dst=I; got dst={dst}")
+    mesh_axis = normalize_axis(axis)
+    if mesh_axis.size() == 1:
+        return tensor
+    local_type = get_local_type(tensor)
+    if mesh_axis not in local_type:
+        raise SpmdTypeError(
+            f"reinterpret_no_grad: axis {format_axis(mesh_axis)} not found in "
+            "tensor's SPMD type"
+        )
+    src_local = local_type[mesh_axis]
+    if src_local not in (R, I):
+        raise SpmdTypeError(
+            "reinterpret_no_grad requires the current type to be R or I; "
+            f"got {src_local} on axis {format_axis(mesh_axis)}"
+        )
+    return mutate_type(tensor, mesh_axis, src=src_local, dst=dst_local)
+
+
 # =============================================================================
 # Autograd function registration
 # =============================================================================
@@ -744,20 +783,10 @@ def _run_autograd_spmd_typecheck(
     func: Callable[..., object],
     args: tuple[object, ...],
 ) -> object:
-    signature = inspect.signature(cls.forward)
-    has_ctx = cls.setup_context is torch.autograd.Function.setup_context
-    bound = signature.bind(*(args if not has_ctx else (None, *args)))
-    bound.apply_defaults()
-    forward_args = dict(bound.arguments)
-    if has_ctx:
-        forward_args.pop(next(iter(signature.parameters)))
+    # Lazy import: rules imports runtime.
+    from spmd_types.rules import run_typecheck
 
-    outputs = func(*args)
-    hook = cls.spmd_typecheck
-    names = tuple(inspect.signature(hook).parameters)[1:]
-    hook(outputs, **{name: forward_args[name] for name in names})
-
-    return outputs
+    return run_typecheck(cls, func, args)
 
 
 def _get_autograd_spmd_typecheck(cls: type) -> Callable[..., object] | None:
@@ -777,8 +806,20 @@ def register_autograd_function(cls: type) -> type:
 
     A class may define an ``spmd_typecheck`` staticmethod. Its presence is
     detected automatically, so new classes do not need this decorator. The
-    hook runs after the function, receives its exact return value as the first
-    argument, and names only the forward arguments it needs::
+    hook runs after the function and names the forward arguments it needs as
+    keyword-only parameters (names must match ``forward``). Two forms are
+    supported. The preferred form is a type-level forward that returns the
+    output type(s), usually composed from the type-only operations in
+    ``spmd_types.rules`` (``rules.einsum``, ``rules.all_reduce``, ...)::
+
+        class LinearAllReduce(torch.autograd.Function):
+            @staticmethod
+            def spmd_typecheck(*, x, weight, group):
+                y = rules.einsum("mk,nk->mn", x, weight)
+                return rules.all_reduce(y, group, src=P, dst=I)
+
+    Alternatively, the hook may take a leading positional parameter that
+    receives the exact return value of ``forward`` and stamps it itself::
 
         class MyCollectiveOp(torch.autograd.Function):
             @staticmethod
@@ -786,13 +827,18 @@ def register_autograd_function(cls: type) -> type:
                 return x + y
 
             @staticmethod
-            def spmd_typecheck(outputs, *, x):
+            def spmd_typecheck(outputs, *, x, y):
                 assert_type(x, {pg: S(-1)})
+                rules.ignore(y)
                 assert_type_like(outputs, x, {pg: R})
 
             @staticmethod
             def backward(ctx, g):
                 return g, g
+
+    Every hook is coverage checked: each tensor argument must reach a
+    ``rules`` operation, ``assert_type``, or ``rules.ignore``, and every tensor
+    output must be typed. See ``docs/rules.md``.
 
     The legacy ``typecheck_forward`` wrapper remains supported for existing
     registrations, but cannot be combined with ``spmd_typecheck``.
@@ -988,8 +1034,15 @@ def local():
         yield
 
 
+_F = TypeVar("_F", bound=Callable[..., Any])
+
+
 @overload
-def no_typecheck() -> AbstractContextManager[None]: ...
+def no_typecheck() -> _GeneratorContextManager[None]: ...
+
+
+@overload
+def no_typecheck(fn: _F, /) -> _F: ...
 
 
 @overload
@@ -998,8 +1051,16 @@ def no_typecheck(
 ) -> Callable[[Callable[..., Any]], Callable[..., Any]]: ...
 
 
-def no_typecheck(**kwargs: Any):
-    """Disable checking in a context or across an explicitly typed function."""
+def no_typecheck(fn: Callable[..., Any] | None = None, /, **kwargs: Any):
+    """Disable checking with ``with no_typecheck()``, ``no_typecheck(fn)``,
+    or ``@no_typecheck()``. Supply ``out_types`` for an explicitly typed boundary.
+    """
+    if fn is not None:
+        if not callable(fn) or kwargs:
+            raise TypeError(
+                "no_typecheck(fn) requires a callable and no type specifications"
+            )
+        return _no_typecheck_context()(fn)
     if not kwargs:
         return _no_typecheck_context()
     if "out_types" not in kwargs or kwargs.keys() - {"in_types", "out_types"}:

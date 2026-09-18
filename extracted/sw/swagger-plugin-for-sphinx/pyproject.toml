@@ -1,10 +1,10 @@
 [build-system]
 build-backend = "setuptools.build_meta"
-requires = ["setuptools~=82.0", "setuptools-scm~=10.0"]
+requires = ["setuptools~=84.0", "setuptools-scm~=10.0"]
 
 [project]
 authors = [
-    {name = "Kai Harder", email = "kai.harder@sap.com"},
+    { name = "Kai Harder", email = "kai.harder@sap.com" },
 ]
 classifiers = [
     "Development Status :: 5 - Production/Stable",
@@ -53,30 +53,30 @@ Changelog = "https://github.com/SAP/swagger-plugin-for-sphinx/blob/main/CHANGELO
 
 [dependency-groups]
 dev = [
-    "pre-commit==4.6.0",
-    "pylint==4.0.5",
+    "pre-commit==4.6.2",
+    "pylint==4.0.8",
     "black==26.5.1",
-    "isort==8.0.1",
+    "isort==9.0.1",
     "flake8==7.3.0",
-    "flake8-tergeo==26.5.28.0",
-    "mypy==2.1.0",
-    "types-docutils==0.22.3.20260518",
+    "flake8-tergeo==26.9.10.0",
+    "mypy==2.3.1",
+    "types-docutils==0.23.0.20260911",
     "yesqa==1.5.0",
-    "types-PyYAML==6.0.12.20260518",
+    "types-PyYAML==6.0.12.20260906",
     "pyupgrade==3.21.2",
-    "toml-sort==0.24.4",
+    "toml-sort==0.25.0",
     "pylint-per-file-ignores==3.2.1",
-    "uv==0.11.17",
-    "towncrier==25.8.0",
+    "uv==0.12.13",
+    "towncrier==26.9.0",
 ]
 test = [
-    "pytest==9.0.3",
-    "coverage==7.14.1",
-    "diff-cover==10.2.1",
+    "pytest==9.1.1",
+    "coverage==7.16.1",
+    "diff-cover==10.5.1",
     "pytest-cov==7.1.0",
-    "selenium==4.44.0",
+    "selenium==4.49.0",
     "pyyaml==6.0.3",
-    "pytest-randomly==4.1.0",
+    "pytest-randomly==5.0.0",
 ]
 
 [tool.coverage.report]

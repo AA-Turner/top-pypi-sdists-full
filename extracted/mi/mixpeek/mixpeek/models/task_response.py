@@ -20,6 +20,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictFloat, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional, Union
+from mixpeek.models.cancellation_outcome import CancellationOutcome
 from mixpeek.models.task_response_inputs_inner import TaskResponseInputsInner
 from mixpeek.models.task_status_enum import TaskStatusEnum
 from mixpeek.models.task_type import TaskType
@@ -37,9 +38,10 @@ class TaskResponse(BaseModel):
     outputs: Optional[List[TaskResponseInputsInner]] = Field(default=None, description="Output results produced by the task. OPTIONAL. Populated when task completes successfully. May include processed file IDs, result metrics, or status summaries. Check this field after task reaches COMPLETED status to get results. Format: List of strings (output IDs) or objects (result data).")
     additional_data: Optional[Dict[str, Any]] = Field(default=None, description="Additional metadata and context for the task. OPTIONAL. Contains job IDs, error details, progress info, and other task-specific metadata.   Common fields (all task types): - 'error': Error message if task failed - 'job_id': Ray job ID for engine tasks - 'from_mongodb': True if retrieved from MongoDB fallback (not Redis)   Batch-specific fields (task_type=api_buckets_batches_process): - 'batch_id': Batch identifier (REQUIRED) - 'bucket_id': Source bucket identifier (REQUIRED) - 'namespace_id': Namespace identifier (REQUIRED) - 'current_tier': Currently processing tier number, 0-indexed (OPTIONAL, None if not started) - 'total_tiers': Total number of tiers in the batch pipeline (REQUIRED) - 'collection_ids': Array of ALL collection IDs across all tiers (REQUIRED) - 'object_count': Number of objects being processed (REQUIRED) - 'sample_object_ids': First 5 object IDs for debugging/display (OPTIONAL)   Performance Note: Full object_ids array is NOT stored in task metadata to avoid bloating task documents (batches with 10k+ objects would add 200KB+ per task). For full object list, query the batch directly via GET /v1/buckets/{bucket_id}/batches/{batch_id}.   Note: For detailed per-tier status, use GET /v1/buckets/{bucket_id}/batches/{batch_id} to access the tier_tasks[] array which contains individual tier statuses, collection_ids, and timestamps for each tier.")
     error: Optional[StrictStr] = Field(default=None, description="Flattened error message for convenient error handling. OPTIONAL. Automatically populated from additional_data['error'] when the task has FAILED status. This is a convenience field - the full error details are always available in additional_data['error']. Use this field for displaying errors to users or logging. Will be None if task has not failed or if no error details are available. Serialized as 'error' in API responses for backward compatibility.")
+    cancellation: Optional[CancellationOutcome] = Field(default=None, description="Dispatch outcome of a cancel request, present on responses from the batch cancel endpoints. Absent on every other task response, and on a cancel that returned before any dispatch ran. Absent and all-zero are different answers: all-zero means the cancel dispatched to nothing.")
     queue_position: Optional[StrictInt] = Field(default=None, description="1-based position in the Ray processing waitlist. None if the batch was dispatched immediately (no queue). Position 1 means this batch will be processed next.")
     estimated_wait_minutes: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="Estimated minutes until this batch starts processing, based on queue position and average batch duration. None if the batch was dispatched immediately.")
-    __properties: ClassVar[List[str]] = ["task_id", "task_type", "status", "inputs", "outputs", "additional_data", "error", "queue_position", "estimated_wait_minutes"]
+    __properties: ClassVar[List[str]] = ["task_id", "task_type", "status", "inputs", "outputs", "additional_data", "error", "cancellation", "queue_position", "estimated_wait_minutes"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -94,6 +96,9 @@ class TaskResponse(BaseModel):
                 if _item_outputs:
                     _items.append(_item_outputs.to_dict())
             _dict['outputs'] = _items
+        # override the default output from pydantic by calling `to_dict()` of cancellation
+        if self.cancellation:
+            _dict['cancellation'] = self.cancellation.to_dict()
         return _dict
 
     @classmethod
@@ -113,6 +118,7 @@ class TaskResponse(BaseModel):
             "outputs": [TaskResponseInputsInner.from_dict(_item) for _item in obj["outputs"]] if obj.get("outputs") is not None else None,
             "additional_data": obj.get("additional_data"),
             "error": obj.get("error"),
+            "cancellation": CancellationOutcome.from_dict(obj["cancellation"]) if obj.get("cancellation") is not None else None,
             "queue_position": obj.get("queue_position"),
             "estimated_wait_minutes": obj.get("estimated_wait_minutes")
         })

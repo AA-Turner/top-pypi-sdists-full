@@ -515,8 +515,21 @@ mod native {
         let Some(scope_stack) = immutable_scope_stack(&current_scope_stack()) else {
             return false;
         };
+        let mut event = event.clone();
+        event.set_propagation_root_uuid(
+            scope_stack
+                .read()
+                .ok()
+                .and_then(|stack| stack.event_propagation_root_uuid()),
+        );
+        event.set_propagation_parent_uuid(
+            scope_stack
+                .read()
+                .ok()
+                .and_then(|stack| stack.event_propagation_parent_uuid()),
+        );
         let message = DispatcherMessage::Deliver {
-            event: Box::new(event.clone()),
+            event: Box::new(event),
             transform: None,
             injectors: snapshot_event_metadata_injectors(&scope_stack),
             sanitizers: Vec::new(),
@@ -530,7 +543,7 @@ mod native {
     }
 
     pub(super) fn dispatch_sanitized_event(
-        event: Event,
+        mut event: Event,
         sanitizers: Vec<Guardrail<EventSanitizeFn>>,
         subscribers: &[EventSubscriberFn],
         scope_stack: ScopeStackHandle,
@@ -541,6 +554,18 @@ mod native {
         let Some(scope_stack) = immutable_scope_stack(&scope_stack) else {
             return false;
         };
+        event.set_propagation_root_uuid(
+            scope_stack
+                .read()
+                .ok()
+                .and_then(|stack| stack.event_propagation_root_uuid()),
+        );
+        event.set_propagation_parent_uuid(
+            scope_stack
+                .read()
+                .ok()
+                .and_then(|stack| stack.event_propagation_parent_uuid()),
+        );
         let injectors = snapshot_event_metadata_injectors(&scope_stack);
         let message = DispatcherMessage::Deliver {
             event: Box::new(event),
@@ -557,7 +582,7 @@ mod native {
     }
 
     pub(super) fn dispatch_sanitized_event_with_delivery(
-        event: Event,
+        mut event: Event,
         sanitizers: Vec<Guardrail<EventSanitizeFn>>,
         subscribers: &[EventSubscriberFn],
         scope_stack: ScopeStackHandle,
@@ -570,6 +595,18 @@ mod native {
                 "failed to snapshot scope stack for subscriber delivery".into(),
             ));
         };
+        event.set_propagation_root_uuid(
+            scope_stack
+                .read()
+                .ok()
+                .and_then(|stack| stack.event_propagation_root_uuid()),
+        );
+        event.set_propagation_parent_uuid(
+            scope_stack
+                .read()
+                .ok()
+                .and_then(|stack| stack.event_propagation_parent_uuid()),
+        );
         let injectors = snapshot_event_metadata_injectors(&scope_stack);
         let (completion_tx, completion) = tokio::sync::oneshot::channel();
         let message = DispatcherMessage::Deliver {
@@ -592,7 +629,7 @@ mod native {
     }
 
     pub(super) fn dispatch_reserved_sanitized_event(
-        event: Event,
+        mut event: Event,
         sanitizers: Vec<Guardrail<EventSanitizeFn>>,
         subscribers: &[EventSubscriberFn],
         scope_stack: ScopeStackHandle,
@@ -603,6 +640,18 @@ mod native {
         let Some(scope_stack) = immutable_scope_stack(&scope_stack) else {
             return false;
         };
+        event.set_propagation_root_uuid(
+            scope_stack
+                .read()
+                .ok()
+                .and_then(|stack| stack.event_propagation_root_uuid()),
+        );
+        event.set_propagation_parent_uuid(
+            scope_stack
+                .read()
+                .ok()
+                .and_then(|stack| stack.event_propagation_parent_uuid()),
+        );
         let injectors = snapshot_event_metadata_injectors(&scope_stack);
         let message = DispatcherMessage::Deliver {
             event: Box::new(event),
@@ -619,7 +668,7 @@ mod native {
     }
 
     pub(super) fn dispatch_transformed_event(
-        event: Event,
+        mut event: Event,
         transform: EventTransformFn,
         sanitizers: Vec<Guardrail<EventSanitizeFn>>,
         subscribers: &[EventSubscriberFn],
@@ -628,6 +677,18 @@ mod native {
         let Some(scope_stack) = immutable_scope_stack(&scope_stack) else {
             return false;
         };
+        event.set_propagation_root_uuid(
+            scope_stack
+                .read()
+                .ok()
+                .and_then(|stack| stack.event_propagation_root_uuid()),
+        );
+        event.set_propagation_parent_uuid(
+            scope_stack
+                .read()
+                .ok()
+                .and_then(|stack| stack.event_propagation_parent_uuid()),
+        );
         let injectors = snapshot_event_metadata_injectors(&scope_stack);
         let message = DispatcherMessage::Deliver {
             event: Box::new(event),
@@ -1124,7 +1185,9 @@ mod native {
         publication_context: Option<PublicationContext>,
     ) -> (Option<Event>, Vec<DispatcherMessage>) {
         let state = process_state();
-        let (transformed, mut nested_publications) = match transform {
+        let propagation_root_uuid = event.propagation_root_uuid();
+        let propagation_parent_uuid = event.propagation_parent_uuid();
+        let (mut transformed, mut nested_publications) = match transform {
             Some(transform) => {
                 let runtime = match build_sanitizer_invocation_runtime() {
                     Ok(runtime) => runtime,
@@ -1167,6 +1230,8 @@ mod native {
             }
             None => (event, Vec::new()),
         };
+        transformed.set_propagation_root_uuid(propagation_root_uuid);
+        transformed.set_propagation_parent_uuid(propagation_parent_uuid);
         let (injected, injector_publications) =
             inject_event_metadata_snapshot(transformed, injectors, publication_context.clone());
         nested_publications.extend(injector_publications);

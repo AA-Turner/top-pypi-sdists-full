@@ -19,9 +19,9 @@ from numbagg.decorators import (
 @pytest.fixture
 def reset_numba_config() -> Iterator[None]:
     """Fixture to save/restore numba configuration and clear cache."""
-    # Save original config
-    orig_layer = numba.config.THREADING_LAYER
-    orig_priority = list(numba.config.THREADING_LAYER_PRIORITY)
+    # Save original config (numba.config attributes are not in type stubs)
+    orig_layer = numba.config.THREADING_LAYER  # ty:ignore[unresolved-attribute]
+    orig_priority = list(numba.config.THREADING_LAYER_PRIORITY)  # ty:ignore[unresolved-attribute]
 
     # Clear cache before test
     _thread_backend.cache_clear()
@@ -29,8 +29,8 @@ def reset_numba_config() -> Iterator[None]:
     yield
 
     # Restore original config after test
-    numba.config.THREADING_LAYER = orig_layer
-    numba.config.THREADING_LAYER_PRIORITY = orig_priority
+    numba.config.THREADING_LAYER = orig_layer  # ty:ignore[unresolved-attribute]
+    numba.config.THREADING_LAYER_PRIORITY = orig_priority  # ty:ignore[unresolved-attribute]
     _thread_backend.cache_clear()
 
 
@@ -43,25 +43,17 @@ class TestThreadingDetection:
         assert backend in {"tbb", "omp", "workqueue"}
 
     @pytest.mark.parametrize(
-        "priority,expected",
+        "priority",
         [
-            (["workqueue", "omp", "tbb"], "workqueue"),
-            (
-                ["tbb", "workqueue", "omp"],
-                "workqueue",
-            ),  # tbb likely unavailable, falls back
-            (
-                ["omp", "tbb", "workqueue"],
-                "workqueue",
-            ),  # omp likely unavailable, falls back
+            ["workqueue", "omp", "tbb"],
+            ["tbb", "workqueue", "omp"],  # tbb likely unavailable, falls back
+            ["omp", "tbb", "workqueue"],  # omp likely unavailable, falls back
         ],
     )
-    def test_thread_backend_respects_priority(
-        self, reset_numba_config, priority, expected
-    ):
+    def test_thread_backend_respects_priority(self, reset_numba_config, priority):
         """Test that backend respects THREADING_LAYER_PRIORITY."""
-        numba.config.THREADING_LAYER = "default"
-        numba.config.THREADING_LAYER_PRIORITY = priority
+        numba.config.THREADING_LAYER = "default"  # ty:ignore[unresolved-attribute]
+        numba.config.THREADING_LAYER_PRIORITY = priority  # ty:ignore[unresolved-attribute]
 
         # workqueue is always available, so it should be selected when first
         backend = _thread_backend()
@@ -81,7 +73,7 @@ class TestThreadingDetection:
     )
     def test_thread_backend_explicit_layer(self, reset_numba_config, layer, expected):
         """Test that explicit layer selection works."""
-        numba.config.THREADING_LAYER = layer
+        numba.config.THREADING_LAYER = layer  # ty:ignore[unresolved-attribute]
         backend = _thread_backend()
         assert backend in expected
 
@@ -101,7 +93,7 @@ class TestThreadingDetection:
         self, reset_numba_config, category, allowed_backends
     ):
         """Test that layer categories work correctly."""
-        numba.config.THREADING_LAYER = category
+        numba.config.THREADING_LAYER = category  # ty:ignore[unresolved-attribute]
         backend = _thread_backend()
         assert backend in allowed_backends
 
@@ -120,6 +112,27 @@ class TestThreadingDetection:
         """Test that main thread is not considered unsafe."""
         # In the main thread, should always return False
         assert _is_in_unsafe_thread_pool() is False
+
+    def test_is_in_unsafe_thread_pool_main_thread_unsafe_backend(self):
+        """The main thread is safe even when the backend isn't."""
+        # Without pinning the backend, this passes trivially on a runner where
+        # tbb or omp is available — the thread-name check is never reached.
+        with patch(
+            "numbagg.decorators._is_threading_layer_threadsafe", return_value=False
+        ):
+            assert _is_in_unsafe_thread_pool() is False
+
+    @pytest.mark.parametrize("threadsafe,expected", [(True, False), (False, True)])
+    def test_is_in_unsafe_thread_pool_backend_branches(self, threadsafe, expected):
+        """Both in-pool branches, independent of the runner's actual backend."""
+        with patch(
+            "numbagg.decorators._is_threading_layer_threadsafe",
+            return_value=threadsafe,
+        ):
+            with ThreadPoolExecutor(max_workers=1) as executor:
+                in_pool = executor.submit(_is_in_unsafe_thread_pool).result()
+
+        assert in_pool is expected
 
     def test_is_in_unsafe_thread_pool_executor(self):
         """Test detection inside ThreadPoolExecutor."""
@@ -145,16 +158,14 @@ class TestThreadingDetection:
             # tbb or omp are safe
             assert result["in_pool"] is False
 
-    def test_thread_backend_caching(self):
-        """Test that _thread_backend result is cached."""
-        # First call
-        backend1 = _thread_backend()
-
-        # Second call should return same result without re-evaluation
-        # We can't easily test this without mocking, but we can verify
-        # the result is consistent
-        backend2 = _thread_backend()
-        assert backend1 == backend2
+    def test_thread_backend_caching(self, reset_numba_config):
+        """Test that _thread_backend memoizes rather than re-evaluating."""
+        # The fixture clears the cache, so the first call is a miss and the
+        # second a hit. Comparing the two return values alone wouldn't test
+        # anything — the function is deterministic for a fixed config.
+        assert _thread_backend() == _thread_backend()
+        info = _thread_backend.cache_info()
+        assert (info.misses, info.hits) == (1, 1)
 
     @pytest.mark.skipif(
         sys.platform == "linux", reason="Test is for non-Linux forksafe behavior"
@@ -186,8 +197,8 @@ class TestThreadingWithMocks:
             # Mock successful imports
             mock_import.return_value = True
 
-            numba.config.THREADING_LAYER = "default"
-            numba.config.THREADING_LAYER_PRIORITY = ["tbb", "omp", "workqueue"]
+            numba.config.THREADING_LAYER = "default"  # ty:ignore[unresolved-attribute]
+            numba.config.THREADING_LAYER_PRIORITY = ["tbb", "omp", "workqueue"]  # ty:ignore[unresolved-attribute]
 
             # Should return tbb since it's first and "available"
             assert _thread_backend() == "tbb"
@@ -203,7 +214,62 @@ class TestThreadingWithMocks:
         with patch("numbagg.decorators.importlib.import_module") as mock_import:
             mock_import.side_effect = mock_import_side_effect
 
-            numba.config.THREADING_LAYER = "default"
+            numba.config.THREADING_LAYER = "default"  # ty:ignore[unresolved-attribute]
 
             # Should return workqueue as fallback
+            assert _thread_backend() == "workqueue"
+
+    @pytest.mark.parametrize(
+        "priority,category,expected",
+        [
+            # workqueue first: only the categories that admit it pick it up, so
+            # `threadsafe` has to skip past it to omp.
+            (["workqueue", "omp", "tbb"], "default", "workqueue"),
+            (["workqueue", "omp", "tbb"], "safe", "tbb"),
+            (["workqueue", "omp", "tbb"], "threadsafe", "omp"),
+            (["workqueue", "omp", "tbb"], "forksafe", "workqueue"),
+            # omp first: on Linux `forksafe` excludes it and falls through to tbb.
+            (["omp", "tbb", "workqueue"], "default", "omp"),
+            (["omp", "tbb", "workqueue"], "safe", "tbb"),
+            (["omp", "tbb", "workqueue"], "threadsafe", "omp"),
+            (
+                ["omp", "tbb", "workqueue"],
+                "forksafe",
+                "tbb" if sys.platform == "linux" else "omp",
+            ),
+        ],
+    )
+    def test_layer_categories_pick_first_allowed_in_priority(
+        self, reset_numba_config, priority, category, expected
+    ):
+        """A category takes the first *allowed* entry of the priority list.
+
+        The unmocked category tests can only assert membership in the full set of
+        backends, since a runner without tbb/omp falls back to workqueue for every
+        category. Pretending all three are importable pins the actual semantics.
+        """
+        with patch("numbagg.decorators.importlib.import_module", return_value=True):
+            numba.config.THREADING_LAYER = category  # ty:ignore[unresolved-attribute]
+            numba.config.THREADING_LAYER_PRIORITY = priority  # ty:ignore[unresolved-attribute]
+
+            assert _thread_backend() == expected
+
+    @pytest.mark.parametrize("layer", ["tbb", "omp"])
+    def test_explicit_layer_available(self, reset_numba_config, layer):
+        """An explicitly requested backend is used when it imports."""
+        with patch("numbagg.decorators.importlib.import_module", return_value=True):
+            numba.config.THREADING_LAYER = layer  # ty:ignore[unresolved-attribute]
+
+            assert _thread_backend() == layer
+
+    @pytest.mark.parametrize("layer", ["tbb", "omp"])
+    def test_explicit_layer_falls_back_when_unavailable(
+        self, reset_numba_config, layer
+    ):
+        """An explicitly requested backend falls back when it doesn't import."""
+        with patch(
+            "numbagg.decorators.importlib.import_module", side_effect=ImportError
+        ):
+            numba.config.THREADING_LAYER = layer  # ty:ignore[unresolved-attribute]
+
             assert _thread_backend() == "workqueue"

@@ -384,6 +384,21 @@ def test_UnbinnedNLL_properties(log):
     assert c.verbose == 1
 
 
+def test_UnbinnedNLL_scaled_pdf_2D():
+    # for multivariate data of shape (D, N) the scale must be the number of
+    # data points N, not D * N
+    def model(x_y, mux, muy, sx, sy):
+        return mvnorm(mux, muy, sx, sy).pdf(x_y.T)
+
+    truth = 0.1, 0.2, 0.3, 0.4
+    x, y = mvnorm(*truth).rvs(size=15, random_state=1).T
+    c = UnbinnedNLL((x, y), model)
+
+    assert c.data.shape == (2, 15)
+    expected = 15 * model(c.data, *truth)
+    assert_allclose(c.scaled_pdf(c.data, *truth), expected)
+
+
 @pytest.mark.parametrize("log", (False, True))
 def test_UnbinnedNLL_visualize(log):
     pytest.importorskip("matplotlib")
@@ -432,6 +447,18 @@ def test_UnbinnedNLL_annotated():
     m = Minuit(c, mu=1, sigma=1.5)
     assert m.limits[0] == (-np.inf, np.inf)
     assert m.limits[1] == (0, np.inf)
+
+
+@pytest.mark.parametrize("reverse", (False, True))
+def test_CostSum_annotated(reverse):
+    nll = UnbinnedNLL([], annotated_pdf)
+    nc = NormalConstraint("sigma", 1.0, 0.1)
+    c = nc + nll if reverse else nll + nc
+
+    assert describe(c, annotations=True) == {"mu": None, "sigma": (0, np.inf)}
+
+    m = Minuit(c, mu=0, sigma=1)
+    assert m.limits["sigma"] == (0, np.inf)
 
 
 @pytest.mark.parametrize("verbose", (0, 1))
@@ -643,6 +670,38 @@ def test_BinnedNLL_pulls(binned):
     assert np.nanvar(pulls) == pytest.approx(1, abs=0.2)
 
 
+def test_BinnedNLL_pulls_mask():
+    # masked bins must produce NaN pulls for both boolean and index masks
+    n = np.array([5, 1000, 50, 1])
+    xe = [0, 1, 2, 3, 4]
+    c = BinnedNLL(n, xe, expon_cdf)
+    args = (1.0,)
+
+    full = c.pulls(args)
+    assert not np.any(np.isnan(full))
+
+    # boolean mask: masked bin is NaN, the rest finite
+    c.mask = np.array([True, True, False, True])
+    p = c.pulls(args)
+    assert np.isnan(p[2])
+    assert not np.any(np.isnan(p[[0, 1, 3]]))
+
+    # index mask selecting the same bins must give identical pulls;
+    # bitwise NOT of an index array would poison the wrong bins
+    c.mask = np.array([0, 1, 3])
+    p2 = c.pulls(args)
+    assert np.isnan(p2[2])
+    assert_allclose(p2[[0, 1, 3]], p[[0, 1, 3]])
+
+    # a zero-count bin has zero error and must give NaN in addition to the mask
+    c = BinnedNLL([5, 0, 50, 1], xe, expon_cdf)
+    c.mask = np.array([True, True, False, True])
+    p = c.pulls(args)
+    assert np.isnan(p[1])
+    assert np.isnan(p[2])
+    assert not np.any(np.isnan(p[[0, 3]]))
+
+
 @pytest.mark.parametrize("use_grad", (False, True))
 def test_BinnedNLL_weighted(use_grad):
     xe = np.array([0, 0.2, 0.4, 0.8, 1.5, 10])
@@ -702,6 +761,17 @@ def test_BinnedNLL_negative_weights(use_grad):
         assert m2.ngrad > 0
     else:
         assert m2.ngrad == 0
+
+
+def test_BinnedNLL_grad_with_zero_prediction():
+    # the expected counts underflow to zero in the tail bins
+    n = [48, 7, 0, 0, 0]
+    xe = np.array([0.0, 1.41453733, 2.82907465, 4.24361198, 5.6581493, 7.07268663])
+    c = BinnedNLL(n, xe, expon_cdf, grad=numerical_model_gradient(expon_cdf))
+
+    ref = numerical_cost_gradient(c)
+    for a in (0.1, 1):
+        assert_allclose(c.grad(a), ref(a))
 
 
 def test_BinnedNLL_name(binned):
@@ -838,6 +908,60 @@ def test_BinnedNLL_mask():
 
     ref = numerical_cost_gradient(c)
     assert_allclose(c.grad(2), ref(2))
+
+
+def test_BinnedNLL_inplace_edit():
+    # in-place edits of the counts must be visible without calling a setter
+    def cdf(x, a):
+        return x**a
+
+    def grad(x, a):
+        return (x**a * np.log(x + 1e-300))[np.newaxis]
+
+    c = BinnedNLL([1, 1], [0, 0.5, 1], cdf, grad=grad)
+    assert c(1) == pytest.approx(0)
+    c.n[:] = 2
+    assert_allclose(c.prediction([1]), [2, 2])
+    assert c(1) == pytest.approx(0)
+    assert_allclose(c.grad(1), numerical_cost_gradient(c)(1.0), atol=1e-6)
+
+
+def test_BinnedNLL_mask_grad_multipar():
+    # regression test: the masked gradient renormalization correction must be
+    # per-parameter; with >=2 parameters a scalar correction is wrong
+    pytest.importorskip("jacobi")
+    xe = np.linspace(-2, 2, 6)
+    n = np.diff(norm_cdf(xe, 0.1, 1.2)) * 1000
+    c = BinnedNLL(n, xe, norm_cdf, grad=numerical_model_gradient(norm_cdf))
+    c.mask = np.arange(len(n)) != 2
+
+    ref = numerical_cost_gradient(c)
+    # evaluate away from the truth so the gradient is clearly non-zero
+    for args in [(0.0, 1.0), (0.3, 0.8), (-0.2, 1.5)]:
+        g = c.grad(*args)
+        assert np.linalg.norm(g) > 1.0
+        assert_allclose(g, ref(*args), rtol=1e-3)
+
+
+def test_BinnedNLL_2D_mask_grad():
+    # regression test: with a multi-dimensional histogram, the mask selects along
+    # the first axis only, so the correction must sum over the remaining axes too
+    pytest.importorskip("jacobi")
+    truth = (0.1, 0.2, 0.9, 1.1)
+    x, y = mvnorm(*truth).rvs(size=1000, random_state=1).T
+    w, xe, ye = np.histogram2d(x, y, bins=(6, 5))
+
+    def model(xy, mux, muy, sx, sy):
+        return mvnorm(mux, muy, sx, sy).cdf(xy.T)
+
+    c = BinnedNLL(w, (xe, ye), model, grad=numerical_model_gradient(model))
+    c.mask = np.arange(len(w)) != 2
+
+    ref = numerical_cost_gradient(c)
+    args = (0.0, 0.1, 1.0, 1.0)
+    g = c.grad(*args)
+    assert np.linalg.norm(g) > 1.0
+    assert_allclose(g, ref(*args), rtol=1e-3)
 
 
 def test_BinnedNLL_properties():
@@ -1020,11 +1144,13 @@ def test_ExtendedBinnedNLL_negative_weights(use_grad):
         w, xe, scaled_expon_cdf, grad=numerical_model_gradient(scaled_expon_cdf)
     )
 
-    # if use_grad:
-    #     ref = numerical_cost_gradient(c)
-    #     assert_allclose(c.grad(1, 0.1), ref(1, 0.1))
-    #     assert_allclose(c.grad(1, 1), ref(1, 1))
-    #     assert_allclose(c.grad(2, 12), ref(2, 12))
+    if use_grad:
+        ref = numerical_cost_gradient(c)
+        # the prediction underflows to zero in the tail bins, which makes the
+        # numerical reference gradient inaccurate
+        assert_allclose(c.grad(1, 0.1), ref(1, 0.1), rtol=1e-4)
+        assert_allclose(c.grad(1, 1), ref(1, 1))
+        assert_allclose(c.grad(2, 12), ref(2, 12))
 
     m2 = Minuit(c, 50, 1, grad=use_grad)
     m2.limits = (0, None)
@@ -1272,6 +1398,12 @@ def test_LeastSquares_2D():
     c.x = (y, x)
     assert_equal(c.x, (y, x))
 
+    c.mask = [True, False, True]
+    assert c.ndata == 2
+    assert c(1.5, 0.2) == pytest.approx(
+        np.sum(((2 * f - 1.5 * y - 0.2 * x) / fe)[::2] ** 2)
+    )
+
 
 def test_LeastSquares_3D():
     def model(xyz, a, b):
@@ -1361,6 +1493,21 @@ def test_LeastSquares_mask_2():
     c.yerror = [2, 2]
     assert c(2) == pytest.approx(0)
     assert c(1) == pytest.approx(1)
+
+
+def test_LeastSquares_inplace_edit():
+    # in-place edits of the data must be visible without calling a setter
+    c = LeastSquares([1, 2], [1, 5], 1, lambda x, a: a * x)
+    assert c(2) == pytest.approx(2)
+    c.x[0] = 10
+    assert c(2) == pytest.approx(19**2 + 1)
+    c.data[1, 1] = 99
+    assert c(2) == pytest.approx(19**2 + 95**2)
+    c.yerror[:] = 2
+    assert c(2) == pytest.approx((19**2 + 95**2) / 4)
+    c.data = np.column_stack(([2, 4], [4, 8], [1, 1]))
+    assert c(2) == pytest.approx(0)
+    assert c(1) == pytest.approx(20)
 
 
 def test_LeastSquares_properties():
@@ -1455,6 +1602,24 @@ def test_LeastSquares_pulls():
     assert_equal(c.pulls((0, 1)), [10, 10])
     c.mask = [True, False]
     assert_equal(c.pulls((0, 1)), [10, np.nan])
+
+
+def test_LeastSquares_pulls_mask_index():
+    # an index mask must mask the same bins as the equivalent boolean mask;
+    # bitwise NOT of an index array would poison the wrong bins
+    c = LeastSquares([1, 2, 3], [2, 3, 4], 0.1, line)
+    c.mask = [0, 2]
+    assert_equal(c.pulls((0, 1)), [10, np.nan, 10])
+
+
+def test_LeastSquares_pulls_zero_error():
+    # bins with zero error must yield NaN pulls, not +-inf, with or without a mask
+    c = LeastSquares([1, 2, 3], [2, 3, 4], [0.1, 0.0, 0.1], line)
+    p = c.pulls((0, 1))
+    assert_equal(p, [10, np.nan, 10])
+    c.mask = [True, True, True]
+    p = c.pulls((0, 1))
+    assert_equal(p, [10, np.nan, 10])
 
 
 @pytest.mark.parametrize("use_grad", (False, True))
@@ -1632,6 +1797,18 @@ def test_CostSum_visualize():
     c.visualize((1, 2))
 
 
+def test_CostSum_visualize_single_component():
+    # regression test: a CostSum with exactly one visualizable component must
+    # not crash; subplots(1, 1) returns a bare Axes unless squeeze=False
+    pytest.importorskip("matplotlib")
+    from matplotlib import pyplot as plt
+
+    c = UnbinnedNLL([1.0, 2.0, 3.0], norm_pdf) + 10.0
+    plt.figure()
+    c.visualize((0.0, 1.0))
+    plt.close("all")
+
+
 def test_NormalConstraint_1():
     c1 = NormalConstraint("a", 1, 1.5)
     c2 = NormalConstraint(("a", "b"), (1, 2), (3, 4))
@@ -1789,6 +1966,70 @@ def test_NormalConstraint_pickle():
     assert describe(c) == describe(c2) and describe(c) == ["a", "b"]
     assert_equal(c.value, c2.value)
     assert_equal(c.covariance, c2.covariance)
+
+
+def test_NormalConstraint_does_not_modify_inputs():
+    value = np.array([1.0, 2.0])
+    error = np.array([3.0, 4.0])
+
+    c = NormalConstraint(("a", "b"), value, error)
+    assert_equal(value, [1.0, 2.0])
+    assert_equal(error, [3.0, 4.0])
+
+    c.value = [5.0, 6.0]
+    c.covariance = [7.0, 8.0]
+    assert_equal(value, [1.0, 2.0])
+    assert_equal(error, [3.0, 4.0])
+
+
+def test_NormalConstraint_does_not_modify_inputs_2d():
+    value = np.array([1.0, 2.0])
+    cov = 2 * np.eye(2)
+
+    c = NormalConstraint(("a", "b"), value, cov)
+    assert_equal(cov, 2 * np.eye(2))
+
+    c.covariance = 3 * np.eye(2)
+    assert_equal(value, [1.0, 2.0])
+    assert_equal(cov, 2 * np.eye(2))
+
+
+def test_UnbinnedNLL_does_not_modify_inputs():
+    x = np.array([1.0, 2.0, 3.0])
+
+    c = UnbinnedNLL(x, norm_pdf)
+    assert_equal(x, [1.0, 2.0, 3.0])
+
+    c.data = [4.0, 5.0, 6.0]
+    assert_equal(x, [1.0, 2.0, 3.0])
+
+
+@pytest.mark.parametrize("Cost", (BinnedNLL, ExtendedBinnedNLL))
+def test_BinnedNLL_does_not_modify_inputs(Cost):
+    n = np.array([1.0, 2.0])
+    xe = np.array([0.0, 1.0, 2.0])
+
+    c = Cost(n, xe, norm_cdf)
+    assert_equal(n, [1.0, 2.0])
+
+    c.n = [3.0, 4.0]
+    assert_equal(n, [1.0, 2.0])
+    assert_equal(xe, [0.0, 1.0, 2.0])
+
+
+def test_model_wrong_shape_int_output():
+    # a model that returns an integer sequence with the wrong shape must still
+    # raise the shape error instead of slipping through the float early-return
+    def model(x, a):
+        return [1, 2]
+
+    c = LeastSquares([1.0, 2.0, 3.0], [1.0, 2.0, 3.0], 1.0, model)
+    with pytest.warns(PerformanceWarning):
+        with pytest.raises(
+            ValueError,
+            match=r"output of model has shape \(2,\), but \(3,\) is required",
+        ):
+            c(1)
 
 
 def test_NormalConstraint_bad_input_1():

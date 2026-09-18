@@ -3,7 +3,7 @@ import re
 IDSTR_RE = re.compile(r"([A-Za-z_]+)(\d+)")
 
 
-class UniqueIdsManager(object):
+class UniqueIdsManager:
     """handles different counters for various ids in the document"""
 
     def __init__(self):
@@ -29,4 +29,4 @@ class UniqueIdsManager(object):
         new_obj_id = self.register_id(id_type, obj_id=int(obj_id))
         if new_obj_id is not None:
             # print(id_type, obj_id, new_obj_id, self.id_type_map[id_type])
-            return "%s%d" % (id_type, new_obj_id)
+            return f"{id_type}{new_obj_id}"

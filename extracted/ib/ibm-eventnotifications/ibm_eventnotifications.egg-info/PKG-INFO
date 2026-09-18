@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ibm-eventnotifications
-Version: 0.24.1
+Version: 0.25.0
 Summary: Python server SDK for IBM Cloud Event Notifications service
 Home-page: https://github.com/IBM/event-notifications-python-admin-sdk
 Author: IBM
@@ -33,7 +33,7 @@ Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: summary
 
-# IBM Cloud Event Notifications Python Admin SDK 0.24.1
+# IBM Cloud Event Notifications Python Admin SDK 0.25.0
 
 Python client library to interact with various [IBM Cloud Event Notifications APIs](https://cloud.ibm.com/apidocs?category=event-notifications).
 
@@ -76,13 +76,13 @@ The IBM Cloud Event Notifications Python SDK allows developers to programmatical
 To install, use pip or easy_install:
 
 ```bash
-pip install --upgrade "ibm_eventnotifications>=0.24.1"
+pip install --upgrade "ibm_eventnotifications>=0.25.0"
 ```
 
 or
 
 ```bash
-easy_install --upgrade "ibm_eventnotifications>=0.24.1"
+easy_install --upgrade "ibm_eventnotifications>=0.25.0"
 ```
 
 ## Initialize SDK
@@ -204,8 +204,8 @@ SDK Methods to consume
 source_response = event_notifications_service.create_sources(
             <instance-id>, # Event notifications service instance GUID
             name=<source-name>,
-            description=<source-description>,
             enabled=False,
+            description=<source-description>,
             store_notifications=True  # Optional: Enable to view payload of incoming events for troubleshooting
         ).get_result()
 

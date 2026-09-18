@@ -1,4 +1,5 @@
 import random
+import re
 import time
 from textwrap import indent
 from types import SimpleNamespace
@@ -13,12 +14,31 @@ from pytest_rerunfailures import (
     StatusDB,
     SubtestReport,
     XDistHooks,
+    _failed_subtests_lookup_key,
 )
 
 pytest_plugins = "pytester"
 
 has_xdist = HAS_PYTEST_HANDLECRASHITEM
 has_subtests = SubtestReport is not None
+
+
+@pytest.fixture
+def testdir(testdir):
+    """Keep nested pytester sessions free of pytest-randomly.
+
+    pytest-randomly is still auto-loaded in in-process ``runpytest`` sessions
+    even when the outer invocation used ``-p no:randomly`` (issue #218).
+    Several tests here assert fixture teardown relative to collection order,
+    which that shuffling breaks.
+    """
+    original = testdir.runpytest
+
+    def runpytest(*args, **kwargs):
+        return original("-p", "no:randomly", *args, **kwargs)
+
+    testdir.runpytest = runpytest
+    return testdir
 
 
 def temporary_failure(count=1):
@@ -319,6 +339,38 @@ def test_rerun_passes_after_temporary_test_crash(testdir):
     )
     result = testdir.runpytest("-p", "xdist", "-n", "1", "--reruns", "1", "-r", "R")
     assert_outcomes(result, passed=2, rerun=1)
+    stdout = result.stdout.str()
+    assert (
+        "RERUN test_rerun_passes_after_temporary_test_crash.py::test_crash"
+        in rerun_summary_section(stdout)
+    )
+
+
+@pytest.mark.skipif(not has_xdist, reason="requires xdist with crashitem")
+def test_rerun_summary_groups_attempts_by_test(testdir):
+    testdir.makepyfile(
+        """
+        import py
+
+        def _flaky(name):
+            path = py.path.local(__file__).dirpath().ensure(name + '.res')
+            count = int(path.read() or 0)
+            path.write(count + 1)
+            assert count >= 1
+
+        def test_flaky_a():
+            _flaky('a')
+
+        def test_flaky_b():
+            _flaky('b')
+        """
+    )
+    result = testdir.runpytest("-p", "xdist", "-n", "2", "--reruns", "1", "-r", "R")
+    stdout = result.stdout.str()
+    # xdist interleaves the reports of both tests; each test's attempts must
+    # still form a contiguous, attempt-ordered group in the summary.
+    for name in ("test_flaky_a", "test_flaky_b"):
+        assert rerun_summary_statuses(stdout, name) == ["RERUN", "PASSED"]
 
 
 @pytest.mark.skipif(not has_xdist, reason="requires xdist with crashitem")
@@ -516,6 +568,129 @@ def test_extra_test_summary_for_reruns(testdir):
     result = testdir.runpytest("--reruns", "1", "-r", "R")
     result.stdout.fnmatch_lines_random(["RERUN test_*:*"])
     assert "1 rerun" in result.stdout.str()
+
+
+def rerun_summary_section(stdout, keep_colors=False):
+    """Return the rerun summary section of pytest output."""
+    if not keep_colors:
+        stdout = re.sub(r"\x1b\[[0-9;]*m", "", stdout)
+    rest = stdout.split("rerun test summary info", 1)[1]
+    # The section ends at the next separator line (e.g. "short test summary
+    # info" or the result footer).
+    lines = rest.splitlines()[1:]
+    sep = re.compile(r"^[\x1b\[0-9;*m]*=")
+    end = next((i for i, line in enumerate(lines) if sep.match(line)), len(lines))
+    return "\n".join(lines[:end])
+
+
+def rerun_summary_statuses(stdout, test_name):
+    section = rerun_summary_section(stdout)
+    return [
+        line.split(maxsplit=1)[0]
+        for line in section.splitlines()
+        if f"::{test_name}" in line
+    ]
+
+
+def test_rerun_summary_shows_each_attempt_outcome(testdir):
+    testdir.makepyfile(
+        """
+        attempts = 0
+
+        def test_eventually_passes():
+            global attempts
+            attempts += 1
+            assert attempts == 3
+        """
+    )
+    result = testdir.runpytest("--reruns", "2", "-r", "R", "--color", "yes")
+
+    stdout = result.stdout.str()
+    # Scope the colour assertions to the rerun summary section: with -v the
+    # progress line already contains a green PASSED.
+    section = rerun_summary_section(stdout, keep_colors=True)
+    assert "\x1b[33mRERUN " in section
+    assert "\x1b[32mPASSED " in section
+    assert rerun_summary_statuses(stdout, "test_eventually_passes") == [
+        "RERUN",
+        "RERUN",
+        "PASSED",
+    ]
+
+
+def test_rerun_summary_shows_call_and_teardown_failures(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        @pytest.fixture
+        def bad_teardown():
+            yield
+            raise RuntimeError("teardown exploded")
+
+        def test_fails(bad_teardown):
+            assert False, "call exploded"
+        """
+    )
+    result = testdir.runpytest("--reruns", "1", "--rerun-show-tracebacks")
+
+    stdout = result.stdout.str()
+    assert rerun_summary_statuses(stdout, "test_fails") == [
+        "RERUN",
+        "RERUN",
+        "FAILED",
+        "ERROR",
+    ]
+    section = rerun_summary_section(stdout)
+    assert "call exploded" in section
+    # Both rerun reports carry their traceback, including the teardown one.
+    assert "teardown exploded" in section
+
+
+def test_rerun_summary_shows_setup_error(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        @pytest.fixture
+        def broken():
+            raise RuntimeError("setup exploded")
+
+        def test_needs_fixture(broken):
+            pass
+        """
+    )
+    result = testdir.runpytest("--reruns", "1", "-r", "R")
+
+    # A failed setup produces no call report, so each attempt has one line.
+    assert rerun_summary_statuses(result.stdout.str(), "test_needs_fixture") == [
+        "RERUN",
+        "ERROR",
+    ]
+
+
+def test_rerun_summary_shows_skipped_call(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        @pytest.fixture
+        def bad_teardown():
+            yield
+            raise RuntimeError("teardown exploded")
+
+        def test_skips(bad_teardown):
+            pytest.skip("not today")
+        """
+    )
+    result = testdir.runpytest("--reruns", "1", "-r", "R")
+
+    assert rerun_summary_statuses(result.stdout.str(), "test_skips") == [
+        "SKIPPED",
+        "RERUN",
+        "SKIPPED",
+        "ERROR",
+    ]
 
 
 def test_rerun_show_tracebacks_for_eventual_pass(testdir):
@@ -1011,9 +1186,29 @@ def test_single_attempt_triggers_at_most_one_rerun(testdir):
 
     stdout = result.stdout.str()
     assert "ATTEMPTS: 2" in stdout
-    assert (
-        "FIRST ATTEMPT REPORTS: [('call', 'rerun'), ('teardown', 'failed')]" in stdout
+    assert "FIRST ATTEMPT REPORTS: [('call', 'rerun'), ('teardown', 'rerun')]" in stdout
+
+
+def test_call_and_teardown_failures_are_rerun_together(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        @pytest.fixture
+        def demo_fixture(request):
+            yield
+            if request.node.execution_count == 1:
+                raise RuntimeError("teardown failure")
+
+        def test_demo(demo_fixture, request):
+            if request.node.execution_count == 1:
+                pytest.fail("call failure")
+        """
     )
+
+    result = testdir.runpytest("--reruns", "1")
+
+    assert_outcomes(result, passed=1, rerun=2, failed=0, error=0)
 
 
 def test_pytest_runtest_logfinish_is_called(testdir):
@@ -1066,6 +1261,292 @@ def test_only_rerun_flag(testdir, only_rerun_texts, should_rerun):
     assert_outcomes(
         result, passed=num_passed, failed=num_failed, rerun=num_reruns_actual
     )
+
+
+def test_only_rerun_ini(testdir):
+    testdir.makepyfile(
+        """
+        def test_assertion_error():
+            raise AssertionError("ERR")
+
+        def test_value_error():
+            raise ValueError("ERR")
+        """
+    )
+    testdir.makeini(
+        """
+        [pytest]
+        reruns = 1
+        only_rerun = AssertionError
+        """
+    )
+
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=0, failed=2, rerun=1)
+
+
+def test_only_rerun_ini_multiple(testdir):
+    testdir.makepyfile(
+        """
+        def test_assertion_error():
+            raise AssertionError("ERR")
+
+        def test_value_error():
+            raise ValueError("ERR")
+
+        def test_key_error():
+            raise KeyError("ERR")
+        """
+    )
+    testdir.makeini(
+        """
+        [pytest]
+        reruns = 1
+        only_rerun =
+            AssertionError
+            ValueError
+        """
+    )
+
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=0, failed=3, rerun=2)
+
+
+def test_only_rerun_ini_override(testdir):
+    testdir.makepyfile(
+        """
+        def test_assertion_error():
+            raise AssertionError("ERR")
+
+        def test_value_error():
+            raise ValueError("ERR")
+        """
+    )
+    testdir.makeini(
+        """
+        [pytest]
+        reruns = 1
+        only_rerun = AssertionError
+        """
+    )
+
+    result = testdir.runpytest("--only-rerun", "ValueError")
+    assert_outcomes(result, passed=0, failed=2, rerun=1)
+    # test_assertion_error fails outright; only test_value_error is rerun,
+    # so the progress line must read F-R-F in collection order.
+    result.stdout.fnmatch_lines(["test_only_rerun_ini_override.py FRF*"])
+
+
+def test_only_rerun_ini_marker_overrides(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        @pytest.mark.flaky(reruns=1, only_rerun="AssertionError")
+        def test_assertion_error():
+            raise AssertionError("ERR")
+
+        def test_value_error():
+            raise ValueError("ERR")
+        """
+    )
+    testdir.makeini(
+        """
+        [pytest]
+        reruns = 1
+        only_rerun = ValueError
+        """
+    )
+
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=0, failed=2, rerun=2)
+
+
+def test_only_rerun_ini_with_rerun_except_flag(testdir):
+    testdir.makepyfile(
+        """
+        def test_assertion_error():
+            raise AssertionError("ERR")
+
+        def test_value_error():
+            raise ValueError("ERR")
+
+        def test_os_error():
+            raise OSError("ERR")
+        """
+    )
+    testdir.makeini(
+        """
+        [pytest]
+        reruns = 1
+        only_rerun =
+            AssertionError
+            ValueError
+        """
+    )
+
+    result = testdir.runpytest("--rerun-except", "ValueError")
+    assert_outcomes(result, passed=0, failed=3, rerun=1)
+
+
+def test_rerun_except_ini(testdir):
+    testdir.makepyfile(
+        """
+        def test_assertion_error():
+            raise AssertionError("ERR")
+
+        def test_value_error():
+            raise ValueError("ERR")
+        """
+    )
+    testdir.makeini(
+        """
+        [pytest]
+        reruns = 1
+        rerun_except = ValueError
+        """
+    )
+
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=0, failed=2, rerun=1)
+
+
+@pytest.mark.parametrize("option_name", ["only_rerun", "rerun_except"])
+def test_rerun_filter_ini_invalid_regex(testdir, option_name):
+    testdir.makepyfile(
+        """
+        def test_foo():
+            raise AssertionError("ERR")
+        """
+    )
+    testdir.makeini(
+        f"""
+        [pytest]
+        reruns = 1
+        {option_name} = [unclosed
+        """
+    )
+
+    result = testdir.runpytest()
+    result.stderr.fnmatch_lines_random(
+        f"*invalid regular expression for {option_name}*"
+    )
+
+
+@pytest.mark.parametrize(
+    "only_rerun,should_rerun",
+    [
+        ("MemoryError", True),
+        ("out of memory", True),
+        ("ValueError", False),
+    ],
+)
+def test_only_rerun_matches_wrapped_cause(testdir, only_rerun, should_rerun):
+    testdir.makepyfile(
+        """
+        def test_wrapped():
+            try:
+                raise MemoryError("out of memory")
+            except MemoryError as error:
+                raise RuntimeError("something failed") from error
+        """
+    )
+    result = testdir.runpytest("--reruns", "1", "--only-rerun", only_rerun)
+    assert_outcomes(result, passed=0, failed=1, rerun=1 if should_rerun else 0)
+
+
+def test_only_rerun_matches_implicit_context(testdir):
+    testdir.makepyfile(
+        """
+        def test_wrapped():
+            try:
+                raise MemoryError("out of memory")
+            except MemoryError:
+                raise RuntimeError("something failed")
+        """
+    )
+    result = testdir.runpytest("--reruns", "1", "--only-rerun", "MemoryError")
+    assert_outcomes(result, passed=0, failed=1, rerun=1)
+
+
+def test_only_rerun_exception_class_matches_wrapped_cause(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        @pytest.mark.flaky(reruns=1, only_rerun=[MemoryError])
+        def test_wrapped():
+            try:
+                raise MemoryError("out of memory")
+            except MemoryError as error:
+                raise RuntimeError("something failed") from error
+        """
+    )
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=0, failed=1, rerun=1)
+
+
+def test_only_rerun_ignores_suppressed_context(testdir):
+    testdir.makepyfile(
+        """
+        def test_wrapped():
+            try:
+                raise MemoryError("out of memory")
+            except MemoryError:
+                raise RuntimeError("something failed") from None
+        """
+    )
+    result = testdir.runpytest("--reruns", "1", "--only-rerun", "MemoryError")
+    assert_outcomes(result, passed=0, failed=1, rerun=0)
+
+
+def test_rerun_except_matches_explicit_cause(testdir):
+    testdir.makepyfile(
+        """
+        def test_wrapped():
+            try:
+                raise ValueError("bad value")
+            except ValueError as error:
+                raise RuntimeError("something failed") from error
+        """
+    )
+    result = testdir.runpytest("--reruns", "1", "--rerun-except", "ValueError")
+    assert_outcomes(result, passed=0, failed=1, rerun=0)
+
+
+def test_rerun_except_does_not_match_implicit_context(testdir):
+    testdir.makepyfile(
+        """
+        def test_wrapped():
+            try:
+                assert False, "genuine failure"
+            except AssertionError:
+                raise ConnectionError("network blip")
+        """
+    )
+    result = testdir.runpytest("--reruns", "2", "--rerun-except", "AssertionError")
+    assert_outcomes(result, passed=0, failed=1, rerun=2)
+
+
+def test_only_rerun_and_rerun_except_implicit_context(testdir):
+    testdir.makepyfile(
+        """
+        def test_wrapped():
+            try:
+                assert False, "genuine failure"
+            except AssertionError:
+                raise ConnectionError("network blip")
+        """
+    )
+    result = testdir.runpytest(
+        "--reruns",
+        "2",
+        "--only-rerun",
+        "ConnectionError",
+        "--rerun-except",
+        "AssertionError",
+    )
+    assert_outcomes(result, passed=0, failed=1, rerun=2)
 
 
 def test_no_rerun_on_strict_xfail_with_only_rerun_flag(testdir):
@@ -1415,6 +1896,335 @@ def test_reruns_with_string_condition(testdir, condition, expected_reruns):
     assert_outcomes(result, passed=0, failed=1, rerun=2)
 
 
+@pytest.mark.parametrize(
+    "condition",
+    ["lambda error: error.status == 429", "'error.status == 429'"],
+)
+def test_condition_can_inspect_exception_attributes(testdir, condition):
+    testdir.makepyfile(
+        f"""
+        import pytest
+
+        class ServiceError(Exception):
+            def __init__(self, status):
+                self.status = status
+
+        attempts = 0
+
+        @pytest.mark.flaky(reruns=1, condition={condition})
+        def test_retry_rate_limit():
+            global attempts
+            attempts += 1
+            if attempts == 1:
+                raise ServiceError(429)
+    """
+    )
+
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=1, rerun=1)
+
+
+@pytest.mark.parametrize(
+    "condition",
+    ["lambda error: error.status == 429", "'error.status == 429'"],
+)
+def test_condition_rejects_nonmatching_exception_attributes(testdir, condition):
+    testdir.makepyfile(
+        f"""
+        import pytest
+
+        class ServiceError(Exception):
+            def __init__(self, status):
+                self.status = status
+
+        @pytest.mark.flaky(reruns=1, condition={condition})
+        def test_do_not_retry_bad_request():
+            raise ServiceError(400)
+    """
+    )
+
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=0, failed=1, rerun=0)
+
+
+@pytest.mark.skipif(not has_xdist, reason="requires xdist")
+@pytest.mark.parametrize(
+    "condition",
+    ["lambda error: error.status == 429", "'error.status == 429'"],
+)
+def test_exception_condition_works_with_xdist(testdir, condition):
+    testdir.makepyfile(
+        f"""
+        import pytest
+
+        class ServiceError(Exception):
+            def __init__(self, status):
+                self.status = status
+
+        attempts = 0
+
+        @pytest.mark.flaky(reruns=1, condition={condition})
+        def test_retry_rate_limit():
+            global attempts
+            attempts += 1
+            if attempts == 1:
+                raise ServiceError(429)
+    """
+    )
+
+    result = testdir.runpytest("-p", "xdist", "-n", "1")
+    assert result.ret != pytest.ExitCode.INTERNAL_ERROR
+    assert_outcomes(result, passed=1, rerun=1)
+
+
+def test_callable_condition_error_prevents_rerun(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        def broken_condition(error):
+            raise ValueError("condition failed")
+
+        @pytest.mark.flaky(reruns=1, condition=broken_condition)
+        def test_failure():
+            assert False
+    """
+    )
+
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=0, failed=1, rerun=0)
+    result.stdout.fnmatch_lines([
+        "*UserWarning: Error evaluating 'flaky' condition as a callable*",
+        "*ValueError: condition failed*",
+    ])
+
+
+def test_callable_condition_error_respects_filterwarnings_error(testdir):
+    testdir.makeini("[pytest]\nfilterwarnings = error")
+    testdir.makepyfile(
+        """
+        import pytest
+
+        def broken_condition(error):
+            raise ValueError("condition failed")
+
+        @pytest.mark.flaky(reruns=1, condition=broken_condition)
+        def test_failure():
+            assert False
+    """
+    )
+
+    result = testdir.runpytest()
+    assert result.ret != pytest.ExitCode.INTERNAL_ERROR
+    assert_outcomes(result, passed=0, failed=1, rerun=0)
+
+
+def test_string_condition_error_prevents_rerun(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        @pytest.mark.flaky(reruns=1, condition="error.status == 429")
+        def test_failure():
+            assert False
+    """
+    )
+
+    result = testdir.runpytest()
+    assert result.ret != pytest.ExitCode.INTERNAL_ERROR
+    assert_outcomes(result, passed=0, failed=1, rerun=0)
+    result.stdout.fnmatch_lines([
+        "*UserWarning: Error evaluating 'flaky' condition*",
+        "*AttributeError: 'AssertionError' object has no attribute 'status'*",
+    ])
+
+
+def test_error_name_cannot_be_shadowed_by_test_globals(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        error = None
+        attempts = 0
+
+        class ServiceError(Exception):
+            pass
+
+        @pytest.mark.flaky(reruns=1, condition="isinstance(error, ServiceError)")
+        def test_failure():
+            global attempts
+            attempts += 1
+            if attempts == 1:
+                raise ServiceError
+    """
+    )
+
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=1, rerun=1)
+
+
+def test_zero_argument_callable_condition_remains_supported(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        attempts = 0
+
+        @pytest.mark.flaky(reruns=1, condition=lambda: True)
+        def test_failure():
+            global attempts
+            attempts += 1
+            assert attempts > 1
+    """
+    )
+
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=1, rerun=1)
+
+
+def test_callable_condition_is_evaluated_once_per_failure(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        condition_calls = 0
+        attempts = 0
+
+        def retry_assertion(error):
+            global condition_calls
+            condition_calls += 1
+            return isinstance(error, AssertionError)
+
+        @pytest.mark.flaky(reruns=1, condition=retry_assertion)
+        def test_retry_once():
+            global attempts
+            attempts += 1
+            if attempts == 1:
+                assert False
+            assert condition_calls == 1
+    """
+    )
+
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=1, rerun=1)
+
+
+def test_condition_uses_one_decision_for_call_and_teardown_failures(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        attempts = 0
+
+        class ServiceError(Exception):
+            def __init__(self, status):
+                self.status = status
+
+        @pytest.fixture
+        def service():
+            yield
+            if attempts == 1:
+                raise ServiceError(503)
+
+        @pytest.mark.flaky(
+            reruns=1,
+            condition=lambda error: getattr(error, "status", None) == 503,
+        )
+        def test_service(service):
+            global attempts
+            attempts += 1
+            if attempts == 1:
+                assert False
+    """
+    )
+
+    result = testdir.runpytest()
+    assert result.ret == 0
+    assert_outcomes(result, passed=1, rerun=1)
+
+
+def test_condition_exception_state_is_released_after_attempt(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        attempts = 0
+
+        @pytest.mark.flaky(reruns=1, condition=lambda error: True)
+        def test_retry():
+            global attempts
+            attempts += 1
+            assert attempts > 1
+
+        def test_exception_state_released(request):
+            retry_item = request.session.items[0]
+            assert retry_item._rerun_condition_excinfos == {}
+            assert retry_item._rerun_condition_results == {}
+    """
+    )
+
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=2, rerun=1)
+
+
+def test_exception_condition_receives_setup_error(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        class ServiceError(Exception):
+            def __init__(self, status):
+                self.status = status
+
+        attempts = 0
+
+        @pytest.fixture
+        def service():
+            global attempts
+            attempts += 1
+            if attempts == 1:
+                raise ServiceError(503)
+            return object()
+
+        @pytest.mark.flaky(reruns=1, condition=lambda error: error.status == 503)
+        def test_service(service):
+            assert service is not None
+    """
+    )
+
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=1, rerun=1)
+
+
+def test_exception_condition_receives_teardown_error(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        class ServiceError(Exception):
+            def __init__(self, status):
+                self.status = status
+
+        teardowns = 0
+
+        @pytest.fixture
+        def service():
+            yield object()
+            global teardowns
+            teardowns += 1
+            if teardowns == 1:
+                raise ServiceError(503)
+
+        @pytest.mark.flaky(reruns=1, condition=lambda error: error.status == 503)
+        def test_service(service):
+            assert service is not None
+    """
+    )
+
+    result = testdir.runpytest()
+    assert_outcomes(result, passed=2, rerun=1)
+
+
 def test_reruns_with_string_condition_with_global_var(testdir):
     testdir.makepyfile(
         """
@@ -1629,7 +2439,7 @@ def test_rerunnable_teardown_error_tears_down_module_fixture_once(testdir):
     )
 
     result = testdir.runpytest("-s")
-    assert_outcomes(result, passed=0, failed=1, error=3, rerun=2)
+    assert_outcomes(result, passed=0, failed=1, error=1, rerun=4)
     assert result.stdout.str().count("module teardown") == 1
 
 
@@ -1764,6 +2574,10 @@ def test_only_rerun_flag_in_flaky_marker(
         ("only_rerun=[ValueError]", False),
         ("rerun_except=[AssertionError]", False),
         ("rerun_except=[ValueError]", True),
+        ("only_rerun=AssertionError", True),
+        ("only_rerun=ValueError", False),
+        ("rerun_except=AssertionError", False),
+        ("rerun_except=ValueError", True),
     ],
 )
 def test_rerun_filter_accepts_exception_classes(testdir, filter_kwarg, should_rerun):
@@ -2559,6 +3373,22 @@ def test_max_suite_reruns_without_reruns_has_no_effect(testdir):
     assert_outcomes(result, passed=0, failed=1, rerun=0)
 
 
+@pytest.mark.parametrize(
+    ("has_node_id_api", "expected"),
+    [
+        pytest.param(False, mock.sentinel.nodeid, id="legacy-api"),
+        pytest.param(True, mock.sentinel.id, id="structured-api"),
+    ],
+)
+def test_failed_subtests_lookup_key_uses_api_capability(
+    monkeypatch, has_node_id_api, expected
+):
+    monkeypatch.setattr("pytest_rerunfailures.HAS_PYTEST_NODE_ID", has_node_id_api)
+    report = SimpleNamespace(nodeid=mock.sentinel.nodeid, id=mock.sentinel.id)
+
+    assert _failed_subtests_lookup_key(report) is expected
+
+
 @pytest.mark.skipif(not has_subtests, reason="Only supported on pytest 9.0 and newer")
 def test_failing_subtests_are_rerun(testdir):
     testdir.makepyfile(
@@ -2569,6 +3399,68 @@ def test_failing_subtests_are_rerun(testdir):
             with subtests.test("Fails on first attempt"):
                 {indent(temporary_failure(), "    ")}
     """
+    )
+
+    result = testdir.runpytest("--reruns", "1")
+    assert result.ret == 0
+    assert_outcomes(result, passed=1, rerun=1)
+
+
+@pytest.mark.skipif(not has_subtests, reason="Only supported on pytest 9.0 and newer")
+def test_failing_subtest_condition_receives_its_exception_once(testdir):
+    testdir.makepyfile(
+        """
+        import pytest
+
+        attempts = 0
+        condition_calls = 0
+
+        class ServiceError(Exception):
+            def __init__(self, status):
+                self.status = status
+
+        def retry_rate_limit(error):
+            global condition_calls
+            condition_calls += 1
+            return isinstance(error, ServiceError) and error.status == 429
+
+        @pytest.mark.flaky(reruns=1, condition=retry_rate_limit)
+        def test_subtests(subtests):
+            global attempts
+            attempts += 1
+            with subtests.test("Fails on first attempt"):
+                if attempts == 1:
+                    raise ServiceError(429)
+            if attempts == 2:
+                assert condition_calls == 1
+    """
+    )
+
+    result = testdir.runpytest()
+    assert result.ret == 0
+    assert_outcomes(result, passed=1, rerun=1)
+
+
+@pytest.mark.skipif(not has_subtests, reason="Only supported on pytest 9.0 and newer")
+def test_unrelated_report_id_does_not_prevent_failing_subtest_rerun(testdir):
+    testdir.makeconftest(
+        """
+        import pytest
+
+        @pytest.hookimpl(wrapper=True, tryfirst=True)
+        def pytest_runtest_makereport(item, call):
+            report = yield
+            if not hasattr(type(report), "id"):
+                report.id = "unrelated-plugin-id"
+            return report
+        """
+    )
+    testdir.makepyfile(
+        f"""
+        def test_subtests(subtests):
+            with subtests.test("Fails on first attempt"):
+                {indent(temporary_failure(), "    ")}
+        """
     )
 
     result = testdir.runpytest("--reruns", "1")

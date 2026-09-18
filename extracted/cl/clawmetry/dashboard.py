@@ -139,6 +139,8 @@ from routes.assets import bp_assets
 from routes.reasoning import bp_reasoning
 from routes.plugins import bp_plugins
 from routes.local_query import bp_local_query
+from routes.public_api import bp_public_api
+from routes.apikeys_admin import bp_apikeys_admin
 from routes.update_check import bp_update_check, start_update_check_thread
 from routes.workspaces import bp_workspaces
 from routes.bootstrap import bp_bootstrap
@@ -304,6 +306,32 @@ def _otlp_request(pb_data, kind, content_encoding=None, content_type=None):
     )
 
 
+def _apply_ingest_routing(resource_attrs, runtime=None, env=None):
+    """Stamp the pusher's declared runtime / environment onto a resource.
+
+    A pushed batch carries no filesystem layout to infer a runtime from,
+    so the pusher says which runtime it is in ``x-clawmetry-runtime`` and
+    which environment in ``x-clawmetry-env`` (clawmetry/ingest_auth.py).
+
+    Rather than thread two more arguments through every mapper, the
+    headers are written into the resource attributes the mappers already
+    read: ``service.name`` is what ``_otlp_service_name_to_agent_type``
+    resolves a runtime from, and ``deployment.environment`` is what the
+    session materialiser already groups on. So a header is exactly as
+    powerful as the equivalent exporter setting, and no downstream code
+    learns a second way to answer the same question.
+
+    The header wins over the resource attribute. Both are set by the same
+    operator; the header is the one they set per request, and the one the
+    setup prompt tells them to set.
+    """
+    if runtime:
+        resource_attrs["service.name"] = runtime
+    if env:
+        resource_attrs["deployment.environment"] = env
+    return resource_attrs
+
+
 def _otlp_service_name_to_agent_type(service_name):
     """Map an OTLP resource ``service.name`` onto a ClawMetry ``agent_type``.
 
@@ -341,7 +369,7 @@ def _otlp_service_name_to_agent_type(service_name):
     return slug or "custom"
 
 
-__version__ = "0.12.883"
+__version__ = "0.12.887"
 
 # Extensions (Phase 2): import the plugin host now, but defer the actual
 # load_plugins() call until after the Flask app is created below so we can
@@ -4246,7 +4274,7 @@ def _otlp_note_refused(path):
         pass
 
 
-def _process_otlp_metrics(pb_data, content_encoding=None, content_type=None):
+def _process_otlp_metrics(pb_data, content_encoding=None, content_type=None, runtime=None, env=None):
     """Decode OTLP metrics protobuf/JSON and store relevant data.
 
     Returns the intake outcome (REQ-OBS-OIA-001): runtime-profile points are
@@ -4262,6 +4290,7 @@ def _process_otlp_metrics(pb_data, content_encoding=None, content_type=None):
         if resource_metrics.resource:
             for attr in resource_metrics.resource.attributes:
                 resource_attrs[attr.key] = _otel_attr_value(attr.value)
+        _apply_ingest_routing(resource_attrs, runtime, env)
 
         for scope_metrics in resource_metrics.scope_metrics:
             for metric in scope_metrics.metrics:
@@ -4897,7 +4926,9 @@ def _otel_to_row(span, resource_attrs):
     if output_val is None:
         output_val = _assemble_indexed("gen_ai.completion")
 
-    return {
+    # AC-OBS-OTG-001.9: the operator's content profile, applied before the
+    # row reaches the store (clawmetry/otlp_content.py).
+    return _otlp_minimise_span_row({
         "span_id": _hex(span.span_id),
         "trace_id": _hex(span.trace_id),
         "parent_span_id": _hex(span.parent_span_id) or None,
@@ -4926,7 +4957,7 @@ def _otel_to_row(span, resource_attrs):
         "attributes": attrs,
         "events": events,
         "links": links,
-    }
+    })
 
 
 def _ingest_litellm_span(span, attrs, resource_attrs, store, gateway_records, received_at):
@@ -4977,7 +5008,7 @@ def _ingest_litellm_span(span, attrs, resource_attrs, store, gateway_records, re
             pass
 
 
-def _process_otlp_traces(pb_data, content_encoding=None, content_type=None):
+def _process_otlp_traces(pb_data, content_encoding=None, content_type=None, runtime=None, env=None):
     """Decode OTLP traces protobuf and extract relevant span data.
 
     Two-path design (issue #1007): we still feed the in-memory metrics
@@ -5030,6 +5061,7 @@ def _process_otlp_traces(pb_data, content_encoding=None, content_type=None):
         if resource_spans.resource:
             for attr in resource_spans.resource.attributes:
                 resource_attrs[attr.key] = _otel_attr_value(attr.value)
+        _apply_ingest_routing(resource_attrs, runtime, env)
 
         for scope_spans in resource_spans.scope_spans:
             _is_litellm = _gw_litellm.is_litellm_telemetry(
@@ -5374,6 +5406,31 @@ _OTLP_TOOL_RESULT_EVENTS = frozenset(
 _OTLP_TEXT_CAP = 4000
 
 
+def _otlp_minimise_span_row(row):
+    """Apply ``CLAWMETRY_OTLP_CONTENT`` to one received span row (REQ-OBS-OTG-001)."""
+    try:
+        from clawmetry import otlp_content as _oc
+        return _oc.minimise_span_row(row)
+    except Exception:
+        return row
+
+
+def _otlp_log_tool_event_id(session_id, record_id, attrs, phase):
+    """The event id for a tool record received as a log, and its call id.
+
+    A record carrying a call id takes the id a trace span of the same call
+    takes too (clawmetry/otlp_sources.py), so the two cannot both be stored.
+    """
+    try:
+        from clawmetry import otlp_sources as _src
+        cid = _src.call_id_from(attrs)
+        if cid:
+            return _src.call_event_id(session_id, cid, phase), cid
+    except Exception:
+        pass
+    return "otlp:" + record_id, None
+
+
 def _otlp_typed_event_data(prof, suffix, attrs, pick):
     out = {}
     text_fields = tuple(getattr(prof, "text_fields", ()) or ())
@@ -5567,7 +5624,7 @@ def _delegated_record_otel(agent_id, tin, tout, cache_read, cache_write,
         return False
 
 
-def _process_otlp_logs(pb_data, content_encoding=None, content_type=None):
+def _process_otlp_logs(pb_data, content_encoding=None, content_type=None, runtime=None, env=None):
     """Decode OTLP logs protobuf and ingest agent EVENT records (#2596, WO-7).
 
     Claude Code and Codex export their per-turn event stream as OTel *logs* —
@@ -5628,6 +5685,7 @@ def _process_otlp_logs(pb_data, content_encoding=None, content_type=None):
         if resource_logs.resource:
             for attr in resource_logs.resource.attributes:
                 resource_attrs[attr.key] = _otel_attr_value(attr.value)
+        _apply_ingest_routing(resource_attrs, runtime, env)
 
         service_name = resource_attrs.get("service.name") or ""
         agent_type = (
@@ -5921,7 +5979,8 @@ def _process_otlp_logs(pb_data, content_encoding=None, content_type=None):
                         # branch (tool NAMES only) still works untouched.
                         args = {"_otlp_args_unknown": record_id}
                     ev = dict(ev_common)
-                    ev["id"] = "otlp:" + record_id
+                    ev["id"], _call_id = _otlp_log_tool_event_id(
+                        session_id, record_id, attrs, "call")
                     ev["event_type"] = "tool_call"
                     ev["data"] = {
                         "tool": str(tool_name),
@@ -5929,13 +5988,16 @@ def _process_otlp_logs(pb_data, content_encoding=None, content_type=None):
                         "args": args,
                         "decision": decision,
                         "source": _f(attrs, "source", "tool.source"),
+                        "call_id": _call_id,
                         "_otlp": True,
+                        "_otlp_signal": "log",
                     }
                     out_events.append(ev)
                 elif suffix in _OTLP_TOOL_RESULT_EVENTS and tool_name:
                     err_text = _f(attrs, "error", "error.message") or ""
                     ev = dict(ev_common)
-                    ev["id"] = "otlp:" + record_id
+                    ev["id"], _call_id = _otlp_log_tool_event_id(
+                        session_id, record_id, attrs, "result")
                     ev["event_type"] = "tool_result"
                     ev["data"] = {
                         "tool": str(tool_name),
@@ -5943,7 +6005,9 @@ def _process_otlp_logs(pb_data, content_encoding=None, content_type=None):
                         "is_error": (success is False) or bool(err_text),
                         "error": err_text,
                         "duration_ms": dur_val,
+                        "call_id": _call_id,
                         "_otlp": True,
+                        "_otlp_signal": "log",
                     }
                     out_events.append(ev)
                 elif _prof is not None and suffix in (_prof.typed_events or {}):
@@ -6458,6 +6522,17 @@ def detect_config(args=None):
     app.register_blueprint(bp_reasoning)
     app.register_blueprint(bp_plugins)
     app.register_blueprint(bp_local_query)
+    # The keyed, cross-origin read API custom UIs are built on
+    # (docs/BUILD_YOUR_OWN_UI.md). Unlike every other blueprint here it
+    # does NOT trust loopback: it authenticates every request against a
+    # scoped key and echoes a CORS header only for an origin that key
+    # named. See routes/public_api.py for why that inversion matters.
+    app.register_blueprint(bp_public_api)
+    # Creating and revoking the keys that surface uses. Deliberately a
+    # separate blueprint behind the dashboard's own gate: a page holding a
+    # read key must never be able to list this node's keys or mint a wider
+    # one. See routes/apikeys_admin.py.
+    app.register_blueprint(bp_apikeys_admin)
     # ClawMetry Enterprise self-hosted server mode: one process serves the
     # dashboard AND the ingest API the node daemons push to. Gated hard on
     # SELF_HOSTED=true — never registered for normal local/cloud installs.
@@ -7018,6 +7093,7 @@ DASHBOARD_HTML = r"""
      no legal basis. Regenerate with scripts/vendor_fonts.py. -->
 <link rel="stylesheet" href="{{ url_for('static', filename='css/fonts.css', v=version) }}">
 <link rel="stylesheet" href="{{ url_for('static', filename='css/dashboard.css', v=version) }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/first-run.css', v=version) }}">
 <script src="{{ url_for('static', filename='js/nav-dropdown.js', v=version) }}"></script>
 <script src="{{ url_for('static', filename='js/alerts.js', v=version) }}" defer></script>
 <script src="{{ url_for('static', filename='js/trail.js', v=version) }}" defer></script>
@@ -7037,6 +7113,7 @@ DASHBOARD_HTML = r"""
 </head>
 <body data-theme="dark" class="booting has-profile-menu">
 {% include 'partials/overlays.html' %}
+{% include 'partials/first-run.html' %}
 <div class="zoom-wrapper" id="zoom-wrapper">
 <div class="nav">
   <h1><a href="https://clawmetry.com" style="display:flex;align-items:center;gap:7px;text-decoration:none;color:inherit"><img src="/static/img/logo.svg" width="22" height="22" style="border-radius:4px;vertical-align:middle;flex-shrink:0" alt="ClawMetry"><span><span style="color:var(--text-primary)">Claw</span><span style="color:#E5443A">Metry</span></span></a></h1>
@@ -7222,24 +7299,16 @@ DASHBOARD_HTML = r"""
       </div>
 
       <div class="left-nav-section-label" data-i18n="nav.section_govern">Govern</div>
-      <div class="left-nav-item" data-tab="approvals" onclick="switchTab('approvals')" data-i18n-title="nav.approvals_tooltip" title="Cloud-mediated approval queue">
-        <span class="left-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></span>
-        <span class="left-nav-label" data-i18n="nav.approvals">Approvals</span>
-        <span id="nav-approvals-badge" class="left-nav-badge" style="display:none;">0</span>
-      </div>
       <div class="left-nav-item" data-tab="guard" onclick="switchTab('guard')" data-i18n-title="nav.guard_tooltip" title="See what is running, detect agents that go off track, and stop them">
         <span class="left-nav-icon" aria-hidden="true">&#128737;</span>
         <span class="left-nav-label" data-i18n="nav.guard">Guard</span>
         <span id="nav-guard-badge" class="left-nav-badge" style="display:none;">0</span>
+        <span id="nav-approvals-badge" class="left-nav-badge" style="display:none;" title="Pending approvals">0</span>
+        <span id="nav-alerts-badge" class="left-nav-badge" style="display:none;" title="Recent alerts">0</span>
       </div>
       <div class="left-nav-item" data-tab="signals" onclick="switchTab('signals')" data-i18n-title="nav.signals_tooltip" title="What people and agents say about a run: frustration, praise, refusals, giving up">
         <span class="left-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/><line x1="8" y1="9" x2="16" y2="9"/><line x1="8" y1="13" x2="13" y2="13"/></svg></span>
         <span class="left-nav-label" data-i18n="nav.signals">Signals</span>
-      </div>
-      <div class="left-nav-item" data-tab="alerts" onclick="switchTab('alerts')" data-i18n-title="nav.alerts_tooltip" title="Get notified when something goes wrong with your agents">
-        <span class="left-nav-icon" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg></span>
-        <span class="left-nav-label" data-i18n="nav.alerts">Alerts</span>
-        <span id="nav-alerts-badge" class="left-nav-badge" style="display:none;">0</span>
       </div>
       {# Notifications sits directly under its two consumers (Approvals,
          Alerts) - founder request 2026-07-29: buried in the Advanced drawer,
@@ -7462,7 +7531,9 @@ DASHBOARD_HTML = r"""
      every dollar amount and score renders through. Loaded BEFORE app.js so
      window.cmMoney / cmProvBadge exist by the time a tab paints. -->
 <script src="{{ url_for('static', filename='js/provenance.js', v=version) }}"></script>
+<script src="{{ url_for('static', filename='js/first-run.js', v=version) }}"></script>
 <script src="{{ url_for('static', filename='js/app.js', v=version) }}"></script>
+<script src="{{ url_for('static', filename='js/guard-checks.js', v=version) }}"></script>
 </div> <!-- end zoom-wrapper -->
 
 {# position:fixed overlays must live OUTSIDE #zoom-wrapper: its zoom
@@ -8055,6 +8126,27 @@ def _check_auth():
         # else fall through to the standard token check below
     if request.path.startswith("/api/nodes"):
         return  # Fleet API uses its own X-Fleet-Key authentication
+    if request.path.startswith("/api/q/"):
+        # The public query API authenticates itself (routes/public_api.py):
+        # every request needs a scoped `cmk_` key and loopback earns
+        # nothing. Returning here means it is not ALSO gated on the
+        # gateway token, which is what lets a custom UI reach a ClawMetry
+        # that is not on the caller's own machine. It is a stricter gate
+        # than this one, not a hole in it.
+        return
+    is_otlp = request.path.startswith("/v1/")
+    if is_otlp:
+        from clawmetry import ingest_auth as _ia
+        if request.headers.get(_ia.HEADER_KEY):
+            # A request presenting an ingest key is checked by the ingest
+            # surface itself (clawmetry/ingest_auth.py), which verifies
+            # the key, requires the write:ingest scope, and answers
+            # 401/403 with a sentence. Stepping aside here is the same
+            # move the /api/q/ block above makes, and for the same
+            # reason: one gate on a path, not two. Presenting a header is
+            # not being let in -- a bad key is rejected there, or it is
+            # rejected nowhere.
+            return
     # Self-hosted server routes authenticate the caller themselves (node token
     # or admin Basic auth). Behind a container port every caller is
     # non-loopback, so the gateway-token rule below refused them even with
@@ -8071,7 +8163,6 @@ def _check_auth():
     # like /api/*: loopback is trusted (zero-config local exporters keep working),
     # non-loopback requires the gateway token. Opt out for a trusted LAN with
     # CLAWMETRY_OTLP_ALLOW_UNAUTH=1.
-    is_otlp = request.path.startswith("/v1/")
     if not request.path.startswith("/api/") and not is_otlp:
         return  # HTML, static, etc. are fine
     if is_otlp and str(os.environ.get("CLAWMETRY_OTLP_ALLOW_UNAUTH", "")).strip().lower() in ("1", "true", "yes"):

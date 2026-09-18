@@ -19,7 +19,7 @@
 {func}`iter_command_contexts`, its whole tree) into a {class}`CommandDoc`: one
 extraction carrying the man-pages(7) sections documented in {doc}`/man-page`
 (NAME, SYNOPSIS, DESCRIPTION, OPTIONS, COMMANDS, ENVIRONMENT, FILES and EXIT
-STATUS). The model then renders to any of the {data}`HELP_FORMATS` backends:
+STATUS). The model then renders to any of the {class}`HelpFormat` backends:
 roff ({meth}`CommandDoc.to_roff`), Markdown ({meth}`CommandDoc.to_markdown`)
 and JSON ({meth}`CommandDoc.to_dict` / {meth}`CommandDoc.to_json`), with the
 Carapace completion spec delegated to {mod}`click_extra.carapace`.
@@ -56,7 +56,7 @@ import re
 import shutil
 import subprocess
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from enum import Enum
 from gettext import gettext as _
 from importlib import metadata
 from pathlib import Path
@@ -81,7 +81,8 @@ from .parameters import (
     search_params,
     split_option_groups,
 )
-from .version import resolve_author, resolve_distribution
+from .types import EnumChoice
+from .version import build_moment, resolve_author, resolve_distribution
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -382,19 +383,26 @@ class DocOptionItem:
             return ()
         return self.choices
 
+    @property
+    def attached_value(self) -> str:
+        """The `[=METAVAR]` form of an optional value.
+
+        An optional value renders attached and bracketed
+        (`--color[=auto|always|never]`), the man convention for a flag usable
+        bare. The metavar's own outer brackets, if any, are stripped so a
+        Choice does not double up.
+        """
+        inner = self.metavar or ""
+        if inner.startswith("[") and inner.endswith("]"):
+            inner = inner[1:-1]
+        return f"[={inner}]"
+
     def to_roff(self) -> list[str]:
         """Render this option as a roff tagged paragraph (`.TP`)."""
         tag = " / ".join(_bold(name) for name in self.names)
         if self.metavar:
             if self.optional_value:
-                # An optional value renders attached and bracketed
-                # (`--color[=auto|always|never]`), the man convention for a flag
-                # usable bare. Strip the metavar's own outer brackets, if any, so a
-                # Choice does not double up.
-                inner = self.metavar
-                if inner.startswith("[") and inner.endswith("]"):
-                    inner = inner[1:-1]
-                tag += _italic("[=" + inner + "]")
+                tag += _italic(self.attached_value)
             else:
                 tag += " " + _italic(self.metavar)
         lines = [".TP", tag]
@@ -417,10 +425,7 @@ class DocOptionItem:
         spec = " / ".join(self.names)
         if self.metavar:
             if self.optional_value:
-                inner = self.metavar
-                if inner.startswith("[") and inner.endswith("]"):
-                    inner = inner[1:-1]
-                spec += f"[={inner}]"
+                spec += self.attached_value
             else:
                 spec += f" {self.metavar}"
         return spec
@@ -868,15 +873,12 @@ class CommandDoc:
 
 
 def _resolve_date() -> str:
-    """Resolve the man page date, honoring `SOURCE_DATE_EPOCH` for reproducible
-    builds (https://reproducible-builds.org/specs/source-date-epoch/)."""
-    epoch = os.environ.get("SOURCE_DATE_EPOCH")
-    when = (
-        datetime.fromtimestamp(int(epoch), tz=timezone.utc)
-        if epoch
-        else datetime.now(tz=timezone.utc)
-    )
-    return when.strftime("%Y-%m-%d")
+    """The man page date, as `YYYY-MM-DD`.
+
+    Pinned by `SOURCE_DATE_EPOCH` in a reproducible build, see
+    {func}`~click_extra.version.build_moment`.
+    """
+    return build_moment().strftime("%Y-%m-%d")
 
 
 def _distribution_names(ctx: Context) -> tuple[str, ...]:
@@ -928,7 +930,7 @@ def _resolve_files(command: Command, ctx: Context) -> tuple[str, ...]:
     invocation context (the `--man` path) is reused as-is.
     """
     config_option = search_params(command.params, ConfigOption)
-    if not isinstance(config_option, ConfigOption):
+    if config_option is None:
         return ()
     try:
         if click.get_current_context(silent=True) is None:
@@ -1196,34 +1198,55 @@ def install_manpages(
     return write_manpages(command, target, prog_name, **overrides)
 
 
-HELP_FORMATS: dict[str, str] = {
-    "carapace": (
+class HelpFormat(str, Enum):
+    """The formats {func}`render_help` renders.
+
+    The value is the spelling `--help-format` takes. Members are ordered
+    alphabetically, which is also the order `--help-format` advertises them in.
+    Adding a format is a member here, a description in
+    {data}`~click_extra.command_doc.HELP_FORMATS` and a branch in
+    {func}`render_help`: no new flag, no wider help screen. See
+    {doc}`/man-page` for what each one is good for.
+
+    A `str` subclass, so a member compares, hashes and sorts as its value, and a
+    plain string keeps working wherever a format is expected.
+    """
+
+    CARAPACE = "carapace"
+    JSON = "json"
+    JSON_FULL = "json-full"
+    MAN = "man"
+    MARKDOWN = "markdown"
+    MARKDOWN_FULL = "markdown-full"
+
+    def __str__(self) -> str:
+        return self.value
+
+
+HELP_FORMATS: dict[HelpFormat, str] = {
+    HelpFormat.CARAPACE: (
         "Carapace completion spec (YAML). Doubles as a command-and-flag tree, "
         "and is the shape `carapace` itself consumes. Needs the `yaml` extra."
     ),
-    "json": (
+    HelpFormat.JSON: (
         "This command as a JSON object: usage, description, arguments, options "
         "grouped as the help screen groups them, environment variables, files, "
         "exit codes, and its direct subcommands by name."
     ),
-    "json-full": (
+    HelpFormat.JSON_FULL: (
         "Every command of the tree as JSON, under a `commands` array, each entry "
         "in the `json` shape."
     ),
-    "markdown": "This command as a Markdown document, one section per topic.",
-    "markdown-full": (
-        "Every command of the tree as one Markdown document, in tree order."
-    ),
-    "man": (
+    HelpFormat.MAN: (
         "This command as a man page: the roff source a packager installs, which "
         "`--man` typesets for reading."
     ),
+    HelpFormat.MARKDOWN: "This command as a Markdown document, one section per topic.",
+    HelpFormat.MARKDOWN_FULL: (
+        "Every command of the tree as one Markdown document, in tree order."
+    ),
 }
-"""The formats {func}`render_help` renders, mapped to their one-line description.
-
-Ordered alphabetically, which is also the order `--help-format` advertises them
-in. Adding a format is an entry here plus a branch in {func}`render_help`: no new
-flag, no wider help screen. See {doc}`/man-page` for what each one is good for.
+"""Each {class}`HelpFormat`, mapped to its one-line description.
 
 ```{note}
 The distinction the plain and `-full` variants draw is progressive disclosure.
@@ -1235,7 +1258,10 @@ diffing a CLI's whole surface between two releases.
 ```
 """
 
-INSTALLABLE_FORMATS: frozenset[str] = frozenset({"carapace", "man"})
+INSTALLABLE_FORMATS: frozenset[HelpFormat] = frozenset({
+    HelpFormat.CARAPACE,
+    HelpFormat.MAN,
+})
 """The formats with a canonical place on disk their consumer reads them from.
 
 A man page under a `man` directory, a Carapace spec under Carapace's. These are
@@ -1248,12 +1274,12 @@ goes looking for it, so stdout and a shell redirection are the whole story.
 
 def render_help(
     command: Command,
-    help_format: str,
+    help_format: HelpFormat | str,
     prog_name: str | None = None,
     ctx: Context | None = None,
     **overrides: str | None,
 ) -> str:
-    """Render *command* in one of the {data}`HELP_FORMATS`.
+    """Render *command* in one of the {class}`HelpFormat` formats.
 
     Reuses `ctx` when given (like the live invocation context), otherwise builds
     a throwaway one with `resilient_parsing=True`, exactly like
@@ -1263,11 +1289,14 @@ def render_help(
 
     :raises ValueError: on an unknown format, listing the known ones.
     """
-    if help_format not in HELP_FORMATS:
-        known = ", ".join(sorted(HELP_FORMATS))
-        raise ValueError(f"Unknown help format {help_format!r}. Pick one of: {known}.")
+    try:
+        help_format = HelpFormat(help_format)
+    except ValueError:
+        known = ", ".join(map(str, HelpFormat))
+        msg = f"Unknown help format {help_format!r}. Pick one of: {known}."
+        raise ValueError(msg) from None
 
-    if help_format == "carapace":
+    if help_format is HelpFormat.CARAPACE:
         # Imported here rather than at module level: click_extra.carapace reaches
         # click_extra.commands, which imports this module for ManOption.
         from .carapace import dump_carapace_spec
@@ -1282,12 +1311,12 @@ def render_help(
             prog_name=command.name or (prog_name.split()[-1] if prog_name else None),
         )
 
-    if help_format.endswith("-full"):
+    if help_format in (HelpFormat.JSON_FULL, HelpFormat.MARKDOWN_FULL):
         pages = [
             extract_command_doc(cmd, sub_ctx, **overrides)
             for _path, cmd, sub_ctx in iter_command_contexts(command, prog_name)
         ]
-        if help_format == "json-full":
+        if help_format is HelpFormat.JSON_FULL:
             return (
                 json.dumps({"commands": [page.to_dict() for page in pages]}, indent=2)
                 + "\n"
@@ -1297,9 +1326,9 @@ def render_help(
     if ctx is None:
         ctx = make_resilient_context(command, prog_name or command.name)
     page = extract_command_doc(command, ctx, **overrides)
-    if help_format == "json":
+    if help_format is HelpFormat.JSON:
         return page.to_json()
-    if help_format == "markdown":
+    if help_format is HelpFormat.MARKDOWN:
         return page.to_markdown()
     return page.to_roff()
 
@@ -1464,12 +1493,13 @@ class ManOption(ExtraOption):
 
     def __init__(
         self,
-        param_decls: tuple[str, ...] | None = None,
+        param_decls: Sequence[str] | None = None,
+        *,
         is_flag: bool = True,
         expose_value: bool = False,
         is_eager: bool = True,
         help: str = _("Read the command's manual page and exit."),
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         if not param_decls:
             param_decls = ("--man",)
@@ -1493,7 +1523,7 @@ class ManOption(ExtraOption):
 
 class HelpFormatOption(ExtraOption):
     """A pre-configured `--help-format` option printing the command in one of the
-    {data}`HELP_FORMATS` and exiting.
+    {class}`HelpFormat` formats and exiting.
 
     Eager and value-taking, unlike its `--man` neighbour, which is the same
     renderer reached through a bare flag: `--man` is exactly
@@ -1506,7 +1536,7 @@ class HelpFormatOption(ExtraOption):
     reader pays for it whether or not they will ever export anything: a family
     of `--help-json`, `--help-markdown` and `--help-carapace` flags would widen
     the label column of every screen, forever, one line per format anyone ever
-    adds. Here a new format costs an entry in {data}`HELP_FORMATS` and nothing
+    adds. Here a new format costs a {class}`HelpFormat` member and nothing
     on screen.
     ```
 
@@ -1520,16 +1550,17 @@ class HelpFormatOption(ExtraOption):
 
     def __init__(
         self,
-        param_decls: tuple[str, ...] | None = None,
+        param_decls: Sequence[str] | None = None,
+        *,
         expose_value: bool = False,
         is_eager: bool = True,
         help: str = _("Render the command in the given format and exit."),
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         if not param_decls:
             param_decls = ("--help-format",)
         kwargs.setdefault("callback", self.print_help_format)
-        kwargs.setdefault("type", click.Choice(sorted(HELP_FORMATS)))
+        kwargs.setdefault("type", EnumChoice(HelpFormat))
         super().__init__(
             param_decls,
             expose_value=expose_value,
@@ -1542,7 +1573,7 @@ class HelpFormatOption(ExtraOption):
         self,
         ctx: Context,
         param: Parameter,
-        value: str | None,
+        value: HelpFormat | None,
     ) -> None:
         """Render the invoked command in the requested format, then exit."""
         if not value or ctx.resilient_parsing:

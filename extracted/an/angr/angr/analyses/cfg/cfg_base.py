@@ -49,6 +49,7 @@ from angr.procedures.procedure_dict import SIM_PROCEDURES
 from angr.procedures.stubs.UnresolvableJumpTarget import UnresolvableJumpTarget
 from angr.utils.constants import DEFAULT_STATEMENT
 from angr.utils.orderedset import OrderedSet
+from angr.utils.vex import block_branch_ins_addr, block_is_single_instruction
 
 from .indirect_jump_resolvers.default_resolvers import default_indirect_jump_resolvers
 
@@ -68,6 +69,12 @@ class CFGBase(Analysis):
     """
     The base class for control flow graphs.
     """
+
+    if TYPE_CHECKING:
+        # provided by ForwardAnalysis, which every concrete CFG analysis also derives from
+
+        @property
+        def should_abort(self) -> bool: ...
 
     tag: str = None  # type:ignore
     addr_type: Literal["int", "block_id", "soot"] = None  # type: ignore
@@ -794,14 +801,14 @@ class CFGBase(Analysis):
         binaries = self.project.loader.all_objects if objects is None else objects
 
         memory_regions = []
-        has_executable = False
+        examined_any_object = False
 
         for b in binaries:
             if not b.has_memory:
                 continue
+            examined_any_object = True
 
             if isinstance(b, ELF):
-                has_executable = True
                 # If we have sections, we get result from sections
                 sections = []
                 if not force_segment and b.sections:
@@ -834,7 +841,6 @@ class CFGBase(Analysis):
                             memory_regions.append(segment)
 
             elif isinstance(b, (Coff, PE)):
-                has_executable = True
                 for section in b.sections:
                     if section.is_executable:
                         max_mapped_addr = section.min_addr + min(section.memsize, section.filesize)
@@ -842,7 +848,6 @@ class CFGBase(Analysis):
                         memory_regions.append(tpl)
 
             elif isinstance(b, XBE):
-                has_executable = True
                 # some XBE files will mark the data sections as executable
                 for section in b.sections:
                     if (
@@ -854,7 +859,6 @@ class CFGBase(Analysis):
                         memory_regions.append(tpl)
 
             elif isinstance(b, MachO):
-                has_executable = True
                 if b.segments:
                     # Get all executable segments
                     for seg in b.segments:
@@ -913,7 +917,7 @@ class CFGBase(Analysis):
                 tpl = (b.min_addr, b.max_addr + 1)
                 memory_regions.append(tpl)
 
-        if not memory_regions and not has_executable:
+        if not memory_regions and not examined_any_object:
             memory_regions = [(start, start + len(backer)) for start, backer in self.project.loader.memory.backers()]
 
         # A section or segment that maps no bytes, such as the empty .text of a data-only relocatable, is not a region.
@@ -1346,6 +1350,22 @@ class CFGBase(Analysis):
                 all_nodes = sorted(all_nodes, key=lambda node: node.addr, reverse=True)
                 smallest_node = all_nodes[0]  # take the one that has the highest address
                 other_nodes = all_nodes[1:]
+
+                # sanity check: there are cases where a node starts in the middle of an instruction of another node.
+                # in such cases, we do not want to break the other node by limiting its size to cut into the middle of
+                # a legitimate instruction. so we further drop any nodes from other_nodes whose last instruction
+                # address does not exist in the smallest_node's instruction_addrs list.
+                # example: 1817a5bf9c01035bcf8a975c9f1d94b0ce7f6a200339485d8f93859f8f6d730c, 0x21514B6908 and
+                # 0x21514B690C (the source of this jump is at 0x21514B3A67)
+                if smallest_node.instruction_addrs:
+                    other_nodes = [
+                        n
+                        for n in other_nodes
+                        if n.instruction_addrs and n.instruction_addrs[-1] in smallest_node.instruction_addrs
+                    ]
+                if not other_nodes:
+                    del end_addr_to_nodes[key_to_find]
+                    continue
 
                 self._normalize_core(
                     graph, callstack_key, smallest_node, other_nodes, smallest_nodes, end_addr_to_nodes
@@ -1913,13 +1933,21 @@ class CFGBase(Analysis):
                 # alignments
                 return False
 
+            # note that the size of block may change after calling _is_noop_block, because _is_noop_block attempts to
+            # lift the block at the end of the method!
+
             # TODO: We may want to add support for filtering dummy PLT stubs for other architectures, but I haven't
             # TODO: seen any need for those.
-            return not (
-                arch_.name in {"X86", "AMD64"}
-                and len(block.vex.instruction_addresses) == 2
-                and block.vex.jumpkind == "Ijk_Boring"
-            )
+            try:
+                return not (
+                    arch_.name in {"X86", "AMD64"}
+                    and block.size > 0
+                    and len(block.instruction_addrs) == 2
+                    and block.vex.jumpkind == "Ijk_Boring"
+                )
+            except SimError:
+                # catch any exceptions that may raise during VEX block lifting
+                return False
 
         to_remove = set()
 
@@ -2684,7 +2712,7 @@ class CFGBase(Analysis):
                     src_function.addr, src_snippet, returning_snippet, confirmed=True, to_outside=return_to_outside
                 )
 
-        elif jumpkind in ("Ijk_Boring", "Ijk_InvalICache", "Ijk_Exception"):
+        elif jumpkind in ("Ijk_Boring", "Ijk_InvalICache", "Ijk_Privileged", "Ijk_Exception"):
             # convert src_addr and dst_addr to CodeNodes
             src_node = src_addr if not self.model.has_node_addr(src_addr) else self._node_key_to_snippet(src_node_key)
             dst_node = dst_addr if not self.model.has_node_addr(dst_addr) else self._node_key_to_snippet(dst_node_key)
@@ -3108,15 +3136,15 @@ class CFGBase(Analysis):
         # Add it to our set. Will process it later if user allows.
         # Create an IndirectJump instance
         if addr not in self.indirect_jumps:
-            if self.project.arch.branch_delay_slot:
-                if len(cfg_node.instruction_addrs) < 2:
-                    # sanity check
-                    # decoding failed when decoding the second instruction (or even the first instruction)
-                    return False, set(), None
-                ins_addr = cfg_node.instruction_addrs[-2]
-            elif cfg_node.instruction_addrs:
-                ins_addr = cfg_node.instruction_addrs[-1]
-            else:
+            if self.project.arch.branch_delay_slot and block_is_single_instruction(
+                cfg_node.instruction_addrs, cfg_node.addr, cfg_node.size, self.project.arch
+            ):
+                # the block cannot hold both a branch and its delay slot; the indirect exit is a decode artifact
+                return False, set(), None
+            ins_addr = block_branch_ins_addr(
+                cfg_node.instruction_addrs, cfg_node.addr, cfg_node.size, self.project.arch
+            )
+            if ins_addr is None:
                 # fallback
                 ins_addr = addr
             assert jumpkind is not None
@@ -3148,6 +3176,8 @@ class CFGBase(Analysis):
         idx: int
         jump: IndirectJump
         for idx, jump in enumerate(self._indirect_jumps_to_resolve):
+            if self.should_abort:
+                break
             if self._low_priority:
                 self._release_gil(idx, 50, 0.000001)
             all_targets |= self._process_one_indirect_jump(jump)

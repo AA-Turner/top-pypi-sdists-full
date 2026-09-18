@@ -1,21 +1,14 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.5
 Name: pycron
-Version: 3.2.0
+Version: 3.3.0
 Summary: Simple cron-like parser, which determines if current datetime matches conditions.
-License: MIT
-Keywords: cron,parser
-Author: Kimmo Huoman
-Author-email: kipenroskaposti+pycron@gmail.com
-Requires-Python: >=3.9,<4.0
-Classifier: License :: OSI Approved :: MIT License
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
 Project-URL: Homepage, https://github.com/kipe/pycron
 Project-URL: Repository, https://github.com/kipe/pycron
+Author-email: Kimmo Huoman <kipenroskaposti+pycron@gmail.com>
+License-Expression: MIT
+License-File: LICENSE
+Keywords: cron,parser
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 
 # pycron
@@ -85,4 +78,3 @@ every available library felt too complicated for my use-case. Also, this was a g
 As the Django -helper choices are quite limited, I've expanded them in my own project by adding values like
 `('*/5', 'every 5 minutes')`, `('1-5', 'on weekdays')`, and `('0,6', 'on weekends')`.
 I haven't included them in the code, as every use-case is different, this was just to give an idea on how to use this ;)
-

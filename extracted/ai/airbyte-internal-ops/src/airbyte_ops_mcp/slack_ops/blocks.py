@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import re
 
-from slack_sdk.models.blocks import HeaderBlock, SectionBlock
+from slack_sdk.models.blocks import ContextBlock, HeaderBlock, SectionBlock
 from slack_sdk.models.blocks.basic_components import (
     MarkdownTextObject,
     PlainTextObject,
@@ -30,13 +30,15 @@ _MD_LINK_RE = re.compile(r"(?<!!)\[([^\]]+)\]\(([^)]+)\)")
 _BULLET_RE = re.compile(r"^[-*] ", re.MULTILINE)
 
 # Inline mrkdwn patterns for rich-text element parsing.
-# Groups: (1) bold  (2) italic  (3) strikethrough  (4) slack link  (5) inline code
+# Groups: (1) bold  (2) italic  (3) strikethrough  (4) slack link
+# (5) inline code  (6) emoji shortcode
 _INLINE_RE = re.compile(
     r"(\*[^*]+\*)"  # bold: *text*
     r"|(_[^_]+_)"  # italic: _text_
     r"|(~[^~]+~)"  # strikethrough: ~text~
     r"|(<[^|>]+(?:\|[^>]*)?>)"  # slack link: <url|text> or <url>
     r"|(`[^`]+`)"  # inline code: `text`
+    r"|(:[a-z0-9_+\-]*[a-z][a-z0-9_+\-]*:)"  # emoji shortcode: :name:
 )
 
 _MAX_BLOCKS = 50
@@ -93,7 +95,8 @@ def _parse_mrkdwn_inline(text: str) -> list[dict]:
     """Parse Slack mrkdwn inline formatting into rich_text elements.
 
     Handles `*bold*`, `_italic_`, `~strikethrough~`, `<url|label>` links,
-    and `code`.  Everything else is returned as plain text elements.
+    `code`, and emoji shortcodes. Everything else is returned as plain text
+    elements.
     """
     elements: list[dict] = []
     pos = 0
@@ -121,6 +124,8 @@ def _parse_mrkdwn_inline(text: str) -> list[dict]:
         elif m.group(5):  # code
             inner = m.group(5)[1:-1]
             elements.append({"type": "text", "text": inner, "style": {"code": True}})
+        elif m.group(6):  # emoji shortcode
+            elements.append({"type": "emoji", "name": m.group(6)[1:-1]})
 
         pos = m.end()
 
@@ -129,6 +134,11 @@ def _parse_mrkdwn_inline(text: str) -> list[dict]:
         elements.append({"type": "text", "text": text[pos:]})
 
     return elements or [{"type": "text", "text": text}]
+
+
+def build_context_footer(text: str) -> dict:
+    """Return a Block Kit `context` block with a single mrkdwn element (small grey text)."""
+    return ContextBlock(elements=[MarkdownTextObject(text=text)]).to_dict()
 
 
 def _build_rich_text_list_block(bullet_lines: list[str]) -> dict:

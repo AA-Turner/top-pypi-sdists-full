@@ -21,7 +21,7 @@ from urllib.parse import urlparse
 import grpc
 import grpc.experimental
 import requests
-from google.protobuf import empty_pb2, json_format, struct_pb2, timestamp_pb2
+from google.protobuf import empty_pb2, field_mask_pb2, json_format, struct_pb2, timestamp_pb2
 from rich.console import Console
 from rich.style import Style
 from rich.text import Text
@@ -111,6 +111,7 @@ from chalk._gen.chalk.server.v1.model_registry_pb2 import (
     CreateModelArtifactResponse,
     CreateModelRequest,
     CreateModelResponse,
+    CreateModelVersionFromArtifactOverride,
     CreateModelVersionFromArtifactRequest,
     CreateModelVersionFromArtifactResponse,
     CreateModelVersionRequest,
@@ -1028,6 +1029,18 @@ class StubRefresher:
 
     def get_engine_grpc_target(self) -> tuple[str, bool]:
         return self._stub.get_engine_grpc_target()
+
+
+def _python_value_to_proto(v: Any) -> "struct_pb2.Value":
+    if isinstance(v, bool):
+        return struct_pb2.Value(bool_value=v)
+    if isinstance(v, (int, float)):
+        return struct_pb2.Value(number_value=float(v))
+    if isinstance(v, str):
+        return struct_pb2.Value(string_value=v)
+    if v is None:
+        return struct_pb2.Value(null_value=struct_pb2.NullValue.NULL_VALUE)
+    return struct_pb2.Value(string_value=str(v))
 
 
 def _model_artifact_spec_from_proto(artifact: Any) -> ModelArtifactSpec:
@@ -4400,12 +4413,18 @@ class ChalkGRPCClient:
                 artifact_spec = struct_pb2.Struct()
                 artifact_spec.update(json_format.MessageToDict(model_artifact, preserving_proto_field_name=True))
 
+                proto_metadata = {}
+                if metadata:
+                    for k, v in metadata.items():
+                        proto_metadata[k] = _python_value_to_proto(v)
+
                 resp: CheckpointTrainingRunResponse = self._stub_refresher.call_training_run_stub(
                     lambda x: x.CheckpointTrainingRun(
                         CheckpointTrainingRunRequest(
                             training_run_id=training_run_id,
                             file_names=list(all_files_to_process.keys()),
                             artifact_spec=artifact_spec,
+                            metadata=proto_metadata,
                         )
                     )
                 )
@@ -4452,6 +4471,11 @@ class ChalkGRPCClient:
         run_name: Optional[str] = None,
         criterion: Optional[ModelRunCriterion] = None,
         aliases: Optional[List[str]] = None,
+        model_image: Optional[Any] = None,
+        dependencies: Optional[List[str]] = None,
+        python_version: Optional[str] = None,
+        input_features: Optional[list[str]] = None,
+        output_features: Optional[list[str]] = None,
     ) -> RegisterModelVersionResponse:
         """
         Register a model in the Chalk model registry.
@@ -4471,6 +4495,16 @@ class ChalkGRPCClient:
             If none provided, the latest artifact in the run will be selected.
         aliases: list of str, optional
             List of version aliases (e.g., ["v1.0", "latest"])
+        model_image: str or chalkcompute.Image, optional
+            Docker image URI string or a chalkcompute.Image object for serving.
+        dependencies: list of str, optional
+            Pip package specs (e.g., ["torch==2.7.1", "numpy==1.26.4"]).
+        python_version: str, optional
+            Python version for the serving image.
+        input_features: list of str, optional
+            Chalk feature FQNs for model inputs.
+        output_features: list of str, optional
+            Chalk feature FQNs for model outputs.
 
         Example
         --------
@@ -4493,6 +4527,14 @@ class ChalkGRPCClient:
                     "Please specify only one of 'model_artifact_id', (run_id, run criterion), (run_name, run criterion)"
                 )
 
+        override = self._build_promote_override(
+            model_image=model_image,
+            dependencies=dependencies,
+            python_version=python_version,
+            input_features=input_features,
+            output_features=output_features,
+        )
+
         try:
             resp: CreateModelVersionFromArtifactResponse = self._stub_refresher.call_model_stub(
                 lambda x: x.CreateModelVersionFromArtifact(
@@ -4505,6 +4547,7 @@ class ChalkGRPCClient:
                             criterion=criterion,
                         ),
                         aliases=aliases,
+                        override=override,
                     )
                 )
             )
@@ -4519,6 +4562,49 @@ class ChalkGRPCClient:
             )
         except grpc.RpcError as e:
             raise RuntimeError(f"Could not promote model artifact. {e.details()}")
+
+    @staticmethod
+    def _build_promote_override(
+        model_image: Optional[Any] = None,
+        dependencies: Optional[List[str]] = None,
+        python_version: Optional[str] = None,
+        input_features: Optional[list[str]] = None,
+        output_features: Optional[list[str]] = None,
+    ) -> Optional[CreateModelVersionFromArtifactOverride]:
+        override_fields: List[str] = []
+        spec = _model_artifact_pb2.ModelArtifactSpec()
+
+        if model_image is not None:
+            if isinstance(model_image, str):
+                spec.model_image = model_image
+                override_fields.append("model_image")
+            else:
+                spec.image_spec = serialize_image_spec(model_image)
+                override_fields.append("image_spec")
+
+        if dependencies is not None:
+            spec.python_dependencies[:] = dependencies
+            override_fields.append("python_dependencies")
+
+        if python_version is not None:
+            spec.python_version = python_version
+            override_fields.append("python_version")
+
+        if input_features is not None:
+            spec.input_features[:] = input_features
+            override_fields.append("input_features")
+
+        if output_features is not None:
+            spec.output_features[:] = output_features
+            override_fields.append("output_features")
+
+        if not override_fields:
+            return None
+
+        return CreateModelVersionFromArtifactOverride(
+            spec=spec,
+            override_fields=field_mask_pb2.FieldMask(paths=override_fields),
+        )
 
     def get_latest_checkpoint(self, training_run_id: str) -> Optional[ModelArtifact]:
         resp = self._stub_refresher.call_training_run_stub(

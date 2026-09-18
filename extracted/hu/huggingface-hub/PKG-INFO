@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: huggingface_hub
-Version: 1.31.0
+Version: 1.32.0
 Summary: Client library to download and publish models, datasets and other repos on the huggingface.co hub
 Home-page: https://github.com/huggingface/huggingface_hub
 Author: Hugging Face, Inc.
@@ -30,6 +30,7 @@ Requires-Dist: hf-xet<2.0.0,>=1.5.2; platform_machine == "x86_64" or platform_ma
 Requires-Dist: httpx<1,>=0.23.0
 Requires-Dist: packaging>=20.9
 Requires-Dist: pyyaml>=5.1
+Requires-Dist: tomli>=1.1.0; python_version < "3.11"
 Requires-Dist: tqdm>=4.42.1
 Requires-Dist: typing-extensions>=4.1.0
 Provides-Extra: oauth

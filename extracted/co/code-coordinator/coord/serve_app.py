@@ -2030,13 +2030,26 @@ def _milestone_drain_tick(config: Config) -> list:
         # see plan_dispatch's oracle_loop docstring for why (two concurrently
         # dispatched entries under one milestone race on the same shared
         # tests/acceptance/ms-N/manifest.yml).
+        # #3371: wire the credential-health probe here — this tick loop is
+        # a production dispatch path, not a test, so a dead-credential
+        # host must actually be excluded from machine selection.
+        from coord.dispatch_liveness import github_issue_liveness_fetcher  # noqa: PLC0415
+        from coord.network import claude_credential_reachable  # noqa: PLC0415
+
         plan = md.plan_dispatch(
             ctx.work_order, board, config, repo_cfg, ctx.terminal_issues,
             oracle_loop=config.acceptance.has_driver(repo_name),
+            credential_fetcher=claude_credential_reachable,
         )
+        # #3376 review round 1: this drain tick is a real production
+        # dispatch chokepoint — wire the other two STRUCTURAL
+        # DISPATCH-LIVENESS GATE predicates through to `dispatch_entry` /
+        # `coord.dispatch.dispatch()`, same as the credential probe above.
+        _issue_liveness_fetcher = github_issue_liveness_fetcher(config)
         for pick in plan.to_dispatch:
             outcome = md.dispatch_entry(
-                pick, repo_cfg, config, board, tracking_issue=tracking_issue
+                pick, repo_cfg, config, board, tracking_issue=tracking_issue,
+                issue_liveness_fetcher=_issue_liveness_fetcher,
             )
             outcomes.append(outcome)
             if outcome.ok:
@@ -2219,14 +2232,26 @@ def _milestone_gate_tick(config: Config, *, now: float | None = None) -> list:
                 # validator and plan_queue's chaining alone don't cover: the
                 # gate walk (docs/ORACLE_LOOP.md's "oracle drive", #1453) is
                 # the documented primary driver for an oracle-loop milestone.
+                # #3371: same credential-health wiring as the drain
+                # tick above.
+                from coord.dispatch_liveness import github_issue_liveness_fetcher  # noqa: PLC0415
+                from coord.network import claude_credential_reachable  # noqa: PLC0415
+
                 plan = md.plan_dispatch(
                     ctx.work_order, board, config, repo_cfg, ctx.terminal_issues,
                     oracle_loop=config.acceptance.has_driver(repo_cfg.name),
+                    credential_fetcher=claude_credential_reachable,
                 )
+                # #3376 review round 1: same issue-liveness wiring as the
+                # drain tick above — this gate-walk dispatch is the OTHER
+                # daemon production chokepoint `md.dispatch_entry` funnels
+                # through.
+                _issue_liveness_fetcher = github_issue_liveness_fetcher(config)
                 for pick in plan.to_dispatch:
                     outcome = md.dispatch_entry(
                         pick, repo_cfg, config, board,
                         tracking_issue=record.tracking_issue,
+                        issue_liveness_fetcher=_issue_liveness_fetcher,
                     )
                     dispatched.append(outcome)
                     if outcome.ok:
@@ -10473,10 +10498,65 @@ def build_app(
         import asyncio  # noqa: PLC0415
         import contextlib  # noqa: PLC0415
         import logging  # noqa: PLC0415
+        import threading  # noqa: PLC0415
 
-        from starlette.concurrency import run_in_threadpool  # noqa: PLC0415
+        from starlette.concurrency import (  # noqa: PLC0415
+            run_in_threadpool as _real_run_in_threadpool,
+        )
 
         log = logging.getLogger("coord.serve")
+
+        # #3380: every background loop below (``_tick_loop``,
+        # ``_gate_refresh_loop``, ...) calls THIS wrapped ``run_in_threadpool``
+        # — shared with all of them via this closure, shadowing the module
+        # they'd otherwise import directly — rather than Starlette's own, so
+        # ``_ctx``'s shutdown ``finally`` (further down) can wait for
+        # genuinely in-flight thread-pool work to finish instead of merely
+        # cancelling the asyncio task wrapping it. anyio abandons the
+        # underlying OS thread on cancellation rather than joining it —
+        # verified empirically: the awaiting task raises ``CancelledError``
+        # as soon as ``.cancel()`` is requested, while the thread keeps
+        # running the synchronous function to completion in the background,
+        # unobserved by anything still awaiting it. A tick whose
+        # ``run_in_threadpool`` call is still in flight when shutdown fires
+        # can therefore keep running — including reaching
+        # ``coord.db.get_connection()`` — well after ``with TestClient(app):``
+        # has already returned. In a test session that means possibly during
+        # a LATER, unrelated test's setup, after that test's own autouse
+        # ``coord_db`` fixture has (or hasn't yet) installed its own
+        # isolated-DB override, tripping the #1960 guard and misattributing
+        # it to whatever test happens to be running at that moment.
+        _tick_inflight = 0
+        _tick_inflight_lock = threading.Lock()
+
+        def _release_tick_inflight() -> None:
+            nonlocal _tick_inflight
+            with _tick_inflight_lock:
+                _tick_inflight -= 1
+
+        async def run_in_threadpool(func, *args, **kwargs):  # noqa: ANN001,ANN202
+            nonlocal _tick_inflight
+            with _tick_inflight_lock:
+                _tick_inflight += 1
+
+            # The decrement has to happen INSIDE the call that runs on the
+            # real worker thread, not in a `finally` wrapped around the
+            # `await` below — cancelling the awaiting task unwinds THIS
+            # coroutine's own `finally` clauses immediately (same
+            # `CancelledError`-on-`.cancel()` behaviour the module docstring
+            # above describes), well before the abandoned thread actually
+            # finishes running `func`. Releasing from inside `_call` instead
+            # ties the counter to the thread's real completion, which is the
+            # only thing `_ctx`'s drain wait (further down) needs to be
+            # accurate about.
+            def _call():
+                try:
+                    return func(*args, **kwargs)
+                finally:
+                    _release_tick_inflight()
+
+            return await _real_run_in_threadpool(_call)
+
         try:
             interval = float(os.environ.get("COORD_RECONCILE_INTERVAL", "30"))
         except ValueError:
@@ -11445,6 +11525,29 @@ def build_app(
                         t.cancel()
                         with contextlib.suppress(asyncio.CancelledError):
                             await t
+                # #3380: cancelling the tasks above only stops each loop's
+                # NEXT `asyncio.sleep` — it does NOT wait for a
+                # `run_in_threadpool` call already in flight (see the
+                # wrapped `run_in_threadpool` defined above for why anyio
+                # abandons that thread rather than joining it). Poll the
+                # shared in-flight counter with a bounded budget so shutdown
+                # does not return — letting a caller like
+                # `TestClient.__exit__` proceed as if every background loop
+                # had genuinely stopped — while one of them might still be
+                # running a thread-pool call, e.g. still able to reach
+                # `coord.db.get_connection()` after this process's test
+                # harness (or a real blue/green restart) has moved on.
+                drain_deadline = _time.monotonic() + 5.0
+                while _tick_inflight > 0 and _time.monotonic() < drain_deadline:
+                    await asyncio.sleep(0.01)
+                if _tick_inflight > 0:
+                    log.error(
+                        "daemon shutdown: %d background tick(s) still running "
+                        "a thread-pool call after a 5s drain budget — "
+                        "abandoning them; they may still touch shared state "
+                        "after this process considers itself stopped",
+                        _tick_inflight,
+                    )
 
         return _ctx(_app)
 

@@ -1,3 +1,5 @@
+import gc
+
 from iminuit._core import (
     FCN,
     MnUserParameterState,
@@ -5,9 +7,11 @@ from iminuit._core import (
     MnMigrad,
     MnStrategy,
     MnScan,
+    MnMinos,
     FunctionMinimum,
     MnSimplex,
     MnUserCovariance,
+    MnPrint,
     MinimumState,
 )
 from pytest import approx
@@ -35,6 +39,15 @@ def test_MnUserCovariance():
     assert c[(1, 0)] == 2
     assert c[(0, 1)] == 2
     assert c[(1, 1)] == 3
+
+    # valid negative indices
+    assert c[(-1, -1)] == 3
+    assert c[(-2, -2)] == 1
+
+    # out-of-range indices raise instead of crashing
+    for bad in ((-3, 0), (0, -3), (2, 0), (0, 2)):
+        with pytest.raises(IndexError):
+            c[bad]
 
     pkl = pickle.dumps(c)
     c2 = pickle.loads(pkl)
@@ -74,6 +87,189 @@ def test_MnUserParameterState():
     st2.set_value(0, 1.1)
 
     assert st2 != st
+
+    # valid negative index works
+    assert st[-1].name == "😁"
+    assert st[-2].name == "x"
+
+    # out-of-range indices raise IndexError instead of crashing (SIGBUS)
+    for bad in (-(len(st) + 1), len(st)):
+        with pytest.raises(IndexError):
+            st[bad]
+
+
+def test_MnUserCovariance_bad_length():
+    # data length must match n * (n + 1) / 2, else reads run past the end
+    with pytest.raises(ValueError):
+        MnUserCovariance((1.0,), 3)
+    with pytest.raises(ValueError):
+        MnUserCovariance((1, 2, 3, 4), 2)
+
+
+@pytest.mark.parametrize(
+    "method,args",
+    [
+        ("fix", ()),
+        ("release", ()),
+        ("remove_limits", ()),
+        ("set_value", (1.0,)),
+        ("set_error", (0.5,)),
+        ("set_limits", (0.0, 2.0)),
+        ("set_upper_limit", (2.0,)),
+        ("set_lower_limit", (0.0,)),
+    ],
+)
+def test_MnUserParameterState_setter_index(method, args):
+    st = MnUserParameterState()
+    st.add("x", 1, 0.1)
+
+    # valid negative index works
+    getattr(st, method)(-1, *args)
+
+    # out-of-range indices raise IndexError instead of crashing (SIGBUS)
+    for bad in (-2, 1, 5):
+        with pytest.raises(IndexError):
+            getattr(st, method)(bad, *args)
+
+
+def test_MnUserTransformation_index():
+    st = MnUserParameterState()
+    st.add("x", 1, 0.1, 0, 2)
+    st.add("y", 1, 0.1)
+    st.fix(1)
+    tr = st.trafo
+
+    assert len(tr) == 2
+    assert tr.variable_parameters == 1
+
+    # external indices
+    assert tr.name(-1) == "y"
+    tr.ext2int(0, 1.0)
+    assert tr.int_of_ext(0) == 0
+    for bad in (-3, 2, 5):
+        with pytest.raises(IndexError):
+            tr.name(bad)
+        with pytest.raises(IndexError):
+            tr.ext2int(bad, 1.0)
+        with pytest.raises(IndexError):
+            tr.int_of_ext(bad)
+
+    # internal indices, only one parameter is free
+    tr.int2ext(0, 0.0)
+    tr.dint2ext(0, 0.0)
+    assert tr.ext_of_int(-1) == 0
+    for bad in (-2, 1, 5):
+        with pytest.raises(IndexError):
+            tr.int2ext(bad, 0.0)
+        with pytest.raises(IndexError):
+            tr.dint2ext(bad, 0.0)
+        with pytest.raises(IndexError):
+            tr.ext_of_int(bad)
+
+
+def test_MnUserParameterState_limit_equality():
+    # parameters/states differing only in their limit values must not compare equal
+    a = MnUserParameterState()
+    a.add("x", 0, 1, -1, 5)
+    b = MnUserParameterState()
+    b.add("x", 0, 1, -2, 7)
+    assert a[0] != b[0]
+    assert a != b
+
+    c = MnUserParameterState()
+    c.add("x", 0, 1, -1, 5)
+    assert a[0] == c[0]
+    assert a == c
+
+
+def test_MnUserParameterState_iter_keep_alive():
+    # iterating over a temporary state must keep the state alive (keep_alive<0, 1>)
+    def make_params():
+        st = MnUserParameterState()
+        st.add("a", 1, 0.1)
+        st.add("b", 2, 0.1)
+        return iter(st)
+
+    it = make_params()
+    gc.collect()
+    names = [p.name for p in it]
+    assert names == ["a", "b"]
+
+
+def test_MnMinos_keep_alive():
+    # MnMinos stores references to the FCN and FunctionMinimum; constructing it
+    # from temporaries and dropping all other references must not crash.
+    def make_minos():
+        fcn = FCN(lambda x: 10 + x**2, None, None, None, False, 1)
+        state = MnUserParameterState()
+        state.add("x", 5, 0.1)
+        fmin = MnMigrad(fcn, state, 1)(0, 0.1)
+        return MnMinos(
+            FCN(lambda x: 10 + x**2, None, None, None, False, 1),
+            fmin,
+            MnStrategy(1),
+        )
+
+    minos = make_minos()
+    gc.collect()
+    err = minos(0, 100, 0.01)
+    assert err.lower == approx(-1, abs=1e-2)
+    assert err.upper == approx(1, abs=1e-2)
+
+
+def test_MnPrint_prefix():
+    # the prefix string must stay alive for the lifetime of the MnPrint object
+    prev = MnPrint.global_level
+    try:
+        p = MnPrint("some_prefix", 3)
+        # exercise the logging methods; they must not produce garbage/crash
+        p.info("hello")
+        p.warn("warning")
+    finally:
+        MnPrint.global_level = prev
+
+
+def test_MnPrint_out_of_order_destruction(capsys):
+    # MnPrint pushes the prefix on a thread-local stack; Python can destroy the
+    # objects in any order, so each object must own its prefix
+    prev = MnPrint.global_level
+    try:
+        MnPrint.global_level = 3
+        a = MnPrint("AAA", 3)
+        b = MnPrint("BBB", 3)
+        del a
+        MnPrint.show_prefix_stack(True)
+        b.warn("hi")
+    finally:
+        MnPrint.show_prefix_stack(False)
+        MnPrint.global_level = prev
+
+    captured = capsys.readouterr().out
+    assert "BBB" in captured
+    assert "hi" in captured
+    assert "AAA" not in captured
+
+
+def test_MnPrint_static_methods():
+    p = MnPrint("some_prefix", 1)
+    # these are static methods, but must also work on an instance
+    p.show_prefix_stack(False)
+    p.add_filter("some_prefix")
+    p.clear_filter()
+
+
+def test_MnPrint_trace_level(capsys):
+    from iminuit import Minuit
+
+    m = Minuit(lambda x: (x - 1) ** 2, x=0)
+    m.print_level = 4
+    try:
+        m.migrad()
+    finally:
+        m.print_level = 0
+
+    assert m.valid
+    assert capsys.readouterr().out != ""
 
 
 def test_MnMigrad():

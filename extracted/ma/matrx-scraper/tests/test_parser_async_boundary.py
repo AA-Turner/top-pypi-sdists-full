@@ -68,6 +68,10 @@ async def test_scrape_offloads_response_extraction(monkeypatch) -> None:
             response_url="https://example.com",
             success=True,
             content_type="html",
+            # Real text, because a result with NO text is no longer a success
+            # (content_sanity gate) and would send this fixture down the
+            # browser-escalation path instead of the one it is pinning.
+            text_data="x" * 500,
         )
 
     monkeypatch.setattr(orchestrator, "fetch", _fetch)
@@ -98,6 +102,7 @@ async def test_browser_scrape_uses_required_proxy(monkeypatch) -> None:
             response_url=response.response_url,
             success=True,
             content_type="html",
+            text_data="x" * 500,
         ),
     )
 

@@ -4775,6 +4775,9 @@ def register_generated_tools(mcp, _get_client):
         campaign_name: str | None = None,
         ad_set_name: str | None = None,
         ad_set_id: str | None = None,
+        existing_campaign_id: str | None = None,
+        identity_id: str | None = None,
+        identity_type: str | None = None,
         budget: dict[str, Any] | None = None,
         instagram_account_id: str | None = None,
         destination_type: str | None = None,
@@ -4796,6 +4799,8 @@ def register_generated_tools(mcp, _get_client):
         call_to_action: str | None = None,
         spark_auth_code: str | None = None,
         smart_plus: bool | None = None,
+        spark_posts: list[dict[str, Any]] | None = None,
+        promo_codes: list[dict[str, Any]] | None = None,
         promoted_object: dict[str, Any] | None = None,
         dsa_beneficiary: str | None = None,
         dsa_payor: str | None = None,
@@ -4809,13 +4814,16 @@ def register_generated_tools(mcp, _get_client):
                 creative_features
                 post_id: Zernio post ID (provide this or platformPostId)
                 platform_post_id: Platform post ID (alternative to postId)
-                account_id: Account ID (required)
+                account_id: Zernio account id. Normally the connected posting account (facebook, instagram, tiktok, linkedin, pinterest, twitter) or a googleads account. TikTok: the TikTok Ads connection (platform tiktokads) is accepted too when the post brings its own authorization (sparkAuthCode or sparkPosts), so Spark ads need no organic TikTok account connected; such a call must use platformPostId, not postId. (required)
                 ad_account_id: Platform ad account ID (required)
                 name: (required)
                 campaign_name: Exact name for the campaign this boost provisions. Omitted keeps the default `<name> - Campaign`. Every platform: on LinkedIn it names the campaign group. Ignored on the Meta attach shape (`adSetId`), which creates no campaign.
                 ad_set_name: Exact name for the ad-group level this boost provisions. Omitted keeps the default `<name> - Ad Group`. Meta: ad set; TikTok, Pinterest, Google: ad group; X: line item; LinkedIn: the campaign under the campaign group. Ignored on the Meta attach shape.
                 goal: Available goals vary by platform. Meta (Facebook/Instagram) and TikTok support all 7. LinkedIn supports all except app_promotion. X supports engagement, traffic, awareness, video_views, app_promotion. Pinterest and Google Ads support only engagement, traffic, awareness, video_views. (required)
                 ad_set_id: Meta, or TikTok with `smartPlus: true`. Attach the boosted post to this existing ad set instead of creating a campaign. On TikTok the id is an existing Smart+ ad group: the post is added as one more Spark ad in it (up to 30 per ad group), under the identity its `sparkAuthCode` creates; goal and budget are inherited from the Smart+ campaign; a regular ad group is rejected with a 400. Meta: The ad set then owns budget, schedule and targeting; sending those too is a 400.
+                existing_campaign_id: TikTok only. Create the ad group and the Spark ad under this existing TikTok campaign instead of creating a new campaign. The campaign keeps its own status and objective (the objective must fit `goal`). Cannot be combined with adSetId or smartPlus. On Meta use POST /v1/ads/create with existingCampaignId.
+                identity_id: TikTok only. The identity the ad runs as (the profile shown on the ad), from GET /v1/ads/tiktok-identities. Default: the connected TikTok account's own identity. Must be authorized on the advertiser or the call fails naming the available ones.
+                identity_type: TikTok only. Type of identityId; resolved from the advertiser's identity list when omitted.
                 budget: Required unless adSetId is set.
                 instagram_account_id: Meta only. Instagram identity the ad runs AS (creative.instagram_user_id), overriding the account linked to the Page. Live-verified against a Page-post creative.
                 destination_type: Meta only. Ad-set destination_type: where the click LANDS, as opposed to instagramAccountId which is who the ad runs as. Independent of plain link CTAs and their goal. A messaging callToAction selects its destination automatically; an explicit destinationType must then match. Lead ads use ON_AD.
@@ -4905,7 +4913,9 @@ def register_generated_tools(mcp, _get_client):
         account running the ads (same-BC creators only). The creator generates the
         code in their TikTok app's Promote settings and shares it with the
         advertiser. Maps to `auth_code` on the creative entry of /v2/ad/create/.
-                smart_plus: TikTok only. Run the Spark post in a Smart+ campaign (goal `conversions` = Smart+ Web Conversions, `lead_generation` = Smart+ Lead Generation) instead of a regular campaign. Requires `sparkAuthCode` (the Smart+ ad runs the post under the identity that redeeming its Spark code creates; a Business Center-owned post is not accepted there) and `promotedObject.pixelId` + `customEventType`. `app_promotion` is not available on a Spark post. Rejected with a 400 on other platforms.
+                smart_plus: TikTok only. Run the Spark post in a Smart+ campaign (goal `conversions` = Smart+ Web Conversions, `lead_generation` = Smart+ Lead Generation) instead of a regular campaign. Requires `sparkAuthCode` (the Smart+ ad runs the post under the identity that redeeming its Spark code creates; a Business Center-owned post is not accepted there) and `promotedObject.pixelId` + `customEventType`. `app_promotion` is not available on a Spark post. Rejected with a 400 on other platforms. A Smart+ Spark ad uses a dynamic CTA portfolio, sent as ad_configuration.call_to_action_id (TikTok does not accept a named call to action there): Zernio creates one per ad account and reuses it, and `callToAction` is rejected with a 400 on this path.
+                spark_posts: TikTok Smart+ only (requires `smartPlus: true`). Several Spark posts as creatives of ONE Smart+ ad, each with its own post code (TikTok allows 1-50 per ad; posts from different creators mix). Replaces `platformPostId` + `sparkAuthCode`. Without `adSetId` it creates campaign + ad group + one ad carrying all of them; with `adSetId` it creates one new ad with all of them in that ad group. Rejected with a 400 on other platforms.
+                promo_codes: TikTok Smart+ Web Conversions only (requires `smartPlus: true`, goal `conversions`). Promo codes or offers TikTok highlights on the ad (Ads Manager's "Add promo code or offer"). A promo code needs shoppers to enter it at checkout; an entry without `promoCode` is an offer applied automatically. Rejected with a 400 on other platforms and on Lead Generation campaigns.
                 promoted_object: TikTok-only on this endpoint. The pixel a Website Conversion ad group
         optimizes toward, so a Spark Ad built from an existing organic post can
         optimize for a conversion instead of only engagement or traffic.
@@ -4928,7 +4938,10 @@ def register_generated_tools(mcp, _get_client):
         a default payor.
                 lead_gen_form_id: Lead Gen form ID to attach to the boosted ad's creative. REQUIRED when `goal` is `lead_generation`. On Meta this is the leadgen_forms ID (create one via POST /v1/ads/lead-forms). On LinkedIn this is the adForm ID (create one via POST /v1/ads/lead-forms with a LinkedIn account); the creative's `leadgenCallToAction.destination` is set to `urn:li:adForm:{id}`. Ignored for other goals.
                 status: Meta, TikTok, and LinkedIn. Publish state of the created entities. Omitted or ACTIVE publishes live (default); PAUSED creates them paused so you can review before they spend. On Meta a new campaign stays paused until explicitly activated; an attached ad is itself paused. On LinkedIn the whole campaign group, campaign, and creative hierarchy stays PAUSED (intendedStatus PAUSED on each).
-                optimization_goal: Meta only. Explicit ad-set `optimization_goal` override. When omitted,
+                optimization_goal: Meta, or TikTok with `goal: video_views`. TikTok: ENGAGED_VIEW (6-second
+        Focused View, the default) or ENGAGED_VIEW_FIFTEEN (15-second views), both
+        billed per view (CPV); any other value is a 400. Meta: explicit ad-set
+        `optimization_goal` override. When omitted,
         defaults to the value derived from `goal`. Messaging boosts always
         use CONVERSATIONS and reject another optimizationGoal. Otherwise the value must be compatible
         with the objective Meta derives from `goal`, not with the objective used
@@ -4950,6 +4963,9 @@ def register_generated_tools(mcp, _get_client):
                 ad_set_name=ad_set_name,
                 goal=goal,
                 ad_set_id=ad_set_id,
+                existing_campaign_id=existing_campaign_id,
+                identity_id=identity_id,
+                identity_type=identity_type,
                 budget=budget,
                 instagram_account_id=instagram_account_id,
                 destination_type=destination_type,
@@ -4971,6 +4987,8 @@ def register_generated_tools(mcp, _get_client):
                 call_to_action=call_to_action,
                 spark_auth_code=spark_auth_code,
                 smart_plus=smart_plus,
+                spark_posts=spark_posts,
+                promo_codes=promo_codes,
                 promoted_object=promoted_object,
                 dsa_beneficiary=dsa_beneficiary,
                 dsa_payor=dsa_payor,
@@ -5112,6 +5130,7 @@ def register_generated_tools(mcp, _get_client):
         dsa_beneficiary: str | None = None,
         dsa_payor: str | None = None,
         brand_identity: dict[str, Any] | None = None,
+        identity_id: str | None = None,
         identity_type: str | None = None,
         smart_plus: bool | None = None,
         user_os: list[str] | None = None,
@@ -5151,7 +5170,7 @@ def register_generated_tools(mcp, _get_client):
 
         **OpenAI Ads**
         - Only `traffic`, `awareness`, and `conversions` are supported (other goals return 400). Maps to OpenAI's `bidding_type` (clicks, impressions, conversions respectively). `conversions` requires an active conversion event setting on the account; create a tracking tag with `defaultEventType` via the tracking-tags API (`POST /v1/accounts/{accountId}/tracking-tags`), or configure a conversion event in OpenAI Ads Manager, or the request returns 422.
-                optimization_goal: Meta only. Explicit ad-set `optimization_goal` (e.g. `LANDING_PAGE_VIEWS`, `LINK_CLICKS`, `REACH`, `IMPRESSIONS`, `OFFSITE_CONVERSIONS`, `THRUPLAY`, `LEAD_GENERATION`). Overrides the default derived from `goal` (e.g. `traffic` defaults to `LINK_CLICKS`). Forwarded verbatim to Meta, which validates compatibility with the campaign objective and rejects incompatible combinations.
+                optimization_goal: Meta, or TikTok with goal video_views (ENGAGED_VIEW, the 6-second default, or ENGAGED_VIEW_FIFTEEN; both bill per view). Meta: Explicit ad-set `optimization_goal` (e.g. `LANDING_PAGE_VIEWS`, `LINK_CLICKS`, `REACH`, `IMPRESSIONS`, `OFFSITE_CONVERSIONS`, `THRUPLAY`, `LEAD_GENERATION`). Overrides the default derived from `goal` (e.g. `traffic` defaults to `LINK_CLICKS`). Forwarded verbatim to Meta, which validates compatibility with the campaign objective and rejects incompatible combinations.
                 billing_event: Meta only. Explicit ad-set `billing_event`. Defaults to `IMPRESSIONS`. Forwarded verbatim to Meta, which validates compatibility with the optimization goal.
                 buying_type: Meta only. Defaults to AUCTION and is explicitly sent on new campaigns, including validateOnly. Reusing existingCampaignId does not change the campaign. RESERVED = Reach & Frequency: requires `rfPredictionId` (a RESERVED prediction from /v1/ads/rf-predictions + /reserve). Budget, schedule and pricing come from the reservation, so budgetAmount/budgetType are not required and bid fields are ignored. Only the plain single-ad shape (no creatives[], adSetId, existingCampaignId or dynamicCreative).
                 rf_prediction_id: Meta only. The RESERVED prediction id the R&F ad set runs on (reserving mints a new id, so pass that one). Requires buyingType RESERVED.
@@ -5245,7 +5264,11 @@ def register_generated_tools(mcp, _get_client):
         `budgetAmount`/`budgetType` and bidding fields
         (`bidStrategy`, `bidAmount`, `portfolioBidStrategyId`)
         return 400 on this shape; the ad group already owns them.
-                existing_campaign_id: Meta, Google Ads, and LinkedIn. On Meta: add the new ad
+                existing_campaign_id: Meta, Google Ads, LinkedIn and TikTok. On TikTok: creates
+        the ad group and the ad under this existing campaign; the
+        campaign is neither created nor activated and its
+        objective must fit `goal`; not with `smartPlus`.
+        On Meta: add the new ad
         set under this EXISTING campaign instead of creating a new
         one (multi-ad-set audience testing). The new ad set's
         budget is matched to the campaign's mode automatically:
@@ -5544,6 +5567,7 @@ def register_generated_tools(mcp, _get_client):
 
         Alternative: configure once via `PATCH /v1/connect/tiktok-ads`,
         then create ads without this field.
+                identity_id: TikTok: the identity the ad runs as, from GET /v1/ads/tiktok-identities. Overrides the connected account's own identity; must be authorized on the advertiser.
                 identity_type: TikTok only. Forces the identity attribution on the ad:
 
           - `TT_USER`: the posting account's open_id (real @username
@@ -5679,6 +5703,7 @@ def register_generated_tools(mcp, _get_client):
                 dsa_beneficiary=dsa_beneficiary,
                 dsa_payor=dsa_payor,
                 brand_identity=brand_identity,
+                identity_id=identity_id,
                 identity_type=identity_type,
                 smart_plus=smart_plus,
                 user_os=user_os,
@@ -5766,6 +5791,31 @@ def register_generated_tools(mcp, _get_client):
         client = _get_client()
         try:
             response = client.ad_creatives.get_ad_media(ad_id=ad_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List TikTok ad identities",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def ad_creatives_list_ads_tik_tok_identities(
+        account_id: str, ad_account_id: str
+    ) -> str:
+        """List TikTok ad identities
+
+        Args:
+            account_id: A tiktok or tiktokads account ID (required)
+            ad_account_id: TikTok advertiser ID (required)"""
+        client = _get_client()
+        try:
+            response = client.ad_creatives.list_ads_tik_tok_identities(
+                account_id=account_id, ad_account_id=ad_account_id
+            )
             return _format_response(response)
         except Exception as e:
             return f"Error: {e}"
@@ -6109,54 +6159,6 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.ad_creatives.delete_ad_video(
                 video_id=video_id, account_id=account_id, ad_account_id=ad_account_id
-            )
-            return _format_response(response)
-        except Exception as e:
-            return f"Error: {e}"
-
-    @mcp.tool(
-        annotations=ToolAnnotations(
-            title="List Meta product catalogs",
-            readOnlyHint=True,
-            destructiveHint=False,
-            openWorldHint=False,
-        )
-    )
-    def ad_creatives_list_ad_catalogs(account_id: str, ad_account_id: str) -> str:
-        """List Meta product catalogs
-
-        Args:
-            account_id: A facebook, instagram, or metaads account ID (required)
-            ad_account_id: Meta ad account ID (act_...) (required)"""
-        client = _get_client()
-        try:
-            response = client.ad_creatives.list_ad_catalogs(
-                account_id=account_id, ad_account_id=ad_account_id
-            )
-            return _format_response(response)
-        except Exception as e:
-            return f"Error: {e}"
-
-    @mcp.tool(
-        annotations=ToolAnnotations(
-            title="List a catalog's product sets",
-            readOnlyHint=True,
-            destructiveHint=False,
-            openWorldHint=False,
-        )
-    )
-    def ad_creatives_list_ad_catalog_product_sets(
-        catalog_id: str, account_id: str
-    ) -> str:
-        """List a catalog's product sets
-
-        Args:
-            catalog_id: Meta product catalog ID (from GET /v1/ads/catalogs) (required)
-            account_id: A facebook, instagram, or metaads account ID (required)"""
-        client = _get_client()
-        try:
-            response = client.ad_creatives.list_ad_catalog_product_sets(
-                catalog_id=catalog_id, account_id=account_id
             )
             return _format_response(response)
         except Exception as e:
@@ -6548,7 +6550,7 @@ def register_generated_tools(mcp, _get_client):
             level: Row granularity
             fields: Comma-separated Graph insights fields (e.g. spend,impressions,frequency,website_purchase_roas). Omitted = Meta's default set.
             breakdowns: Comma-separated Graph breakdowns (e.g. age,gender or publisher_platform).
-            action_breakdowns: Comma-separated Graph action breakdowns. Segments the actions[] arrays in each row.
+            action_breakdowns: Comma-separated Graph action breakdowns; segments the actions[] arrays in each row. Pass `none` to clear Meta's default action_type breakdown, required to combine some non-action breakdowns such as instagram_ads_follow_type (otherwise Meta returns a (#100) invalid-combination error).
             action_attribution_windows: Comma-separated Meta attribution windows. Action values are returned keyed per window.
             action_report_time: When actions are counted: impression, conversion or mixed.
             use_unified_attribution_setting: Use the ad sets' own attribution settings for action counting.
@@ -6618,7 +6620,7 @@ def register_generated_tools(mcp, _get_client):
             level
             fields: Comma-separated Graph insights fields.
             breakdowns: Comma-separated Graph breakdowns.
-            action_breakdowns: Comma-separated Graph action breakdowns (e.g. action_type,action_destination).
+            action_breakdowns: Comma-separated Graph action breakdowns (e.g. action_type,action_destination). Pass `none` to clear Meta's default action_type breakdown, needed for some non-action breakdowns such as instagram_ads_follow_type.
             action_attribution_windows: Meta attribution windows (e.g. ["7d_click", "1d_view"]). Action values are returned keyed per window.
             action_report_time: When actions are counted: impression, conversion or mixed.
             use_unified_attribution_setting: Use the ad sets' own attribution settings for action counting.
@@ -8082,7 +8084,7 @@ def register_generated_tools(mcp, _get_client):
         """List blogs
 
         Args:
-            account_id: Connected Shopify SocialAccount id. (required)
+            account_id: Connected Shopify or WordPress account id. (required)
             limit: Page size (1-50).
             cursor: Opaque cursor from a previous response. Omit for the first page."""
         client = _get_client()
@@ -8132,8 +8134,8 @@ def register_generated_tools(mcp, _get_client):
         """Get a blog
 
         Args:
-            account_id: Connected Shopify SocialAccount id. (required)
-            blog_id: Platform-native numeric blog id. Non-numeric values return 400. (required)"""
+            account_id: Connected Shopify or WordPress account id. (required)
+            blog_id: Platform-native numeric blog/site id returned by the list operation. (required)"""
         client = _get_client()
         try:
             response = client.blogs.get_blog(account_id=account_id, blog_id=blog_id)
@@ -8206,8 +8208,8 @@ def register_generated_tools(mcp, _get_client):
         """List blog articles
 
         Args:
-            account_id: Connected Shopify SocialAccount id. (required)
-            blog_id: Platform-native numeric blog id. Non-numeric values return 400. (required)
+            account_id: Connected Shopify or WordPress account id. (required)
+            blog_id: Platform-native numeric blog/site id returned by the list operation. (required)
             limit: Page size (1-50).
             cursor: Opaque cursor from a previous response. Omit for the first page."""
         client = _get_client()
@@ -8244,17 +8246,17 @@ def register_generated_tools(mcp, _get_client):
         """Create a blog article
 
         Args:
-            account_id: Connected Shopify SocialAccount id. (required)
-            blog_id: Platform-native numeric blog id. Non-numeric values return 400. (required)
+            account_id: Connected Shopify or WordPress account id. (required)
+            blog_id: Platform-native numeric blog/site id returned by the list operation. (required)
             title: (required)
             body_html: Article body as HTML.
             handle: URL slug. Generated from the title when omitted.
-            tags
-            author: Display name of the article author.
+            tags: Tag names. WordPress resolves existing names case-insensitively and creates missing tags.
+            author: Shopify author display name, or numeric WordPress user id serialized as a string. Assigning another WordPress user may require elevated capability.
             excerpt: Short summary shown in blog listings.
-            image: Featured image. The platform downloads it, so the URL must be publicly reachable.
-            seo: Search-engine overrides. Maps to Shopify global metafields (title_tag and description_tag).
-            is_published: Set false to create the article as a draft.
+            image: Featured image from a public URL. WordPress downloads it into the media library; JPEG, PNG, GIF and WebP are accepted up to 10 MB.
+            seo: Shopify only. Search-engine overrides mapped to global title_tag and description_tag metafields. WordPress rejects this field.
+            is_published: Set false for a draft or true to publish. On WordPress false takes priority over a future publishDate; omission with no date defaults to draft.
             publish_date: ISO 8601 datetime with offset (or Z). A future date schedules publication natively on the platform."""
         client = _get_client()
         try:
@@ -8288,8 +8290,8 @@ def register_generated_tools(mcp, _get_client):
         """Get a blog article
 
         Args:
-            account_id: Connected Shopify SocialAccount id. (required)
-            blog_id: Platform-native numeric blog id. Non-numeric values return 400. (required)
+            account_id: Connected Shopify or WordPress account id. (required)
+            blog_id: Platform-native numeric blog/site id returned by the list operation. (required)
             article_id: Platform-native numeric article id. Non-numeric values return 400. (required)"""
         client = _get_client()
         try:
@@ -8326,18 +8328,18 @@ def register_generated_tools(mcp, _get_client):
         """Update a blog article
 
         Args:
-            account_id: Connected Shopify SocialAccount id. (required)
-            blog_id: Platform-native numeric blog id. Non-numeric values return 400. (required)
+            account_id: Connected Shopify or WordPress account id. (required)
+            blog_id: Platform-native numeric blog/site id returned by the list operation. (required)
             article_id: Platform-native numeric article id. Non-numeric values return 400. (required)
             title
             body_html: Article body as HTML.
             handle: URL slug of the article.
-            tags: Replaces the full tag list.
-            author: Display name of the article author.
+            tags: Replaces the full tag-name list. WordPress resolves existing names case-insensitively and creates missing tags.
+            author: Shopify author display name, or numeric WordPress user id serialized as a string. Assigning another WordPress user may require elevated capability.
             excerpt: Short summary shown in blog listings.
-            image: Featured image. The platform downloads it, so the URL must be publicly reachable.
-            seo: Search-engine overrides. Maps to Shopify global metafields (title_tag and description_tag).
-            is_published: Set false to unpublish the article back to a draft.
+            image: Featured image from a public URL. WordPress downloads it into the media library; JPEG, PNG, GIF and WebP are accepted up to 10 MB. Omit to preserve it; null removal is not supported.
+            seo: Shopify only. Search-engine overrides mapped to global title_tag and description_tag metafields. WordPress rejects this field.
+            is_published: Set false to move to draft or true to publish. On WordPress false takes priority over a future publishDate; omission preserves status unless publishDate is sent.
             publish_date: ISO 8601 datetime with offset (or Z). A future date schedules publication natively on the platform."""
         client = _get_client()
         try:
@@ -8374,8 +8376,8 @@ def register_generated_tools(mcp, _get_client):
         """Delete a blog article
 
         Args:
-            account_id: Connected Shopify SocialAccount id. (required)
-            blog_id: Platform-native numeric blog id. Non-numeric values return 400. (required)
+            account_id: Connected Shopify or WordPress account id. (required)
+            blog_id: Platform-native numeric blog/site id returned by the list operation. (required)
             article_id: Platform-native numeric article id. Non-numeric values return 400. (required)"""
         client = _get_client()
         try:
@@ -11250,6 +11252,61 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.connect.connect_shopify_with_token(
                 profile_id=profile_id, shop=shop, access_token=access_token
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get WordPress.com OAuth connect URL",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def connect_get_word_press_auth_url(
+        profile_id: str, redirect_url: str | None = None
+    ) -> str:
+        """Get WordPress.com OAuth connect URL
+
+        Args:
+            profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
+            redirect_url: Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400."""
+        client = _get_client()
+        try:
+            response = client.connect.get_word_press_auth_url(
+                profile_id=profile_id, redirect_url=redirect_url
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Connect self-hosted WordPress with an application password",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def connect_word_press_with_application_password(
+        profile_id: str, site_url: str, username: str, application_password: str
+    ) -> str:
+        """Connect self-hosted WordPress with an application password
+
+        Args:
+            profile_id: Your Zernio profile ID (get from /v1/profiles). (required)
+            site_url: HTTPS base URL of the WordPress installation, including a subdirectory path when applicable. (required)
+            username: WordPress login name. A colon is not allowed. (required)
+            application_password: Application password created for the WordPress user. Spaces in WordPress display formatting are accepted. (required)"""
+        client = _get_client()
+        try:
+            response = client.connect.connect_word_press_with_application_password(
+                profile_id=profile_id,
+                site_url=site_url,
+                username=username,
+                application_password=application_password,
             )
             return _format_response(response)
         except Exception as e:
@@ -17956,6 +18013,494 @@ def register_generated_tools(mcp, _get_client):
         except Exception as e:
             return f"Error: {e}"
 
+    # PRODUCT_CATALOGS
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List Meta product catalogs",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def product_catalogs_list_ad_catalogs(
+        account_id: str,
+        catalog_account_id: str | None = None,
+        ad_account_id: str | None = None,
+        business_id: str | None = None,
+    ) -> str:
+        """List Meta product catalogs
+
+        Args:
+            account_id: A facebook, instagram, metaads or whatsapp account ID (required)
+            catalog_account_id: A facebook, instagram or metaads account whose Meta login carries catalog_management; its token is used instead of the account's own (needed for WhatsApp connections, whose token cannot manage catalogs).
+            ad_account_id: Meta ad account ID (act_...) whose owner business to list
+            business_id: Meta business portfolio ID to list"""
+        client = _get_client()
+        try:
+            response = client.product_catalogs.list_ad_catalogs(
+                account_id=account_id,
+                catalog_account_id=catalog_account_id,
+                ad_account_id=ad_account_id,
+                business_id=business_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a Meta product catalog",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def product_catalogs_create_ad_catalog(
+        account_id: str,
+        name: str,
+        catalog_account_id: str | None = None,
+        ad_account_id: str | None = None,
+        business_id: str | None = None,
+        vertical: str = "commerce",
+    ) -> str:
+        """Create a Meta product catalog
+
+        Args:
+            account_id: A facebook, instagram, metaads or whatsapp account ID (required)
+            catalog_account_id: Account whose Meta login token performs the call (see GET)
+            ad_account_id: Ad account whose owner business creates the catalog
+            business_id: Business portfolio that owns the catalog
+            name: (required)
+            vertical"""
+        client = _get_client()
+        try:
+            response = client.product_catalogs.create_ad_catalog(
+                account_id=account_id,
+                catalog_account_id=catalog_account_id,
+                ad_account_id=ad_account_id,
+                business_id=business_id,
+                name=name,
+                vertical=vertical,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a product catalog",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def product_catalogs_get_ad_catalog() -> str:
+        """Get a product catalog"""
+        client = _get_client()
+        try:
+            response = client.product_catalogs.get_ad_catalog()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a product catalog",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def product_catalogs_delete_ad_catalog() -> str:
+        """Delete a product catalog"""
+        client = _get_client()
+        try:
+            response = client.product_catalogs.delete_ad_catalog()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List a catalog's products",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def product_catalogs_list_ad_catalog_products(
+        limit: int = 25, after: str | None = None, retailer_id: str | None = None
+    ) -> str:
+        """List a catalog's products
+
+        Args:
+            limit
+            after: Cursor from the previous page's `nextCursor`
+            retailer_id: Only the product with this retailer id (your SKU)"""
+        client = _get_client()
+        try:
+            response = client.product_catalogs.list_ad_catalog_products(
+                limit=limit, after=after, retailer_id=retailer_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Add a product to a catalog",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def product_catalogs_create_ad_catalog_product(
+        account_id: str,
+        product: dict[str, Any] | None,
+        catalog_account_id: str | None = None,
+    ) -> str:
+        """Add a product to a catalog
+
+        Args:
+            account_id: (required)
+            catalog_account_id
+            product: (required)"""
+        client = _get_client()
+        try:
+            response = client.product_catalogs.create_ad_catalog_product(
+                account_id=account_id,
+                catalog_account_id=catalog_account_id,
+                product=product,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create, update or delete products in bulk",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def product_catalogs_batch_ad_catalog_products(
+        account_id: str,
+        requests: list[dict[str, Any]] | None,
+        catalog_account_id: str | None = None,
+    ) -> str:
+        """Create, update or delete products in bulk
+
+        Args:
+            account_id: (required)
+            catalog_account_id
+            requests: (required)"""
+        client = _get_client()
+        try:
+            response = client.product_catalogs.batch_ad_catalog_products(
+                account_id=account_id,
+                catalog_account_id=catalog_account_id,
+                requests=requests,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a bulk request's status",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def product_catalogs_get_ad_catalog_batch(handle: str) -> str:
+        """Get a bulk request's status
+
+        Args:
+            handle: Handle returned by the batch call (required)"""
+        client = _get_client()
+        try:
+            response = client.product_catalogs.get_ad_catalog_batch(handle=handle)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a product",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def product_catalogs_get_ad_catalog_product() -> str:
+        """Get a product"""
+        client = _get_client()
+        try:
+            response = client.product_catalogs.get_ad_catalog_product()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a product",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def product_catalogs_update_ad_catalog_product(
+        account_id: str,
+        product: dict[str, Any] | None,
+        catalog_account_id: str | None = None,
+    ) -> str:
+        """Update a product
+
+        Args:
+            account_id: (required)
+            catalog_account_id
+            product: (required)"""
+        client = _get_client()
+        try:
+            response = client.product_catalogs.update_ad_catalog_product(
+                account_id=account_id,
+                catalog_account_id=catalog_account_id,
+                product=product,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a product",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def product_catalogs_delete_ad_catalog_product() -> str:
+        """Delete a product"""
+        client = _get_client()
+        try:
+            response = client.product_catalogs.delete_ad_catalog_product()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List a catalog's product feeds",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def product_catalogs_list_ad_catalog_feeds() -> str:
+        """List a catalog's product feeds"""
+        client = _get_client()
+        try:
+            response = client.product_catalogs.list_ad_catalog_feeds()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a product feed",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def product_catalogs_create_ad_catalog_feed(
+        account_id: str,
+        name: str,
+        catalog_account_id: str | None = None,
+        schedule: dict[str, Any] | None = None,
+    ) -> str:
+        """Create a product feed
+
+        Args:
+            account_id: (required)
+            catalog_account_id
+            name: (required)
+            schedule"""
+        client = _get_client()
+        try:
+            response = client.product_catalogs.create_ad_catalog_feed(
+                account_id=account_id,
+                catalog_account_id=catalog_account_id,
+                name=name,
+                schedule=schedule,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List a feed's uploads",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def product_catalogs_list_ad_catalog_feed_uploads(feed_id: str) -> str:
+        """List a feed's uploads
+
+        Args:
+            feed_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.product_catalogs.list_ad_catalog_feed_uploads(
+                feed_id=feed_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Fetch a feed file now",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def product_catalogs_create_ad_catalog_feed_upload(
+        feed_id: str, account_id: str, url: str, catalog_account_id: str | None = None
+    ) -> str:
+        """Fetch a feed file now
+
+        Args:
+            feed_id: (required)
+            account_id: (required)
+            catalog_account_id
+            url: (required)"""
+        client = _get_client()
+        try:
+            response = client.product_catalogs.create_ad_catalog_feed_upload(
+                feed_id=feed_id,
+                account_id=account_id,
+                catalog_account_id=catalog_account_id,
+                url=url,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List a catalog's product sets",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def product_catalogs_list_ad_catalog_product_sets() -> str:
+        """List a catalog's product sets"""
+        client = _get_client()
+        try:
+            response = client.product_catalogs.list_ad_catalog_product_sets()
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Create a product set",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def product_catalogs_create_ad_catalog_product_set(
+        account_id: str,
+        name: str,
+        filter: dict[str, Any] | None,
+        catalog_account_id: str | None = None,
+    ) -> str:
+        """Create a product set
+
+        Args:
+            account_id: (required)
+            catalog_account_id
+            name: (required)
+            filter: Meta product set filter (required)"""
+        client = _get_client()
+        try:
+            response = client.product_catalogs.create_ad_catalog_product_set(
+                account_id=account_id,
+                catalog_account_id=catalog_account_id,
+                name=name,
+                filter=filter,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a product set",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def product_catalogs_update_ad_catalog_product_set(
+        product_set_id: str,
+        account_id: str,
+        catalog_account_id: str | None = None,
+        name: str | None = None,
+        filter: dict[str, Any] | None = None,
+    ) -> str:
+        """Update a product set
+
+        Args:
+            product_set_id: (required)
+            account_id: (required)
+            catalog_account_id
+            name
+            filter"""
+        client = _get_client()
+        try:
+            response = client.product_catalogs.update_ad_catalog_product_set(
+                product_set_id=product_set_id,
+                account_id=account_id,
+                catalog_account_id=catalog_account_id,
+                name=name,
+                filter=filter,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Delete a product set",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def product_catalogs_delete_ad_catalog_product_set(product_set_id: str) -> str:
+        """Delete a product set
+
+        Args:
+            product_set_id: (required)"""
+        client = _get_client()
+        try:
+            response = client.product_catalogs.delete_ad_catalog_product_set(
+                product_set_id=product_set_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
     # PRODUCTS
 
     @mcp.tool(
@@ -21509,6 +22054,132 @@ def register_generated_tools(mcp, _get_client):
         try:
             response = client.whatsapp.delete_whats_app_template_by_id(
                 template_id=template_id, account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="List the catalogs linked to a WhatsApp number",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def whatsapp_list_whats_app_catalogs(account_id: str) -> str:
+        """List the catalogs linked to a WhatsApp number
+
+        Args:
+            account_id: WhatsApp account ID (required)"""
+        client = _get_client()
+        try:
+            response = client.whatsapp.list_whats_app_catalogs(account_id=account_id)
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Link a catalog to a WhatsApp number",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def whatsapp_link_whats_app_catalog(
+        account_id: str, catalog_id: str, catalog_account_id: str | None = None
+    ) -> str:
+        """Link a catalog to a WhatsApp number
+
+        Args:
+            account_id: WhatsApp account ID (required)
+            catalog_account_id: Account whose Meta login token performs the call
+            catalog_id: Meta catalog ID (required)"""
+        client = _get_client()
+        try:
+            response = client.whatsapp.link_whats_app_catalog(
+                account_id=account_id,
+                catalog_account_id=catalog_account_id,
+                catalog_id=catalog_id,
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Unlink a catalog from a WhatsApp number",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def whatsapp_unlink_whats_app_catalog(account_id: str, catalog_id: str) -> str:
+        """Unlink a catalog from a WhatsApp number
+
+        Args:
+            account_id: WhatsApp account ID (required)
+            catalog_id: Meta catalog ID (required)"""
+        client = _get_client()
+        try:
+            response = client.whatsapp.unlink_whats_app_catalog(
+                account_id=account_id, catalog_id=catalog_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Get a number's commerce settings",
+            readOnlyHint=True,
+            destructiveHint=False,
+            openWorldHint=False,
+        )
+    )
+    def whatsapp_get_whats_app_commerce_settings(account_id: str) -> str:
+        """Get a number's commerce settings
+
+        Args:
+            account_id: WhatsApp account ID (required)"""
+        client = _get_client()
+        try:
+            response = client.whatsapp.get_whats_app_commerce_settings(
+                account_id=account_id
+            )
+            return _format_response(response)
+        except Exception as e:
+            return f"Error: {e}"
+
+    @mcp.tool(
+        annotations=ToolAnnotations(
+            title="Update a number's commerce settings",
+            readOnlyHint=False,
+            destructiveHint=True,
+            openWorldHint=True,
+        )
+    )
+    def whatsapp_update_whats_app_commerce_settings(
+        account_id: str,
+        catalog_account_id: str | None = None,
+        is_cart_enabled: bool | None = None,
+        is_catalog_visible: bool | None = None,
+    ) -> str:
+        """Update a number's commerce settings
+
+        Args:
+            account_id: WhatsApp account ID (required)
+            catalog_account_id
+            is_cart_enabled
+            is_catalog_visible"""
+        client = _get_client()
+        try:
+            response = client.whatsapp.update_whats_app_commerce_settings(
+                account_id=account_id,
+                catalog_account_id=catalog_account_id,
+                is_cart_enabled=is_cart_enabled,
+                is_catalog_visible=is_catalog_visible,
             )
             return _format_response(response)
         except Exception as e:

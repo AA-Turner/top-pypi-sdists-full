@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import copy
+import operator
 import warnings
 from iminuit import util as mutil
 from iminuit.util import _replace_none as replace_none
@@ -32,6 +34,7 @@ from typing import (
     Collection,
     Set,
     Sized,
+    SupportsIndex,
 )
 from iminuit.typing import UserBound, Cost, CostVector
 from iminuit._optional_dependencies import optional_module_for
@@ -83,14 +86,14 @@ class Minuit:
         return self._fcn.gradient  # type:ignore
 
     @property
-    def g2(self) -> Callable[[np.ndarray], np.ndarray]:
-        """Get g2 function of the cost function."""
-        return self._fcn.g2  # type:ignore
+    def g2(self) -> Optional[Callable[[np.ndarray], np.ndarray]]:
+        """Get user-provided second derivative function, or None if not set."""
+        return self._fcn._g2  # type:ignore
 
     @property
-    def hessian(self) -> Callable[[np.ndarray], np.ndarray]:
-        """Get hessian function of the cost function."""
-        return self._fcn.hessian  # type:ignore
+    def hessian(self) -> Optional[Callable[[np.ndarray], np.ndarray]]:
+        """Get user-provided Hessian function, or None if not set."""
+        return self._fcn._hessian  # type:ignore
 
     @property
     def pos2var(self) -> Tuple[str, ...]:
@@ -146,12 +149,16 @@ class Minuit:
                 f"cost function has an errordef attribute equal to {fcn_errordef}, "
                 "you should not override this with Minuit.errordef"
             )
-            warnings.warn(msg, ErrordefAlreadySetWarning)
+            warnings.warn(msg, ErrordefAlreadySetWarning, stacklevel=2)
         if value <= 0:
             raise ValueError(f"errordef={value} must be a positive number")
         self._fcn._errordef = value
         if self._fmin:
             self._fmin._src.errordef = value
+            # Minuit2 rescaled the errors in the user state, refresh our copy of the
+            # covariance matrix, unless the user already modified the state.
+            if self._last_state is self._fmin._src.state:
+                self._make_covariance()
 
     @property
     def precision(self) -> Optional[float]:
@@ -731,7 +738,9 @@ class Minuit:
 
         if hessian is not None and g2 is not None:
             warnings.warn(
-                "hessian overrides g2, passing g2 has no effect", IMinuitWarning
+                "hessian overrides g2, passing g2 has no effect",
+                IMinuitWarning,
+                stacklevel=2,
             )
 
         self._fcn = FCN(
@@ -788,6 +797,7 @@ class Minuit:
                 for i, v in zip(index, value):
                     self.fixto(i, v)
         else:
+            self._copy_state_if_needed()
             self._last_state.fix(index)
             self._last_state.set_value(index, value)
         return self  # return self for method chaining
@@ -803,6 +813,8 @@ class Minuit:
         self._fmin = None
         self._fcn._nfcn = 0
         self._fcn._ngrad = 0
+        self._fcn._ng2 = 0
+        self._fcn._nhessian = 0
         self._merrors = mutil.MErrors()
         self._covariance: mutil.Matrix = None
         return self  # return self for method chaining and to autodisplay current state
@@ -874,6 +886,7 @@ class Minuit:
             t.value,
         )
         self._make_covariance()
+        self._merrors = mutil.MErrors()
 
         return self  # return self for method chaining and to autodisplay current state
 
@@ -953,7 +966,13 @@ class Minuit:
         ncall :
             Approximate number of function calls to spend on the scan. The
             actual number will be close to this, the scan uses ncall^(1/npar) steps per
-            cube dimension. If no value is given, a heuristic is used to set ncall.
+            cube dimension, but at least 2. If no value is given, a heuristic is used
+            to set ncall.
+
+        Raises
+        ------
+        RuntimeError
+            If all parameters are fixed, there is nothing to scan.
 
         Notes
         -----
@@ -988,11 +1007,13 @@ class Minuit:
         #  self._fmin = mutil.FMin(fm, self._fcn.nfcn, self._fcn.ngrad, self._tolerance)
 
         n = self.nfit
+        if n == 0:
+            raise RuntimeError("all parameters are fixed")
         if ncall is None:
             ncall = self._migrad_maxcall()
-        nstep = int(ncall ** (1 / n))
+        nstep = max(2, int(ncall ** (1 / n)))
 
-        if self._last_state == self._init_state:
+        if self._last_state is self._init_state:
             # avoid overriding initial state
             self._last_state = MnUserParameterState(self._last_state)
 
@@ -1248,7 +1269,11 @@ class Minuit:
 
             for i, c in enumerate(constraints):
                 if isinstance(c, NonlinearConstraint):
+                    # copy instead of mutating the user's object, which would
+                    # double-wrap fun on a second call
+                    c = copy.copy(c)
                     c.fun = Wrapped(c.fun)
+                    constraints[i] = c
                 elif isinstance(c, LinearConstraint):
                     if not no_fixed_parameters:
                         x = cpar.copy()
@@ -1305,7 +1330,7 @@ class Minuit:
             else:
                 method = "BFGS"
 
-        options = options or {}
+        options = dict(options or {})
 
         # attempt to set default number of function evaluations if not provided
         # various workarounds for API inconsistencies in scipy.optimize.minimize
@@ -1418,7 +1443,7 @@ class Minuit:
             r.fun,
             self.errordef,
             edm_goal,
-            self.nfcn,
+            r["nfev"],
             ncall,
             accurate_covar,
         )
@@ -1436,11 +1461,12 @@ class Minuit:
             t.value,
         )
 
-        if accurate_covar:
-            self._make_covariance()
+        self._merrors = mutil.MErrors()
+
+        if not accurate_covar and self.strategy.strategy > 0:
+            self.hesse()
         else:
-            if self.strategy.strategy > 0:
-                self.hesse()
+            self._make_covariance()
 
         return self
 
@@ -1636,6 +1662,7 @@ class Minuit:
                     warnings.warn(
                         f"Cannot scan over fixed parameter {pname!r}",
                         mutil.IMinuitWarning,
+                        stacklevel=2,
                     )
                 else:
                     ipars.append(ip)
@@ -1695,7 +1722,7 @@ class Minuit:
         vname : int or str
             Parameter to scan over.
         size : int, optional
-            Number of scanning points (Default: 100). Ignored if grid is set.
+            Number of scanning points (Default: 30). Ignored if grid is set.
         bound : tuple of float or float, optional
             If bound is tuple, (left, right) scanning bound.
             If bound is a number, it specifies an interval of N :math:`\sigma`
@@ -1766,7 +1793,9 @@ class Minuit:
             )
             if not fm.is_valid:
                 warnings.warn(
-                    f"MIGRAD fails to converge for {pname}={v}", mutil.IMinuitWarning
+                    f"MIGRAD fails to converge for {pname}={v}",
+                    mutil.IMinuitWarning,
+                    stacklevel=2,
                 )
             status[i] = fm.is_valid
             y[i] = fm.fval
@@ -2367,7 +2396,7 @@ class Minuit:
                     fmax = max(fmax, f)
                     plt.axhline(f, color=f"C{k}")
                 bound = fmax**0.5 + 1
-                for iter in range(5):
+                for _ in range(5):
                     x, y, ok = self.mnprofile(par1, bound=bound, subtract_min=True)
                     x = x[ok]
                     y = y[ok]
@@ -2379,6 +2408,9 @@ class Minuit:
                 a, b = prange[par1]
                 extremes = []
                 for k, (xk, yk) in enumerate(zip(x, y)):
+                    if k == 0:
+                        # y[k - 1] would wrap around to the last point
+                        continue
                     if yk < fmax and y[k - 1] > fmax:
                         extremes.append(x[k - 1])
                     if yk > fmax and y[k - 1] < fmax:
@@ -2479,11 +2511,20 @@ class Minuit:
             pr.eps = self._precision
         return pr
 
-    def _normalize_key(self, key: Union[int, str]) -> Tuple[int, str]:
-        if isinstance(key, int):
-            if key >= self.npar:
-                raise ValueError(f"parameter {key} is out of range (max: {self.npar})")
-            return key, self._pos2var[key]
+    def _normalize_key(self, key: Union[SupportsIndex, str]) -> Tuple[int, str]:
+        if not isinstance(key, str):
+            # accept Python int, numpy integers, and other SupportsIndex types
+            try:
+                i = operator.index(key)
+            except TypeError:
+                raise ValueError(f"unknown parameter {key!r}") from None
+            if i < 0:
+                i += self.npar
+            if i < 0 or i >= self.npar:
+                raise ValueError(
+                    f"parameter {key} is out of range (max: {self.npar - 1})"
+                )
+            return i, self._pos2var[i]
         if key not in self._var2pos:
             raise ValueError(f"unknown parameter {key!r}")
         return self._var2pos[key], key
@@ -2498,6 +2539,7 @@ class Minuit:
             warnings.warn(
                 "Specified nsigma bound, but error matrix is not accurate",
                 mutil.IMinuitWarning,
+                stacklevel=2,
             )
         start = self.values[vname]
         sigma = self.errors[vname]
@@ -2512,14 +2554,13 @@ class Minuit:
         #
         # If FunctionMinimum does not exist, we don't want to copy. We want to
         # implicitly modify _init_state; _last_state is an alias for _init_state, then.
-        if self._fmin and self._last_state == self._fmin._src.state:
+        if self._fmin and self._last_state is self._fmin._src.state:
             self._last_state = MnUserParameterState(self._last_state)
 
     def _make_covariance(self) -> None:
         if self._last_state.has_covariance:
             cov = self._last_state.covariance
             m = mutil.Matrix(self._var2pos)
-            n = len(m)
             if cov.nrow < self.npar:
                 ext2int = {}
                 k = 0
@@ -2560,6 +2601,16 @@ class Minuit:
 
     def _fmin_does_not_exist_or_last_state_was_modified(self) -> bool:
         return not self._fmin or self._fmin._src.state is not self._last_state
+
+    def __setstate__(self, state: Tuple[Any, Dict[str, Any]]) -> None:
+        """Restore a pickled or copied instance."""
+        for k, v in state[1].items():
+            setattr(self, k, v)
+        # Copying breaks the identity of _last_state and the state inside the
+        # FunctionMinimum, which is how a user modification is detected. Restore it,
+        # so that hesse() and minos() can still reuse the existing minimum.
+        if self._fmin and self._fmin._src.state == self._last_state:
+            self._last_state = self._fmin._src.state
 
     def __repr__(self):
         """Get detailed text representation."""
@@ -2642,12 +2693,18 @@ class Minuit:
 
         center = self.values[[ix, iy]]
         assert self.covariance is not None
-        t, u = np.linalg.eig(
+        # the covariance block is symmetric, so eigh gives real eigenvalues;
+        # eig would return complex128 even for real symmetric input (numpy >= 2.5).
+        # eigh sorts ascending, reverse to descending to keep the phase of the
+        # phi parametrization below stable under the discrete size grid
+        t, u = np.linalg.eigh(
             [
                 [self.covariance[ix, ix], self.covariance[ix, iy]],
                 [self.covariance[ix, iy], self.covariance[iy, iy]],
             ]
         )
+        t = t[::-1]
+        u = u[:, ::-1]
         s = (t * factor) ** 0.5
 
         # strategy 0 to avoid expensive computation of Hesse matrix
@@ -2658,16 +2715,15 @@ class Minuit:
 
             def args(z):
                 r = u @ (
-                    z * s[0] * np.cos(phi),
-                    z * s[1] * np.sin(phi),
+                    z * s[0] * np.cos(phi),  # noqa: B023
+                    z * s[1] * np.sin(phi),  # noqa: B023
                 )
                 x = r[0] + center[0]
-                lim = self.limits[ix]
-                if lim is not None:
-                    x = max(lim[0], min(x, lim[1]))
+                xlim = self.limits[ix]
+                x = max(xlim[0], min(x, xlim[1]))
                 y = r[1] + center[1]
-                if lim is not None:
-                    y = max(lim[0], min(y, lim[1]))
+                ylim = self.limits[iy]
+                y = max(ylim[0], min(y, ylim[1]))
                 return x, y
 
             def scan(z):
@@ -2861,11 +2917,12 @@ def _robust_low_level_fit(
     if precision is not None:
         migrad.precision = precision
     fm = migrad(ncall, tolerance)
-    strategy = MnStrategy(2)
-    migrad = MnMigrad(fcn, fm.state, strategy)
+    # If we have to iterate, we have a pathological case. Increasing the
+    # strategy to 2 in this case was found to be beneficial.
+    if not fm.is_valid and not fm.has_reached_call_limit and iterate > 1:
+        strategy = MnStrategy(2)
+        migrad = MnMigrad(fcn, fm.state, strategy)
     while not fm.is_valid and not fm.has_reached_call_limit and iterate > 1:
-        # If we have to iterate, we have a pathological case. Increasing the
-        # strategy to 2 in this case was found to be beneficial.
         if use_simplex:
             simplex = MnSimplex(fcn, fm.state, strategy)
             if precision is not None:

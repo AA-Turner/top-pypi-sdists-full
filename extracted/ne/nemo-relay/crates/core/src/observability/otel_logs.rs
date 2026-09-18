@@ -16,21 +16,26 @@ use opentelemetry::{InstrumentationScope, Key};
 use opentelemetry_otlp::{
     LogExporter as OtlpLogExporter, Protocol, WithExportConfig, WithHttpConfig, WithTonicConfig,
 };
+use opentelemetry_sdk::logs::log_processor_with_async_runtime::BatchLogProcessor as AsyncBatchLogProcessor;
 use opentelemetry_sdk::logs::{
-    BatchConfigBuilder, BatchLogProcessor, LogBatch, LogExporter, LogProcessor, SdkLogRecord,
-    SdkLogger, SdkLoggerProvider,
+    BatchConfigBuilder, LogBatch, LogExporter, LogProcessor, SdkLogRecord, SdkLogger,
+    SdkLoggerProvider,
 };
-use opentelemetry_sdk::{Resource, error::OTelSdkResult};
+use opentelemetry_sdk::{Resource, error::OTelSdkResult, runtime};
 use serde_json::{Map, Value as Json};
 use uuid::Uuid;
 
 use crate::api::event::{ATOF_VERSION, Event, LOG_SEVERITY_METADATA_KEY, LogSeverity};
-use crate::api::runtime::{EventSubscriberFn, current_scope_stack};
+use crate::api::runtime::EventSubscriberFn;
 use crate::api::subscriber::{deregister_subscriber, flush_subscribers, register_subscriber};
 use crate::observability::{relay_span_id, relay_trace_id};
 use crate::plugin::OTEL_RUNTIME_DELIVERY_FAILURE_MARKER;
 
 use super::OpenTelemetryRuntimeDiagnostics;
+use super::header_file::{
+    HeaderFileHttpClient, HeaderFileInterceptor, HeaderFileResolver, HeaderFiles,
+    has_configured_headers, validate_header_files, validate_header_http_endpoint,
+};
 use super::otel::{
     DEFAULT_COMPLETED_SPAN_CONTEXT_TTL, OpenTelemetryError, OtlpTransport, Result,
     normalize_shutdown_result,
@@ -38,8 +43,9 @@ use super::otel::{
 use super::otel_signal::{
     MetricMarkClassification, SignalExporterRuntime, SignalRuntimeDiagnostics, build_grpc_metadata,
     build_in_owned_runtime, classify_metric_mark, reject_signal_header_environment,
-    resolve_http_signal_endpoint, should_relog_runtime_diagnostic, signal_resource,
-    validate_signal_headers,
+    resolve_header_env, resolve_http_signal_endpoint, retry_batch_processor_channel_full,
+    should_relog_runtime_diagnostic, signal_resource, validate_signal_headers,
+    validate_telemetry_sdk_resource_attributes,
 };
 
 const DEFAULT_MAX_QUEUE_SIZE: usize = 2_048;
@@ -51,6 +57,8 @@ const DEFAULT_SCHEDULED_DELAY: Duration = Duration::from_secs(1);
 pub struct OpenTelemetryLogConfig {
     endpoint: String,
     headers: HashMap<String, String>,
+    header_env: HashMap<String, String>,
+    header_file: HeaderFiles,
     resource_attributes: HashMap<String, String>,
     service_name: String,
     service_namespace: Option<String>,
@@ -72,6 +80,8 @@ impl OpenTelemetryLogConfig {
         Self {
             endpoint: endpoint.into(),
             headers: HashMap::new(),
+            header_env: HashMap::new(),
+            header_file: HashMap::new(),
             resource_attributes: HashMap::new(),
             service_name: "unknown_service".to_string(),
             service_namespace: None,
@@ -97,6 +107,21 @@ impl OpenTelemetryLogConfig {
     /// Add an exporter header or gRPC metadata entry.
     pub fn with_header(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
         self.headers.insert(key.into(), value.into());
+        self
+    }
+
+    /// Map an exporter header name to the environment variable supplying its value.
+    pub fn with_header_env(mut self, key: impl Into<String>, variable: impl Into<String>) -> Self {
+        self.header_env.insert(key.into(), variable.into());
+        self
+    }
+
+    pub(crate) fn with_header_file(
+        mut self,
+        key: impl Into<String>,
+        path: impl Into<String>,
+    ) -> Self {
+        self.header_file.insert(key.into(), path.into());
         self
     }
 
@@ -205,8 +230,14 @@ impl OpenTelemetryLogConfig {
                 "completed_span_context_ttl must be greater than 0".to_string(),
             ));
         }
+        validate_telemetry_sdk_resource_attributes(&self.resource_attributes)?;
         reject_signal_header_environment("OTEL_EXPORTER_OTLP_LOGS_HEADERS")?;
-        validate_signal_headers(&self.headers)
+        validate_signal_headers(&self.headers)?;
+        if has_configured_headers(&self.headers, &self.header_env, &self.header_file) {
+            validate_header_http_endpoint(&self.endpoint)
+                .map_err(OpenTelemetryError::ExporterBuild)?;
+        }
+        Ok(())
     }
 }
 
@@ -231,6 +262,14 @@ struct LogSubscriberInner {
     _runtime: SignalExporterRuntime,
 }
 
+impl Drop for LogSubscriberInner {
+    fn drop(&mut self) {
+        // Drain Relay delivery before the provider drains accepted log records and its runtime drops.
+        let _ = flush_subscribers();
+        let _ = normalize_shutdown_result(self.provider.shutdown());
+    }
+}
+
 impl OpenTelemetryLogSubscriber {
     /// Build an OTLP log subscriber with an independently owned provider.
     pub fn new(config: OpenTelemetryLogConfig) -> Result<Self> {
@@ -247,8 +286,12 @@ impl OpenTelemetryLogSubscriber {
         Self::new_with_runtime_diagnostics(config)
     }
 
-    fn new_with_runtime_diagnostics(config: OpenTelemetryLogConfig) -> Result<Self> {
+    fn new_with_runtime_diagnostics(mut config: OpenTelemetryLogConfig) -> Result<Self> {
         config.validate()?;
+        validate_header_files(&config.headers, &config.header_env, &config.header_file)
+            .map_err(OpenTelemetryError::ExporterBuild)?;
+        config.headers = resolve_header_env(&config.headers, &config.header_env)?;
+        validate_signal_headers(&config.headers)?;
         let minimum_severity = config.minimum_severity;
         let completed_span_context_ttl = config.completed_span_context_ttl;
         let instrumentation_scope = config.instrumentation_scope.clone();
@@ -323,6 +366,7 @@ impl OpenTelemetryLogSubscriber {
     /// Flush queued Relay events and the OTLP log processor.
     ///
     /// After a successful flush, runtime diagnostics include queue drops observed so far.
+    /// This is a synchronous completion barrier; call it from a blocking task in async code.
     pub fn force_flush(&self) -> Result<()> {
         flush_subscribers()?;
         self.inner
@@ -334,10 +378,10 @@ impl OpenTelemetryLogSubscriber {
     /// Shut down the OTLP logger provider.
     ///
     /// Deregister this subscriber before calling shutdown.
+    /// This waits for the final export and should run in a blocking task in async code.
     pub fn shutdown(&self) -> Result<()> {
         let barrier = flush_subscribers().map_err(OpenTelemetryError::Core);
-        let provider = normalize_shutdown_result(self.inner.provider.shutdown())
-            .map_err(|error| OpenTelemetryError::LogProvider(error.to_string()));
+        let provider = self.shutdown_provider();
         barrier.and(provider)
     }
 
@@ -362,6 +406,19 @@ fn build_log_provider(
                 .with_protocol(Protocol::HttpBinary)
                 .with_timeout(config.timeout)
                 .with_endpoint(resolve_http_log_endpoint(&config.endpoint).into_owned());
+            let client = reqwest::Client::builder()
+                .timeout(config.timeout)
+                .redirect(reqwest::redirect::Policy::none())
+                .build()
+                .map_err(|error| OpenTelemetryError::ExporterBuild(error.to_string()))?;
+            builder = if config.header_file.is_empty() {
+                builder.with_http_client(client)
+            } else {
+                builder.with_http_client(HeaderFileHttpClient::new(
+                    client,
+                    HeaderFileResolver::new(config.header_file.clone()),
+                ))
+            };
             if !config.headers.is_empty() {
                 builder = builder.with_headers(config.headers.clone());
             }
@@ -378,6 +435,11 @@ fn build_log_provider(
             if !config.headers.is_empty() {
                 builder = builder.with_metadata(build_grpc_metadata(&config.headers)?);
             }
+            if !config.header_file.is_empty() {
+                builder = builder.with_interceptor(HeaderFileInterceptor::new(
+                    HeaderFileResolver::new(config.header_file.clone()),
+                ));
+            }
             builder
                 .build()
                 .map_err(|error| OpenTelemetryError::ExporterBuild(error.to_string()))?
@@ -393,12 +455,13 @@ fn build_log_provider(
         inner: exporter,
         diagnostics: Arc::clone(&diagnostics),
     };
-    let processor = BatchLogProcessor::builder(exporter)
+    let processor = AsyncBatchLogProcessor::builder(exporter, runtime::Tokio)
         .with_batch_config(batch_config)
         .build();
     let processor = DiagnosticBatchLogProcessor {
         inner: processor,
         diagnostics,
+        retry_timeout: config.timeout,
     };
     Ok(SdkLoggerProvider::builder()
         .with_resource(signal_resource(
@@ -517,8 +580,9 @@ impl<E: LogExporter> LogExporter for DiagnosticLogExporter<E> {
 
 #[derive(Debug)]
 struct DiagnosticBatchLogProcessor {
-    inner: BatchLogProcessor,
+    inner: AsyncBatchLogProcessor<runtime::Tokio>,
     diagnostics: Arc<LogDeliveryDiagnostics>,
+    retry_timeout: Duration,
 }
 
 impl LogProcessor for DiagnosticBatchLogProcessor {
@@ -528,7 +592,8 @@ impl LogProcessor for DiagnosticBatchLogProcessor {
     }
 
     fn force_flush(&self) -> OTelSdkResult {
-        let result = self.inner.force_flush();
+        let result =
+            retry_batch_processor_channel_full(self.retry_timeout, || self.inner.force_flush());
         if result.is_ok() {
             self.diagnostics.record_queue_drops();
         }
@@ -536,7 +601,9 @@ impl LogProcessor for DiagnosticBatchLogProcessor {
     }
 
     fn shutdown_with_timeout(&self, timeout: Duration) -> OTelSdkResult {
-        let result = self.inner.shutdown_with_timeout(timeout);
+        let result = retry_batch_processor_channel_full(self.retry_timeout.min(timeout), || {
+            self.inner.shutdown_with_timeout(timeout)
+        });
         if result.is_ok() {
             let dropped = self.diagnostics.record_queue_drops();
             let export_failures = self.diagnostics.export_failures.load(Ordering::Relaxed);
@@ -588,7 +655,9 @@ impl ScopeLineage {
         let trace_id = parent
             .as_ref()
             .map(SpanContext::trace_id)
-            .unwrap_or_else(|| relay_trace_id(event.uuid()));
+            .unwrap_or_else(|| {
+                relay_trace_id(event.propagation_root_uuid().unwrap_or(event.uuid()))
+            });
         self.active.insert(
             event.uuid(),
             SpanContext::new(
@@ -616,11 +685,12 @@ impl ScopeLineage {
         if let Some(context) = self.completed.get(&parent_uuid) {
             return Some(context.span_context.clone());
         }
-        let stack = current_scope_stack();
-        let stack = stack.read().ok()?;
-        stack.is_propagated_parent(parent_uuid).then(|| {
+        if event.propagation_parent_uuid() != Some(parent_uuid) {
+            return None;
+        }
+        event.propagation_root_uuid().map(|root_uuid| {
             SpanContext::new(
-                relay_trace_id(stack.root_uuid()),
+                relay_trace_id(root_uuid),
                 relay_span_id(parent_uuid),
                 TraceFlags::SAMPLED,
                 true,
@@ -866,6 +936,9 @@ fn add_log_attributes(record: &mut opentelemetry_sdk::logs::SdkLogRecord, event:
     record.add_attribute("nemo_relay.atof.version", ATOF_VERSION);
     record.add_attribute("nemo_relay.mark.name", event.name().to_string());
     record.add_attribute("nemo_relay.mark.uuid", event.uuid().to_string());
+    if let Some(root_uuid) = event.propagation_root_uuid() {
+        record.add_attribute("nemo_relay.session.instance_id", root_uuid.to_string());
+    }
     if let Some(parent_uuid) = event.parent_uuid() {
         record.add_attribute("nemo_relay.mark.parent_uuid", parent_uuid.to_string());
     }

@@ -7,6 +7,7 @@ from .bus_inputs_outputs_api import BUSInputsOutputsApi
 from .cell_api import CellApi
 from .controller_api import ControllerApi
 from .controller_inputs_outputs_api import ControllerInputsOutputsApi
+from .datasets_api import DatasetsApi
 from .jogging_api import JoggingApi
 from .kinematics_api import KinematicsApi
 from .license_api import LicenseApi
@@ -36,6 +37,7 @@ __all__ = [
     "CellApi",
     "ControllerApi",
     "ControllerInputsOutputsApi",
+    "DatasetsApi",
     "JoggingApi",
     "KinematicsApi",
     "LicenseApi",

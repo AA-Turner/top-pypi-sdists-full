@@ -7,16 +7,28 @@ import re
 
 from matrx_utils import vcprint
 
+from matrx_scraper.ocr_health import ocr_status
+
 try:
     import pytesseract
     from PIL import Image
 
-    OCR_AVAILABLE = True
+    OCR_IMPORTS_PRESENT = True
 except ImportError:
-    OCR_AVAILABLE = False
+    OCR_IMPORTS_PRESENT = False
 
+# 🚨 NEVER test OCR availability by import alone. `pytesseract` is a wrapper
+# that shells out to the `tesseract` BINARY: the production image had the
+# wrapper and no binary, so this flag was True, the PDF path asked for OCR, and
+# every scanned document died with a raw `TesseractNotFoundError` presented to
+# the user as a bad PDF (acquisition-frontier block hunt, 2026-09-17). The
+# single source of truth is `ocr_health.ocr_status()`, which runs the engine.
 OCR_CONFIG = r"--oem 3 --psm 6"
 OCR_LOW_TEXT_THRESHOLD = 50
+
+
+def _ocr_usable() -> bool:
+    return OCR_IMPORTS_PRESENT and ocr_status().available
 
 
 def extract_text_from_pdf_bytes_or_reason(pdf_bytes: bytes) -> tuple[str | None, str | None]:
@@ -35,11 +47,16 @@ def extract_text_from_pdf_bytes_or_reason(pdf_bytes: bytes) -> tuple[str | None,
         reason = f"pdf support missing on this host (install matrx-scraper[pdf]): {e}"
         vcprint(f"Error extracting text from PDF: {reason}", color="red")
         return None, reason
+    ocr = ocr_status()
+    ocr_usable = _ocr_usable()
     try:
         text = extract_text_from_pdf_bytes_sync(
             pdf_bytes,
             force_ocr=False,
-            use_ocr_threshold=OCR_LOW_TEXT_THRESHOLD if OCR_AVAILABLE else 0,
+            # 0 disables the OCR branch entirely. Asking for OCR on a host with
+            # no engine does not "try anyway" — it raises TesseractNotFoundError
+            # from inside the handler and loses the page's embedded text too.
+            use_ocr_threshold=OCR_LOW_TEXT_THRESHOLD if ocr_usable else 0,
         )
     except Exception as e:  # noqa: BLE001 — the reason travels with the failure
         reason = f"{type(e).__name__}: {e}"
@@ -47,7 +64,14 @@ def extract_text_from_pdf_bytes_or_reason(pdf_bytes: bytes) -> tuple[str | None,
         return None, reason
     if text.strip():
         return text.strip(), None
-    return None, "the PDF yielded no text (scanned image with OCR unavailable, or empty)"
+    if not ocr_usable:
+        # The document may well be a scan we COULD have read. Say that this
+        # host cannot, and why — never let a deployment gap read as a bad PDF.
+        return None, (
+            "the PDF yielded no embedded text and this host cannot OCR it: "
+            f"{ocr.reason or 'no OCR engine available'}"
+        )
+    return None, "the PDF yielded no text (OCR ran and found none, or the file is empty)"
 
 
 def extract_text_from_pdf_bytes(pdf_bytes: bytes) -> str | None:
@@ -56,8 +80,11 @@ def extract_text_from_pdf_bytes(pdf_bytes: bytes) -> str | None:
 
 
 def extract_text_from_image_bytes(image_bytes: bytes) -> str | None:
-    if not OCR_AVAILABLE:
-        vcprint("pytesseract/Pillow not installed — cannot extract image text", color="red")
+    if not _ocr_usable():
+        vcprint(
+            f"cannot extract image text: {ocr_status().reason or 'no OCR engine available'}",
+            color="red",
+        )
         return None
     try:
         img = Image.open(io.BytesIO(image_bytes))

@@ -5,13 +5,14 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .ledger_activity_source_fee_kind import LedgerActivitySourceFeeKind
 from .ledger_activity_source_payout_destination import LedgerActivitySourcePayoutDestination
 from .money import Money
 
 
 class LedgerActivitySource(UniversalBaseModel):
     """
-    Source of this ledger activity.
+    Source of this ledger activity. Platform markup fees use object platform_fee and the ledger activity ID.
     """
 
     amount_float: typing.Optional[float] = pydantic.Field(default=None)
@@ -31,7 +32,7 @@ class LedgerActivitySource(UniversalBaseModel):
 
     claim_url: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Public claim URL for the airdrop link (airdrop_link sources only).
+    The airdrop's claim URL. Null unless the caller can manage claim links on the funding company or withdraw from the funding personal balance.
     """
 
     created_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)
@@ -42,6 +43,11 @@ class LedgerActivitySource(UniversalBaseModel):
     estimated_arrival: typing.Optional[dt.datetime] = pydantic.Field(default=None)
     """
     Estimated arrival as an ISO 8601 timestamp (payout sources only; requires payout:withdrawal:read).
+    """
+
+    fee_kind: typing.Optional[LedgerActivitySourceFeeKind] = pydantic.Field(default=None)
+    """
+    Action that generated a platform markup fee: deposit, swap, transfer, card_spend, or payout. Present for platform_markup_fee and platform_markup_fee_payout, including when include_resource is false. Null when the originating action is unavailable; omitted on other source types.
     """
 
     from_amount: typing.Optional[str] = pydantic.Field(default=None)
@@ -57,7 +63,7 @@ class LedgerActivitySource(UniversalBaseModel):
     id: str
     notes: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Memo attached to the transfer source, or null when none was provided.
+    Memo attached to the transfer or payout source, or null when none was provided (on payout sources requires payout:withdrawal:read).
     """
 
     object: str

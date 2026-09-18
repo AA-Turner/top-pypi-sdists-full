@@ -72,7 +72,6 @@ class Pile(
         """Sizing supported by widget.
 
         :return: Calculated widget sizing
-        :rtype: frozenset[Sizing]
 
         Due to the nature of container with mutable contents, this method cannot be cached.
 
@@ -203,10 +202,8 @@ class Pile(
     ) -> None:
         """
         :param widget_list: child widgets
-        :type widget_list: iterable
         :param focus_item: child widget that gets the focus initially.
             Chooses the first selectable widget if unset.
-        :type focus_item: Widget or int
         :raises PileError: an item of *widget_list* is not a widget or a valid ``(height, widget)`` pair.
 
         *widget_list* may also contain tuples such as:
@@ -393,7 +390,7 @@ class Pile(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "only for backwards compatibility. You should use the new standard container property `contents`."
+            "only for backwards compatibility. You should use the new standard container property `contents`. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -436,7 +433,7 @@ class Pile(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "only for backwards compatibility. You should use the new standard container property `contents`."
+            "only for backwards compatibility. You should use the new standard container property `contents`. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -476,7 +473,7 @@ class Pile(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "only for backwards compatibility. You should use the new standard container property `contents`."
+            "only for backwards compatibility. You should use the new standard container property `contents`. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -604,7 +601,6 @@ class Pile(
             to set the position by integer index instead.
 
         :param item: element to focus
-        :type item: Widget or int
         :raises ValueError: *item* is a widget that is not in the contents.
         """
         if isinstance(item, int):
@@ -625,8 +621,8 @@ class Pile(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "for backwards compatibility."
-            "You may also use the new standard container property .focus to get the child widget in focus."
+            "for backwards compatibility. "
+            "You may also use the new standard container property .focus to get the child widget in focus. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -647,8 +643,8 @@ class Pile(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "for backwards compatibility."
-            "You may also use the new standard container property .focus to get the child widget in focus."
+            "for backwards compatibility. "
+            "You may also use the new standard container property .focus to get the child widget in focus. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -714,10 +710,14 @@ class Pile(
 
         :raises PileError: the item uses a height rule that needs size information the caller did not provide, or a
             height rule that is not supported.
+
+        .. deprecated:: 4.1.4
+            Not used by the urwid code base. Use :meth:`get_rows_sizes` instead.
+            This API will be removed in version 6.0.
         """
         warnings.warn(
-            "get_item_size is going to be deprecated and can be removed soon."
-            "This method is not used by the urwid codebase and `get_rows_sizes` is used for the similar purposes.",
+            "get_item_size is not used by the urwid code base and `get_rows_sizes` serves the same purpose. "
+            "API will be removed in version 6.0.",
             PendingDeprecationWarning,
             stacklevel=2,
         )

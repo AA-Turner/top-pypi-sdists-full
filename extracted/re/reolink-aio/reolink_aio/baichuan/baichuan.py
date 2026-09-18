@@ -50,6 +50,7 @@ from ..exceptions import (
     ReolinkConnectionError,
     ReolinkError,
     ReolinkTimeoutError,
+    ReolinkTimeoutSendACK,
     SubscriptionError,
     UnexpectedDataError,
 )
@@ -76,6 +77,7 @@ from .util import (
     http_cmd,
     i_frame_to_jpeg,
     md5_str_modern,
+    pretty_xml,
 )
 from .webhook_server import WebhookServer
 
@@ -120,6 +122,7 @@ WHITELED_MODE_BC_TO_HTTP = {
     4: -4,  # Floodlight: the schedule_plus has number 4 and a unknown HTTP number
     5: 4,
     6: 5,
+    7: -6,  # Floodlight: the auto_pir has number 7 and a unknown HTTP number
 }
 WHITELED_MODE_HTTP_TO_BC = {v: k for k, v in WHITELED_MODE_BC_TO_HTTP.items()}
 
@@ -155,8 +158,6 @@ class Baichuan:
         self._connection: BaichuanTcpConnection | BaichuanUdpConnection | None = None
         self.connection_type: ConnectionEnum = connection_type
         self._login_mutex = asyncio.Lock()
-        self._logging_out = asyncio.Event()  # set = not logging out, unset = busy logging out
-        self._logging_out.set()
         self._loop = asyncio.get_event_loop()
         self._logged_in: bool = False
         self._login_sucess: bool = False
@@ -187,6 +188,7 @@ class Baichuan:
         # supported
         self.capabilities: dict[int | None, dict[int | None, set[str]]] = {}
         self._abilities: dict[int | None, dict[int | None, XML.Element]] = {}
+        self._has_subStream: dict[int, bool] = {}
 
         # host states
         self._ports: dict[str, dict[str, int | bool | str]] = {}
@@ -247,7 +249,7 @@ class Baichuan:
         cmd_id: int,
         channel: int | None = None,
         sub_channel: int | None = None,
-        body: str = "",
+        body: str | XML.Element = "",
         extension: str = "",
         enc_type: EncType = EncType.AES,
         message_class: str = "1464",
@@ -277,6 +279,9 @@ class Baichuan:
                 ext = xmls.SUB_CHANNEL_EXTENSION_XML.format(channel=channel, sub_channel=sub_channel)
             else:
                 ext = xmls.CHANNEL_EXTENSION_XML.format(channel=channel)
+
+        if isinstance(body, XML.Element):
+            body = XML.tostring(body, encoding="unicode", xml_declaration=True)
 
         body_bytes = body.encode("utf8")
         ext_bytes = ext.encode("utf8")
@@ -326,7 +331,8 @@ class Baichuan:
         log_mess = ""
         if _LOGGER.isEnabledFor(logging.DEBUG):
             if mess_len > 0:
-                log_mess = f"Baichuan host {self._host}: writing cmd_id {cmd_id}, body:\n{self._hide_password(ext + body)}"
+                ext_entr = "\n" if ext and body else ""
+                log_mess = f"Baichuan host {self._host}: writing cmd_id {cmd_id}, body:\n{self._style_hide_password(ext) + ext_entr + self._style_hide_password(body)}"
             else:
                 log_mess = f"Baichuan host {self._host}: writing cmd_id {cmd_id}, without body"
 
@@ -360,7 +366,7 @@ class Baichuan:
             ch_str = f" ch {channel}" if channel is not None else ""
             payload_str = f" with payload length {len(payload)}" if len(payload) > 0 else ""
             if len(rec_body) > 0:
-                _LOGGER.debug("Baichuan host %s: received cmd_id %s%s%s:\n%s", self._host, cmd_id, ch_str, payload_str, self._hide_password(rec_body))
+                _LOGGER.debug("Baichuan host %s: received cmd_id %s%s%s:\n%s", self._host, cmd_id, ch_str, payload_str, self._style_hide_password(rec_body))
             else:
                 _LOGGER.debug("Baichuan host %s: received cmd_id %s%s status 200:OK without body%s", self._host, cmd_id, ch_str, payload_str)
 
@@ -506,6 +512,12 @@ class Baichuan:
             redacted = redacted.replace(self._password_hash, "<password_md5_hash>")
         return redacted
 
+    def _style_hide_password(self, content: str | bytes | dict | list) -> str:
+        """Style the XML and redact sensitive informtation from the logs"""
+        if isinstance(content, str):
+            content = pretty_xml(content)
+        return self._hide_password(content)
+
     def _push_callback(self, cmd_id: int, data: bytes, len_header: int, payload: bytes) -> None:
         """Callback to parse a received message that was pushed"""
         payload_len = len(payload)
@@ -551,7 +563,7 @@ class Baichuan:
             payload_str = ""
             if payload_len != 0:
                 payload_str = f" with payload length {payload_len}"
-            _LOGGER.debug("Baichuan host %s: received push cmd_id %s%s:\n%s", self._host, cmd_id, payload_str, self._hide_password(rec_body))
+            _LOGGER.debug("Baichuan host %s: received push cmd_id %s%s:\n%s", self._host, cmd_id, payload_str, self._style_hide_password(rec_body))
 
         self._parse_xml(cmd_id, rec_body, payload, mess_id)
 
@@ -1108,6 +1120,14 @@ class Baichuan:
             if (mode_bc := values.get("mode_bc")) is not None:
                 # Baichuan uses different mode numbers then HTTP, translate
                 values["mode"] = WHITELED_MODE_BC_TO_HTTP.get(mode_bc, mode_bc)
+            if (flash_time_list := root.find(".//flickerDurationListSL")) is not None:
+                durations = [int(d.text) for d in flash_time_list.findall(".//duration") if d.text]
+                if durations:
+                    values["event_flash_time_range"] = (min(durations), max(durations))
+            if (on_time_list := root.find(".//configList")) is not None:
+                durations = [int(d.text) for d in on_time_list.findall(".//duration") if d.text]
+                if durations:
+                    values["event_on_time_range"] = (min(durations), max(durations))
             self.http_api._whiteled_settings.setdefault(channel, {}).update(values)
 
         elif cmd_id == 291:  # Floodlight
@@ -1300,6 +1320,7 @@ class Baichuan:
                 except ValueError:
                     _LOGGER.debug("Reolink %s unknown battery mode int %s", self.http_api.nvr_name, bat_mode)
             if (bat_mode_str := data.get("batteryModeStr")) is not None:
+                bat_mode_str = bat_mode_str.removesuffix("V2")
                 try:
                     self._work_mode_battery[channel] = BatteryModeStrEnum(bat_mode_str).name
                 except ValueError:
@@ -1686,9 +1707,6 @@ class Baichuan:
     async def login(self) -> None:
         """Login using the Baichuan protocol"""
         async with self._login_mutex:
-            # wait untill any running logout is finished
-            await self._logging_out.wait()
-
             if self._logged_in:
                 return
 
@@ -1709,7 +1727,7 @@ class Baichuan:
                     if not try_connections:
                         raise
                     _LOGGER.debug("%s, TCP connection failed, trying UDP connection...", err)
-                    await self.logout()
+                    await self._logout_no_mutex()
                     self.connection_type = ConnectionEnum.udp
                     try:
                         nonce = await self._get_nonce()
@@ -1779,83 +1797,64 @@ class Baichuan:
                         self.http_api._stream_channels.append(ch)
                     self.http_api._is_dual_lens = not self.http_api._is_nvr and num_stream_channels > self.http_api._num_channels
 
-        self.http_api._enc_range = {}
-        for info in root.findall(".//StreamInfo"):  # cmd_id 146
-            channelBits = get_value_from_xml(info, "channelBits", int)
-            if channelBits is None:
-                continue
-            for ch in range(0, channelBits.bit_length(), 1):
-                if not (channelBits >> ch) & 1:
-                    continue
-                enc_range = self.http_api._enc_range.setdefault(ch, [])
-                enc_data: dict[str, Any] = {"chnBit": channelBits}
-                for encoding in info.findall(".//encodeTable"):
-                    stream_type = get_value_from_xml(encoding, "type", str)
-                    if stream_type is None:
-                        continue
-                    enc_data[stream_type] = get_keys_from_xml(encoding, {"width": ("width", int), "height": ("height", int)})
-                    framerateTable = get_value_from_xml(encoding, "framerateTable", str)
-                    if framerateTable is not None:
-                        enc_data[stream_type]["frameRate"] = [int(val) for val in framerateTable.split(",")]
-                    bitrateTable = get_value_from_xml(encoding, "bitrateTable", str)
-                    if bitrateTable is not None:
-                        enc_data[stream_type]["bitRate"] = [int(val) for val in bitrateTable.split(",")]
-                enc_range.append(enc_data)
+        if not self.http_api._enc_range:
+            self._parse_stream_info(root)
 
         self._first_login = False
 
     async def logout(self) -> None:
         """Close the Baichuan session and cleanup"""
-        try:
-            async with self._login_mutex:
-                # block login untill this logout is complete, since login_mutex is non recursive it can't be used
-                self._logging_out.clear()
+        async with self._login_mutex:
+            await self._logout_no_mutex()
 
-            if self._subscribed and not self.http_api.is_battery:
-                # first call unsubscribe_events
-                _LOGGER.debug("Baichuan host %s: logout called while still subscribed, keeping connection", self._host)
-                return
+    async def _logout_no_mutex(self) -> None:
+        """
+        ONLY USE INSIDE LOGIN METHOD TO PREVENT DEADLOCK
+        Close the Baichuan session and cleanup
+        """
+        if self._subscribed and not self.http_api.is_battery:
+            # first call unsubscribe_events
+            _LOGGER.debug("Baichuan host %s: logout called while still subscribed, keeping connection", self._host)
+            return
 
-            if self._battery_close_task is not None:
-                self._battery_close_task.cancel()
-                self._battery_close_task = None
+        if self._battery_close_task is not None:
+            self._battery_close_task.cancel()
+            self._battery_close_task = None
 
-            if self._logged_in and self._connection is not None:
-                # wait on responses of already send cmds
-                try:
-                    async with asyncio.timeout(5):
-                        while self._connection.receive_futures:
-                            expected_cmd_ids = ", ".join(map(str, self._connection.receive_futures.keys()))
-                            _LOGGER.debug("Baichuan host %s: waiting for cmd_id %s before logout...", self._host, expected_cmd_ids)
-                            receive_futures = (v for d in self._connection.receive_futures.values() for v in d.values())
-                            await asyncio.wait(receive_futures, return_when=asyncio.ALL_COMPLETED)
-                except asyncio.TimeoutError:
-                    _LOGGER.warning("Baichuan host %s: timeout of 5 sec waiting for cmd_id %s, continuing with logout", self._host, expected_cmd_ids)
+        if self._logged_in and self._connection is not None:
+            # wait on responses of already send cmds
+            try:
+                async with asyncio.timeout(5):
+                    while self._connection.receive_futures:
+                        expected_cmd_ids = ", ".join(map(str, self._connection.receive_futures.keys()))
+                        _LOGGER.debug("Baichuan host %s: waiting for cmd_id %s before logout...", self._host, expected_cmd_ids)
+                        receive_futures = (v for d in self._connection.receive_futures.values() for v in d.values())
+                        await asyncio.wait(receive_futures, return_when=asyncio.ALL_COMPLETED)
+            except asyncio.TimeoutError:
+                _LOGGER.warning("Baichuan host %s: timeout of 5 sec waiting for cmd_id %s, continuing with logout", self._host, expected_cmd_ids)
 
-                try:
-                    xml = xmls.LOGOUT_XML.format(userName=self._username, password=self._password)
-                    await self.send(cmd_id=2, body=xml)
-                except ReolinkConnectionError:
-                    _LOGGER.debug("Baichuan host %s: connection closed before logout confirmation", self._host)
-                except ReolinkError as err:
-                    _LOGGER.error("Baichuan host %s: failed to logout: %s", self._host, err)
+            try:
+                xml = xmls.LOGOUT_XML.format(userName=self._username, password=self._password)
+                await self.send(cmd_id=2, body=xml)
+            except (ReolinkConnectionError, ReolinkTimeoutSendACK):
+                _LOGGER.debug("Baichuan host %s: connection closed before logout confirmation", self._host)
+            except ReolinkError as err:
+                _LOGGER.error("Baichuan host %s: failed to logout: %s", self._host, err)
 
-                try:
-                    await self._connection.close()
-                except ConnectionResetError as err:
-                    _LOGGER.debug("Baichuan host %s: connection already reset when trying to close: %s", self._host, err)
+            try:
+                await self._connection.close()
+            except ConnectionResetError as err:
+                _LOGGER.debug("Baichuan host %s: connection already reset when trying to close: %s", self._host, err)
 
-            if not self._webhook_subscribed:
-                self._events_active = False
+        if not self._webhook_subscribed:
+            self._events_active = False
 
-            self._logged_in = False
-            self._last_login = 0  # rest to allow direct new login
-            self._nonce = None
-            self._aes_key = None
-            self._user_hash = None
-            self._password_hash = None
-        finally:
-            self._logging_out.set()  # done, allow login again
+        self._logged_in = False
+        self._last_login = 0  # rest to allow direct new login
+        self._nonce = None
+        self._aes_key = None
+        self._user_hash = None
+        self._password_hash = None
 
     def register_callback(self, callback_id: str, callback: Callable[[], None], cmd_id: int | None = None, channel: int | None = None) -> None:
         """Register a callback which is called when a push event is received"""
@@ -1874,6 +1873,34 @@ class Baichuan:
                     self._ext_callback[cmd_id].pop(channel)
             if not self._ext_callback[cmd_id]:
                 self._ext_callback.pop(cmd_id)
+
+    def _parse_stream_info(self, root: XML.Element) -> None:
+        """Parse the stream info from cmd_id 1 or 146, 146 is more reliable"""
+        self.http_api._enc_range = {}
+        for info in root.findall(".//StreamInfo"):
+            channelBits = get_value_from_xml(info, "channelBits", int)
+            if channelBits is None:
+                continue
+            for ch in range(0, channelBits.bit_length(), 1):
+                if not (channelBits >> ch) & 1:
+                    continue
+                encodeTable: dict[str, str] = {}
+                enc_range = self.http_api._enc_range.setdefault(ch, [])
+                enc_data: dict[str, Any] = {"chnBit": channelBits}
+                for encoding in info.findall(".//encodeTable"):
+                    stream_type = get_value_from_xml(encoding, "type", str)
+                    if stream_type is None:
+                        continue
+                    encodeTable[stream_type] = XML.canonicalize(XML.tostring(encoding, encoding="unicode"), exclude_tags={"type", "videoEncType"})
+                    enc_data[stream_type] = get_keys_from_xml(encoding, {"width": ("width", int), "height": ("height", int)})
+                    framerateTable = get_value_from_xml(encoding, "framerateTable", str)
+                    if framerateTable is not None:
+                        enc_data[stream_type]["frameRate"] = [int(val) for val in framerateTable.split(",")]
+                    bitrateTable = get_value_from_xml(encoding, "bitrateTable", str)
+                    if bitrateTable is not None:
+                        enc_data[stream_type]["bitRate"] = [int(val) for val in bitrateTable.split(",")]
+                enc_range.append(enc_data)
+                self._has_subStream[ch] = encodeTable.get("mainStream", "main") != encodeTable.get("subStream", "sub")
 
     async def get_host_data(self) -> None:
         """Fetch the host settings/capabilities."""
@@ -1926,6 +1953,7 @@ class Baichuan:
         host_coroutines: list[tuple[Any, Coroutine]] = []
         host_coroutines.append(("network_info", self.get_network_info()))
         host_coroutines.append(("ability_info", self._get_ability_info()))
+        host_coroutines.append((146, self.send(cmd_id=146)))
         if self.api_version("sceneModeCfg") > 0:
             host_coroutines.append((603, self.send(cmd_id=603)))
         if self.api_version("wifi") > 0:
@@ -1958,7 +1986,9 @@ class Baichuan:
                 if isinstance(result, BaseException):
                     raise result
 
-                if cmd_id == 603:  # sceneListID
+                if cmd_id == 146:  # StreamInfoList
+                    self._parse_stream_info(XML.fromstring(result))
+                elif cmd_id == 603:  # sceneListID
                     self._add_capability("scenes")
                     self._scenes[-1] = "off"
                     self._parse_xml(cmd_id, result)
@@ -2025,7 +2055,7 @@ class Baichuan:
             batteryMode = self.api_version("batteryMode")
             if not self.http_api.is_nvr and batteryMode > 0:
                 self._add_capability("work_mode_battery", channel)
-                if (batteryMode >> 6) & 1 and (batteryMode >> 8) & 1:  # bit 6 and bit 8
+                if (batteryMode >> 6) & 1:  # bit 6
                     self._add_capability("work_mode_powered", channel)
 
     async def get_channel_data(self) -> None:
@@ -2043,8 +2073,13 @@ class Baichuan:
                 self._add_capability("stream", channel)
             if RtspVersion > 0 or self.api_version("encCtrl", channel) > 0 or self.api_version("osdCfg", channel) > 0:
                 self._add_capability("snapshot", channel)
+                self._add_capability("main", channel)
+                if 1 in self.http_api.sub_channels(channel):
+                    self._add_capability("autotrack_snapshot", channel)
             if noExternStream == 0 and RtmpVersion > 0:
                 self._add_capability("ext_stream", channel)
+            if self._has_subStream.get(channel, True):
+                self._add_capability("sub", channel)
 
             if self.supported(channel, "zoom_basic"):
                 min_zoom = self.http_api._zoom_focus_settings.get(channel, {}).get("zoom", {}).get("min")
@@ -2179,9 +2214,11 @@ class Baichuan:
             if self.http_api._enc_settings.get(channel, {}).get("audio") is not None:
                 self._add_capability("audio", channel)
 
-            if self.http_api.frame_rate(channel) is not None:
+            if self.http_api.frame_rate(channel) is not None and (
+                len(self.http_api.frame_rate_list(channel, "main")) > 1 or len(self.http_api.frame_rate_list(channel, "sub")) > 1
+            ):
                 self._add_capability("frame_rate", channel)
-            if self.http_api.bit_rate(channel) is not None:
+            if self.http_api.bit_rate(channel) is not None and (len(self.http_api.bit_rate_list(channel, "main")) > 1 or len(self.http_api.bit_rate_list(channel, "sub")) > 1):
                 self._add_capability("bit_rate", channel)
 
             if (self.api_version("recordCfg") >> 8) & 1:  # bit 8, aiExtendRecord
@@ -2587,10 +2624,8 @@ class Baichuan:
         main = XML.SubElement(xml_body, port.value.capitalize() + "Port", version="1.1")
         sub = XML.SubElement(main, "enable")
         sub.text = "1" if enable else "0"
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
 
-        await self.send(cmd_id=36, body=xml)
+        await self.send(cmd_id=36, body=xml_body)
 
     @http_cmd(["GetDevInfo", "GetChnTypeInfo"])
     async def get_info(self, channel: int | None = None) -> dict[str, str]:
@@ -2718,9 +2753,7 @@ class Baichuan:
             if main_frameRate is not None and (xml_main_framerate := xml_main.find(".//frame")) is not None:
                 xml_main_framerate.text = str(main_frameRate)
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=57, channel=channel, body=xml)
+        await self.send(cmd_id=57, channel=channel, body=xml_body)
 
     @http_cmd(["GetImage", "GetIsp"])
     async def GetImage(self, channel: int, **_kwargs) -> None:
@@ -2751,9 +2784,7 @@ class Baichuan:
         if (sharpen := param.get("sharpen")) is not None and (xml_sharpen := xml_body.find("VideoInput/sharpen")) is not None:
             xml_sharpen.text = str(sharpen)
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=25, channel=channel, body=xml)
+        await self.send(cmd_id=25, channel=channel, body=xml_body)
 
     @http_cmd("SetIsp")
     async def SetIsp(self, **kwargs) -> None:
@@ -2788,9 +2819,7 @@ class Baichuan:
                 xml_val2.text = "1"
 
         if val is not None:
-            xml = XML.tostring(xml_body, encoding="unicode")
-            xml = xmls.XML_HEADER + xml
-            await self.send(cmd_id=25, channel=channel, body=xml)
+            await self.send(cmd_id=25, channel=channel, body=xml_body)
 
         if (val := param.get("dayNightThreshold")) is not None:
             mess = await self.send(cmd_id=296, channel=channel)
@@ -2799,9 +2828,7 @@ class Baichuan:
             if (xml_val := xml_body.find(".//cur")) is not None:
                 xml_val.text = str(val)
 
-            xml = XML.tostring(xml_body, encoding="unicode")
-            xml = xmls.XML_HEADER + xml
-            await self.send(cmd_id=297, channel=channel, body=xml)
+            await self.send(cmd_id=297, channel=channel, body=xml_body)
 
     async def snapshot(self, channel: int, iLogicChannel: int = 0, snapType: str = "sub", **_kwargs) -> bytes:
         """Get a JPEG snapshot image"""
@@ -3042,7 +3069,7 @@ class Baichuan:
     @http_cmd("PtzCtrl")
     async def set_ptz_command(self, channel: int, op: str, speed: int | None = None, sub_channel: int | None = None, **kwargs) -> None:
         xml_base = xmls.PtzControl.format(channel=channel, command=op)
-        xml_body = XML.fromstring(xml_base[1:])
+        xml_body = XML.fromstring(xml_base.lstrip("\n"))
 
         if speed is not None and (xml_speed := xml_body.find(".//PtzControl")) is not None:
             XML.SubElement(xml_speed, "speed").text = str(speed)
@@ -3053,9 +3080,7 @@ class Baichuan:
                 return
             raise NotSupportedError("PTZ patrol not yet supported")
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=18, channel=channel, sub_channel=sub_channel, body=xml)
+        await self.send(cmd_id=18, channel=channel, sub_channel=sub_channel, body=xml_body)
 
     @http_cmd(["GetAlarm", "GetMdAlarm"])
     async def GetMdAlarm(self, channel: int | None = None, **kwargs) -> None:
@@ -3098,9 +3123,7 @@ class Baichuan:
             raise UnexpectedDataError(f"Baichuan host {self._host}: SetMdAlarm fallback channel {channel} got unexpected data")
         xml_sensitivity.text = str(sensitivity)
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=47, channel=channel, body=xml)
+        await self.send(cmd_id=47, channel=channel, body=xml_body)
 
     @http_cmd("GetAiAlarm")
     async def GetAiAlarm(self, channel: int, ai_type: str) -> None:
@@ -3139,9 +3162,7 @@ class Baichuan:
         if stay_time is not None and (xml_stay_time := xml_body.find(".//stayTime")) is not None:
             xml_stay_time.text = str(stay_time)
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=343, channel=channel, body=xml)
+        await self.send(cmd_id=343, channel=channel, body=xml_body)
 
     @http_cmd("GetAiCfg")
     async def GetAiCfg(self, channel: int) -> dict:
@@ -3181,9 +3202,7 @@ class Baichuan:
         if (StopDelay := kwargs.get("aiStopBackTime")) is not None and (xml_StopDelay := xml_body.find(".//smartTrackObjectStopDelay")) is not None:
             xml_StopDelay.text = str(StopDelay)
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=300, channel=channel, body=xml)
+        await self.send(cmd_id=300, channel=channel, body=xml_body)
         if cry_sensitivity is not None:
             await self.GetAiCfg(channel)
 
@@ -3219,9 +3238,7 @@ class Baichuan:
         if (rightLimit := param.get("LimitRight")) is not None and (xml_rightLimit := xml_body.find(".//rightLimit")) is not None:
             xml_rightLimit.text = str(rightLimit)
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=435, channel=channel, body=xml)
+        await self.send(cmd_id=435, channel=channel, body=xml_body)
 
     async def get_yolo_settings(self, channel: int) -> None:
         """Get the yoloworld AI settings"""
@@ -3251,9 +3268,7 @@ class Baichuan:
                     xml_delay.text = str(delay)
                 break
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=629, channel=channel, body=xml)
+        await self.send(cmd_id=629, channel=channel, body=xml_body)
         await self.get_yolo_settings(channel)
 
     @http_cmd("GetBatteryInfo")
@@ -3277,11 +3292,11 @@ class Baichuan:
             if mode not in mode_list:
                 raise InvalidParameterError(f"Baichuan host {self._host}: set_work_mode_battery mode {mode} not in {mode_list}")
             mode_str = BatteryModeStrEnum[mode].value
+            mode_list = self._work_mode_battery_list.get(channel, [])
+            mode_str = next((item for item in mode_list if item.startswith(mode_str)), mode_str)  # Add back the V2 if needed
             xml_mode_str.text = str(mode_str)
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=627, channel=channel, body=xml)
+        await self.send(cmd_id=627, channel=channel, body=xml_body)
         await self._send_and_parse(cmd_id=626, channel=channel)
 
     async def set_work_mode_powered(self, channel: int, mode: str) -> None:
@@ -3295,9 +3310,7 @@ class Baichuan:
                 raise InvalidParameterError(f"Baichuan host {self._host}: set_work_mode_powered mode {mode} not in {mode_list}")
             xml_mode.text = mode
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=772, channel=channel, body=xml)
+        await self.send(cmd_id=772, channel=channel, body=xml_body)
         await self._send_and_parse(cmd_id=771, channel=channel)
 
     async def get_day_night_state(self, channel: int) -> None:
@@ -3380,9 +3393,7 @@ class Baichuan:
         if (enable := param.get("enable")) is not None and (xml_enable := xml_body.find("Shelter/enable")) is not None:
             xml_enable.text = str(enable)
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=53, channel=channel, body=xml)
+        await self.send(cmd_id=53, channel=channel, body=xml_body)
 
     async def reboot(self, channel: int | None = None) -> None:
         """Reboot the host device"""
@@ -3485,9 +3496,7 @@ class Baichuan:
             if event_flash_time is not None and (xml_flash_time := xml_element.find("flickerDurationSL")) is not None:
                 get_state = True
                 xml_flash_time.text = str(event_flash_time)
-            xml = XML.tostring(xml_body, encoding="unicode")
-            xml = xmls.XML_HEADER + xml
-            await self.send(cmd_id=290, channel=channel, body=xml)
+            await self.send(cmd_id=290, channel=channel, body=xml_body)
 
             if get_state:
                 await self.get_floodlight(channel)
@@ -3529,9 +3538,7 @@ class Baichuan:
         if ir_brightness is not None and (xml_ir_bright := xml_body.find(".//IRLedBrightness")) is not None:
             xml_ir_bright.text = str(ir_brightness)
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=209, channel=channel, body=xml)
+        await self.send(cmd_id=209, channel=channel, body=xml_body)
 
         if ir_brightness is not None:
             # Request the new value
@@ -3611,9 +3618,7 @@ class Baichuan:
         if (preAlarm := param.get("preAlarm")) is not None and (xml_preAlarm := xml_body.find(".//preAlarm")) is not None:
             xml_preAlarm.text = str(preAlarm)
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=265, channel=channel, body=xml)
+        await self.send(cmd_id=265, channel=channel, body=xml_body)
 
     async def GetAudioNoise(self, channel: int) -> None:
         """Get the audio noise reduction settings"""
@@ -3644,9 +3649,7 @@ class Baichuan:
         if level > 0 and (xml_level := xml_body.find(".//level")) is not None:
             xml_level.text = str(level)
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=440, channel=channel, body=xml)
+        await self.send(cmd_id=440, channel=channel, body=xml_body)
         await self.GetAudioNoise(channel)
 
     @http_cmd("GetDingDongList")
@@ -3843,9 +3846,7 @@ class Baichuan:
         if timeout is not None and (xml_timeout := xml_body.find(".//timeout")) is not None:
             xml_timeout.text = str(timeout)
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=428, channel=channel, body=xml)
+        await self.send(cmd_id=428, channel=channel, body=xml_body)
         await self.GetAutoReply(channel)
 
     @http_cmd("QuickReplyPlay")
@@ -3893,9 +3894,7 @@ class Baichuan:
                 xml_packTime.text = str(round(packTime_int / 60))
             if (postRec_int := TIME_STR_TO_INT_SEC.get(postRec)) is not None and (xml_postRec := xml_body.find(".//recordDelayTime")) is not None:
                 xml_postRec.text = str(postRec_int)
-            xml = XML.tostring(xml_body, encoding="unicode")
-            xml = xmls.XML_HEADER + xml
-            await self.send(cmd_id=55, channel=channel, body=xml)
+            await self.send(cmd_id=55, channel=channel, body=xml_body)
             if postRec is not None and self.supported(channel, "post_rec_ai"):
                 enable_ai = 1 if postRec == "Auto" else 0
                 xml = xmls.SetPostRecAi.format(enable=enable_ai)
@@ -3941,9 +3940,7 @@ class Baichuan:
             xml_inter.text = str(interval)
             get_state = True
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=213, channel=channel, body=xml)
+        await self.send(cmd_id=213, channel=channel, body=xml_body)
         if get_state:
             await self.GetPirInfo(channel)
 
@@ -3968,9 +3965,7 @@ class Baichuan:
         if (enable := param.get("scheduleEnable")) is not None and (xml_enable := xml_body.find(".//enable")) is not None:
             xml_enable.text = str(enable)
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=216, channel=channel, body=xml)
+        await self.send(cmd_id=216, channel=channel, body=xml_body)
 
     @http_cmd(["GetFtp", "GetFtpV20"])
     async def GetFtp(self, channel: int, **_kwargs) -> None:
@@ -3993,9 +3988,7 @@ class Baichuan:
         if (enable := param.get("scheduleEnable")) is not None and (xml_enable := xml_body.find(".//enable")) is not None:
             xml_enable.text = str(enable)
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=71, channel=channel, body=xml)
+        await self.send(cmd_id=71, channel=channel, body=xml_body)
 
     @http_cmd(["GetPush", "GetPushV20"])
     async def GetPush(self, channel: int, **_kwargs) -> None:
@@ -4022,9 +4015,7 @@ class Baichuan:
         if (enable := param.get("scheduleEnable")) is not None and (xml_enable := xml_body.find(".//enable")) is not None:
             xml_enable.text = str(enable)
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=218, channel=channel, body=xml)
+        await self.send(cmd_id=218, channel=channel, body=xml_body)
 
     @http_cmd(["GetAudioAlarm", "GetAudioAlarmV20"])
     async def GetAudioAlarm(self, channel: int, **_kwargs) -> None:
@@ -4048,9 +4039,7 @@ class Baichuan:
         if (xml_enable := xml_body.find(".//enable")) is not None:
             xml_enable.text = str(enable)
 
-        xml = XML.tostring(xml_body, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=231, channel=channel, body=xml)
+        await self.send(cmd_id=231, channel=channel, body=xml_body)
 
     async def set_tamper(self, channel: int, enable: bool) -> None:
         """Set the tamper alarm"""
@@ -4132,11 +4121,11 @@ class Baichuan:
     async def set_smart_ai(self, channel: int, smart_type: str, location: int, sensitivity: int | None = None, delay: int | None = None) -> None:
         """Change smart AI settings"""
         mess = await self.send(cmd_id=SMART_AI[smart_type][0], channel=channel)
-        root = XML.fromstring(mess)
+        xml_body = XML.fromstring(mess)
 
         location_found = False
         main_key = f"{smart_type[0].upper() + smart_type[1:]}Detect"
-        main = root.find(main_key)
+        main = xml_body.find(main_key)
         if main is None:
             raise UnexpectedDataError(f"Baichuan host {self._host}: set_smart_ai cannot find {main_key} in {smart_type} smart AI")
         if (main_ob := main.find("op")) is not None:
@@ -4157,10 +4146,7 @@ class Baichuan:
         if not location_found:
             raise InvalidParameterError(f"Baichuan host {self._host}: cannot find location {location} in {smart_type} smart AI")
 
-        xml = XML.tostring(root, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-
-        await self.send(cmd_id=SMART_AI[smart_type][1], channel=channel, body=xml)
+        await self.send(cmd_id=SMART_AI[smart_type][1], channel=channel, body=xml_body)
 
     def _parse_rule(self, mess: str) -> None:
         root = XML.fromstring(mess)
@@ -4220,19 +4206,17 @@ class Baichuan:
         """Enable/disable a survaillance rule"""
         xml = xmls.GetRule.format(rule_id=rule_id)
         mess = await self.send(cmd_id=668, channel=channel, body=xml)
-        root = XML.fromstring(mess)
+        xml_body = XML.fromstring(mess)
 
         enabled_str = "1" if enabled else "0"
 
-        if (xml_list := root.find("IFTTTList")) is not None:
+        if (xml_list := xml_body.find("IFTTTList")) is not None:
             xml_list.tag = "IFTTTUpdate"
             if (xml_rule := xml_list.find("linkage")) is not None:
                 if (xml_enable := xml_rule.find("enable")) is not None:
                     xml_enable.text = enabled_str
 
-        xml = XML.tostring(root, encoding="unicode")
-        xml = xmls.XML_HEADER + xml
-        await self.send(cmd_id=667, channel=channel, body=xml)
+        await self.send(cmd_id=667, channel=channel, body=xml_body)
         await self.get_rule(rule_id, channel)
 
     def rule_ids(self, channel: int) -> list[int]:

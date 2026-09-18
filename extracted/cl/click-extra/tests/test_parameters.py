@@ -58,6 +58,7 @@ from click_extra import (
     echo,
     get_app_dir,
     group,
+    last_param,
     option,
     option_group,
     render_table,
@@ -165,6 +166,47 @@ def test_canonical_param_name_never_answers_an_identifier_decl():
     param = click.Option(["--foo-bar", "Explicit_Name"])
     assert param.name == "Explicit_Name"
     assert canonical_param_name("Explicit_Name") != param.name
+
+
+class FruitOption(click.Option):
+    """An option class to search for."""
+
+
+class AppleOption(FruitOption):
+    """A subclass of it, to tell subclass matching apart."""
+
+
+def test_search_params_returns_the_one_match():
+    """A single match comes back as itself, a subclass matching by default."""
+    fruit = FruitOption(["--fruit"])
+    apple = AppleOption(["--apple"])
+    city = click.Option(["--city"])
+    assert search_params([city, apple], AppleOption) is apple
+    assert search_params([city, apple], FruitOption) is apple
+    assert search_params([city, apple], FruitOption, include_subclasses=False) is None
+    assert search_params([city, fruit], FruitOption, include_subclasses=False) is fruit
+    assert search_params([city], FruitOption) is None
+    with pytest.raises(RuntimeError, match="More than one FruitOption"):
+        search_params([fruit, apple], FruitOption)
+
+
+def test_search_params_unique_is_deprecated():
+    """`unique=False` still returns every match as a list, warning at the caller."""
+    fruit = FruitOption(["--fruit"])
+    apple = AppleOption(["--apple"])
+    with pytest.warns(DeprecationWarning, match=r"search_params\(unique=") as record:
+        found = search_params([fruit, apple], FruitOption, unique=False)
+    assert found == [fruit, apple]
+    assert record[0].filename == __file__
+
+
+def test_last_param_keeps_the_last_exact_match():
+    """Duplicates resolve to the last one, and a subclass never matches."""
+    first = FruitOption(["--fruit"])
+    second = FruitOption(["--berry"])
+    apple = AppleOption(["--apple"])
+    assert last_param([first, apple, second], FruitOption) is second
+    assert last_param([apple], FruitOption) is None
 
 
 def test_factory_decorators_expose_option_signature():
@@ -634,7 +676,7 @@ def test_integrated_show_params_option(invoke, create_config):
             "show-params-cli.help_format",
             "--help-format [carapace|json|json-full|man|markdown|markdown-full]",
             "click_extra.command_doc.HelpFormatOption",
-            "click.types.Choice",
+            "click_extra.types.EnumChoice",
             "str",
             "✘",
             "✘",
@@ -2270,3 +2312,55 @@ def test_help_column_is_documented():
     """The auto-generated column reference covers the opt-in column too."""
     md = ShowParamsOption.render_doc_table()
     assert "| `Help` | " in md
+
+
+def _option_classes() -> list[type[click.Option]]:
+    """Every option class click-extra defines with a constructor of its own."""
+
+    def walk(cls: type) -> list[type]:
+        return [c for sub in cls.__subclasses__() for c in (sub, *walk(sub))]
+
+    return sorted(
+        {
+            cls
+            for cls in walk(click.Option)
+            if cls.__module__.startswith("click_extra.") and "__init__" in vars(cls)
+        },
+        key=lambda cls: f"{cls.__module__}.{cls.__qualname__}",
+    )
+
+
+POSITIONAL_DEFINITIONS = frozenset({"SortByOption"})
+"""Option classes taking positional definitions ahead of `param_decls`.
+
+`SortByOption` reads its column definitions positionally, which is why its
+`param_decls` is keyword-only (see `click_extra.decorators.sort_by_option`).
+"""
+
+
+@pytest.mark.parametrize(
+    "option_class", _option_classes(), ids=lambda cls: cls.__qualname__
+)
+def test_option_constructors_share_one_shape(option_class):
+    """`param_decls` first, then annotated keyword-only arguments, then `**kwargs`.
+
+    One shape across every option class: a caller never has to look up the
+    positional order of a passthrough, and an unannotated one cannot slip in.
+    """
+    parameters = list(inspect.signature(option_class.__init__).parameters.values())
+    assert parameters[0].name == "self"
+    named = parameters[1:-1]
+    if option_class.__name__ in POSITIONAL_DEFINITIONS:
+        assert named[0].kind is inspect.Parameter.VAR_POSITIONAL
+        named = named[1:]
+    decls, *rest = named
+    assert decls.name == "param_decls"
+    assert decls.annotation == "Sequence[str] | None"
+    assert decls.default is None
+    if option_class.__name__ not in POSITIONAL_DEFINITIONS:
+        assert decls.kind is inspect.Parameter.POSITIONAL_OR_KEYWORD
+    for parameter in rest:
+        assert parameter.kind is inspect.Parameter.KEYWORD_ONLY, parameter.name
+        assert parameter.annotation is not inspect.Parameter.empty, parameter.name
+    assert parameters[-1].kind is inspect.Parameter.VAR_KEYWORD
+    assert parameters[-1].annotation == "Any"

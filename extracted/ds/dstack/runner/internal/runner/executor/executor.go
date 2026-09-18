@@ -87,8 +87,14 @@ type RunExecutor struct {
 	jobLogs         *appendWriter
 	jobWsLogs       *appendWriter
 	runnerLogs      *appendWriter
+	setupDone       bool
+	finalized       bool
+	finalizeOnce    sync.Once
 	timestamp       *MonotonicTimestamp
 
+	// How long after the job is asked to stop before SIGHUP goes to its session, and before
+	// SIGKILL does. Both are measured from the interrupt.
+	hupDelay  time.Duration
 	killDelay time.Duration
 	// How long output may go on being copied after the command has exited, before the pty
 	// master is closed. Only reached when the job leaves processes holding the terminal open.
@@ -127,32 +133,79 @@ func NewRunExecutor(tempDir string, dstackDir string, currentUser linuxuser.User
 		runnerLogs:      newAppendWriter(mu, timestamp),
 		timestamp:       timestamp,
 
+		hupDelay:          5 * time.Second,
 		killDelay:         10 * time.Second,
 		logsDrainDelay:    2 * time.Second,
 		connectionTracker: connectionTracker,
 	}, nil
 }
 
-// GetJobInfo must be called after SetJob
-func (ex *RunExecutor) GetJobInfo(ctx context.Context) (string, string, error) {
-	// preRun() sets ex.jobUser and ex.jobWorkingDir
-	if err := ex.preRun(ctx); err != nil {
-		return "", "", err
+// Setup prepares the executor for Run: it configures runner logging and resolves the job user
+// and working dir. It must be called exactly once, after SetJob, and Run must not be called if
+// it fails -- a failed Setup finalizes the executor itself, so the caller only has to skip Run.
+//
+// Setup must not execute long-running operations, as it is called synchronously in the /api/run
+// method.
+func (ex *RunExecutor) Setup(ctx context.Context) (err error) {
+	defer func() {
+		if err != nil {
+			ex.Finalize(ctx)
+		}
+	}()
+
+	// logging is required for the subsequent setJob{User,WorkingDir} calls
+	runnerLogFile, err := log.CreateAppendFile(filepath.Join(ex.tempDir, consts.RunnerLogFileName))
+	if err != nil {
+		ex.SetJobState(ctx, schemas.JobStateFailed)
+		return fmt.Errorf("create runner log file: %w", err)
 	}
-	return ex.jobUser.Username, ex.jobWorkingDir, nil
+	ex.runnerLogFile = runnerLogFile
+	ex.runnerLogStripper = ansistrip.NewWriter(ex.runnerLogs, AnsiStripFlushInterval, AnsiStripMaxDelay, MaxBufferSize)
+	runnerLogWriter := io.MultiWriter(ex.runnerLogFile, os.Stdout, ex.runnerLogStripper)
+	runnerLogLevel := log.DefaultEntry.Logger.Level
+	ex.runnerLogger = log.NewEntry(runnerLogWriter, int(runnerLogLevel))
+	ctx = log.WithLogger(ctx, ex.runnerLogger)
+	log.Info(ctx, "Logging configured", "log_level", runnerLogLevel.String())
+
+	// jobUser and jobWorkingDir are required for JobInfo()
+	if err := ex.setJobUser(ctx); err != nil {
+		ex.SetJobStateWithTerminationReason(
+			ctx,
+			schemas.JobStateFailed,
+			types.TerminationReasonExecutorError,
+			fmt.Sprintf("Failed to set job user (%s)", err),
+		)
+		return fmt.Errorf("set job user: %w", err)
+	}
+	if err := ex.setJobWorkingDir(ctx); err != nil {
+		ex.SetJobStateWithTerminationReason(
+			ctx,
+			schemas.JobStateFailed,
+			types.TerminationReasonExecutorError,
+			fmt.Sprintf("Failed to set job working dir (%s)", err),
+		)
+		return fmt.Errorf("set job working dir: %w", err)
+	}
+
+	ex.setupDone = true
+	return nil
 }
 
-// Run must be called after SetJob and WriteRepoBlob
+// JobInfo must be called after a successful Setup
+func (ex *RunExecutor) JobInfo() (string, string) {
+	return ex.jobUser.Username, ex.jobWorkingDir
+}
+
+// Run must be called after SetJob, WriteRepoBlob and a successful Setup. It finalizes the
+// executor before returning, so the caller does not have to.
 func (ex *RunExecutor) Run(ctx context.Context) (err error) {
-	// If jobStateHistory is not empty, either Run() has already been called or
-	// preRun() has already been called via GetJobInfo() and failed
-	if len(ex.jobStateHistory) > 0 {
-		return errors.New("already running or finished")
+	if !ex.setupDone {
+		return errors.New("not set up")
 	}
-	if err := ex.preRun(ctx); err != nil {
-		return err
+	if ex.finalized {
+		return errors.New("already finished")
 	}
-	defer ex.postRun(ctx)
+	defer ex.Finalize(ctx)
 
 	jobLogFile, err := log.CreateAppendFile(filepath.Join(ex.tempDir, consts.RunnerJobLogFileName))
 	if err != nil {
@@ -162,16 +215,12 @@ func (ex *RunExecutor) Run(ctx context.Context) (err error) {
 	defer func() { _ = jobLogFile.Close() }()
 
 	defer func() {
-		// recover goes after postRun(), which closes runnerLogFile, to keep the log
+		// recover goes before Finalize(), which closes runnerLogFile, to keep the log
 		if r := recover(); r != nil {
 			log.Error(ctx, "Executor PANIC", "err", r)
 			ex.SetJobState(ctx, schemas.JobStateFailed)
 			err = fmt.Errorf("recovered: %v", r)
 		}
-		// no more logs will be written after this
-		ex.mu.Lock()
-		ex.SetRunnerState(WaitLogsFinished)
-		ex.mu.Unlock()
 	}()
 	defer func() {
 		if err != nil {
@@ -333,64 +382,31 @@ func (ex *RunExecutor) SetRunnerState(state string) {
 	ex.state = state
 }
 
-// preRun performs actions that were once part of Run() but were moved to a separate function
-// to implement GetJobInfo()
-// preRun must not execute long-running operations, as GetJobInfo() is called synchronously
-// in the /api/run method
-func (ex *RunExecutor) preRun(ctx context.Context) error {
-	// Already called once
-	if ex.runnerLogFile != nil {
-		return nil
-	}
-
-	// logging is required for the subsequent setJob{User,WorkingDir} calls
-	runnerLogFile, err := log.CreateAppendFile(filepath.Join(ex.tempDir, consts.RunnerLogFileName))
-	if err != nil {
-		ex.SetJobState(ctx, schemas.JobStateFailed)
-		return fmt.Errorf("create runner log file: %w", err)
-	}
-	ex.runnerLogFile = runnerLogFile
-	ex.runnerLogStripper = ansistrip.NewWriter(ex.runnerLogs, AnsiStripFlushInterval, AnsiStripMaxDelay, MaxBufferSize)
-	runnerLogWriter := io.MultiWriter(ex.runnerLogFile, os.Stdout, ex.runnerLogStripper)
-	runnerLogLevel := log.DefaultEntry.Logger.Level
-	ex.runnerLogger = log.NewEntry(runnerLogWriter, int(runnerLogLevel))
-	ctx = log.WithLogger(ctx, ex.runnerLogger)
-	log.Info(ctx, "Logging configured", "log_level", runnerLogLevel.String())
-
-	// jobUser and jobWorkingDir are required for GetJobInfo()
-	if err := ex.setJobUser(ctx); err != nil {
-		ex.SetJobStateWithTerminationReason(
-			ctx,
-			schemas.JobStateFailed,
-			types.TerminationReasonExecutorError,
-			fmt.Sprintf("Failed to set job user (%s)", err),
-		)
-		return fmt.Errorf("set job user: %w", err)
-	}
-	if err := ex.setJobWorkingDir(ctx); err != nil {
-		ex.SetJobStateWithTerminationReason(
-			ctx,
-			schemas.JobStateFailed,
-			types.TerminationReasonExecutorError,
-			fmt.Sprintf("Failed to set job working dir (%s)", err),
-		)
-		return fmt.Errorf("set job working dir: %w", err)
-	}
-
-	return nil
-}
-
-func (ex *RunExecutor) postRun(ctx context.Context) {
-	if ex.runnerLogFile != nil {
-		if err := ex.runnerLogFile.Close(); err != nil {
-			log.Error(ctx, "Failed to close runnerLogFile", "err", err)
+// Finalize closes runner logging and marks the state it serves as final. Setup and Run call it
+// themselves, so callers only need it as a safeguard; it is idempotent, and concurrent calls
+// block until the first one has finished.
+func (ex *RunExecutor) Finalize(ctx context.Context) {
+	ex.finalizeOnce.Do(func() {
+		// finalizeOnce keeps Finalize idempotent; ex.finalized is what the Run gate reports on
+		ex.finalized = true
+		if ex.runnerLogFile != nil {
+			if err := ex.runnerLogFile.Close(); err != nil {
+				log.Error(ctx, "Failed to close runnerLogFile", "err", err)
+			}
 		}
-	}
-	if ex.runnerLogStripper != nil {
-		if err := ex.runnerLogStripper.Close(); err != nil {
-			log.Error(ctx, "Failed to close runnerLogStripper", "err", err)
+		if ex.runnerLogStripper != nil {
+			// Close() flushes the buffered logs synchronously, and the flush takes ex.mu, so
+			// it must not be called with the lock held
+			if err := ex.runnerLogStripper.Close(); err != nil {
+				log.Error(ctx, "Failed to close runnerLogStripper", "err", err)
+			}
 		}
-	}
+		// Only now that the last logs have been flushed does WaitLogsFinished hold: it tells
+		// /api/pull that the state it serves is final
+		ex.mu.Lock()
+		ex.SetRunnerState(WaitLogsFinished)
+		ex.mu.Unlock()
+	})
 }
 
 // setJobWorkingDir must be called from Run after setJobUser
@@ -509,8 +525,16 @@ func (ex *RunExecutor) execJob(ctx context.Context, jobLogFile io.Writer) error 
 		"DSTACK_MPI_HOSTFILE":   mpiHostfilePath,
 	}
 
-	cmd := exec.CommandContext(ctx, ex.jobSpec.Commands[0], ex.jobSpec.Commands[1:]...)
-	cmd.WaitDelay = ex.killDelay // kills the process if it doesn't exit in time
+	// The command gets a context of its own so that stopping the job from inside the executor,
+	// when the log quota is exceeded, takes the same path as a stop from outside without
+	// cancelling the caller's context -- which Run reads to tell why the job stopped.
+	cmdCtx, cancelCmd := context.WithCancel(ctx)
+	defer cancelCmd()
+
+	cmd := exec.CommandContext(cmdCtx, ex.jobSpec.Commands[0], ex.jobSpec.Commands[1:]...)
+	// WaitDelay is deliberately left unset. It kills cmd.Process alone, which is the wrapper
+	// shell, and everything the job started would go on running; terminateSession does it.
+	cmd.WaitDelay = 0
 
 	if err := utils.MkdirAll(ctx, ex.jobWorkingDir, ex.jobUser.Uid, ex.jobUser.Gid, 0o755); err != nil {
 		return fmt.Errorf("create working directory: %w", err)
@@ -606,10 +630,34 @@ func (ex *RunExecutor) execJob(ctx context.Context, jobLogFile io.Writer) error 
 		copyDone <- copyErr
 	}()
 
-	stopQuotaWatch := watchLogQuota(cmd, ex.jobLogs.QuotaExceeded())
+	stopQuotaWatch := watchLogQuota(cancelCmd, ex.jobLogs.QuotaExceeded())
 	defer stopQuotaWatch()
 
+	// Staged in the background so that it runs while cmd.Wait is still blocked on a job that
+	// is not going away on its own. Setsid in startCommand made the shell a session leader, so
+	// its pid is the session id of everything the job goes on to start.
+	jobDone := make(chan struct{})
+	terminated := make(chan struct{})
+	go func() {
+		defer close(terminated)
+		select {
+		case <-cmdCtx.Done():
+			ex.terminateSession(ctx, cmd.Process.Pid)
+		case <-jobDone:
+			// The job reached its own end. Whatever it left running is about to lose the
+			// terminal, and soon after the container, without being told either way, so hang
+			// up and let it exit on its own terms. Nothing is waited for here: the job
+			// succeeded, so there is nothing left to enforce.
+			if pids := hangUpSession(cmd.Process.Pid); len(pids) > 0 {
+				log.Info(ctx, "Processes still running after the job finished, sent SIGHUP", "pids", pids)
+			}
+		}
+	}()
+
 	waitErr := cmd.Wait()
+	close(jobDone)
+	<-terminated // the job's own processes may outlive the shell that started them
+
 	copyErr := ex.finishOutputCopy(ctx, ptm, copyDone)
 
 	// Flush the ansistrip buffer — may also trigger quota exceeded.
@@ -649,17 +697,20 @@ func (ex *RunExecutor) finishOutputCopy(ctx context.Context, ptm *os.File, copyD
 	return nil
 }
 
-// watchLogQuota kills the command if the job exceeds its log quota. Output keeps being copied
-// until the command exits, so a full pty buffer cannot keep it from exiting.
+// watchLogQuota stops the job if it exceeds its log quota. Output keeps being copied until the
+// command exits, so a full pty buffer cannot keep it from exiting.
+//
+// Cancelling is the same request an external stop makes, so a job that ignores the interrupt is
+// escalated and killed off the same way rather than through a second, blunter path.
 //
 // The quota signal is out-of-band (via channel) because the ansistrip writer is async and
 // swallows downstream write errors.
-func watchLogQuota(cmd *exec.Cmd, quotaExceeded <-chan struct{}) (stop func()) {
+func watchLogQuota(stopJob context.CancelFunc, quotaExceeded <-chan struct{}) (stop func()) {
 	done := make(chan struct{})
 	go func() {
 		select {
 		case <-quotaExceeded:
-			_ = cmd.Process.Kill()
+			stopJob()
 		case <-done:
 		}
 	}()

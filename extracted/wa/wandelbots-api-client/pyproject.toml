@@ -1,6 +1,6 @@
 [project]
 name = "wandelbots_api_client"
-version = "26.6.1"
+version = "26.7.0"
 description = "Wandelbots Python Client: Interact with robots in an easy and intuitive way. "
 authors = [{ name="Copyright (c) 2025 Wandelbots GmbH", email="contact@wandelbots.com" }]
 license = "Apache-2.0"
@@ -24,7 +24,7 @@ dependencies = [
   "aiohttp >= 3.8.4",
   "aiohttp-retry >= 2.8.3",
   "pydantic >=2",
-  "websockets",
+  "websockets >=14",
   "typing-extensions >=4.7.1",
   "furl",
   "pyhumps",

@@ -140,6 +140,7 @@ from arthur_client.api_bindings.models.datasets_sort import DatasetsSort
 from arthur_client.api_bindings.models.definition import Definition
 from arthur_client.api_bindings.models.delete_group_membership import DeleteGroupMembership
 from arthur_client.api_bindings.models.delete_model_task_job_spec import DeleteModelTaskJobSpec
+from arthur_client.api_bindings.models.detection import Detection
 from arthur_client.api_bindings.models.dimension import Dimension
 from arthur_client.api_bindings.models.discover_agents_job_spec import DiscoverAgentsJobSpec
 from arthur_client.api_bindings.models.discovery_query_language import DiscoveryQueryLanguage
@@ -160,6 +161,8 @@ from arthur_client.api_bindings.models.endpoint_agent_creation_source import End
 from arthur_client.api_bindings.models.eval import Eval
 from arthur_client.api_bindings.models.eval_config import EvalConfig
 from arthur_client.api_bindings.models.eval_type import EvalType
+from arthur_client.api_bindings.models.evidence import Evidence
+from arthur_client.api_bindings.models.evidence_response import EvidenceResponse
 from arthur_client.api_bindings.models.example_config import ExampleConfig
 from arthur_client.api_bindings.models.examples_config import ExamplesConfig
 from arthur_client.api_bindings.models.extended_role import ExtendedRole
@@ -284,6 +287,7 @@ from arthur_client.api_bindings.models.permission_request_item import Permission
 from arthur_client.api_bindings.models.permission_response_item import PermissionResponseItem
 from arthur_client.api_bindings.models.permissions_request import PermissionsRequest
 from arthur_client.api_bindings.models.permissions_response import PermissionsResponse
+from arthur_client.api_bindings.models.platform import Platform
 from arthur_client.api_bindings.models.policy import Policy
 from arthur_client.api_bindings.models.policy_alert_guardrail_rule import PolicyAlertGuardrailRule
 from arthur_client.api_bindings.models.policy_alert_rule import PolicyAlertRule
@@ -346,6 +350,9 @@ from arthur_client.api_bindings.models.post_workspace import PostWorkspace
 from arthur_client.api_bindings.models.project import Project
 from arthur_client.api_bindings.models.project_bound_resource_metadata import ProjectBoundResourceMetadata
 from arthur_client.api_bindings.models.project_sort import ProjectSort
+from arthur_client.api_bindings.models.provenance_input import ProvenanceInput
+from arthur_client.api_bindings.models.provenance_output import ProvenanceOutput
+from arthur_client.api_bindings.models.provenance_source import ProvenanceSource
 from arthur_client.api_bindings.models.put_agents import PutAgents
 from arthur_client.api_bindings.models.put_agents_response import PutAgentsResponse
 from arthur_client.api_bindings.models.put_available_dataset import PutAvailableDataset
@@ -415,6 +422,7 @@ from arthur_client.api_bindings.models.role_sort import RoleSort
 from arthur_client.api_bindings.models.rule_response import RuleResponse
 from arthur_client.api_bindings.models.rule_scope import RuleScope
 from arthur_client.api_bindings.models.rule_type import RuleType
+from arthur_client.api_bindings.models.runs_on import RunsOn
 from arthur_client.api_bindings.models.siem_agent_creation_source import SIEMAgentCreationSource
 from arthur_client.api_bindings.models.scalar_type import ScalarType
 from arthur_client.api_bindings.models.schedule_jobs_job_spec import ScheduleJobsJobSpec
@@ -430,6 +438,7 @@ from arthur_client.api_bindings.models.sketch_point import SketchPoint
 from arthur_client.api_bindings.models.sketch_time_series import SketchTimeSeries
 from arthur_client.api_bindings.models.sort_order import SortOrder
 from arthur_client.api_bindings.models.source_address import SourceAddress
+from arthur_client.api_bindings.models.source_class import SourceClass
 from arthur_client.api_bindings.models.sub_agent import SubAgent
 from arthur_client.api_bindings.models.sub_agent_response import SubAgentResponse
 from arthur_client.api_bindings.models.task_connection_info import TaskConnectionInfo
@@ -461,6 +470,7 @@ from arthur_client.api_bindings.models.validation_outcome import ValidationOutco
 from arthur_client.api_bindings.models.validation_result import ValidationResult
 from arthur_client.api_bindings.models.validation_results import ValidationResults
 from arthur_client.api_bindings.models.value import Value
+from arthur_client.api_bindings.models.visibility import Visibility
 from arthur_client.api_bindings.models.webhook import Webhook
 from arthur_client.api_bindings.models.webhook_response import WebhookResponse
 from arthur_client.api_bindings.models.webhook_result import WebhookResult

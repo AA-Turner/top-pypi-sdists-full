@@ -981,6 +981,7 @@ class MessageInsightsFiltersOutputTypeDef(TypedDict):
     Destination: NotRequired[list[str]]
     Subject: NotRequired[list[str]]
     Isp: NotRequired[list[str]]
+    TenantName: NotRequired[list[str]]
     LastDeliveryEvent: NotRequired[list[DeliveryEventTypeType]]
     LastEngagementEvent: NotRequired[list[EngagementEventTypeType]]
 
@@ -989,6 +990,7 @@ class MessageInsightsFiltersTypeDef(TypedDict):
     Destination: NotRequired[Sequence[str]]
     Subject: NotRequired[Sequence[str]]
     Isp: NotRequired[Sequence[str]]
+    TenantName: NotRequired[Sequence[str]]
     LastDeliveryEvent: NotRequired[Sequence[DeliveryEventTypeType]]
     LastEngagementEvent: NotRequired[Sequence[EngagementEventTypeType]]
 

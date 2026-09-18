@@ -10,6 +10,7 @@ from ...client import Client
 from .api import APIDriver
 from .errors import (
     ConflictingTableFilters,
+    StateMachineError,
     UnsatisfiableDependencies,
     handle_state_errors,
 )
@@ -21,9 +22,30 @@ from .models import (
     LabelAction,
     NotificationChannelAction,
     State,
+    Table,
     TableConfigAction,
 )
 from .plan import Plan, ResourceKey, build_plan, describe_resource
+
+
+# Tables loaded between checkpoint writes during `pull`. Rewriting the whole file per
+# table is quadratic in dump cost, so batch it: an interrupted pull loses at most this
+# many tables of progress instead of all of them.
+CHECKPOINT_EVERY_N_TABLES = 25
+
+
+def _exclude_labeled_checks(table: Table, exclude_labels: set[str]) -> None:
+    """Drop every check on `table` carrying one of `exclude_labels`, in place."""
+    table.checks = {
+        ref: check
+        for ref, check in table.checks.items()
+        if not check.labels or not exclude_labels.intersection(check.labels)
+    }
+    table.system_checks = {
+        ref: check
+        for ref, check in table.system_checks.items()
+        if not check.labels or not exclude_labels.intersection(check.labels)
+    }
 
 
 class StateMachine:
@@ -51,28 +73,71 @@ class StateMachine:
         api_state = APIDriver(self.client)
         if not table_refs:
             table_refs = sorted(api_state.pull_table_refs(filters))
-        for table_ref in table_refs:
+        # The driver holds a reference to the state the loaders mutate, so every
+        # write_file() below dumps the tables loaded so far.
+        output_file = self._get_file_driver(filename, api_state.state)
+        table_refs = self._resume_interrupted_pull(
+            output_file, filename, api_state, table_refs
+        )
+        exclude_set = set(exclude_labels or ())
+        for tables_loaded, table_ref in enumerate(table_refs, start=1):
             api_state.load_table(table_ref)
             api_state.load_non_system_checks(table_ref)
             api_state.load_system_checks(table_ref)
+            if exclude_set:
+                _exclude_labeled_checks(api_state.state.tables[table_ref], exclude_set)
+            if tables_loaded % CHECKPOINT_EVERY_N_TABLES == 0:
+                output_file.write_file(filename, in_progress=True)
             print(f"Loaded table {table_ref}")
-        if exclude_labels:
-            exclude_set = set(exclude_labels)
-            for table_ref in table_refs:
-                table = api_state.state.tables[table_ref]
-                table.checks = {
-                    ref: check
-                    for ref, check in table.checks.items()
-                    if not check.labels or not exclude_set.intersection(check.labels)
-                }
-                table.system_checks = {
-                    ref: check
-                    for ref, check in table.system_checks.items()
-                    if not check.labels or not exclude_set.intersection(check.labels)
-                }
-        output_file = self._get_file_driver(filename, api_state.state)
+        # Omitting in_progress is what marks the file complete, so a later pull
+        # refreshes it instead of resuming it.
         output_file.write_file(filename)
         print(f'Configuration saved to "{filename}"')
+
+    def _resume_interrupted_pull(
+        self,
+        output_file: FileDriver,
+        filename: str,
+        api_state: APIDriver,
+        table_refs: Sequence[str],
+    ) -> Sequence[str]:
+        """Drop the table refs an interrupted pull already wrote to `filename`.
+
+        Only a file the previous run left marked in-progress is resumed. A complete
+        file means the last pull finished, and re-running `pull` on one has to refresh
+        it — skipping every table already present would turn the usual "re-pull to
+        refresh my config-as-code file" into a no-op.
+        """
+        if not self._is_unfinished_pull(output_file, filename):
+            # Point the driver back at the state the loaders mutate: `load_file` may
+            # have rebound it on the way to deciding not to resume.
+            output_file.state = api_state.state
+            return table_refs
+        api_state.state = output_file.state
+        already_pulled = output_file.state.tables
+        remaining = [ref for ref in table_refs if ref not in already_pulled]
+        print(
+            f"Resuming interrupted pull: {len(already_pulled)} already pulled, "
+            f"{len(remaining)} to go"
+        )
+        return remaining
+
+    def _is_unfinished_pull(self, output_file: FileDriver, filename: str) -> bool:
+        """Whether `filename` holds the checkpoint of a pull that never completed.
+
+        Anything else — no file, an unrelated file, a checkpoint truncated mid-write —
+        is simply not a resume point, and gets overwritten the way `pull` has always
+        overwritten its output path. This deliberately does not raise: resuming is
+        automatic now, so one unreadable file would otherwise block every later pull
+        to that path.
+        """
+        if not os.path.exists(filename):
+            return False
+        try:
+            output_file.load_file(filename)
+        except StateMachineError:
+            return False
+        return output_file.pull_in_progress
 
     @handle_state_errors
     def examine(

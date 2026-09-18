@@ -14,7 +14,6 @@ if typing.TYPE_CHECKING:
     from .account_balance_breakdown import AccountBalanceBreakdown
     from .account_balance_settlement import AccountBalanceSettlement
     from .account_balance_token import AccountBalanceToken
-    from .account_business_type import AccountBusinessType
     from .account_capabilities import AccountCapabilities
     from .account_capabilities_accept_bank_payments import AccountCapabilitiesAcceptBankPayments
     from .account_capabilities_accept_bnpl_payments import AccountCapabilitiesAcceptBnplPayments
@@ -39,12 +38,12 @@ if typing.TYPE_CHECKING:
     from .account_company_formation_status import AccountCompanyFormationStatus
     from .account_dispute_alert_auto_refund_control import AccountDisputeAlertAutoRefundControl
     from .account_home_preferences_item import AccountHomePreferencesItem
-    from .account_industry_group import AccountIndustryGroup
     from .account_link import AccountLink
     from .account_link_use_cases import AccountLinkUseCases
     from .account_onboarding_type import AccountOnboardingType
     from .account_opengraph_image_variant import AccountOpengraphImageVariant
     from .account_parent import AccountParent
+    from .account_parent_fees_value import AccountParentFeesValue
     from .account_payment_controls import AccountPaymentControls
     from .account_payment_controls_restricted_payment_methods_item import (
         AccountPaymentControlsRestrictedPaymentMethodsItem,
@@ -53,11 +52,6 @@ if typing.TYPE_CHECKING:
     from .account_preferences import AccountPreferences
     from .account_recommended_action import AccountRecommendedAction
     from .account_recommended_action_action import AccountRecommendedActionAction
-    from .account_recommended_action_chain import AccountRecommendedActionChain
-    from .account_recommended_action_chain_step import AccountRecommendedActionChainStep
-    from .account_recommended_action_chain_step_execution_type import AccountRecommendedActionChainStepExecutionType
-    from .account_recommended_action_chain_step_status import AccountRecommendedActionChainStepStatus
-    from .account_recommended_action_outcome import AccountRecommendedActionOutcome
     from .account_recommended_action_status import AccountRecommendedActionStatus
     from .account_required_action import AccountRequiredAction
     from .account_required_action_action import AccountRequiredActionAction
@@ -188,6 +182,7 @@ if typing.TYPE_CHECKING:
     from .affiliate_user import AffiliateUser
     from .affiliates_sortable_columns import AffiliatesSortableColumns
     from .ai_chat import AiChat
+    from .ai_chat_agent_identifiers import AiChatAgentIdentifiers
     from .ai_chat_list_item import AiChatListItem
     from .ai_chat_list_item_user import AiChatListItemUser
     from .ai_chat_message_source_types import AiChatMessageSourceTypes
@@ -215,6 +210,8 @@ if typing.TYPE_CHECKING:
     from .app_deployment import AppDeployment
     from .app_deployment_phase import AppDeploymentPhase
     from .app_deployment_status import AppDeploymentStatus
+    from .app_domain import AppDomain
+    from .app_domain_status import AppDomainStatus
     from .app_elements_used_item import AppElementsUsedItem
     from .app_icon import AppIcon
     from .app_list_item import AppListItem
@@ -237,6 +234,23 @@ if typing.TYPE_CHECKING:
     from .app_view_types import AppViewTypes
     from .audience import Audience
     from .audience_audience_type import AudienceAudienceType
+    from .audience_engagement import AudienceEngagement
+    from .audience_engagement_facebook_page_rule import AudienceEngagementFacebookPageRule
+    from .audience_engagement_facebook_page_rule_event import AudienceEngagementFacebookPageRuleEvent
+    from .audience_engagement_instagram_profile_rule import AudienceEngagementInstagramProfileRule
+    from .audience_engagement_instagram_profile_rule_event import AudienceEngagementInstagramProfileRuleEvent
+    from .audience_engagement_lead_form_rule import AudienceEngagementLeadFormRule
+    from .audience_engagement_lead_form_rule_event import AudienceEngagementLeadFormRuleEvent
+    from .audience_engagement_platform import AudienceEngagementPlatform
+    from .audience_engagement_rule import (
+        AudienceEngagementRule,
+        AudienceEngagementRule_FacebookPage,
+        AudienceEngagementRule_InstagramProfile,
+        AudienceEngagementRule_LeadForm,
+        AudienceEngagementRule_Video,
+    )
+    from .audience_engagement_video_rule import AudienceEngagementVideoRule
+    from .audience_engagement_video_rule_event import AudienceEngagementVideoRuleEvent
     from .audience_match_rate import AudienceMatchRate
     from .audience_match_rate_platform import AudienceMatchRatePlatform
     from .audience_match_rate_status import AudienceMatchRateStatus
@@ -289,6 +303,7 @@ if typing.TYPE_CHECKING:
     from .card_transaction_list_item import CardTransactionListItem
     from .card_transaction_status import CardTransactionStatus
     from .card_transaction_transaction_type import CardTransactionTransactionType
+    from .cashback_rule import CashbackRule
     from .chat_channel import ChatChannel
     from .chat_channel_experience import ChatChannelExperience
     from .chat_channel_list_item import ChatChannelListItem
@@ -368,23 +383,6 @@ if typing.TYPE_CHECKING:
     from .currencies import Currencies
     from .custom_ctas import CustomCtas
     from .custom_field_types import CustomFieldTypes
-    from .describe_stats_response_describe_metric import DescribeStatsResponseDescribeMetric
-    from .describe_stats_response_describe_metric_debug import DescribeStatsResponseDescribeMetricDebug
-    from .describe_stats_response_describe_node import DescribeStatsResponseDescribeNode
-    from .describe_stats_response_describe_node_associations_item import (
-        DescribeStatsResponseDescribeNodeAssociationsItem,
-    )
-    from .describe_stats_response_describe_node_debug import DescribeStatsResponseDescribeNodeDebug
-    from .describe_stats_response_describe_node_metrics_item import DescribeStatsResponseDescribeNodeMetricsItem
-    from .describe_stats_response_describe_root import DescribeStatsResponseDescribeRoot
-    from .describe_stats_response_describe_root_debug import DescribeStatsResponseDescribeRootDebug
-    from .describe_stats_response_describe_root_metrics_item import DescribeStatsResponseDescribeRootMetricsItem
-    from .describe_stats_response_describe_view import DescribeStatsResponseDescribeView
-    from .describe_stats_response_describe_view_associations_item import (
-        DescribeStatsResponseDescribeViewAssociationsItem,
-    )
-    from .describe_stats_response_describe_view_debug import DescribeStatsResponseDescribeViewDebug
-    from .describe_stats_response_describe_view_metrics_item import DescribeStatsResponseDescribeViewMetricsItem
     from .detailed_targeting_option import DetailedTargetingOption
     from .detailed_targeting_option_behavior_type import DetailedTargetingOptionBehaviorType
     from .direction import Direction
@@ -460,6 +458,14 @@ if typing.TYPE_CHECKING:
     from .dms_feed_member_notification_preferences import DmsFeedMemberNotificationPreferences
     from .dms_feed_member_statuses import DmsFeedMemberStatuses
     from .dms_post_types import DmsPostTypes
+    from .domain import Domain
+    from .domain_dns_record import DomainDnsRecord
+    from .domain_dns_record_type import DomainDnsRecordType
+    from .domain_dns_status import DomainDnsStatus
+    from .domain_issue import DomainIssue
+    from .domain_status import DomainStatus
+    from .economic_intelligence import EconomicIntelligence
+    from .economic_intelligence_status import EconomicIntelligenceStatus
     from .embed_types import EmbedTypes
     from .entries_sortable_columns import EntriesSortableColumns
     from .entry import Entry
@@ -487,9 +493,26 @@ if typing.TYPE_CHECKING:
     from .experience_notification_preference_level import ExperienceNotificationPreferenceLevel
     from .experience_notification_preference_object import ExperienceNotificationPreferenceObject
     from .experience_products_item import ExperienceProductsItem
+    from .experiment import Experiment
+    from .experiment_bucket_by import ExperimentBucketBy
+    from .experiment_control import ExperimentControl
+    from .experiment_exposure import ExperimentExposure
+    from .experiment_exposure_batch import ExperimentExposureBatch
+    from .experiment_resource_reference import ExperimentResourceReference
+    from .experiment_resource_reference_object import ExperimentResourceReferenceObject
+    from .experiment_status import ExperimentStatus
+    from .experiment_targeting_rules_item import ExperimentTargetingRulesItem
+    from .experiment_targeting_rules_item_conditions_item import ExperimentTargetingRulesItemConditionsItem
+    from .experiment_targeting_rules_item_conditions_item_operator import (
+        ExperimentTargetingRulesItemConditionsItemOperator,
+    )
+    from .experiment_targeting_rules_item_conditions_item_type import ExperimentTargetingRulesItemConditionsItemType
+    from .experiment_targeting_rules_item_type import ExperimentTargetingRulesItemType
+    from .experiment_variants_item import ExperimentVariantsItem
     from .export import Export
     from .export_resource import ExportResource
     from .export_status import ExportStatus
+    from .exposures_experiments_request_subject import ExposuresExperimentsRequestSubject
     from .fee_markup import FeeMarkup
     from .fee_markup_list_item import FeeMarkupListItem
     from .fee_markup_types import FeeMarkupTypes
@@ -610,6 +633,7 @@ if typing.TYPE_CHECKING:
     from .ledger_activity_resource_two import LedgerActivityResourceTwo
     from .ledger_activity_resource_two_object import LedgerActivityResourceTwoObject
     from .ledger_activity_source import LedgerActivitySource
+    from .ledger_activity_source_fee_kind import LedgerActivitySourceFeeKind
     from .ledger_activity_source_payout_destination import LedgerActivitySourcePayoutDestination
     from .ledger_types import LedgerTypes
     from .lesson_types import LessonTypes
@@ -695,6 +719,17 @@ if typing.TYPE_CHECKING:
     from .oauth_grant import OauthGrant
     from .page_info import PageInfo
     from .pagination import Pagination
+    from .partner import Partner
+    from .partner_payout_duration import PartnerPayoutDuration
+    from .partner_payout_duration_unit import PartnerPayoutDurationUnit
+    from .partner_payout_rate import PartnerPayoutRate
+    from .partner_payout_rate_income_source import PartnerPayoutRateIncomeSource
+    from .partner_payout_tier import PartnerPayoutTier
+    from .partner_payout_tier_tier import PartnerPayoutTierTier
+    from .partner_reward_link import PartnerRewardLink
+    from .partner_reward_link_qualification_income_source import PartnerRewardLinkQualificationIncomeSource
+    from .partner_reward_link_reward_type import PartnerRewardLinkRewardType
+    from .partner_reward_link_status import PartnerRewardLinkStatus
     from .passkey import Passkey
     from .payment import Payment
     from .payment_address import PaymentAddress
@@ -1028,6 +1063,21 @@ if typing.TYPE_CHECKING:
     from .payment_required_error_body import PaymentRequiredErrorBody
     from .payment_required_error_body_error import PaymentRequiredErrorBodyError
     from .payment_required_error_body_error_type import PaymentRequiredErrorBodyErrorType
+    from .payment_rule import PaymentRule
+    from .payment_rule_action import PaymentRuleAction
+    from .payment_rule_condition import PaymentRuleCondition
+    from .payment_rule_condition_field import PaymentRuleConditionField
+    from .payment_rule_condition_operator import PaymentRuleConditionOperator
+    from .payment_rule_condition_value import PaymentRuleConditionValue
+    from .payment_rule_conditions import PaymentRuleConditions
+    from .payment_rule_field import PaymentRuleField
+    from .payment_rule_field_field import PaymentRuleFieldField
+    from .payment_rule_field_operators_item import PaymentRuleFieldOperatorsItem
+    from .payment_rule_field_option import PaymentRuleFieldOption
+    from .payment_rule_field_type import PaymentRuleFieldType
+    from .payment_rule_match import PaymentRuleMatch
+    from .payment_rule_match_action import PaymentRuleMatchAction
+    from .payment_rule_status import PaymentRuleStatus
     from .payment_status import PaymentStatus
     from .payment_status_status import PaymentStatusStatus
     from .payment_transaction_statuses import PaymentTransactionStatuses
@@ -1105,11 +1155,10 @@ if typing.TYPE_CHECKING:
     from .reaction_list_item import ReactionListItem
     from .reaction_list_item_user import ReactionListItemUser
     from .reaction_user import ReactionUser
+    from .receipt_line_item import ReceiptLineItem
     from .receipt_status import ReceiptStatus
     from .receipt_tax_behaviors import ReceiptTaxBehaviors
     from .receipt_v2order import ReceiptV2Order
-    from .recommended_action_execution import RecommendedActionExecution
-    from .recommended_action_execution_status import RecommendedActionExecutionStatus
     from .refund import Refund
     from .refund_failure_reason import RefundFailureReason
     from .refund_legacy import RefundLegacy
@@ -1297,7 +1346,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AccountBalanceBreakdown": ".account_balance_breakdown",
     "AccountBalanceSettlement": ".account_balance_settlement",
     "AccountBalanceToken": ".account_balance_token",
-    "AccountBusinessType": ".account_business_type",
     "AccountCapabilities": ".account_capabilities",
     "AccountCapabilitiesAcceptBankPayments": ".account_capabilities_accept_bank_payments",
     "AccountCapabilitiesAcceptBnplPayments": ".account_capabilities_accept_bnpl_payments",
@@ -1322,23 +1370,18 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AccountCompanyFormationStatus": ".account_company_formation_status",
     "AccountDisputeAlertAutoRefundControl": ".account_dispute_alert_auto_refund_control",
     "AccountHomePreferencesItem": ".account_home_preferences_item",
-    "AccountIndustryGroup": ".account_industry_group",
     "AccountLink": ".account_link",
     "AccountLinkUseCases": ".account_link_use_cases",
     "AccountOnboardingType": ".account_onboarding_type",
     "AccountOpengraphImageVariant": ".account_opengraph_image_variant",
     "AccountParent": ".account_parent",
+    "AccountParentFeesValue": ".account_parent_fees_value",
     "AccountPaymentControls": ".account_payment_controls",
     "AccountPaymentControlsRestrictedPaymentMethodsItem": ".account_payment_controls_restricted_payment_methods_item",
     "AccountPaymentControlsUndatedPendingReason": ".account_payment_controls_undated_pending_reason",
     "AccountPreferences": ".account_preferences",
     "AccountRecommendedAction": ".account_recommended_action",
     "AccountRecommendedActionAction": ".account_recommended_action_action",
-    "AccountRecommendedActionChain": ".account_recommended_action_chain",
-    "AccountRecommendedActionChainStep": ".account_recommended_action_chain_step",
-    "AccountRecommendedActionChainStepExecutionType": ".account_recommended_action_chain_step_execution_type",
-    "AccountRecommendedActionChainStepStatus": ".account_recommended_action_chain_step_status",
-    "AccountRecommendedActionOutcome": ".account_recommended_action_outcome",
     "AccountRecommendedActionStatus": ".account_recommended_action_status",
     "AccountRequiredAction": ".account_required_action",
     "AccountRequiredActionAction": ".account_required_action_action",
@@ -1463,6 +1506,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AffiliateUser": ".affiliate_user",
     "AffiliatesSortableColumns": ".affiliates_sortable_columns",
     "AiChat": ".ai_chat",
+    "AiChatAgentIdentifiers": ".ai_chat_agent_identifiers",
     "AiChatListItem": ".ai_chat_list_item",
     "AiChatListItemUser": ".ai_chat_list_item_user",
     "AiChatMessageSourceTypes": ".ai_chat_message_source_types",
@@ -1490,6 +1534,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AppDeployment": ".app_deployment",
     "AppDeploymentPhase": ".app_deployment_phase",
     "AppDeploymentStatus": ".app_deployment_status",
+    "AppDomain": ".app_domain",
+    "AppDomainStatus": ".app_domain_status",
     "AppElementsUsedItem": ".app_elements_used_item",
     "AppIcon": ".app_icon",
     "AppListItem": ".app_list_item",
@@ -1512,6 +1558,21 @@ _dynamic_imports: typing.Dict[str, str] = {
     "AppViewTypes": ".app_view_types",
     "Audience": ".audience",
     "AudienceAudienceType": ".audience_audience_type",
+    "AudienceEngagement": ".audience_engagement",
+    "AudienceEngagementFacebookPageRule": ".audience_engagement_facebook_page_rule",
+    "AudienceEngagementFacebookPageRuleEvent": ".audience_engagement_facebook_page_rule_event",
+    "AudienceEngagementInstagramProfileRule": ".audience_engagement_instagram_profile_rule",
+    "AudienceEngagementInstagramProfileRuleEvent": ".audience_engagement_instagram_profile_rule_event",
+    "AudienceEngagementLeadFormRule": ".audience_engagement_lead_form_rule",
+    "AudienceEngagementLeadFormRuleEvent": ".audience_engagement_lead_form_rule_event",
+    "AudienceEngagementPlatform": ".audience_engagement_platform",
+    "AudienceEngagementRule": ".audience_engagement_rule",
+    "AudienceEngagementRule_FacebookPage": ".audience_engagement_rule",
+    "AudienceEngagementRule_InstagramProfile": ".audience_engagement_rule",
+    "AudienceEngagementRule_LeadForm": ".audience_engagement_rule",
+    "AudienceEngagementRule_Video": ".audience_engagement_rule",
+    "AudienceEngagementVideoRule": ".audience_engagement_video_rule",
+    "AudienceEngagementVideoRuleEvent": ".audience_engagement_video_rule_event",
     "AudienceMatchRate": ".audience_match_rate",
     "AudienceMatchRatePlatform": ".audience_match_rate_platform",
     "AudienceMatchRateStatus": ".audience_match_rate_status",
@@ -1564,6 +1625,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CardTransactionListItem": ".card_transaction_list_item",
     "CardTransactionStatus": ".card_transaction_status",
     "CardTransactionTransactionType": ".card_transaction_transaction_type",
+    "CashbackRule": ".cashback_rule",
     "ChatChannel": ".chat_channel",
     "ChatChannelExperience": ".chat_channel_experience",
     "ChatChannelListItem": ".chat_channel_list_item",
@@ -1641,19 +1703,6 @@ _dynamic_imports: typing.Dict[str, str] = {
     "Currencies": ".currencies",
     "CustomCtas": ".custom_ctas",
     "CustomFieldTypes": ".custom_field_types",
-    "DescribeStatsResponseDescribeMetric": ".describe_stats_response_describe_metric",
-    "DescribeStatsResponseDescribeMetricDebug": ".describe_stats_response_describe_metric_debug",
-    "DescribeStatsResponseDescribeNode": ".describe_stats_response_describe_node",
-    "DescribeStatsResponseDescribeNodeAssociationsItem": ".describe_stats_response_describe_node_associations_item",
-    "DescribeStatsResponseDescribeNodeDebug": ".describe_stats_response_describe_node_debug",
-    "DescribeStatsResponseDescribeNodeMetricsItem": ".describe_stats_response_describe_node_metrics_item",
-    "DescribeStatsResponseDescribeRoot": ".describe_stats_response_describe_root",
-    "DescribeStatsResponseDescribeRootDebug": ".describe_stats_response_describe_root_debug",
-    "DescribeStatsResponseDescribeRootMetricsItem": ".describe_stats_response_describe_root_metrics_item",
-    "DescribeStatsResponseDescribeView": ".describe_stats_response_describe_view",
-    "DescribeStatsResponseDescribeViewAssociationsItem": ".describe_stats_response_describe_view_associations_item",
-    "DescribeStatsResponseDescribeViewDebug": ".describe_stats_response_describe_view_debug",
-    "DescribeStatsResponseDescribeViewMetricsItem": ".describe_stats_response_describe_view_metrics_item",
     "DetailedTargetingOption": ".detailed_targeting_option",
     "DetailedTargetingOptionBehaviorType": ".detailed_targeting_option_behavior_type",
     "Direction": ".direction",
@@ -1719,6 +1768,14 @@ _dynamic_imports: typing.Dict[str, str] = {
     "DmsFeedMemberNotificationPreferences": ".dms_feed_member_notification_preferences",
     "DmsFeedMemberStatuses": ".dms_feed_member_statuses",
     "DmsPostTypes": ".dms_post_types",
+    "Domain": ".domain",
+    "DomainDnsRecord": ".domain_dns_record",
+    "DomainDnsRecordType": ".domain_dns_record_type",
+    "DomainDnsStatus": ".domain_dns_status",
+    "DomainIssue": ".domain_issue",
+    "DomainStatus": ".domain_status",
+    "EconomicIntelligence": ".economic_intelligence",
+    "EconomicIntelligenceStatus": ".economic_intelligence_status",
     "EmbedTypes": ".embed_types",
     "EntriesSortableColumns": ".entries_sortable_columns",
     "Entry": ".entry",
@@ -1746,9 +1803,24 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ExperienceNotificationPreferenceLevel": ".experience_notification_preference_level",
     "ExperienceNotificationPreferenceObject": ".experience_notification_preference_object",
     "ExperienceProductsItem": ".experience_products_item",
+    "Experiment": ".experiment",
+    "ExperimentBucketBy": ".experiment_bucket_by",
+    "ExperimentControl": ".experiment_control",
+    "ExperimentExposure": ".experiment_exposure",
+    "ExperimentExposureBatch": ".experiment_exposure_batch",
+    "ExperimentResourceReference": ".experiment_resource_reference",
+    "ExperimentResourceReferenceObject": ".experiment_resource_reference_object",
+    "ExperimentStatus": ".experiment_status",
+    "ExperimentTargetingRulesItem": ".experiment_targeting_rules_item",
+    "ExperimentTargetingRulesItemConditionsItem": ".experiment_targeting_rules_item_conditions_item",
+    "ExperimentTargetingRulesItemConditionsItemOperator": ".experiment_targeting_rules_item_conditions_item_operator",
+    "ExperimentTargetingRulesItemConditionsItemType": ".experiment_targeting_rules_item_conditions_item_type",
+    "ExperimentTargetingRulesItemType": ".experiment_targeting_rules_item_type",
+    "ExperimentVariantsItem": ".experiment_variants_item",
     "Export": ".export",
     "ExportResource": ".export_resource",
     "ExportStatus": ".export_status",
+    "ExposuresExperimentsRequestSubject": ".exposures_experiments_request_subject",
     "FeeMarkup": ".fee_markup",
     "FeeMarkupListItem": ".fee_markup_list_item",
     "FeeMarkupTypes": ".fee_markup_types",
@@ -1865,6 +1937,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "LedgerActivityResourceTwo": ".ledger_activity_resource_two",
     "LedgerActivityResourceTwoObject": ".ledger_activity_resource_two_object",
     "LedgerActivitySource": ".ledger_activity_source",
+    "LedgerActivitySourceFeeKind": ".ledger_activity_source_fee_kind",
     "LedgerActivitySourcePayoutDestination": ".ledger_activity_source_payout_destination",
     "LedgerTypes": ".ledger_types",
     "LessonTypes": ".lesson_types",
@@ -1950,6 +2023,17 @@ _dynamic_imports: typing.Dict[str, str] = {
     "OauthGrant": ".oauth_grant",
     "PageInfo": ".page_info",
     "Pagination": ".pagination",
+    "Partner": ".partner",
+    "PartnerPayoutDuration": ".partner_payout_duration",
+    "PartnerPayoutDurationUnit": ".partner_payout_duration_unit",
+    "PartnerPayoutRate": ".partner_payout_rate",
+    "PartnerPayoutRateIncomeSource": ".partner_payout_rate_income_source",
+    "PartnerPayoutTier": ".partner_payout_tier",
+    "PartnerPayoutTierTier": ".partner_payout_tier_tier",
+    "PartnerRewardLink": ".partner_reward_link",
+    "PartnerRewardLinkQualificationIncomeSource": ".partner_reward_link_qualification_income_source",
+    "PartnerRewardLinkRewardType": ".partner_reward_link_reward_type",
+    "PartnerRewardLinkStatus": ".partner_reward_link_status",
     "Passkey": ".passkey",
     "Payment": ".payment",
     "PaymentAddress": ".payment_address",
@@ -2169,6 +2253,21 @@ _dynamic_imports: typing.Dict[str, str] = {
     "PaymentRequiredErrorBody": ".payment_required_error_body",
     "PaymentRequiredErrorBodyError": ".payment_required_error_body_error",
     "PaymentRequiredErrorBodyErrorType": ".payment_required_error_body_error_type",
+    "PaymentRule": ".payment_rule",
+    "PaymentRuleAction": ".payment_rule_action",
+    "PaymentRuleCondition": ".payment_rule_condition",
+    "PaymentRuleConditionField": ".payment_rule_condition_field",
+    "PaymentRuleConditionOperator": ".payment_rule_condition_operator",
+    "PaymentRuleConditionValue": ".payment_rule_condition_value",
+    "PaymentRuleConditions": ".payment_rule_conditions",
+    "PaymentRuleField": ".payment_rule_field",
+    "PaymentRuleFieldField": ".payment_rule_field_field",
+    "PaymentRuleFieldOperatorsItem": ".payment_rule_field_operators_item",
+    "PaymentRuleFieldOption": ".payment_rule_field_option",
+    "PaymentRuleFieldType": ".payment_rule_field_type",
+    "PaymentRuleMatch": ".payment_rule_match",
+    "PaymentRuleMatchAction": ".payment_rule_match_action",
+    "PaymentRuleStatus": ".payment_rule_status",
     "PaymentStatus": ".payment_status",
     "PaymentStatusStatus": ".payment_status_status",
     "PaymentTransactionStatuses": ".payment_transaction_statuses",
@@ -2246,11 +2345,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ReactionListItem": ".reaction_list_item",
     "ReactionListItemUser": ".reaction_list_item_user",
     "ReactionUser": ".reaction_user",
+    "ReceiptLineItem": ".receipt_line_item",
     "ReceiptStatus": ".receipt_status",
     "ReceiptTaxBehaviors": ".receipt_tax_behaviors",
     "ReceiptV2Order": ".receipt_v2order",
-    "RecommendedActionExecution": ".recommended_action_execution",
-    "RecommendedActionExecutionStatus": ".recommended_action_execution_status",
     "Refund": ".refund",
     "RefundFailureReason": ".refund_failure_reason",
     "RefundLegacy": ".refund_legacy",
@@ -2460,7 +2558,6 @@ __all__ = [
     "AccountBalanceBreakdown",
     "AccountBalanceSettlement",
     "AccountBalanceToken",
-    "AccountBusinessType",
     "AccountCapabilities",
     "AccountCapabilitiesAcceptBankPayments",
     "AccountCapabilitiesAcceptBnplPayments",
@@ -2485,23 +2582,18 @@ __all__ = [
     "AccountCompanyFormationStatus",
     "AccountDisputeAlertAutoRefundControl",
     "AccountHomePreferencesItem",
-    "AccountIndustryGroup",
     "AccountLink",
     "AccountLinkUseCases",
     "AccountOnboardingType",
     "AccountOpengraphImageVariant",
     "AccountParent",
+    "AccountParentFeesValue",
     "AccountPaymentControls",
     "AccountPaymentControlsRestrictedPaymentMethodsItem",
     "AccountPaymentControlsUndatedPendingReason",
     "AccountPreferences",
     "AccountRecommendedAction",
     "AccountRecommendedActionAction",
-    "AccountRecommendedActionChain",
-    "AccountRecommendedActionChainStep",
-    "AccountRecommendedActionChainStepExecutionType",
-    "AccountRecommendedActionChainStepStatus",
-    "AccountRecommendedActionOutcome",
     "AccountRecommendedActionStatus",
     "AccountRequiredAction",
     "AccountRequiredActionAction",
@@ -2626,6 +2718,7 @@ __all__ = [
     "AffiliateUser",
     "AffiliatesSortableColumns",
     "AiChat",
+    "AiChatAgentIdentifiers",
     "AiChatListItem",
     "AiChatListItemUser",
     "AiChatMessageSourceTypes",
@@ -2653,6 +2746,8 @@ __all__ = [
     "AppDeployment",
     "AppDeploymentPhase",
     "AppDeploymentStatus",
+    "AppDomain",
+    "AppDomainStatus",
     "AppElementsUsedItem",
     "AppIcon",
     "AppListItem",
@@ -2675,6 +2770,21 @@ __all__ = [
     "AppViewTypes",
     "Audience",
     "AudienceAudienceType",
+    "AudienceEngagement",
+    "AudienceEngagementFacebookPageRule",
+    "AudienceEngagementFacebookPageRuleEvent",
+    "AudienceEngagementInstagramProfileRule",
+    "AudienceEngagementInstagramProfileRuleEvent",
+    "AudienceEngagementLeadFormRule",
+    "AudienceEngagementLeadFormRuleEvent",
+    "AudienceEngagementPlatform",
+    "AudienceEngagementRule",
+    "AudienceEngagementRule_FacebookPage",
+    "AudienceEngagementRule_InstagramProfile",
+    "AudienceEngagementRule_LeadForm",
+    "AudienceEngagementRule_Video",
+    "AudienceEngagementVideoRule",
+    "AudienceEngagementVideoRuleEvent",
     "AudienceMatchRate",
     "AudienceMatchRatePlatform",
     "AudienceMatchRateStatus",
@@ -2727,6 +2837,7 @@ __all__ = [
     "CardTransactionListItem",
     "CardTransactionStatus",
     "CardTransactionTransactionType",
+    "CashbackRule",
     "ChatChannel",
     "ChatChannelExperience",
     "ChatChannelListItem",
@@ -2804,19 +2915,6 @@ __all__ = [
     "Currencies",
     "CustomCtas",
     "CustomFieldTypes",
-    "DescribeStatsResponseDescribeMetric",
-    "DescribeStatsResponseDescribeMetricDebug",
-    "DescribeStatsResponseDescribeNode",
-    "DescribeStatsResponseDescribeNodeAssociationsItem",
-    "DescribeStatsResponseDescribeNodeDebug",
-    "DescribeStatsResponseDescribeNodeMetricsItem",
-    "DescribeStatsResponseDescribeRoot",
-    "DescribeStatsResponseDescribeRootDebug",
-    "DescribeStatsResponseDescribeRootMetricsItem",
-    "DescribeStatsResponseDescribeView",
-    "DescribeStatsResponseDescribeViewAssociationsItem",
-    "DescribeStatsResponseDescribeViewDebug",
-    "DescribeStatsResponseDescribeViewMetricsItem",
     "DetailedTargetingOption",
     "DetailedTargetingOptionBehaviorType",
     "Direction",
@@ -2882,6 +2980,14 @@ __all__ = [
     "DmsFeedMemberNotificationPreferences",
     "DmsFeedMemberStatuses",
     "DmsPostTypes",
+    "Domain",
+    "DomainDnsRecord",
+    "DomainDnsRecordType",
+    "DomainDnsStatus",
+    "DomainIssue",
+    "DomainStatus",
+    "EconomicIntelligence",
+    "EconomicIntelligenceStatus",
     "EmbedTypes",
     "EntriesSortableColumns",
     "Entry",
@@ -2909,9 +3015,24 @@ __all__ = [
     "ExperienceNotificationPreferenceLevel",
     "ExperienceNotificationPreferenceObject",
     "ExperienceProductsItem",
+    "Experiment",
+    "ExperimentBucketBy",
+    "ExperimentControl",
+    "ExperimentExposure",
+    "ExperimentExposureBatch",
+    "ExperimentResourceReference",
+    "ExperimentResourceReferenceObject",
+    "ExperimentStatus",
+    "ExperimentTargetingRulesItem",
+    "ExperimentTargetingRulesItemConditionsItem",
+    "ExperimentTargetingRulesItemConditionsItemOperator",
+    "ExperimentTargetingRulesItemConditionsItemType",
+    "ExperimentTargetingRulesItemType",
+    "ExperimentVariantsItem",
     "Export",
     "ExportResource",
     "ExportStatus",
+    "ExposuresExperimentsRequestSubject",
     "FeeMarkup",
     "FeeMarkupListItem",
     "FeeMarkupTypes",
@@ -3028,6 +3149,7 @@ __all__ = [
     "LedgerActivityResourceTwo",
     "LedgerActivityResourceTwoObject",
     "LedgerActivitySource",
+    "LedgerActivitySourceFeeKind",
     "LedgerActivitySourcePayoutDestination",
     "LedgerTypes",
     "LessonTypes",
@@ -3113,6 +3235,17 @@ __all__ = [
     "OauthGrant",
     "PageInfo",
     "Pagination",
+    "Partner",
+    "PartnerPayoutDuration",
+    "PartnerPayoutDurationUnit",
+    "PartnerPayoutRate",
+    "PartnerPayoutRateIncomeSource",
+    "PartnerPayoutTier",
+    "PartnerPayoutTierTier",
+    "PartnerRewardLink",
+    "PartnerRewardLinkQualificationIncomeSource",
+    "PartnerRewardLinkRewardType",
+    "PartnerRewardLinkStatus",
     "Passkey",
     "Payment",
     "PaymentAddress",
@@ -3332,6 +3465,21 @@ __all__ = [
     "PaymentRequiredErrorBody",
     "PaymentRequiredErrorBodyError",
     "PaymentRequiredErrorBodyErrorType",
+    "PaymentRule",
+    "PaymentRuleAction",
+    "PaymentRuleCondition",
+    "PaymentRuleConditionField",
+    "PaymentRuleConditionOperator",
+    "PaymentRuleConditionValue",
+    "PaymentRuleConditions",
+    "PaymentRuleField",
+    "PaymentRuleFieldField",
+    "PaymentRuleFieldOperatorsItem",
+    "PaymentRuleFieldOption",
+    "PaymentRuleFieldType",
+    "PaymentRuleMatch",
+    "PaymentRuleMatchAction",
+    "PaymentRuleStatus",
     "PaymentStatus",
     "PaymentStatusStatus",
     "PaymentTransactionStatuses",
@@ -3409,11 +3557,10 @@ __all__ = [
     "ReactionListItem",
     "ReactionListItemUser",
     "ReactionUser",
+    "ReceiptLineItem",
     "ReceiptStatus",
     "ReceiptTaxBehaviors",
     "ReceiptV2Order",
-    "RecommendedActionExecution",
-    "RecommendedActionExecutionStatus",
     "Refund",
     "RefundFailureReason",
     "RefundLegacy",

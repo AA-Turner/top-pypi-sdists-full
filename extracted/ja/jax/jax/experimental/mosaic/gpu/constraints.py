@@ -876,44 +876,6 @@ class MinorDimDivisibleBy(_BaseConstraint):
     return f"{self.expr}.tiling[-1] % {self.divisor} == 0"
 
 
-@dataclasses.dataclass(frozen=True)
-class IsValidMmaTiling(_BaseConstraint):
-  """States that the `expr` SMEM tiling must be compatible with MMA requirements.
-
-  For both tcgen05.mma and wgmma, tiling is valid if it is of the form
-  (8, swizzle_elems), with
-      swizzle_elems in {s * 8 // dtype_bitwidth for s in [32, 64, 128]},
-  as support for unswizzled tilings is not yet supported.
-
-  If `allow_unswizzled` is True, then we additionally accept
-  (8, 16 * 8 // dtype_bitwidth) as a valid tiling.
-  """
-  expr: Expression
-  bitwidth: int
-  allow_unswizzled: bool = False
-
-  @property
-  def _is_constant(self) -> bool:
-    return isinstance(self.expr, Constant)
-
-  def _constant_holds(self) -> bool:
-    assert isinstance(self.expr, Constant)
-    match self.expr:
-      case SMEMTransforms(tiling=None):
-        return False
-      case SMEMTransforms(tiling=lc.TileTransform(tiling=t), swizzle=None):
-        no_swizzle = 16
-        return self.allow_unswizzled and t == (8, no_swizzle * 8 // self.bitwidth)
-      case SMEMTransforms(tiling=lc.TileTransform(tiling=t), swizzle=swizzle):
-        assert swizzle is not None  # satisfy the type checker
-        return t == (8, swizzle * 8 // self.bitwidth)
-      case RegisterLayout() | TMEMLayout() | SMEMTransforms():
-        raise ValueError(f"Unexpected value {self.expr} in IsValidMmaTiling constraint")
-      case _ as never:
-        assert_never(never)
-
-  def __str__(self):
-    return f"IsValidMMATiling({self.expr}, {self.bitwidth}, allow_unswizzled={self.allow_unswizzled})"
 
 
 @dataclasses.dataclass(frozen=True)
@@ -985,7 +947,6 @@ Constraint = (
     | Relayout
     | NotOfType
     | IsTransferable
-    | IsValidMmaTiling
     | Divides
     | IsSupportedBroadcast
     | MinorDimDivisibleBy
@@ -1033,11 +994,6 @@ def reduce_constraint(
       if isinstance(source_red, Unsatisfiable) or isinstance(target_red, Unsatisfiable):
         return Unsatisfiable()
       return dataclasses.replace(transfer, source=source_red, target=target_red)
-    case IsValidMmaTiling(expr=expr) as is_valid_mma_tiling:
-      expr_red = reduce_expression(expr, assignments)
-      if isinstance(expr_red, Unsatisfiable):
-        return Unsatisfiable()
-      return dataclasses.replace(is_valid_mma_tiling, expr=expr_red)
     case Divides(expr=expr, tiling_multiple=tiling_multiple):
       expr_red = reduce_expression(expr, assignments)
       if isinstance(expr_red, Unsatisfiable):
@@ -1116,8 +1072,6 @@ class ConstraintSystem:
         case IsTransferable(source=source, target=target):
           extract_variables(source)
           extract_variables(target)
-        case IsValidMmaTiling(expr=expr):
-          extract_variables(expr)
         case Divides(expr=expr):
           extract_variables(expr)
         case MinorDimDivisibleBy(expr=expr):
@@ -1320,14 +1274,66 @@ def saturate_divides_constraints_for_equal_vars(
   for constraint in system.constraints:
     new_constraints.append(constraint)
     match constraint:
-      case Divides(expr=expr, tiling_multiple=tiling_multiple):
-        if isinstance(expr, Variable):
-          for equal_var in equal_vars.get(expr, []):
-            new_constraints.append(Divides(equal_var, tiling_multiple))
+      case Divides(expr=Variable() as expr, tiling_multiple=tiling_multiple):
+        for equal_var in equal_vars.get(expr, []):
+          new_constraints.append(Divides(equal_var, tiling_multiple))
       case _:
         pass
   new_constraints = _merge_all_divides_constraints(new_constraints)
   return dataclasses.replace(system, constraints=new_constraints)
+
+
+def saturate_one_of_constraints_for_equal_vars(
+    system: ConstraintSystem,
+) -> ConstraintSystem | Unsatisfiable:
+  """Saturates OneOf constraints between all transitively equal vars."""
+  equal_vars = compute_transitively_equal_vars(system)
+  new_constraints: list[Constraint] = []
+  for constraint in system.constraints:
+    new_constraints.append(constraint)
+    match constraint:
+      case OneOf(expr=Variable() as expr, allowed=allowed):
+        for equal_var in equal_vars.get(expr, []):
+          new_constraints.append(OneOf(equal_var, allowed))
+      case _:
+        pass
+  merged_constraints = _merge_all_one_of_constraints(new_constraints)
+  if isinstance(merged_constraints, Unsatisfiable):
+    return Unsatisfiable()
+  return dataclasses.replace(system, constraints=merged_constraints)
+
+
+def _merge_all_one_of_constraints(
+    constraints: Sequence[Constraint],
+) -> list[Constraint] | Unsatisfiable:
+  """Merges OneOf constraints associated to the same variable."""
+  result: list[Constraint] = []
+  var_to_one_of: dict[Variable, OneOf] = {}
+  for constraint in constraints:
+    match constraint:
+      case OneOf(expr=Variable() as v) as o1:
+        if (o0 := var_to_one_of.get(v)) is None:
+          var_to_one_of[v] = o1
+          continue
+        merged = _merge_one_of_constraints(o0, o1)
+        if isinstance(merged, Unsatisfiable):
+          return Unsatisfiable()
+        var_to_one_of[v] = merged
+      case _:
+        result.append(constraint)
+  result.extend(var_to_one_of.values())
+  return result
+
+
+def _merge_one_of_constraints(o0: OneOf, o1: OneOf) -> OneOf | Unsatisfiable:
+  if o0.expr != o1.expr:
+    raise ValueError("OneOf constraints must apply to the same expression.")
+  allowed_set = set(o1.allowed)
+  # Preserve order from o0 while intersecting with o1.
+  merged_allowed = tuple(c for c in o0.allowed if c in allowed_set)
+  if not merged_allowed:
+    return Unsatisfiable()
+  return OneOf(o0.expr, merged_allowed)
 
 
 def _merge_all_divides_constraints(constraints: Sequence[Constraint]) -> list[Constraint]:

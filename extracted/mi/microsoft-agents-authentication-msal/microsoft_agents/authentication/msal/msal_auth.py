@@ -6,6 +6,7 @@ from __future__ import annotations
 import re
 import asyncio
 import logging
+import time
 import jwt
 from typing import Optional
 from urllib.parse import urlparse, ParseResult as URI
@@ -16,6 +17,10 @@ from msal import (
     SystemAssignedManagedIdentity,
     TokenCache,
 )
+
+from azure.core.credentials import AccessToken
+from azure.core.credentials_async import AsyncTokenCredential
+
 from requests import Session
 
 from microsoft_agents.activity._utils import _DeferredString
@@ -73,6 +78,38 @@ class MsalAuth(AccessTokenProviderBase):
     async def get_access_token(
         self, resource_url: str, scopes: list[str], force_refresh: bool = False
     ) -> str:
+        """Gets an access token for the specified resource URL and scopes.
+
+        :param resource_url: The resource URL for which to acquire the access token.
+        :param scopes: The scopes for which the access token is requested.
+        :param force_refresh: Whether to force a refresh of the access token.
+        :return: The acquired access token as a string.
+        :rtype: str
+        """
+        access_token = await self._get_access_token(resource_url, scopes, force_refresh)
+        return access_token.token
+
+    def get_token_credential(self) -> AsyncTokenCredential:
+        """Gets the token credential for the access token provider.
+
+        :return: The token credential.
+        :rtype: AsyncTokenCredential
+        """
+        from .msal_token_credential import MsalTokenCredential
+
+        return MsalTokenCredential(self._msal_configuration, provider=self)
+
+    async def _get_access_token(
+        self, resource_url: str, scopes: list[str], force_refresh: bool = False
+    ) -> AccessToken:
+        """Internal method to get an access token for the specified resource URL and scopes.
+
+        :param resource_url: The resource URL for which to acquire the access token.
+        :param scopes: The scopes for which the access token is requested.
+        :param force_refresh: Whether to force a refresh of the access token.
+        :return: The acquired access token as an AccessToken object.
+        :rtype: AccessToken
+        """
         with spans.GetAccessToken(
             scopes,
             self._msal_configuration.AUTH_TYPE,
@@ -99,7 +136,7 @@ class MsalAuth(AccessTokenProviderBase):
                     msal_auth_client, scopes=local_scopes
                 )
             else:
-                auth_result_payload = None
+                auth_result_payload = {}
 
             res = (
                 auth_result_payload.get("access_token") if auth_result_payload else None
@@ -114,7 +151,15 @@ class MsalAuth(AccessTokenProviderBase):
                     )
                 )
 
-            return res
+            expires_on = auth_result_payload.get("expires_on")
+            if expires_on is not None:
+                return AccessToken(res, int(expires_on))
+
+            expires_in = auth_result_payload.get("expires_in")
+            if expires_in is None:
+                raise ValueError("Token response does not include an expiration.")
+
+            return AccessToken(res, int(time.time()) + int(expires_in))
 
     async def acquire_token_on_behalf_of(
         self, scopes: list[str], user_assertion: str
@@ -186,6 +231,11 @@ class MsalAuth(AccessTokenProviderBase):
     def _resolve_azure_region(config: AgentAuthConfiguration) -> str | None:
         """Resolves the Azure regional token service (ESTS-R) to use, if configured.
 
+        :param config: The agent authentication configuration.
+        :type config: :class:`microsoft_agents.hosting.core.AgentAuthConfiguration`
+        :return: The resolved Azure region or None if not configured.
+        :rtype: str | None
+
         Returns the configured region only when it is populated and non-whitespace,
         otherwise None so that MSAL falls back to the global token service.
         """
@@ -256,6 +306,8 @@ class MsalAuth(AccessTokenProviderBase):
                 client_credential = {
                     "private_key_pfx_path": self._msal_configuration.CERT_PFX_FILE,
                 }
+                if self._msal_configuration.SEND_X5C:
+                    client_credential["public_certificate"] = True
             elif self._msal_configuration.AUTH_TYPE == AuthTypes.federated_credentials:
                 mi_client = ManagedIdentityClient(
                     UserAssignedManagedIdentity(

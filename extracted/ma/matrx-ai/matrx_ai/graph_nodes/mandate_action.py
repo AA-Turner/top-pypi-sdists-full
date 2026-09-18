@@ -120,7 +120,12 @@ async def mandate_start(
             ctx, inputs, resolved, declared_variables=declared_variables
         )
     request = build_agent_request(
-        ctx, inputs, resolved, node_type=_NODE_TYPE, declared_variables=declared_variables
+        ctx,
+        inputs,
+        resolved,
+        node_type=_NODE_TYPE,
+        declared_variables=declared_variables,
+        variable_sources=dict(getattr(config, "variable_sources", None) or {}),
     )
     completed = await run_step_agent(ctx, resolved.agent_id, request)
 

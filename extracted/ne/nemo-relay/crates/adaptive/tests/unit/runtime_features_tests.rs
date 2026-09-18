@@ -41,12 +41,12 @@ use nemo_relay::api::subscriber::{deregister_subscriber, register_subscriber};
 use nemo_relay::api::tool::tool_call_execute;
 use nemo_relay::error::FlowError;
 use nemo_relay::plugin::{ConfigPolicy, DiagnosticLevel, UnsupportedBehavior};
-use nemo_relay::plugin::{clear_plugin_configuration, rollback_registrations};
+use nemo_relay::plugin::{rollback_registrations, test_close_plugin_host};
 use serde_json::json;
 use tokio_stream::StreamExt;
 
 fn reset_global() {
-    let _ = clear_plugin_configuration();
+    test_close_plugin_host().expect("test plugin host must close");
     let ctx = global_context();
     let mut state = ctx.write().unwrap();
     *state = NemoRelayContextState::new();
@@ -253,7 +253,9 @@ fn assert_tool_execution_intercept_registered(name: &str) {
         register_tool_execution_intercept(
             name,
             i32::MAX,
-            Arc::new(|_name, args, next| Box::pin(async move { next(args).await.map(Into::into) })),
+            Arc::new(|context, next| {
+                Box::pin(async move { next(context.into_args()).await.map(Into::into) })
+            }),
         ),
         name,
     );
@@ -263,7 +265,9 @@ fn assert_tool_execution_intercept_absent(name: &str) {
     register_tool_execution_intercept(
         name,
         i32::MAX,
-        Arc::new(|_name, args, next| Box::pin(async move { next(args).await.map(Into::into) })),
+        Arc::new(|context, next| {
+            Box::pin(async move { next(context.into_args()).await.map(Into::into) })
+        }),
     )
     .unwrap();
     deregister_tool_execution_intercept(name).unwrap();
@@ -821,7 +825,7 @@ async fn registration_context_registers_all_supported_callback_types() {
     ctx.register_tool_execution_intercept(
         "adaptive_test_tool",
         8,
-        Arc::new(|_name, args, _next| Box::pin(async move { Ok(args.into()) })),
+        Arc::new(|context, _next| Box::pin(async move { Ok(context.into_args().into()) })),
     )
     .unwrap();
 
@@ -1217,7 +1221,9 @@ async fn response_cache_feature_cleans_up_when_tool_registration_conflicts() {
     register_tool_execution_intercept(
         &tool_name,
         1,
-        Arc::new(|_name, args, next| Box::pin(async move { next(args).await.map(Into::into) })),
+        Arc::new(|context, next| {
+            Box::pin(async move { next(context.into_args()).await.map(Into::into) })
+        }),
     )
     .unwrap();
 

@@ -17,6 +17,7 @@
 from __future__ import annotations
 
 import importlib.metadata
+import inspect
 import sys
 from collections.abc import Callable
 from datetime import datetime, timedelta, timezone
@@ -41,6 +42,7 @@ from click_extra import (
     parse_iso8601_duration,
 )
 from click_extra.pytest import command_decorators, option_decorators
+from click_extra.theme import ThemeChoice
 
 if sys.version_info >= (3, 11):
     from enum import StrEnum
@@ -976,6 +978,29 @@ def test_enum_choice_multiple_default_value(
     assert not result.stderr
 
 
+@pytest.mark.parametrize("cmd_decorator", command_decorators(no_groups=True))
+@pytest.mark.parametrize(
+    "opt_decorator",
+    option_decorators(no_arguments=True, with_parenthesis=False),
+)
+def test_enum_choice_none_default(invoke, cmd_decorator, opt_decorator) -> None:
+    """A single-value EnumChoice option defaulting to `None` stays unset.
+
+    Regression test for the ``get_default()`` override turning a `None` default
+    into the choice string ``"None"``, which then failed its own validation.
+    """
+
+    @cmd_decorator
+    @opt_decorator("--my-enum", type=EnumChoice(MyEnum), default=None)
+    def cli(my_enum: MyEnum | None) -> None:
+        echo(f"my_enum: {my_enum!r}")
+
+    result = invoke(cli)
+    assert result.exit_code == 0
+    assert result.stdout == "my_enum: None\n"
+    assert not result.stderr
+
+
 @pytest.mark.parametrize(
     "cmd_decorator",
     command_decorators(no_groups=True),
@@ -1122,11 +1147,33 @@ def test_multi_choice_validates_an_already_parsed_sequence() -> None:
 
 
 def test_multi_choice_case_insensitive_normalizes() -> None:
-    """``case_sensitive=False`` matches case-insensitively and returns the canonical case."""
-    t = MultiChoice(choices=("Alpha", "Beta"), case_sensitive=False)
+    """The default matches case-insensitively and returns the canonical case."""
+    t = MultiChoice(choices=("Alpha", "Beta"))
     assert t.convert("ALPHA,beta", None, None) == ("Alpha", "Beta")
     with pytest.raises(BadParameter, match=r"Unknown value\(s\): 'gamma'"):
         t.convert("alpha,gamma", None, None)
+
+
+def test_multi_choice_case_sensitive_matches_exactly() -> None:
+    """``case_sensitive=True`` rejects a token differing only in case."""
+    t = MultiChoice(choices=("Alpha", "Beta"), case_sensitive=True)
+    assert t.convert("Alpha", None, None) == ("Alpha",)
+    with pytest.raises(BadParameter, match=r"Unknown value\(s\): 'ALPHA'"):
+        t.convert("ALPHA", None, None)
+
+
+@pytest.mark.parametrize(
+    "choice_type",
+    (
+        pytest.param(MultiChoice, id="MultiChoice"),
+        pytest.param(EnumChoice, id="EnumChoice"),
+        pytest.param(ThemeChoice, id="ThemeChoice"),
+    ),
+)
+def test_choice_types_default_to_case_insensitive(choice_type) -> None:
+    """Every choice type click-extra defines matches regardless of case by default."""
+    default = inspect.signature(choice_type.__init__).parameters["case_sensitive"]
+    assert default.default is False
 
 
 @pytest.mark.parametrize(

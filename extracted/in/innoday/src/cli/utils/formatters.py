@@ -16,6 +16,8 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 from rich.text import Text
 
+from src.utils.time_windows import as_utc
+
 
 def format_error(message: str) -> str:
     """Format error message with color."""
@@ -127,9 +129,34 @@ def format_datetime(dt_str: Union[str, datetime, None]) -> str:
         else:
             return str(dt_str)
 
-        # Format as relative time if recent, absolute time if older
-        now = datetime.now(dt.tzinfo) if dt.tzinfo else datetime.now(timezone.utc)
-        delta = now - dt
+        # **A naive timestamp is read as UTC, not compared against an aware
+        # clock.** This line used to pick an aware `now` for a *naive* `dt` --
+        # the two branches were the wrong way round -- so subtracting them
+        # raised `TypeError: can't subtract offset-naive and offset-aware
+        # datetimes`. It survived because most callers pass an ISO string with
+        # an offset, which parses aware; anything serialised from one of this
+        # schema's ~99 naive columns arrives without one and crashed the
+        # command outright. `innoday auth tokens` was unable to render its own
+        # output for that reason.
+        #
+        # Note the `except` below catches ValueError and AttributeError but not
+        # TypeError, which is why this failed loudly rather than silently
+        # printing the raw string. Keep it that way.
+        dt = as_utc(dt)
+        delta = datetime.now(timezone.utc) - dt
+
+        # **A future timestamp is not "ago".** Every branch below assumes the
+        # past, and a negative delta renders through them as `-2d ago` -- which
+        # is how a token expiring in two days was displayed in the Expires
+        # column of `innoday auth tokens`, reading as one that lapsed two days
+        # back. The sign is the whole meaning of that cell.
+        if delta.total_seconds() < 0:
+            ahead = -delta
+            if ahead.days >= 1:
+                return f"in {ahead.days}d"
+            if ahead.seconds >= 3600:
+                return f"in {ahead.seconds // 3600}h"
+            return f"in {max(ahead.seconds // 60, 1)}m"
 
         if delta.days == 0:
             if delta.seconds < 3600:  # Less than 1 hour

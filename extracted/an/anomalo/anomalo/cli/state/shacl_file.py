@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import contextlib
 import json
 import os
+import tempfile
 from collections import defaultdict
 from typing import Any
 
@@ -20,11 +22,17 @@ SHAPES = Namespace("http://anomalo.com/shapes#")
 SH = Namespace("http://www.w3.org/ns/shacl#")
 XSD = Namespace("http://www.w3.org/2001/XMLSchema#")
 
+# The node carrying file-level metadata, and the Turtle equivalent of the YAML
+# driver's AnomaloPullInProgress header key.
+CONFIGURATION_URI = URIRef("http://anomalo.com/configuration")
+
 
 class ShaclFileDriver:
     def __init__(self, state: State | None = None, validate_shacl: bool = True):
         self.state = state or State()
         self.validate_shacl = validate_shacl
+        # Whether the file last loaded was left behind by an interrupted `pull`.
+        self.pull_in_progress = False
 
     def load_file(self, filename: str) -> None:
         try:
@@ -39,11 +47,28 @@ class ShaclFileDriver:
         if self.validate_shacl:
             self._validate_with_shacl(graph, filename)
 
+        self.pull_in_progress = bool(
+            graph.value(CONFIGURATION_URI, ANOMALO.pullInProgress)
+        )
         self.state = self._graph_to_state(graph)
 
-    def write_file(self, filename: str) -> None:
-        graph = self._state_to_graph(self.state)
-        graph.serialize(destination=filename, format="turtle")
+    def write_file(self, filename: str, in_progress: bool = False) -> None:
+        graph = self._state_to_graph(self.state, in_progress=in_progress)
+        # Serialize to a uniquely named sibling temp file and rename over the
+        # target so an interrupted or concurrent checkpoint write can never
+        # truncate the last valid file.
+        dirname, basename = os.path.split(filename)
+        fd, temp_filename = tempfile.mkstemp(
+            dir=dirname or ".", prefix=f"{basename}.tmp."
+        )
+        os.close(fd)
+        try:
+            graph.serialize(destination=temp_filename, format="turtle")
+            os.replace(temp_filename, filename)
+        except BaseException:
+            with contextlib.suppress(OSError):
+                os.unlink(temp_filename)
+            raise
 
     def to_string(self) -> str:
         graph = self._state_to_graph(self.state)
@@ -335,7 +360,7 @@ class ShaclFileDriver:
             # This preserves values like "1079" as strings
             return str_value
 
-    def _state_to_graph(self, state: State) -> Graph:
+    def _state_to_graph(self, state: State, in_progress: bool = False) -> Graph:
         graph = Graph()
         graph.bind("anomalo", ANOMALO)
         graph.bind("shapes", SHAPES)
@@ -343,11 +368,19 @@ class ShaclFileDriver:
         graph.bind("xsd", XSD)
 
         # Add configuration metadata
-        config_uri = URIRef("http://anomalo.com/configuration")
+        config_uri = CONFIGURATION_URI
         graph.add((config_uri, RDF.type, ANOMALO.Configuration))
         graph.add(
             (config_uri, ANOMALO.versionID, Literal(VERSION_ID, datatype=XSD.integer))
         )
+        if in_progress:
+            graph.add(
+                (
+                    config_uri,
+                    ANOMALO.pullInProgress,
+                    Literal(True, datatype=XSD.boolean),
+                )
+            )
 
         # Add each table
         for table_ref, table in state.tables.items():

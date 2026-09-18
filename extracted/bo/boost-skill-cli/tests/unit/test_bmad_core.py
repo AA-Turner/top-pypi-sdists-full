@@ -21,12 +21,58 @@ from __future__ import annotations
 import json
 import re
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
 from boost_cli.core import bmad
 
 _STAMP = re.compile(r"<!-- boost:bmad-persona [0-9a-f]{12} -->")
+
+def _pinned_skills() -> set[str]:
+    """The skills `bmad-method@BMAD_VERSION` installs, from the checked-in list."""
+    path = (Path(__file__).parent / "data"
+            / ("bmad-skills-%s.json" % bmad.BMAD_VERSION))
+    data = json.loads(path.read_text(encoding="utf-8"))
+    assert data["version"] == bmad.BMAD_VERSION
+    return set(data["skills"])
+
+
+class TestPinnedRelease:
+    """Every BMAD skill boost names exists in the release it installs.
+
+    The tables were only ever checked against each other, so a name that went
+    stale in both passed: the docs track routed at `bmad-document-project`
+    after BMAD 6.12.0 stopped installing it. A bump of `BMAD_VERSION` without a
+    regenerated `tests/unit/data/bmad-skills-<version>.json` fails here.
+    """
+
+    def test_the_snapshot_is_the_pinned_version(self):
+        assert len(_pinned_skills()) == 29
+
+    def test_every_persona_skill_is_installed_by_the_pin(self):
+        for p in bmad.PERSONAS:
+            assert set(p.skills) <= _pinned_skills(), p.slug
+
+    def test_every_track_skill_is_installed_by_the_pin(self):
+        for name, track in bmad.TRACKS.items():
+            assert track.skill is None or track.skill in _pinned_skills(), name
+
+    def test_docs_routes_at_no_skill_and_says_nothing_about_one(self, tmp_path):
+        assert bmad.TRACKS["docs"].skill is None
+        lines = bmad.route_lines("update the README for the new flag", tmp_path)
+        assert lines[0] == "[BMAD autopilot] track: docs"
+        assert not any(line.startswith("BMAD skill:") for line in lines)
+        assert lines[3].startswith("Done means:")
+
+    def test_the_briefing_does_not_promise_a_skill_on_every_banner(self):
+        """`docs` routes at none, so "the BMAD skill for that track" was a
+        claim the banner stopped honouring."""
+        assert "the BMAD skill for that track when one fits" in bmad.orientation()
+
+    def test_the_skills_that_need_a_runtime_are_real(self):
+        assert set(bmad.RUNTIME_SKILLS) <= _pinned_skills()
+
 
 # --------------------------------------------------------------- classification
 
@@ -155,6 +201,18 @@ boost bmad install
         assert len(prompt.split()) > bmad.LONG_PROMPT_WORDS
         assert bmad.classify(prompt) == "build"
 
+    def test_exactly_two_hits_is_enough_past_the_cutoff(self):
+        """The long-prompt rule asks for two hits, not three."""
+        prompt = "please refactor it and update it " + "blah " * bmad.LONG_PROMPT_WORDS
+        assert len(prompt.split()) > bmad.LONG_PROMPT_WORDS
+        assert bmad.classify(prompt) == "build"
+
+    def test_one_hit_at_exactly_the_cutoff_still_routes(self):
+        """The cutoff is exclusive: a 60-word prompt is still short enough."""
+        prompt = "please refactor it " + "blah " * (bmad.LONG_PROMPT_WORDS - 3)
+        assert len(prompt.split()) == bmad.LONG_PROMPT_WORDS
+        assert bmad.classify(prompt) == "build"
+
     def test_repeating_one_keyword_is_not_more_evidence(self):
         """Scoring counts distinct patterns, not occurrences — so a long log
         that says "update" twenty times still scores 1 and stays silent."""
@@ -168,6 +226,244 @@ boost bmad install
                   "catalog build for everyone here today")
         assert len(prompt.split()) == bmad.QUESTION_MAX_WORDS
         assert bmad.classify(prompt) == "trivial"
+
+
+class TestPromptsThatAreNotTasks:
+    """Pasted output, yes/no questions and read-and-tell asks.
+
+    Replayed over one real history, 35% of regular prompts got a banner, and a
+    judge found a clear failure in 29 of 41 sampled. These shapes were most of
+    it, each reproduced with synthetic prompts: pasted output 4 of 5 routed,
+    yes/no questions 11 of 11, read-and-tell 4 of 5.
+    """
+
+    PYTEST = (
+        "    def test_scan(tmp_path):\n"
+        ">       assert scan_dir(tmp_path) == 3\n"
+        "E       AssertionError: assert 2 == 3\n"
+        "tests/unit/test_catalog.py:42: AssertionError\n"
+        "FAILED tests/unit/test_catalog.py::test_scan - AssertionError")
+    GIT_STATUS = (
+        "On branch main\n"
+        "Changes not staged for commit:\n"
+        '  (use "git add <file>..." to update what will be committed)\n'
+        "\tmodified:   boost_cli/core/bmad.py\n"
+        'no changes added to commit (use "git add" and/or "git commit -a")')
+    NPM = (
+        "npm WARN deprecated glob@7.2.3: no longer supported\n"
+        "added 812 packages, and audited 813 packages in 14s\n"
+        "  3 vulnerabilities (1 moderate, 2 high)\n"
+        "  npm audit fix\n"
+        "> app@1.0.0 build\n"
+        "> vite build --mode production")
+    TRACEBACK = (
+        "Traceback (most recent call last):\n"
+        '  File "/app/export.py", line 12, in <module>\n'
+        "    main()\n"
+        "ValueError: bad row in the build step, fix needed")
+
+    @pytest.mark.parametrize("paste", ["PYTEST", "GIT_STATUS", "NPM", "TRACEBACK"])
+    def test_pasted_output_alone_is_silent(self, paste):
+        assert bmad.classify(getattr(self, paste)) == "trivial"
+
+    @pytest.mark.parametrize("line", [
+        "$ make build",
+        "==================== short test summary info ====================",
+        "2026-09-17 build started",
+        "12:03:44 build started",
+        "npm ERR! build failed",
+        "  npm audit fix",
+        "Traceback (most recent call last):",
+        "E       AssertionError: build != fix",
+        ">       assert build_it() == 3",
+        "concurrent.futures.TimeoutError: the build hung",
+        "DeprecationWarning: build is deprecated",
+        "RuntimeException: build failed",
+        "Your branch is behind, update it",
+        "Untracked files: fix",
+        "nothing to commit, update later",
+        "Changes to be committed: build",
+        "PASSED the build",
+        "SKIPPED the build",
+        "ERROR the build",
+    ])
+    def test_each_machine_shape_counts_as_output(self, line):
+        """Three copies of one machine line and one person's line: a paste."""
+        prompt = "\n".join([line] * 3 + ["please fix it"])
+        assert bmad.classify(prompt) == "trivial"
+
+    @pytest.mark.parametrize("prompt", [
+        # an indented task list — indentation alone is not machine output
+        "Do these:\n  - add a test for scan_dir\n  - update the docs\n"
+        "  - run make check",
+        "here's what I need:\n  1. add a retry to the fetcher\n"
+        "  2. write a test for it\n  3. update the changelog",
+        # a hard-wrapped request, indented as prose wraps
+        "Please update the installer so it writes the lock file\n"
+        "  atomically, and add a regression test that kills the\n"
+        "  mutant where the rename is dropped.",
+    ])
+    def test_an_indented_request_is_not_a_paste(self, prompt):
+        """The indent rule silenced ordinary multi-line asks: a bullet list and
+        a wrapped sentence are indented too, and each routes as one line."""
+        assert bmad.classify(prompt) != "trivial"
+
+    def test_a_fenced_paste_does_not_outvote_the_ask_around_it(self):
+        """The fence is pasted material inside a request, not the request."""
+        prompt = ("Add a retry to this function and a test for it:\n"
+                  "```python\ndef fetch(url):\n    r = requests.get(url)\n"
+                  "    return r.json()\n```")
+        assert bmad.classify(prompt) == "quality"
+
+    def test_a_person_asking_over_a_paste_still_routes(self):
+        """Two hits in the typed lines are the evidence a paste needs."""
+        prompt = ("the export crashes on bad rows, fix it and add a regression "
+                  "test:\n" + self.TRACEBACK)
+        assert bmad.classify(prompt) == "quality"
+
+    def test_one_word_over_a_paste_is_not_enough(self):
+        """The accepted loss: "fix this:" over a paste goes silent."""
+        assert bmad.classify("fix this:\n" + self.PYTEST) == "trivial"
+
+    def test_three_lines_can_be_a_paste(self):
+        assert bmad.classify("update it\n  x = 1\n  y = 2") == "trivial"
+
+    def test_the_typed_lines_of_a_paste_stay_separate_words(self):
+        assert bmad.classify("refactor\nupdate\n  x = 1\n  y = 2") == "build"
+
+    def test_two_lines_are_not_a_paste(self):
+        assert bmad.classify("update the flag\n  in the config") == "build"
+
+    def test_mostly_prose_is_not_a_paste(self):
+        prompt = ("fix the crash\nin the exporter\n  when a row is empty\n"
+                  "and ship it")
+        assert bmad.classify(prompt) == "build"
+
+    def test_half_machine_output_is_a_paste(self):
+        """At least half the lines, not more than half."""
+        prompt = "update it\nplease\n  x = 1\n  y = 2"
+        assert bmad.classify(prompt) == "trivial"
+
+    def test_blank_lines_are_neither(self):
+        prompt = "update it\n\n\n  x = 1"
+        assert bmad.classify(prompt) == "build"
+
+    @pytest.mark.parametrize("prompt", [
+        "are there any tests for the parser?",
+        "is the export command documented?",
+        "do we have docs for the export command?",
+        "does the migration need a schema change?",
+        "did you update the docs?",
+        "has anyone added tests for this?",
+        "have you added tests for it?",
+        "should we refactor the scanner?",
+        "can the scanner build its cache offline?",
+        "could you explain how the scanner builds its cache?",
+        "would you please describe the schema?",
+        "will you tell me what the release changed?",
+        "can we summarise the review?",
+    ])
+    def test_a_yes_no_question_is_silent(self, prompt):
+        assert bmad.classify(prompt) == "trivial"
+
+    @pytest.mark.parametrize("prompt,track", [
+        ("can you fix the crash in store.install?", "build"),
+        ("could you add tests for the parser?", "quality"),
+        ("would you refactor the scanner please?", "build"),
+        ("will we update the README for the new flag?", "docs"),
+        # no question mark: an instruction that opens with "do"
+        ("do the migration for the orders table", "build"),
+        # another sentence follows: the question was a preamble
+        ("Is the parser tested? Add tests for it.", "quality"),
+    ])
+    def test_a_request_shaped_like_a_question_still_routes(self, prompt, track):
+        assert bmad.classify(prompt) == track
+
+    def test_a_long_yes_no_question_is_a_brief(self):
+        prompt = ("should we restructure the retrieval layer so the dense engine "
+                  "and the BM25 engine share one index build path, given the eval "
+                  "gate floors four metrics and we need the docs regenerated?")
+        assert len(prompt.split()) > bmad.QUESTION_MAX_WORDS
+        assert bmad.classify(prompt) != "trivial"
+
+    @pytest.mark.parametrize("prompt", [
+        "read the changelog at https://example.com/changelog and tell me what changed",
+        "read https://docs.example.com/guide and tell me what it says about auth",
+        "look at the api-schema-design doc and tell me if it is sound",
+        "skim docs/bmad.md and summarize the router rules",
+        "please read the PRD and summarise it",
+        "can you read the review and tell me what it wants?",
+        "Read the changelog.\nThen tell me what changed in the build.",
+    ])
+    def test_read_and_tell_is_a_question(self, prompt):
+        assert bmad.classify(prompt) == "trivial"
+
+    def test_a_long_read_and_tell_is_a_brief_not_a_question(self):
+        """The read-and-tell gate had no length cap, so a spec that opened
+        "read the RFC…" and said "tell me" anywhere went silent."""
+        prompt = ("read the RFC at https://example.com/rfc and tell me how we "
+                  "should implement the retry budget, what it means for the "
+                  "exporter, whether the current backoff is compatible, and "
+                  "which tests would need to change before any of it lands")
+        assert len(prompt.split()) > bmad.QUESTION_MAX_WORDS
+        assert bmad.classify(prompt) != "trivial"
+
+    @pytest.mark.parametrize("prompt", [
+        "can you explain how the cache works and add a test for it?",
+        "read the spec and then implement it and tell me when done",
+        "could you describe the scanner and also fix the flaky test?",
+    ])
+    def test_a_question_with_work_attached_is_work(self, prompt):
+        """The gates read only the first verb, so the work went unrouted."""
+        assert bmad.classify(prompt) != "trivial"
+
+    def test_a_then_after_the_ask_turns_it_back_into_work(self):
+        assert bmad.classify("read the PRD and tell me the gaps, then add "
+                             "stories for them") == "product"
+
+    def test_telling_without_reading_first_is_not_this_rule(self):
+        assert bmad.classify("fix the build and tell me when it is done") == "build"
+
+
+class TestBannerIsNews:
+    """The session half: a pure function, so the hook stays glue."""
+
+    LAST: ClassVar[dict] = {"track": "build", "root": "/work/proj"}
+
+    def test_a_session_with_no_banner_needs_one(self):
+        assert bmad.banner_is_news(None, "implement it", "build", "/work/proj")
+
+    def test_a_malformed_record_is_no_record(self):
+        assert bmad.banner_is_news("build", "ok do it", "build", "/work/proj")
+
+    def test_the_same_track_in_the_same_repo_is_a_repeat(self):
+        assert not bmad.banner_is_news(self.LAST, "refactor it", "build",
+                                       "/work/proj")
+
+    def test_another_track_or_repo_is_news(self):
+        assert bmad.banner_is_news(self.LAST, "add tests", "quality", "/work/proj")
+        assert bmad.banner_is_news(self.LAST, "refactor it", "build", "/work/other")
+
+    @pytest.mark.parametrize("prompt", [
+        "ok update both and rerun", "sure, add a test for that too",
+        "yes", "Yeah do that", "yep", "okay", "no, use the other one",
+        "nope", "go ahead and ship it",
+    ])
+    def test_a_short_reply_continues_the_session(self, prompt):
+        assert not bmad.banner_is_news(self.LAST, prompt, "quality", "/work/other")
+
+    def test_a_reply_at_the_word_limit_is_still_a_reply(self):
+        prompt = "ok " + "x " * (bmad.REPLY_MAX_WORDS - 1)
+        assert len(prompt.split()) == bmad.REPLY_MAX_WORDS
+        assert not bmad.banner_is_news(self.LAST, prompt, "quality", "/work/proj")
+
+    def test_a_long_reply_carries_its_own_task(self):
+        prompt = "ok " + "x " * bmad.REPLY_MAX_WORDS
+        assert bmad.banner_is_news(self.LAST, prompt, "quality", "/work/proj")
+
+    def test_a_reply_word_inside_a_sentence_is_not_a_reply(self):
+        assert bmad.banner_is_news(self.LAST, "token ok, now add tests",
+                                   "quality", "/work/proj")
 
 
 class TestClassifyTracks:
@@ -210,11 +506,13 @@ class TestClassifyTracks:
         the other eight rows could be edited to anything."""
         for name, track in bmad.TRACKS.items():
             lead = bmad.PERSONA_BY_SLUG[track.lead]
+            assert track.lead not in track.support
+            assert track.note.endswith((".", "!"))
+            if track.skill is None:
+                continue
             assert track.skill in lead.skills, (
                 "track %r routes at %r, which %s does not drive"
                 % (name, track.skill, lead.character))
-            assert track.lead not in track.support
-            assert track.note.endswith((".", "!"))
 
     def test_track_order_covers_every_track_exactly_once(self):
         assert sorted(bmad.TRACK_ORDER) == sorted(bmad.TRACKS)
@@ -226,6 +524,81 @@ class TestClassifyTracks:
 
     def test_classification_is_case_insensitive(self):
         assert bmad.classify("ADD TESTS FOR THE SCANNER") == "quality"
+
+
+class TestIncidentalKeywords:
+    """A prompt of up to 60 words routes on one keyword, so it must be intent.
+
+    Replayed over a real prompt history, 89 of 143 routed prompts were decided
+    by exactly one keyword — often one nobody meant: a URL, a path, a flag, a
+    tracker ID, the repo's own name. Every row marked trivial below routed on
+    origin/main (the track it went to is in the comment). The fix removes text
+    that is not intent before scoring rather than raising the threshold, which
+    measured worse on genuine short asks.
+    """
+
+    @pytest.mark.parametrize("prompt,repo,expected", [
+        # the repo's own name (was: build, discovery, discovery)
+        ("list the last three commits in migrations", "migrations", "trivial"),
+        ("list the new notebooks in benchmarks", "benchmarks", "trivial"),
+        ("list the new notebooks in Benchmarks", "benchmarks", "trivial"),
+        # flags, long and short (was: product, quality)
+        ("rerun the installer with --scope global and paste the output",
+         "proj", "trivial"),
+        ("rerun mvn package with -Dmaven.test.skip=true and paste the log",
+         "proj", "trivial"),
+        # URLs (was: docs, docs)
+        ("open https://example.com/docs/setup and paste what it says",
+         "proj", "trivial"),
+        ("open www.example.com/docs and paste what it says", "proj", "trivial"),
+        # code, inline and fenced (was: build, build)
+        ("paste the output of `npm run build` here", "proj", "trivial"),
+        ("paste what this prints:\n```\nnpm run build\n```", "proj", "trivial"),
+        # a path, for build only (was: build)
+        ("tail logs/build/server.log and paste the last error", "proj", "trivial"),
+        # tracker IDs (was: product, build)
+        ("move story ABC-123 to in progress", "proj", "trivial"),
+        ("close bug #42 in the tracker", "proj", "trivial"),
+        # a verb aimed at the user (was: build, build)
+        ("update me when the CI run finishes", "proj", "trivial"),
+        ("keep an eye on it and update us once the deploy is done",
+         "proj", "trivial"),
+        # residue, pinned where it lands today so a later fix shows as a diff
+        ("add the meeting notes to my summary", "proj", "build"),
+        ("pull the comments on story ABC-123 into a list", "proj", "docs"),
+        ("add tests for catalog.scan_dir", "tests", "build"),
+        # a name is dropped whole-word only
+        ("add tests for catalog.scan_dir", "test", "quality"),
+        # genuine asks keep routing: not verb-first, late verb, path objects
+        ("we need to fix the crash in the exporter", "proj", "build"),
+        ("the scanner is slow, so refactor the walk loop", "proj", "build"),
+        ("once that lands, please implement the export command", "proj", "build"),
+        ("fix the crash in boost_cli/core/store.py", "proj", "build"),
+        ("fix bug ABC-123 in the exporter", "proj", "build"),
+        ("update docs/README.md with the new flag", "proj", "docs"),
+        ("add tests to tests/unit/test_catalog.py", "proj", "quality"),
+        ("document the helpers in boost_cli/core/rag.py", "proj", "docs"),
+    ])
+    def test_only_intent_is_scored(self, prompt, repo, expected):
+        assert bmad.classify(prompt, Path("/work") / repo) == expected
+
+    def test_a_removed_span_does_not_glue_its_neighbours(self):
+        """Blanked out, not deleted: `rename` must still read as a word."""
+        assert bmad.classify("rename`load_tap`to`read_tap` in the scanner") == "build"
+
+    def test_no_root_means_no_name_is_dropped(self):
+        assert bmad.classify("list the last three commits in migrations") == "build"
+
+    def test_a_root_with_no_name_drops_nothing(self):
+        assert bmad.classify("fix the bug", Path("/")) == "build"
+
+    def test_the_hook_root_reaches_the_classifier(self, tmp_path):
+        """`route_lines` has the repo; the name only counts if it passes it on."""
+        root = tmp_path / "migrations"
+        root.mkdir()
+        prompt = "list the last three commits in migrations"
+        assert bmad.route_lines(prompt, root) == []
+        assert bmad.route_lines(prompt, tmp_path) != []
 
 
 # ------------------------------------------------------------- project signals
@@ -328,10 +701,69 @@ class TestDoneChecklist:
             "docs: write down what changed for the next reader",
         ]
 
-    def test_always_demands_tests_and_docs_even_in_a_bare_repo(self, tmp_path):
-        line = " ".join(bmad.done_checklist(bmad.project_signals(tmp_path)))
+    def test_a_change_always_demands_tests_and_docs_even_in_a_bare_repo(
+            self, tmp_path):
+        line = " ".join(bmad.done_checklist(bmad.project_signals(tmp_path),
+                                            "change"))
         assert "test" in line.lower()
         assert "doc" in line.lower()
+
+    def _full_repo(self, root):
+        (root / "tests").mkdir()
+        (root / "docs" / "roadmap" / "items").mkdir(parents=True)
+        (root / "CLAUDE.md").write_text("rules", encoding="utf-8")
+        (root / "Makefile").write_text("check:\n\ttrue\n", encoding="utf-8")
+        return bmad.project_signals(root)
+
+    def test_findings_are_evidence_and_no_edits_unless_asked(self, tmp_path):
+        """"fix the lint errors in the scanner" routes to review, hence "unless"."""
+        assert bmad.done_checklist(self._full_repo(tmp_path), "findings") == [
+            "findings: each with its evidence (file:line, output or source)",
+            "no edits unless asked; an edit gets tests and `make check` like "
+            "any change",
+            "`CLAUDE.md` is binding",
+        ]
+
+    def test_findings_in_a_bare_repo_name_no_gate(self, tmp_path):
+        assert bmad.done_checklist(bmad.project_signals(tmp_path), "findings") == [
+            "findings: each with its evidence (file:line, output or source)",
+            "no edits unless asked; an edit gets tests like any change",
+        ]
+
+    def test_an_artifact_is_written_not_coded_and_keeps_the_roadmap(self, tmp_path):
+        assert bmad.done_checklist(self._full_repo(tmp_path), "artifact") == [
+            "a written artifact; no code unless the prompt asks for a change, "
+            "which then gets the change contract",
+            "roadmap: create or claim the item under `docs/roadmap/items/`",
+            "`CLAUDE.md` is binding",
+        ]
+
+    def test_an_artifact_in_a_bare_repo_is_just_the_artifact(self, tmp_path):
+        assert bmad.done_checklist(bmad.project_signals(tmp_path), "artifact") == [
+            "a written artifact; no code unless the prompt asks for a change, "
+            "which then gets the change contract"]
+
+    @pytest.mark.parametrize("kind", ["findings", "artifact"])
+    def test_neither_kind_refuses_work_that_was_asked_for(self, tmp_path, kind):
+        """The tie-break sends real change requests onto both kinds: "fix the
+        lint errors in the scanner" is review, "implement the spec in
+        specs/retry.md" is product. A flat "no code" contradicts the prompt."""
+        line = " ".join(bmad.done_checklist(bmad.project_signals(tmp_path), kind))
+        assert "unless" in line and ("asked" in line or "asks" in line)
+
+    def test_an_edit_request_that_tie_breaks_onto_product_is_not_told_no_code(
+            self, tmp_path):
+        assert bmad.classify("implement the spec in specs/retry.md",
+                             tmp_path) == "product"
+        done = next(ln for ln in
+                    bmad.route_lines("implement the spec in specs/retry.md", tmp_path)
+                    if ln.startswith("Done means:"))
+        assert "no code unless the prompt asks for a change" in done
+
+    def test_the_default_kind_is_a_change(self, tmp_path):
+        signals = self._full_repo(tmp_path)
+        assert bmad.done_checklist(signals) == bmad.done_checklist(signals,
+                                                                   "change")
 
     def test_no_roadmap_means_no_roadmap_clause(self, tmp_path):
         line = " ".join(bmad.done_checklist(bmad.project_signals(tmp_path)))
@@ -373,9 +805,44 @@ class TestRouteContext:
         assert len(bmad.route_lines("implement the new export command", tmp_path)) <= 8
         assert len(text) < 1200
 
-    def test_it_tells_the_agent_not_to_wait_for_a_human(self, tmp_path):
-        text = bmad.route_context("fix the crash in store.install", tmp_path)
-        assert "autonom" in text.lower()
+    def test_a_change_is_finished_but_approval_steps_still_hold(self, tmp_path):
+        """Not "work autonomously": that line competed with approval gates a
+        user adds on purpose, such as a brainstorming skill's HARD-GATE."""
+        lines = bmad.route_lines("fix the crash in store.install", tmp_path)
+        assert lines[-1] == bmad.CHANGE_CLOSE
+        assert "approval step" in bmad.CHANGE_CLOSE
+        assert "autonom" not in bmad.route_context(
+            "fix the crash in store.install", tmp_path).lower()
+
+    @pytest.mark.parametrize("prompt,kind", [
+        ("review the changes on this branch and tell me what could break",
+         "findings"),
+        ("compare the two caching options and recommend one", "findings"),
+        ("write the PRD for the policy engine", "artifact"),
+        ("prioritize the backlog for next sprint", "artifact"),
+        ("design the schema for the pulse feed", "artifact"),
+    ])
+    def test_findings_and_artifacts_get_no_build_contract(
+            self, tmp_path, prompt, kind):
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "README.md").write_text("x", encoding="utf-8")
+        (tmp_path / "Makefile").write_text("check:\n\ttrue\n", encoding="utf-8")
+        track = bmad.classify(prompt, tmp_path)
+        assert bmad.TRACKS[track].done == kind
+        lines = bmad.route_lines(prompt, tmp_path)
+        done = next(line for line in lines if line.startswith("Done means:"))
+        assert "tests:" not in done and "docs:" not in done
+        assert bmad.CHANGE_CLOSE not in lines
+        assert lines[-1] == done
+
+    def test_every_track_declares_what_it_delivers(self):
+        assert {name: t.done for name, t in bmad.TRACKS.items()} == {
+            "build": "change", "quality": "change", "docs": "change",
+            "ux": "change", "review": "findings", "discovery": "findings",
+            "product": "artifact", "planning": "artifact",
+            "architecture": "artifact",
+        }
+        assert set(bmad.DONE_KINDS) == {t.done for t in bmad.TRACKS.values()}
 
     def test_quality_prompts_lead_with_the_test_architect(self, tmp_path):
         text = bmad.route_context("add tests for catalog.scan_dir", tmp_path)
@@ -416,9 +883,102 @@ class TestRouteContext:
             "Done means: tests: add or update coverage under `tests/`, and run "
             "them · docs: update `README.md` wherever the change shows · "
             "gate: `make check` green, with real output",
-            "Work autonomously through to a finished, verified change; stop to "
-            "ask only when a choice would change what gets delivered.",
+            "Finish the change and verify it; stop only for a choice that "
+            "changes what gets delivered, or an approval step a repo guide or "
+            "a loaded skill requires.",
         ]
+
+    def test_the_whole_review_banner_is_exactly_this(self, tmp_path):
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "Makefile").write_text("check:\n\ttrue\n", encoding="utf-8")
+        assert bmad.route_lines("review the changes on this branch", tmp_path) == [
+            "[BMAD autopilot] track: review",
+            "Lead: `bmad-tea` subagent — Murat, Master Test Architect. "
+            "Find the failure, not the style nit.",
+            "Support: `bmad-architect` (Winston) — spawn them with the Agent "
+            "tool, in parallel where the work is independent.",
+            "BMAD skill: `bmad-code-review` — invoke it if it is installed; "
+            "otherwise the persona's own playbook stands.",
+            "Done means: findings: each with its evidence (file:line, output or "
+            "source) · no edits unless asked; an edit gets tests and "
+            "`make check` like any change",
+        ]
+
+    def test_the_whole_discovery_banner_is_exactly_this(self, tmp_path):
+        assert bmad.route_lines("research how other CLIs pin their toolchains",
+                                tmp_path) == [
+            "[BMAD autopilot] track: discovery",
+            "Lead: `bmad-analyst` subagent — Mary, Business Analyst. "
+            "Ground it in sources before recommending.",
+            "Support: `bmad-pm` (John) — spawn them with the Agent tool, in "
+            "parallel where the work is independent.",
+            "BMAD skill: `bmad-deep-recon` — invoke it if it is installed; "
+            "otherwise the persona's own playbook stands.",
+            "Done means: findings: each with its evidence (file:line, output or "
+            "source) · no edits unless asked; an edit gets tests like any change",
+        ]
+
+    def test_no_persona_file_anywhere_means_no_subagent_is_named(self, tmp_path):
+        """A banner must not send the model after a subagent it cannot spawn."""
+        dirs = (tmp_path / "home-agents", tmp_path / "repo-agents")
+        lines = bmad.route_lines("implement the new export command", tmp_path, dirs)
+        assert lines[0] == "[BMAD autopilot] track: build"
+        assert not any(line.startswith(("Lead:", "Support:")) for line in lines)
+        assert any(line.startswith("Done means:") for line in lines)
+        assert "bmad-build" in lines[1]
+        assert "Lead:" not in bmad.route_context(
+            "implement the new export command", tmp_path, dirs)
+
+    def test_an_edited_lead_in_either_dir_still_counts(self, tmp_path):
+        """Edited is not absent: the session still loads that subagent."""
+        home, repo = tmp_path / "home-agents", tmp_path / "repo-agents"
+        repo.mkdir()
+        (repo / "bmad-dev.md").write_text("my own Amelia", encoding="utf-8")
+        lines = bmad.route_lines("implement the new export command", tmp_path,
+                                 (home, repo))
+        assert lines[1].startswith("Lead: `bmad-dev`")
+        assert lines[2].startswith("Support:")
+        assert bmad.route_context("implement the new export command", tmp_path,
+                                  (home, repo)) == "\n".join(lines)
+
+    def test_only_the_lead_decides_not_a_support_persona(self, tmp_path):
+        agents = tmp_path / "agents"
+        agents.mkdir()
+        (agents / "bmad-tea.md").write_text("x", encoding="utf-8")
+        lines = bmad.route_lines("implement the new export command", tmp_path,
+                                 (agents,))
+        assert not any(line.startswith("Lead:") for line in lines)
+
+    def test_on_gemini_the_lead_is_a_role_not_a_subagent(self, tmp_path):
+        """Gemini's subagent tool is `invoke_agent` and boost writes it no
+        personas, so nothing on that host may point at a Claude subagent."""
+        (tmp_path / "tests").mkdir()
+        (tmp_path / "Makefile").write_text("check:\n\ttrue\n", encoding="utf-8")
+        lines = bmad.route_lines("implement the new export command", tmp_path,
+                                 host="gemini")
+        assert lines[:3] == [
+            "[BMAD autopilot] track: build",
+            "Lead: take the role of Amelia, Senior Software Engineer. "
+            "Ship it complete and verified.",
+            "Support: bring in the view of Murat (Master Test Architect), "
+            "Paige (Technical Writer).",
+        ]
+        text = "\n".join(lines)
+        for claude_only in ("subagent", "Agent tool", "~/.claude"):
+            assert claude_only not in text
+        assert bmad.route_context("implement the new export command", tmp_path,
+                                  host="gemini") == text
+
+    def test_on_gemini_absent_persona_files_do_not_drop_the_role(self, tmp_path):
+        lines = bmad.route_lines("implement the new export command", tmp_path,
+                                 (tmp_path / "none",), host="gemini")
+        assert lines[1].startswith("Lead: take the role of Amelia")
+
+    def test_a_single_support_role_reads_as_one(self, tmp_path):
+        lines = bmad.route_lines("review the changes on this branch", tmp_path,
+                                 host="gemini")
+        assert lines[2] == ("Support: bring in the view of Winston "
+                            "(System Architect).")
 
     def test_route_context_joins_the_lines_with_newlines(self, tmp_path):
         lines = bmad.route_lines("implement the export command", tmp_path)
@@ -428,18 +988,15 @@ class TestRouteContext:
 
 
 class TestOrientation:
-    def test_names_only_live_v6_skills(self):
-        """v6 deprecated the shims this text used to advertise.
-
-        `bmad-quick-dev` and `bmad-dev-story` are now redirect shims; the
-        canonical implementation workflow is `bmad-build`. Naming a shim sent
-        every build task through a deprecation notice.
-        """
+    def test_names_only_skills_the_pinned_release_installs(self):
+        """v6 deprecated the shims this text used to advertise, and a denylist
+        of three of them could not notice the next one. The pinned release's
+        own skill list can."""
         text = bmad.orientation()
-        assert "bmad-build" in text
-        assert "bmad-quick-dev" not in text
-        assert "bmad-dev-story" not in text
-        assert "bmad-create-story" not in text
+        named = {t for t in re.findall(r"\bbmad-[a-z0-9-]+", text)
+                 if t not in bmad.PERSONA_BY_SLUG}
+        assert "bmad-build" in named
+        assert named <= _pinned_skills()
 
     def test_does_not_claim_a_persona_that_bmm_does_not_ship(self):
         """Paige is a game-dev-studio agent, on hiatus in bmm."""
@@ -456,8 +1013,26 @@ class TestOrientation:
         assert len(roster) == len(bmad.PERSONAS)
         assert "  bmad-dev        Amelia, Senior Software Engineer" in roster
 
+    def test_the_gemini_briefing_names_no_claude_machinery(self):
+        text = bmad.orientation("gemini")
+        for claude_only in ("subagent", "Agent tool", "~/.claude"):
+            assert claude_only not in text
+        assert "names the\npersona whose role to take on" in text
+        assert "  bmad-dev        Amelia, Senior Software Engineer" in text
+
+    def test_the_claude_briefing_is_the_default(self):
+        assert bmad.orientation() == bmad.orientation("claude")
+        assert "~/.claude/agents and are delegated to with the Agent tool" in (
+            bmad.orientation())
+
     def test_it_names_the_command_that_turns_it_off(self):
         assert "boost bmad off" in bmad.orientation()
+
+    def test_the_house_rule_names_all_three_kinds_of_done(self):
+        rule = bmad.orientation().split("House rule:")[1]
+        assert "a change is done when its tests, its docs and its tracked item" in rule
+        assert "findings are done when each carries its evidence" in rule
+        assert "an artifact is done when it is\nwritten down and tracked" in rule
 
 
 # -------------------------------------------------------------------- personas
@@ -491,9 +1066,10 @@ class TestPersonaFiles:
         assert lines[:6] == [
             "---",
             "name: bmad-ux",
-            'description: "Sally, UX Designer (BMAD bmm). Use PROACTIVELY for '
-            'interface and layout work, visual hierarchy, spacing, responsive '
-            'behaviour, accessibility, or a design review."',
+            'description: "Sally, UX Designer (BMAD bmm). Use when a [BMAD '
+            'autopilot] routing banner names bmad-ux, or the user asks for it '
+            'by name. Covers interface and layout work, visual hierarchy, '
+            'spacing, responsive behaviour, accessibility, or a design review."',
             "model: inherit",
             "color: pink",
             "---",
@@ -685,11 +1261,18 @@ class TestOwnershipStamp:
             p.slug for p in bmad.PERSONAS if p.slug != "bmad-dev")
         assert (tmp_path / "bmad-dev.md").exists()
 
-    def test_every_persona_body_carries_the_done_contract(self):
+    CONTRACT = """A change: tests updated and actually run, documentation left true, any tracked
+roadmap or backlog item moved to match, and the repo's own gate green with
+output you have seen.
+Findings: each one with its evidence, and no edits unless you were asked.
+An artifact: the written document itself, with any tracked item moved to match —
+no code unless you were asked for a change, which then gets the contract above."""
+
+    def test_every_persona_body_states_the_contract_for_each_kind(self):
+        """`bmad-tea` leads quality (a change) and review (findings), so a
+        persona cannot carry one kind's contract."""
         for p in bmad.PERSONAS:
-            md = bmad.persona_markdown(p)
-            low = md.lower()
-            assert "test" in low and "doc" in low
+            assert self.CONTRACT in bmad.persona_markdown(p), p.slug
 
     def test_persona_descriptions_are_delegation_triggers(self):
         """Claude picks a subagent off `description`; it must say when to use it."""
@@ -697,3 +1280,12 @@ class TestOwnershipStamp:
             desc = bmad.persona_description(p)
             assert len(desc) > 40
             assert "\n" not in desc
+
+    def test_the_banner_is_the_trigger_not_the_description(self):
+        """"Use PROACTIVELY" let a persona spawn on a prompt the router kept
+        silent, so the silence and `no bmad` governed only the banner."""
+        for p in bmad.PERSONAS:
+            desc = bmad.persona_description(p)
+            assert "proactive" not in desc.lower(), p.slug
+            assert "routing banner names %s," % p.slug in desc
+            assert desc.endswith("Covers %s." % p.triggers)

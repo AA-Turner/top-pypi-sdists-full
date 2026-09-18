@@ -108,11 +108,16 @@ if is_diffusers_available():
         OVFluxPipeline,
         OVLatentConsistencyModelImg2ImgPipeline,
         OVLatentConsistencyModelPipeline,
+        OVLTX2ImageToVideoPipeline,
+        OVLTX2Pipeline,
+        OVLTXImageToVideoPipeline,
         OVLTXPipeline,
         OVPipelineForImage2Image,
+        OVPipelineForImage2Video,
         OVPipelineForInpainting,
         OVPipelineForText2Image,
         OVPipelineForText2Video,
+        OVQwenImagePipeline,
         OVSanaPipeline,
         OVSanaSprintPipeline,
         OVStableDiffusion3Img2ImgPipeline,
@@ -124,6 +129,9 @@ if is_diffusers_available():
         OVStableDiffusionXLImg2ImgPipeline,
         OVStableDiffusionXLInpaintPipeline,
         OVStableDiffusionXLPipeline,
+        OVZImageImg2ImgPipeline,
+        OVZImageInpaintPipeline,
+        OVZImagePipeline,
     )
 
 

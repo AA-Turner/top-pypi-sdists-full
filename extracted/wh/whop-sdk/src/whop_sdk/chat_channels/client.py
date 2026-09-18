@@ -81,7 +81,7 @@ class ChatChannelsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -132,7 +132,7 @@ class ChatChannelsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -176,7 +176,7 @@ class ChatChannelsClient:
             A list of words that are automatically blocked from messages in this chat channel. For example, ['spam', 'scam'].
 
         user_posts_cooldown_seconds : typing.Optional[int]
-            The minimum number of seconds a user must wait between sending messages in this chat channel.
+            The minimum number of seconds a user must wait between sending messages in this chat channel. Pass null or 0 to remove the cooldown.
 
         who_can_post : typing.Optional[WhoCanPostTypes]
             Controls which roles are allowed to send messages in this chat channel.
@@ -197,7 +197,7 @@ class ChatChannelsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -285,7 +285,7 @@ class AsyncChatChannelsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -345,7 +345,7 @@ class AsyncChatChannelsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -395,7 +395,7 @@ class AsyncChatChannelsClient:
             A list of words that are automatically blocked from messages in this chat channel. For example, ['spam', 'scam'].
 
         user_posts_cooldown_seconds : typing.Optional[int]
-            The minimum number of seconds a user must wait between sending messages in this chat channel.
+            The minimum number of seconds a user must wait between sending messages in this chat channel. Pass null or 0 to remove the cooldown.
 
         who_can_post : typing.Optional[WhoCanPostTypes]
             Controls which roles are allowed to send messages in this chat channel.
@@ -418,7 +418,7 @@ class AsyncChatChannelsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

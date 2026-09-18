@@ -40,6 +40,8 @@
    DAMAGES OR  OTHER LIABILITY, WHETHER  IN AN  ACTION OF CONTRACT,  TORT OR
    OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
    USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+   SPDX-License-Identifier: MIT
 */
 
 #include "expat_config.h"
@@ -53,6 +55,7 @@
 #include "common.h"
 
 #include "basic_tests.h"
+#include "hash_tests.h"
 #include "ns_tests.h"
 #include "misc_tests.h"
 #include "alloc_tests.h"
@@ -66,6 +69,7 @@ make_suite(void) {
   Suite *s = suite_create("basic");
 
   make_basic_test_case(s);
+  make_hash_test_case(s);
   make_namespace_test_case(s);
   make_miscellaneous_test_case(s);
   make_alloc_test_case(s);

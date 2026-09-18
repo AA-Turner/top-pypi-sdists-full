@@ -1,19 +1,25 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: python-lokalise-api
-Version: 4.1.0
+Version: 4.2.0
 Summary: Official Python interface for the Lokalise API v2
 Project-URL: Homepage, https://python-lokalise-api.readthedocs.io/
 Project-URL: Repository, https://github.com/lokalise/python-lokalise-api
 Project-URL: Issues, https://github.com/lokalise/python-lokalise-api/issues
 Project-URL: Documentation, https://python-lokalise-api.readthedocs.io/
 Author-email: Ilya Krukowski <elskruk@proton.me>
+License-Expression: BSD-3-Clause
 License-File: LICENSE
 Keywords: api,client,lokalise
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: BSD License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: >=3.10
 Requires-Dist: exceptiongroup<2.0,>=1.0; python_version < '3.11'

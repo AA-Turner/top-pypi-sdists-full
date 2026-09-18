@@ -13,7 +13,7 @@ The ``OPTIONS`` blob carries three client-produced keys:
   ``DataType.sqlAsDataType()`` to materialize the GS column; ``SPARK_DATA_TYPE`` is opaque
   to GS and passed through to the sandbox Spark reader. Nested types are rendered as
   Snowflake structured-type strings (``OBJECT(...)`` / ``ARRAY(...)`` / ``MAP(...)``) with
-  field names quoted only when required by Snowflake identifier rules and no ``NOT NULL``
+  field names always double-quoted and no ``NOT NULL``
   (the grammar has no per-field null marker;
   top-level nullability is the ``NULLABLE`` field). ``ORDER_ID`` is 0-based and contiguous.
 * ``READER_OPTIONS`` — the Spark ``DataFrameReader`` options, filtered to each
@@ -27,9 +27,12 @@ does not emit either.
 """
 
 import json
+import re
+from collections.abc import Iterable
 from contextlib import suppress
-from typing import Callable, NamedTuple
+from typing import TYPE_CHECKING, Callable, NamedTuple
 
+from pyspark.errors.exceptions.base import AnalysisException
 from pyspark.sql.types import (
     ArrayType as PyArrayType,
     DataType as PyDataType,
@@ -61,12 +64,15 @@ from snowflake.snowpark_connect.type_mapping import (
     map_pyspark_types_to_snowpark_types,
     map_type_to_snowflake_type,
 )
-from snowflake.snowpark_connect.utils.identifiers import (
-    is_valid_unquoted_snowflake_identifier,
-)
 from snowflake.snowpark_connect.utils.telemetry import (
     SnowparkConnectNotImplementedError,
 )
+
+if TYPE_CHECKING:  # import-time cycle: path_anchoring reaches back into this package
+    from snowflake import snowpark
+    from snowflake.snowpark_connect.relation.read.path_anchoring import (
+        PathClassification,
+    )
 
 
 class NssColumn(NamedTuple):
@@ -125,6 +131,10 @@ _SPARK_JSON_READ_OPTIONS = {
     "ignorenullfields",
     "infertimestamp",
     "enabledatetimeparsingfallback",
+    # Inherited from ``FileSourceOptions``, which ``JSONOptions`` extends -- not a
+    # JsonFileFormat option of its own. See the CSV list for why the per-read spelling
+    # has to be forwarded alongside the session conf.
+    "ignorecorruptfiles",
 }
 
 # Spark CSV *read* options (lowercased) the real CSVFileFormat accepts on read.
@@ -161,6 +171,12 @@ _SPARK_CSV_READ_OPTIONS = {
     "enforceschema",
     "enabledatetimeparsingfallback",
     "preferdate",
+    # SNOW-3245115: inherited from ``FileSourceOptions`` (``CSVOptions`` extends it), so
+    # Spark accepts it as a per-read option *and* as ``spark.sql.files.ignoreCorruptFiles``
+    # -- ``FileSourceOptions.ignoreCorruptFiles`` reads the option first and falls back to
+    # the conf. Both spellings must therefore be forwarded, hence this entry as well as the
+    # ``_RELEVANT_SPARK_CONF_KEYS`` one; a customer setting either gets the same semantics.
+    "ignorecorruptfiles",
 }
 
 _ALLOWED_READ_OPTIONS = {
@@ -202,6 +218,13 @@ _RELEVANT_SPARK_CONF_KEYS = (
     # no-op, so there would be nothing here to forward.
     "spark.sql.legacy.json.enableDateTimeParsingFallback",
     "spark.sql.legacy.csv.enableDateTimeParsingFallback",
+    # SNOW-3245115: the session-conf half of ``ignoreCorruptFiles`` (the per-read option is
+    # in the CSV/JSON allow-lists). Deliberately absent from ``default_session_config`` --
+    # the sandbox's own ``SQLConf`` already defaults it to false, so only an explicit client
+    # ``conf.set`` needs to travel. Note this only governs failures raised *inside* the
+    # sandbox reader; a file Snowflake's own scanner cannot decompress fails earlier with
+    # ``100076`` and is unaffected either way.
+    "spark.sql.files.ignoreCorruptFiles",
 )
 
 
@@ -367,6 +390,76 @@ def normalize_locations(stage_paths: list[str] | None) -> list[str]:
     return list(dict.fromkeys(stage_paths or []))
 
 
+def _storage_location_of(path: str) -> tuple[str, str]:
+    """The storage container ``path`` resolves to, as ``(kind, identity)``."""
+    from snowflake.snowpark_connect.relation.io_utils import (
+        get_cloud_from_url,
+        parse_azure_url,
+    )
+
+    if path.startswith("@"):
+        stage = path[1:].split("/", 1)[0]
+        # Unquoted stage identifiers case-fold to one stage; quoted ones do not.
+        return "stage", stage if stage.startswith('"') else stage.upper()
+    cloud = get_cloud_from_url(path)
+    # ``file://`` is the local filesystem spelled as a URL -- convert_file_prefix_path strips
+    # the scheme and get_paths_from_stage stages it exactly like a bare path, so treating it as
+    # its own cloud rejects a legal read mixing the two spellings. Same unmapped-scheme hazard
+    # as s3a below; CLOUD_PREFIX_TO_CLOUD has no entry for either.
+    if cloud is None or cloud == "file":
+        return "local", ""
+    # get_cloud_from_url passes an unmapped scheme through verbatim, and
+    # CLOUD_PREFIX_TO_CLOUD normalizes gcs/gs and abfss/wasbs but has no s3a entry. Both
+    # schemes address the same bucket -- url_to_fs resolves each to S3FileSystem with an
+    # identical parsed path, so get_paths_from_stage already maps them onto one stage --
+    # so treating them as distinct locations would reject a legal read. Same tupling the
+    # rest of the codebase uses for this (io_utils.reconstruct_cloud_stage_url).
+    if cloud in ("s3", "s3a"):
+        cloud = "s3"
+    if cloud == "azure":
+        account, container, _ = parse_azure_url(path)
+        return "azure", f"{account}/{container}"
+    return cloud, path.split("://", 1)[1].split("/", 1)[0]
+
+
+def raise_if_multiple_storage_locations(paths: list[str]) -> None:
+    """Reject an NSS multi-path read that spans more than one stage, bucket, or provider.
+
+    Two separate limitations, one check, because both are undetectable later:
+
+    * ``LOCATIONS`` resolves every element against a *single* stage — GS synthesizes one
+      stage reference from the elements' common prefix and rejects a second stage identity
+      outright (``NssTvfUtils.parseLocations``). A hard failure here beats that raw GS error.
+    * For cloud paths, ``get_paths_from_stage`` builds the stage from ``paths[0]`` alone and
+      then strips every path's own bucket, so a second bucket silently resolves to the
+      *first* bucket's files. Called before that rewrite, since afterwards both paths are
+      the same string and the divergence cannot be seen.
+
+    Spark supports all of these — it resolves a FileSystem per path and unions the results
+    (``DataSource.checkAndGlobPathIfNecessary``) — so this is a deliberate loud divergence
+    standing in for a silent wrong answer.
+    """
+    first_by_location: dict[tuple[str, str], str] = {}
+    for path in paths:
+        first_by_location.setdefault(_storage_location_of(path), path)
+    if len(first_by_location) <= 1:
+        return
+
+    locations = list(first_by_location.items())
+    (first_kind, _), first_path = locations[0]
+    (_, _), second_path = locations[1]
+    noun = "stage" if first_kind == "stage" else "bucket or cloud provider"
+    exception = SnowparkConnectNotImplementedError(
+        f"NSS multi-path read requires all paths in one {noun}, but got "
+        f"'{first_path}' and '{second_path}' ({len(first_by_location)} distinct locations). "
+        f"Read each location separately and union the results, or turn the next-gen reader "
+        f'off for this session: spark.conf.set("snowflake.file.nextGenReader.enabled", '
+        f'"false").'
+    )
+    attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+    raise exception
+
+
 def normalize_stage_paths(paths: list[str]) -> list[str]:
     """The read handlers' stage-path list: unquoted one layer, then deduped.
 
@@ -391,7 +484,204 @@ def normalize_stage_paths(paths: list[str]) -> list[str]:
     )
 
 
-def build_locations_json(stage_paths: list[str]) -> str:
+def raise_if_named_stage_files_missing(
+    session: "snowpark.Session",
+    clean_source_paths: list[str],
+    classifications: list["PathClassification"],
+) -> None:
+    """Raise Spark's ``PATH_NOT_FOUND`` for an explicitly named stage file that does not exist.
+
+    A ``LOCATIONS`` element that resolves to zero files simply contributes nothing, and GS
+    cannot tell that apart from a legitimately empty directory -- it raises
+    ``REMOTE_FILE_NOT_FOUND`` only for the ``FILES`` branch, which SCOS does not use. So
+    ``read.csv("@stg/sales.csv", "@stg/salse.csv")`` returns the first file's rows and says
+    nothing about the typo, where Spark raises. Silently returning less data than asked for is
+    the failure mode worth spending a round trip to avoid.
+
+    Mirrors ``DataSource.checkAndGlobPathIfNecessary``, which does exactly this check on the
+    Spark *driver* -- there is no backend in Spark's model. Deliberately narrow, matching only
+    the branch of that function guarded by ``checkFilesExist``:
+
+    * **Explicit files only.** Spark partitions paths and skips the existence check for globs
+      ("we don't need to do an existence check for globbed paths"), and an empty directory is
+      legal in Spark too. Only a named file that is absent is unambiguously an error.
+    * **``@stage`` paths only, and the cloud case is still silent.** For a *local* source the
+      PUT fails loudly on a missing file -- measured: COPY, NSS and Spark all raise, because
+      staging happens before the TVF runs. A *cloud* source is not staged at all:
+      ``upload_files_if_needed`` skips it (``if is_cloud_path(source_path): continue``, and
+      ``is_cloud_path`` is ``@`` **or** ``s3://`` / ``azure://`` / ...), so
+      ``s3://bucket/good.csv`` + ``s3://bucket/typo.csv`` gets no PUT, no LIST, and the typo is
+      dropped from the union with fewer rows and no error -- the same silent short read this
+      helper exists to stop for ``@stage``. Closing it means a LIST against the external stage
+      *after* the rewrite rather than keying on ``path.startswith("@")``; deliberately out of
+      scope here, and NOT covered by the staging argument above.
+    * **Multi-path reads only.** A single missing path already fails, just with a less precise
+      error (an empty inferred schema). This closes the case where the failure is *silent*.
+
+    The check cannot live in GS even though GS lists these files anyway and would pay no extra
+    round trip: SCOS collapses a glob to its scan prefix before sending, so by then
+    ``@stg/dir/`` may be a directory (empty is fine) or a collapsed glob (empty is an error)
+    and GS cannot distinguish them. The intent only exists here.
+
+    Serial rather than parallel: Spark uses ``ThreadUtils.parmap`` over 40 threads, but this
+    only ever walks explicitly named files, which are few in practice. Revisit if a caller
+    shows up naming many.
+    """
+    from snowflake.snowpark_connect.nss.nss_infer_schema import (
+        stage_location_has_spark_visible_files,
+    )
+
+    if len(clean_source_paths) <= 1:
+        return
+    for path, classification in zip(clean_source_paths, classifications):
+        if classification.kind != "file" or not path.startswith("@"):
+            continue
+        if stage_location_has_spark_visible_files(session, path):
+            continue
+        exception = AnalysisException(f"[PATH_NOT_FOUND] Path does not exist: {path}.")
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+
+
+def nss_glob_patterns(
+    clean_source_paths: list[str], stage_paths: list[str]
+) -> dict[str, str]:
+    """Map each *emitted* stage path to the ``PATTERN`` that restores its glob.
+
+    ``_path_for_stage_mapping`` reduces a glob to its scan prefix and discards the suffix, and
+    ``pathGlobFilter`` is not in :data:`_ALLOWED_READ_OPTIONS`, so without this the NSS read
+    scans the whole prefix directory: ``@stg/dir/*.csv`` also parses ``@stg/dir/README.txt``.
+
+    Keyed by ``stage_paths`` -- what ``get_paths_from_stage`` returned -- **not** by the source
+    path. The two differ for every non-``@`` source: ``s3://bucket/dir/`` is rewritten onto an
+    auto-created stage as ``@DB.SCH.STG_x/dir``, and the TVF builders look the pattern up by
+    the location they are about to emit. Keying by the source silently attached nothing for
+    every s3/azure/local glob, which is why both lists are required here rather than deriving
+    one from the other.
+
+    The pattern is the glob's **suffix**, anchored -- not ``compute_anchor_pattern``'s output.
+    A ``LOCATIONS`` element's ``PATTERN`` is matched relative to that element's own location,
+    and the element's location *is* the scan prefix, so the suffix is already in the right
+    frame. Measured on a reg: for elements ``@stg/d1/`` and ``@stg/d2/``, ``^one[.]csv$``
+    matches ``d1/one.csv`` while ``^d1/one[.]csv$`` matches nothing and the element is dropped
+    from the union with no error.
+
+    Several globs can collapse onto one emitted path (``@stg/dir/*.csv`` +
+    ``@stg/dir/*.json``), and GS allows one pattern per element, so they are alternated rather
+    than one silently winning.
+    """
+    from snowflake.snowpark_connect.relation.read.path_anchoring import (
+        classify_source_path,
+        spark_glob_to_snowflake_regex,
+        split_glob_scan_prefix,
+    )
+
+    by_path: dict[str, list[str]] = {}
+    unfiltered: set[str] = set()
+    for source, stage_path in zip(clean_source_paths, stage_paths):
+        if classify_source_path(source).kind != "glob":
+            # A plain directory or explicit file asks for everything at that location, and it
+            # can collapse onto the SAME emitted path as a glob into it:
+            # read.csv("@stg/dir/", "@stg/dir/*.csv") dedups to one element. Attaching the
+            # glob's pattern there would silently narrow the directory read to the glob's
+            # matches, dropping files the caller explicitly asked for.
+            unfiltered.add(stage_path)
+            continue
+        _, suffix = split_glob_scan_prefix(source)
+        if not suffix:
+            continue
+        by_path.setdefault(stage_path, []).append(spark_glob_to_snowflake_regex(suffix))
+    return {
+        path: _copy_aligned_pattern(path, dict.fromkeys(regexes))
+        for path, regexes in by_path.items()
+        if path not in unfiltered
+    }
+
+
+def _stage_relative_prefix(stage_path: str) -> str:
+    """The portion of an emitted ``LOCATION`` below the stage name.
+
+    ``@DB.SCH.STG/dir/sub/`` -> ``dir/sub/``. The stage name is the first ``/``-delimited
+    segment after ``@``, so this handles both bare and fully-qualified stages.
+    """
+    body = stage_path[1:] if stage_path.startswith("@") else stage_path
+    _, _, rest = body.partition("/")
+    # Normalise the separator: the emitted LOCATION keeps a trailing slash for some sources and
+    # rstrips it for others (@stage/azure preserve it, s3/local do not). Without this, a location
+    # of "@DB.SCH.STG_x/dir" would yield the prefix "dir" and "^(?:dir)?(?:[^/]*[.]csv)$" would
+    # not match "dir/x.csv" under a stage-root-relative base -- the exact gap it exists to close.
+    return f"{rest.rstrip('/')}/" if rest.strip("/") else ""
+
+
+def _copy_aligned_pattern(stage_path: str, regexes: Iterable[str]) -> str:
+    """Anchor ``regexes`` the way the COPY path anchors its stage-scan ``PATTERN``.
+
+    Shape: ``(.*/)?<the element's stage-relative path><suffix>$`` -- identical in structure to
+    ``compute_anchor_pattern``'s glob branch (``path_anchoring.py``), which emits
+    ``(.*/)?{escaped_prefix}{regex}$``. Deliberately the same, for the reason in
+    **Why COPY's shape** below.
+
+    **The two deployments match ``PATTERN`` against different strings.** ``PATTERN`` is a
+    full-match post-filter, and the subject differs. Measured with ``LIST`` (and confirmed with
+    ``COPY INTO``, which agrees) for files under ``dir/`` and a ``LOCATION`` of ``@stg/dir/``:
+
+    * a **dev reg** matches against the name relative to the element's own location -- ``x.csv``
+    * **sfctest0** (10.33.101) matches against a longer string carrying four extra leading
+      segments -- ``<a>/<b>/dir/x.csv``
+
+    A zero-match is **silent**: GS drops that element from the union rather than erroring, so
+    inference returns an empty schema, SCOS substitutes the empty-schema dummy column, and the
+    caller sees ``COLUMN_NOT_FOUND`` on a column that plainly exists in their files.
+
+    **Why COPY's shape, and not one that is exact on both.** No single ``PATTERN`` can be
+    Spark-exact on both deployments: exactness on the reg needs a *bare* suffix (no prefix),
+    working at all on sfctest0 needs a tolerant ``(.*/)?`` head, and exactness on sfctest0 would
+    need the *count* of leading segments, which is deployment-specific. A union of the two arms
+    (``^(?:(?:.*/)?dir/)?SUFFIX$``) was tried and rejected: it works on both but over-matches on
+    both, and on sfctest0 it is strictly *worse* than COPY for a recursive glob -- measured, for
+    ``dir/**/*.csv`` it also returned the depth-0 ``dir/x.csv`` that ``**/`` excludes.
+
+    So this matches COPY instead, which yields on sfctest0 -- the deployment CI runs against and
+    the one that resembles production:
+
+    ==================  ==========  ==============  ==========  ==============
+    glob                COPY reg    COPY sfctest0   NSS reg     NSS sfctest0
+    ==================  ==========  ==============  ==========  ==============
+    ``dir/*.csv``       misses      **correct**     misses      **correct**
+    ``dir/**/*.csv``    empty       **correct**     empty       **correct**
+    ==================  ==========  ==============  ==========  ==============
+
+    **Known cost, accepted on purpose: glob reads do not work against a dev reg.** They do not
+    work for COPY either -- ``test_read_glob_paths`` in COPY mode fails on a reg with error 5001,
+    "No data files matched the specified pattern", and that is also why
+    ``test_nss_stage_glob_narrowing`` has no golden. Matching the shipping path beats being
+    uniquely right on an environment whose default read path is equally broken. NSS is therefore
+    no worse than COPY anywhere, and identical to it on sfctest0.
+
+    **Future work.** The correct fix is not a better regex -- it is not to guess the subject
+    string at all. Two routes, in preference order:
+
+    1. Emit per-element ``FILES`` instead of ``PATTERN``: ``LIST`` the location once, apply the
+       glob in Python, and hand GS explicit names. ``NssTvfUtils`` already accepts ``FILES``
+       (``ELEMENT_FILES``), and ``ExternalScanInputMeta`` documents them as "file names relative
+       to this element's location". Exact on every deployment, and it closes a second defect:
+       ``stage_location_has_spark_visible_files`` applies this pattern in *Python* against
+       ``LIST`` output, so it can reach a different verdict than GS -- which is what suppressed
+       the loud ``UNABLE_TO_INFER_SCHEMA`` and let the silent empty schema through.
+    2. Have GS give ``PATTERN`` one defined subject across deployments. Note the
+       ``NssLocationSpec.pattern`` javadoc in GS currently documents the *reg's* element-relative
+       behaviour; it does not hold on sfctest0.
+    """
+    alternation = "|".join(regexes)
+    prefix = _stage_relative_prefix(stage_path)
+    if not prefix:
+        return f"^(?:.*/)?(?:{alternation})$"
+    return f"^(?:.*/)?{re.escape(prefix)}(?:{alternation})$"
+
+
+def build_locations_json(
+    stage_paths: list[str], patterns: dict[str, str] | None = None
+) -> str:
     """Build the ``LOCATIONS`` payload for a multi-path read (SNOW-3993064).
 
     A JSON array of ``{"LOCATION": <path>}`` elements, which GS resolves into a single
@@ -441,7 +731,19 @@ def build_locations_json(stage_paths: list[str]) -> str:
     The caller is responsible for not mixing stages: cross-stage ``LOCATIONS`` is rejected
     by GS, since one stage reference is synthesized from the elements' common prefix.
     """
-    return json.dumps([{"LOCATION": p} for p in normalize_locations(stage_paths)])
+    elements: list[dict[str, str]] = []
+    for path in normalize_locations(stage_paths):
+        element = {"LOCATION": path}
+        # Per-element PATTERN, never a top-level OPTIONS.PATTERN: GS rejects the combination
+        # (StageFileReaderImpl CONFLICTING_COPY_OPTIONS) because the two filter on different
+        # bases. The element's listing is rooted at its own location
+        # (ExternalScanInputMeta.getFileSet builds a per-element FileSet), so an element's
+        # pattern only ever filters its own files.
+        pattern = (patterns or {}).get(path)
+        if pattern:
+            element["PATTERN"] = pattern
+        elements.append(element)
+    return json.dumps(elements)
 
 
 def quote_options_literal(payload: str) -> str:
@@ -605,28 +907,48 @@ def _sf_struct_field_name(name: str) -> str:
     """Render a nested struct field name for ``SF_DATA_TYPE`` ``OBJECT(...)`` grammar.
 
     ``name`` must be the raw ``StructField._name`` (not ``.name``), which preserves
-    mixed-case for valid unquoted identifiers. Invalid unquoted identifiers (spaces,
-    leading digits, dots, embedded quotes) must be double-quoted so GS
-    ``DataType.sqlAsDataType()`` can parse them (SNOW-3992670).
+    mixed-case: ``.name`` upper-cases via ``column_identifier``.
+
+    Every name is quoted unconditionally. Quoting on syntactic validity alone is not
+    enough, because a syntactically perfect identifier can still be a reserved word that
+    GS ``DataType.sqlAsDataType()`` refuses to parse — ``OBJECT(start VARCHAR)`` fails
+    with ``001003 syntax error ... unexpected 'start'`` (SNOW-3992670 follow-up). The
+    reserved set is also not guessable from the name's shape: ``start``, ``order`` and
+    ``values`` all fail while ``end`` parses fine, so a hand-maintained keyword list
+    would drift against the GS grammar. Quoting everything is the only rule that cannot
+    go stale, and it matches the shared non-NSS renderer in ``type_mapping.py``, which
+    has always emitted ``f.case_sensitive_name`` for nested fields.
+
+    Quoting does **not** change case semantics here. Unlike ordinary SQL identifiers,
+    structured-type field names are case-*preserving* and case-*sensitive* whether or not
+    they are quoted: ``OBJECT(City VARCHAR)`` keeps ``City`` (it does not fold to
+    ``CITY``), and casting a source key ``City`` into ``OBJECT(CITY VARCHAR)`` raises
+    ``220000 Typed object schema mismatch in conversion`` rather than matching
+    case-insensitively. So adding quotes is behavior-preserving for every name that
+    already parsed, and only rescues the ones that did not.
+
+    These quotes also do not change column access. ``SF_DATA_TYPE`` is consumed only by
+    GS while it materializes columns from the raw file. The sandbox rebuilds Spark types
+    from ``SPARK_DATA_TYPE`` (raw, unquoted names) and that is the schema SCOS reports
+    to the client, so ``col("a.start")`` / ``caseSensitive`` on/off behave like every
+    other nested-struct read.
     """
-    bare = unquote_if_quoted(name)
-    if is_valid_unquoted_snowflake_identifier(bare):
-        return bare
-    return quote_name_without_upper_casing(bare)
+    return quote_name_without_upper_casing(unquote_if_quoted(name))
 
 
 def _sf_data_type(dt: DataType) -> str:
     """Render a Snowpark type as the ``SF_DATA_TYPE`` string the backend parses via
     ``DataType.sqlAsDataType()`` (SNOW-3780862 / PR #481112).
 
-    Structured types use Snowflake ``OBJECT`` / ``ARRAY`` / ``MAP`` with field names
-    quoted only when Snowflake identifier rules require it (SNOW-3992670) and **no**
-    ``NOT NULL`` —
+    Structured types use Snowflake ``OBJECT`` / ``ARRAY`` / ``MAP`` with **always-quoted**
+    field names (see ``_sf_struct_field_name``) and **no** ``NOT NULL`` —
     nested nullability is not expressed in ``SF_DATA_TYPE`` (the backend's structured-type
     grammar has no per-field null marker; top-level nullability travels in the record's
-    ``NULLABLE`` field). Simple identifiers stay unquoted, e.g.
-    ``OBJECT(id INT, addr OBJECT(city VARCHAR, zip INT))``,
-    ``ARRAY(OBJECT(event_id INT, event_type VARCHAR))``, ``MAP(VARCHAR, INT)``, ``ARRAY(INT)``.
+    ``NULLABLE`` field), e.g.
+    ``OBJECT("id" INT, "addr" OBJECT("city" VARCHAR, "zip" INT))``,
+    ``ARRAY(OBJECT("event_id" INT, "event_type" VARCHAR))``, ``MAP(VARCHAR, INT)``,
+    ``ARRAY(INT)`` — note ``MAP`` key/value and ``ARRAY`` element positions are types,
+    not identifiers, so nothing is quoted there.
     Timestamps are rendered variant-faithfully via ``TIMESTAMP_TZ_TO_SF_TYPE`` (DEFAULT
     stays bare ``TIMESTAMP`` so the session's TIMESTAMP_TYPE_MAPPING applies —
     SNOW-3891973); other scalars delegate to the shared Snowflake type mapper
@@ -672,8 +994,8 @@ def _sf_data_type_from_spark_json(spark_type_json: str) -> str:
 def _snowpark_type_from_spark_json(spark_type_json: str) -> DataType:
     """Convert a Spark ``DataType.json()`` string to its Snowpark equivalent."""
     # Quote nested struct field names before the snowpark hop so their original case is
-    # preserved (an unquoted name would be upper-cased); ``_sf_data_type`` renders them
-    # as valid SQL identifiers (quoted only when required).
+    # preserved (an unquoted name would be upper-cased); ``_sf_data_type`` re-quotes them
+    # for SQL.
     py_dt = _quote_py(_parse_datatype_json_string(spark_type_json))
     return map_pyspark_types_to_snowpark_types(py_dt)
 
@@ -682,11 +1004,10 @@ def _unquote_nested_field_names(dt: DataType) -> DataType:
     """Rebuild a Snowpark type with its nested struct field names unquoted.
 
     ``_snowpark_type_from_spark_json`` double-quotes nested struct field names so the
-    pyspark -> Snowpark hop preserves their case; ``_sf_data_type`` emits the bare name
-    when it is a valid unquoted Snowflake identifier. A *reported* type must carry the
-    raw name
-    instead: a nested field literally named ``"field1"`` matches no key in the column the
-    reader returns, so every leaf under it reads back NULL.
+    pyspark -> Snowpark hop preserves their case; ``_sf_data_type`` re-quotes them for
+    the SQL it emits. A *reported* type must carry the raw name instead: a nested field
+    literally named ``"field1"`` matches no key in the column the reader returns, so
+    every leaf under it reads back NULL.
 
     Case preservation of the unquoted name (e.g. ``MixedCase`` not ``MIXEDCASE``) requires
     both ``_is_column=False`` on each nested ``StructField`` *and* SCOS structured-type

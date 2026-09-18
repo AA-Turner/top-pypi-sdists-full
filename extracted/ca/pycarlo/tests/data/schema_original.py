@@ -8309,12 +8309,13 @@ class SegmentCountSource(sgqlc.types.Enum):
 
     * `MONITOR_HINT`None
     * `NOT_APPLICABLE`None
+    * `OBSERVED`None
     * `UNRESOLVED`None
     * `USER_PROVIDED`None
     """
 
     __schema__ = schema
-    __choices__ = ("MONITOR_HINT", "NOT_APPLICABLE", "UNRESOLVED", "USER_PROVIDED")
+    __choices__ = ("MONITOR_HINT", "NOT_APPLICABLE", "OBSERVED", "UNRESOLVED", "USER_PROVIDED")
 
 
 class SegmentationType(sgqlc.types.Enum):
@@ -27616,6 +27617,7 @@ class BiContainer(sgqlc.types.Type):
         "type",
         "name",
         "connections",
+        "asset_count",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
 
@@ -27645,6 +27647,11 @@ class BiContainer(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("Connection"))),
         graphql_name="connections",
     )
+
+    asset_count = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="assetCount")
+    """Number of BI assets collected or pushed for this container (one
+    catalog row per asset).
+    """
 
 
 class BiLineage(sgqlc.types.Type):
@@ -28163,6 +28170,7 @@ class BillingMonitorUsage(sgqlc.types.Type):
         "agent_observability_monitor_credits",
         "pr_agent_monitor_credits",
         "triage_monitor_credits",
+        "cost_agent_monitor_credits",
         "pii_agent_monitor_credits",
     )
     date = sgqlc.types.Field(Date, graphql_name="date")
@@ -28222,6 +28230,9 @@ class BillingMonitorUsage(sgqlc.types.Type):
 
     triage_monitor_credits = sgqlc.types.Field(Float, graphql_name="triageMonitorCredits")
     """Credits used by automated alert triage"""
+
+    cost_agent_monitor_credits = sgqlc.types.Field(Float, graphql_name="costAgentMonitorCredits")
+    """Credits used by the Cost & Performance Agent"""
 
     pii_agent_monitor_credits = sgqlc.types.Field(Float, graphql_name="piiAgentMonitorCredits")
     """Credits used by the PII Agent"""
@@ -37675,7 +37686,13 @@ class EstimatedCredits(sgqlc.types.Type):
     """
 
     __schema__ = schema
-    __field_names__ = ("credits_per_day", "scale", "segment_count_source", "warnings")
+    __field_names__ = (
+        "credits_per_day",
+        "scale",
+        "segment_count_source",
+        "segment_count",
+        "warnings",
+    )
     credits_per_day = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="creditsPerDay")
     """Expected daily credits. Matches the unit written to the internal
     `monitor_usage` fact table.
@@ -37691,11 +37708,21 @@ class EstimatedCredits(sgqlc.types.Type):
         sgqlc.types.non_null(SegmentCountSource), graphql_name="segmentCountSource"
     )
     """Where the segment count used in the estimate came from:
-    `USER_PROVIDED` (from `segmentCountHint` arg), `MONITOR_HINT`
-    (cached on an existing monitor after a prior successful run),
-    `NOT_APPLICABLE` (this monitor type has no segmentation), or
-    `UNRESOLVED` (no segment count available — scale multiplier was
-    skipped and a warning emitted).
+    `USER_PROVIDED` (from `segmentCountHint` arg), `OBSERVED`
+    (measured live against the warehouse during this request via the
+    `countSegments` mutation option), `MONITOR_HINT` (cached on an
+    existing monitor after a prior successful run), `NOT_APPLICABLE`
+    (this monitor type has no segmentation), or `UNRESOLVED` (no
+    segment count available — scale multiplier was skipped and a
+    warning emitted).
+    """
+
+    segment_count = sgqlc.types.Field(Int, graphql_name="segmentCount")
+    """The segment count the estimate multiplied by. Set for metric
+    monitors when a count was resolved (1 for unsegmented
+    definitions); null when the count is unresolved, and always null
+    for monitor types whose pricing has no segment multiplier
+    (comparison, custom SQL, validation, table).
     """
 
     warnings = sgqlc.types.Field(
@@ -38010,8 +38037,10 @@ class EtlJobRunV3(sgqlc.types.Type):
 
     raw_status = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="rawStatus")
     """Producer-supplied vendor status string before normalization.
-    Always populated; clients should display this when `status` falls
-    outside the known enum values.
+    Always populated. `status` always serialises to a known enum
+    member, with out-of-enum values coerced to `UNKNOWN`, so this
+    field is the only place the vendor value survives. Display it when
+    `status` is `UNKNOWN` and this differs from `'unknown'`.
     """
 
     event_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="eventTime")
@@ -38238,8 +38267,10 @@ class EtlTaskRunV3(sgqlc.types.Type):
 
     raw_status = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="rawStatus")
     """Producer-supplied vendor status string before normalization.
-    Always populated; clients should display this when `status` falls
-    outside the known enum values.
+    Always populated. `status` always serialises to a known enum
+    member, with out-of-enum values coerced to `UNKNOWN`, so this
+    field is the only place the vendor value survives. Display it when
+    `status` is `UNKNOWN` and this differs from `'unknown'`.
     """
 
     event_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="eventTime")
@@ -43496,7 +43527,9 @@ class JobLineageNode(sgqlc.types.Type):
     latest_run_status = sgqlc.types.Field(EtlRunStatus, graphql_name="latestRunStatus")
     """Status of the node's latest finished run (job nodes only). Null
     when the job has no finished runs or the read is not the unified
-    one.
+    one. Out-of-enum stored statuses are coerced to UNKNOWN; the
+    vendor value is not exposed on this type. See
+    `EtlJobRunV3.rawStatus` / `EtlTaskRunV3.rawStatus`.
     """
 
 
@@ -46112,6 +46145,14 @@ class MonitorLabelObject(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "database_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="databaseMcons",
+                        default=None,
+                    ),
+                ),
+                (
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
@@ -46229,6 +46270,11 @@ class MonitorLabelObject(sgqlc.types.Type):
       or tables (MCON)
     * `exclude_mcons` (`[String]`): Exclude monitors associated with
       these warehouses, projects, datasets, or tables (MCON)
+    * `database_mcons` (`[String!]`): Filter by databases, given as
+      project MCONs. Returns monitors that reference at least one
+      asset in any of the specified databases. An empty list applies
+      no filter. At most 250 MCONs. Cannot be combined with
+      includeOotbMonitors.
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
@@ -82510,7 +82556,12 @@ class Query(sgqlc.types.Type):
       table-scoped queries.
     * `to_date` (`DateTime`): Only include runs started at or before
       this time.
-    * `status_in` (`[EtlRunStatus!]`)None
+    * `status_in` (`[EtlRunStatus!]`): Only include runs whose status
+      is in this list. `UNKNOWN` in the list also matches rows whose
+      stored status is not a canonical enum value, which is how runs
+      with leaked producer statuses (for example Databricks
+      `terminating`) are selected. Omitting the argument applies no
+      status filter; an explicit empty list matches no runs.
     * `table_mcons` (`[String!]`): Scope to runs of jobs that produce
       one of the given table MCONs (downstream lineage). A run is
       included when its job — or any of the job's tasks — writes the
@@ -88850,6 +88901,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "database_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="databaseMcons",
+                        default=None,
+                    ),
+                ),
+                (
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
@@ -88967,6 +89026,11 @@ class Query(sgqlc.types.Type):
       or tables (MCON)
     * `exclude_mcons` (`[String]`): Exclude monitors associated with
       these warehouses, projects, datasets, or tables (MCON)
+    * `database_mcons` (`[String!]`): Filter by databases, given as
+      project MCONs. Returns monitors that reference at least one
+      asset in any of the specified databases. An empty list applies
+      no filter. At most 250 MCONs. Cannot be combined with
+      includeOotbMonitors.
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
@@ -89157,6 +89221,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "database_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="databaseMcons",
+                        default=None,
+                    ),
+                ),
+                (
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
@@ -89274,6 +89346,11 @@ class Query(sgqlc.types.Type):
       or tables (MCON)
     * `exclude_mcons` (`[String]`): Exclude monitors associated with
       these warehouses, projects, datasets, or tables (MCON)
+    * `database_mcons` (`[String!]`): Filter by databases, given as
+      project MCONs. Returns monitors that reference at least one
+      asset in any of the specified databases. An empty list applies
+      no filter. At most 250 MCONs. Cannot be combined with
+      includeOotbMonitors.
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
@@ -89464,6 +89541,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "database_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="databaseMcons",
+                        default=None,
+                    ),
+                ),
+                (
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
@@ -89581,6 +89666,11 @@ class Query(sgqlc.types.Type):
       or tables (MCON)
     * `exclude_mcons` (`[String]`): Exclude monitors associated with
       these warehouses, projects, datasets, or tables (MCON)
+    * `database_mcons` (`[String!]`): Filter by databases, given as
+      project MCONs. Returns monitors that reference at least one
+      asset in any of the specified databases. An empty list applies
+      no filter. At most 250 MCONs. Cannot be combined with
+      includeOotbMonitors.
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
@@ -89771,6 +89861,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "database_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="databaseMcons",
+                        default=None,
+                    ),
+                ),
+                (
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
@@ -89888,6 +89986,11 @@ class Query(sgqlc.types.Type):
       or tables (MCON)
     * `exclude_mcons` (`[String]`): Exclude monitors associated with
       these warehouses, projects, datasets, or tables (MCON)
+    * `database_mcons` (`[String!]`): Filter by databases, given as
+      project MCONs. Returns monitors that reference at least one
+      asset in any of the specified databases. An empty list applies
+      no filter. At most 250 MCONs. Cannot be combined with
+      includeOotbMonitors.
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
@@ -90078,6 +90181,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "database_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="databaseMcons",
+                        default=None,
+                    ),
+                ),
+                (
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
@@ -90195,6 +90306,11 @@ class Query(sgqlc.types.Type):
       or tables (MCON)
     * `exclude_mcons` (`[String]`): Exclude monitors associated with
       these warehouses, projects, datasets, or tables (MCON)
+    * `database_mcons` (`[String!]`): Filter by databases, given as
+      project MCONs. Returns monitors that reference at least one
+      asset in any of the specified databases. An empty list applies
+      no filter. At most 250 MCONs. Cannot be combined with
+      includeOotbMonitors.
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
@@ -90385,6 +90501,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "database_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="databaseMcons",
+                        default=None,
+                    ),
+                ),
+                (
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
@@ -90502,6 +90626,11 @@ class Query(sgqlc.types.Type):
       or tables (MCON)
     * `exclude_mcons` (`[String]`): Exclude monitors associated with
       these warehouses, projects, datasets, or tables (MCON)
+    * `database_mcons` (`[String!]`): Filter by databases, given as
+      project MCONs. Returns monitors that reference at least one
+      asset in any of the specified databases. An empty list applies
+      no filter. At most 250 MCONs. Cannot be combined with
+      includeOotbMonitors.
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
@@ -90692,6 +90821,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "database_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="databaseMcons",
+                        default=None,
+                    ),
+                ),
+                (
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
@@ -90809,6 +90946,11 @@ class Query(sgqlc.types.Type):
       or tables (MCON)
     * `exclude_mcons` (`[String]`): Exclude monitors associated with
       these warehouses, projects, datasets, or tables (MCON)
+    * `database_mcons` (`[String!]`): Filter by databases, given as
+      project MCONs. Returns monitors that reference at least one
+      asset in any of the specified databases. An empty list applies
+      no filter. At most 250 MCONs. Cannot be combined with
+      includeOotbMonitors.
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
@@ -90999,6 +91141,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "database_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="databaseMcons",
+                        default=None,
+                    ),
+                ),
+                (
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
@@ -91116,6 +91266,11 @@ class Query(sgqlc.types.Type):
       or tables (MCON)
     * `exclude_mcons` (`[String]`): Exclude monitors associated with
       these warehouses, projects, datasets, or tables (MCON)
+    * `database_mcons` (`[String!]`): Filter by databases, given as
+      project MCONs. Returns monitors that reference at least one
+      asset in any of the specified databases. An empty list applies
+      no filter. At most 250 MCONs. Cannot be combined with
+      includeOotbMonitors.
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
@@ -91306,6 +91461,14 @@ class Query(sgqlc.types.Type):
                     ),
                 ),
                 (
+                    "database_mcons",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(String)),
+                        graphql_name="databaseMcons",
+                        default=None,
+                    ),
+                ),
+                (
                     "alerted_only",
                     sgqlc.types.Arg(Boolean, graphql_name="alertedOnly", default=None),
                 ),
@@ -91423,6 +91586,11 @@ class Query(sgqlc.types.Type):
       or tables (MCON)
     * `exclude_mcons` (`[String]`): Exclude monitors associated with
       these warehouses, projects, datasets, or tables (MCON)
+    * `database_mcons` (`[String!]`): Filter by databases, given as
+      project MCONs. Returns monitors that reference at least one
+      asset in any of the specified databases. An empty list applies
+      no filter. At most 250 MCONs. Cannot be combined with
+      includeOotbMonitors.
     * `alerted_only` (`Boolean`): EXPERIMENTAL. Filter monitors to
       only the ones that are breached.
     * `noisy_only` (`Boolean`): EXPERIMENTAL. When true, return only
@@ -111087,6 +111255,7 @@ class TraceOverviewMetrics(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
         "total_traces",
+        "total_conversations",
         "avg_latency",
         "p50_latency",
         "p95_latency",
@@ -111098,6 +111267,14 @@ class TraceOverviewMetrics(sgqlc.types.Type):
         "error_percentage",
     )
     total_traces = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalTraces")
+
+    total_conversations = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="totalConversations"
+    )
+    """Number of conversations with messages or tool calls from traces
+    matching the selected filters and time range. The end time is
+    excluded; totalTraces currently includes the end time.
+    """
 
     avg_latency = sgqlc.types.Field(Float, graphql_name="avgLatency")
 
@@ -111122,6 +111299,7 @@ class TraceOverviewMetricsWithComparison(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = (
         "total_traces",
+        "total_conversations",
         "avg_latency",
         "p50_latency",
         "p95_latency",
@@ -111134,6 +111312,14 @@ class TraceOverviewMetricsWithComparison(sgqlc.types.Type):
         "prev_period",
     )
     total_traces = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="totalTraces")
+
+    total_conversations = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="totalConversations"
+    )
+    """Number of conversations with messages or tool calls from traces
+    matching the selected filters and time range. The end time is
+    excluded; totalTraces currently includes the end time.
+    """
 
     avg_latency = sgqlc.types.Field(Float, graphql_name="avgLatency")
 
@@ -111943,7 +112129,14 @@ class TroubleshootingAgentConfig(sgqlc.types.Type):
 
 class TsaAnalysis(sgqlc.types.Type):
     __schema__ = schema
-    __field_names__ = ("status", "thread_id", "run_id", "conversation_data")
+    __field_names__ = (
+        "status",
+        "thread_id",
+        "run_id",
+        "conversation_data",
+        "root_cause_tldr",
+        "suggested_fix_tldr",
+    )
     status = sgqlc.types.Field(sgqlc.types.non_null(TsaAnalysisStatusEnum), graphql_name="status")
 
     thread_id = sgqlc.types.Field(String, graphql_name="threadId")
@@ -111952,12 +112145,23 @@ class TsaAnalysis(sgqlc.types.Type):
 
     conversation_data = sgqlc.types.Field(JSONString, graphql_name="conversationData")
 
+    root_cause_tldr = sgqlc.types.Field(String, graphql_name="rootCauseTldr")
+
+    suggested_fix_tldr = sgqlc.types.Field(String, graphql_name="suggestedFixTldr")
+
 
 class TsaAnalysisResultType(sgqlc.types.Type):
     """Result of a TSA analysis query."""
 
     __schema__ = schema
-    __field_names__ = ("status", "conversation_data", "thread_id", "run_id")
+    __field_names__ = (
+        "status",
+        "conversation_data",
+        "thread_id",
+        "run_id",
+        "root_cause_tldr",
+        "suggested_fix_tldr",
+    )
     status = sgqlc.types.Field(sgqlc.types.non_null(TsaAnalysisStatus), graphql_name="status")
     """Status of the TSA analysis: NOT_STARTED, IN_PROGRESS, or COMPLETED"""
 
@@ -111970,6 +112174,20 @@ class TsaAnalysisResultType(sgqlc.types.Type):
     run_id = sgqlc.types.Field(String, graphql_name="runId")
     """LangGraph run ID for feedback submission. Available when status is
     COMPLETED.
+    """
+
+    root_cause_tldr = sgqlc.types.Field(String, graphql_name="rootCauseTldr")
+    """One-sentence root cause for the alert-page banner, from the latest
+    available completed analysis. Retained while a follow-up is
+    running or after it fails. Null when no banner text is available
+    or access policy withholds the content.
+    """
+
+    suggested_fix_tldr = sgqlc.types.Field(String, graphql_name="suggestedFixTldr")
+    """One-sentence suggested next action for the alert-page banner, from
+    the latest available completed analysis. Retained while a follow-
+    up is running or after it fails. Null when no banner text is
+    available or access policy withholds the content.
     """
 
 

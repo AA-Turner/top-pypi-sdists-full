@@ -1,69 +1,64 @@
-from typing import TYPE_CHECKING, Any, Dict, List, Type, TypeVar
+from typing import Any, Dict, List, Type, TypeVar, Union
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
 
 from ..models.static_memory_transform_value_type_2_kind import StaticMemoryTransformValueType2Kind
-
-if TYPE_CHECKING:
-    from ..models.static_memory_transform_value_type_2_messages_item import StaticMemoryTransformValueType2MessagesItem
-
+from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="StaticMemoryTransformValueType2")
 
 
 @_attrs_define
 class StaticMemoryTransformValueType2:
-    """Explicit message history
+    """Deprecated, still read as it was written: the run's memory id, else the `memory_id` here.
+    The step's own `memory_id` is not read while this kind is set; switch the kind to `window`
+    to use it. Without a `context_length`, or with 0, it is `off` and reads `previous_messages`.
 
-    Attributes:
-        kind (StaticMemoryTransformValueType2Kind):
-        messages (List['StaticMemoryTransformValueType2MessagesItem']):
+        Attributes:
+            kind (StaticMemoryTransformValueType2Kind):
+            context_length (Union[Unset, int]): Maximum number of messages to retain in context
+            memory_id (Union[Unset, str]): Identifier for persistent memory across agent invocations
     """
 
     kind: StaticMemoryTransformValueType2Kind
-    messages: List["StaticMemoryTransformValueType2MessagesItem"]
+    context_length: Union[Unset, int] = UNSET
+    memory_id: Union[Unset, str] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         kind = self.kind.value
 
-        messages = []
-        for messages_item_data in self.messages:
-            messages_item = messages_item_data.to_dict()
-
-            messages.append(messages_item)
+        context_length = self.context_length
+        memory_id = self.memory_id
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "kind": kind,
-                "messages": messages,
             }
         )
+        if context_length is not UNSET:
+            field_dict["context_length"] = context_length
+        if memory_id is not UNSET:
+            field_dict["memory_id"] = memory_id
 
         return field_dict
 
     @classmethod
     def from_dict(cls: Type[T], src_dict: Dict[str, Any]) -> T:
-        from ..models.static_memory_transform_value_type_2_messages_item import (
-            StaticMemoryTransformValueType2MessagesItem,
-        )
-
         d = src_dict.copy()
         kind = StaticMemoryTransformValueType2Kind(d.pop("kind"))
 
-        messages = []
-        _messages = d.pop("messages")
-        for messages_item_data in _messages:
-            messages_item = StaticMemoryTransformValueType2MessagesItem.from_dict(messages_item_data)
+        context_length = d.pop("context_length", UNSET)
 
-            messages.append(messages_item)
+        memory_id = d.pop("memory_id", UNSET)
 
         static_memory_transform_value_type_2 = cls(
             kind=kind,
-            messages=messages,
+            context_length=context_length,
+            memory_id=memory_id,
         )
 
         static_memory_transform_value_type_2.additional_properties = d

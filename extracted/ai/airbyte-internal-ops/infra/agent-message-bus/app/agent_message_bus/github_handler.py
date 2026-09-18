@@ -199,11 +199,6 @@ def handle_github_webhook(
         Summary dict with processing results.
     """
     action = payload.get("action", "")
-    sender = payload.get("sender", {})
-
-    # Early discard: bot senders
-    if sender.get("type") == "Bot":
-        return {"status": "skipped", "reason": "bot_sender"}
 
     # Extract repo info
     repo_data = payload.get("repository", {})
@@ -254,6 +249,8 @@ def handle_github_webhook(
                 continue
 
         message = _format_notification(event_type, action, payload, sub)
+        if sub.slack_users_cc:
+            message = f"{message}\n\nCC: {sub.slack_users_cc}"
         result = inject_message(sub.session_url, message)
 
         if result == INJECT_OK:

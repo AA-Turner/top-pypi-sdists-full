@@ -194,3 +194,284 @@ class TestUnchangedSince:
             session,
             since,
         )
+
+
+def _history(
+    session,
+    registration,
+    *,
+    started,
+    status,
+    dry_run=False,
+    completed=True,
+    full_sync=True,
+):
+    """One board-sync history row, as a finished attempt.
+
+    `full_sync=True` by default so the existing watermark tests are not all
+    forced into the weekly-reconciliation branch; the cases that care about the
+    distinction say so explicitly.
+    """
+    from src.domain.board import BoardSyncHistory
+
+    row = BoardSyncHistory(
+        id=str(uuid4()),
+        organization_id=registration.organization_id,
+        board_registration_id=registration.id,
+        sync_status=status,
+        dry_run=dry_run,
+        full_sync=full_sync,
+        started_at=started,
+        completed_at=(started + timedelta(seconds=30)) if completed else None,
+    )
+    session.add(row)
+    session.commit()
+    return row
+
+
+class TestWhereAnIncrementalSyncResumes:
+    """`innoday sync` re-pulled every ticket on every run.
+
+    The adapter has filtered server-side all along — Linear's
+    `filter: { updatedAt: { gte: … } }` — and `_unchanged_since` has guarded
+    coverage all along. Nothing supplied `since`, so BPAI fetched all 258
+    issues twice a day and wrote almost none of them.
+    """
+
+    def _resume(self, session, registration):
+        return board_sync_service._resume_point(session, registration)
+
+    def test_no_history_means_no_resume_point(self, seeded):
+        """A board's first sync must be a full pull. An adapter that filters at
+        the source never sends a ticket InnoDay has not seen, so resuming on an
+        empty baseline would be a windowed *import* — permanently missing
+        everything older than whichever window ran first."""
+        session, registration = seeded
+        assert self._resume(session, registration) is None
+
+    def test_it_resumes_from_the_start_not_the_completion(self, seeded):
+        """The property that makes this safe.
+
+        A sync takes minutes on a real board. A ticket edited *while* one ran
+        falls between a completion-stamped watermark and the next run's lower
+        bound — skipped, then skipped forever, because nothing revisits it.
+        """
+        from src.domain.board import SyncStatus
+
+        session, registration = seeded
+        started = datetime.now(timezone.utc) - timedelta(hours=2)
+        _history(session, registration, started=started, status=SyncStatus.COMPLETED)
+
+        resumed = self._resume(session, registration)
+
+        assert resumed is not None
+        assert resumed < started, "must not resume at or after the start"
+        assert started - resumed == timedelta(minutes=5)
+
+    def test_a_failed_sync_is_not_a_watermark(self, seeded):
+        """It proves nothing about what it managed to import, so treating its
+        start as a baseline would skip whatever it missed."""
+        from src.domain.board import SyncStatus
+
+        session, registration = seeded
+        _history(
+            session,
+            registration,
+            started=datetime.now(timezone.utc) - timedelta(hours=1),
+            status=SyncStatus.FAILED,
+        )
+        assert self._resume(session, registration) is None
+
+    def test_a_dry_run_is_not_a_watermark(self, seeded):
+        """A preview wrote nothing, so nothing after it has been imported."""
+        from src.domain.board import SyncStatus
+
+        session, registration = seeded
+        _history(
+            session,
+            registration,
+            started=datetime.now(timezone.utc) - timedelta(hours=1),
+            status=SyncStatus.COMPLETED,
+            dry_run=True,
+        )
+        assert self._resume(session, registration) is None
+
+    def test_the_newest_completed_sync_wins(self, seeded):
+        from src.domain.board import SyncStatus
+
+        session, registration = seeded
+        old = datetime.now(timezone.utc) - timedelta(days=3)
+        recent = datetime.now(timezone.utc) - timedelta(hours=1)
+        _history(session, registration, started=old, status=SyncStatus.COMPLETED)
+        _history(session, registration, started=recent, status=SyncStatus.COMPLETED)
+
+        assert self._resume(session, registration) == recent - timedelta(minutes=5)
+
+    def test_another_boards_history_does_not_count(self, seeded):
+        """Two boards sync independently; borrowing a sibling's watermark would
+        skip everything this one has never seen."""
+        from src.domain.board import BoardRegistration, BoardType, SyncStatus
+
+        session, registration = seeded
+        # A second *project*, because `board_registrations.project_id` is
+        # UNIQUE -- one board per project, so a sibling board cannot share one.
+        sibling_project = Project(
+            id=str(uuid4()),
+            organization_id=registration.organization_id,
+            alias="OTHER",
+            name="Other",
+            description="",
+        )
+        session.add(sibling_project)
+        session.commit()
+        other = BoardRegistration(
+            id=str(uuid4()),
+            organization_id=registration.organization_id,
+            project_id=sibling_project.id,
+            board_type=BoardType.LINEAR,
+            board_name="Other",
+            board_url="https://linear.app/other",
+            board_external_id="other",
+            user_id=None,
+        )
+        session.add(other)
+        session.commit()
+        _history(
+            session,
+            other,
+            started=datetime.now(timezone.utc) - timedelta(hours=1),
+            status=SyncStatus.COMPLETED,
+        )
+
+        assert self._resume(session, registration) is None
+
+
+class TestTheFullFlagIsTheEscapeHatch:
+    def test_the_cli_sends_full_sync_when_asked(self):
+        assert SyncCommands is not None  # import guard for the parser check
+
+    def test_full_defaults_off(self):
+        """Incremental is the default; a full re-pull is the repair path."""
+        parser = argparse.ArgumentParser()
+        SyncCommands.setup_parser(parser)
+        assert parser.parse_args([]).full is False
+        assert parser.parse_args(["--full"]).full is True
+
+
+class TestAFullPullIsDuePeriodically:
+    """Incremental syncing is only safe because of this.
+
+    The watermark advances on every success, so a ticket missed once — skew past
+    the overlap, a board that did not move `updatedAt`, a partial run recorded
+    as completed — sits outside every later window, and nothing revisits it.
+    Time-based filtering cannot notice: there is no count to reconcile and no
+    checksum. A periodic full pull bounds the damage to a week instead of
+    forever.
+    """
+
+    def _resume(self, session, registration):
+        return board_sync_service._resume_point(session, registration)
+
+    def test_a_recent_full_pull_permits_resuming(self, seeded):
+        from src.domain.board import SyncStatus
+
+        session, registration = seeded
+        _history(
+            session,
+            registration,
+            started=datetime.now(timezone.utc) - timedelta(days=1),
+            status=SyncStatus.COMPLETED,
+            full_sync=True,
+        )
+        assert self._resume(session, registration) is not None
+
+    def test_an_aged_out_full_pull_forces_another(self, seeded):
+        """Eight days since the last full reconciliation, so the next sync is
+        one — even though there is a perfectly good recent watermark."""
+        from src.domain.board import SyncStatus
+
+        session, registration = seeded
+        now = datetime.now(timezone.utc)
+        _history(
+            session,
+            registration,
+            started=now - timedelta(days=8),
+            status=SyncStatus.COMPLETED,
+            full_sync=True,
+        )
+        _history(
+            session,
+            registration,
+            started=now - timedelta(hours=1),
+            status=SyncStatus.COMPLETED,
+            full_sync=False,
+        )
+
+        assert self._resume(session, registration) is None
+
+    def test_incremental_history_alone_forces_a_full_pull(self, seeded):
+        """A board that has only ever resumed has never reconciled, so it is
+        due now rather than at some point seven days from an event that never
+        happened."""
+        from src.domain.board import SyncStatus
+
+        session, registration = seeded
+        _history(
+            session,
+            registration,
+            started=datetime.now(timezone.utc) - timedelta(hours=1),
+            status=SyncStatus.COMPLETED,
+            full_sync=False,
+        )
+        assert self._resume(session, registration) is None
+
+    def test_a_failed_full_pull_does_not_reset_the_clock(self, seeded):
+        """It may have imported nothing. Counting it would postpone the real
+        reconciliation by a week on the strength of a run that failed."""
+        from src.domain.board import SyncStatus
+
+        session, registration = seeded
+        now = datetime.now(timezone.utc)
+        _history(
+            session,
+            registration,
+            started=now - timedelta(days=8),
+            status=SyncStatus.COMPLETED,
+            full_sync=True,
+        )
+        _history(
+            session,
+            registration,
+            started=now - timedelta(hours=1),
+            status=SyncStatus.FAILED,
+            full_sync=True,
+        )
+        assert self._resume(session, registration) is None
+
+    def test_the_watermark_still_comes_from_the_newest_sync_of_either_kind(
+        self, seeded
+    ):
+        """Once reconciliation is current, the resume point is the newest
+        successful sync — full or incremental. Only the *due date* cares which
+        kind it was."""
+        from src.domain.board import SyncStatus
+
+        session, registration = seeded
+        now = datetime.now(timezone.utc)
+        _history(
+            session,
+            registration,
+            started=now - timedelta(days=2),
+            status=SyncStatus.COMPLETED,
+            full_sync=True,
+        )
+        recent = now - timedelta(minutes=30)
+        _history(
+            session,
+            registration,
+            started=recent,
+            status=SyncStatus.COMPLETED,
+            full_sync=False,
+        )
+
+        assert self._resume(session, registration) == recent - timedelta(minutes=5)

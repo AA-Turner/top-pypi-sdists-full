@@ -41,6 +41,7 @@ class TestSyncJobModel(unittest.TestCase):
                 internal_id = '',
                 namespace_id = '',
                 status = 'running',
+                trigger = 'scheduled',
                 phase = '',
                 total_files = 0.0,
                 files_synced = 0.0,

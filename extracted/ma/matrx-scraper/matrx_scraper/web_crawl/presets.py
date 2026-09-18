@@ -133,11 +133,26 @@ class CrawlPresetRepository:
         ``deleted_at`` is cleared on update: re-saving a name the user deleted
         restores that preset with the new config rather than failing on a
         unique key they cannot see.
+
+        🚨 NO-BACKSTOP. The preset names its own organization — the SITE's, read
+        in the same claim-bound session, because a preset is a component of the
+        site and belongs wherever the site belongs. Until 2026-09-17 this payload
+        carried no organization at all and the row was filled in by the
+        ``public._stamp_org_default`` BEFORE-INSERT trigger from whoever happened
+        to be saving, so a preset saved by a collaborator landed in that person's
+        personal workspace instead of the site's organization. Migration 0765
+        stops ``web.conform`` from ever attaching that trigger again; the
+        attachment standing on ``web.crawl_preset`` is now a no-op, because this
+        payload names the organization before it ever runs.
         """
 
         async with self.repository.rls():
+            site = await WebSite.get_or_none(use_cache=False, id=site_id, deleted_at__isnull=True)
+            if site is None:
+                raise LookupError(f"site {site_id} does not exist or is not accessible")
             row = await WebCrawlPreset.upsert(
                 {
+                    "organization_id": str(site.organization_id),
                     "site_id": site_id,
                     "name": request.name,
                     "description": request.description,

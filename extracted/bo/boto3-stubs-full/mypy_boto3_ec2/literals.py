@@ -3276,9 +3276,11 @@ OperationTypeType = Literal["add", "remove"]
 OutputFormatType = Literal["csv", "parquet"]
 PartitionLoadFrequencyType = Literal["daily", "monthly", "none", "weekly"]
 PasswordDataAvailableWaiterName = Literal["password_data_available"]
-PayerResponsibilityScopeType = Literal["vpc-endpoint-charges"]
+PayerResponsibilityScopeType = Literal["resource-gateway-charges", "vpc-endpoint-charges"]
 PayerResponsibilityType = Literal["ServiceOwner"]
-PayerResponsibilityTypeType = Literal["vpc-endpoint-account", "vpc-endpoint-service-account"]
+PayerResponsibilityTypeType = Literal[
+    "resource-gateway-account", "vpc-endpoint-account", "vpc-endpoint-service-account"
+]
 PaymentOptionType = Literal["AllUpfront", "NoUpfront", "PartialUpfront"]
 PeriodTypeType = Literal[
     "fifteen-minutes", "five-minutes", "one-day", "one-hour", "one-week", "three-hours"
@@ -3780,7 +3782,7 @@ VpcEncryptionControlStateType = Literal[
     "monitor-in-progress",
 ]
 VpcEndpointTypeType = Literal[
-    "Gateway", "GatewayLoadBalancer", "Interface", "Resource", "ServiceNetwork"
+    "Gateway", "GatewayLoadBalancer", "Interface", "Resource", "ServiceNetwork", "Tunnel"
 ]
 VpcExistsWaiterName = Literal["vpc_exists"]
 VpcPeeringConnectionDeletedWaiterName = Literal["vpc_peering_connection_deleted"]

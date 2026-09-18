@@ -5,10 +5,10 @@ build-backend = "hatchling.build"
 [tool.hatch.build.targets.sdist]
 include = [
   "/docs",
-  "/src/crate/*.py",
+  "/src/crate",
   "/tests",
-  "*.rst",
-  "*.txt",
+  "/*.rst",
+  "/*.txt",
 ]
 exclude = [
   "/docs/.crate-docs",
@@ -58,10 +58,10 @@ dependencies = [
 dev = [
     "certifi",
     "coverage",
-    "mypy<2.2",
+    "mypy<2.4",
     "pytest<10",
     "pytz",
-    "ruff<0.16",
+    "ruff<0.17",
 ]
 docs = [
     "sphinx",

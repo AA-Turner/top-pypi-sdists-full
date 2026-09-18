@@ -99,6 +99,7 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
     UpdateEventRuleRequestTypeDef,
     UpdateEventRuleResponseTypeDef,
+    UpdateManagedNotificationChannelAssociationRequestTypeDef,
     UpdateNotificationConfigurationRequestTypeDef,
     UpdateNotificationConfigurationResponseTypeDef,
 )
@@ -245,7 +246,7 @@ class UserNotificationsClient(BaseClient):
         self, **kwargs: Unpack[DeregisterNotificationHubRequestTypeDef]
     ) -> DeregisterNotificationHubResponseTypeDef:
         """
-        Deregisters a <code>NotificationConfiguration</code> in the specified Region.
+        Deregisters a <code>NotificationHub</code> in the specified Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/notifications/client/deregister_notification_hub.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_notifications/client/#deregister_notification_hub)
@@ -518,7 +519,7 @@ class UserNotificationsClient(BaseClient):
         self, **kwargs: Unpack[RegisterNotificationHubRequestTypeDef]
     ) -> RegisterNotificationHubResponseTypeDef:
         """
-        Registers a <code>NotificationConfiguration</code> in the specified Region.
+        Registers a <code>NotificationHub</code> in the specified Region.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/notifications/client/register_notification_hub.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_notifications/client/#register_notification_hub)
@@ -548,6 +549,17 @@ class UserNotificationsClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/notifications/client/update_event_rule.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_notifications/client/#update_event_rule)
+        """
+
+    def update_managed_notification_channel_association(
+        self, **kwargs: Unpack[UpdateManagedNotificationChannelAssociationRequestTypeDef]
+    ) -> dict[str, Any]:
+        """
+        Updates the <code>isSensitiveEventsSubscribed</code> property of a particular
+        ManagedNotification channel association.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/notifications/client/update_managed_notification_channel_association.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_notifications/client/#update_managed_notification_channel_association)
         """
 
     def update_notification_configuration(

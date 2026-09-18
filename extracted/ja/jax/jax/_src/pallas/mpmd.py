@@ -28,7 +28,6 @@ from jax._src import api_util
 from jax._src import config
 from jax._src import core as jax_core
 from jax._src import effects
-from jax._src import hijax
 from jax._src import numpy as jnp
 from jax._src import state
 from jax._src import flattree as ft
@@ -75,7 +74,7 @@ def mpmd_map_tracing_context(
     yield
 
 
-mpmd_map_p = hijax.HiPrimitive("mpmd_map")
+mpmd_map_p = jax_core.Primitive("mpmd_map")
 mpmd_map_p.multiple_results = True
 
 
@@ -144,6 +143,17 @@ def _mpmd_map_abstract_eval(
         "mpmd_map requires all mesh axes to be Manual, got"
         f" {get_abstract_mesh().axis_types}"
     )
+  if any(
+      isinstance(a, state.AbstractRef)
+      and isinstance(a.inner_aval, jax_core.ShapedArray)
+      and not a.manual_axis_type.empty
+      for a in in_avals
+  ):
+    raise ValueError(
+        "mpmd_map does not support Refs with varying manual axis types:"
+        f" {in_avals=}:"
+        f" {[None if not isinstance(a, state.AbstractRef) else a.manual_axis_type for a in in_avals]}"
+    )
 
   # TODO(slebedev): Handle pinned buffers as in ``pallas_call``.
   outin_aliases = {
@@ -188,7 +198,7 @@ def _default_memory_space(meshes: Sequence[pallas_core.Mesh]):
 
 
 def _mpmd_map_discharge_rule(
-    ctx,
+    ctx: state_discharge.DischargeContext,
     *args: Any,
     jaxprs,
     meshes,
@@ -223,12 +233,12 @@ def _mpmd_map_discharge_rule(
       default_memory_space if m is None else m for m in in_memory_spaces
   ]
   args = tuple(
-      pallas_core.with_memory_space_constraint_p.bind(
-          arg, memory_space=memory_space
+      state_discharge.constrain(
+          arg, memory_space, ctx.strip_memory_space,
+          neutral_ms=(default_memory_space,),
       )
-      if memory_space is not default_memory_space
-      else arg
-      for arg, memory_space in zip(args, in_memory_spaces)
+      if isinstance(aval, state.AbstractRef) else arg
+      for arg, aval, memory_space in zip(args, ctx.in_avals, in_memory_spaces)
   )
 
   write_indices = sorted(write_indices)
@@ -279,7 +289,7 @@ def _mpmd_map_discharge_rule(
       state_discharge.discharged_aval(
           ctx.in_avals[i],
           discharge=True,
-          strip_memory_space=True,
+          strip_memory_space=ctx.strip_memory_space,
       )
       for i in write_indices
   ]
@@ -308,7 +318,19 @@ def _mpmd_map_discharge_rule(
   ans, updated_refs = util.split_list(res, [num_out_orig])
   new_invals = [None] * len(ctx.in_avals)
   for out_idx, in_idx in enumerate(write_indices):
-    new_invals[in_idx] = updated_refs[out_idx]
+    ms = in_memory_spaces[in_idx]
+    new_invals[in_idx] = state_discharge.constrain(
+        updated_refs[out_idx], ms, ctx.strip_memory_space,
+        neutral_ms=(default_memory_space,),
+    )
+  # constrain aliased outputs
+  for in_idx, out_idx in input_output_aliases.items():
+    if isinstance(ctx.in_avals[in_idx], state.AbstractRef):
+      ms = in_memory_spaces[in_idx]
+      ans[out_idx] = state_discharge.constrain(
+          ans[out_idx], ms, ctx.strip_memory_space,
+          neutral_ms=(default_memory_space,),
+      )
 
   return new_invals, ans
 
@@ -387,48 +409,79 @@ def _mpmd_map_batching_rule(
             " inputs instead."
         )
 
-  if axis_data.size != 1:
-    raise NotImplementedError(
-        "mpmd_map only supports batching with a batch dimension of 1, got"
-        f" {axis_data.size}"
+  # Preserve the old behavior and avoid batching the body if batching size is 1.
+  # This supports existing pl.kernel cases that doesn't use emit_pipeline.
+  if axis_data.size == 1:
+    squeezed_args = []
+    for arg, dim in zip(args, dims):
+      if dim is None:
+        squeezed_args.append(arg)
+      elif isinstance(arg_aval := jax_core.typeof(arg), state.AbstractRef):
+        # This is a bit of a hack. We rely on the fact that JAX does not have
+        # true mutable refs, and thus it is effectively free to squeeze-copy
+        # the underlying array like we do below.
+        #
+        # TODO(slebedev): Add first class support for ``TransformedRef``s to
+        # ``mpmd_map`` and get rid of this.
+        squeezed_args.append(
+            jax_core.new_ref(
+                jnp.squeeze(arg[...], dim),
+                memory_space=arg_aval.memory_space,
+            )
+        )
+      else:
+        squeezed_args.append(jnp.squeeze(arg, dim))
+
+    outs = mpmd_map_p.bind(
+        *squeezed_args,
+        jaxprs=jaxprs,
+        meshes=meshes,
+        out_avals=out_avals,
+        input_output_aliases=input_output_aliases,
+        **params,
     )
 
-  squeezed_args = []
-  for arg, dim in zip(args, dims):
-    if dim is None:
-      squeezed_args.append(arg)
-    elif isinstance(arg_aval := jax_core.typeof(arg), state.AbstractRef):
-      # This is a bit of a hack. We rely on the fact that JAX does not have
-      # true mutable refs, and thus it is effectively free to squeeze-copy
-      # the underlying array like we do below.
-      #
-      # TODO(slebedev): Add first class support for ``TransformedRef``s to
-      # ``mpmd_map`` and get rid of this.
-      squeezed_args.append(
-          jax_core.new_ref(
-              jnp.squeeze(arg[...], dim),
-              memory_space=arg_aval.memory_space,
-          )
-      )
-    else:
-      squeezed_args.append(jnp.squeeze(arg, dim))
+    for arg, squeezed_arg, dim in zip(args, squeezed_args, dims):
+      if dim is None:
+        continue
+      if isinstance(jax_core.typeof(arg), state.AbstractRef):
+        arg[...] = jnp.expand_dims(jax_core.freeze(squeezed_arg), dim)
+    return [jnp.expand_dims(out, 0) for out in outs], (0,) * len(outs)
+
+  # Move the batch dimension to axis 0 for all batched args.
+  moved_args = [
+      batching.moveaxis(arg, dim, 0) if dim is not None else arg
+      for arg, dim in zip(args, dims)
+  ]
+
+  # Batch each jaxpr
+  batched_jaxprs = []
+  num_in, num_out = len(args), len(out_avals)
+  all_meshes = (*meshes, *params.get("external_meshes", ()))
+  for mesh, jaxpr in zip(meshes, jaxprs):
+    in_axes = (
+        tuple(0 if d is not None else None for d in dims)
+        + (0,) * num_out
+        + (None,) * (len(jaxpr.invars) - num_in - num_out)
+    )
+    with mpmd_map_tracing_context(mesh, all_meshes):
+      batched_jaxpr, _ = batching.batch_jaxpr2(jaxpr, axis_data, in_axes)
+    batched_jaxprs.append(batched_jaxpr)
+
+  # Update out_avals to include the batch dimension at axis 0.
+  out_avals = tree_util.tree_map(
+      lambda a: a.update(shape=(axis_data.size, *a.shape)), out_avals)
 
   outs = mpmd_map_p.bind(
-      *squeezed_args,
-      jaxprs=jaxprs,
+      *moved_args,
+      jaxprs=tuple(batched_jaxprs),
       meshes=meshes,
       out_avals=out_avals,
       input_output_aliases=input_output_aliases,
       **params,
   )
 
-  for arg, squeezed_arg, dim in zip(args, squeezed_args, dims):
-    if dim is None:
-      continue
-    if isinstance(jax_core.typeof(arg), state.AbstractRef):
-      arg[...] = jnp.expand_dims(jax_core.freeze(squeezed_arg), dim)
-
-  return [jnp.expand_dims(out, 0) for out in outs], (0,) * len(outs)
+  return outs, (0,) * len(outs)
 
 
 batching.fancy_primitive_batchers[mpmd_map_p] = _mpmd_map_batching_rule
@@ -664,7 +717,7 @@ def _mpmd_map_lowering(ctx: mlir.LoweringRuleContext, *in_nodes, **params):
     )
   [platform] = platforms
   match platform:
-    case "cuda" if config.jax_pallas_use_mosaic_gpu.value:
+    case "cuda" if not params.get("interpret"):
       return _mpmd_map_mgpu_lowering(ctx, *in_nodes, **params)
     case "cpu" | "cuda" | "rocm":
       return _mpmd_map_fallback_lowering(ctx, *in_nodes, **params)

@@ -3,12 +3,15 @@
 from __future__ import annotations
 
 import os
+import json
 import signal
 import socket
 import subprocess
 import threading
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
+from typing import Any
 
 
 @dataclass
@@ -18,6 +21,7 @@ class SelkiesSupervisor:
     # app proxy is the only browser-facing route to this listener.
     address: str = "0.0.0.0"
     port: int = 8080
+    rtc_config_path: str = "/tmp/rtc.json"
     _process: subprocess.Popen[bytes] | None = field(default=None, init=False)
     _lock: threading.Lock = field(default_factory=threading.Lock, init=False)
     startup_timeout_seconds: float = 8.0
@@ -40,6 +44,7 @@ class SelkiesSupervisor:
                     "--encoder=x264enc",
                     "--enable_resize=false",
                     "--enable_clipboard=false",
+                    f"--rtc_config_json={self.rtc_config_path}",
                 ],
                 stdin=subprocess.DEVNULL,
                 # The packaged launcher is a shell wrapper whose foreground
@@ -56,6 +61,33 @@ class SelkiesSupervisor:
                 self._process = None
                 self._terminate_process(process)
                 raise
+
+    def configure_rtc(self, rtc_config: Any) -> None:
+        """Refresh Selkies' watched config file without replacing its inode.
+
+        Selkies 1.6.2 watches the existing path by close events; rename-based
+        atomic writes are therefore invisible to its monitor.
+        """
+        encoded = json.dumps(
+            rtc_config.model_dump(mode="json") if hasattr(rtc_config, "model_dump") else rtc_config,
+            separators=(",", ":"),
+        ).encode()
+        with self._lock:
+            path = Path(self.rtc_config_path)
+            path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
+            fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+            with os.fdopen(fd, "wb", closefd=True) as handle:
+                os.fchmod(handle.fileno(), 0o600)
+                handle.write(encoded)
+                handle.flush()
+                os.fsync(handle.fileno())
+
+    def clear_rtc(self) -> None:
+        with self._lock:
+            try:
+                os.unlink(self.rtc_config_path)
+            except FileNotFoundError:
+                pass
 
     def stop(self) -> None:
         with self._lock:

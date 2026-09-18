@@ -82,16 +82,16 @@ class TeamMembersClient:
             Sort direction. Defaults to `desc`.
 
         first : typing.Optional[int]
-            Number of members to return. Defaults to 20; maximum 100.
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            Cursor for the next page of members.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            Number of members to return from the end of the window.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            Cursor to paginate backwards from.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -106,7 +106,7 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -153,7 +153,7 @@ class TeamMembersClient:
             Account ID, prefixed `biz_`.
 
         role : CreateTeamMembersRequestRole
-            The system role to grant.
+            The system role to grant. Partners must pass all certification quizzes.
 
         email : typing.Optional[str]
             Email address to invite. Mutually exclusive with `user_id`. If the email already belongs to a Whop account it is treated the same as passing that account's `user_id`; otherwise a pending invite is created for the email.
@@ -174,7 +174,7 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -210,7 +210,7 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -243,7 +243,7 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -266,7 +266,7 @@ class TeamMembersClient:
             Team member ID — `ausr_` for accepted members, `ausri_` for pending invites.
 
         role : UpdateTeamMembersRequestRole
-            The system role to grant.
+            The system role to grant. Partners must pass all certification quizzes.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -281,7 +281,7 @@ class TeamMembersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -356,16 +356,16 @@ class AsyncTeamMembersClient:
             Sort direction. Defaults to `desc`.
 
         first : typing.Optional[int]
-            Number of members to return. Defaults to 20; maximum 100.
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            Cursor for the next page of members.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            Number of members to return from the end of the window.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            Cursor to paginate backwards from.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -382,7 +382,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -436,7 +436,7 @@ class AsyncTeamMembersClient:
             Account ID, prefixed `biz_`.
 
         role : CreateTeamMembersRequestRole
-            The system role to grant.
+            The system role to grant. Partners must pass all certification quizzes.
 
         email : typing.Optional[str]
             Email address to invite. Mutually exclusive with `user_id`. If the email already belongs to a Whop account it is treated the same as passing that account's `user_id`; otherwise a pending invite is created for the email.
@@ -459,7 +459,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -503,7 +503,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -546,7 +546,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -575,7 +575,7 @@ class AsyncTeamMembersClient:
             Team member ID — `ausr_` for accepted members, `ausri_` for pending invites.
 
         role : UpdateTeamMembersRequestRole
-            The system role to grant.
+            The system role to grant. Partners must pass all certification quizzes.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -592,7 +592,7 @@ class AsyncTeamMembersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

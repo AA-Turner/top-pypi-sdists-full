@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pysaml2
-Version: 7.5.4
+Version: 7.5.5
 Summary: Python implementation of SAML Version 2 Standard
 License-Expression: Apache-2.0
 License-File: LICENSE
@@ -9,19 +9,23 @@ Author: IdentityPython
 Author-email: discuss@idpy.org
 Maintainer: IdentityPython
 Maintainer-email: discuss@idpy.org
-Requires-Python: >= 3.9
+Requires-Python: >= 3.9.2
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Provides-Extra: s2repoze
-Requires-Dist: cryptography (>=3.1)
+Requires-Dist: cryptography (>=46.0.5)
 Requires-Dist: defusedxml
 Requires-Dist: paste ; extra == "s2repoze"
-Requires-Dist: pyopenssl (<24.3.0)
+Requires-Dist: pyopenssl (>=26.0.0)
 Requires-Dist: python-dateutil
 Requires-Dist: repoze.who ; extra == "s2repoze"
 Requires-Dist: requests (>=2.0.0,<3.0.0)
 Requires-Dist: xmlschema (>=2.0.0,<3.0.0)
 Requires-Dist: zope.interface ; extra == "s2repoze"
-Project-URL: Bug Tracker, https://github.com/IdentityPython/pysaml2/issues
+Project-URL: Changelog, https://github.com/IdentityPython/pysaml2/blob/master/CHANGELOG.md
+Project-URL: Documentation, https://pysaml2.readthedocs.io
+Project-URL: Homepage, https://idpy.org
+Project-URL: Issues, https://github.com/IdentityPython/pysaml2/issues
+Project-URL: Repository, https://github.com/IdentityPython/pysaml2
 Description-Content-Type: text/markdown
 
 # PySAML2 - SAML2 for Python

@@ -7,6 +7,7 @@
 # spmd_types package
 from __future__ import annotations
 
+from spmd_types import rules  # noqa: F401
 from spmd_types._collectives import (  # noqa: F401
     all_gather,
     all_reduce,
@@ -65,6 +66,7 @@ from spmd_types.runtime import (  # noqa: F401
     no_typecheck,
     register_autograd_function,
     register_decomposition,
+    reinterpret_no_grad,
     trace,
 )
 

@@ -22,7 +22,9 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, Strict
 from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.agent_creation_source import AgentCreationSource
 from arthur_client.api_bindings.models.data_source import DataSource
+from arthur_client.api_bindings.models.evidence import Evidence
 from arthur_client.api_bindings.models.llm_model import LLMModel
+from arthur_client.api_bindings.models.provenance_input import ProvenanceInput
 from arthur_client.api_bindings.models.rule_response import RuleResponse
 from arthur_client.api_bindings.models.sub_agent import SubAgent
 from arthur_client.api_bindings.models.tool import Tool
@@ -36,18 +38,20 @@ class Agent(BaseModel):
     name: StrictStr = Field(description="Name of the agent.")
     data_plane_id: StrictStr = Field(description="UUID of the data plane where this agent was detected.")
     task_id: StrictStr = Field(description="UUID of the associated task.")
-    creation_source: AgentCreationSource = Field(description="Information about how this agent was created.")
+    provenance: Optional[ProvenanceInput] = None
     model_id: Optional[StrictStr] = None
     num_spans: Optional[StrictInt] = Field(default=0, description="Number of spans associated with this agent.")
     is_autocreated: Optional[StrictBool] = Field(default=True, description="Whether this agent was auto-created from traces.")
     rules: Optional[List[RuleResponse]] = Field(default=None, description="Rules associated with this agent's task.")
     last_fetched: Optional[datetime] = None
     muted_until: Optional[datetime] = None
+    evidence: Optional[List[Evidence]] = Field(default=None, description="Every sensor's report of this agent, one record each. A list rather than the singular creation_source it replaces: two sensors disagree about how much they can see, when they last looked and whether they are still reporting, and flattening them would make one of those answers win arbitrarily. Merged per sensor on upsert rather than replaced, so a fetch job scoped to one discovery source cannot wipe another source's evidence.")
+    creation_source: Optional[AgentCreationSource] = None
     tools: Optional[List[Tool]] = Field(default=None, description="Tools used by this agent.")
     sub_agents: Optional[List[SubAgent]] = Field(default=None, description="Sub-agents used by this agent.")
     llm_models: Optional[List[LLMModel]] = Field(default=None, description="LLM models used by this agent.")
     data_sources: Optional[List[DataSource]] = Field(default=None, description="Data sources used by this agent.")
-    __properties: ClassVar[List[str]] = ["name", "data_plane_id", "task_id", "creation_source", "model_id", "num_spans", "is_autocreated", "rules", "last_fetched", "muted_until", "tools", "sub_agents", "llm_models", "data_sources"]
+    __properties: ClassVar[List[str]] = ["name", "data_plane_id", "task_id", "provenance", "model_id", "num_spans", "is_autocreated", "rules", "last_fetched", "muted_until", "evidence", "creation_source", "tools", "sub_agents", "llm_models", "data_sources"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -88,9 +92,9 @@ class Agent(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of creation_source
-        if self.creation_source:
-            _dict['creation_source'] = self.creation_source.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of provenance
+        if self.provenance:
+            _dict['provenance'] = self.provenance.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each item in rules (list)
         _items = []
         if self.rules:
@@ -98,6 +102,16 @@ class Agent(BaseModel):
                 if _item_rules:
                     _items.append(_item_rules.to_dict())
             _dict['rules'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in evidence (list)
+        _items = []
+        if self.evidence:
+            for _item_evidence in self.evidence:
+                if _item_evidence:
+                    _items.append(_item_evidence.to_dict())
+            _dict['evidence'] = _items
+        # override the default output from pydantic by calling `to_dict()` of creation_source
+        if self.creation_source:
+            _dict['creation_source'] = self.creation_source.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each item in tools (list)
         _items = []
         if self.tools:
@@ -126,6 +140,11 @@ class Agent(BaseModel):
                 if _item_data_sources:
                     _items.append(_item_data_sources.to_dict())
             _dict['data_sources'] = _items
+        # set to None if provenance (nullable) is None
+        # and model_fields_set contains the field
+        if self.provenance is None and "provenance" in self.model_fields_set:
+            _dict['provenance'] = None
+
         # set to None if model_id (nullable) is None
         # and model_fields_set contains the field
         if self.model_id is None and "model_id" in self.model_fields_set:
@@ -140,6 +159,11 @@ class Agent(BaseModel):
         # and model_fields_set contains the field
         if self.muted_until is None and "muted_until" in self.model_fields_set:
             _dict['muted_until'] = None
+
+        # set to None if creation_source (nullable) is None
+        # and model_fields_set contains the field
+        if self.creation_source is None and "creation_source" in self.model_fields_set:
+            _dict['creation_source'] = None
 
         return _dict
 
@@ -156,13 +180,15 @@ class Agent(BaseModel):
             "name": obj.get("name"),
             "data_plane_id": obj.get("data_plane_id"),
             "task_id": obj.get("task_id"),
-            "creation_source": AgentCreationSource.from_dict(obj["creation_source"]) if obj.get("creation_source") is not None else None,
+            "provenance": ProvenanceInput.from_dict(obj["provenance"]) if obj.get("provenance") is not None else None,
             "model_id": obj.get("model_id"),
             "num_spans": obj.get("num_spans") if obj.get("num_spans") is not None else 0,
             "is_autocreated": obj.get("is_autocreated") if obj.get("is_autocreated") is not None else True,
             "rules": [RuleResponse.from_dict(_item) for _item in obj["rules"]] if obj.get("rules") is not None else None,
             "last_fetched": obj.get("last_fetched"),
             "muted_until": obj.get("muted_until"),
+            "evidence": [Evidence.from_dict(_item) for _item in obj["evidence"]] if obj.get("evidence") is not None else None,
+            "creation_source": AgentCreationSource.from_dict(obj["creation_source"]) if obj.get("creation_source") is not None else None,
             "tools": [Tool.from_dict(_item) for _item in obj["tools"]] if obj.get("tools") is not None else None,
             "sub_agents": [SubAgent.from_dict(_item) for _item in obj["sub_agents"]] if obj.get("sub_agents") is not None else None,
             "llm_models": [LLMModel.from_dict(_item) for _item in obj["llm_models"]] if obj.get("llm_models") is not None else None,

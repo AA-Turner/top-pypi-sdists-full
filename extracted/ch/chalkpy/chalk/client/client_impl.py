@@ -6781,6 +6781,11 @@ https://docs.chalk.ai/cli/apply
         run_name: Optional[str] = None,
         criterion: Optional[ModelRunCriterion] = None,
         aliases: Optional[List[str]] = None,
+        model_image: Optional[Any] = None,
+        dependencies: Optional[List[str]] = None,
+        python_version: Optional[str] = None,
+        input_features: Optional[list[str]] = None,
+        output_features: Optional[list[str]] = None,
         environment: Optional[EnvironmentId] = None,
     ) -> RegisterModelVersionResponse:
         return self._get_grpc_client(environment=environment).promote_model_artifact(
@@ -6790,6 +6795,11 @@ https://docs.chalk.ai/cli/apply
             run_name=run_name,
             criterion=criterion,
             aliases=aliases,
+            model_image=model_image,
+            dependencies=dependencies,
+            python_version=python_version,
+            input_features=input_features,
+            output_features=output_features,
         )
 
     def train_model(

@@ -188,7 +188,7 @@ ListTenantsPaginatorName = Literal["list_tenants"]
 MailFromDomainStatusType = Literal["FAILED", "PENDING", "SUCCESS", "TEMPORARY_FAILURE"]
 MailTypeType = Literal["MARKETING", "TRANSACTIONAL"]
 MetricAggregationType = Literal["RATE", "VOLUME"]
-MetricDimensionNameType = Literal["CONFIGURATION_SET", "EMAIL_IDENTITY", "ISP"]
+MetricDimensionNameType = Literal["CONFIGURATION_SET", "EMAIL_IDENTITY", "ISP", "TENANT_NAME"]
 MetricNamespaceType = Literal["VDM"]
 MetricType = Literal[
     "CLICK",

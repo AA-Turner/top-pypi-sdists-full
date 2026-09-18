@@ -1,56 +1,68 @@
 from typing import TypeVar
 
+from numbagg.moving_matrix import move_corrmatrix, move_covmatrix
 from numbagg.utils import FloatArray
 
-T = TypeVar("T", bound=FloatArray)
+__all__ = [
+    "move_mean",
+    "move_sum",
+    "move_std",
+    "move_var",
+    "move_cov",
+    "move_corr",
+    "move_covmatrix",
+    "move_corrmatrix",
+]
+
+_T = TypeVar("_T", bound=FloatArray)
 
 def move_mean(
-    arr: T,
+    arr: _T,
     /,
     *,
     window: int,
     min_count: int | None = None,
-    axis: int = -1,
-) -> T: ...
+    axis: int | tuple[int, ...] = -1,
+) -> _T: ...
 def move_sum(
-    arr: T,
+    arr: _T,
     /,
     *,
     window: int,
     min_count: int | None = None,
-    axis: int = -1,
-) -> T: ...
+    axis: int | tuple[int, ...] = -1,
+) -> _T: ...
 def move_std(
-    arr: T,
+    arr: _T,
     /,
     *,
     window: int,
     min_count: int | None = None,
-    axis: int = -1,
-) -> T: ...
+    axis: int | tuple[int, ...] = -1,
+) -> _T: ...
 def move_var(
-    arr: T,
+    arr: _T,
     /,
     *,
     window: int,
     min_count: int | None = None,
-    axis: int = -1,
-) -> T: ...
+    axis: int | tuple[int, ...] = -1,
+) -> _T: ...
 def move_cov(
-    a: T,
-    b: T,
+    a: _T,
+    b: _T,
     /,
     *,
     window: int,
     min_count: int | None = None,
-    axis: int = -1,
-) -> T: ...
+    axis: int | tuple[int, ...] = -1,
+) -> _T: ...
 def move_corr(
-    a: T,
-    b: T,
+    a: _T,
+    b: _T,
     /,
     *,
     window: int,
     min_count: int | None = None,
-    axis: int = -1,
-) -> T: ...
+    axis: int | tuple[int, ...] = -1,
+) -> _T: ...

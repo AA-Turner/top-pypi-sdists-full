@@ -7,11 +7,10 @@ from abc import abstractmethod
 from collections.abc import Callable
 from typing import TYPE_CHECKING, Any, Protocol, TypeVar, cast
 
-import claripy
 import pyvex
 from pyvex.expr import IRExpr
 
-from angr import ailment
+from angr import ailment, claripy
 from angr.block import Block
 from angr.code_location import CodeLocation
 from angr.engines.engine import SimEngine
@@ -20,6 +19,8 @@ from angr.misc.ux import once
 
 if TYPE_CHECKING:
     from angr.project import Project
+
+_l = logging.getLogger(__name__)
 
 
 class BlockProtocol(Protocol):
@@ -579,6 +580,10 @@ class SimEngineLightAIL[StateType, DataType_co, StmtDataType, ResultType](
             "Dereference": self._handle_unop_Dereference,
             "Clz": self._handle_unop_Clz,
             "Ctz": self._handle_unop_Ctz,
+            # libVEX 3.27+ renamed the scalar Clz/Ctz ops to ClzNat/CtzNat (result at zero is defined for the
+            # Nat variants; the approximation used here is the same)
+            "ClzNat": self._handle_unop_Clz,
+            "CtzNat": self._handle_unop_Ctz,
             "GetMSBs": self._handle_unop_GetMSBs,
             "unpack": self._handle_unop_unpack,
             "Sqrt": self._handle_unop_Sqrt,
@@ -634,8 +639,8 @@ class SimEngineLightAIL[StateType, DataType_co, StmtDataType, ResultType](
             "CmpNEV": self._handle_binop_CmpNEV,
             "CmpGEV": self._handle_binop_CmpGEV,
             "CmpGTV": self._handle_binop_CmpGTV,
-            "CmpLEV": self._handle_binop_CmpLTV,
-            "CmpLTV": self._handle_binop_CmpLEV,
+            "CmpLEV": self._handle_binop_CmpLEV,
+            "CmpLTV": self._handle_binop_CmpLTV,
             "MinV": self._handle_binop_MinV,
             "MaxV": self._handle_binop_MaxV,
             "HAddV": self._handle_binop_HAddV,
@@ -772,10 +777,25 @@ class SimEngineLightAIL[StateType, DataType_co, StmtDataType, ResultType](
         raise TypeError("We should never see raw Ops")
 
     def _handle_expr_UnaryOp(self, expr: ailment.expression.UnaryOp) -> DataType_co:
-        return self._unop_handlers[expr.op](expr)
+        handler = self._unop_handlers.get(expr.op)
+        if handler is None:
+            return self._handle_unop_Default(expr)
+        return handler(expr)
 
     def _handle_expr_BinaryOp(self, expr: ailment.expression.BinaryOp) -> DataType_co:
-        return self._binop_handlers[expr.op](expr)
+        handler = self._binop_handlers.get(expr.op)
+        if handler is None:
+            return self._handle_binop_Default(expr)
+        return handler(expr)
+
+    def _handle_unop_Default(self, expr: ailment.expression.UnaryOp) -> DataType_co:
+        # an operation this engine has no handler for (e.g., a vector op): its value is unknown
+        _l.debug("Unsupported unary operation %s", expr.op)
+        return cast(DataType_co, None)
+
+    def _handle_binop_Default(self, expr: ailment.expression.BinaryOp) -> DataType_co:
+        _l.debug("Unsupported binary operation %s", expr.op)
+        return cast(DataType_co, None)
 
     @abstractmethod
     def _handle_expr_Convert(self, expr: ailment.expression.Convert) -> DataType_co: ...

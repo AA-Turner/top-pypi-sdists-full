@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: optimum-intel
-Version: 2.1.0
+Version: 2.2.0
 Summary: Optimum Library is an extension of the Hugging Face Transformers library, providing a framework to integrate third-party libraries from Hardware Partners and interface with their specific functionality.
 Home-page: https://www.intel.com
 Author: HuggingFace Inc. Special Ops Team
@@ -20,15 +20,15 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: torch>=2.1
-Requires-Dist: safetensors<0.8.0
 Requires-Dist: optimum~=2.3.0
 Requires-Dist: transformers<5.6,>=4.51
 Requires-Dist: setuptools
 Requires-Dist: huggingface-hub<1.22,>=0.23.2
-Requires-Dist: nncf>=2.19.0
+Requires-Dist: nncf>=3.3.0
 Requires-Dist: openvino>=2026.0
 Requires-Dist: openvino-tokenizers>=2026.0
 Requires-Dist: requests<3.0,>=2.33
+Requires-Dist: torchvision
 Provides-Extra: nncf
 Requires-Dist: nncf>=2.19.0; extra == "nncf"
 Provides-Extra: openvino

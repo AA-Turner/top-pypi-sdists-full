@@ -38,19 +38,13 @@
    DAMAGES OR  OTHER LIABILITY, WHETHER  IN AN  ACTION OF CONTRACT,  TORT OR
    OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
    USE OR OTHER DEALINGS IN THE SOFTWARE.
+
+   SPDX-License-Identifier: MIT
 */
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #ifndef XML_NS_TESTS_H
-#  define XML_NS_TESTS_H
+#define XML_NS_TESTS_H
 
 extern void make_namespace_test_case(Suite *s);
 
 #endif /* XML_NS_TESTS_H */
-
-#ifdef __cplusplus
-}
-#endif

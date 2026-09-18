@@ -30,6 +30,7 @@ import uuid
 from typing import Any
 
 import pytest
+from matrx_utils.source_guard import stable_source
 
 from matrx_ai._ext import configure_ext
 
@@ -262,17 +263,15 @@ def test_v1_and_v2_entry_points_share_this_one_loop():
     being true, this fails and the behavioural tests above must be duplicated for
     the new lane.
     """
-    import inspect
-
     from aidream.services.ai_execution import ai_task
     from aidream.services.runtime import conversation
 
-    spine_src = inspect.getsource(conversation.run_ai_task_on_spine)
+    spine_src = stable_source(conversation.run_ai_task_on_spine)
     assert "run_ai_task(" in spine_src, (
         "the v2 spine no longer delegates to run_ai_task — it has grown a second "
         "execution lane that the ledger-truth chokepoint does not cover."
     )
-    v1_src = inspect.getsource(ai_task)
+    v1_src = stable_source(ai_task)
     assert "execute_until_complete" in v1_src, (
         "run_ai_task no longer reaches execute_until_complete — the ledger-truth "
         "chokepoint is no longer on the v1/v2 path."

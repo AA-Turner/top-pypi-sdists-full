@@ -128,6 +128,54 @@ invalid_bit_pattern = re.compile(
 CREATE_SCHEMA_PATTERN = re.compile(r"create\s+schema", re.IGNORECASE)
 CREATE_TABLE_PATTERN = re.compile(r"create\s+table", re.IGNORECASE)
 
+# NSS sandbox failures surface as a generic 210007 wrapping the real Spark exception in a
+# "Caused by: <FQCN>: <message>" line of the Java stack trace text. Only unwrap FQCNs where
+# COPY v1's own baseline for the same input independently raises that exact class too -
+# verified live per-FQCN, not assumed from the FQCN alone (SparkRuntimeException and
+# NumberFormatException were both tried and rejected; see the comments on
+# _NSS_SANDBOX_RECOVERABLE_EXCEPTIONS).
+NSS_SANDBOX_SQL_ERROR_CODE = 210007
+_NSS_SANDBOX_QUERY_MARKERS = ("STAGE_FILE_READER(", "INFER_STAGE_FILE_SCHEMA(")
+
+# Only AnalysisException is unwrapped. Two broader generalizations were tried and rejected
+# after live A/B testing against COPY v1's own baseline behavior for the same input:
+#   - SparkRuntimeException: COPY v1's own baseline for that case is already the generic
+#     QueryExecutionException wrapper, so unwrapping it would make NSS diverge from COPY
+#     rather than match it.
+#   - NumberFormatException: whether COPY raises cleanly or wraps generically for this FQCN
+#     depends on an unrelated file-level condition (column-count-validation-before-cast
+#     ordering) that isn't visible anywhere in the NSS payload. A blanket unwrap fixed 2
+#     sub-cases and broke 3 others in test_csv_coverage_types.py - a net wash, reverted.
+# Do not re-add either without redoing the same live A/B verification.
+_NSS_SANDBOX_RECOVERABLE_EXCEPTIONS: dict[str, type[PySparkException]] = {
+    "org.apache.spark.sql.AnalysisException": AnalysisException,
+}
+_NSS_SANDBOX_EXCEPTION_PATTERN = re.compile(
+    r"(?:^|Caused by:\s*)("
+    + "|".join(re.escape(fqcn) for fqcn in _NSS_SANDBOX_RECOVERABLE_EXCEPTIONS)
+    + r"):\s*(.*)",
+    re.MULTILINE,
+)
+
+
+def _is_nss_sandbox_error(ex: SnowparkSQLException) -> bool:
+    if getattr(ex, "sql_error_code", None) != NSS_SANDBOX_SQL_ERROR_CODE:
+        return False
+    query = (getattr(ex, "query", None) or "").upper()
+    return any(marker in query for marker in _NSS_SANDBOX_QUERY_MARKERS)
+
+
+def _extract_nss_sandbox_exception(ex) -> tuple[str, PySparkException] | None:
+    match = _NSS_SANDBOX_EXCEPTION_PATTERN.search(str(ex))
+    if match is None:
+        return None
+    fqcn, message = match.group(1), match.group(2).strip()
+    spark_exception_cls = _NSS_SANDBOX_RECOVERABLE_EXCEPTIONS.get(fqcn)
+    if spark_exception_cls is None:
+        return None
+    return fqcn, spark_exception_cls(message)
+
+
 # Snowflake error 002034: a non-boolean expression used where a predicate is
 # required (e.g. `WHERE "s"` for a VARCHAR column). Spark rejects the same shape
 # at analysis time with DATATYPE_MISMATCH.FILTER_NOT_BOOLEAN.
@@ -454,6 +502,13 @@ def build_grpc_error_response(ex: Exception) -> status_pb2.Status:
                     )
                     spark_java_classes.append("org.apache.spark.sql.AnalysisException")
                     message = f"does_not_exist: {str(ex)}"
+                elif (
+                    _is_nss_sandbox_error(ex)
+                    and (recovered := _extract_nss_sandbox_exception(ex)) is not None
+                ):
+                    fqcn, recovered_ex = recovered
+                    spark_java_classes.append(fqcn)
+                    ex = recovered_ex
                 else:
                     if ex.sql_error_code == 100357:
                         # This is to handle cases that are not covered in _get_converted_known_sql_or_custom_exception for 100357.

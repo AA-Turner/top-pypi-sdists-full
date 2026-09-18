@@ -60,8 +60,10 @@ def fmin_fields(fm):
         covariance_msg1 = "Hesse FAILED"
         if fm.has_reached_call_limit:
             covariance_msg2 = "ABOVE call limit"
+        elif fm.has_posdef_covar:
+            # unexpected combination, but degrade gracefully instead of raising
+            covariance_msg2 = "Covariance pos. def."
         else:
-            assert not fm.has_posdef_covar
             covariance_msg2 = "Covariance NOT pos. def."
     else:
         if fm.has_covariance:
@@ -200,7 +202,7 @@ def merrors(mes):
 
 
 def matrix(arr):
-    names = [_parse_latex(x) for x in arr._var2pos]
+    names = [_parse_latex(x) for x in arr._names()]
 
     n = len(arr)
     nums = matrix_format(arr)

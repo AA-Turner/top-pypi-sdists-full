@@ -16,7 +16,7 @@ try:
 except:
     from mock import patch, ANY, mock_open, Mock
 import requests
-from requests.adapters import HTTPAdapter
+from requests.adapters import BaseAdapter, HTTPAdapter
 from requests.exceptions import SSLError
 from urllib3.util.retry import Retry
 from cryptography import x509
@@ -468,6 +468,8 @@ class _ServiceFabricTlsRequestHandler(BaseHTTPRequestHandler):
 
 
 class ServiceFabricTlsValidationTestCase(unittest.TestCase):
+    _adapter_class = HTTPAdapter
+
     def setUp(self):
         self._temporary_directory = tempfile.TemporaryDirectory()
         private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
@@ -518,14 +520,16 @@ class ServiceFabricTlsValidationTestCase(unittest.TestCase):
         self.server_thread.join()
         self._temporary_directory.cleanup()
 
-    def _new_session(self):
+    def _new_session(self, **adapter_kwargs):
         session = requests.Session()
+        self.addCleanup(session.close)
         session.trust_env = False
+        session.mount("https://", self._adapter_class(**adapter_kwargs))
         return session
 
     def test_matching_thumbprint_sends_secret_after_validating_certificate(self):
         result = _obtain_token_on_service_fabric(
-            self._new_session(),
+            _ThrottledHttpClient(self._new_session()),
             self.endpoint,
             "service-fabric-secret",
             ":".join(
@@ -541,9 +545,11 @@ class ServiceFabricTlsValidationTestCase(unittest.TestCase):
             self.server.requests[0]["headers"]["Secret"])
 
     def test_mismatching_thumbprint_prevents_the_secret_from_being_sent(self):
+        source = self._new_session()
+        source.verify = False
         with self.assertRaises(SSLError):
             _obtain_token_on_service_fabric(
-                self._new_session(),
+                source,
                 self.endpoint,
                 "service-fabric-secret",
                 "00" * 20,
@@ -564,8 +570,25 @@ class ServiceFabricTlsValidationTestCase(unittest.TestCase):
 
         self.assertEqual([], self.server.requests)
 
+    def test_malformed_thumbprint_is_rejected_before_a_request_can_send_the_secret(self):
+        with self.assertRaises(ManagedIdentityError):
+            _obtain_token_on_service_fabric(
+                self._new_session(),
+                self.endpoint,
+                "service-fabric-secret",
+                "not-a-thumbprint",
+                "R",
+            )
+
+        self.assertEqual([], self.server.requests)
+
     def test_derived_client_preserves_standard_session_settings_without_mutation(self):
-        source = self._new_session()
+        source = self._new_session(
+            max_retries=Retry(total=2),
+            pool_connections=3,
+            pool_maxsize=7,
+            pool_block=True,
+        )
         source.verify = False
         source.headers["X-Caller-Header"] = "caller-header"
         source.cookies.set("caller-cookie", "cookie-value")
@@ -573,10 +596,13 @@ class ServiceFabricTlsValidationTestCase(unittest.TestCase):
         source.params = {"caller-param": "caller-value"}
         source.proxies = {}
         source.max_redirects = 7
-        source.mount("https://", HTTPAdapter(max_retries=Retry(total=2)))
+        source_adapter = source.get_adapter(self.endpoint)
+        source_pool_classes = source_adapter.poolmanager.pool_classes_by_scheme.copy()
 
         derived = _create_service_fabric_http_client(
             source, self.endpoint, self.thumbprint)
+        self.addCleanup(derived.close)
+        derived_adapter = derived.get_adapter(self.endpoint)
 
         self.assertFalse(source.verify)
         self.assertTrue(derived.verify)
@@ -586,8 +612,17 @@ class ServiceFabricTlsValidationTestCase(unittest.TestCase):
         self.assertEqual(source.params, derived.params)
         self.assertEqual(source.proxies, derived.proxies)
         self.assertEqual(source.max_redirects, derived.max_redirects)
-        self.assertEqual(2, derived.get_adapter(self.endpoint).max_retries.total)
-        self.assertIsNot(source.get_adapter(self.endpoint), derived.get_adapter(self.endpoint))
+        self.assertEqual(2, derived_adapter.max_retries.total)
+        self.assertIsNot(source_adapter.max_retries, derived_adapter.max_retries)
+        self.assertEqual(3, derived_adapter._pool_connections)
+        self.assertEqual(7, derived_adapter._pool_maxsize)
+        self.assertTrue(derived_adapter._pool_block)
+        self.assertIs(source_adapter, source.get_adapter(self.endpoint))
+        self.assertIsNot(source_adapter, derived_adapter)
+        self.assertIsNot(
+            source_adapter.poolmanager.pool_classes_by_scheme,
+            derived_adapter.poolmanager.pool_classes_by_scheme)
+        self.assertEqual(source_pool_classes, source_adapter.poolmanager.pool_classes_by_scheme)
         response = derived.get(
             self.endpoint,
             params={"request-param": "request-value"},
@@ -601,13 +636,10 @@ class ServiceFabricTlsValidationTestCase(unittest.TestCase):
         self.assertIn("caller-cookie=cookie-value", request["headers"]["Cookie"])
         self.assertTrue(request["headers"]["Authorization"].startswith("Basic "))
 
-    def test_custom_adapter_is_rejected_before_a_request_can_send_the_secret(self):
+    def test_non_http_adapter_is_rejected_before_a_request_can_send_the_secret(self):
         source = self._new_session()
-
-        class CustomAdapter(HTTPAdapter):
-            pass
-
-        source.mount("https://", CustomAdapter())
+        adapter = Mock(spec=BaseAdapter)
+        source.mount("https://", adapter)
         with self.assertRaises(ManagedIdentityError):
             _obtain_token_on_service_fabric(
                 source,
@@ -618,6 +650,16 @@ class ServiceFabricTlsValidationTestCase(unittest.TestCase):
             )
 
         self.assertEqual([], self.server.requests)
+        adapter.send.assert_not_called()
+
+
+class _ServiceFabricSourceHTTPAdapter(HTTPAdapter):
+    def send(self, *args, **kwargs):
+        raise AssertionError("Service Fabric requests must use MSAL's pinned adapter")
+
+
+class ServiceFabricHTTPAdapterSubclassTestCase(ServiceFabricTlsValidationTestCase):
+    _adapter_class = _ServiceFabricSourceHTTPAdapter
 
 
 @patch.dict(os.environ, {
@@ -671,6 +713,31 @@ class ArcTestCase(ClientTestCase):
             except ArcPlatformNotSupportedError:
                 if sys.platform in _supported_arc_platforms_and_their_prefixes:
                     self.fail("Should not raise ArcPlatformNotSupportedError")
+
+    def test_arc_error_before_challenge_should_be_normalized(self, mocked_stat):
+        error = '{"error":"invalid_request","error_description":"The requested identity was not found"}'
+        app = ManagedIdentityClient(
+            UserAssignedManagedIdentity(client_id="system-assigned-client-id"),
+            http_client=requests.Session())
+        with patch.object(app._http_client, "get", return_value=MinimalResponse(
+            status_code=400,
+            text=error,
+            headers={"content-type": "application/json"},
+        )) as mocked_method:
+            self.assertEqual({
+                "error": "invalid_request",
+                "error_description": error,
+            }, app.acquire_token_for_client(resource="R"))
+            mocked_method.assert_called_once_with(
+                "http://localhost/token",
+                params={
+                    "api-version": "2020-06-01",
+                    "resource": "R",
+                    "client_id": "system-assigned-client-id",
+                },
+                headers={"Metadata": "true"},
+            )
+            self.assertEqual({}, app._token_cache._cache)
 
     def _assert_user_assigned_selector(self, managed_identity, selector_name, selector_value):
         app = ManagedIdentityClient(managed_identity, http_client=requests.Session())

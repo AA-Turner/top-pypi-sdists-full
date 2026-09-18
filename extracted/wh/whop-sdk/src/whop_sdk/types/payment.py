@@ -12,6 +12,7 @@ from .payment_address import PaymentAddress
 from .payment_decline_codes import PaymentDeclineCodes
 from .payment_instrument import PaymentInstrument
 from .payment_method_types import PaymentMethodTypes
+from .payment_rule_match import PaymentRuleMatch
 from .payment_verification_checks import PaymentVerificationChecks
 from .receipt_status import ReceiptStatus
 from .receipt_tax_behaviors import ReceiptTaxBehaviors
@@ -62,6 +63,11 @@ class Payment(UniversalBaseModel):
     currency: Currencies = pydantic.Field()
     """
     The currency the payment settles in, lowercase ISO 4217. Every money field below is stated in it unless it says otherwise.
+    """
+
+    customer_email: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The buyer's email address. Null without `member:email:read` on the account or when the buyer has no assigned email.
     """
 
     customer_phone: typing.Optional[str] = pydantic.Field(default=None)
@@ -131,7 +137,7 @@ class Payment(UniversalBaseModel):
 
     payment_instrument: typing.Optional[PaymentInstrument] = pydantic.Field(default=None)
     """
-    The instrument shaped for display: a buyer-facing name, the standard icon set, and the card's brand and last four when it was a card.
+    The instrument shaped for display: a buyer-facing name, the standard icon set, and the card's brand, last four and issuer identification number when it was a card.
     """
 
     payment_method_id: typing.Optional[str] = pydantic.Field(default=None)
@@ -144,6 +150,7 @@ class Payment(UniversalBaseModel):
     The kind of instrument used, for example `card`, `apple_pay`, `klarna`, or `us_bank_account`.
     """
 
+    payment_rule_matches: typing.List[PaymentRuleMatch]
     payments_failed: float = pydantic.Field()
     """
     How many charge attempts have failed on this payment.
@@ -154,6 +161,11 @@ class Payment(UniversalBaseModel):
     The plan that was charged, prefixed `plan_`.
     """
 
+    presentment_total: typing.Optional[Money] = pydantic.Field(default=None)
+    """
+    The account-facing total in the currency presented to the buyer, before conversion into the settlement currency. Excludes buyer fees.
+    """
+
     product_id: typing.Optional[str] = pydantic.Field(default=None)
     """
     The product the plan belongs to, prefixed `prod_`. Null for a plan with no product.
@@ -162,6 +174,11 @@ class Payment(UniversalBaseModel):
     promo_code_id: typing.Optional[str] = pydantic.Field(default=None)
     """
     The promo code applied at checkout, prefixed `promo_`, or null.
+    """
+
+    recovery_url: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Whop-hosted URL where the buyer can sign in and complete 3D Secure for an off-session charge the bank challenged — a subscription renewal or a saved-card payment. Null when recovery is unavailable, you lack `member:basic:read`, or in list responses. Retrieve the payment for it.
     """
 
     refundable: bool = pydantic.Field()
@@ -186,17 +203,18 @@ class Payment(UniversalBaseModel):
 
     risk_score: typing.Optional[float] = pydantic.Field(default=None)
     """
-    Whop's fraud risk score from 0 (lowest) to 100 (highest), or null when the payment was not scored.
+    Whop's published risk index from 0 (lowest) to 100 (highest), including enforced decision floors. This is not a fraud probability. Null when no score is available.
     """
 
     risk_signals: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
-    The factors behind `risk_score`, grouped by category, or null.
+    Deprecated. Risk score explanations are no longer provided; always null.
+    DEPRECATED: Risk score explanations are no longer provided. Always null.
     """
 
     settlement_time_at: typing.Optional[str] = pydantic.Field(default=None)
     """
-    When the funds post to the account's available balance, at midnight UTC. The `ledger_account.funds_available` webhook carries the same value. Null until the payment is paid, and always null in list responses — retrieve the payment for it.
+    When the funds post to the account's available balance, at midnight UTC. The `financial_activity.funds_available` webhook's `posted_at` carries the same value when the settlement that clears it posts. Null until the payment is paid, and always null in list responses — retrieve the payment for it.
     """
 
     shipment_id: typing.Optional[str] = pydantic.Field(default=None)
@@ -266,7 +284,7 @@ class Payment(UniversalBaseModel):
 
     verification_checks: typing.Optional[PaymentVerificationChecks] = pydantic.Field(default=None)
     """
-    The issuer's address and security code check results, or null when the processor returned none.
+    The Address Verification Service (AVS), cardholder name, and Card Verification Value (CVV/CVC) results, or null when the processor returned none.
     """
 
     voidable: bool = pydantic.Field()

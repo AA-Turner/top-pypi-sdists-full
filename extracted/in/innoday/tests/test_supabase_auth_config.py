@@ -185,17 +185,26 @@ class TestRedirectAllowlist:
             "https://havilandsoftware.com/ui/auth/callback",
             "https://www.havilandsoftware.com/ui/auth/callback",
             "https://havilandsoftware.com/ui/invite/accept",
+            "https://www.havilandsoftware.com/ui/invite/accept",
         ],
     )
     def test_haviland_urls_are_allowlisted(self, auth, url):
         """innoday-ui is becoming havilandsoftware.com, and sign-in has to follow.
 
-        Note what differs from inno.day below: **this apex is a real origin.**
-        WordPress.com's DNS offers ALIAS, so the bare domain answers Railway
-        directly rather than forwarding, which is why listing it is right here and
-        wrong there. `www` is listed too because it answers directly until
-        `CANONICAL_HOST` is set on the service, and Supabase matches the URL it
-        was handed rather than the one after a redirect.
+        `www` goes live first: it needs only a plain CNAME at WordPress.com, so
+        it is the address people actually reach. Both of its paths are listed for
+        that reason, and `CANONICAL_HOST` stays unset while the apex is still
+        WordPress -- setting it would 308 `www` onto the old site.
+
+        The apex is listed too, but is not live and may not be reachable this
+        way at all: WordPress.com replaces its default records only by matching
+        record *type*, and an ALIAS is not an A, so an apex ALIAS is expected to
+        lose to the default A records still pointing at WordPress. Listing it
+        costs nothing and is needed the moment that is solved -- by Cloudflare's
+        CNAME flattening if not at WordPress.com.
+
+        Supabase matches the URL it was handed rather than the one after a
+        redirect, so every origin anyone can arrive on has to appear here.
         """
         assert url in auth["additional_redirect_urls"]
 

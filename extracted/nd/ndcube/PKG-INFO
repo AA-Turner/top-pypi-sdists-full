@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ndcube
-Version: 2.4.1
+Version: 2.4.2
 Summary: A package for multi-dimensional contiguous and non-contiguous coordinate aware arrays.
 Author-email: The SunPy Community <sunpy@googlegroups.com>
 Project-URL: Homepage, https://docs.sunpy.org/projects/ndcube

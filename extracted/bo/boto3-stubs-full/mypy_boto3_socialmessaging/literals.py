@@ -34,6 +34,7 @@ __all__ = (
     "RegistrationStatusType",
     "ResourceServiceName",
     "ServiceName",
+    "WhatsAppDayOfWeekType",
 )
 
 
@@ -54,6 +55,9 @@ MetaFlowCategoryType = Literal[
     "SURVEY",
 ]
 RegistrationStatusType = Literal["COMPLETE", "INCOMPLETE"]
+WhatsAppDayOfWeekType = Literal[
+    "FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"
+]
 EndUserMessagingSocialServiceName = Literal["socialmessaging"]
 ServiceName = Literal[
     "accessanalyzer",

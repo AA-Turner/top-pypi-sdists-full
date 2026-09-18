@@ -1,6 +1,8 @@
 """Core tests for wcwidth module."""
 # std imports
+import re
 import importlib.metadata
+from pathlib import Path
 
 # 3rd party
 import pytest
@@ -8,6 +10,17 @@ import pytest
 # local
 import wcwidth
 from wcwidth._width import _WIDTH_FAST_PATH_MIN_LEN
+
+_PROJECT_ROOT = Path(__file__).resolve().parent.parent
+# libwcwidth/ is developed in this repository but is not shipped in the source distribution,
+# see [tool.hatch.build.targets.sdist] of pyproject.toml.
+_LIBWCWIDTH_CONFIG_H = _PROJECT_ROOT / 'libwcwidth' / 'include' / 'wcwidth' / 'wcwidth_config.h'
+
+
+def _pyproject_version():
+    """Return the ``version`` declared by pyproject.toml."""
+    pyproject = (_PROJECT_ROOT / 'pyproject.toml').read_text()
+    return re.search(r'^version = "([^"]+)"', pyproject, re.M).group(1)
 
 
 def test_package_version():
@@ -20,6 +33,33 @@ def test_package_version():
 
     # verify.
     assert result == expected
+
+
+def test_version_matches_pyproject():
+    """pyproject.toml version is stamped into __version__."""
+    # given,
+    version = _pyproject_version()
+
+    # verify,
+    assert wcwidth.__version__ == version
+
+
+@pytest.mark.skipif(not _LIBWCWIDTH_CONFIG_H.exists(),
+                    reason='libwcwidth/ is not distributed in the source package')
+def test_version_matches_libwcwidth():
+    """pyproject.toml version is stamped into libwcwidth's wcwidth_config.h."""
+    # given,
+    version = _pyproject_version()
+    config = _LIBWCWIDTH_CONFIG_H.read_text()
+    macros = re.search(
+        r'#define WCWIDTH_VERSION_MAJOR (\d+)\n'
+        r'#define WCWIDTH_VERSION_MINOR (\d+)\n'
+        r'#define WCWIDTH_VERSION_PATCH (\d+)', config)
+
+    # verify,
+    assert re.search(r'#define WCWIDTH_VERSION "([^"]+)"', config).group(1) == version
+    release = re.match(r'\d+\.\d+\.\d+', version).group(0)
+    assert f'{macros.group(1)}.{macros.group(2)}.{macros.group(3)}' == release
 
 
 def test_empty_string():
@@ -552,3 +592,46 @@ def test_legacy_module():
     for name in _legacy.__all__:
         obj = getattr(_legacy, name)
         assert obj is not None, f"could not import {name} from wcwidth.wcwidth"
+
+
+@pytest.mark.parametrize('pwcs,n', [
+    ('abc', 2),
+    ('abc', 1),
+    ('abc', 0),
+    ('abc', None),
+    ('', 0),
+    ('', None),
+    ('\U0001F600', 1),
+    ('\U0001F600\U0001F600', 2),
+])
+def test_wcstwidth_positional_args(pwcs, n):
+    """Wcstwidth() accepts n as a positional argument."""
+    result = wcwidth.wcstwidth(pwcs, n)
+    assert isinstance(result, int)
+    assert result >= 0
+
+
+@pytest.mark.parametrize('func', [wcwidth.ljust, wcwidth.rjust, wcwidth.center],
+                         ids=lambda f: f.__name__)
+def test_align_control_codes_strict_rejects_illegal_control(func):
+    """Ljust()/rjust()/center() honor control_codes='strict'."""
+    with pytest.raises(ValueError):
+        func('\x01x', 10, ' ', control_codes='strict')
+
+
+def test_width_large_cursor_movement_saturates():
+    """Width() handles a CSI cursor-movement parameter far beyond any real column."""
+    assert wcwidth.width('\x1b[100000000000000000000C', control_codes='parse') >= 0
+
+
+def test_wrap_tabsize_zero_passes_through():
+    """Wrap() accepts tabsize=0 without raising."""
+    result = wcwidth.wrap('a\tb', 3, tabsize=0, replace_whitespace=False)
+    assert isinstance(result, list)
+
+
+@pytest.mark.parametrize('text', ['\udcbf', '\udc80', '\udcbf\udcbf\udcbf'])
+def test_wrap_lone_surrogate_escaped_bytes(text):
+    """Wrap() handles a lone/incomplete surrogate-escaped byte without raising."""
+    result = wcwidth.wrap(text, 3)
+    assert isinstance(result, list)

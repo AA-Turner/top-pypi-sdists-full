@@ -10,7 +10,7 @@ class GetSupabaseProjectRequest(DaraModel):
         project_id: str = None,
         region_id: str = None,
     ):
-        # The Supabase instance ID. You can obtain the ID from the Supabase page in the console.
+        # The Supabase instance ID. You can obtain this value from the Supabase page in the console.
         # 
         # This parameter is required.
         self.project_id = project_id

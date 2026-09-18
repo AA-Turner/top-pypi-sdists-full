@@ -3418,6 +3418,11 @@ class ChalkClient:
         run_name: Optional[str] = None,
         criterion: Optional[ModelRunCriterion] = None,
         aliases: Optional[List[str]] = None,
+        model_image: Optional[Any] = None,
+        dependencies: Optional[List[str]] = None,
+        python_version: Optional[str] = None,
+        input_features: Optional[list[str]] = None,
+        output_features: Optional[list[str]] = None,
     ) -> RegisterModelVersionResponse:
         """
         Register a model in the Chalk model registry.
@@ -3437,6 +3442,16 @@ class ChalkClient:
             If none provided, the latest artifact in the run will be selected.
         aliases: list of str, optional
             List of version aliases (e.g., ["v1.0", "latest"])
+        model_image: str or chalkcompute.Image, optional
+            Docker image URI string or a chalkcompute.Image object for serving.
+        dependencies: list of str, optional
+            Pip package specs (e.g., ["torch==2.7.1", "numpy==1.26.4"]).
+        python_version: str, optional
+            Python version for the serving image.
+        input_features: list of str, optional
+            Chalk feature FQNs for model inputs.
+        output_features: list of str, optional
+            Chalk feature FQNs for model outputs.
 
         Example
         --------

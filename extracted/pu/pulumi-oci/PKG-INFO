@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pulumi_oci
-Version: 4.22.0
+Version: 5.0.0
 Summary: A Pulumi package for creating and managing Oracle Cloud Infrastructure resources.
 License: Apache-2.0
 Project-URL: Homepage, https://www.pulumi.com
@@ -54,7 +54,7 @@ uv pip install pulumi_oci
 To use with Go, use `go get` to grab the latest version of the library:
 
 ```bash
-go get github.com/pulumi/pulumi-oci/sdk/v3/...
+go get github.com/pulumi/pulumi-oci/sdk/v5/...
 ```
 
 ### .NET

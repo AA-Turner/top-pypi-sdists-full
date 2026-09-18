@@ -386,3 +386,44 @@ def test_danfe_cnpj_alfanumerico(tmp_path, load_danfe):
     danfe = load_danfe("danfe_cnpj_alfanumerico.xml")
     pdf_path = get_pdf_output_path("danfe", "danfe_cnpj_alfanumerico")
     assert_pdf_equal(danfe, pdf_path, tmp_path)
+
+
+@pytest.mark.parametrize("receipt_pos", [ReceiptPosition.TOP, ReceiptPosition.BOTTOM])
+def test_danfe_carrier_receipt(tmp_path, load_danfe, receipt_pos):
+    """
+    With carrier_receipt enabled and a carrier informed in the NF-e, an extra
+    collection receipt (canhoto de coleta) is printed at the page edge, next
+    to the delivery receipt (canhoto de entrega). Issue #197.
+    """
+    config = DanfeConfig(
+        margins=Margins(top=2, right=2, bottom=2, left=2),
+        receipt_pos=receipt_pos,
+        carrier_receipt=True,
+    )
+    danfe = load_danfe("nfe_mei.xml", config=config)
+    pdf_path = get_pdf_output_path(
+        "danfe", f"danfe_carrier_receipt_{receipt_pos.value}"
+    )
+    assert_pdf_equal(danfe, pdf_path, tmp_path)
+
+
+def test_danfe_carrier_receipt_landscape(tmp_path, load_xml):
+    xml = load_xml("danfe/nfe_mei.xml").replace("<tpImp>1</tpImp>", "<tpImp>2</tpImp>")
+    config = DanfeConfig(
+        margins=Margins(top=2, right=2, bottom=2, left=2),
+        carrier_receipt=True,
+    )
+    danfe = Danfe(xml=xml, config=config)
+    pdf_path = get_pdf_output_path("danfe", "danfe_carrier_receipt_landscape")
+    assert_pdf_equal(danfe, pdf_path, tmp_path)
+
+
+def test_danfe_carrier_receipt_without_carrier(tmp_path, load_danfe):
+    """
+    Without a carrier informed in the NF-e, only the regular receipt is
+    printed, even with carrier_receipt enabled.
+    """
+    danfe = load_danfe("nfe_test_1.xml", config=DanfeConfig(carrier_receipt=True))
+    assert danfe.receipt_kinds == ["default"]
+    pdf_path = get_pdf_output_path("danfe", "danfe_default")
+    assert_pdf_equal(danfe, pdf_path, tmp_path)

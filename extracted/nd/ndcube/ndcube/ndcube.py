@@ -3,10 +3,10 @@ import copy
 import inspect
 import numbers
 import textwrap
+from collections import namedtuple
+from collections.abc import Iterable, Mapping
 from copy import deepcopy
 from typing import Any
-from collections import namedtuple
-from collections.abc import Mapping, Iterable
 
 import numpy as np
 
@@ -801,7 +801,12 @@ class NDCubeBase(NDCubeABC, astropy.nddata.NDData, NDCubeSlicingMixin):
         """
         try:
             from reproject import reproject_adaptive, reproject_exact, reproject_interp  # noqa: PLC0415
-            from reproject.wcs_utils import has_celestial  # noqa: PLC0415
+            try:
+                # Latest version of reproject has made this private
+                # but until we pin on that version, we need a fallback for older versions.
+                from reproject._wcs_utils import has_celestial  # noqa: PLC0415
+            except ImportError:
+                from reproject.wcs_utils import has_celestial  # noqa: PLC0415
         except ModuleNotFoundError:
             raise ImportError(f"The {type(self).__name__}.reproject_to method requires "
                               f"the `reproject` library to be installed.")
@@ -1656,7 +1661,7 @@ def _create_masked_array_for_rebinning(data, mask, operation_ignores_mask):
     m = None if (mask is None or mask is False or operation_ignores_mask) else mask
     if m is None:
         return data, m
-    for array_type, masked_type in ARRAY_MASK_MAP.items():
+    for array_type, masked_type in ARRAY_MASK_MAP.items():  # noqa B008
         if isinstance(data, array_type):
             break
     else:

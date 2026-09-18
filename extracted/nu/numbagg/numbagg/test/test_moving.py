@@ -3,10 +3,12 @@ from typing import Any
 
 import numpy as np
 import pytest
-from numpy.testing import assert_allclose
+from numpy.testing import assert_allclose, assert_array_equal
 
 from numbagg import (
     MOVE_FUNCS,
+    MOVE_MATRIX_FUNCS,
+    move_corr,
     move_corrmatrix,
     move_covmatrix,
     move_mean,
@@ -22,18 +24,30 @@ def rs():
     return np.random.RandomState(0)
 
 
-@pytest.mark.parametrize(
-    "func",
-    MOVE_FUNCS,
-)
+@pytest.mark.parametrize("func", MOVE_FUNCS, ids=lambda f: f.__name__)
+def test_move_funcs_preserve_shape(func, rs):
+    """Every `MOVE_FUNCS` entry returns an array shaped like its input.
+
+    That's what the tests parametrized over the list assume: `test_move_pandas_comp`
+    below compares elementwise against pandas, and `test_property.py`'s
+    `test_moving_bigger_arrays_have_same_beginning` slices the result along the
+    moving axis. The matrix functions break it, appending a `vars x vars` dimension,
+    which is why they sit in `MOVE_MATRIX_FUNCS` instead. Pinned here so a matrix
+    function added to the wrong list fails once, rather than each consumer having to
+    filter it back out.
+    """
+    array = rs.rand(3, 20)
+
+    result = COMPARISONS[func]["numbagg"](array, window=5)()
+
+    assert result.shape == array.shape
+
+
+@pytest.mark.parametrize("func", MOVE_FUNCS)
 @pytest.mark.parametrize("shape", [(3, 500)], indirect=True)
 @pytest.mark.parametrize("window", [10, 50])
 @pytest.mark.parametrize("min_count", [None, 0, 1, 3, "window"])
 def test_move_pandas_comp(array, func, window, min_count):
-    if func.__name__ in ["move_corrmatrix", "move_covmatrix"]:
-        pytest.skip(
-            "Matrix functions tested separately in test_move_matrix_pandas_comp"
-        )
     c = COMPARISONS[func]
 
     if min_count == "window":
@@ -53,7 +67,7 @@ def test_move_pandas_comp(array, func, window, min_count):
         assert_allclose(result, expected_bottleneck)
 
 
-@pytest.mark.parametrize("func", [move_corrmatrix, move_covmatrix], indirect=True)
+@pytest.mark.parametrize("func", MOVE_MATRIX_FUNCS, indirect=True)
 @pytest.mark.parametrize(
     "shape", [(5, 100)], indirect=True
 )  # (vars, obs) benchmark convention
@@ -61,9 +75,6 @@ def test_move_pandas_comp(array, func, window, min_count):
 @pytest.mark.parametrize("min_count", [None, "window"])
 def test_move_matrix_pandas_comp(array, func, window, min_count):
     """Test matrix functions against pandas with various parameters."""
-    if array.ndim < 2:
-        pytest.skip("Matrix functions require at least 2D input")
-
     c = COMPARISONS[func]
 
     if min_count == "window":
@@ -76,22 +87,17 @@ def test_move_matrix_pandas_comp(array, func, window, min_count):
     pandas_callable = c["pandas"](array, window=window, min_count=min_count)
     pandas_result = pandas_callable()
 
-    # Convert pandas MultiIndex DataFrame to 3D array for comparison
-    # Result shape is (..., obs, vars, vars), so we can infer dimensions from result
+    # Convert pandas MultiIndex DataFrame to 3D array for comparison.
+    # Result shape is (..., obs, vars, vars), so we can infer dimensions from result.
+    # Every observation appears in level 0 of the MultiIndex, and pandas' own
+    # `min_periods` already puts NaN where the window is too short — so take
+    # pandas at its word rather than re-deriving the NaN mask here, which would
+    # only assert the mask against itself.
     n_obs = result.shape[-3]  # obs dimension
     n_vars = result.shape[-2]  # vars dimension (should equal result.shape[-1])
-    expected_pandas = np.full((n_obs, n_vars, n_vars), np.nan)
-
-    # Only include windows where we have at least min_count observations
-    actual_min_count = min_count if min_count is not None else window
+    expected_pandas = np.empty((n_obs, n_vars, n_vars))
     for t in range(n_obs):
-        # Check if we have enough observations in this window
-        window_size = min(t + 1, window)
-        if (
-            window_size >= actual_min_count
-            and t in pandas_result.index.get_level_values(0)
-        ):
-            expected_pandas[t] = pandas_result.loc[t].values
+        expected_pandas[t] = pandas_result.loc[t].values
 
     assert_allclose(result, expected_pandas)
 
@@ -122,11 +128,9 @@ def test_move_matrix_pandas_min_count_simple(func_name, window, min_count):
     # Result shape is (..., obs, vars, vars), so we can infer dimensions from result
     n_obs = result.shape[-3]  # obs dimension
     n_vars = result.shape[-2]  # vars dimension (should equal result.shape[-1])
-    expected_pandas = np.full((n_obs, n_vars, n_vars), np.nan)
-
+    expected_pandas = np.empty((n_obs, n_vars, n_vars))
     for t in range(n_obs):
-        if t in pandas_result.index.get_level_values(0):
-            expected_pandas[t] = pandas_result.loc[t].values
+        expected_pandas[t] = pandas_result.loc[t].values
 
     assert_allclose(result, expected_pandas)
 
@@ -138,6 +142,15 @@ def test_move_matrix_min_count(array, window, min_count):
     """Test that matrix functions handle min_count correctly."""
     # Transpose array for new (obs, vars) convention
     array_T = array.T
+
+    if min_count > window:
+        # Unsatisfiable, and rejected as such — see
+        # `test_move_min_count_greater_than_window`. Kept in the parametrization so
+        # the (window=5, min_count=10) pair still reaches this function.
+        for func in (move_corrmatrix, move_covmatrix):
+            with pytest.raises(ValueError, match="cannot be greater than window"):
+                func(array_T, window=window, min_count=min_count)
+        return
 
     # Test correlation matrix
     result_corr = move_corrmatrix(array_T, window=window, min_count=min_count)
@@ -180,6 +193,57 @@ def test_move_mean_window(array):
         move_mean(array, window=1, min_count=-1)
 
 
+@pytest.mark.parametrize(
+    "call",
+    [
+        lambda a: move_mean(a[0], window=5, min_count=6),
+        lambda a: move_corr(a[0], a[0], window=5, min_count=6),
+        lambda a: move_corrmatrix(a.T, window=5, min_count=6),
+        lambda a: move_covmatrix(a.T, window=5, min_count=6),
+    ],
+    ids=["move_mean", "move_corr", "move_corrmatrix", "move_covmatrix"],
+)
+@pytest.mark.parametrize("shape", [(3, 20)], indirect=True)
+def test_move_min_count_greater_than_window(array, call):
+    # A `min_count` above `window` can never be satisfied, so every output value is
+    # NaN — silently, before this was rejected. pandas (`min_periods 10 must be <=
+    # window 5`) and bottleneck (`min_count (10) cannot be greater than window (5)`)
+    # both raise, as does `move_func`, this file's own reference implementation, so
+    # the all-NaN array was the odd one out and read as a real result.
+    with pytest.raises(ValueError, match="cannot be greater than window"):
+        call(array)
+
+
+def test_move_axis_tuple():
+    # A length-1 tuple axis is unpacked to the equivalent integer axis, which is what
+    # xarray passes. The `.pyi` stubs have to allow it too, so this also pins the
+    # declared `axis` type — `ty` rejects the call if the stub narrows back to `int`.
+    array = np.arange(12.0).reshape(3, 4)
+    expected = move_mean(array, window=2, axis=1)
+
+    result = move_mean(array, window=2, axis=(1,))
+    assert_allclose(result, expected)
+
+    # Same for the two-array functions, whose axis is unpacked on the same path.
+    assert_allclose(
+        move_corr(array, array, window=2, axis=(1,)),
+        move_corr(array, array, window=2, axis=1),
+    )
+
+    with pytest.raises(ValueError, match="only one axis can be passed"):
+        move_mean(array, window=2, axis=(0, 1))
+
+
+def test_move_axis_empty_tuple():
+    # An empty tuple means no reduction — return the input unchanged.
+    array = np.arange(12.0).reshape(3, 4)
+    result = move_mean(array, window=2, axis=())
+    assert_array_equal(result, array)
+
+    with pytest.raises(ValueError, match="cannot be an empty tuple"):
+        move_corr(array, array, window=2, axis=())
+
+
 def test_numerical_issues_float32_move_mean_1(rs):
     arr = (rs.random(1000) * 1e13).astype(np.float32)
     result = move_mean(arr, window=1)
@@ -195,29 +259,36 @@ def test_numerical_issues_float32_move_sum_100(rs):
     assert result[-1] == expected, result[-1] - expected
 
 
+def slow_move_mean(a, window, min_count=None, axis=-1):
+    "Slow move_mean for unaccelerated dtype"
+    return move_func(np.nanmean, a, window, min_count, axis=axis)
+
+
 def functions():
     yield move_mean, slow_move_mean
 
 
-@pytest.mark.parametrize("func,func0", functions())
+@pytest.mark.parametrize("func,func0", list(functions()))
 def test_numerical_results_identical(func, func0):
-    "Test that bn.xxx gives the same output as a reference function."
+    "Test that the numbagg function matches a slow reference implementation."
     fmt = (
         "\nfunc %s | window %d | min_count %s | input %s (%s) | shape %s | "
         "axis %s | order %s\n"
     )
     fmt += "\nInput array:\n%s\n"
     func_name = func.__name__
-    if func_name == "move_var":
-        decimal = 3
-    else:
-        decimal = 5
+    decimal = 5
     for i, a in enumerate(arrays(func_name)):
         if a.size >= 1_000:
             continue
         axes = range(-1, a.ndim)
         for axis in axes:
-            windows = range(1, a.shape[axis])
+            # Inclusive of `a.shape[axis]`: `test_move_mean_window` pins
+            # `shape[axis] + 1` as the first rejected window, so the full-length
+            # window is the largest accepted one and its results need checking
+            # too. It's also the only case where the steady-state part of the
+            # kernel loop — the positions at or past `window` — never runs.
+            windows = range(1, a.shape[axis] + 1)
             for window in windows:
                 min_counts = list(range(1, window + 1)) + [None]
                 for min_count in min_counts:
@@ -248,104 +319,12 @@ def test_numerical_results_identical(func, func0):
                     assert da.itemsize == dd.itemsize, err_msg % (da, dd)
 
 
-def slow_move_sum(a, window, min_count=None, axis=-1):
-    "Slow move_sum for unaccelerated dtype"
-    return move_func(np.nansum, a, window, min_count, axis=axis)
-
-
-def slow_move_mean(a, window, min_count=None, axis=-1):
-    "Slow move_mean for unaccelerated dtype"
-    return move_func(np.nanmean, a, window, min_count, axis=axis)
-
-
-def slow_move_std(a, window, min_count=None, axis=-1, ddof=1):
-    "Slow move_std for unaccelerated dtype"
-    return move_func(np.nanstd, a, window, min_count, axis=axis, ddof=ddof)
-
-
-def slow_move_var(a, window, min_count=None, axis=-1, ddof=1):
-    "Slow move_var for unaccelerated dtype"
-    return move_func(np.nanvar, a, window, min_count, axis=axis, ddof=ddof)
-
-
-def slow_move_min(a, window, min_count=None, axis=-1):
-    "Slow move_min for unaccelerated dtype"
-    return move_func(np.nanmin, a, window, min_count, axis=axis)
-
-
-def slow_move_max(a, window, min_count=None, axis=-1):
-    "Slow move_max for unaccelerated dtype"
-    return move_func(np.nanmax, a, window, min_count, axis=axis)
-
-
-def slow_move_argmin(a, window, min_count=None, axis=-1):
-    "Slow move_argmin for unaccelerated dtype"
-
-    def argmin(a, axis):
-        a = np.array(a, copy=False)
-        flip = [slice(None)] * a.ndim
-        flip[axis] = slice(None, None, -1)
-        a = a[flip]  # if tie, pick index of rightmost tie
-        try:
-            idx = np.nanargmin(a, axis=axis)
-        except ValueError:
-            # an all nan slice encountered
-            a = a.copy()
-            mask = np.isnan(a)
-            np.copyto(a, np.inf, where=mask)
-            idx = np.argmin(a, axis=axis).astype(np.float64)
-            if idx.ndim == 0:
-                idx = np.nan
-            else:
-                mask = np.all(mask, axis=axis)
-                idx[mask] = np.nan
-        return idx
-
-    return move_func(argmin, a, window, min_count, axis=axis)
-
-
-def slow_move_argmax(a, window, min_count=None, axis=-1):
-    "Slow move_argmax for unaccelerated dtype"
-
-    def argmax(a, axis):
-        a = np.array(a, copy=False)
-        flip = [slice(None)] * a.ndim
-        flip[axis] = slice(None, None, -1)
-        a = a[flip]  # if tie, pick index of rightmost tie
-        try:
-            idx = np.nanargmax(a, axis=axis)
-        except ValueError:
-            # an all nan slice encountered
-            a = a.copy()
-            mask = np.isnan(a)
-            np.copyto(a, -np.inf, where=mask)
-            idx = np.argmax(a, axis=axis).astype(np.float64)
-            if idx.ndim == 0:
-                idx = np.nan
-            else:
-                mask = np.all(mask, axis=axis)
-                idx[mask] = np.nan
-        return idx
-
-    return move_func(argmax, a, window, min_count, axis=axis)
-
-
-def slow_move_median(a, window, min_count=None, axis=-1):
-    "Slow move_median for unaccelerated dtype"
-    return move_func(np.nanmedian, a, window, min_count, axis=axis)
-
-
-def slow_move_rank(a, window, min_count=None, axis=-1):
-    "Slow move_rank for unaccelerated dtype"
-    return move_func(lastrank, a, window, min_count, axis=axis)
-
-
 # magic utility functions ---------------------------------------------------
 
 
 def move_func(func, a, window, min_count=None, axis=-1, **kwargs):
     "Generic moving window function implemented with a python loop."
-    a = np.array(a, copy=False)
+    a = np.asarray(a)
     if min_count is None:
         mc = window
     else:
@@ -368,7 +347,7 @@ def move_func(func, a, window, min_count=None, axis=-1, **kwargs):
     else:
         y = np.empty(a.shape)
     idx1 = [slice(None)] * a.ndim
-    idx2: Any = list(idx1)
+    idx2: list[Any] = list(idx1)
     with warnings.catch_warnings():
         warnings.simplefilter("ignore")
         for i in range(a.shape[axis]):
@@ -398,62 +377,3 @@ def _mask(a, window, min_count, axis):
     idx[idx1] = nidx1 < min_count
     idx[idx3] = n[idx3] < min_count
     return idx
-
-
-def lastrank(a, axis=-1):
-    """
-    The ranking of the last element along the axis, ignoring NaNs.
-
-    The ranking is normalized to be between -1 and 1 instead of the more
-    common 1 and N. The results are adjusted for ties.
-
-    Parameters
-    ----------
-    a : ndarray
-        Input array. If `a` is not an array, a conversion is attempted.
-    axis : int, optional
-        The axis over which to rank. By default (axis=-1) the ranking
-        (and reducing) is performed over the last axis.
-
-    Returns
-    -------
-    d : array
-        In the case of, for example, a 2d array of shape (n, m) and
-        axis=1, the output will contain the rank (normalized to be between
-        -1 and 1 and adjusted for ties) of the the last element of each row.
-        The output in this example will have shape (n,).
-
-    """
-    a = np.array(a, copy=False)
-    ndim = a.ndim
-    if a.size == 0:
-        # At least one dimension has length 0
-        shape = list(a.shape)
-        shape.pop(axis)
-        r: Any = np.empty(shape, dtype=a.dtype)
-        r.fill(np.nan)
-        if (r.ndim == 0) and (r.size == 1):
-            r = np.nan
-        return r
-    indlast_ = [slice(None)] * ndim
-    indlast_[axis] = slice(-1, None)
-    indlast = tuple(indlast_)
-    indlast2_: Any = [slice(None)] * ndim
-    indlast2_[axis] = -1
-    indlast2 = tuple(indlast2_)
-    n = (~np.isnan(a)).sum(axis)
-    a_indlast = a[indlast]
-    g = (a_indlast > a).sum(axis)
-    e = (a_indlast == a).sum(axis)
-    r = (g + g + e - 1.0) / 2.0
-    r = r / (n - 1.0)
-    r = 2.0 * (r - 0.5)
-    if ndim == 1:
-        if n == 1:
-            r = 0.0
-        if np.isnan(a[indlast2]):  # elif?
-            r = np.nan
-    else:
-        np.putmask(r, n == 1, 0)
-        np.putmask(r, np.isnan(a[indlast2]), np.nan)
-    return r

@@ -88,7 +88,7 @@ typing.cast(typing.Any, ILifecyclePolicyRef).__jsii_proxy_class__ = lambda : _IL
     jsii_struct_bases=[],
     name_mapping={
         "lifecycle_policy_arn": "lifecyclePolicyArn",
-        "lifecycle_policy_id": "lifecyclePolicyId",
+        "policy_id": "policyId",
     },
 )
 class LifecyclePolicyReference:
@@ -96,12 +96,12 @@ class LifecyclePolicyReference:
         self,
         *,
         lifecycle_policy_arn: builtins.str,
-        lifecycle_policy_id: builtins.str,
+        policy_id: builtins.str,
     ) -> None:
         '''A reference to a LifecyclePolicy resource.
 
         :param lifecycle_policy_arn: The ARN of the LifecyclePolicy resource.
-        :param lifecycle_policy_id: The Id of the LifecyclePolicy resource.
+        :param policy_id: The PolicyId of the LifecyclePolicy resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -113,16 +113,16 @@ class LifecyclePolicyReference:
             
             lifecycle_policy_reference = interfaces_dlm.LifecyclePolicyReference(
                 lifecycle_policy_arn="lifecyclePolicyArn",
-                lifecycle_policy_id="lifecyclePolicyId"
+                policy_id="policyId"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__fcade0729cb210d4dec4658db34a681ecb1e3a2a066b4109217f0eabc3a16722)
             check_type(argname="argument lifecycle_policy_arn", value=lifecycle_policy_arn, expected_type=type_hints["lifecycle_policy_arn"])
-            check_type(argname="argument lifecycle_policy_id", value=lifecycle_policy_id, expected_type=type_hints["lifecycle_policy_id"])
+            check_type(argname="argument policy_id", value=policy_id, expected_type=type_hints["policy_id"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
             "lifecycle_policy_arn": lifecycle_policy_arn,
-            "lifecycle_policy_id": lifecycle_policy_id,
+            "policy_id": policy_id,
         }
 
     @builtins.property
@@ -133,10 +133,10 @@ class LifecyclePolicyReference:
         return typing.cast(builtins.str, result)
 
     @builtins.property
-    def lifecycle_policy_id(self) -> builtins.str:
-        '''The Id of the LifecyclePolicy resource.'''
-        result = self._values.get("lifecycle_policy_id")
-        assert result is not None, "Required property 'lifecycle_policy_id' is missing"
+    def policy_id(self) -> builtins.str:
+        '''The PolicyId of the LifecyclePolicy resource.'''
+        result = self._values.get("policy_id")
+        assert result is not None, "Required property 'policy_id' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -161,7 +161,7 @@ publication.publish()
 def _typecheckingstub__fcade0729cb210d4dec4658db34a681ecb1e3a2a066b4109217f0eabc3a16722(
     *,
     lifecycle_policy_arn: builtins.str,
-    lifecycle_policy_id: builtins.str,
+    policy_id: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

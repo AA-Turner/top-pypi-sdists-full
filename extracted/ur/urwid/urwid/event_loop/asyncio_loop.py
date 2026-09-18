@@ -25,6 +25,7 @@ from __future__ import annotations
 
 import asyncio
 import functools
+import inspect
 import logging
 import sys
 import typing
@@ -61,6 +62,11 @@ class AsyncioEventLoop(EventLoop):
 
         A good way to do this:
             asyncio.get_event_loop().call_soon(main_loop.draw_screen)
+
+    .. note::
+        :meth:`alarm`, :meth:`watch_file` and :meth:`enter_idle` accept an ``async def``
+        callback in addition to a plain callable. A coroutine function is scheduled as
+        an ``asyncio.Task`` instead of being called directly.
     """
 
     def __init__(self, *, loop: asyncio.AbstractEventLoop | None = None, **kwargs: typing.Any) -> None:
@@ -105,6 +111,7 @@ class AsyncioEventLoop(EventLoop):
         self._idle_asyncio_handle: asyncio.TimerHandle | None = None
         self._idle_handle: int = 0
         self._idle_callbacks: dict[int, Callable[[], typing.Any]] = {}
+        self._background_tasks: set[asyncio.Task[typing.Any]] = set()
 
     def __del__(self) -> None:
         if sys.version_info[:2] < (3, 11):
@@ -113,18 +120,33 @@ class AsyncioEventLoop(EventLoop):
         elif self._runner is not None:
             self._runner.close()
 
-    def _also_call_idle(self, callback: Callable[_Spec, _T]) -> Callable[_Spec, _T]:
+    def _also_call_idle(self, callback: Callable[_Spec, _T]) -> Callable[_Spec, _T | None]:
         """
         Wrap the callback to also call _entering_idle.
         """
 
         @functools.wraps(callback)
-        def wrapper(*args: _Spec.args, **kwargs: _Spec.kwargs) -> _T:
+        def wrapper(*args: _Spec.args, **kwargs: _Spec.kwargs) -> _T | None:
             if not self._idle_asyncio_handle:
                 self._idle_asyncio_handle = self._loop.call_later(0, self._entering_idle)
-            return callback(*args, **kwargs)
+            return self._run_callback(callback, *args, **kwargs)
 
         return wrapper
+
+    def _run_callback(self, callback: Callable[_Spec, _T], *args: _Spec.args, **kwargs: _Spec.kwargs) -> _T | None:
+        """Call callback, scheduling it as a task instead if it is a coroutine function.
+
+        :param callback: function or coroutine function to call
+        :param args: positional arguments to pass to callback
+        :param kwargs: keyword arguments to pass to callback
+        :return: callback return value, or None if it was scheduled as a background task
+        """
+        if inspect.iscoroutinefunction(callback):
+            task = self._loop.create_task(callback(*args, **kwargs))
+            self._background_tasks.add(task)
+            task.add_done_callback(self._background_tasks.discard)
+            return None
+        return callback(*args, **kwargs)
 
     def _entering_idle(self) -> None:
         """
@@ -132,7 +154,7 @@ class AsyncioEventLoop(EventLoop):
         """
         try:
             for callback in self._idle_callbacks.values():
-                callback()
+                self._run_callback(callback)
         finally:
             self._idle_asyncio_handle = None
 
@@ -146,15 +168,10 @@ class AsyncioEventLoop(EventLoop):
         """Run callable in executor.
 
         :param executor: Executor to use for running the function. Default asyncio executor is used if None.
-        :type executor: concurrent.futures.Executor | None
         :param func: function to call
-        :type func: Callable
         :param args: arguments to function (positional only)
-        :type args: object
         :param kwargs: keyword arguments to function (keyword only)
-        :type kwargs: object
         :return: future object for the function call outcome.
-        :rtype: asyncio.Future
         """
         return self._loop.run_in_executor(executor, functools.partial(func, *args, **kwargs))
 

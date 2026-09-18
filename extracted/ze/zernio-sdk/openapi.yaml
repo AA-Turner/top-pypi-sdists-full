@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.8.0"
+  version: "1.21.2"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -28,6 +28,9 @@ info:
     Facebook, YouTube, Threads, Reddit, Pinterest, Bluesky, Telegram, Google Business Profile, Snapchat,
     Discord, and Slack, all from a single REST API. Run paid ads on Meta (Facebook + Instagram), Google,
     TikTok, LinkedIn, Pinterest, X, and OpenAI from the same account.
+
+    Connect Shopify and WordPress as blog accounts to list sites and manage
+    articles, drafts, featured images, tags, authors, and native scheduling.
 
     Key features: Unified posting to 16 platforms, ads management on 7 ad networks (via /v1/ads), aggregated analytics, unified inbox (DMs, comments, reviews), webhooks, OAuth connect, queue scheduling, and white-label support for agencies managing unlimited accounts.
 
@@ -63,7 +66,7 @@ x-documentation:
   readme: |
     # Zernio API
 
-    The social media API that replaces 14 integrations. Build social media features into your app in minutes, not months.
+    The social media API that replaces 16 integrations. Build social media and blog publishing features into your app in minutes, not months.
 
     ## Quick Start
 
@@ -83,8 +86,9 @@ x-documentation:
     | Concept | Description |
     |---------|-------------|
     | **Profiles** | Containers that organize accounts into brands or projects |
-    | **Accounts** | Connected accounts belonging to a profile |
+    | **Accounts** | Connected social, ads, commerce, and blog accounts belonging to a profile |
     | **Posts** | Content scheduled or published to one or more accounts |
+    | **Blogs** | Articles managed on connected Shopify and WordPress sites |
     | **Queue** | Recurring time slots for automatic post scheduling |
 
     ## Create a Post
@@ -565,8 +569,34 @@ components:
       description: |
         Short-lived connect token for API users during OAuth flows. 
         Automatically generated when initiating OAuth without a browser session.
-        Valid for 15 minutes. Used to authenticate Facebook page selection API calls.
+        Valid for 15 minutes. Connect tokens are scoped to the intended profile
+        and platform and are accepted only by connection-flow endpoints that
+        explicitly list this security scheme.
   parameters:
+    CatalogId:
+      name: catalogId
+      in: path
+      required: true
+      schema: { type: string }
+      description: "Meta product catalog ID (from GET /v1/ads/catalogs)"
+    CatalogProductId:
+      name: productId
+      in: path
+      required: true
+      schema: { type: string }
+      description: "Meta product item ID (from the products list; not the retailer id)"
+    CatalogAccountId:
+      name: accountId
+      in: query
+      required: true
+      schema: { type: string }
+      description: "A facebook, instagram, metaads or whatsapp account ID"
+    CatalogTokenAccountId:
+      name: catalogAccountId
+      in: query
+      required: false
+      schema: { type: string }
+      description: "A facebook, instagram or metaads account whose Meta login carries catalog_management; its token performs the call instead of the account's own"
     BusinessAgentAccountId:
       name: accountId
       in: path
@@ -602,6 +632,11 @@ components:
       description: Recommended delay before retrying, in seconds.
       schema: { type: integer, example: 60 }
   responses:
+    CatalogPermissionDenied:
+      description: "The Meta login behind the account lacks catalog_management (code insufficient_permissions). Reconnect granting it, or pass catalogAccountId."
+      content:
+        application/json:
+          schema: { $ref: '#/components/schemas/ErrorResponse' }
     AccountUnavailable:
       description: 'The account or requested resource was not found or is not accessible. An account ID may have been disconnected and removed. Read GET /v1/accounts for current account IDs.'
       content:
@@ -767,8 +802,9 @@ components:
 
         SDK consumers should switch on `reason` to render the right
         prompt. For `free_tier_exceeded` and `twitter_passthrough`,
-        redirect the end-user to `dashboard_url` to add a payment method
-        via Zernio's hosted Stripe Setup Checkout. For
+        redirect the end-user to `dashboard_url`: it opens the
+        add-payment-method drawer on the Zernio billing page, and the
+        request succeeds once the card is on file. For
         `enterprise_required`, redirect to `dashboard_url` (the
         enterprise contact form) to adjust the contract's limit.
       content:
@@ -799,10 +835,11 @@ components:
                 format: uri
                 description: |
                   Deep-link to send the end-user to. For
-                  `free_tier_exceeded` and `twitter_passthrough` this is
-                  the Zernio billing tab. For `enterprise_required` this
-                  is the Zernio enterprise contact page.
-                example: https://zernio.com/dashboard?tab=billing
+                  `free_tier_exceeded` and `twitter_passthrough` this opens
+                  the add-payment-method drawer on the Zernio billing page.
+                  For `enterprise_required` this is the Zernio enterprise
+                  contact page.
+                example: https://zernio.com/dashboard/billing?add_payment_method=1
               details:
                 type: object
                 description: Structured context for SDK clients that want to render their own UX. Keys vary by `reason`.
@@ -834,7 +871,7 @@ components:
                 code: PAYMENT_REQUIRED
                 reason: free_tier_exceeded
                 documentation_url: https://docs.zernio.com/billing/payment-method-required
-                dashboard_url: https://zernio.com/dashboard?tab=billing
+                dashboard_url: https://zernio.com/dashboard/billing?add_payment_method=1
                 details:
                   free_tier_account_limit: 2
                   current_account_count: 3
@@ -846,7 +883,7 @@ components:
                 code: PAYMENT_REQUIRED
                 reason: twitter_passthrough
                 documentation_url: https://docs.zernio.com/billing/payment-method-required
-                dashboard_url: https://zernio.com/dashboard?tab=billing
+                dashboard_url: https://zernio.com/dashboard/billing?add_payment_method=1
                 details:
                   has_payment_method: false
             enterpriseRequired:
@@ -861,6 +898,119 @@ components:
                   effective_account_limit: 2000
                   current_account_count: 2000
   schemas:
+    MetaProductCatalog:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        vertical: { type: [string, "null"], description: "Catalog vertical (e.g. commerce, vehicles, hotels)" }
+        productCount: { type: integer }
+        businessId: { type: [string, "null"] }
+    MetaCatalogProductInput:
+      type: object
+      description: "One product shape for single and bulk calls. Money is in major units (12.99); Zernio converts to what Meta wants."
+      properties:
+        retailerId: { type: string, maxLength: 100, description: "Your SKU; unique inside the catalog" }
+        name: { type: string, maxLength: 200 }
+        description: { type: string, maxLength: 9999 }
+        url: { type: string, format: uri, description: "Product page" }
+        imageUrl: { type: string, format: uri }
+        additionalImageUrls: { type: array, maxItems: 20, items: { type: string, format: uri } }
+        price: { type: number, description: "Major units, e.g. 12.99" }
+        currency: { type: string, description: "ISO 4217, e.g. EUR" }
+        salePrice: { type: number }
+        salePriceStartDate: { type: string, description: "ISO 8601" }
+        salePriceEndDate: { type: string, description: "ISO 8601" }
+        availability: { type: string, enum: ["in stock", "out of stock", "preorder", "available for order", "discontinued", "pending"] }
+        condition: { type: string, enum: [new, refurbished, used] }
+        brand: { type: string, maxLength: 100 }
+        category: { type: string, maxLength: 250 }
+        googleProductCategory: { type: string, maxLength: 250 }
+        productType: { type: string, maxLength: 750 }
+        gtin: { type: string, maxLength: 50 }
+        mpn: { type: string, maxLength: 100 }
+        inventory: { type: integer, minimum: 0 }
+        visibility: { type: string, enum: [published, staging] }
+        color: { type: string, maxLength: 200 }
+        size: { type: string, maxLength: 200 }
+        gender: { type: string, enum: [female, male, unisex] }
+        material: { type: string, maxLength: 200 }
+        pattern: { type: string, maxLength: 100 }
+        customLabel0: { type: string, maxLength: 100 }
+        customLabel1: { type: string, maxLength: 100 }
+        customLabel2: { type: string, maxLength: 100 }
+        customLabel3: { type: string, maxLength: 100 }
+        customLabel4: { type: string, maxLength: 100 }
+    MetaCatalogProduct:
+      type: object
+      properties:
+        id: { type: string, description: "Meta product item ID (use in the product endpoints)" }
+        retailerId: { type: [string, "null"] }
+        name: { type: string }
+        description: { type: [string, "null"] }
+        url: { type: [string, "null"] }
+        imageUrl: { type: [string, "null"] }
+        additionalImageUrls: { type: array, items: { type: string } }
+        price: { type: [string, "null"], description: "Formatted by Meta, e.g. \"€49.90\"" }
+        salePrice: { type: [string, "null"] }
+        currency: { type: [string, "null"] }
+        availability: { type: [string, "null"] }
+        condition: { type: [string, "null"] }
+        brand: { type: [string, "null"] }
+        category: { type: [string, "null"] }
+        productType: { type: [string, "null"] }
+        gtin: { type: [string, "null"] }
+        inventory: { type: [integer, "null"] }
+        visibility: { type: [string, "null"] }
+        color: { type: [string, "null"] }
+        size: { type: [string, "null"] }
+        gender: { type: [string, "null"] }
+        material: { type: [string, "null"] }
+        pattern: { type: [string, "null"] }
+        customLabels: { type: array, items: { type: [string, "null"] }, description: "custom_label_0 to custom_label_4" }
+        reviewStatus: { type: [string, "null"], description: "Meta's commerce review status (approved, rejected, pending, ...)" }
+        reviewRejectionReasons: { type: array, items: { type: string } }
+    MetaProductFeed:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        productCount: { type: integer }
+        schedule:
+          type: [object, "null"]
+          properties:
+            interval: { type: string }
+            url: { type: string }
+            hour: { type: [integer, "null"] }
+            dayOfWeek: { type: [string, "null"] }
+        createdTime: { type: [string, "null"] }
+        latestUpload:
+          oneOf:
+            - { $ref: '#/components/schemas/MetaFeedUpload' }
+            - { type: "null" }
+    MetaFeedUpload:
+      type: object
+      properties:
+        id: { type: string }
+        url: { type: [string, "null"] }
+        startTime: { type: [string, "null"] }
+        endTime: { type: [string, "null"] }
+        errorCount: { type: integer }
+        warningCount: { type: integer }
+        itemsDetected: { type: integer }
+        itemsDeleted: { type: integer }
+    MetaProductSet:
+      type: object
+      properties:
+        id: { type: string }
+        name: { type: string }
+        productCount: { type: integer }
+        filter: { type: [object, "null"], additionalProperties: true }
+    WhatsAppCommerceSettings:
+      type: object
+      properties:
+        isCartEnabled: { type: boolean }
+        isCatalogVisible: { type: boolean }
     WhatsAppTemplateLookupError:
       type: object
       required: [error, type, code, platform, details]
@@ -3851,8 +4001,8 @@ components:
       description: The conversation context included in inbox webhook payloads.
       required: [id, platformConversationId, status]
       properties:
-        id: { type: string }
-        platformConversationId: { type: string }
+        id: { type: string, description: "Zernio's internal conversation id (also the message's conversationId). Accepted by every /v1/inbox/conversations/{conversationId} endpoint." }
+        platformConversationId: { type: string, description: "The platform's conversation id. This is the `id` GET /v1/inbox/conversations returns for the same conversation (on Instagram and Messenger it is the participant's IGSID / PSID), so key your records on it to match webhooks with list rows. Also accepted by the conversation endpoints." }
         participantId: { type: string }
         participantName: { type: string }
         participantUsername: { type: string }
@@ -3874,11 +4024,11 @@ components:
       description: The conversation object included in conversation lifecycle webhook payloads (conversation.started, conversation.control_changed).
       required: [id, platform, platformConversationId, participantName, status]
       properties:
-        id: { type: string, description: Internal conversation ID }
+        id: { type: string, description: "The platform's conversation id, equal to `conversation.platformConversationId` on inbox webhooks (whose `conversation.id` is Zernio's internal id). Both are accepted by the conversation endpoints." }
         platform:
           type: string
-          enum: [instagram, facebook, telegram, whatsapp, twitter, reddit, bluesky, sms, slack]
-        platformConversationId: { type: string }
+          enum: [instagram, facebook, telegram, whatsapp, twitter, reddit, bluesky, sms, slack, tiktok]
+        platformConversationId: { type: string, description: 'Same value as `id`.' }
         participantId: { type: string, description: "Contact's platform identifier (IGSID, PSID, wa_id, etc.)" }
         participantName: { type: string }
         participantUsername: { type: string, description: Contact's handle when the platform exposes one }
@@ -4066,7 +4216,7 @@ components:
               description: Internal conversation ID
             platform:
               type: string
-              enum: [instagram, facebook, telegram, whatsapp, sms]
+              enum: [instagram, facebook, telegram, whatsapp, sms, twitter, bluesky, reddit, slack, tiktok]
             platformMessageId:
               type: string
               description: Platform's message ID
@@ -4213,7 +4363,7 @@ components:
           $ref: '#/components/schemas/InboxWebhookAccount'
         metadata:
           type: [object, "null"]
-          description: 'Platform-specific message context (present when the message is a quick reply tap, postback button tap, inline keyboard callback, a quote-reply to an earlier message, or a WhatsApp inbound that Meta Business Agent is answering)'
+          description: 'Platform-specific message context (present when the message is a quick reply tap, postback button tap, inline keyboard callback, a quote-reply to an earlier message, a WhatsApp inbound that Meta Business Agent is answering, or a TikTok DM that is not plain text)'
           properties:
             standby:
               type: boolean
@@ -4514,6 +4664,9 @@ components:
                 (WhatsApp only, carries Meta's error code/title/details): this
                 field has no error envelope, only the boolean. Absence means
                 "not flagged", never "checked and renderable".
+            tiktokMessageType:
+              type: string
+              description: 'TikTok only. The message type as TikTok reports it, forwarded verbatim (for example image, video, sticker, share_post, emoji, reaction, template). Present on every TikTok DM that is not plain text; those arrive with text empty and, for image and video, an attachment.'
         timestamp:
           type: string
           format: date-time
@@ -4541,7 +4694,7 @@ components:
               description: Internal conversation ID
             platform:
               type: string
-              enum: [instagram, facebook, telegram, whatsapp, twitter, reddit, bluesky, slack]
+              enum: [instagram, facebook, telegram, whatsapp, twitter, reddit, bluesky, slack, tiktok]
               description: 'Every platform whose outgoing messages Zernio observes. sms is absent on purpose: its carrier receipts update delivery status and never raise message.sent.'
             platformMessageId:
               type: string
@@ -4641,7 +4794,7 @@ components:
           $ref: '#/components/schemas/InboxWebhookAccount'
         metadata:
           type: object
-          description: 'Platform-specific context for the sent message: a quote-reply reference, a WhatsApp location pin or WhatsApp contact cards. The key is present only when the send carried some context, and absent otherwise: it is never null and never an empty object. Read it to tell a location or contact-card message from a text one without a GET on the message.'
+          description: 'Platform-specific context for the sent message: a quote-reply reference, a WhatsApp location pin, WhatsApp contact cards or the TikTok message type. The key is present only when the send carried some context, and absent otherwise: it is never null and never an empty object. Read it to tell a location or contact-card message from a text one without a GET on the message.'
           properties:
             location:
               type: object
@@ -4698,6 +4851,9 @@ components:
               description: |
                 Slack only. Parent thread ts of the sent message. Pass it back as
                 `replyTo` on the inbox send API to keep replying inside the thread.
+            tiktokMessageType:
+              type: string
+              description: 'TikTok only. The message type as TikTok reports it, forwarded verbatim (for example image, video, sticker, share_post, emoji, reaction, template). Present on every TikTok DM that is not plain text; those arrive with text empty and, for image and video, an attachment. Absent on image sends made through the Zernio API, which carry the image in attachments.'
         timestamp:
           type: string
           format: date-time
@@ -4851,7 +5007,7 @@ components:
         Fired once when a new conversation begins, in either direction. A conversation
         starts the first time an account and a contact exchange a message on any DM
         platform (Instagram, Messenger/Facebook, Telegram, WhatsApp, X, Reddit,
-        Bluesky, SMS). Platform-agnostic: one subscription covers every DM platform.
+        Bluesky, SMS, TikTok). Platform-agnostic: one subscription covers every DM platform.
       required: [id, event, conversation, account, startedAt, timestamp]
       properties:
         id: { type: string, description: Stable webhook event ID }
@@ -5467,7 +5623,7 @@ components:
         url:
           type: string
           format: uri
-          description: 'A media item with a null, missing or empty url is dropped from non-draft posts (drafts keep it as a pending-upload placeholder).'
+          description: 'A media item with a null, missing or empty url is dropped.'
         title:
           type: string
           description: Optional title for the media item. Used as the document title for LinkedIn PDF/carousel posts. If omitted, falls back to the post title, then the filename.
@@ -5599,7 +5755,7 @@ components:
           example: "1234567890123456789"
         platformPostUrl:
           type: [string, "null"]
-          description: Public URL of the published post. Included in the response for immediate posts; for scheduled posts, fetch via GET /v1/posts/{postId} after publish time. Empty when the platform confirmed the publish without returning an id a permalink can be built from (TikTok returns a publish id for some uploads); the TikTok reconcile cron backfills it later.
+          description: Public URL of the published post. Included in the response for immediate posts; for scheduled posts, fetch via GET /v1/posts/{postId} after publish time. Empty when the platform confirmed the publish without returning an id a permalink can be built from (TikTok returns a publish id for some uploads); the TikTok reconcile cron backfills it later. If TikTok never returns one, /v1/analytics reports that entry as syncStatus unavailable.
           example: "https://twitter.com/acmecorp/status/1234567890123456789"
         publishedAt:
           type: string
@@ -6364,6 +6520,23 @@ components:
         disableLinkPreview:
           type: boolean
           description: Set to true to disable automatic link previews for URLs in the post content (default is false)
+        audience:
+          type: object
+          description: "Organization pages only. Audience targeting for the post (Ads Manager's \"Targeted audience\"), sent as LinkedIn's distribution.targetEntities: OR inside a facet, AND across facets. LinkedIn rejects the post when the targeted audience is under 300 members, and Zernio rejects it on a personal profile. URN facets accept a full urn:li:<type>:<id> or the bare numeric id; find ids with GET /v1/ads/targeting/search?platform=linkedin (types country, region, industry, jobFunction, seniority, companySize)."
+          properties:
+            countries: { type: array, maxItems: 25, items: { type: string }, description: "ISO 3166-1 alpha-2 codes with a built-in LinkedIn geo URN (same list as geoRestriction.countries, merged with it). Other countries and sub-country regions go in geoLocations." }
+            geoLocations: { type: array, items: { type: string }, description: "LinkedIn geo URNs or ids (urn:li:geo:103644278 or 103644278): countries, states, regions, cities." }
+            interfaceLocales:
+              type: array
+              items: { type: object, required: [language, country], properties: { language: { type: string, description: "ISO 639-1, lowercase" }, country: { type: string, description: "ISO 3166-1 alpha-2, uppercase" } } }
+              description: "Members' LinkedIn interface locale, e.g. { language: es, country: ES }."
+            industries: { type: array, items: { type: string }, description: "urn:li:industry:<id> or id." }
+            jobFunctions: { type: array, items: { type: string }, description: "urn:li:function:<id> or id." }
+            seniorities: { type: array, items: { type: string }, description: "urn:li:seniority:<id> or id." }
+            staffCountRanges: { type: array, items: { type: string, enum: [SIZE_1, SIZE_2_TO_10, SIZE_11_TO_50, SIZE_51_TO_200, SIZE_201_TO_500, SIZE_501_TO_1000, SIZE_1001_TO_5000, SIZE_5001_TO_10000, SIZE_10001_OR_MORE] }, description: "Company size of the member's current employer." }
+            degrees: { type: array, items: { type: string }, description: "urn:li:degree:<id> or id (LinkedIn standardized degrees)." }
+            fieldsOfStudy: { type: array, items: { type: string }, description: "urn:li:fieldOfStudy:<id> or id (LinkedIn standardized fields of study)." }
+            organizations: { type: array, items: { type: string }, description: "Schools, as urn:li:organization:<id> or id (LinkedIn's Organization Lookup)." }
         reshareUrl:
           type: string
           description: "LinkedIn post link to repost (use the post's \"Copy link to post\" action), or a urn:li:share / urn:li:ugcPost / urn:li:groupPost URN. The published post is always a reshare authored by your account with the original embedded underneath: with content your text is the commentary (LinkedIn's \"repost with your thoughts\"), and with no content it publishes as a text-free reshare. A text-free reshare is NOT LinkedIn's one-click \"Repost\" (the feed treatment where the original author stays the author); LinkedIn's API exposes no way to create that, so the post still appears authored by you with the original embedded. Mutually exclusive with media. Works on personal profiles and organization pages."
@@ -7417,7 +7590,7 @@ components:
         _id: { type: string }
         platform:
           type: string
-          enum: [tiktok, instagram, facebook, youtube, linkedin, twitter, threads, pinterest, reddit, bluesky, googlebusiness, telegram, snapchat, discord, slack, whatsapp, linkedinads, metaads, pinterestads, tiktokads, xads, googleads, openaiads, sms, phone, rcs]
+          enum: [tiktok, instagram, facebook, youtube, linkedin, twitter, threads, pinterest, reddit, bluesky, googlebusiness, telegram, snapchat, discord, slack, whatsapp, shopify, wordpress, linkedinads, metaads, pinterestads, tiktokads, xads, googleads, openaiads, sms, phone, rcs]
         profileId:
           oneOf:
             - type: string
@@ -7485,6 +7658,9 @@ components:
             For LinkedIn accounts, profileData carries the profile details refreshed on each daily snapshot:
             - profileData.bio: The member's headline for personal accounts, or the organization description for organization accounts. null when the member has not set one.
             - profileData.extraData.vanityName: The member's profile slug, i.e. the /in/{vanityName} segment of profileUrl. Personal accounts only; an organization's own slug is in metadata.organizationInfo.vanityName.
+
+            For X (Twitter) accounts:
+            - profileData.extraData.isPremium: Whether X reports a paid subscription (Basic, Premium, Premium+, or a blue verified badge), which raises the post length limit from 280 to 25,000 characters. Read live at connect and reconnect and refreshed by the daily follower snapshot; because X intermittently reports no subscription for subscribed accounts, a cancellation is stored on the fourth consecutive daily snapshot that reports it (about four days). Accounts connected before the extraData layout carry the same flag at profileData.isPremium.
     AccountWithFollowerStats:
       allOf:
         - $ref: '#/components/schemas/SocialAccount'
@@ -8030,7 +8206,7 @@ components:
             - type: "null"
         syncStatus: { type: string, enum: [synced, pending, unavailable], description: 'Sync state of analytics for this platform' }
         platformPostUrl: { type: [string, "null"], format: uri }
-        errorMessage: { type: [string, "null"], description: 'Error details when status is failed' }
+        errorMessage: { type: [string, "null"], description: 'Failure detail. On failed entries, why the post failed to publish. On unavailable entries, why analytics cannot be synced (e.g. Google Business Profile, a TikTok upload that never received a video id). On pending entries, the most recent analytics sync error for the account (null while no sync has failed), cleared after the next successful sync.' }
     AnalyticsOverview:
       type: object
       properties:
@@ -10560,22 +10736,22 @@ components:
       type: object
       description: 'A blog container on the connected platform. All content lives on the platform; Zernio proxies it and stores nothing.'
       properties:
-        id: { type: string, description: 'Platform-native blog id (numeric string for Shopify).' }
-        platform: { type: string, enum: [shopify] }
+        id: { type: string, description: 'Platform-native blog id. Shopify uses a numeric blog id. WordPress.com uses the numeric site id; self-hosted WordPress uses `1`, scoped to the connected account.' }
+        platform: { type: string, enum: [shopify, wordpress] }
         title: { type: string }
-        handle: { type: string, description: 'URL slug of the blog.' }
+        handle: { type: string, description: 'URL slug on Shopify; site hostname on WordPress.' }
     BlogArticle:
       type: object
       description: 'An article inside a blog on the connected platform.'
       properties:
-        id: { type: string, description: 'Platform-native article id (numeric string for Shopify).' }
+        id: { type: string, description: 'Platform-native numeric article/post id.' }
         blogId: { type: string, description: 'Platform-native id of the blog the article belongs to.' }
-        platform: { type: string, enum: [shopify] }
+        platform: { type: string, enum: [shopify, wordpress] }
         title: { type: string }
         bodyHtml: { type: [string, "null"], description: 'Article body as HTML.' }
         handle: { type: string, description: 'URL slug of the article.' }
-        tags: { type: array, items: { type: string } }
-        author: { type: [string, "null"], description: 'Display name of the article author.' }
+        tags: { type: array, items: { type: string }, description: 'Tag names. On WordPress, missing tag names are created and matching is case-insensitive.' }
+        author: { type: [string, "null"], description: 'Shopify author display name, or numeric WordPress user id serialized as a string.' }
         excerpt: { type: [string, "null"], description: 'Short summary shown in blog listings.' }
         image:
           type: [object, "null"]
@@ -10584,9 +10760,11 @@ components:
             url: { type: string }
             altText: { type: [string, "null"] }
         isPublished: { type: boolean, description: 'False while the article is a draft or its publish date is still in the future.' }
-        publishedAt: { type: [string, "null"], format: date-time, description: 'When the article was (or is scheduled to be) published; null for drafts.' }
-        createdAt: { type: [string, "null"], format: date-time }
-        updatedAt: { type: [string, "null"], format: date-time }
+        publishedAt: { type: [string, "null"], format: date-time, description: 'Publication time. On WordPress this is present only when status is `publish`; null for drafts, pending/private posts, and scheduled posts.' }
+        status: { type: string, enum: [publish, future, draft, pending, private], description: 'WordPress only. Native post status returned by WordPress; omitted for Shopify.' }
+        publishDate: { type: [string, "null"], format: date-time, description: 'WordPress only. Scheduled publication time in UTC when status is `future`; null for other WordPress statuses and omitted for Shopify.' }
+        createdAt: { type: [string, "null"], format: date-time, description: 'Creation time when the platform exposes one. WordPress returns null because its core date is the editable publication date.' }
+        updatedAt: { type: [string, "null"], format: date-time, description: 'Last modification time. WordPress returns modified_gmt as UTC.' }
     ProductImage:
       type: object
       properties:
@@ -11309,7 +11487,7 @@ webhooks:
       description: |
         Fired once when a new conversation begins between one of your connected accounts and a
         contact, in either direction. Works across every DM platform (Instagram, Messenger/Facebook,
-        Telegram, WhatsApp, X, Reddit, Bluesky). Naturally deduped: a given conversation
+        Telegram, WhatsApp, X, Reddit, Bluesky, TikTok). Naturally deduped: a given conversation
         only fires this event the very first time it appears.
       tags: [Webhook Events]
       requestBody:
@@ -12760,7 +12938,7 @@ paths:
                         isActive: true
                     hasAnalyticsAccess: true
         '202':
-          description: Analytics are being synced from the platform (single post lookup only). The response body matches AnalyticsSinglePostResponse with syncStatus "pending" and a message.
+          description: 'Analytics are being synced from the platform (single post lookup only). The response body matches AnalyticsSinglePostResponse with syncStatus "pending" and a message. Pending platforms whose account failed its last analytics sync carry that error in platformAnalytics[].errorMessage, and the message says so.'
           content:
             application/json:
               schema:
@@ -20543,6 +20721,112 @@ paths:
         '402': { $ref: '#/components/responses/PaymentRequired' }
         '403':
           description: 'API key does not have access to this profile.'
+
+  /v1/connect/wordpress:
+    get:
+      x-resource-group: "accounts"
+      operationId: getWordPressAuthUrl
+      tags: [Connect]
+      summary: Get WordPress.com OAuth connect URL
+      description: |
+        Initiates OAuth for a WordPress.com site or a Jetpack-connected site.
+        WordPress is a connect-only blog platform: the connected account powers
+        the Blogs API (`/v1/accounts/{accountId}/blogs`) and does not support
+        social posts, inbox, analytics, ads, or Shopify product operations.
+        Redirect the user to `authUrl`; after authorization, WordPress returns
+        the browser to Zernio's internal callback and Zernio redirects to
+        `redirect_url` (or the dashboard when omitted). Reconnecting the same
+        site and profile updates the stored connection in place. The consent
+        request omits `scope` to use WordPress.com's default single-site grant.
+        Granular scopes cannot access the `/wp/v2` article API. Zernio checks
+        that API before saving the connection and does not request explicit
+        `global` authorization across all sites.
+      security:
+        - bearerAuth: []
+        - connectToken: []
+      parameters:
+        - name: profileId
+          in: query
+          required: true
+          schema: { type: string }
+          description: 'Your Zernio profile ID (get from /v1/profiles).'
+        - name: redirect_url
+          in: query
+          schema: { type: string }
+          description: 'Custom redirect after connection. Must be an absolute http(s) URL or custom app scheme such as `myapp://callback`; relative and unsafe URLs return 400.'
+      responses:
+        '200':
+          description: OAuth authorization URL and authenticated state
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [authUrl, state]
+                properties:
+                  authUrl: { type: string, format: uri, description: 'WordPress.com URL to open in the user agent.' }
+                  state: { type: string, description: 'Authenticated, expiring OAuth state handled by the callback.' }
+        '400': { description: 'Invalid `profileId` or `redirect_url`.' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '402': { $ref: '#/components/responses/PaymentRequired' }
+        '403': { description: 'API key does not have access to this profile.' }
+        '404': { description: 'Profile not found or access denied.' }
+        '503': { description: 'WordPress.com OAuth or state signing is not configured.' }
+
+  /v1/connect/wordpress/token:
+    post:
+      x-resource-group: "accounts"
+      operationId: connectWordPressWithApplicationPassword
+      tags: [Connect]
+      summary: Connect self-hosted WordPress with an application password
+      description: |
+        Connects one self-hosted WordPress site using a WordPress username and
+        application password. `siteUrl` must use HTTPS and may include the path
+        where WordPress is installed. Zernio discovers the REST API, verifies
+        the credentials and required post/media/taxonomy capabilities, then
+        stores the password encrypted. Create an application password in the
+        WordPress user's profile; do not send the user's login password.
+        Reconnecting the same site and profile updates the connection in place.
+      security:
+        - bearerAuth: []
+        - connectToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [profileId, siteUrl, username, applicationPassword]
+              properties:
+                profileId: { type: string, description: 'Your Zernio profile ID (get from /v1/profiles).' }
+                siteUrl: { type: string, format: uri, pattern: '^https://', description: 'HTTPS base URL of the WordPress installation, including a subdirectory path when applicable.' }
+                username: { type: string, minLength: 1, maxLength: 255, pattern: '^[^:\r\n]+$', description: 'WordPress login name. A colon is not allowed.' }
+                applicationPassword: { type: string, minLength: 1, maxLength: 1024, writeOnly: true, description: 'Application password created for the WordPress user. Spaces in WordPress display formatting are accepted.' }
+      responses:
+        '200':
+          description: WordPress site connected as a platform account
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [account]
+                properties:
+                  account:
+                    type: object
+                    required: [_id, platform, username, displayName, profileId]
+                    properties:
+                      _id: { type: string }
+                      platform: { type: string, enum: [wordpress] }
+                      username: { type: string, description: 'Hostname of the connected WordPress site.' }
+                      displayName: { type: string, description: 'WordPress site title.' }
+                      profileId: { type: string }
+        '400': { description: 'Malformed body, non-HTTPS `siteUrl`, invalid username, unavailable REST API, or a site that cannot support the required WordPress operations.' }
+        '401': { description: 'Invalid API key or WordPress application password.' }
+        '402': { $ref: '#/components/responses/PaymentRequired' }
+        '403': { description: 'No access to the Zernio profile, or the WordPress user lacks required capabilities.' }
+        '404': { description: 'Zernio profile not found or WordPress REST endpoint not found.' }
+        '502': { description: 'The WordPress site returned an unclassified upstream error.' }
+        '503': { description: 'The WordPress site could not be reached.' }
 
   /v1/connect/tiktok-ads:
     patch:
@@ -30128,7 +30412,7 @@ paths:
                             type: object
                             properties:
                               id: { type: string }
-                              type: { type: string, enum: [image, video, audio, file, sticker, share] }
+                              type: { type: string, enum: [image, video, audio, file, sticker, share, template] }
                               originalType:
                                 type: string
                                 description: 'Instagram and Facebook only, and present only when it differs from `type`. Meta''s own type before normalization: `ig_reel` and `reel` become `video`, while `ig_post`, `post`, `ig_story` and `story_mention` become `share`. A story mention is `type: "share"` with `originalType: "story_mention"`; render on this field, since `share` alone is ambiguous.'
@@ -30140,6 +30424,10 @@ paths:
                                 description: 'Instagram and Facebook only. Endpoint that resolves this attachment to a working url every time, re-minting it from Meta when the stored one has expired. Safe to store and render indefinitely.'
                               filename: { type: [string, "null"] }
                               previewUrl: { type: [string, "null"] }
+                              payload:
+                                type: object
+                                additionalProperties: true
+                                description: 'Template content (title, subtitle, image, buttons) when type is template'
                         subject: { type: [string, "null"], description: Reddit message subject }
                         storyReply: { type: [boolean, "null"], description: Instagram story reply }
                         isStoryMention: { type: [boolean, "null"], description: Instagram story mention }
@@ -34445,10 +34733,10 @@ paths:
                     type: string
                     enum: [business, platform]
                     description: 'Caller ID the forward-leg callee sees on tel: forwards. business = this WhatsApp number; platform = a Zernio number (customer-brought number without verified caller ID).'
-        '400': { description: 'Invalid request (including forwardTo set to the number itself)' }
+        '400': { description: 'Invalid request (including forwardTo set to the number itself), or Meta refused enablement (platform_api_error with platformError.code 138015, for example a production number below the 2,000-recipient messaging tier; Meta public test numbers and Sandbox accounts are exempt)' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: WhatsApp phone number not found }
-        '422': { description: "Not eligible to enable calling: not on usage-based billing, or the number's messaging limit is below Meta's ~2,000-daily-recipient threshold (TIER_250). Warm the number up to raise the limit." }
+        '422': { description: 'Not eligible to enable calling: not on usage-based billing.' }
     patch:
       x-resource-group: "telephony"
       operationId: updateWhatsAppCallingLegacy
@@ -36181,6 +36469,147 @@ paths:
   # BUSINESS PROFILE
   # ──────────────────────────────────────────────────────────────────────────
 
+  /v1/whatsapp/catalogs:
+    get:
+      x-resource-group: "accounts"
+      operationId: listWhatsAppCatalogs
+      tags: [WhatsApp]
+      summary: List the catalogs linked to a WhatsApp number
+      description: "The Meta Commerce catalogs connected to the number's WhatsApp Business Account. Pass `catalogAccountId`: the WhatsApp connection's own (embedded signup) token answers an empty list even when a catalog is linked, only a Meta login with catalog_management sees the link. A linked catalog is what product, product_list and catalog_message interactive messages sell from (see POST /v1/inbox/conversations/{conversationId}/messages) and what customers browse in the WhatsApp app. Create and fill catalogs with the /v1/ads/catalogs endpoints."
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "WhatsApp account ID" }
+        - { $ref: '#/components/parameters/CatalogTokenAccountId' }
+      responses:
+        '200':
+          description: Linked catalogs
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  wabaId: { type: string }
+                  catalogs:
+                    type: array
+                    items: { type: object, properties: { id: { type: string }, name: { type: string } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+    post:
+      x-resource-group: "accounts"
+      operationId: linkWhatsAppCatalog
+      tags: [WhatsApp]
+      summary: Link a catalog to a WhatsApp number
+      description: "Connects a Meta Commerce catalog (owned by the same business portfolio as the WhatsApp Business Account) to the number's WABA. The WhatsApp connection's own token cannot do this, so pass `catalogAccountId` naming a facebook, instagram or metaads account whose Meta login carries catalog_management."
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, catalogId]
+              properties:
+                accountId: { type: string, description: "WhatsApp account ID" }
+                catalogAccountId: { type: string, description: "Account whose Meta login token performs the call" }
+                catalogId: { type: string, description: "Meta catalog ID" }
+      responses:
+        '201':
+          description: Linked
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  wabaId: { type: string }
+                  catalogs:
+                    type: array
+                    items: { type: object, properties: { id: { type: string }, name: { type: string } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+    delete:
+      x-resource-group: "accounts"
+      operationId: unlinkWhatsAppCatalog
+      tags: [WhatsApp]
+      summary: Unlink a catalog from a WhatsApp number
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "WhatsApp account ID" }
+        - { $ref: '#/components/parameters/CatalogTokenAccountId' }
+        - { name: catalogId, in: query, required: true, schema: { type: string }, description: "Meta catalog ID" }
+      responses:
+        '200':
+          description: Unlinked
+          content:
+            application/json:
+              schema: { type: object, properties: { success: { type: boolean }, wabaId: { type: string }, catalogId: { type: string } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+  /v1/whatsapp/commerce-settings:
+    get:
+      x-resource-group: "accounts"
+      operationId: getWhatsAppCommerceSettings
+      tags: [WhatsApp]
+      summary: Get a number's commerce settings
+      description: "Whether the linked catalog is shown on the business profile (`isCatalogVisible`) and whether customers can build a cart (`isCartEnabled`)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "WhatsApp account ID" }
+        - { $ref: '#/components/parameters/CatalogTokenAccountId' }
+      responses:
+        '200':
+          description: Commerce settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  settings: { $ref: '#/components/schemas/WhatsAppCommerceSettings' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+    put:
+      x-resource-group: "accounts"
+      operationId: updateWhatsAppCommerceSettings
+      tags: [WhatsApp]
+      summary: Update a number's commerce settings
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId]
+              properties:
+                accountId: { type: string, description: "WhatsApp account ID" }
+                catalogAccountId: { type: string }
+                isCartEnabled: { type: boolean }
+                isCatalogVisible: { type: boolean }
+      responses:
+        '200':
+          description: Updated settings
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  settings: { $ref: '#/components/schemas/WhatsAppCommerceSettings' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
   /v1/whatsapp/business-profile:
     get:
       x-resource-group: "accounts"
@@ -40163,11 +40592,11 @@ paths:
                     type: string
                     enum: [business, platform]
                     description: 'Caller ID the forward-leg callee sees on tel: forwards. business = this WhatsApp number; platform = a Zernio number (customer-brought number without verified caller ID).'
-        '400': { description: 'Invalid request (including forwardTo set to the number itself)' }
+        '400': { description: 'Invalid request (including forwardTo set to the number itself), or Meta refused enablement (platform_api_error with platformError.code 138015, for example a production number below the 2,000-recipient messaging tier; Meta public test numbers and Sandbox accounts are exempt)' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { description: Phone number not found }
         '409': { description: 'This number is attached to a SIP trunk; detach it first (code invalid_resource_state).' }
-        '422': { description: "Not eligible to enable calling: not on usage-based billing, or the number's messaging limit is below Meta's ~2,000-daily-recipient threshold (TIER_250). Warm the number up to raise the limit." }
+        '422': { description: 'Not eligible to enable calling: not on usage-based billing.' }
     patch:
       x-resource-group: "telephony"
       operationId: updateWhatsAppCalling
@@ -45727,14 +46156,20 @@ paths:
       x-resource-group: "ads"
       operationId: duplicateAdSet
       tags: ["Ad Campaigns"]
-      x-platforms: ["meta"]
+      x-platforms: ["meta", "tiktok"]
       summary: Duplicate an ad set
       description: |-
-        Duplicates an ad set, including its ads and creatives by default (`deepCopy: true`),
-        via Meta's native `POST /{adset-id}/copies`. The copy is created paused so callers can
-        review before launching. `campaignId` retargets the copy into another campaign; omitted
-        = the source's own campaign. The new hierarchy materializes asynchronously, and sync
-        discovery is triggered automatically (`syncAfter: false` to skip).
+        Duplicates an ad set. The copy is created paused so callers can review before launching.
+        `campaignId` retargets the copy into another campaign; omitted = the source's own campaign.
+
+        Meta: ads and creatives are included by default (`deepCopy: true`) via Meta's native
+        `POST /{adset-id}/copies`; the new hierarchy materializes asynchronously and sync discovery
+        is triggered automatically (`syncAfter: false` to skip).
+
+        TikTok: the ad group is read and recreated under the campaign with its targeting, bidding,
+        budget and schedule (start reset to now); `deepCopy: true` recreates its ads too (default
+        false). `startTime`, `endTime` and `renameStrategy` are ignored and `statusOption` must be
+        PAUSED or absent. The copy appears on the next discovery sync.
       security:
         - bearerAuth: []
       parameters:
@@ -46348,7 +46783,7 @@ paths:
 
         Per-platform support:
         - **Meta** (Facebook + Instagram): all fields supported.
-        - **TikTok**: status, budget, targeting (via `/v2/adgroup/update/`), and creative
+        - **TikTok**: status, budget, `name` (renames the ad), targeting (via `/v2/adgroup/update/`), and creative
           (via `/v2/ad/update/` patch-style: `headline` is ignored, `body` becomes `ad_text`).
         - **Google**: status, budget, KEYWORD edits via `targeting.keywords` /
           `targeting.negativeKeywords`, DEVICE bid adjustments via `targeting.devices`,
@@ -47836,7 +48271,7 @@ paths:
         - { name: level, in: query, schema: { type: string, enum: [ad, adset, campaign, account] }, description: Row granularity }
         - { name: fields, in: query, schema: { type: string }, description: "Comma-separated Graph insights fields (e.g. spend,impressions,frequency,website_purchase_roas). Omitted = Meta's default set." }
         - { name: breakdowns, in: query, schema: { type: string }, description: "Comma-separated Graph breakdowns (e.g. age,gender or publisher_platform)." }
-        - { name: actionBreakdowns, in: query, schema: { type: string }, description: "Comma-separated Graph action breakdowns. Segments the actions[] arrays in each row." }
+        - { name: actionBreakdowns, in: query, schema: { type: string }, description: "Comma-separated Graph action breakdowns; segments the actions[] arrays in each row. Pass `none` to clear Meta's default action_type breakdown, required to combine some non-action breakdowns such as instagram_ads_follow_type (otherwise Meta returns a (#100) invalid-combination error)." }
         - { name: actionAttributionWindows, in: query, schema: { type: string }, description: "Comma-separated Meta attribution windows. Action values are returned keyed per window." }
         - { name: actionReportTime, in: query, schema: { type: string }, description: "When actions are counted: impression, conversion or mixed." }
         - { name: useUnifiedAttributionSetting, in: query, schema: { type: boolean }, description: "Use the ad sets' own attribution settings for action counting." }
@@ -47900,7 +48335,7 @@ paths:
                 level: { type: string, enum: [ad, adset, campaign, account] }
                 fields: { type: string, description: "Comma-separated Graph insights fields." }
                 breakdowns: { type: string, description: "Comma-separated Graph breakdowns." }
-                actionBreakdowns: { type: string, description: "Comma-separated Graph action breakdowns (e.g. action_type,action_destination)." }
+                actionBreakdowns: { type: string, description: "Comma-separated Graph action breakdowns (e.g. action_type,action_destination). Pass `none` to clear Meta's default action_type breakdown, needed for some non-action breakdowns such as instagram_ads_follow_type." }
                 actionAttributionWindows:
                   type: array
                   items: { type: string }
@@ -48770,6 +49205,43 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '501': { description: Only supported on Meta (facebook/instagram) }
 
+  /v1/ads/tiktok-identities:
+    get:
+      x-resource-group: "ads"
+      operationId: listAdsTikTokIdentities
+      tags: ["Ad Creatives"]
+      x-platforms: ["tiktok"]
+      summary: List TikTok ad identities
+      description: "The identities an ad on this TikTok advertiser may run as (the profile shown on the ad): the advertiser's own TikTok accounts (TT_USER), Business Center authorized accounts (BC_AUTH_TT) and custom brand identities (CUSTOMIZED_USER). Pass the chosen `identityId` on POST /v1/ads/create or POST /v1/ads/boost. Spark-post identities (AUTH_CODE) are not listed; a Spark code creates its own."
+      security:
+        - bearerAuth: []
+      parameters:
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "A tiktok or tiktokads account ID" }
+        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "TikTok advertiser ID" }
+      responses:
+        '200':
+          description: Identities
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  adAccountId: { type: string }
+                  identities:
+                    type: array
+                    items:
+                      type: object
+                      properties:
+                        identityId: { type: string }
+                        identityType: { type: string, enum: [TT_USER, BC_AUTH_TT, CUSTOMIZED_USER] }
+                        displayName: { type: [string, "null"] }
+                        username: { type: [string, "null"] }
+                        profileImage: { type: [string, "null"] }
+                        identityAuthorizedBcId: { type: [string, "null"], description: "Business Center that authorized a BC_AUTH_TT identity" }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
   /v1/ads/instagram-accounts:
     get:
       operationId: listAdsInstagramAccounts
@@ -51735,13 +52207,16 @@ paths:
                 creativeFeatures: { $ref: '#/components/schemas/MetaCreativeFeatures' }
                 postId: { type: string, description: Zernio post ID (provide this or platformPostId) }
                 platformPostId: { type: string, description: Platform post ID (alternative to postId) }
-                accountId: { type: string, description: Account ID }
+                accountId: { type: string, description: "Zernio account id. Normally the connected posting account (facebook, instagram, tiktok, linkedin, pinterest, twitter) or a googleads account. TikTok: the TikTok Ads connection (platform tiktokads) is accepted too when the post brings its own authorization (sparkAuthCode or sparkPosts), so Spark ads need no organic TikTok account connected; such a call must use platformPostId, not postId." }
                 adAccountId: { type: string, description: Platform ad account ID }
                 name: { type: string, maxLength: 255 }
                 campaignName: { type: string, maxLength: 255, description: "Exact name for the campaign this boost provisions. Omitted keeps the default `<name> - Campaign`. Every platform: on LinkedIn it names the campaign group. Ignored on the Meta attach shape (`adSetId`), which creates no campaign." }
                 adSetName: { type: string, maxLength: 255, description: "Exact name for the ad-group level this boost provisions. Omitted keeps the default `<name> - Ad Group`. Meta: ad set; TikTok, Pinterest, Google: ad group; X: line item; LinkedIn: the campaign under the campaign group. Ignored on the Meta attach shape." }
                 goal: { type: string, enum: [engagement, traffic, awareness, video_views, lead_generation, conversions, app_promotion], description: "Available goals vary by platform. Meta (Facebook/Instagram) and TikTok support all 7. LinkedIn supports all except app_promotion. X supports engagement, traffic, awareness, video_views, app_promotion. Pinterest and Google Ads support only engagement, traffic, awareness, video_views." }
                 adSetId: { type: string, description: "Meta, or TikTok with `smartPlus: true`. Attach the boosted post to this existing ad set instead of creating a campaign. On TikTok the id is an existing Smart+ ad group: the post is added as one more Spark ad in it (up to 30 per ad group), under the identity its `sparkAuthCode` creates; goal and budget are inherited from the Smart+ campaign; a regular ad group is rejected with a 400. Meta: The ad set then owns budget, schedule and targeting; sending those too is a 400." }
+                existingCampaignId: { type: string, description: "TikTok only. Create the ad group and the Spark ad under this existing TikTok campaign instead of creating a new campaign. The campaign keeps its own status and objective (the objective must fit `goal`). Cannot be combined with adSetId or smartPlus. On Meta use POST /v1/ads/create with existingCampaignId." }
+                identityId: { type: string, description: "TikTok only. The identity the ad runs as (the profile shown on the ad), from GET /v1/ads/tiktok-identities. Default: the connected TikTok account's own identity. Must be authorized on the advertiser or the call fails naming the available ones." }
+                identityType: { type: string, enum: [TT_USER, CUSTOMIZED_USER, BC_AUTH_TT], description: "TikTok only. Type of identityId; resolved from the advertiser's identity list when omitted." }
                 budget:
                   type: object
                   description: "Required unless adSetId is set."
@@ -51966,7 +52441,34 @@ paths:
                     account running the ads (same-BC creators only). The creator generates the
                     code in their TikTok app's Promote settings and shares it with the
                     advertiser. Maps to `auth_code` on the creative entry of /v2/ad/create/.
-                smartPlus: { type: boolean, description: "TikTok only. Run the Spark post in a Smart+ campaign (goal `conversions` = Smart+ Web Conversions, `lead_generation` = Smart+ Lead Generation) instead of a regular campaign. Requires `sparkAuthCode` (the Smart+ ad runs the post under the identity that redeeming its Spark code creates; a Business Center-owned post is not accepted there) and `promotedObject.pixelId` + `customEventType`. `app_promotion` is not available on a Spark post. Rejected with a 400 on other platforms." }
+                smartPlus: { type: boolean, description: "TikTok only. Run the Spark post in a Smart+ campaign (goal `conversions` = Smart+ Web Conversions, `lead_generation` = Smart+ Lead Generation) instead of a regular campaign. Requires `sparkAuthCode` (the Smart+ ad runs the post under the identity that redeeming its Spark code creates; a Business Center-owned post is not accepted there) and `promotedObject.pixelId` + `customEventType`. `app_promotion` is not available on a Spark post. Rejected with a 400 on other platforms. A Smart+ Spark ad uses a dynamic CTA portfolio, sent as ad_configuration.call_to_action_id (TikTok does not accept a named call to action there): Zernio creates one per ad account and reuses it, and `callToAction` is rejected with a 400 on this path." }
+                sparkPosts:
+                  type: array
+                  minItems: 1
+                  maxItems: 50
+                  description: "TikTok Smart+ only (requires `smartPlus: true`). Several Spark posts as creatives of ONE Smart+ ad, each with its own post code (TikTok allows 1-50 per ad; posts from different creators mix). Replaces `platformPostId` + `sparkAuthCode`. Without `adSetId` it creates campaign + ad group + one ad carrying all of them; with `adSetId` it creates one new ad with all of them in that ad group. Rejected with a 400 on other platforms."
+                  items:
+                    type: object
+                    required: [platformPostId, sparkAuthCode]
+                    properties:
+                      platformPostId: { type: string, description: "TikTok post (item) id." }
+                      sparkAuthCode: { type: string, description: "That post's Spark code." }
+                promoCodes:
+                  type: array
+                  minItems: 1
+                  maxItems: 10
+                  description: "TikTok Smart+ Web Conversions only (requires `smartPlus: true`, goal `conversions`). Promo codes or offers TikTok highlights on the ad (Ads Manager's \"Add promo code or offer\"). A promo code needs shoppers to enter it at checkout; an entry without `promoCode` is an offer applied automatically. Rejected with a 400 on other platforms and on Lead Generation campaigns."
+                  items:
+                    type: object
+                    required: [discountType, discountValue]
+                    properties:
+                      discountType: { type: string, enum: [PERCENTAGE, CASH] }
+                      discountValue: { type: number, description: "PERCENTAGE: integer 1-100. CASH: amount greater than 0 in discountCurrency." }
+                      discountCurrency: { type: string, description: "ISO 4217; required for CASH." }
+                      promoCode: { type: string, maxLength: 30, description: "Code entered at checkout; omit for an automatic offer." }
+                      minimumPurchaseType: { type: string, enum: [QUANTITY, SUBTOTAL] }
+                      minimumPurchaseValue: { type: number, description: "Required with minimumPurchaseType; QUANTITY is an integer >= 0, SUBTOTAL an amount > 0." }
+                      minimumPurchaseCurrency: { type: string, description: "ISO 4217; required for SUBTOTAL." }
                 promotedObject:
                   type: object
                   description: |
@@ -52014,7 +52516,10 @@ paths:
                 optimizationGoal:
                   type: string
                   description: |
-                    Meta only. Explicit ad-set `optimization_goal` override. When omitted,
+                    Meta, or TikTok with `goal: video_views`. TikTok: ENGAGED_VIEW (6-second
+                    Focused View, the default) or ENGAGED_VIEW_FIFTEEN (15-second views), both
+                    billed per view (CPV); any other value is a 400. Meta: explicit ad-set
+                    `optimization_goal` override. When omitted,
                     defaults to the value derived from `goal`. Messaging boosts always
                     use CONVERSATIONS and reject another optimizationGoal. Otherwise the value must be compatible
                     with the objective Meta derives from `goal`, not with the objective used
@@ -52198,7 +52703,7 @@ paths:
 
                     **OpenAI Ads**
                     - Only `traffic`, `awareness`, and `conversions` are supported (other goals return 400). Maps to OpenAI's `bidding_type` (clicks, impressions, conversions respectively). `conversions` requires an active conversion event setting on the account; create a tracking tag with `defaultEventType` via the tracking-tags API (`POST /v1/accounts/{accountId}/tracking-tags`), or configure a conversion event in OpenAI Ads Manager, or the request returns 422.
-                optimizationGoal: { type: string, description: "Meta only. Explicit ad-set `optimization_goal` (e.g. `LANDING_PAGE_VIEWS`, `LINK_CLICKS`, `REACH`, `IMPRESSIONS`, `OFFSITE_CONVERSIONS`, `THRUPLAY`, `LEAD_GENERATION`). Overrides the default derived from `goal` (e.g. `traffic` defaults to `LINK_CLICKS`). Forwarded verbatim to Meta, which validates compatibility with the campaign objective and rejects incompatible combinations." }
+                optimizationGoal: { type: string, description: "Meta, or TikTok with goal video_views (ENGAGED_VIEW, the 6-second default, or ENGAGED_VIEW_FIFTEEN; both bill per view). Meta: Explicit ad-set `optimization_goal` (e.g. `LANDING_PAGE_VIEWS`, `LINK_CLICKS`, `REACH`, `IMPRESSIONS`, `OFFSITE_CONVERSIONS`, `THRUPLAY`, `LEAD_GENERATION`). Overrides the default derived from `goal` (e.g. `traffic` defaults to `LINK_CLICKS`). Forwarded verbatim to Meta, which validates compatibility with the campaign objective and rejects incompatible combinations." }
                 billingEvent: { type: string, description: "Meta only. Explicit ad-set `billing_event`. Defaults to `IMPRESSIONS`. Forwarded verbatim to Meta, which validates compatibility with the optimization goal." }
                 buyingType: { type: string, enum: [AUCTION, RESERVED], default: AUCTION, description: "Meta only. Defaults to AUCTION and is explicitly sent on new campaigns, including validateOnly. Reusing existingCampaignId does not change the campaign. RESERVED = Reach & Frequency: requires `rfPredictionId` (a RESERVED prediction from /v1/ads/rf-predictions + /reserve). Budget, schedule and pricing come from the reservation, so budgetAmount/budgetType are not required and bid fields are ignored. Only the plain single-ad shape (no creatives[], adSetId, existingCampaignId or dynamicCreative)." }
                 rfPredictionId: { type: string, description: "Meta only. The RESERVED prediction id the R&F ad set runs on (reserving mints a new id, so pass that one). Requires buyingType RESERVED." }
@@ -52375,7 +52880,11 @@ paths:
                 existingCampaignId:
                   type: string
                   description: |
-                    Meta, Google Ads, and LinkedIn. On Meta: add the new ad
+                    Meta, Google Ads, LinkedIn and TikTok. On TikTok: creates
+                    the ad group and the ad under this existing campaign; the
+                    campaign is neither created nor activated and its
+                    objective must fit `goal`; not with `smartPlus`.
+                    On Meta: add the new ad
                     set under this EXISTING campaign instead of creating a new
                     one (multi-ad-set audience testing). The new ad set's
                     budget is matched to the campaign's mode automatically:
@@ -53123,9 +53632,12 @@ paths:
                       type: string
                       format: uri
                       description: Public URL of a square brand image (≥98×98 px, JPG/PNG). Used as the brand avatar on the ad.
+                identityId:
+                  type: string
+                  description: "TikTok: the identity the ad runs as, from GET /v1/ads/tiktok-identities. Overrides the connected account's own identity; must be authorized on the advertiser."
                 identityType:
                   type: string
-                  enum: [TT_USER, CUSTOMIZED_USER]
+                  enum: [TT_USER, CUSTOMIZED_USER, BC_AUTH_TT]
                   description: |
                     TikTok only. Forces the identity attribution on the ad:
 
@@ -54443,15 +54955,17 @@ paths:
     get:
       x-resource-group: "ads"
       operationId: listAdCatalogs
-      tags: ["Ad Creatives"]
+      tags: ["Product Catalogs"]
       x-platforms: ["meta"]
       summary: List Meta product catalogs
-      description: "Lists the Meta product catalogs reachable from an ad account (owned + agency-shared catalogs of the ad account's business), for Advantage+ catalog ads (`goal: catalog_sales` on POST /v1/ads/create, e.g. vehicle inventory catalogs). Read-only; uses scopes customers already granted (no reconnect needed). Catalog contents (items, feeds) are managed in Meta Commerce Manager, not through this API."
+      description: "Lists the Meta Commerce catalogs of a business portfolio (owned + agency-shared). The business comes from `businessId`, else the ad account's owner (`adAccountId`), else the WhatsApp Business Account's owner when `accountId` is a WhatsApp connection, else the only business the Meta login can see. Reads work with scopes customers already granted."
       security:
         - bearerAuth: []
       parameters:
-        - { name: accountId, in: query, required: true, schema: { type: string }, description: "A facebook, instagram, or metaads account ID" }
-        - { name: adAccountId, in: query, required: true, schema: { type: string }, description: "Meta ad account ID (act_...)" }
+        - { name: accountId, in: query, required: true, schema: { type: string }, description: "A facebook, instagram, metaads or whatsapp account ID" }
+        - { name: catalogAccountId, in: query, required: false, schema: { type: string }, description: "A facebook, instagram or metaads account whose Meta login carries catalog_management; its token is used instead of the account's own (needed for WhatsApp connections, whose token cannot manage catalogs)." }
+        - { name: adAccountId, in: query, required: false, schema: { type: string }, description: "Meta ad account ID (act_...) whose owner business to list" }
+        - { name: businessId, in: query, required: false, schema: { type: string }, description: "Meta business portfolio ID to list" }
       responses:
         '409': { $ref: '#/components/responses/AccountConnectionRequired' }
         '404': { $ref: '#/components/responses/AccountUnavailable' }
@@ -54462,35 +54976,495 @@ paths:
               schema:
                 type: object
                 properties:
+                  businessId: { type: string }
                   catalogs:
                     type: array
-                    items:
-                      type: object
-                      properties:
-                        id: { type: string }
-                        name: { type: string }
-                        vertical: { type: [string, "null"], description: "Catalog vertical (e.g. commerce, vehicles, hotels)" }
-                        productCount: { type: integer }
+                    items: { $ref: '#/components/schemas/MetaProductCatalog' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403':
-          description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+    post:
+      x-resource-group: "ads"
+      operationId: createAdCatalog
+      tags: ["Product Catalogs"]
+      x-platforms: ["meta"]
+      summary: Create a Meta product catalog
+      description: "Creates a Meta Commerce catalog in the business portfolio (resolved like GET). The same catalog serves Advantage+ catalog ads, Instagram/Facebook Shops and the WhatsApp Business catalog: link it to a WhatsApp number with POST /v1/whatsapp/catalogs. Needs catalog_management on the Meta login."
+      security:
+        - bearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, name]
+              properties:
+                accountId: { type: string, description: "A facebook, instagram, metaads or whatsapp account ID" }
+                catalogAccountId: { type: string, description: "Account whose Meta login token performs the call (see GET)" }
+                adAccountId: { type: string, description: "Ad account whose owner business creates the catalog" }
+                businessId: { type: string, description: "Business portfolio that owns the catalog" }
+                name: { type: string, maxLength: 100 }
+                vertical: { type: string, enum: [commerce, vehicles, hotels, flights, destinations, home_listings, local_service_business, offline_commerce, ticketed_experiences, transactable_items], default: commerce }
+      responses:
+        '201':
+          description: Catalog created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  catalog: { $ref: '#/components/schemas/MetaProductCatalog' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/AccountUnavailable' }
+        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
+  /v1/ads/catalogs/{catalogId}:
+    get:
+      x-resource-group: "ads"
+      operationId: getAdCatalog
+      tags: ["Product Catalogs"]
+      x-platforms: ["meta"]
+      summary: Get a product catalog
+      security:
+        - bearerAuth: []
+      parameters:
+        - { $ref: '#/components/parameters/CatalogId' }
+        - { $ref: '#/components/parameters/CatalogAccountId' }
+        - { $ref: '#/components/parameters/CatalogTokenAccountId' }
+      responses:
+        '200':
+          description: Catalog
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  catalog: { $ref: '#/components/schemas/MetaProductCatalog' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      x-resource-group: "ads"
+      operationId: deleteAdCatalog
+      tags: ["Product Catalogs"]
+      x-platforms: ["meta"]
+      summary: Delete a product catalog
+      description: "Deletes the catalog and every product in it on Meta. Ads and WhatsApp numbers that use it lose their catalog."
+      security:
+        - bearerAuth: []
+      parameters:
+        - { $ref: '#/components/parameters/CatalogId' }
+        - { $ref: '#/components/parameters/CatalogAccountId' }
+        - { $ref: '#/components/parameters/CatalogTokenAccountId' }
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema: { type: object, properties: { success: { type: boolean }, catalogId: { type: string } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/ads/catalogs/{catalogId}/products:
+    get:
+      x-resource-group: "ads"
+      operationId: listAdCatalogProducts
+      tags: ["Product Catalogs"]
+      x-platforms: ["meta"]
+      summary: List a catalog's products
+      description: "Pages through the catalog's products. Filter by your own `retailerId` to look one up. `price` and `salePrice` come back formatted by Meta (for example \"€49.90\")."
+      security:
+        - bearerAuth: []
+      parameters:
+        - { $ref: '#/components/parameters/CatalogId' }
+        - { $ref: '#/components/parameters/CatalogAccountId' }
+        - { $ref: '#/components/parameters/CatalogTokenAccountId' }
+        - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 100, default: 25 } }
+        - { name: after, in: query, required: false, schema: { type: string }, description: "Cursor from the previous page's `nextCursor`" }
+        - { name: retailerId, in: query, required: false, schema: { type: string }, description: "Only the product with this retailer id (your SKU)" }
+      responses:
+        '200':
+          description: Products
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  products:
+                    type: array
+                    items: { $ref: '#/components/schemas/MetaCatalogProduct' }
+                  nextCursor: { type: [string, "null"] }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      x-resource-group: "ads"
+      operationId: createAdCatalogProduct
+      tags: ["Product Catalogs"]
+      x-platforms: ["meta"]
+      summary: Add a product to a catalog
+      description: "Adds one product. `retailerId` is your SKU and stays the handle for later lookups and batch updates. For many products at once use POST /v1/ads/catalogs/{catalogId}/products/batch. Needs catalog_management on the Meta login."
+      security:
+        - bearerAuth: []
+      parameters:
+        - { $ref: '#/components/parameters/CatalogId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, product]
+              properties:
+                accountId: { type: string }
+                catalogAccountId: { type: string }
+                product:
+                  allOf:
+                    - { $ref: '#/components/schemas/MetaCatalogProductInput' }
+                    - { type: object, required: [retailerId, name, url, imageUrl, price, currency] }
+      responses:
+        '201':
+          description: Product created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  product: { $ref: '#/components/schemas/MetaCatalogProduct' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/ads/catalogs/{catalogId}/products/batch:
+    post:
+      x-resource-group: "ads"
+      operationId: batchAdCatalogProducts
+      tags: ["Product Catalogs"]
+      x-platforms: ["meta"]
+      summary: Create, update or delete products in bulk
+      description: "Up to 5000 CREATE / UPDATE / DELETE requests keyed by `retailerId`, processed asynchronously by Meta. Returns handles; poll GET /v1/ads/catalogs/{catalogId}/batches/{handle} for the outcome and per-item errors. CREATE requests need name, url, imageUrl, price and currency."
+      security:
+        - bearerAuth: []
+      parameters:
+        - { $ref: '#/components/parameters/CatalogId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, requests]
+              properties:
+                accountId: { type: string }
+                catalogAccountId: { type: string }
+                requests:
+                  type: array
+                  minItems: 1
+                  maxItems: 5000
+                  items:
+                    type: object
+                    required: [method, product]
+                    properties:
+                      method: { type: string, enum: [CREATE, UPDATE, DELETE] }
+                      product:
+                        allOf:
+                          - { $ref: '#/components/schemas/MetaCatalogProductInput' }
+                          - { type: object, required: [retailerId] }
+      responses:
+        '202':
+          description: Accepted by Meta
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  handles: { type: array, items: { type: string } }
+                  statusUrl: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/ads/catalogs/{catalogId}/batches/{handle}:
+    get:
+      x-resource-group: "ads"
+      operationId: getAdCatalogBatch
+      tags: ["Product Catalogs"]
+      x-platforms: ["meta"]
+      summary: Get a bulk request's status
+      security:
+        - bearerAuth: []
+      parameters:
+        - { $ref: '#/components/parameters/CatalogId' }
+        - { name: handle, in: path, required: true, schema: { type: string }, description: "Handle returned by the batch call" }
+        - { $ref: '#/components/parameters/CatalogAccountId' }
+        - { $ref: '#/components/parameters/CatalogTokenAccountId' }
+      responses:
+        '200':
+          description: Batch status
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  batch:
+                    type: object
+                    properties:
+                      handle: { type: string }
+                      status: { type: string, description: "Meta's status, e.g. initial, in_progress, finished" }
+                      errorsTotalCount: { type: integer }
+                      errors:
+                        type: array
+                        items:
+                          type: object
+                          properties:
+                            retailerId: { type: [string, "null"] }
+                            message: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/ads/catalogs/{catalogId}/products/{productId}:
+    get:
+      x-resource-group: "ads"
+      operationId: getAdCatalogProduct
+      tags: ["Product Catalogs"]
+      x-platforms: ["meta"]
+      summary: Get a product
+      security:
+        - bearerAuth: []
+      parameters:
+        - { $ref: '#/components/parameters/CatalogId' }
+        - { $ref: '#/components/parameters/CatalogProductId' }
+        - { $ref: '#/components/parameters/CatalogAccountId' }
+        - { $ref: '#/components/parameters/CatalogTokenAccountId' }
+      responses:
+        '200':
+          description: Product
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  product: { $ref: '#/components/schemas/MetaCatalogProduct' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    put:
+      x-resource-group: "ads"
+      operationId: updateAdCatalogProduct
+      tags: ["Product Catalogs"]
+      x-platforms: ["meta"]
+      summary: Update a product
+      description: "Partial update: only the fields sent change. `retailerId` cannot change."
+      security:
+        - bearerAuth: []
+      parameters:
+        - { $ref: '#/components/parameters/CatalogId' }
+        - { $ref: '#/components/parameters/CatalogProductId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, product]
+              properties:
+                accountId: { type: string }
+                catalogAccountId: { type: string }
+                product: { $ref: '#/components/schemas/MetaCatalogProductInput' }
+      responses:
+        '200':
+          description: Product updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  product: { $ref: '#/components/schemas/MetaCatalogProduct' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      x-resource-group: "ads"
+      operationId: deleteAdCatalogProduct
+      tags: ["Product Catalogs"]
+      x-platforms: ["meta"]
+      summary: Delete a product
+      security:
+        - bearerAuth: []
+      parameters:
+        - { $ref: '#/components/parameters/CatalogId' }
+        - { $ref: '#/components/parameters/CatalogProductId' }
+        - { $ref: '#/components/parameters/CatalogAccountId' }
+        - { $ref: '#/components/parameters/CatalogTokenAccountId' }
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema: { type: object, properties: { success: { type: boolean }, productId: { type: string } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/ads/catalogs/{catalogId}/feeds:
+    get:
+      x-resource-group: "ads"
+      operationId: listAdCatalogFeeds
+      tags: ["Product Catalogs"]
+      x-platforms: ["meta"]
+      summary: List a catalog's product feeds
+      security:
+        - bearerAuth: []
+      parameters:
+        - { $ref: '#/components/parameters/CatalogId' }
+        - { $ref: '#/components/parameters/CatalogAccountId' }
+        - { $ref: '#/components/parameters/CatalogTokenAccountId' }
+      responses:
+        '200':
+          description: Feeds
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  feeds:
+                    type: array
+                    items: { $ref: '#/components/schemas/MetaProductFeed' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      x-resource-group: "ads"
+      operationId: createAdCatalogFeed
+      tags: ["Product Catalogs"]
+      x-platforms: ["meta"]
+      summary: Create a product feed
+      description: "A feed pulls a CSV/TSV/XML product file from a URL. With `schedule` Meta fetches it on a cadence; without it, trigger fetches with POST /v1/ads/catalogs/{catalogId}/feeds/{feedId}/uploads."
+      security:
+        - bearerAuth: []
+      parameters:
+        - { $ref: '#/components/parameters/CatalogId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, name]
+              properties:
+                accountId: { type: string }
+                catalogAccountId: { type: string }
+                name: { type: string, maxLength: 100 }
+                schedule:
+                  type: object
+                  required: [interval, url]
+                  properties:
+                    interval: { type: string, enum: [HOURLY, DAILY, WEEKLY] }
+                    url: { type: string, format: uri }
+                    hour: { type: integer, minimum: 0, maximum: 23 }
+                    dayOfWeek: { type: string, enum: [SUNDAY, MONDAY, TUESDAY, WEDNESDAY, THURSDAY, FRIDAY, SATURDAY] }
+      responses:
+        '201':
+          description: Feed created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  feed: { $ref: '#/components/schemas/MetaProductFeed' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/ads/catalogs/{catalogId}/feeds/{feedId}/uploads:
+    get:
+      x-resource-group: "ads"
+      operationId: listAdCatalogFeedUploads
+      tags: ["Product Catalogs"]
+      x-platforms: ["meta"]
+      summary: List a feed's uploads
+      security:
+        - bearerAuth: []
+      parameters:
+        - { $ref: '#/components/parameters/CatalogId' }
+        - { name: feedId, in: path, required: true, schema: { type: string } }
+        - { $ref: '#/components/parameters/CatalogAccountId' }
+        - { $ref: '#/components/parameters/CatalogTokenAccountId' }
+      responses:
+        '200':
+          description: Uploads, newest first
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  uploads:
+                    type: array
+                    items: { $ref: '#/components/schemas/MetaFeedUpload' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      x-resource-group: "ads"
+      operationId: createAdCatalogFeedUpload
+      tags: ["Product Catalogs"]
+      x-platforms: ["meta"]
+      summary: Fetch a feed file now
+      description: "Asks Meta to fetch the product file at `url` into the feed. Processing is asynchronous: read the outcome with GET uploads."
+      security:
+        - bearerAuth: []
+      parameters:
+        - { $ref: '#/components/parameters/CatalogId' }
+        - { name: feedId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, url]
+              properties:
+                accountId: { type: string }
+                catalogAccountId: { type: string }
+                url: { type: string, format: uri }
+      responses:
+        '202':
+          description: Fetch started
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  upload: { type: object, properties: { id: { type: string } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /v1/ads/catalogs/{catalogId}/product-sets:
     get:
       x-resource-group: "ads"
       operationId: listAdCatalogProductSets
-      tags: ["Ad Creatives"]
+      tags: ["Product Catalogs"]
       x-platforms: ["meta"]
       summary: List a catalog's product sets
-      description: "Lists a Meta product catalog's product sets, the unit a catalog ad promotes. Pass the chosen set id, not the parent catalog id, as `promotedObject.productSetId` on POST /v1/ads/create with `goal: catalog_sales`. Creation verifies set visibility and returns 400 for a catalog id or an inaccessible set."
+      description: "Lists a Meta product catalog's product sets, the unit a catalog ad promotes. Pass the chosen set id, not the parent catalog id, as `promotedObject.productSetId` on POST /v1/ads/create with `goal: catalog_sales`."
       security:
         - bearerAuth: []
       parameters:
-        - { name: catalogId, in: path, required: true, schema: { type: string }, description: "Meta product catalog ID (from GET /v1/ads/catalogs)" }
-        - { name: accountId, in: query, required: true, schema: { type: string }, description: "A facebook, instagram, or metaads account ID" }
+        - { $ref: '#/components/parameters/CatalogId' }
+        - { $ref: '#/components/parameters/CatalogAccountId' }
+        - { $ref: '#/components/parameters/CatalogTokenAccountId' }
       responses:
-        '409': { $ref: '#/components/responses/AccountConnectionRequired' }
-        '404': { $ref: '#/components/responses/AccountUnavailable' }
         '200':
           description: Product sets
           content:
@@ -54508,8 +55482,104 @@ paths:
                         productCount: { type: integer }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403':
-          description: Ads access required. Legacy plans need the Ads add-on; included by default on usage-based plans.
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      x-resource-group: "ads"
+      operationId: createAdCatalogProductSet
+      tags: ["Product Catalogs"]
+      x-platforms: ["meta"]
+      summary: Create a product set
+      description: "A product set is a filter over the catalog, e.g. `{\"retailer_id\": {\"is_any\": [\"sku-1\", \"sku-2\"]}}` or `{\"brand\": {\"i_contains\": \"acme\"}}` (Meta's product set filter syntax)."
+      security:
+        - bearerAuth: []
+      parameters:
+        - { $ref: '#/components/parameters/CatalogId' }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId, name, filter]
+              properties:
+                accountId: { type: string }
+                catalogAccountId: { type: string }
+                name: { type: string, maxLength: 100 }
+                filter: { type: object, additionalProperties: true, description: "Meta product set filter" }
+      responses:
+        '201':
+          description: Product set created
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  productSet: { $ref: '#/components/schemas/MetaProductSet' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /v1/ads/catalogs/{catalogId}/product-sets/{productSetId}:
+    put:
+      x-resource-group: "ads"
+      operationId: updateAdCatalogProductSet
+      tags: ["Product Catalogs"]
+      x-platforms: ["meta"]
+      summary: Update a product set
+      security:
+        - bearerAuth: []
+      parameters:
+        - { $ref: '#/components/parameters/CatalogId' }
+        - { name: productSetId, in: path, required: true, schema: { type: string } }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [accountId]
+              properties:
+                accountId: { type: string }
+                catalogAccountId: { type: string }
+                name: { type: string, maxLength: 100 }
+                filter: { type: object, additionalProperties: true }
+      responses:
+        '200':
+          description: Product set updated
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  productSet: { $ref: '#/components/schemas/MetaProductSet' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      x-resource-group: "ads"
+      operationId: deleteAdCatalogProductSet
+      tags: ["Product Catalogs"]
+      x-platforms: ["meta"]
+      summary: Delete a product set
+      security:
+        - bearerAuth: []
+      parameters:
+        - { $ref: '#/components/parameters/CatalogId' }
+        - { name: productSetId, in: path, required: true, schema: { type: string } }
+        - { $ref: '#/components/parameters/CatalogAccountId' }
+        - { $ref: '#/components/parameters/CatalogTokenAccountId' }
+      responses:
+        '200':
+          description: Deleted
+          content:
+            application/json:
+              schema: { type: object, properties: { success: { type: boolean }, productSetId: { type: string } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/CatalogPermissionDenied' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /v1/ads/audiences:
     get:
       x-resource-group: "ads"
@@ -58367,21 +59437,20 @@ paths:
       x-resource-group: "publishing"
       operationId: listBlogs
       tags: ["Blogs"]
-      x-platforms: ["shopify"]
+      x-platforms: ["shopify", "wordpress"]
       summary: List blogs
       description: |
-        Lists the blogs on the connected store, newest-first as the platform
-        returns them. Cursor-paginated: pass `limit` (1-50, default 20) and the
-        `cursor` from a previous response's `nextCursor`; `nextCursor` is null
-        when there are no more pages.
+        Lists blogs on the connected account. Shopify returns its store blogs
+        with cursor pagination. A WordPress account represents one site and
+        always returns exactly that one blog with `nextCursor: null`.
 
-        Supported on Shopify (platform `shopify`). Accounts on platforms
-        without blogs support return 400; a blogs-capable platform that lacks
-        this specific operation returns 405.
+        `limit` is 1-50 (default 20). Treat `nextCursor` as opaque; pass it
+        unchanged on the next request. Supported on Shopify (`shopify`) and
+        WordPress (`wordpress`).
       security:
         - bearerAuth: []
       parameters:
-        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify or WordPress account id.' }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 50, default: 20 }, description: 'Page size (1-50).' }
         - { name: cursor, in: query, required: false, schema: { type: string }, description: 'Opaque cursor from a previous response. Omit for the first page.' }
       responses:
@@ -58392,17 +59461,18 @@ paths:
               schema:
                 type: object
                 properties:
-                  platform: { type: string, enum: [shopify] }
+                  platform: { type: string, enum: [shopify, wordpress] }
                   blogs:
                     type: array
                     items: { $ref: '#/components/schemas/Blog' }
                   nextCursor: { type: [string, "null"], description: 'Cursor for the next page; null when there are no more pages.' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the Shopify account to restore access.' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the account or restore the WordPress user capabilities.' }
         '404': { description: 'Account not found or not accessible (code account_not_found).' }
         '405': { description: Platform does not support listing blogs. }
-        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
+        '429': { description: 'Rate limited by Zernio or the connected platform. Retry later.' }
+        '502': { description: 'The connected platform returned an unclassified upstream error.' }
 
     post:
       x-resource-group: "publishing"
@@ -58414,9 +59484,8 @@ paths:
         Creates a blog on the connected store. The platform generates the URL
         `handle` from the title when omitted.
 
-        Supported on Shopify (platform `shopify`). Accounts on platforms
-        without blogs support return 400; a blogs-capable platform that lacks
-        this specific operation returns 405.
+        Supported on Shopify (platform `shopify`). A WordPress connection is
+        its existing site, so WordPress returns 405 for blog creation.
       security:
         - bearerAuth: []
       parameters:
@@ -58453,20 +59522,18 @@ paths:
       x-resource-group: "publishing"
       operationId: getBlog
       tags: ["Blogs"]
-      x-platforms: ["shopify"]
+      x-platforms: ["shopify", "wordpress"]
       summary: Get a blog
       description: |
-        Fetches a single blog. `blogId` is the platform's numeric blog id from
-        `GET /v1/accounts/{accountId}/blogs`, not a Zernio id.
-
-        Supported on Shopify (platform `shopify`). Accounts on platforms
-        without blogs support return 400; a blogs-capable platform that lacks
-        this specific operation returns 405.
+        Fetches a single blog. Use the platform-native `blogId` returned by
+        `GET /v1/accounts/{accountId}/blogs`: a Shopify numeric blog id, the
+        WordPress.com numeric site id, or `1` for a self-hosted WordPress site.
+        The self-hosted id is scoped to its connected account.
       security:
         - bearerAuth: []
       parameters:
-        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
-        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog id. Non-numeric values return 400.' }
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify or WordPress account id.' }
+        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog/site id returned by the list operation.' }
       responses:
         '200':
           description: Blog fetched
@@ -58475,14 +59542,15 @@ paths:
               schema:
                 type: object
                 properties:
-                  platform: { type: string, enum: [shopify] }
+                  platform: { type: string, enum: [shopify, wordpress] }
                   blog: { $ref: '#/components/schemas/Blog' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the Shopify account to restore access.' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the account or restore the WordPress user capabilities.' }
         '404': { description: 'Account not found or not accessible (code account_not_found), or blog not found (code blog_not_found).' }
         '405': { description: Platform does not support fetching a blog. }
-        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
+        '429': { description: 'Rate limited by Zernio or the connected platform. Retry later.' }
+        '502': { description: 'The connected platform returned an unclassified upstream error.' }
 
     patch:
       x-resource-group: "publishing"
@@ -58494,9 +59562,8 @@ paths:
         Partial-updates a blog. Send any subset of `title` and `handle`; at
         least one field is required (an empty body returns 400).
 
-        Supported on Shopify (platform `shopify`). Accounts on platforms
-        without blogs support return 400; a blogs-capable platform that lacks
-        this specific operation returns 405.
+        Supported on Shopify (platform `shopify`). WordPress site settings are
+        not writable through this API, so WordPress returns 405.
       security:
         - bearerAuth: []
       parameters:
@@ -58539,9 +59606,8 @@ paths:
         Deletes the blog AND every article in it. The delete happens on the
         platform and is permanent; Zernio stores nothing to restore it from.
 
-        Supported on Shopify (platform `shopify`). Accounts on platforms
-        without blogs support return 400; a blogs-capable platform that lacks
-        this specific operation returns 405.
+        Supported on Shopify (platform `shopify`). Disconnect a WordPress
+        account instead of deleting its site; WordPress returns 405 here.
       security:
         - bearerAuth: []
       parameters:
@@ -58561,21 +59627,20 @@ paths:
       x-resource-group: "publishing"
       operationId: listBlogArticles
       tags: ["Blogs"]
-      x-platforms: ["shopify"]
+      x-platforms: ["shopify", "wordpress"]
       summary: List blog articles
       description: |
         Lists the articles of a blog. Cursor-paginated: pass `limit` (1-50,
         default 20) and the `cursor` from a previous response's `nextCursor`;
-        `nextCursor` is null when there are no more pages.
-
-        Supported on Shopify (platform `shopify`). Accounts on platforms
-        without blogs support return 400; a blogs-capable platform that lacks
-        this specific operation returns 405.
+        `nextCursor` is null when there are no more pages. Treat cursors as
+        opaque and pass them unchanged. Supported on Shopify (`shopify`) and
+        WordPress (`wordpress`). WordPress results include native `status` and
+        include `publishDate` only for scheduled (`future`) posts.
       security:
         - bearerAuth: []
       parameters:
-        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
-        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog id. Non-numeric values return 400.' }
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify or WordPress account id.' }
+        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog/site id returned by the list operation.' }
         - { name: limit, in: query, required: false, schema: { type: integer, minimum: 1, maximum: 50, default: 20 }, description: 'Page size (1-50).' }
         - { name: cursor, in: query, required: false, schema: { type: string }, description: 'Opaque cursor from a previous response. Omit for the first page.' }
       responses:
@@ -58586,43 +59651,48 @@ paths:
               schema:
                 type: object
                 properties:
-                  platform: { type: string, enum: [shopify] }
+                  platform: { type: string, enum: [shopify, wordpress] }
                   articles:
                     type: array
                     items: { $ref: '#/components/schemas/BlogArticle' }
                   nextCursor: { type: [string, "null"], description: 'Cursor for the next page; null when there are no more pages.' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the Shopify account to restore access.' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the account or restore the WordPress user capabilities.' }
         '404': { description: 'Account not found or not accessible (code account_not_found), or blog not found (code blog_not_found).' }
         '405': { description: Platform does not support listing articles. }
-        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
+        '429': { description: 'Rate limited by Zernio or the connected platform. Retry later.' }
+        '502': { description: 'The connected platform returned an unclassified upstream error.' }
 
     post:
       x-resource-group: "publishing"
       operationId: createBlogArticle
       tags: ["Blogs"]
-      x-platforms: ["shopify"]
+      x-platforms: ["shopify", "wordpress"]
       summary: Create a blog article
       description: |
         Creates an article on the blog. Publishing behavior:
 
-        - `isPublished: false` keeps the article as a draft.
+        - WordPress defaults to a draft when both publishing fields are omitted.
+        - `isPublished: false` keeps the article as a draft and takes priority
+          over a future `publishDate`.
         - A future `publishDate` schedules publication natively on the
           platform; the platform publishes it at that time with no Zernio
           queue involved.
+        - `isPublished: true` publishes immediately when there is no future
+          `publishDate`.
         - `seo.title` / `seo.description` map to Shopify's global `title_tag`
           and `description_tag` metafields (the fields Shopify themes read for
-          the page title and meta description).
+          the page title and meta description). WordPress rejects `seo`; SEO
+          plugin and custom-field writes are not supported.
 
-        Supported on Shopify (platform `shopify`). Accounts on platforms
-        without blogs support return 400; a blogs-capable platform that lacks
-        this specific operation returns 405.
+        Supported on Shopify (`shopify`) and WordPress (`wordpress`). WordPress
+        native scheduling depends on the site's scheduler/WP-Cron.
       security:
         - bearerAuth: []
       parameters:
-        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
-        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog id. Non-numeric values return 400.' }
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify or WordPress account id.' }
+        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog/site id returned by the list operation.' }
       requestBody:
         required: true
         content:
@@ -58634,23 +59704,23 @@ paths:
                 title: { type: string, minLength: 1 }
                 bodyHtml: { type: string, description: 'Article body as HTML.' }
                 handle: { type: string, description: 'URL slug. Generated from the title when omitted.' }
-                tags: { type: array, items: { type: string } }
-                author: { type: string, description: 'Display name of the article author.' }
+                tags: { type: array, maxItems: 100, items: { type: string, minLength: 1 }, description: 'Tag names. WordPress resolves existing names case-insensitively and creates missing tags.' }
+                author: { type: string, description: 'Shopify author display name, or numeric WordPress user id serialized as a string. Assigning another WordPress user may require elevated capability.' }
                 excerpt: { type: string, description: 'Short summary shown in blog listings.' }
                 image:
                   type: object
                   required: [url]
-                  description: 'Featured image. The platform downloads it, so the URL must be publicly reachable.'
+                  description: 'Featured image from a public URL. WordPress downloads it into the media library; JPEG, PNG, GIF and WebP are accepted up to 10 MB.'
                   properties:
                     url: { type: string, format: uri }
                     altText: { type: string }
                 seo:
                   type: object
-                  description: 'Search-engine overrides. Maps to Shopify global metafields (title_tag and description_tag).'
+                  description: 'Shopify only. Search-engine overrides mapped to global title_tag and description_tag metafields. WordPress rejects this field.'
                   properties:
                     title: { type: string }
                     description: { type: string }
-                isPublished: { type: boolean, description: 'Set false to create the article as a draft.' }
+                isPublished: { type: boolean, description: 'Set false for a draft or true to publish. On WordPress false takes priority over a future publishDate; omission with no date defaults to draft.' }
                 publishDate: { type: string, format: date-time, description: 'ISO 8601 datetime with offset (or Z). A future date schedules publication natively on the platform.' }
       responses:
         '201':
@@ -58660,34 +59730,35 @@ paths:
               schema:
                 type: object
                 properties:
-                  platform: { type: string, enum: [shopify] }
+                  platform: { type: string, enum: [shopify, wordpress] }
                   article: { $ref: '#/components/schemas/BlogArticle' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the Shopify account to restore access.' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the account or restore the WordPress user capabilities.' }
         '404': { description: 'Account not found or not accessible (code account_not_found), or blog not found (code blog_not_found).' }
         '405': { description: Platform does not support creating articles. }
-        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
+        '429': { description: 'Rate limited by Zernio or the connected platform. Retry later.' }
+        '502': { description: 'The connected platform returned an unclassified upstream error. Article mutations are not blindly retried.' }
 
   /v1/accounts/{accountId}/blogs/{blogId}/articles/{articleId}:
     get:
       x-resource-group: "publishing"
       operationId: getBlogArticle
       tags: ["Blogs"]
-      x-platforms: ["shopify"]
+      x-platforms: ["shopify", "wordpress"]
       summary: Get a blog article
       description: |
         Fetches a single article. An article addressed through a blog it does
         not belong to is a 404 (code blog_article_not_found).
 
-        Supported on Shopify (platform `shopify`). Accounts on platforms
-        without blogs support return 400; a blogs-capable platform that lacks
-        this specific operation returns 405.
+        Supported on Shopify (`shopify`) and WordPress (`wordpress`). WordPress
+        returns its native `status`; `publishedAt` is present only for a
+        published post and `publishDate` only for a scheduled post.
       security:
         - bearerAuth: []
       parameters:
-        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
-        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog id. Non-numeric values return 400.' }
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify or WordPress account id.' }
+        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog/site id returned by the list operation.' }
         - { name: articleId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric article id. Non-numeric values return 400.' }
       responses:
         '200':
@@ -58697,20 +59768,21 @@ paths:
               schema:
                 type: object
                 properties:
-                  platform: { type: string, enum: [shopify] }
+                  platform: { type: string, enum: [shopify, wordpress] }
                   article: { $ref: '#/components/schemas/BlogArticle' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the Shopify account to restore access.' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the account or restore the WordPress user capabilities.' }
         '404': { description: 'Account not found or not accessible (code account_not_found), blog not found (code blog_not_found), or article not found (code blog_article_not_found).' }
         '405': { description: Platform does not support fetching an article. }
-        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
+        '429': { description: 'Rate limited by Zernio or the connected platform. Retry later.' }
+        '502': { description: 'The connected platform returned an unclassified upstream error.' }
 
     patch:
       x-resource-group: "publishing"
       operationId: updateBlogArticle
       tags: ["Blogs"]
-      x-platforms: ["shopify"]
+      x-platforms: ["shopify", "wordpress"]
       summary: Update a blog article
       description: |
         Partial-updates an article. Send any subset of the create fields
@@ -58719,15 +59791,17 @@ paths:
         (an empty body returns 400). `isPublished` and `publishDate` behave as
         on create: `isPublished: false` unpublishes back to a draft and a
         future `publishDate` schedules publication natively on the platform.
+        Omitting both fields preserves the current WordPress status. Omitting
+        `image` preserves the current featured image; removal is not supported.
+        WordPress rejects `seo` and does not support SEO-plugin/custom-field,
+        category, or custom-post-type writes.
 
-        Supported on Shopify (platform `shopify`). Accounts on platforms
-        without blogs support return 400; a blogs-capable platform that lacks
-        this specific operation returns 405.
+        Supported on Shopify (`shopify`) and WordPress (`wordpress`).
       security:
         - bearerAuth: []
       parameters:
-        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
-        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog id. Non-numeric values return 400.' }
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify or WordPress account id.' }
+        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog/site id returned by the list operation.' }
         - { name: articleId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric article id. Non-numeric values return 400.' }
       requestBody:
         required: true
@@ -58740,23 +59814,23 @@ paths:
                 title: { type: string, minLength: 1 }
                 bodyHtml: { type: string, description: 'Article body as HTML.' }
                 handle: { type: string, description: 'URL slug of the article.' }
-                tags: { type: array, items: { type: string }, description: 'Replaces the full tag list.' }
-                author: { type: string, description: 'Display name of the article author.' }
+                tags: { type: array, maxItems: 100, items: { type: string, minLength: 1 }, description: 'Replaces the full tag-name list. WordPress resolves existing names case-insensitively and creates missing tags.' }
+                author: { type: string, description: 'Shopify author display name, or numeric WordPress user id serialized as a string. Assigning another WordPress user may require elevated capability.' }
                 excerpt: { type: string, description: 'Short summary shown in blog listings.' }
                 image:
                   type: object
                   required: [url]
-                  description: 'Featured image. The platform downloads it, so the URL must be publicly reachable.'
+                  description: 'Featured image from a public URL. WordPress downloads it into the media library; JPEG, PNG, GIF and WebP are accepted up to 10 MB. Omit to preserve it; null removal is not supported.'
                   properties:
                     url: { type: string, format: uri }
                     altText: { type: string }
                 seo:
                   type: object
-                  description: 'Search-engine overrides. Maps to Shopify global metafields (title_tag and description_tag).'
+                  description: 'Shopify only. Search-engine overrides mapped to global title_tag and description_tag metafields. WordPress rejects this field.'
                   properties:
                     title: { type: string }
                     description: { type: string }
-                isPublished: { type: boolean, description: 'Set false to unpublish the article back to a draft.' }
+                isPublished: { type: boolean, description: 'Set false to move to draft or true to publish. On WordPress false takes priority over a future publishDate; omission preserves status unless publishDate is sent.' }
                 publishDate: { type: string, format: date-time, description: 'ISO 8601 datetime with offset (or Z). A future date schedules publication natively on the platform.' }
       responses:
         '200':
@@ -58766,42 +59840,44 @@ paths:
               schema:
                 type: object
                 properties:
-                  platform: { type: string, enum: [shopify] }
+                  platform: { type: string, enum: [shopify, wordpress] }
                   article: { $ref: '#/components/schemas/BlogArticle' }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the Shopify account to restore access.' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the account or restore the WordPress user capabilities.' }
         '404': { description: 'Account not found or not accessible (code account_not_found), blog not found (code blog_not_found), or article not found (code blog_article_not_found).' }
         '405': { description: Platform does not support updating an article. }
-        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
+        '429': { description: 'Rate limited by Zernio or the connected platform. Retry later.' }
+        '502': { description: 'The connected platform returned an unclassified upstream error. Article mutations are not blindly retried.' }
 
     delete:
       x-resource-group: "publishing"
       operationId: deleteBlogArticle
       tags: ["Blogs"]
-      x-platforms: ["shopify"]
+      x-platforms: ["shopify", "wordpress"]
       summary: Delete a blog article
       description: |
         Deletes the article. The delete happens on the platform and is
-        permanent; Zernio stores nothing to restore it from.
+        permanent; Zernio stores nothing to restore it from. On WordPress the
+        post is force-deleted, while uploaded attachments and tags remain in
+        the site's media library and taxonomy.
 
-        Supported on Shopify (platform `shopify`). Accounts on platforms
-        without blogs support return 400; a blogs-capable platform that lacks
-        this specific operation returns 405.
+        Supported on Shopify (`shopify`) and WordPress (`wordpress`).
       security:
         - bearerAuth: []
       parameters:
-        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify SocialAccount id.' }
-        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog id. Non-numeric values return 400.' }
+        - { name: accountId, in: path, required: true, schema: { type: string }, description: 'Connected Shopify or WordPress account id.' }
+        - { name: blogId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric blog/site id returned by the list operation.' }
         - { name: articleId, in: path, required: true, schema: { type: string, pattern: '^\d+$' }, description: 'Platform-native numeric article id. Non-numeric values return 400.' }
       responses:
         '204': { description: Article deleted (no content). }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
-        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the Shopify account to restore access.' }
+        '403': { description: 'The platform rejected the request (code insufficient_permissions); reconnect the account or restore the WordPress user capabilities.' }
         '404': { description: 'Account not found or not accessible (code account_not_found), blog not found (code blog_not_found), or article not found (code blog_article_not_found).' }
         '405': { description: Platform does not support deleting an article. }
-        '429': { description: 'Rate limited, either by Zernio or by Shopify. Retry later.' }
+        '429': { description: 'Rate limited by Zernio or the connected platform. Retry later.' }
+        '502': { description: 'The connected platform returned an unclassified upstream error. Article deletion is not blindly retried.' }
 
   /v1/accounts/{accountId}/products:
     get:

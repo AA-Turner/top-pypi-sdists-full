@@ -33,7 +33,7 @@ class PublicEndpointForDeleteClusterOutput(object):
                             and the value is json key in definition.
     """
     swagger_types = {
-        'authorized_networks': 'list[ConvertAuthorizedNetworkForDeleteClusterOutput]',
+        'authorized_networks': 'list[AuthorizedNetworkForDeleteClusterOutput]',
         'disabled': 'bool',
         'host': 'str',
         'port': 'int'
@@ -73,7 +73,7 @@ class PublicEndpointForDeleteClusterOutput(object):
 
 
         :return: The authorized_networks of this PublicEndpointForDeleteClusterOutput.  # noqa: E501
-        :rtype: list[ConvertAuthorizedNetworkForDeleteClusterOutput]
+        :rtype: list[AuthorizedNetworkForDeleteClusterOutput]
         """
         return self._authorized_networks
 
@@ -83,7 +83,7 @@ class PublicEndpointForDeleteClusterOutput(object):
 
 
         :param authorized_networks: The authorized_networks of this PublicEndpointForDeleteClusterOutput.  # noqa: E501
-        :type: list[ConvertAuthorizedNetworkForDeleteClusterOutput]
+        :type: list[AuthorizedNetworkForDeleteClusterOutput]
         """
 
         self._authorized_networks = authorized_networks

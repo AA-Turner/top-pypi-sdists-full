@@ -41,6 +41,7 @@ pub(crate) fn test_mutex() -> &'static Mutex<()> {
 pub mod atif;
 pub mod atof;
 mod confined_fs;
+pub(crate) mod header_file;
 pub(crate) mod manual;
 pub(crate) mod openinference;
 pub mod otel;
@@ -469,10 +470,10 @@ pub(crate) fn push_session_identity_attributes(
             agent_kind.to_string(),
         ));
     }
-    if let Ok(stack) = crate::api::runtime::current_scope_stack().read() {
+    if let Some(root_uuid) = event.propagation_root_uuid() {
         attributes.push(KeyValue::new(
             "nemo_relay.session.instance_id",
-            stack.root_uuid().to_string(),
+            root_uuid.to_string(),
         ));
     }
 }

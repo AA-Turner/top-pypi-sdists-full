@@ -17,6 +17,10 @@ class ListFlowsResponse200Item:
     """
     Attributes:
         draft_only (Union[Unset, bool]):
+        chat_input_enabled (Union[Unset, bool]): `chat_input_enabled` of the flow's value,
+            projected so the list can mark flows that open
+            as a chat. Omitted when the value has no such
+            field.
         is_draft (Union[Unset, bool]): True when the authed user has a draft for this
             flow — either no deployed row exists at this
             path (draft-only) or the user saved a per-user
@@ -38,6 +42,7 @@ class ListFlowsResponse200Item:
     """
 
     draft_only: Union[Unset, bool] = UNSET
+    chat_input_enabled: Union[Unset, bool] = UNSET
     is_draft: Union[Unset, bool] = UNSET
     draft_path: Union[Unset, str] = UNSET
     draft_users: Union[Unset, List["ListFlowsResponse200ItemDraftUsersItem"]] = UNSET
@@ -45,6 +50,7 @@ class ListFlowsResponse200Item:
 
     def to_dict(self) -> Dict[str, Any]:
         draft_only = self.draft_only
+        chat_input_enabled = self.chat_input_enabled
         is_draft = self.is_draft
         draft_path = self.draft_path
         draft_users: Union[Unset, List[Dict[str, Any]]] = UNSET
@@ -60,6 +66,8 @@ class ListFlowsResponse200Item:
         field_dict.update({})
         if draft_only is not UNSET:
             field_dict["draft_only"] = draft_only
+        if chat_input_enabled is not UNSET:
+            field_dict["chat_input_enabled"] = chat_input_enabled
         if is_draft is not UNSET:
             field_dict["is_draft"] = is_draft
         if draft_path is not UNSET:
@@ -76,6 +84,8 @@ class ListFlowsResponse200Item:
         d = src_dict.copy()
         draft_only = d.pop("draft_only", UNSET)
 
+        chat_input_enabled = d.pop("chat_input_enabled", UNSET)
+
         is_draft = d.pop("is_draft", UNSET)
 
         draft_path = d.pop("draft_path", UNSET)
@@ -89,6 +99,7 @@ class ListFlowsResponse200Item:
 
         list_flows_response_200_item = cls(
             draft_only=draft_only,
+            chat_input_enabled=chat_input_enabled,
             is_draft=is_draft,
             draft_path=draft_path,
             draft_users=draft_users,

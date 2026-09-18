@@ -37,9 +37,12 @@ from src.middleware.rbac import (
 from src.services.project_timeline_writer import add_timeline_entry
 from src.services.release_pipeline import promote_backlog_in
 from src.services.release_planning import (
+    RevertBlocked,
     ensure_pipeline,
+    is_hotfix,
     is_semver,
     next_release,
+    plan_revert,
     release_being_cut,
     semver_key,
 )
@@ -86,6 +89,13 @@ class ReleaseCreate(BaseModel):
         "commitment. Distinct from released_at, which is when it actually shipped.",
     )
     released_at: Optional[datetime] = None
+    repo_names: Optional[List[str]] = Field(
+        None,
+        description="The repositories this release actually covered, as the "
+        "engine tagged them. Omit and the server infers the set from the "
+        "project's live repository links when the release is RELEASED -- "
+        "correct for a release, wrong for a hotfix narrowed to one repository.",
+    )
 
 
 class ReleaseUpdate(BaseModel):
@@ -110,6 +120,13 @@ class ReleaseUpdate(BaseModel):
         None, description="The calendar day this release is aimed at."
     )
     released_at: Optional[datetime] = None
+    repo_names: Optional[List[str]] = Field(
+        None,
+        description="The repositories this release actually covered, as the "
+        "engine tagged them. Omit and the server infers the set from the "
+        "project's live repository links when the release is RELEASED -- "
+        "correct for a release, wrong for a hotfix narrowed to one repository.",
+    )
 
 
 class TicketSummary(BaseModel):
@@ -137,6 +154,13 @@ class ReleaseResponse(BaseModel):
     released_at: Optional[datetime] = None
     created_at: datetime
     updated_at: datetime
+    #: The repositories this release covered, recorded when it shipped. Absent
+    #: on a release that has not shipped. It was stored from the day the column
+    #: was added and returned to nobody, so every caller wanting to know what a
+    #: release touched -- the withdrawal path most of all, which has to say
+    #: which repositories still carry the tag -- had to guess from the project's
+    #: links as they stand today rather than as they stood when it shipped.
+    repo_names: Optional[List[str]] = None
     # Aggregates — populated on list; full tickets on detail endpoint
     ticket_count: int = 0
     open_ticket_count: int = 0
@@ -292,6 +316,23 @@ def _advance_release_pipeline(release: Release, session: Session) -> List[str]:
     Nothing is caught here. A rotation that cannot be written is a project whose
     next version is now unknown, and 500ing at the caller is how that gets
     noticed -- the next repository sync runs the same invariant and repairs it.
+
+    **A hotfix rotates nothing.** This fires on "a release became RELEASED", and
+    a hotfix -- a release that moves the Z on a line already shipped -- becomes
+    RELEASED down the same path as everything else. But it is not the version the
+    pipeline was cutting: the minor in slot 1 is still in flight, slot 2 is still
+    being filled, and neither has moved anywhere. Rotating on it would be
+    rotating around a version that was never in a slot.
+
+    The damage that does is not hypothetical, and it is not in the slots. The
+    slots survive the rotation unchanged (the patch is below both, so
+    ``ensure_pipeline`` finds them already correct and opens nothing) -- but the
+    backlog promotion at the end does not look at what shipped. It promotes
+    everything in whatever now sits in slot 1, so shipping a one-line fix on
+    v1.9.1 would drag the whole of v1.10.0's backlog into TODO. Returning early
+    is the plainest statement that a hotfix is not a rotation; the repair path in
+    repository sync still runs ``ensure_pipeline`` on its own schedule if the
+    minor pipeline ever does need straightening.
     """
     # Explicitly, not on autoflush: this release's own status is what makes it the
     # new high-water mark, and reading the project's rows before that reaches the
@@ -306,6 +347,15 @@ def _advance_release_pipeline(release: Release, session: Session) -> List[str]:
             )
         ).all()
     )
+
+    if is_hotfix(release.version, releases):
+        logger.info(
+            "release.hotfix_shipped_no_rotation project_id=%s version=%s",
+            release.project_id,
+            release.version,
+        )
+        return []
+
     opened: List[str] = []
     for version, status_ in ensure_pipeline(releases):
         session.add(
@@ -368,6 +418,7 @@ def _release_to_response(
         released_at=r.released_at,
         created_at=r.created_at,
         updated_at=r.updated_at,
+        repo_names=r.repo_names,
         ticket_count=total,
         open_ticket_count=open_,
     )
@@ -482,12 +533,39 @@ async def create_release(
         # equivalent API POST) answered 201 with the date silently discarded. The
         # only way to set one was a follow-up PATCH, which nothing told you about.
         target_date=body.target_date,
-        released_at=body.released_at,
+        # **A release created as shipped is stamped, exactly as one patched to
+        # shipped is.** Only the PATCH path set this, so a row posted straight
+        # in as `released` -- which is how the release engine records a cut --
+        # could carry no ship date at all. Nothing noticed until the revert
+        # rules began asking which release happened last, and got silence.
+        released_at=(
+            body.released_at
+            if body.released_at is not None
+            else (
+                datetime.now(timezone.utc)
+                if body.status == ReleaseStatus.RELEASED
+                else None
+            )
+        ),
+        # **What the caller says it covered wins over what we could work out.**
+        # The engine knows exactly which repositories it tagged, and a hotfix
+        # narrowed with `--repo` tags one of seven. Inferring from the project's
+        # links records all seven, so the next release reads a coverage shrink
+        # that never happened and a revert cannot tell which repository to undo.
+        # The fallback below still runs for a caller that did not say.
+        repo_names=body.repo_names,
     )
     session.add(release)
 
     if body.status == ReleaseStatus.RELEASED:
         session.flush()
+        # Inferred only in the absence of an answer -- see `_covered_repo_names`.
+        # `create_release` never recorded coverage at all before this, so a
+        # release recorded in one POST (which is what the engine does) had no
+        # record of what it covered and the comparison the field exists for
+        # could not be made until the *second* release shipped.
+        if release.repo_names is None:
+            release.repo_names = _covered_repo_names(release, session)
         opened = _advance_release_pipeline(release, session)
         stamp = _shipped_stamp(release, session)
         release.notes = f"{release.notes}\n{stamp}" if release.notes else stamp
@@ -888,6 +966,13 @@ async def update_release(
     # deliberately smaller release from a broken one. Written here rather than
     # derived later for exactly that reason: derived later, it would agree with
     # today's links by construction, which is the comparison it exists to make.
+    #
+    # **Inferring is the fallback, not the rule.** A caller that names its
+    # coverage has already had `repo_names` set on the row by the loop above, so
+    # this leaves it alone: the engine reports exactly the repositories it
+    # tagged, and for a hotfix narrowed to one of seven that is the only true
+    # answer. Inference survives for the caller that says nothing -- an older
+    # engine, or a person marking a release shipped by hand.
     if body.status == ReleaseStatus.RELEASED and release.repo_names is None:
         release.repo_names = _covered_repo_names(release, session)
 
@@ -942,9 +1027,33 @@ async def update_release(
     return _release_to_response(release, session)
 
 
+class RevertResponse(BaseModel):
+    """What withdrawing a release actually did.
+
+    The old endpoint was ``204 No Content`` while its own docstring promised
+    that "the response names them so the caller is not left guessing" about the
+    tags left behind on GitHub. It named nothing, and the CLI filled the gap by
+    printing a command with literal ``<org>/<repo>`` placeholders in it. A
+    withdrawal now says what it removed, what it put back, and which
+    repositories still carry the tag.
+    """
+
+    version: str
+    #: True when the version was returned to IN_PROGRESS rather than removed --
+    #: i.e. when a shipped release was taken back.
+    restored: bool
+    #: Versions withdrawn along with it: the successors its rotation opened.
+    withdrawn: List[str] = []
+    #: Versions the pipeline re-opened to keep its two slots full.
+    opened: List[str] = []
+    #: Repositories this release tagged, so the caller knows exactly which ones
+    #: still carry the tag and the GitHub Release.
+    repo_names: List[str] = []
+
+
 @router.delete(
     "/api/v1/organizations/{org_id}/releases/{release_id}",
-    status_code=status.HTTP_204_NO_CONTENT,
+    response_model=RevertResponse,
 )
 async def delete_release(
     org_id: str,
@@ -971,10 +1080,27 @@ async def delete_release(
     Deleting again is a no-op rather than a 404: the caller asked for the
     release to be gone, and it is.
 
+    **Withdrawing a shipped release undoes its rotation, rather than only
+    hiding it.** Shipping a version promotes slot 2 into slot 1 and opens a new
+    slot 2 above it; this used to stamp `deleted_at` and stop, so those
+    successors were left standing and the withdrawn version simply disappeared.
+    Taking back a freshly-cut `v0.1.0` left `v0.2.0 in_progress` and `v0.3.0
+    planned` behind it — so the next cut would have shipped v0.2.0 and skipped
+    v0.1.0 entirely, and putting that right took four commands in the right
+    order. A shipped release is therefore *restored* to IN_PROGRESS rather than
+    withdrawn: the version has to stay addressable, because tickets join a
+    release by version string.
+
+    **Releases come off the top.** Anything released above the target makes this
+    a gap in the middle of what shipped rather than an undo of the last cut, so
+    it is refused — see `plan_revert`, which holds both rules.
+
     **This does not touch GitHub.** If the release was really cut, its tags and
     GitHub Releases still exist, and blastoff skips a repo whose release already
     exists — so re-cutting the version silently does nothing until they are
-    removed. The response names them so the caller is not left guessing.
+    removed. The response now names the repositories, from what the release
+    recorded when it shipped rather than from the project's links as they stand
+    today.
 
     *Possible improvement, deliberately not done here:* delete the tags and
     Releases automatically. It is destructive, irreversible, and partial across
@@ -992,7 +1118,84 @@ async def delete_release(
     if not release:
         raise not_found("Release", release_id)
 
-    if release.deleted_at is None:
-        release.deleted_at = datetime.now(timezone.utc)
-        session.add(release)
-        session.commit()
+    repo_names = list(release.repo_names or [])
+
+    # Already withdrawn: the caller asked for it to be gone, and it is. Saying so
+    # again beats a 404 that reads as "there was never such a release".
+    if release.deleted_at is not None:
+        return RevertResponse(
+            version=release.version,
+            restored=False,
+            repo_names=repo_names,
+        )
+
+    live = list(
+        session.exec(
+            select(Release).where(
+                Release.project_id == release.project_id,
+                Release.deleted_at.is_(None),
+            )
+        ).all()
+    )
+
+    try:
+        withdraw, restore = plan_revert(live, release)
+    except RevertBlocked as blocked:
+        # Not `conflict()`, whose wording is "X 'Y' already exists" -- the
+        # problem here is not a duplicate but an ordering the caller has to be
+        # told about in its own words, since the message names which version is
+        # in the way and what to do about it.
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=str(blocked))
+
+    now = datetime.now(timezone.utc)
+    for row in withdraw:
+        row.deleted_at = now
+        session.add(row)
+
+    opened: List[str] = []
+    if restore is not None:
+        # Back to the moment before it shipped. `released_at` and `repo_names`
+        # are claims about a release that happened; a release being cut again
+        # makes neither of them true, and leaving them would have the next cut
+        # measure its window from a release the project no longer says shipped.
+        restore.status = ReleaseStatus.IN_PROGRESS
+        restore.released_at = None
+        restore.repo_names = None
+        session.add(restore)
+
+        # Re-open whatever slot the withdrawal emptied, by the same rule that
+        # filled it: the project is never left with fewer than two forward
+        # releases, whichever direction it arrived at that state from.
+        #
+        # **Only when this revert actually emptied one.** Taking back a hotfix
+        # withdraws nothing -- it opened nothing -- and the forward slots it
+        # shipped underneath are still full and still correct. Reconciling them
+        # anyway would see three rows ahead of the high-water mark, keep two and
+        # archive the third, so taking back a hotfix would quietly archive the
+        # planned release two slots up.
+        session.flush()
+        remaining = [r for r in live if r.deleted_at is None]
+        for version, status_ in ensure_pipeline(remaining) if withdraw else []:
+            session.add(
+                Release(
+                    id=str(uuid4()),
+                    organization_id=release.organization_id,
+                    project_id=release.project_id,
+                    version=version,
+                    status=status_,
+                )
+            )
+            opened.append(version)
+        if withdraw:
+            for row in remaining:
+                session.add(row)
+
+    session.commit()
+
+    return RevertResponse(
+        version=release.version,
+        restored=restore is not None,
+        withdrawn=sorted(r.version for r in withdraw),
+        opened=opened,
+        repo_names=repo_names,
+    )

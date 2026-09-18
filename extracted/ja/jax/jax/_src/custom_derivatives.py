@@ -42,7 +42,8 @@ from jax._src.interpreters import partial_eval as pe
 from jax._src.tree_util import (
     tree_flatten, tree_unflatten, tree_map, treedef_is_leaf, treedef_tuple,
     register_pytree_node_class, tree_leaves, tree_flatten_with_path,
-    tree_leaves_with_path, keystr, treedef_children, tree_structure, PyTreeDef)
+    tree_leaves_with_path, keystr, treedef_children, tree_structure, PyTreeDef,
+    tracing_registry)
 from jax._src.util import (cache, safe_zip, safe_map, split_list, unzip2,
                            weakref_lru_cache)
 
@@ -704,7 +705,8 @@ class custom_vjp[ReturnValue]:
     ``with_logs`` method: ``f_vjp.with_logs(out_ct)`` returns a pair
     ``(arg_cts, logs)``. Logging is drop-by-default: a plain ``f_vjp(out_ct)``
     call ignores the logs, and under ``jit`` the logging computation is
-    dead-code-eliminated.
+    dead-code-eliminated. Log keys must be unique within a backward pass;
+    repeated keys raise a ``ValueError``, even when the logs are ignored.
     """
     self.defvjp(fwd, bwd, symbolic_zeros=symbolic_zeros,
                 optimize_remat=optimize_remat)
@@ -1208,6 +1210,8 @@ def custom_gradient(fun=None, *, with_logs: bool = False):
       the cotangents, where ``logs`` is a dict of named pytrees to log out of
       the backward pass, or ``None`` to log nothing, as with
       :py:meth:`jax.custom_vjp.defvjp_with_logs`.
+      Log keys must be unique within a backward pass; repeated keys raise a
+      ``ValueError``, even when the logs are ignored.
 
   Returns:
     A Python callable that accepts the same arguments as ``fun`` and returns the
@@ -1266,7 +1270,7 @@ def custom_gradient(fun=None, *, with_logs: bool = False):
     ans, rule = fun(*args, **kwargs)
     if with_logs:
       rule = _custom_gradient_logs_rule(rule)
-    ans_flat, out_tree = tree_flatten(((ans,), {}))
+    ans_flat, out_tree = tracing_registry.flatten(((ans,), {}))
     debug_fwd = debug_info("custom_gradient fwd", rule, (ans,), {})
     ans_avals = [core.typeof(x).to_ct_aval() for x in ans_flat]
     closed_jaxpr, rule_out = pe.trace_to_jaxpr(
@@ -1393,7 +1397,7 @@ def closure_convert(fun: Callable, *example_args) -> tuple[Callable, list[Any]]:
     values hoisted from its closure, and (ii) a list of values hoisted
     from the closure.
   """
-  flat_args, in_tree = tree_flatten((example_args, {}))
+  flat_args, in_tree = tracing_registry.flatten((example_args, {}))
   in_avals = tuple(map(core.typeof, flat_args))
   debug = debug_info("closure_convert", fun, example_args, {})
   if config.check_tracer_leaks.value:
@@ -1547,8 +1551,8 @@ def linear_call(fun: Callable,
 
   .. _Haskell-like type signatures: https://wiki.haskell.org/Type_signature
   """
-  operands_res, res_tree = tree_flatten(residual_args)
-  operands_lin, lin_tree = tree_flatten(linear_args)
+  operands_res, res_tree = tracing_registry.flatten(residual_args)
+  operands_lin, lin_tree = tracing_registry.flatten(linear_args)
 
   res_avals = map(core.typeof, operands_res)
   lin_avals = map(core.typeof, operands_lin)

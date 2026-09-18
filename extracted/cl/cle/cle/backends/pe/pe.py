@@ -19,6 +19,7 @@ except ImportError:
 from cle.address_translator import AT
 from cle.backends.backend import Backend, FunctionHint, FunctionHintSource, register_backend
 from cle.backends.coff import IMAGE_SYM_CLASS
+from cle.backends.gopclntab import register_gopclntab_symbols
 from cle.backends.symbol import SymbolType
 from cle.structs import DataDirectory, MemRegion, MemRegionSort, PointerArray, StringBlob, StructArray
 from cle.utils import extract_null_terminated_bytestr
@@ -191,12 +192,11 @@ class PE(Backend):
             if pdb_path:
                 self.load_symbols_from_pdb(pdb_path)
 
-        self.is_dotnet = (
-            self._pe.OPTIONAL_HEADER.DATA_DIRECTORY[
-                pefile.DIRECTORY_ENTRY["IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR"]
-            ].VirtualAddress
-            != 0
-        )
+        # Go binaries keep a full function table even when stripped
+        self.gopclntab = register_gopclntab_symbols(self)
+
+        com_dd = self._dd("IMAGE_DIRECTORY_ENTRY_COM_DESCRIPTOR")
+        self.is_dotnet = com_dd is not None and com_dd.VirtualAddress != 0
 
     _pefile_cache = {}
 
@@ -507,11 +507,21 @@ class PE(Backend):
         ptr_size = 8 if is_64 else 4
         return pe, base, is_64, ptr_size
 
+    def _dd(self, name: str) -> pefile.Structure | None:
+        """
+        Return a data directory entry, or None if the optional header does not declare it.
+
+        NumberOfRvaAndSizes may be smaller than 16, in which case pefile only parses the directories that are
+        actually present.
+        """
+        idx = pefile.DIRECTORY_ENTRY[name]
+        data_directory = self._pe.OPTIONAL_HEADER.DATA_DIRECTORY
+        return data_directory[idx] if idx < len(data_directory) else None
+
     def _meta_dd(self, name: str) -> pefile.Structure | None:
         """Return a data directory entry if it has a nonzero VirtualAddress and Size, else None."""
-        idx = pefile.DIRECTORY_ENTRY[name]
-        dd = self._pe.OPTIONAL_HEADER.DATA_DIRECTORY[idx]
-        if dd.VirtualAddress and dd.Size:
+        dd = self._dd(name)
+        if dd is not None and dd.VirtualAddress and dd.Size:
             return dd
         return None
 
@@ -1064,6 +1074,17 @@ class PE(Backend):
                 self._register_tls_callbacks(tls.AddressOfCallBacks) if tls.AddressOfCallBacks != 0 else []
             )
             self.tls_block_size = self.tls_data_size + tls.SizeOfZeroFill
+            image_size = self._pe.OPTIONAL_HEADER.SizeOfImage
+            if tls.SizeOfZeroFill != 0 and self.tls_block_size > image_size:
+                # The TLS template is part of the image, so a zero fill that takes it past the end of the
+                # image is not describing this file. The bound is on the image's virtual size rather
+                # than the bytes we back, because a zero fill need not be backed by any file bytes.
+                log.warning(
+                    "TLS zero fill of %#x bytes runs past the end of the %#x-byte image. Ignoring it.",
+                    tls.SizeOfZeroFill,
+                    image_size,
+                )
+                self.tls_block_size = self.tls_data_size
 
     def _register_tls_callbacks(self, addr):
         """

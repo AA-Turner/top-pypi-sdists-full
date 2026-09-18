@@ -5,7 +5,9 @@ import typing
 AccountRequiredActionAction = typing.Union[
     typing.Literal[
         "deposit_funds",
+        "accept_airwallex_terms",
         "submit_information_request",
+        "update_automatic_withdrawal_method",
         "reauthorize_payout_methods",
         "update_payout_profile",
         "card_usage_review",
@@ -15,6 +17,7 @@ AccountRequiredActionAction = typing.Union[
         "setup_apple_pay_domains",
         "configure_tax_remitter",
         "add_vat_registration",
+        "enable_two_factor_authentication",
     ],
     typing.Any,
 ]

@@ -121,6 +121,29 @@ RECOVERABLE_RETRY_ERRORS: tuple[str, ...] = (
     "commit hard-deadline",
 )
 
+
+_QUERY_TIMEOUT_CAPTURE_HEADS = (
+    "matrx_orm.exceptions.QueryTimeoutError:",
+    "QueryTimeoutError:",
+)
+
+
+def _is_query_timeout_capture_text(error_text: str | None) -> bool:
+    """Whether the captured exception itself, rather than its payload, timed out."""
+    return bool(error_text and error_text.lstrip().startswith(_QUERY_TIMEOUT_CAPTURE_HEADS))
+
+
+def _safe_replay_failure_text(exc: BaseException) -> str:
+    """A bounded diagnostic that never serializes SQL, bound arguments, or a traceback."""
+    from matrx_orm.exceptions import describe_db_exception
+
+    try:
+        info = describe_db_exception(exc)
+        suffix = f" [SQLSTATE {info.sqlstate}]" if info.sqlstate else ""
+    except Exception:  # noqa: BLE001 — failure reporting must not fail closed
+        suffix = ""
+    return f"{type(exc).__name__}: replay execution failed{suffix}"
+
 # Error-CLASS signatures that are PERMANENT — the database REFUSED the write on
 # its merits, so re-sending the identical row can never succeed. These override
 # every recoverable marker above: a spilled or preserved op is only self-healing
@@ -205,6 +228,38 @@ ACTOR_FK_SIGNATURES: tuple[str, ...] = (
 )
 
 
+# A NOT NULL refusal on a column the DATABASE fills from a parent row is the
+# mirror of the FK split above: it is recoverable or permanent depending on
+# whether that parent has landed yet.
+#
+# ``chat.request`` never carries an ``organization_id`` in its payload — the
+# writer does not send one. ``platform.inherit_org_from_parent`` reads it off
+# the row's ``chat.conversation`` parent on INSERT. And
+# ``cx_request_conversation_id_fkey`` is DEFERRABLE INITIALLY DEFERRED, so when
+# the parent conversation is itself still quarantined the BEFORE-INSERT trigger
+# finds nothing, leaves the column NULL, and the NOT NULL fires FIRST — wearing
+# the permanent "the row itself is wrong" costume while the truth is "the
+# parent has not arrived yet". The deferred FK, which would have named the real
+# problem, never gets to speak.
+#
+# Live evidence 2026-09-17 (seo.page_mapper): three chat.request rows refused
+# this way at 16:59, 17:00 and 17:01, each while its parent conversation sat
+# unrecovered in system_write_failure. All three parents were written at
+# 17:02 — 60 to 180 seconds later, well inside FK_RACE_MAX_AGE_SECONDS. The
+# children would have inserted cleanly on the very next sweep, but
+# ``NotNullViolationError`` is listed above, so they were quarantined on sight
+# and $0.134860 of paid, already-billed model work was lost from the ledger
+# permanently.
+#
+# Treating this as recoverable is bounded twice over and cannot spin: the sweep
+# gives up after AUTO_REPLAY_MAX_ATTEMPTS and quarantines anything already older
+# than FK_RACE_MAX_AGE_SECONDS on its first failed sweep. If the parent really
+# never comes, the row is quarantined ~5 minutes later exactly as before.
+INHERITED_COLUMN_NOTNULL_SIGNATURES: tuple[str, ...] = (
+    'null value in column "organization_id"',
+)
+
+
 def is_actor_fk_violation_text(error_text: str | None) -> bool:
     """True for a foreign-key refusal whose missing parent is a user (never a race)."""
     if not error_text or "ForeignKeyViolationError" not in error_text:
@@ -212,9 +267,27 @@ def is_actor_fk_violation_text(error_text: str | None) -> bool:
     return any(sig in error_text for sig in ACTOR_FK_SIGNATURES)
 
 
+def is_inherited_column_notnull_text(error_text: str | None) -> bool:
+    """True for a NOT NULL refusal on a column the DB inherits from a parent row.
+
+    Recoverable, not permanent: the column is NULL because the parent has not
+    landed yet, and the sweep's attempt + age ceilings bound the retrying.
+    """
+    if not error_text:
+        return False
+    if "NotNullViolationError" not in error_text and "[SQLSTATE 23502]" not in error_text:
+        return False
+    return any(sig in error_text for sig in INHERITED_COLUMN_NOTNULL_SIGNATURES)
+
+
 def is_permanent_failure_text(error_text: str | None) -> bool:
     """True when ``error_text`` carries a signature the DB refuses deterministically."""
     if not error_text:
+        return False
+    # Checked BEFORE the signature sweep: this shape matches
+    # NotNullViolationError, and the whole point is that it is the one NOT NULL
+    # that is a race rather than a verdict on the row.
+    if is_inherited_column_notnull_text(error_text):
         return False
     if any(sig in error_text for sig in PERMANENT_FAILURE_SIGNATURES):
         return True
@@ -578,7 +651,11 @@ async def _fetch_pending(
         eligible_ids = [
             r["id"]
             for r in id_rows
-            if r["error_text"] and any(sig in r["error_text"] for sig in signatures)
+            if (
+                r["error_text"]
+                and not _is_query_timeout_capture_text(r["error_text"])
+                and any(sig in r["error_text"] for sig in signatures)
+            )
         ]
     else:
         eligible_ids = [r["id"] for r in id_rows]
@@ -691,8 +768,9 @@ async def _capture_replay_failure(
         from matrx_connect.streaming.error_capture import capture_error
 
         first = rows[0] if rows else {}
+        safe_exc = RuntimeError(_safe_replay_failure_text(exc))
         await capture_error(
-            exc,
+            safe_exc,
             kind=kind,
             route="matrx_ai.persistence.replay.replay_pending",
             error_type=type(exc).__name__,
@@ -903,10 +981,11 @@ async def replay_pending(
                 except Exception as verify_exc:
                     exc = verify_exc
             report.still_failed_count += len(group_rows)
-            report.by_request[request_id] = f"failed: {type(exc).__name__}: {exc}"
-            report.errors.append(f"{request_id}: {type(exc).__name__}: {exc}")
+            safe_error = _safe_replay_failure_text(exc)
+            report.by_request[request_id] = f"failed: {safe_error}"
+            report.errors.append(f"{request_id}: {safe_error}")
             vcprint(
-                f"[Replay] FAILED for request {request_id}: {type(exc).__name__}: {exc}",
+                f"[Replay] FAILED for request {request_id}: {safe_error}",
                 color="red",
             )
             # A deterministic refusal (trigger RAISE, constraint, schema drift)

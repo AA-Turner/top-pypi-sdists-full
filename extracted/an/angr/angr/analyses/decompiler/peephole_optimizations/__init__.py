@@ -17,6 +17,7 @@ from .bitwise_inserts import SimplifyBitwiseInserts
 from .bitwise_or_to_logical_or import BitwiseOrToLogicalOr
 from .bool_expr_xor_1 import BoolExprXor1
 from .bswap import Bswap
+from .bt_rflags_merge import BTRflagsMergeBitExtraction
 from .cas_intrinsics import CASIntrinsics
 from .cmp_masked_shift import CmpMaskedShift
 from .cmp_sub_const import CmpSubConst
@@ -31,6 +32,7 @@ from .eager_eval import EagerEvaluation
 from .evaluate_const_conversions import EvaluateConstConversions
 from .extended_byte_and_mask import ExtendedByteAndMask
 from .invert_negated_logical_conjuction_disjunction import InvertNegatedLogicalConjunctionsAndDisjunctions
+from .known_pattern_call_info import KnownPatternCallInfo
 from .modulo_simplifier import ModuloSimplifier
 from .one_sub_bool import OneSubBool
 from .optimized_div_simplifier import OptimizedDivisionSimplifier
@@ -71,6 +73,7 @@ ALL_PEEPHOLE_OPTS: list[Any] = [
     ASubAShrConstShrConst,
     ARMCmpF,
     Bswap,
+    BTRflagsMergeBitExtraction,
     CASIntrinsics,
     CoalesceSameCascadingIfs,
     ConcatSimplifier,
@@ -116,6 +119,7 @@ ALL_PEEPHOLE_OPTS: list[Any] = [
     ShlToMul,
     RewriteCxxOperatorCalls,
     RemoveCxxDestructorCalls,
+    KnownPatternCallInfo,
     RewriteConvMul,
     EvaluateConstConversions,
     RemoveRedundantInsert,

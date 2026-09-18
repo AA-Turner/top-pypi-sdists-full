@@ -197,8 +197,14 @@ fn py_api_helpers_and_scope_lifecycle_round_trip() {
         restore_thread_scope_stack(&thread_binding);
         assert!(py_scope_stack_active());
 
-        let rootless_context = capture_propagation_context().unwrap();
-        assert_eq!(rootless_context.inner.version, 1);
+        let rooted_context = capture_propagation_context().unwrap();
+        assert_eq!(rooted_context.inner.version, 1);
+        assert!(rooted_context.inner.root_uuid.is_some());
+        let rootless_context = capture_rootless_propagation_context().unwrap();
+        assert_eq!(
+            rootless_context.inner.parent_uuid,
+            rooted_context.inner.parent_uuid
+        );
         assert!(rootless_context.inner.root_uuid.is_none());
         let propagation_root = Uuid::now_v7();
         let rooted_context =
@@ -349,8 +355,8 @@ async def tool_exec(args):
         {"source": "python-coverage"},
     )
 
-async def tool_exec_intercept(name, args, next):
-    downstream = await next({"value": args["value"] + 3})
+async def tool_exec_intercept(context, next):
+    downstream = await next({"value": context.args["value"] + 3})
     result = dict(downstream.result)
     result["tool_intercepted"] = True
     return ToolExecutionInterceptOutcome(result, annotation=downstream.annotation)

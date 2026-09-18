@@ -13,25 +13,30 @@
 # You should have received a copy of the GNU General Public License
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 59 Temple Place - Suite 330, Boston, MA  02111-1307, USA.
-"""Backward-compatible deprecated aliases.
+"""Backward-compatible deprecated aliases and arguments.
 
 Symbols that were renamed or moved between modules stay importable from their
 original location for one deprecation cycle. Accessing one emits a
 {exc}`DeprecationWarning` pointing at its replacement, through the
 [PEP 562](https://peps.python.org/pep-0562/) module `__getattr__` hooks wired
 into `click_extra/color.py`, `click_extra/parameters.py` and
-`click_extra/theme.py`.
+`click_extra/theme.py`. A renamed argument keeps its old name for the same
+cycle, and passing it warns through {func}`warn_deprecated_argument`, as a
+retired value or shape of a value does through {func}`warn_deprecated_usage`.
 
-```{important}
-Aliases registered here are scheduled for removal in the release recorded in
-{data}`REMOVAL_VERSION`. When that release is cut, delete this module, every
-`__getattr__` hook that calls {func}`resolve_deprecated`, and their tests,
+```{todo}
+Cut all of it in the release recorded in {data}`REMOVAL_VERSION`: delete this
+module, every `__getattr__` hook that calls {func}`resolve_deprecated`, every
+form handled by a call to {func}`warn_deprecated_argument` or
+{func}`warn_deprecated_usage`, and their tests,
 exactly as the `9.0.0` release did with the previous batch.
 ```
 """
 
 from __future__ import annotations
 
+import os
+import sys
 import warnings
 from importlib import import_module
 
@@ -41,6 +46,9 @@ if TYPE_CHECKING:
 
 REMOVAL_VERSION = "10.0.0"
 """The release in which the registered aliases stop resolving."""
+
+_PACKAGE_DIR = os.path.join(os.path.dirname(__file__), "")
+"""This package's directory, trailing separator included, to tell its frames apart."""
 
 DEPRECATED_ALIASES: dict[str, dict[str, str]] = {
     "click_extra.color": {
@@ -78,6 +86,59 @@ def deprecation_message(subject: str, replacement: str) -> str:
     return (
         f"{subject} is deprecated and will be removed in click-extra "
         f"{REMOVAL_VERSION}, use {replacement} instead."
+    )
+
+
+def _outside_stacklevel() -> int:
+    """The `stacklevel` of the first frame outside this package, for its caller.
+
+    Counted from the function calling this one, which is where
+    {func}`warnings.warn` starts counting. A deprecated form can be caught
+    several frames deep (a header deep in a table render, an argument
+    forwarded by a subclass), and a fixed level would then blame this
+    package instead of the code to change.
+    """
+    frame = sys._getframe(1)
+    level = 1
+    while frame.f_back is not None and frame.f_code.co_filename.startswith(
+        _PACKAGE_DIR
+    ):
+        frame = frame.f_back
+        level += 1
+    return level
+
+
+def warn_deprecated_usage(subject: str, replacement: str) -> None:
+    """Warn that `subject` is deprecated, at the first call site outside this package.
+
+    The counterpart of the module aliases for everything else a caller passes:
+    a renamed argument, a retired value, an old shape of a value. The wording
+    and the announced removal release stay in one place.
+
+    :param subject: what is deprecated, like `A (label, column_id) header`.
+    :param replacement: what to use instead.
+    """
+    warnings.warn(
+        deprecation_message(subject, replacement),
+        DeprecationWarning,
+        stacklevel=_outside_stacklevel(),
+    )
+
+
+def warn_deprecated_argument(function: str, argument: str, replacement: str) -> None:
+    """Warn that `argument` of `function` is deprecated, at the caller's call site.
+
+    A renamed argument keeps its old name for one deprecation cycle, and passing
+    it warns through here.
+
+    :param function: name of the callable taking the argument, like `Spinner`.
+    :param argument: the deprecated argument name.
+    :param replacement: what to pass instead, like `live=`.
+    """
+    warnings.warn(
+        deprecation_message(f"{function}({argument}=...)", replacement),
+        DeprecationWarning,
+        stacklevel=_outside_stacklevel(),
     )
 
 

@@ -20,6 +20,7 @@ from fastmcp import FastMCP
 from fastmcp_extensions import mcp_tool, register_mcp_tools
 from pydantic import BaseModel, Field
 
+from airbyte_ops_mcp.devin_api import extract_session_id
 from airbyte_ops_mcp.github_actions import (
     WorkflowDispatchResult,
     WorkflowRunStatus,
@@ -33,9 +34,12 @@ from airbyte_ops_mcp.human_in_the_loop import (
     dispatch_escalation,
 )
 from airbyte_ops_mcp.internal_team_roster import fetch_roster, search_roster
+from airbyte_ops_mcp.session_namer import generate_friendly_name
 from airbyte_ops_mcp.slack_api import lookup_slack_usergroup as find_slack_usergroups
 from airbyte_ops_mcp.slack_ops.blocks import (
+    _MAX_BLOCKS,
     build_blocks,
+    build_context_footer,
     validate_message,
 )
 
@@ -502,6 +506,14 @@ def post_slack_newsletter(
         "'slack_test_channel': trigger the workflow but post to a test "
         "channel instead of the production newsletter channel.",
     ] = "off",
+    agent_session_url: Annotated[
+        str | None,
+        "URL of the Devin session posting this newsletter, e.g. "
+        "'https://app.devin.ai/sessions/<32-hex-id>'. When provided, a small "
+        "grey footer line 'Posted by <Session Name> :devin:' linking to the "
+        "session is appended automatically. Always pass your own session URL "
+        "when posting from a Devin session.",
+    ] = None,
 ) -> PostToSlackChannelResponse:
     """Post a formatted newsletter digest to a Slack channel.
 
@@ -509,6 +521,7 @@ def post_slack_newsletter(
     validation), then dispatches them to a GitHub Actions workflow for
     posting.  The workflow receives finished Block Kit JSON — it does
     not perform any markdown conversion.
+    When `agent_session_url` is provided, appends a linked session footer.
 
     Dry-run modes:
     - `local`: returns blocks JSON for local rendering — no workflow triggered
@@ -537,6 +550,23 @@ def post_slack_newsletter(
 
     # --- Build Block Kit blocks locally ---
     blocks_dict = build_blocks(message_text)
+    if agent_session_url is not None:
+        try:
+            session_id = extract_session_id(agent_session_url)
+        except ValueError as exc:
+            return PostToSlackChannelResponse(
+                success=False,
+                message=str(exc),
+            )
+        session_name = generate_friendly_name(session_id)
+        footer = build_context_footer(
+            f"Posted by <https://app.devin.ai/sessions/{session_id}|"
+            f"{session_name}> :devin:"
+        )
+        if len(blocks_dict) >= _MAX_BLOCKS:
+            blocks_dict = [*blocks_dict[: _MAX_BLOCKS - 1], footer]
+        else:
+            blocks_dict.append(footer)
     blocks_json = json.dumps(blocks_dict)
 
     # --- Local mode: return blocks JSON, no dispatch ---

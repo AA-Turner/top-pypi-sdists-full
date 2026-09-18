@@ -236,6 +236,14 @@ class _HumanEpisode:
         self.origins: set[str] = set()
 
 
+def _serialized_control(method):
+    async def wrapped(self, *args, **kwargs):  # noqa: ANN002, ANN003
+        async with self._control_gate:
+            return await method(self, *args, **kwargs)
+
+    return wrapped
+
+
 class BrowserWorker:
     """The S2 worker. Instantiate, then drive through the eight operations."""
 
@@ -251,6 +259,9 @@ class BrowserWorker:
         self.worker_version = WORKER_VERSION
         self._verifier = token_verifier
         self._event_sink = event_sink
+        self._prepare_human_control: Callable[[M.RtcConfig], None] | None = None
+        self._clear_human_control: Callable[[], None] | None = None
+        self._control_gate = asyncio.Lock()
         # Display for handoff_capable mode. In production the orchestrator provides
         # the private Xvfb; here it is injected so a test can point at its own.
         self._xvfb_display = xvfb_display
@@ -360,6 +371,26 @@ class BrowserWorker:
         return list(self._event_buffer)
 
     # ── common reply construction ───────────────────────────────────────────
+
+    def set_human_control_preparer(
+        self,
+        callback: Callable[[M.RtcConfig], None],
+        clear_callback: Callable[[], None] | None = None,
+    ) -> None:
+        self._prepare_human_control = callback
+        self._clear_human_control = clear_callback
+
+    async def _prepare_rtc(self, rtc_config: M.RtcConfig) -> None:
+        task = asyncio.create_task(asyncio.to_thread(self._prepare_human_control, rtc_config))
+        try:
+            await asyncio.shield(task)
+        except asyncio.CancelledError:
+            try:
+                await asyncio.shield(task)
+            finally:
+                if self._clear_human_control is not None:
+                    await asyncio.to_thread(self._clear_human_control)
+            raise
 
     def _reply_kwargs(self) -> dict[str, Any]:
         return {
@@ -627,6 +658,7 @@ class BrowserWorker:
         self._bootstrap_activation_key = None
         self._bootstrap_lifecycle = "idle"
 
+    @_serialized_control
     async def bootstrap(
         self, request: M.BootstrapRequest, *, bearer: str | None = None
     ) -> M.BootstrapResponse:
@@ -679,9 +711,7 @@ class BrowserWorker:
             response = await asyncio.shield(owner)
             return response.model_copy(update={"replayed": True}) if joined else response
         except asyncio.CancelledError:
-            # The owner remains strongly referenced and continues to terminal
-            # cleanup. A retry joins it instead of mutating the same profile.
-            logger.info("bootstrap caller cancelled; activation owner continues")
+            await asyncio.shield(owner)
             raise
 
     async def _bootstrap_owner(self, request: M.BootstrapRequest) -> M.BootstrapResponse:
@@ -1259,6 +1289,7 @@ class BrowserWorker:
 
     # ── operation 5.2: heartbeat ────────────────────────────────────────────
 
+    @_serialized_control
     async def heartbeat(
         self, request: M.HeartbeatRequest, *, bearer: str | None = None
     ) -> M.HeartbeatResponse:
@@ -1272,6 +1303,20 @@ class BrowserWorker:
         except WorkerProtocolError as err:
             return self._error_reply(M.HeartbeatResponse, err)
 
+        if (
+            request.rtc_config is not None
+            and self._controller.state == "human_control"
+            and request.access_still_valid
+        ):
+            try:
+                if self._prepare_human_control is None:
+                    raise RuntimeError("RTC unavailable")
+                await self._prepare_rtc(request.rtc_config)
+            except Exception:
+                return self._error_reply(
+                    M.HeartbeatResponse,
+                    WorkerProtocolError("reopen_required", message="RTC stream refresh failed"),
+                )
         self._lease_expires_at = request.lease_expires_at
         if not request.access_still_valid:
             # Immediately end human input injection and refuse subsequent commands.
@@ -1731,6 +1776,7 @@ class BrowserWorker:
 
     # ── operation 5.4: observe ──────────────────────────────────────────────
 
+    @_serialized_control
     async def observe(
         self, request: M.ObserveRequest, *, bearer: str | None = None
     ) -> M.ObserveResponse:
@@ -1912,6 +1958,33 @@ class BrowserWorker:
         "resume_pending": {"agent_control"},
     }
 
+    async def _refresh_replayed_human_control(
+        self, request: M.ControllerTransitionRequest
+    ) -> M.ControllerTransitionResponse | None:
+        if not (request.to_state == "human_control" and request.enable_human_input):
+            return None
+        try:
+            if self._prepare_human_control is None or request.rtc_config is None:
+                raise RuntimeError("RTC unavailable")
+            await self._prepare_rtc(request.rtc_config)
+        except Exception:
+            self._controller = self._controller.model_copy(
+                update={"state": "failed", "human_input_enabled": False}
+            )
+            self.queue_state, self._closed_reason, self.health = (
+                "closed",
+                "worker_degraded",
+                "degraded",
+            )
+            return self._error_reply(
+                M.ControllerTransitionResponse,
+                WorkerProtocolError("worker_degraded", message="RTC replay preparation failed"),
+                from_state="failed",
+                to_state="failed",
+            )
+        return None
+
+    @_serialized_control
     async def controller_transition(
         self, request: M.ControllerTransitionRequest, *, bearer: str | None = None
     ) -> M.ControllerTransitionResponse:
@@ -1928,10 +2001,16 @@ class BrowserWorker:
                 raise WorkerProtocolError("stale_fencing_token", message="fencing token is stale")
             replay = self._check_sequence(request)
             if replay is not None:
+                if replay.human_input_enabled:
+                    failed = await self._refresh_replayed_human_control(request)
+                    if failed is not None:
+                        return failed
                 return replay
             self._validate_transition(request)
         except _Idempotent:
-            # Same target state, same revision → idempotent no-op replay.
+            failed = await self._refresh_replayed_human_control(request)
+            if failed is not None:
+                return failed
             return M.ControllerTransitionResponse(
                 **self._reply_kwargs(),
                 ok=True,
@@ -1965,6 +2044,18 @@ class BrowserWorker:
             if request.boundary_capture is not None:
                 cap = await self.capture(request.boundary_capture, bearer=None)
                 boundary_artifact = cap.artifact
+            try:
+                if self._prepare_human_control is None or request.rtc_config is None:
+                    raise RuntimeError("RTC unavailable")
+                await self._prepare_rtc(request.rtc_config)
+            except Exception:
+                self.queue_state = "open"
+                return self._error_reply(
+                    M.ControllerTransitionResponse,
+                    WorkerProtocolError("reopen_required", message="RTC stream preparation failed"),
+                    from_state=from_state,
+                    to_state=from_state,
+                )
             self._episode = _HumanEpisode(request.handoff_id or uuid.uuid4().hex)
             self._controller = self._controller.model_copy(
                 update={
@@ -2178,9 +2269,7 @@ class BrowserWorker:
                 await self._launch_context(self._policy, self._display)  # type: ignore[arg-type]
                 self.queue_state = "open"
                 context_relaunched = True
-                await asyncio.to_thread(
-                    _remove_profile_checkpoint_marker, self._user_data_dir
-                )
+                await asyncio.to_thread(_remove_profile_checkpoint_marker, self._user_data_dir)
             except Exception:
                 self.health = "browser_crashed"
 
@@ -2224,6 +2313,7 @@ class BrowserWorker:
 
     # ── operation 5.8: shutdown ─────────────────────────────────────────────
 
+    @_serialized_control
     async def shutdown(
         self, request: M.ShutdownRequest, *, bearer: str | None = None
     ) -> M.ShutdownResponse:
@@ -2496,30 +2586,22 @@ async def _restore_profile(user_data_dir: str, restore: M.CheckpointRestore) -> 
 
 async def _restore_profile_once(user_data_dir: str, restore: M.CheckpointRestore) -> None:
     """Download, authenticate, and safely replace a closed profile directory."""
-    if await asyncio.to_thread(
-        _profile_checkpoint_matches, user_data_dir, restore.plaintext_hash
-    ):
+    if await asyncio.to_thread(_profile_checkpoint_matches, user_data_dir, restore.plaintext_hash):
         return
-    async with httpx.AsyncClient(
-        timeout=M.CHECKPOINT_RESTORE_TOTAL_TIMEOUT_SECONDS
-    ) as client:
+    async with httpx.AsyncClient(timeout=M.CHECKPOINT_RESTORE_TOTAL_TIMEOUT_SECONDS) as client:
         response = await client.get(restore.download_url, headers=restore.headers)
         response.raise_for_status()
     ciphertext = response.content
     plaintext = await asyncio.to_thread(_decrypt_and_verify_checkpoint, restore, ciphertext)
 
     await asyncio.to_thread(_install_restored_profile, user_data_dir, plaintext)
-    await asyncio.to_thread(
-        _write_profile_checkpoint_marker, user_data_dir, restore.plaintext_hash
-    )
+    await asyncio.to_thread(_write_profile_checkpoint_marker, user_data_dir, restore.plaintext_hash)
 
 
 def _profile_checkpoint_matches(user_data_dir: str, plaintext_hash: str) -> bool:
     try:
         return (
-            Path(user_data_dir, _PROFILE_CHECKPOINT_MARKER)
-            .read_text(encoding="utf-8")
-            .strip()
+            Path(user_data_dir, _PROFILE_CHECKPOINT_MARKER).read_text(encoding="utf-8").strip()
             == plaintext_hash
         )
     except (FileNotFoundError, OSError):

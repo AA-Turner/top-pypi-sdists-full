@@ -155,6 +155,9 @@ class BaseEstimator(sklearn.base.ClassifierMixin, sklearn.base.BaseEstimator):
             params["_estimator_type"] = self._estimator_type
         return params
 
+    def __sklearn_is_fitted__(self):
+        return self._model is not None
+
     def __sklearn_tags__(self):
         """Override sklearn tags to respect the _estimator_type attribute.
 
@@ -1779,6 +1782,9 @@ class XGBoostEstimator(SKLearnEstimator):
     ):
         super().__init__(task, **config)
         self.params["verbosity"] = 0
+        random_seed = self.params.pop("random_seed", config.get("random_seed", 10242048))
+        if "random_state" not in self.params:
+            self.params["random_state"] = random_seed
 
     def fit(self, X_train, y_train, budget=None, free_mem_ratio=0, **kwargs):
         import xgboost as xgb
@@ -1874,6 +1880,9 @@ class XGBoostSklearnEstimator(SKLearnEstimator, LGBMEstimator):
         super().__init__(task, **config)
         del self.params["verbose"]
         self.params["verbosity"] = 0
+        random_seed = self.params.pop("random_seed", config.get("random_seed", 10242048))
+        if "random_state" not in self.params:
+            self.params["random_state"] = random_seed
         import xgboost as xgb
 
         if "rank" == task:
@@ -1970,8 +1979,6 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
             params["max_leaf_nodes"] = params.get("max_leaf_nodes", params.pop("max_leaves"))
         if not self._task.is_classification() and "criterion" in params:
             params.pop("criterion")
-        if "random_state" not in params:
-            params["random_state"] = 12032022
         return params
 
     def __init__(
@@ -1981,6 +1988,9 @@ class RandomForestEstimator(SKLearnEstimator, LGBMEstimator):
     ):
         super().__init__(task, **params)
         self.params["verbose"] = 0
+        random_seed = self.params.pop("random_seed", params.get("random_seed", 12032022))
+        if "random_state" not in self.params:
+            self.params["random_state"] = random_seed
 
         if self._task.is_classification():
             self.estimator_class = RandomForestClassifier
@@ -2027,11 +2037,18 @@ class LRL1Classifier(SKLearnEstimator):
         params = super().config2params(config)
         params["tol"] = params.get("tol", 0.0001)
         params["solver"] = params.get("solver", "saga")
-        params["penalty"] = params.get("penalty", "l1")
+        if SKLEARN_VERSION >= "1.8":
+            params["l1_ratio"] = params.get("l1_ratio", 1.0)
+            params.pop("n_jobs", None)
+        else:
+            params["penalty"] = params.get("penalty", "l1")
         return params
 
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
+        random_seed = self.params.pop("random_seed", config.get("random_seed", 10242048))
+        if "random_state" not in self.params:
+            self.params["random_state"] = random_seed
         assert self._task.is_classification(), "LogisticRegression for classification task only"
         self.estimator_class = LogisticRegression
 
@@ -2053,11 +2070,17 @@ class LRL2Classifier(SKLearnEstimator):
         params = super().config2params(config)
         params["tol"] = params.get("tol", 0.0001)
         params["solver"] = params.get("solver", "lbfgs")
-        params["penalty"] = params.get("penalty", "l2")
+        if SKLEARN_VERSION >= "1.8":
+            params.pop("n_jobs", None)
+        else:
+            params["penalty"] = params.get("penalty", "l2")
         return params
 
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
+        random_seed = self.params.pop("random_seed", config.get("random_seed", 10242048))
+        if "random_state" not in self.params:
+            self.params["random_state"] = random_seed
         assert self._task.is_classification(), "LogisticRegression for classification task only"
         self.estimator_class = LogisticRegression
 
@@ -2450,6 +2473,9 @@ class SGDEstimator(SKLearnEstimator):
 
     def __init__(self, task="binary", **config):
         super().__init__(task, **config)
+        random_seed = self.params.pop("random_seed", config.get("random_seed", 10242048))
+        if "random_state" not in self.params:
+            self.params["random_state"] = random_seed
         if self._task.is_classification():
             self.estimator_class = SGDClassifier
         elif self._task.is_regression():

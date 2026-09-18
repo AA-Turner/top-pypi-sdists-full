@@ -192,9 +192,7 @@ def numbagg_group_setup(func, a, **kwargs):
 def pandas_group_setup(func_name, a, **kwargs):
     labels = generate_labels(a.shape[-1])
     df = _df_of_array(a)
-    return lambda: (
-        df.groupby(labels).pipe(lambda x: getattr(x, func_name)(**kwargs)).T
-    )
+    return lambda: df.groupby(labels).pipe(lambda x: getattr(x, func_name)(**kwargs)).T
 
 
 def pandas_nan_sum_of_squares_setup(a):
@@ -223,7 +221,7 @@ def _df_of_array(a):
 #
 # - Each function has a dict, which contains a mapping of library:lambda, for each
 #   library we want to test.
-# - The lambda takes an takes an input array and returns a callable than can be called
+# - The lambda takes an input array and returns a callable that can be called
 #   with `func()`. It should do all "setup" beforehand, so when we benchmark the
 #   functions, we're not benchmarking allocating dataframes etc.
 # - The lambda can also can have optional kwargs if we want to be able to test other
@@ -249,8 +247,9 @@ COMPARISONS: dict[Callable, dict[str, Callable]] = {
     nancount: dict(
         numbagg=lambda a, axis=-1: partial(nancount, a, axis=axis),
         pandas=lambda a: lambda: _df_of_array(a).count().T,
-        numpy=lambda a, axis=-1: lambda: a.shape[axis]
-        - np.count_nonzero(np.isnan(a), axis=axis),
+        numpy=lambda a, axis=-1: (
+            lambda: a.shape[axis] - np.count_nonzero(np.isnan(a), axis=axis)
+        ),
     ),
     nanmax: dict(
         numbagg=lambda a, axis=-1: partial(nanmax, a, axis=axis),
@@ -406,9 +405,9 @@ COMPARISONS: dict[Callable, dict[str, Callable]] = {
     bfill: dict(
         pandas=lambda a, **kwargs: lambda: _df_of_array(a).bfill(**kwargs).T,
         numbagg=lambda a, **kwargs: partial(bfill, a, **kwargs),
-        bottleneck=lambda a, limit=None: lambda: bn.push(a[..., ::-1], limit)[
-            ..., ::-1
-        ],
+        bottleneck=lambda a, limit=None: (
+            lambda: bn.push(a[..., ::-1], limit)[..., ::-1]
+        ),
     ),
     nanmedian: dict(
         pandas=lambda a,: lambda: _df_of_array(a).median(),
@@ -416,8 +415,8 @@ COMPARISONS: dict[Callable, dict[str, Callable]] = {
         numpy=lambda a, axis=-1: partial(np.nanmedian, a, axis=axis),
     ),
     nanquantile: dict(
-        pandas=lambda a, quantiles=[0.25, 0.75]: lambda: _df_of_array(a).quantile(
-            quantiles
+        pandas=lambda a, quantiles=[0.25, 0.75]: (
+            lambda: _df_of_array(a).quantile(quantiles)
         ),
         numbagg=lambda a, quantiles=[0.25, 0.75], axis=-1: partial(
             nanquantile, a, quantiles, axis=axis

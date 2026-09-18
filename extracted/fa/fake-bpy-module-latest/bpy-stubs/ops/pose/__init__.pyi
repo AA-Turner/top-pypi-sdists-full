@@ -382,6 +382,7 @@ class paste(bpy.ops._BPyOpsSubModOp):
         *,
         flipped: bool | None = False,
         selected_mask: bool | None = False,
+        factor: float | None = 1.0,
     ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
         """Paste the stored pose on to the current pose
 
@@ -389,6 +390,7 @@ class paste(bpy.ops._BPyOpsSubModOp):
         :param undo:
         :param flipped: Flipped on X-Axis, Paste the stored pose flipped on to current pose (optional)
         :param selected_mask: On Selected Only, Only paste the stored pose on to selected bones in the current pose (optional)
+        :param factor: Factor, Blends the current pose to the pose to paste. At 1, the pasted pose completely overwrites the current pose (in [-inf, inf], optional)
         :return: Result of the operator call.
         """
 

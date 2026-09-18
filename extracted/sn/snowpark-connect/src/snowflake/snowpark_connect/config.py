@@ -372,6 +372,11 @@ class GlobalConfig:
         "snowpark.connect.parquet_direct.enabled": "false",
         "spark.sql.legacy.dataset.nameNonStructGroupingKeyAsValue": "false",
         "snowpark.connect.handleIntegralOverflow": "false",
+        # SNOW-4061004: client-side gate for emitting TABLE_PROPERTIES(...) on
+        # CLD CREATE / ALTER ICEBERG TABLE. Global (settable via spark.conf.set),
+        # default off; ENABLE_ICEBERG_TABLE_PROPERTIES_DDL must also be on for GS
+        # to accept the clause.
+        "snowpark.connect.iceberg.enable_table_properties_ddl": "false",
         "snowpark.connect.scala.version": "2.12",
         # Control whether to convert decimal - to integral types and vice versa: DecimalType(p,0) <-> ByteType/ShortType/IntegerType/LongType
         # Values: "client_default" (behavior based on client type), "enabled", "disabled"
@@ -807,6 +812,10 @@ SESSION_CONFIG_KEY_WHITELIST = {
     # both gates are required for the conf to reach the sandbox.
     "spark.sql.legacy.json.enableDateTimeParsingFallback",
     "spark.sql.legacy.csv.enableDateTimeParsingFallback",
+    # SNOW-3245115: likewise paired with _RELEVANT_SPARK_CONF_KEYS. Left out of
+    # ``default_session_config`` on purpose so only an explicit client ``conf.set``
+    # forwards -- the sandbox already defaults it to false.
+    "spark.sql.files.ignoreCorruptFiles",
 }
 
 SESSION_SCOPED_RUNTIME_CONFIGS = {CASE_SENSITIVE_CONFIG}

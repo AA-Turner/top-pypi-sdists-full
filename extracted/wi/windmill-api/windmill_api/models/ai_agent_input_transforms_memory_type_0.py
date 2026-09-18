@@ -15,6 +15,9 @@ if TYPE_CHECKING:
     from ..models.ai_agent_input_transforms_memory_type_0_value_type_2 import (
         AiAgentInputTransformsMemoryType0ValueType2,
     )
+    from ..models.ai_agent_input_transforms_memory_type_0_value_type_3 import (
+        AiAgentInputTransformsMemoryType0ValueType3,
+    )
 
 
 T = TypeVar("T", bound="AiAgentInputTransformsMemoryType0")
@@ -26,7 +29,9 @@ class AiAgentInputTransformsMemoryType0:
 
     Attributes:
         value (Union['AiAgentInputTransformsMemoryType0ValueType0', 'AiAgentInputTransformsMemoryType0ValueType1',
-            'AiAgentInputTransformsMemoryType0ValueType2']): Conversation memory configuration
+            'AiAgentInputTransformsMemoryType0ValueType2', 'AiAgentInputTransformsMemoryType0ValueType3']): Managed memory,
+            stored by Windmill and replayed with each request. The memory is named by a memory id, see `memory_id`. While it
+            is off, a step can supply its history in `previous_messages`.
         type (AiAgentInputTransformsMemoryType0Type):
     """
 
@@ -34,6 +39,7 @@ class AiAgentInputTransformsMemoryType0:
         "AiAgentInputTransformsMemoryType0ValueType0",
         "AiAgentInputTransformsMemoryType0ValueType1",
         "AiAgentInputTransformsMemoryType0ValueType2",
+        "AiAgentInputTransformsMemoryType0ValueType3",
     ]
     type: AiAgentInputTransformsMemoryType0Type
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
@@ -45,6 +51,9 @@ class AiAgentInputTransformsMemoryType0:
         from ..models.ai_agent_input_transforms_memory_type_0_value_type_1 import (
             AiAgentInputTransformsMemoryType0ValueType1,
         )
+        from ..models.ai_agent_input_transforms_memory_type_0_value_type_2 import (
+            AiAgentInputTransformsMemoryType0ValueType2,
+        )
 
         value: Dict[str, Any]
 
@@ -52,6 +61,9 @@ class AiAgentInputTransformsMemoryType0:
             value = self.value.to_dict()
 
         elif isinstance(self.value, AiAgentInputTransformsMemoryType0ValueType1):
+            value = self.value.to_dict()
+
+        elif isinstance(self.value, AiAgentInputTransformsMemoryType0ValueType2):
             value = self.value.to_dict()
 
         else:
@@ -81,6 +93,9 @@ class AiAgentInputTransformsMemoryType0:
         from ..models.ai_agent_input_transforms_memory_type_0_value_type_2 import (
             AiAgentInputTransformsMemoryType0ValueType2,
         )
+        from ..models.ai_agent_input_transforms_memory_type_0_value_type_3 import (
+            AiAgentInputTransformsMemoryType0ValueType3,
+        )
 
         d = src_dict.copy()
 
@@ -90,6 +105,7 @@ class AiAgentInputTransformsMemoryType0:
             "AiAgentInputTransformsMemoryType0ValueType0",
             "AiAgentInputTransformsMemoryType0ValueType1",
             "AiAgentInputTransformsMemoryType0ValueType2",
+            "AiAgentInputTransformsMemoryType0ValueType3",
         ]:
             try:
                 if not isinstance(data, dict):
@@ -107,11 +123,19 @@ class AiAgentInputTransformsMemoryType0:
                 return value_type_1
             except:  # noqa: E722
                 pass
+            try:
+                if not isinstance(data, dict):
+                    raise TypeError()
+                value_type_2 = AiAgentInputTransformsMemoryType0ValueType2.from_dict(data)
+
+                return value_type_2
+            except:  # noqa: E722
+                pass
             if not isinstance(data, dict):
                 raise TypeError()
-            value_type_2 = AiAgentInputTransformsMemoryType0ValueType2.from_dict(data)
+            value_type_3 = AiAgentInputTransformsMemoryType0ValueType3.from_dict(data)
 
-            return value_type_2
+            return value_type_3
 
         value = _parse_value(d.pop("value"))
 

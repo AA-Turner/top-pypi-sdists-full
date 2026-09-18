@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: spmd_types
-Version: 0.2.5
+Version: 0.3.0
 Summary: A type system for distributed (SPMD) tensor computations in PyTorch
 Author: Meta Platforms, Inc.
 License: BSD 3-Clause License
@@ -33,6 +33,7 @@ License: BSD 3-Clause License
         DAMAGE.
         
 Project-URL: Homepage, https://github.com/meta-pytorch/spmd_types
+Project-URL: Documentation, https://meta-pytorch.org/spmd_types/
 Project-URL: Repository, https://github.com/meta-pytorch/spmd_types
 Project-URL: Issues, https://github.com/meta-pytorch/spmd_types/issues
 Classifier: Development Status :: 4 - Beta
@@ -47,6 +48,10 @@ Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Provides-Extra: docs
+Requires-Dist: myst-parser==2.0.0; extra == "docs"
+Requires-Dist: pytorch-sphinx-theme2==0.4.13; extra == "docs"
+Requires-Dist: sphinx==7.2.6; extra == "docs"
 Dynamic: license-file
 
 # `spmd_types`
@@ -107,9 +112,16 @@ dist.destroy_process_group()
 
 ## Documentation
 
+See the [SPMD Types documentation](https://meta-pytorch.org/spmd_types/) for
+the complete user and API documentation.
+
 See [Local SPMD types](docs/local_spmd_types.md) for a hands-on guide on
 porting Megatron-derived training frameworks, including the Megatron-to-spmd_types
 function mapping table and advice on Invariant vs Replicate.
+
+See [Rules](docs/rules.md) for how to write an `spmd_typecheck` typing rule
+for your own custom autograd functions by composing `spmd_types.rules`, and
+how to test it numerically with `rulecheck`.
 
 See [Design](docs/design.md) for the full type system specification, including
 local vs global SPMD modes, collective signatures with diagrams, forward-backward

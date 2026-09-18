@@ -10,8 +10,9 @@ from respx import MockRouter
 from respx.models import Call
 
 from tests.cli.utils import CliRunner
+from together.lib.cli._track_cli import CliTrackingEvents
 from together.types.beta.endpoint import Endpoint
-from together.types.beta.endpoints.rollout import Rollout, StatusStep, StatusCondition, StatusConditionMetric
+from together.types.beta.endpoints.rollout import Rollout
 from together.lib.cli.api.beta.endpoints.rollout import (
     build_canary,
     parse_canary_steps,
@@ -19,6 +20,7 @@ from together.lib.cli.api.beta.endpoints.rollout import (
     _verify_rollout_pair,
     resolve_rollout_strategy,
 )
+from together.types.beta.endpoints.metric_result import MetricResult as StatusConditionMetric
 from together.lib.cli.api.beta.endpoints.retrieve import (
     rollout_reason_rows,
     format_rollout_progress,
@@ -26,6 +28,8 @@ from together.lib.cli.api.beta.endpoints.retrieve import (
     format_condition_metric_line,
     format_rollout_condition_summary,
 )
+from together.types.beta.endpoints.rollout_condition import RolloutCondition as StatusCondition
+from together.types.beta.endpoints.rollout_step_status import RolloutStepStatus as StatusStep
 
 base_url = os.environ.get("TEST_API_BASE_URL", "http://127.0.0.1:4010")
 
@@ -897,7 +901,15 @@ class TestBetaEndpointsRollout:
         self,
         respx_mock: MockRouter,
         cli_runner: CliRunner,
+        monkeypatch: pytest.MonkeyPatch,
     ) -> None:
+        tracked: list[tuple[CliTrackingEvents, dict[str, Any]]] = []
+
+        def capture_event(event: CliTrackingEvents, args: dict[str, Any]) -> None:
+            tracked.append((event, args))
+
+        monkeypatch.setattr("together.lib.cli.track_cli", capture_event)
+
         endpoint = _endpoint_body()
         respx_mock.get("/projects/proj/endpoints").mock(
             return_value=httpx.Response(
@@ -931,12 +943,16 @@ class TestBetaEndpointsRollout:
 
         assert result.exit_code != 0
         payload = json.loads(result.out_out)
+        assert "cannot start rollout" in payload["error"]
         assert payload["id"] == "rol_1"
         assert payload["type"] == "rollout"
         assert payload["command"] == "tg beta endpoints rm rol_1"
         assert "deleted A/B experiment abx_1" in payload["actions"]
         assert "rol_1" in payload["hint"]
         assert "tg beta endpoints rm rol_1" in payload["hint"]
+        failure = next(args for event, args in tracked if event is CliTrackingEvents.CommandFailed)
+        assert failure["error"] == "Rollout created but failed to start"
+        assert "rol_1" not in failure["error"]
 
     @pytest.mark.respx(base_url=base_url)
     def test_create_start_failure_reports_orphan_rollout_without_detach(
@@ -1196,8 +1212,47 @@ class TestBetaEndpointsRollout:
         assert cancel_route.called
         body = json.loads(cast(Call, cancel_route.calls[0]).request.content.decode())
         assert body["reason"] == "ship reverted"
+        assert "disposition" not in body
         payload = json.loads(result.out_out)
         assert payload["rollout"]["state"] == "ROLLOUT_STATE_CANCELED"
+
+    @pytest.mark.respx(base_url=base_url)
+    def test_cancel_with_revert_disposition(
+        self,
+        respx_mock: MockRouter,
+        cli_runner: CliRunner,
+    ) -> None:
+        _mock_active_rollout(respx_mock)
+        cancel_route = respx_mock.post("/projects/proj/endpoints/ep_1/rollouts/rol_1/cancel").mock(
+            return_value=httpx.Response(200, json=_rollout_body(state="ROLLOUT_STATE_CANCELED"))
+        )
+
+        result = cli_runner.invoke(_rollout_args("ep_1", "--cancel", "revert", "--json"))
+
+        assert result.exit_code == 0, result.output
+        assert cancel_route.called
+        body = json.loads(cast(Call, cancel_route.calls[0]).request.content.decode())
+        assert body["disposition"] == "CANCEL_DISPOSITION_REVERT"
+        assert body["reason"] == "Cancelled via tg beta endpoints rollout --cancel"
+
+    @pytest.mark.respx(base_url=base_url)
+    def test_cancel_with_freeze_disposition(
+        self,
+        respx_mock: MockRouter,
+        cli_runner: CliRunner,
+    ) -> None:
+        _mock_active_rollout(respx_mock)
+        cancel_route = respx_mock.post("/projects/proj/endpoints/ep_1/rollouts/rol_1/cancel").mock(
+            return_value=httpx.Response(200, json=_rollout_body(state="ROLLOUT_STATE_CANCELED"))
+        )
+
+        result = cli_runner.invoke(_rollout_args("ep_1", "--cancel", "freeze", "--json"))
+
+        assert result.exit_code == 0, result.output
+        assert cancel_route.called
+        body = json.loads(cast(Call, cancel_route.calls[0]).request.content.decode())
+        assert body["disposition"] == "CANCEL_DISPOSITION_FREEZE"
+        assert body["reason"] == "Cancelled via tg beta endpoints rollout --cancel"
 
     @pytest.mark.respx(base_url=base_url)
     def test_resume_by_endpoint_id(
@@ -1392,6 +1447,13 @@ class TestBetaEndpointsRollout:
         result = cli_runner.invoke(_rollout_args("dep_target", "--reason", "nope"))
         assert result.exit_code != 0
         assert "--reason is only valid with --cancel or --pause" in result.output
+
+    @pytest.mark.respx(base_url=base_url)
+    def test_rejects_unknown_cancel_disposition(self, cli_runner: CliRunner) -> None:
+        result = cli_runner.invoke(_rollout_args("dep_target", "--cancel", "nope"))
+        assert result.exit_code != 0
+        assert "freeze" in result.output
+        assert "revert" in result.output
 
     @pytest.mark.respx(base_url=base_url)
     def test_rejects_retired_min_max_metric_stat(self, cli_runner: CliRunner) -> None:

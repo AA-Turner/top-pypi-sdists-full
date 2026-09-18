@@ -61,6 +61,13 @@ class TestDataPlanesV1Api(unittest.TestCase):
         """
         pass
 
+    def test_list_organization_data_planes(self) -> None:
+        """Test case for list_organization_data_planes
+
+        List Organization Data Planes.
+        """
+        pass
+
     def test_patch_data_plane(self) -> None:
         """Test case for patch_data_plane
 

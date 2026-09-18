@@ -28,7 +28,7 @@ class LintResult(BaseModel):
     """
     A single lint result with actionable suggestion.  Example:     {         \"code\": \"UNUSED_EXTRACTOR\",         \"severity\": \"warning\",         \"message\": \"Feature extractor 'text_extractor' in namespace 'my_ns' is not used by any collection\",         \"location\": \"namespaces[0].feature_extractors[1]\",         \"suggestion\": \"Remove the unused extractor or add a collection that uses it\",         \"fix_example\": \"collections:\\n  - name: text_docs\\n    feature_extractor:\\n      name: text_extractor\"     }
     """ # noqa: E501
-    code: StrictStr = Field(description="Lint rule code (e.g., 'UNUSED_EXTRACTOR', 'MISSING_CACHE_CONFIG')")
+    code: StrictStr = Field(description="Lint rule code (e.g., 'UNUSED_EXTRACTOR', 'MISSING_INPUT_SCHEMA')")
     severity: LintSeverity = Field(description="Severity level: error, warning, or info")
     message: StrictStr = Field(description="Human-readable description of the issue")
     location: StrictStr = Field(description="Path to the problematic element (e.g., 'retrievers[0].stages[2]')")

@@ -1,13 +1,15 @@
 Metadata-Version: 2.4
 Name: ag-ui-protocol
-Version: 0.1.22
+Version: 1.0.0
 Summary: 
+Keywords: ag-ui,agent,protocol,agui-protocol-1.0
 Author: Markus Ecker
 Author-email: Markus Ecker <markus.ecker@gmail.com>
 License-Expression: MIT
 License-File: LICENSE
 Requires-Dist: pydantic>=2.11.2
 Requires-Python: >=3.9
+Project-URL: Changelog, https://github.com/ag-ui-protocol/ag-ui/releases
 Description-Content-Type: text/markdown
 
 # ag-ui-protocol

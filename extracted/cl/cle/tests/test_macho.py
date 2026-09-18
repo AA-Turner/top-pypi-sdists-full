@@ -10,7 +10,8 @@ import pytest
 
 import cle
 from cle import MachO
-from cle.backends.macho.macho_enums import LoadCommands, SectionAttributes, SectionType
+from cle.backends.backend import FunctionHintSource
+from cle.backends.macho.macho_enums import LoadCommands, MachoFiletype, SectionAttributes, SectionType
 from cle.backends.macho.section import MachOSection
 
 TEST_BASE = os.path.join(os.path.dirname(os.path.realpath(__file__)), os.path.join("..", "..", "binaries"))
@@ -240,10 +241,39 @@ def test_zerofill_sections():
     assert isinstance(bss, MachOSection)
     assert bss.type == SectionType.S_ZEROFILL
     assert bss.only_contains_uninitialized_data
+    assert bss.filesize == 0
+    assert bss.memsize > 0
+    assert not bss.contains_offset(bss.offset)
 
-    assert not macho.sections_map["__TEXT,__text"].only_contains_uninitialized_data
-    assert not macho.sections_map["__DATA,__data"].only_contains_uninitialized_data
+    text = macho.sections_map["__TEXT,__text"]
+    data = macho.sections_map["__DATA,__data"]
+    assert not text.only_contains_uninitialized_data
+    assert not data.only_contains_uninitialized_data
+    assert text.filesize == text.memsize
+    assert data.filesize == data.memsize
     assert {s.name for s in macho.sections if s.only_contains_uninitialized_data} == {"__bss"}
+
+
+def test_function_start_hints():
+    machofile = os.path.join(TEST_BASE, "tests", "aarch64", "dyld_ios15.macho")
+    ld = cle.Loader(machofile, auto_load_libs=False)
+    macho = ld.main_object
+    assert isinstance(macho, cle.MachO)
+
+    hints = [hint for hint in macho.function_hints if hint.source == FunctionHintSource.MACHO_FUNCTION_STARTS]
+    assert [hint.addr for hint in hints] == macho.lc_function_starts
+    assert all(hint.size == 0 for hint in hints)
+
+    rebased = cle.Loader(
+        machofile, auto_load_libs=False, main_opts={"base_addr": macho.linked_base + 0x200000}
+    ).main_object
+    assert isinstance(rebased, cle.MachO)
+    assert rebased.image_base_delta is not None
+    assert rebased.lc_function_starts is not None
+    rebased_hints = [hint for hint in rebased.function_hints if hint.source == FunctionHintSource.MACHO_FUNCTION_STARTS]
+    assert [hint.addr for hint in rebased_hints] == [
+        addr + rebased.image_base_delta for addr in rebased.lc_function_starts
+    ]
 
 
 def test_instruction_sections():
@@ -426,3 +456,27 @@ if __name__ == "__main__":
     test_instruction_sections()
     test_zero_vmsize_segment()
     test_filesize_larger_than_vmsize()
+
+
+def test_relocatable_object():
+    """
+    A relocatable object is linked against 0 and holds every section in one unnamed segment, so its
+    base-address situation is the same as a dylib loaded as the main object. It used to be refused
+    outright as an unsupported file type.
+    """
+    for arch, name in (("aarch64", "AARCH64"), ("x86_64", "AMD64")):
+        machofile = os.path.join(TEST_BASE, "tests", arch, "relocatable_object.macho")
+        ld = cle.Loader(machofile, auto_load_libs=False)
+        obj = ld.main_object
+        assert isinstance(obj, MachO)
+        assert obj.filetype == MachoFiletype.MH_OBJECT
+        assert obj.arch.name == name
+        assert obj.mapped_base == 0
+
+        text = next(sec for sec in obj.sections if sec.name == "__text")
+        assert text.is_executable
+        assert text.memsize > 0
+
+        # The defined symbols carry real section-relative addresses; undefined externals stay at 0.
+        defined = {sym.name for sym in obj.symbols if sym.rebased_addr}
+        assert defined, "no defined symbol carries an address"

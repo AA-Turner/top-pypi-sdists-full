@@ -7,10 +7,17 @@ from typing import Dict, Any, Callable
 from contextlib import contextmanager
 
 try:
-    from PySide6 import QtCore, QtGui, QtWidgets
-    from matplotlib.backends.backend_qt5agg import FigureCanvasQTAgg
     from matplotlib import pyplot as plt
-except ModuleNotFoundError as e:
+
+    # PySide6 must be imported before any matplotlib Qt backend: importing
+    # backend_qt5agg first makes matplotlib.backends.qt_compat only look for
+    # PyQt5/PySide2, so it fails to find an already-installed PySide6.
+    from PySide6 import QtCore, QtGui, QtWidgets
+    from matplotlib.backends.backend_qtagg import FigureCanvasQTAgg
+except ImportError as e:
+    # Not only ModuleNotFoundError: matplotlib.backends.qt_compat can also
+    # raise a plain ImportError, e.g. if PySide6 fails to load for other
+    # reasons than being absent.
     e.msg += (
         "\n\nPlease install PySide6, and matplotlib to enable interactive "
         "outside of Jupyter notebooks."
@@ -28,6 +35,7 @@ def make_widget(
     """Make interactive fitting widget."""
     original_values = minuit.values[:]
     original_limits = minuit.limits[:]
+    original_fixed = minuit.fixed[:]
 
     class Parameter(QtWidgets.QGroupBox):
         def __init__(self, minuit, par, callback):
@@ -78,10 +86,11 @@ def make_widget(
             self.tmax.setMaximum(_make_finite(minuit.limits[par][1]))
 
             self.slider.valueChanged.connect(self.on_val_changed)
-            self.fix.clicked.connect(self.on_fix_toggled)
+            # toggled (not clicked) also fires when the sibling unchecks us
+            self.fix.toggled.connect(self.on_fix_toggled)
             self.tmin.valueChanged.connect(self.on_min_changed)
             self.tmax.valueChanged.connect(self.on_max_changed)
-            self.fit.clicked.connect(self.on_fit_toggled)
+            self.fit.toggled.connect(self.on_fit_toggled)
 
         def _int_to_float(self, value):
             return self.vmin + (value / 1e8) * (self.vmax - self.vmin)
@@ -133,18 +142,24 @@ def make_widget(
             lim = minuit.limits[self.par]
             minuit.limits[self.par] = (lim[0], tmax)
 
-        def on_fix_toggled(self):
-            minuit.fixed[self.par] = self.fix.isChecked()
-            if self.fix.isChecked():
+        def on_fix_toggled(self, checked):
+            minuit.fixed[self.par] = checked
+            if checked:
                 self.fit.setChecked(False)
 
-        def on_fit_toggled(self):
-            self.slider.setEnabled(not self.fit.isChecked())
-            if self.fit.isChecked():
+        def on_fit_toggled(self, checked):
+            self.slider.setEnabled(not checked)
+            if checked:
                 self.fix.setChecked(False)
             self.callback()
 
-        def reset(self, val, limits=None):
+        def reset(self, val, limits=None, fixed=None):
+            if fixed is not None:
+                with _block_signals(self.fix, self.fit):
+                    self.fix.setChecked(fixed)
+                    self.fit.setChecked(False)
+                self.slider.setEnabled(True)
+
             if limits is not None:
                 vmin, vmax = limits
                 step = _widget_guess_initial_step(val, vmin, vmax)
@@ -316,7 +331,7 @@ def make_widget(
             elif self.algo_choice.currentText() == "Simplex":
                 minuit.simplex()
             else:
-                assert False  # pragma: no cover, should never happen
+                raise AssertionError  # pragma: no cover, should never happen
             return True
 
         def on_parameter_change(self, from_fit=False, report_success=False):
@@ -325,8 +340,10 @@ def make_widget(
                 for i, x in enumerate(self.parameters):
                     minuit.fixed[i] = not x.fit.isChecked()
                 from_fit = True
-                report_success = self.do_fit(plot=False)
-                minuit.fixed = saved
+                try:
+                    report_success = self.do_fit(plot=False)
+                finally:
+                    minuit.fixed = saved
 
             plt.clf()
             self.plot_with_frame(from_fit, report_success)
@@ -348,8 +365,13 @@ def make_widget(
             minuit.reset()
             minuit.values = original_values
             minuit.limits = original_limits
+            minuit.fixed = original_fixed
             for i, x in enumerate(self.parameters):
-                x.reset(val=minuit.values[i], limits=original_limits[i])
+                x.reset(
+                    val=minuit.values[i],
+                    limits=original_limits[i],
+                    fixed=original_fixed[i],
+                )
             self.on_parameter_change()
 
     if run_event_loop:  # pragma: no cover, should not be executed in tests

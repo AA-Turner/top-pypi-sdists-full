@@ -1396,7 +1396,9 @@ class TestWithdrawingAReleaseFreesItsVersion:
             f"/api/v1/organizations/{org.id}/releases/{made['id']}",
             headers=auth_headers,
         )
-        assert gone.status_code == 204, gone.text
+        assert gone.status_code == 200, gone.text
+        assert gone.json()["version"] == "v1.0.0"
+        assert gone.json()["restored"] is False
 
         again = client.post(
             f"/api/v1/organizations/{org.id}/releases",
@@ -1478,5 +1480,313 @@ class TestWithdrawingAReleaseFreesItsVersion:
             f"/api/v1/organizations/{org.id}/releases/{made['id']}",
             headers=auth_headers,
         )
-        assert first.status_code == 204
-        assert second.status_code == 204
+        assert first.status_code == 200
+        assert second.status_code == 200
+
+
+class TestWithdrawingAReleaseIsAnUndoOfTheCut:
+    """Taking back a release puts the project where it was before the cut.
+
+    Withdrawing a freshly-cut v0.1.0 used to leave `v0.2.0 in_progress` and
+    `v0.3.0 planned` standing -- the rows its own rotation had opened -- and the
+    withdrawn version simply vanished. The next cut would have shipped v0.2.0
+    and skipped v0.1.0 altogether. Reproduced on S4C on 2026-09-11; the repair
+    took four commands run in the right order.
+    """
+
+    def _live(self, db_engine, project_id):
+        with Session(db_engine) as fresh:
+            rows = fresh.exec(
+                select(Release).where(
+                    Release.project_id == project_id,
+                    Release.deleted_at.is_(None),
+                )
+            ).all()
+            return {r.version: r.status for r in rows}
+
+    def _ship(self, client, org, project, db_session, auth_headers, version="v0.1.0"):
+        """Cut a release the way blastoff does -- POST a RELEASED row."""
+        resp = client.post(
+            f"/api/v1/organizations/{org.id}/releases",
+            json={"project_id": project.id, "version": version, "status": "released"},
+            headers=auth_headers,
+        )
+        assert resp.status_code in (200, 201), resp.text
+        return resp.json()
+
+    def test_it_restores_the_version_and_removes_what_the_rotation_opened(
+        self, client, org, project, db_session, db_engine, auth_headers
+    ):
+        shipped = self._ship(client, org, project, db_session, auth_headers)
+        assert self._live(db_engine, project.id) == {
+            "v0.1.0": ReleaseStatus.RELEASED,
+            "v0.2.0": ReleaseStatus.IN_PROGRESS,
+            "v0.3.0": ReleaseStatus.PLANNED,
+        }
+
+        gone = client.delete(
+            f"/api/v1/organizations/{org.id}/releases/{shipped['id']}",
+            headers=auth_headers,
+        )
+        assert gone.status_code == 200, gone.text
+        body = gone.json()
+        assert body["restored"] is True
+        assert body["withdrawn"] == ["v0.2.0", "v0.3.0"]
+
+        # Exactly the state before the cut: the version back in the slot it was
+        # cut from, and two forward slots.
+        assert self._live(db_engine, project.id) == {
+            "v0.1.0": ReleaseStatus.IN_PROGRESS,
+            "v0.2.0": ReleaseStatus.PLANNED,
+        }
+
+    def test_a_restored_release_no_longer_claims_to_have_shipped(
+        self, client, org, project, db_session, db_engine, auth_headers
+    ):
+        shipped = self._ship(client, org, project, db_session, auth_headers)
+        client.delete(
+            f"/api/v1/organizations/{org.id}/releases/{shipped['id']}",
+            headers=auth_headers,
+        )
+        with Session(db_engine) as fresh:
+            row = fresh.exec(select(Release).where(Release.id == shipped["id"])).first()
+        assert row.released_at is None
+        assert row.repo_names is None
+        assert row.deleted_at is None, "a restored release must stay addressable"
+
+    def test_a_release_cannot_be_taken_from_the_middle(
+        self, client, org, project, db_session, db_engine, auth_headers
+    ):
+        """A withdrawal below something already shipped is a hole in history,
+        not an undo of the last cut."""
+        first = self._ship(client, org, project, db_session, auth_headers, "v0.1.0")
+        # v0.2.0 already exists -- the rotation opened it -- so shipping it is a
+        # PATCH, which is the same path the UI and the version store take.
+        with Session(db_engine) as fresh:
+            second_id = (
+                fresh.exec(
+                    select(Release).where(
+                        Release.project_id == project.id, Release.version == "v0.2.0"
+                    )
+                )
+                .first()
+                .id
+            )
+        shipped = client.patch(
+            f"/api/v1/organizations/{org.id}/releases/{second_id}",
+            json={"status": "released"},
+            headers=auth_headers,
+        )
+        assert shipped.status_code == 200, shipped.text
+
+        blocked = client.delete(
+            f"/api/v1/organizations/{org.id}/releases/{first['id']}",
+            headers=auth_headers,
+        )
+        assert blocked.status_code == 409, blocked.text
+        assert "v0.2.0" in blocked.text
+        assert self._live(db_engine, project.id)["v0.1.0"] == ReleaseStatus.RELEASED
+
+    def test_an_upcoming_release_comes_off_the_top(
+        self, client, org, project, db_session, db_engine, auth_headers
+    ):
+        self._ship(client, org, project, db_session, auth_headers, "v0.1.0")
+        pipeline = self._live(db_engine, project.id)
+        assert set(pipeline) == {"v0.1.0", "v0.2.0", "v0.3.0"}
+
+        with Session(db_engine) as fresh:
+            rows = {
+                r.version: r.id
+                for r in fresh.exec(
+                    select(Release).where(Release.project_id == project.id)
+                ).all()
+            }
+
+        # v0.2.0 has v0.3.0 above it.
+        blocked = client.delete(
+            f"/api/v1/organizations/{org.id}/releases/{rows['v0.2.0']}",
+            headers=auth_headers,
+        )
+        assert blocked.status_code == 409, blocked.text
+        assert "v0.3.0" in blocked.text
+
+        # The top one comes off cleanly.
+        ok = client.delete(
+            f"/api/v1/organizations/{org.id}/releases/{rows['v0.3.0']}",
+            headers=auth_headers,
+        )
+        assert ok.status_code == 200, ok.text
+        assert ok.json()["restored"] is False
+        assert "v0.3.0" not in self._live(db_engine, project.id)
+
+    def test_the_response_names_the_repositories_that_still_carry_the_tag(
+        self, client, org, project, db_session, db_engine, auth_headers
+    ):
+        """The CLI used to print a command with literal `<org>/<repo>` in it,
+        because the endpoint returned no body at all."""
+        shipped = self._ship(client, org, project, db_session, auth_headers)
+        with Session(db_engine) as fresh:
+            row = fresh.exec(select(Release).where(Release.id == shipped["id"])).first()
+            row.repo_names = ["s4c-app", "s4c-website"]
+            fresh.add(row)
+            fresh.commit()
+
+        gone = client.delete(
+            f"/api/v1/organizations/{org.id}/releases/{shipped['id']}",
+            headers=auth_headers,
+        )
+        assert gone.json()["repo_names"] == ["s4c-app", "s4c-website"]
+
+    def test_repo_names_are_readable_from_the_release_itself(
+        self, client, org, project, db_session, db_engine, auth_headers
+    ):
+        """Stored since the column was added and returned to nobody."""
+        shipped = self._ship(client, org, project, db_session, auth_headers)
+        fetched = client.get(
+            f"/api/v1/organizations/{org.id}/releases/{shipped['id']}",
+            headers=auth_headers,
+        )
+        assert "repo_names" in fetched.json()
+
+
+class TestRevertWalksBackTheChronology:
+    """A hotfix ships *below* releases that are already open above it.
+
+    That breaks the rule the first version of this used. Sorting by version said
+    "everything above the target was opened by it", which is true for a minor and
+    false for a hotfix: taking back v0.1.1 would have withdrawn the v0.2.0
+    already in flight and the v0.3.0 planned behind it, because both sort higher.
+
+    So the rule is chronology, not version order -- one step back along what
+    actually happened -- and provenance, not position: a row belongs to a cut
+    only if it appeared after that cut shipped.
+    """
+
+    def _live(self, db_engine, project_id):
+        with Session(db_engine) as fresh:
+            rows = fresh.exec(
+                select(Release).where(
+                    Release.project_id == project_id,
+                    Release.deleted_at.is_(None),
+                )
+            ).all()
+            return {r.version: r.status for r in rows}
+
+    def _ship(self, client, org, project, auth_headers, version):
+        resp = client.post(
+            f"/api/v1/organizations/{org.id}/releases",
+            json={"project_id": project.id, "version": version, "status": "released"},
+            headers=auth_headers,
+        )
+        assert resp.status_code in (200, 201), resp.text
+        return resp.json()
+
+    def _id_of(self, db_engine, project_id, version):
+        with Session(db_engine) as fresh:
+            return (
+                fresh.exec(
+                    select(Release).where(
+                        Release.project_id == project_id, Release.version == version
+                    )
+                )
+                .first()
+                .id
+            )
+
+    # ---------------------------------------------------------------- #
+
+    def test_a_release_created_as_shipped_carries_a_ship_date(
+        self, client, org, project, db_engine, auth_headers
+    ):
+        """Only the PATCH path stamped this, so a row posted straight in as
+        released -- which is how the engine records a cut -- had no ship date,
+        and the chronology had nothing to read."""
+        self._ship(client, org, project, auth_headers, "v0.1.0")
+        with Session(db_engine) as fresh:
+            row = fresh.exec(
+                select(Release).where(
+                    Release.project_id == project.id, Release.version == "v0.1.0"
+                )
+            ).first()
+        assert row.released_at is not None
+
+    def test_taking_back_a_hotfix_leaves_the_minor_line_alone(
+        self, client, org, project, db_engine, auth_headers
+    ):
+        """**The defect this class exists for.**"""
+        self._ship(client, org, project, auth_headers, "v0.1.0")
+        assert self._live(db_engine, project.id) == {
+            "v0.1.0": ReleaseStatus.RELEASED,
+            "v0.2.0": ReleaseStatus.IN_PROGRESS,
+            "v0.3.0": ReleaseStatus.PLANNED,
+        }
+
+        hotfix = self._ship(client, org, project, auth_headers, "v0.1.1")
+
+        gone = client.delete(
+            f"/api/v1/organizations/{org.id}/releases/{hotfix['id']}",
+            headers=auth_headers,
+        )
+        assert gone.status_code == 200, gone.text
+        assert gone.json()["withdrawn"] == [], "withdrew rows the hotfix never opened"
+
+        live = self._live(db_engine, project.id)
+        assert live["v0.2.0"] == ReleaseStatus.IN_PROGRESS, (
+            "the release in flight was taken away"
+        )
+        assert live["v0.3.0"] == ReleaseStatus.PLANNED, (
+            "the planned release was taken away"
+        )
+        assert live["v0.1.0"] == ReleaseStatus.RELEASED
+
+    def test_the_minor_still_takes_its_own_successors_with_it(
+        self, client, org, project, db_engine, auth_headers
+    ):
+        """The other half of provenance: a minor *did* open those rows, so they
+        still go back out with it."""
+        shipped = self._ship(client, org, project, auth_headers, "v0.1.0")
+        gone = client.delete(
+            f"/api/v1/organizations/{org.id}/releases/{shipped['id']}",
+            headers=auth_headers,
+        )
+        assert gone.json()["withdrawn"] == ["v0.2.0", "v0.3.0"]
+
+    def test_you_cannot_step_over_the_most_recent_release(
+        self, client, org, project, db_engine, auth_headers
+    ):
+        self._ship(client, org, project, auth_headers, "v0.1.0")
+        self._ship(client, org, project, auth_headers, "v0.1.1")
+
+        blocked = client.delete(
+            f"/api/v1/organizations/{org.id}/releases/"
+            f"{self._id_of(db_engine, project.id, 'v0.1.0')}",
+            headers=auth_headers,
+        )
+        assert blocked.status_code == 409, blocked.text
+        assert "v0.1.1" in blocked.text
+        assert self._live(db_engine, project.id)["v0.1.0"] == ReleaseStatus.RELEASED
+
+    def test_the_last_release_is_the_newest_not_the_highest(
+        self, client, org, project, db_engine, auth_headers
+    ):
+        """v0.3.0 is the higher version; v0.1.1 is the more recent release. A
+        rule about "the last release" means the latter, and sorting by version
+        would offer to take back one that never happened."""
+        from src.services.release_planning import latest_released
+
+        self._ship(client, org, project, auth_headers, "v0.1.0")
+        self._ship(client, org, project, auth_headers, "v0.1.1")
+
+        with Session(db_engine) as fresh:
+            rows = list(
+                fresh.exec(
+                    select(Release).where(
+                        Release.project_id == project.id,
+                        Release.deleted_at.is_(None),
+                    )
+                ).all()
+            )
+        assert "v0.3.0" in {r.version for r in rows}, (
+            "no higher version to be fooled by"
+        )
+        assert latest_released(rows).version == "v0.1.1"

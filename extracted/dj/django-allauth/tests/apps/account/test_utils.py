@@ -119,6 +119,17 @@ def test_username_validator(db):
         get_adapter().clean_username("def")
 
 
+def test_username_validation_rejects_db_collation_collision(db):
+    user = get_user_model().objects.create(username="admin")
+    candidates = get_user_model().objects.filter(pk=user.pk)
+    with patch(
+        "allauth.account.internal.userkit.filter_users_by_username",
+        return_value=candidates,
+    ):
+        with pytest.raises(ValidationError):
+            get_adapter().clean_username("ádmin")
+
+
 @override_settings(ALLOWED_HOSTS=["allowed_host", "testserver"])
 def test_is_safe_url_no_wildcard():
     with context.request_context(RequestFactory().get("/")):

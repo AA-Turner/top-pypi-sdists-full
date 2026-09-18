@@ -532,3 +532,134 @@ def test_clip_parse_indeterminate_preserved(seq, cap_name):
     assert 'hello' in result
     assert 'world' in result
     assert seq in result
+
+
+@pytest.mark.parametrize('text,expected', [
+    ('\x1b]66;bad\x07', ''),
+    ('\x1b]66;w=5;hello\x07', 'hello'),
+    ('before\x1b]66;bad\x07after', 'beforeafter'),
+    ('before\x1b]66;w=5;hello\x07after', 'beforehelloafter'),
+])
+def test_strip_sequences_osc66_stripped(text, expected):
+    """strip_sequences() preserves OSC 66 display text."""
+    assert strip_sequences(text) == expected
+
+
+@pytest.mark.parametrize('text,expected', [
+    ('\x1b\x1b]66;bad\x07[31m', '\x1b[31m'),
+    ('\x1b\x1b]66;w=5;hello\x07[31m', '\x1bhello[31m'),
+])
+def test_strip_sequences_osc66_no_splice(text, expected):
+    """strip_sequences() does not join the text on either side of an OSC 66 sequence."""
+    assert strip_sequences(text) == expected
+
+
+@pytest.mark.parametrize('text,expected', [
+    ('a\x1b[', 'a'),
+    ('\x1b[\x1b[31mc', 'c'),
+    ('a\x1b[\x1b[31mb', 'ab'),
+])
+def test_strip_sequences_unterminated_csi(text, expected):
+    """strip_sequences() strips bare ESC[ (unterminated CSI)."""
+    assert strip_sequences(text) == expected
+
+
+@pytest.mark.parametrize('text,start,end,expected', [
+    ('\x1b]66;bad\x07text', 0, 4, '\x1b]66;;\x07text'),
+    ('a\x1b]66;bad\x07b', 0, 5, 'a\x1b]66;;\x07b'),
+])
+def test_clip_canonicalizes_osc66_without_display_text(text, start, end, expected):
+    """Clip() canonicalizes OSC 66 with no display text (invalid meta dropped)."""
+    assert clip(text, start, end) == expected
+
+
+@pytest.mark.parametrize('text,start,end,expected', [
+    ('\x1b]66;s=1:w=1;\x1b\\abc', 0, 5, '\x1b]66;w=1;\x1b\\abc'),
+    ('\x1b]66;s=1:w=1;XY\x1b\\', 0, 10, '\x1b]66;w=1;XY\x1b\\'),
+    ('\x1b]66;s=1:w=1;\x1b\\X', 1, 2, 'X'),
+])
+def test_clip_osc66_zero_text_unit(text, start, end, expected):
+    """Clip() treats zero-text OSC 66 as a width unit with default params omitted."""
+    assert clip(text, start, end) == expected
+
+
+def test_clip_osc8_empty_unit_skipped():
+    """Clip() drops empty OSC 8 units formed by dangling close sequences."""
+    assert clip('\x1b]8;;\x1b\\\x1b]8;;\x07X', 0, 5) == 'X'
+
+
+def test_clip_sgr_captured_only_at_visible_content():
+    """Clip() captures SGR only at visible content emission, not passthrough."""
+    assert clip('\x1b[31m\x1b]66;w=5;hello\x07', 10, 20) == ''
+
+
+@pytest.mark.parametrize('text,start,expected', [
+    ('', 0, ''),
+    ('hello world', 0, 'hello world'),
+    ('hello world', 6, 'world'),
+    ('hello', 5, ''),
+    ('hello', 99, ''),
+    ('hello', -5, 'hello'),
+    ('中文字', 1, ' 文字'),
+    ('中文字', 2, '文字'),
+    ('中文字', 6, ''),
+    ('cafe\u0301', 3, 'e\u0301'),
+    ('a\tb', 4, '    b'),
+    ('\x1b[1;34mHello world\x1b[0m', 6, '\x1b[1;34mworld\x1b[0m'),
+    ('\x1b[31mred\x1b[32mgreen\x1b[0m', 4, '\x1b[32mreen\x1b[0m'),
+    ('\x1b]8;;http://example.com\x07Click This link\x1b]8;;\x07', 6,
+     '\x1b]8;;http://example.com\x07This link\x1b]8;;\x07'),
+    ('\x1b]66;w=4:s=4;Look\x07', 1, '   \x1b]66;s=4:w=3;ook\x07'),
+    ('hello\rworld', 2, 'rld'),
+    ('hello\x08\x08world', 2, 'lworld'),
+    ('abc\x1b[5Gde', 2, 'c de'),
+])
+def test_clip_to_end_of_line(text, start, expected):
+    """Clip() end=-1 (default) clips from start through the final column."""
+    assert repr(clip(text, start)) == repr(expected)
+    assert repr(clip(text, start, -1)) == repr(expected)
+    assert repr(clip(text, start, width(text))) == repr(expected)
+
+
+def test_clip_default_arguments_whole_line():
+    """Clip() without start or end returns the whole line, matching propagate_sgr()."""
+    assert clip('hello world') == 'hello world'
+    text = '\x1b[1mbold\x1b[m normal \x1b[31mred\x1b[0m'
+    assert clip(text) == propagate_sgr([text])[0]
+
+
+@pytest.mark.parametrize('kwargs', [
+    {}, {'control_codes': 'parse'}, {'control_codes': 'ignore'}, {'control_codes': 'strict'},
+    {'overtyping': True}, {'overtyping': False}, {'tabsize': 0}, {'ambiguous_width': 2},
+    {'propagate_sgr': False}, {'fillchar': '.'},
+])
+def test_clip_to_end_of_line_matches_unbounded_end(kwargs):
+    """Clip() end=-1 matches any end beyond the final column, for all argument modes."""
+    text = '\x1b[1m§ hello \x1b]8;;http://x\x07link\x1b]8;;\x07 中文\x1b[0m'
+    for start in (0, 1, 5, 12, 40):
+        assert repr(clip(text, start, **kwargs)) == repr(clip(text, start, 10000, **kwargs))
+
+
+@pytest.mark.parametrize('text', [
+    'hello world',
+    '\x1b[31mred text\x1b[0m',
+    'a\tbcd',
+    '\x1b]8;;http://example.com\x07Click This link\x1b]8;;\x07',
+])
+def test_clip_to_end_of_line_width_invariant(text):
+    """Clip() end=-1 removes exactly *start* columns of display width."""
+    total = width(text)
+    for start in range(total + 2):
+        assert width(clip(text, start)) == max(0, total - start)
+
+
+@pytest.mark.parametrize('text,end,kwargs', [
+    ('hello world', -2, {}),
+    ('hello world', -(2 ** 32), {}),
+    ('中文字', -2, {}),
+    ('\x1b[31mred\x1b[0m', -5, {'control_codes': 'ignore'}),
+])
+def test_clip_negative_end_raises(text, end, kwargs):
+    """Clip() raises ValueError for a negative end other than -1."""
+    with pytest.raises(ValueError, match='end must be -1'):
+        clip(text, 0, end, **kwargs)

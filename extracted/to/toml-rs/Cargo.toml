@@ -1,6 +1,6 @@
 [package]
 name = "toml-rs"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2024"
 license = "Unlicense"
 repository = "https://github.com/lava-sh/toml-rs"
@@ -18,7 +18,7 @@ pyo3 = {
 num-bigint = "=0.4.8"
 memchr = "=2.8.3"
 rustc-hash = "=2.1.3"
-smallvec = "=2.0.0-alpha.12"
+smallvec = "=2.0.0-alpha.13"
 bytecount = {
     version = "=0.6.9",
     features = ["runtime-dispatch-simd"],
@@ -69,7 +69,7 @@ toml_edit_v1 = {
 ##############################################################
 toml = {
     git = "https://github.com/lava-sh/toml",
-    rev = "508504d54d4b23a672857b357d94f979707c772a",
+    rev = "483695cab74a7fe1bc6081a4c87e9c59380c1e4b",
     features = [
         "fast_hash", # uses `foldhash`
         "unbounded", # disables default recursion limit
@@ -78,7 +78,7 @@ toml = {
 }
 toml_parser = {
     git = "https://github.com/lava-sh/toml",
-    rev = "508504d54d4b23a672857b357d94f979707c772a",
+    rev = "483695cab74a7fe1bc6081a4c87e9c59380c1e4b",
     features = [
         "std",
         "simd",
@@ -87,7 +87,7 @@ toml_parser = {
 }
 toml_edit = {
     git = "https://github.com/lava-sh/toml",
-    rev = "508504d54d4b23a672857b357d94f979707c772a",
+    rev = "483695cab74a7fe1bc6081a4c87e9c59380c1e4b",
     features = [
         "serde",
         "unbounded",

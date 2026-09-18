@@ -958,6 +958,8 @@ class AdvancedSQLiteSession(SQLiteSession):
                 "file_search_call",
                 "web_search_call",
                 "code_interpreter_call",
+                "shell_call",
+                "apply_patch_call",
                 "tool_search_call",
                 "tool_search_output",
             }:
@@ -1139,8 +1141,6 @@ class AdvancedSQLiteSession(SQLiteSession):
         """
         if not branch_id or not branch_id.strip():
             raise ValueError("Branch ID cannot be empty")
-
-        branch_id = branch_id.strip()
 
         # Protect main branch
         if branch_id == "main":
@@ -1678,12 +1678,17 @@ class AdvancedSQLiteSession(SQLiteSession):
                         """
                         SELECT tool_name, SUM(usage_count), user_turn_number
                         FROM (
-                            SELECT tool_name, 1 AS usage_count, user_turn_number
+                            SELECT COALESCE(
+                                tool_name,
+                                CASE WHEN message_type IN ('shell_call', 'apply_patch_call')
+                                    THEN message_type END
+                            ) AS tool_name, 1 AS usage_count, user_turn_number
                             FROM message_structure
                             WHERE session_id = ? AND branch_id = ? AND message_type IN (
                                 'tool_call', 'function_call', 'computer_call', 'file_search_call',
                                 'web_search_call', 'code_interpreter_call', 'tool_search_call',
-                                'custom_tool_call', 'mcp_call', 'mcp_approval_request'
+                                'custom_tool_call', 'mcp_call', 'mcp_approval_request',
+                                'shell_call', 'apply_patch_call'
                             )
 
                             UNION ALL

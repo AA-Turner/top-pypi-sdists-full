@@ -23,6 +23,11 @@ class UpdateVerificationsRequestBodyPersonalAddressRequestedInformationItem(Univ
     Answer for `address` items.
     """
 
+    document_number: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Identity number for an `id_document` answer.
+    """
+
     documents: typing.Optional[UpdateVerificationsRequestBodyPersonalAddressRequestedInformationItemDocuments] = (
         pydantic.Field(default=None)
     )
@@ -32,7 +37,7 @@ class UpdateVerificationsRequestBodyPersonalAddressRequestedInformationItem(Univ
 
     files: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
     """
-    Answer for a `files` item — one document, as a list of its pages, first page first. Each entry is a direct upload ID, or a `file_`-prefixed attachment ID to reuse an uploaded document.
+    Answer for a `files` item, or optional supporting documents for `text_with_files` — a list of pages, first page first. Each entry is a direct upload ID, or a `file_`-prefixed attachment ID to reuse an uploaded document.
     """
 
     id: str = pydantic.Field()
@@ -40,9 +45,14 @@ class UpdateVerificationsRequestBodyPersonalAddressRequestedInformationItem(Univ
     Item ID from `requested_information`.
     """
 
+    issuing_country: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Two-letter ISO 3166-1 issuing country for an `id_document` answer.
+    """
+
     value: typing.Optional[str] = pydantic.Field(default=None)
     """
-    Answer for `text`, `date`, `phone`, and `select` items, and the chosen document type for a `file` item that lists `options`.
+    Answer for `text`, `text_with_files`, `date`, `phone`, and `select` items, and the chosen document type for a `file` item that lists `options`.
     """
 
     value_type: typing.Optional[UpdateVerificationsRequestBodyPersonalAddressRequestedInformationItemValueType] = (
@@ -50,6 +60,11 @@ class UpdateVerificationsRequestBodyPersonalAddressRequestedInformationItem(Univ
     )
     """
     Whether `value` is raw input or a vault token.
+    """
+
+    values: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
+    """
+    Every chosen option for a `select` item that accepts more than one answer, such as the countries an advertising certification covers. Use `value` for every other item.
     """
 
     if IS_PYDANTIC_V2:

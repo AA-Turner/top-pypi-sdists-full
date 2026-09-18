@@ -7,12 +7,10 @@ import typing_extensions
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from ..core.serialization import FieldMetadata
 from .account_balance_token import AccountBalanceToken
-from .account_business_type import AccountBusinessType
 from .account_capabilities import AccountCapabilities
 from .account_cards import AccountCards
 from .account_company_formation import AccountCompanyFormation
 from .account_home_preferences_item import AccountHomePreferencesItem
-from .account_industry_group import AccountIndustryGroup
 from .account_onboarding_type import AccountOnboardingType
 from .account_opengraph_image_variant import AccountOpengraphImageVariant
 from .account_parent import AccountParent
@@ -47,7 +45,7 @@ class Account(UniversalBaseModel):
     The account's legal business name used with its tax address.
     """
 
-    business_type: typing.Optional[AccountBusinessType] = pydantic.Field(default=None)
+    business_type: typing.Optional[str] = pydantic.Field(default=None)
     """
     High-level business category for the account. See the [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary) for valid values.
     """
@@ -92,6 +90,11 @@ class Account(UniversalBaseModel):
     Account promotional description.
     """
 
+    economic_intelligence: bool = pydantic.Field()
+    """
+    Whether economic intelligence is enabled for the account.
+    """
+
     email: typing.Optional[str] = pydantic.Field(default=None)
     """
     Account owner email address.
@@ -108,7 +111,7 @@ class Account(UniversalBaseModel):
     Account ID, prefixed `biz_`.
     """
 
-    industry_group: typing.Optional[AccountIndustryGroup] = pydantic.Field(default=None)
+    industry_group: typing.Optional[str] = pydantic.Field(default=None)
     """
     Account industry group. See the [business types and industries glossary](/api-reference/beta/accounts/account#business-types-and-industries-glossary) for valid values.
     """
@@ -185,7 +188,7 @@ class Account(UniversalBaseModel):
 
     recommended_actions: typing.Optional[typing.List[AccountRecommendedAction]] = pydantic.Field(default=None)
     """
-    DEPRECATED: Use the `GET /recommended_actions?account_id={account_id}` endpoint instead.
+    DEPRECATED: Use the `GET /economic_intelligence?account_id={account_id}` endpoint instead.
     """
 
     require2fa: typing_extensions.Annotated[
@@ -275,7 +278,7 @@ class Account(UniversalBaseModel):
 
     three_ds_level: typing.Optional[AccountThreeDsLevel] = pydantic.Field(default=None)
     """
-    Account-level 3D Secure behavior. `mandate_challenge` requires cardholder verification on supported card payments; `null` uses the standard checkout flow.
+    3D Secure behavior for supported on-session card payments. `mandate_challenge` requires a 3DS challenge before payment processing; `mandate_if_required` mandates a challenge only when the payment processor requires it; `frictionless_if_required` uses the regular frictionless 3DS flow. Payments of $1,000 or more use `mandate_if_required` unless `mandate_challenge` is selected. Risk and authentication recovery requirements can override the preference. `null` uses the standard checkout flow.
     """
 
     title: str = pydantic.Field()
@@ -311,6 +314,11 @@ class Account(UniversalBaseModel):
     wallet: typing.Optional[AccountWallet] = pydantic.Field(default=None)
     """
     Account primary crypto wallet, or `null` if none has been provisioned.
+    """
+
+    website: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    The account's business website URL, or `null` if none has been provided. Setting it also adds a `website` entry to `social_links`.
     """
 
     if IS_PYDANTIC_V2:

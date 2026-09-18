@@ -84,6 +84,8 @@ class _DataCategoryEnumTypeWrapper(google.protobuf.internal.enum_type_wrapper._E
     """UI profile events."""
     DATA_CATEGORY_TRACE_METRIC_BYTE: _DataCategory.ValueType  # 32
     """Trace metric bytes."""
+    DATA_CATEGORY_SEER_USAGE_MICRO_CENTS: _DataCategory.ValueType  # 33
+    """Usage based seer pricing"""
     DATA_CATEGORY_UNKNOWN: _DataCategory.ValueType  # -1
     """Any other data category not known by this version."""
 
@@ -156,6 +158,8 @@ DATA_CATEGORY_PROFILE_UI: DataCategory.ValueType  # 31
 """UI profile events."""
 DATA_CATEGORY_TRACE_METRIC_BYTE: DataCategory.ValueType  # 32
 """Trace metric bytes."""
+DATA_CATEGORY_SEER_USAGE_MICRO_CENTS: DataCategory.ValueType  # 33
+"""Usage based seer pricing"""
 DATA_CATEGORY_UNKNOWN: DataCategory.ValueType  # -1
 """Any other data category not known by this version."""
 global___DataCategory = DataCategory

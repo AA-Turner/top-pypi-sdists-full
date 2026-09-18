@@ -13,7 +13,7 @@
 
 from __future__ import absolute_import
 
-__version__ = "3.26.0"
+__version__ = "3.27.0"
 
 # import apis into sdk package
 from phrase_api.api.accounts_api import AccountsApi
@@ -22,6 +22,7 @@ from phrase_api.api.automation_events_api import AutomationEventsApi
 from phrase_api.api.automations_api import AutomationsApi
 from phrase_api.api.blacklisted_keys_api import BlacklistedKeysApi
 from phrase_api.api.branches_api import BranchesApi
+from phrase_api.api.checks_api import ChecksApi
 from phrase_api.api.comment_reactions_api import CommentReactionsApi
 from phrase_api.api.comment_replies_api import CommentRepliesApi
 from phrase_api.api.comments_api import CommentsApi
@@ -47,6 +48,7 @@ from phrase_api.api.keys_figma_attachments_api import KeysFigmaAttachmentsApi
 from phrase_api.api.linked_keys_api import LinkedKeysApi
 from phrase_api.api.locale_downloads_api import LocaleDownloadsApi
 from phrase_api.api.locales_api import LocalesApi
+from phrase_api.api.machine_translation_api import MachineTranslationApi
 from phrase_api.api.members_api import MembersApi
 from phrase_api.api.notification_groups_api import NotificationGroupsApi
 from phrase_api.api.notifications_api import NotificationsApi
@@ -114,6 +116,7 @@ from phrase_api.models.branch_merge_parameters import BranchMergeParameters
 from phrase_api.models.branch_name import BranchName
 from phrase_api.models.branch_sync_parameters import BranchSyncParameters
 from phrase_api.models.branch_update_parameters import BranchUpdateParameters
+from phrase_api.models.check_issue import CheckIssue
 from phrase_api.models.comment import Comment
 from phrase_api.models.comment_create_parameters import CommentCreateParameters
 from phrase_api.models.comment_create_parameters1 import CommentCreateParameters1
@@ -211,6 +214,10 @@ from phrase_api.models.locale_statistics import LocaleStatistics
 from phrase_api.models.locale_team_preview import LocaleTeamPreview
 from phrase_api.models.locale_update_parameters import LocaleUpdateParameters
 from phrase_api.models.locale_user_preview import LocaleUserPreview
+from phrase_api.models.machine_translation_locale_provider_mapping import MachineTranslationLocaleProviderMapping
+from phrase_api.models.machine_translation_locale_provider_mappings_create_parameters import MachineTranslationLocaleProviderMappingsCreateParameters
+from phrase_api.models.machine_translation_settings import MachineTranslationSettings
+from phrase_api.models.machine_translation_settings_update_parameters import MachineTranslationSettingsUpdateParameters
 from phrase_api.models.member import Member
 from phrase_api.models.member_project_detail import MemberProjectDetail
 from phrase_api.models.member_project_detail_project_roles_inner import MemberProjectDetailProjectRolesInner

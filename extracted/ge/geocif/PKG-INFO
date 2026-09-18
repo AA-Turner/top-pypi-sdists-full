@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: geocif
-Version: 0.4.1031
+Version: 0.4.1040
 Summary: Models to visualize and forecast crop conditions and yields
 Author-email: Ritvik Sahajpal <ritvik@umd.edu>
 License: MIT
@@ -223,6 +223,9 @@ geoagmet.run(cfg_geocif)
 from geocif import season_monitor
 season_monitor.run(cfg_geocif)  # pixel-level growing-season onset monitor (see below)
 
+from geocif import calendar_validator
+calendar_validator.run(cfg_cropcal)  # do NDVI transitions match the crop calendar?
+
 from geocif import analysis
 analysis.run(cfg_geocif)
 
@@ -307,6 +310,37 @@ is available.
 nothing else. Interval level, coverage, sample sizes and units provenance live
 in the companion CSVs (and the run log), so they can be quoted in the
 surrounding text rather than shrinking the plotting area.
+
+### Crop-calendar validation
+
+`geocif.calendar_validator` asks one question per (country, crop, season,
+calendar region): **do the phenological transitions implied by satellite NDVI
+agree with the dates the GEOGLAM Crop Monitor calendar asserts?** It compares
+mid-greenup (the end of calendar stage 1) against the steepest rise of a
+Fourier-fitted NDVI climatology, and mid-greendown (the end of stage 2) against
+the steepest fall, and reports the signed difference in days.
+
+It runs at **crop-calendar-region** scale — the 574 polygons the calendar is
+actually authored against, not admin 1 — fed by a `geoextract` run that treats
+each calendar region as an `admin_1` unit. Two one-off preparation steps come
+first: `data_prep/prepare_calendar_regions.py` makes the shipped region
+shapefile usable (it has no ID column, and geoextract drops a country *silently*
+without one), and `data_prep/make_cropcal_config.py` generates the 145-country
+config.
+
+Alongside the rule-based method, the same targets are predicted by
+`catboost`, `cubist`, `tabpfn` and `tabicl` through the shared
+`ml.trainers.auto_train` factory, under three cross-validation schemes reported
+side by side: shuffled K-fold (leaky, the optimistic reference), leave-one-
+country-out, and grouped K-fold over 10 deg centroid tiles. Because the target is
+the calendar date, the rule-based delta and the model prediction error are the
+same quantity, so every method sits in one table. Metrics are also split by
+`CM_Group`: the original method was only ever exercised on AMIS countries, and
+327 of the 575 regions here are EW-only.
+
+This is a port of `GEOGLAM/Code/Code/CropCalendar/`. It reproduces the original
+numerics by default; `geocif/cropcal/DEVIATIONS.md` lists every intentional
+departure, the reason, and the config knob that restores the old behaviour.
 
 ### Season monitor
 

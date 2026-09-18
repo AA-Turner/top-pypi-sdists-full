@@ -159,10 +159,6 @@ GATEWAY_CONNECT_ATTEMPTS = 30
 GATEWAY_CONNECT_DELAY = 10
 GATEWAY_CONFIGURE_ATTEMPTS = 50
 GATEWAY_CONFIGURE_DELAY = 3
-# Artificial limit to avoid doing too many per-replica operations (gateway replica provisioning,
-# service registration, etc) in a single pipeline tick. Can be lifted once the implementation is
-# more mature.
-GATEWAY_MAX_REPLICAS = 3  # documented in gateways.md, keep in sync
 
 
 async def list_project_gateways(
@@ -677,7 +673,6 @@ async def generate_gateway_name(session: AsyncSession, project: ProjectModel) ->
             return name
 
 
-# TODO: Connect to gateway outside session
 async def get_or_add_gateway_connections(
     gateway_replicas: Sequence[GatewayReplicaModel],
 ) -> List[GatewayConnection]:
@@ -1238,9 +1233,10 @@ def _validate_gateway_configuration(configuration: GatewayConfiguration):
         configuration.replicas if configuration.replicas is not None else GATEWAY_REPLICAS_DEFAULT
     )
 
-    if replicas > GATEWAY_MAX_REPLICAS:
+    if replicas > settings.GATEWAY_MAX_REPLICAS:
         raise ServerClientError(
-            f"Cannot provision {replicas} gateway replicas. This server allows at most {GATEWAY_MAX_REPLICAS}"
+            f"Cannot provision {replicas} gateway replicas. This server allows at most"
+            f" {settings.GATEWAY_MAX_REPLICAS}"
         )
 
     if configuration.load_balancer is not None:
@@ -1255,10 +1251,13 @@ def _validate_gateway_configuration(configuration: GatewayConfiguration):
                         " or `certificate: { type: acm }`"
                     )
             elif configuration.backend == BackendType.GCP:
-                if configuration.certificate is not None:
+                if (
+                    configuration.certificate is not None
+                    and configuration.certificate.type != "gcp-cm"
+                ):
                     raise ServerClientError(
                         "`load_balancer: { type: alb }` for the `gcp` backend can only be used"
-                        " with `certificate: null`"
+                        " with `certificate: null` or `certificate: { type: gcp-cm }`"
                     )
             else:
                 raise ServerClientError(
@@ -1272,6 +1271,15 @@ def _validate_gateway_configuration(configuration: GatewayConfiguration):
             )
         if configuration.certificate.type == "acm" and configuration.backend != BackendType.AWS:
             raise ServerClientError("acm certificate type is supported for aws backend only")
+        if configuration.certificate.type == "gcp-cm":
+            if configuration.backend != BackendType.GCP:
+                raise ServerClientError(
+                    "gcp-cm certificate type is supported for gcp backend only"
+                )
+            if configuration.load_balancer is None or configuration.load_balancer.type != "alb":
+                raise ServerClientError(
+                    "`certificate: { type: gcp-cm }` requires `load_balancer: { type: alb }`"
+                )
         if configuration.certificate.type == "lets-encrypt" and replicas > 1:
             err = (
                 "The `lets-encrypt` certificate type is not supported for gateways with `replicas`"
@@ -1281,4 +1289,8 @@ def _validate_gateway_configuration(configuration: GatewayConfiguration):
             )
             if configuration.backend == BackendType.AWS:
                 err += " or `certificate: { type: acm, arn: <arn> }` (AWS ACM)"
+            elif configuration.backend == BackendType.GCP:
+                err += (
+                    " or `certificate: { type: gcp-cm, name: <name> }` (GCP Certificate Manager)"
+                )
             raise ServerClientError(err)

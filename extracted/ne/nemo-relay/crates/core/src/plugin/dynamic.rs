@@ -23,17 +23,32 @@ pub type DynamicPluginId = String;
 /// Canonical filename for authored Relay plugin manifests.
 pub const DYNAMIC_PLUGIN_MANIFEST_FILENAME: &str = "relay-plugin.toml";
 
+mod bounded;
+mod configuration;
 mod host;
 mod manifest;
 mod native;
+mod policy;
 mod registry;
+mod schema;
+mod trust;
 #[cfg(feature = "worker-grpc")]
 mod worker;
 
+pub use bounded::*;
+pub use configuration::{
+    DynamicPluginValidationReport, PluginHostReport, validate, validate_exact,
+};
+#[cfg(test)]
+pub(crate) use configuration::{PluginHostValidationRequest, PluginHostValidationTarget};
+pub(crate) use configuration::{resolve_plugin_host_config, sanitized_plugin_config};
 pub use host::*;
 pub use manifest::*;
 pub use native::*;
+pub use policy::*;
 pub use registry::*;
+pub use schema::*;
+pub use trust::*;
 #[cfg(feature = "worker-grpc")]
 pub use worker::*;
 
@@ -67,6 +82,7 @@ pub(super) fn deregister_tracked_registrations_checked(
     plugin_type: &str,
 ) -> DynamicPluginTeardownOutcome {
     let mut outcome = DynamicPluginTeardownOutcome::success();
+    let mut retained = Vec::new();
     for (plugin_kind, registration_id) in std::mem::take(registrations).into_iter().rev() {
         match deregister_plugin_registration_checked(&plugin_kind, registration_id) {
             Ok(PluginDeregistrationOutcome::Removed) => {}
@@ -82,14 +98,19 @@ pub(super) fn deregister_tracked_registrations_checked(
                 ),
                 true,
             ),
-            Err(error) => outcome.record_error(
-                format!(
-                    "failed to deregister {plugin_type} plugin kind '{plugin_kind}': {error}"
-                ),
-                false,
-            ),
+            Err(error) => {
+                outcome.record_error(
+                    format!(
+                        "failed to deregister {plugin_type} plugin kind '{plugin_kind}': {error}"
+                    ),
+                    false,
+                );
+                retained.push((plugin_kind, registration_id));
+            }
         }
     }
+    retained.reverse();
+    *registrations = retained;
     outcome
 }
 
@@ -106,6 +127,36 @@ pub(super) fn validate_annotated_request_consumer_compatibility(
         )));
     }
     Ok(())
+}
+
+pub(super) fn validate_tool_execution_context_compatibility(
+    relay: &str,
+    plugin_kind: &str,
+) -> crate::plugin::Result<()> {
+    let requirement = VersionReq::parse(relay).map_err(|error| {
+        PluginError::InvalidConfig(format!("invalid compat.relay version requirement: {error}"))
+    })?;
+    if version_requirement_matches_minor(&requirement, 0, 8) {
+        return Err(PluginError::InvalidConfig(format!(
+            "dynamic plugin '{plugin_kind}' registers a context-aware tool execution intercept and must declare compat.relay = \">=0.9,<1.0\" or another range that excludes Relay 0.8"
+        )));
+    }
+    Ok(())
+}
+
+fn version_requirement_matches_minor(requirement: &VersionReq, major: u64, minor: u64) -> bool {
+    let first_version = Version::new(major, minor, 0);
+    let mut next_minor = first_version.clone();
+    increment_minor(&mut next_minor);
+    let candidate = requirement
+        .comparators
+        .iter()
+        .filter_map(comparator_minimum)
+        .filter(|version| version >= &first_version)
+        .max()
+        .unwrap_or(first_version);
+
+    candidate < next_minor && requirement.matches(&candidate)
 }
 
 fn parse_dynamic_plugin_relay_requirement<'a>(

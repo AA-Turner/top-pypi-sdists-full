@@ -162,8 +162,8 @@ class GridFlow(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "only for backwards compatibility."
-            "You should use the new standard container property `contents` to modify GridFlow."
+            "only for backwards compatibility. "
+            "You should use the new standard container property `contents` to modify GridFlow. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -186,8 +186,8 @@ class GridFlow(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "only for backwards compatibility."
-            "You should use the new standard container property `contents` to modify GridFlow."
+            "only for backwards compatibility. "
+            "You should use the new standard container property `contents` to modify GridFlow. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -256,7 +256,6 @@ class GridFlow(
         Set the cell in focus.
 
         :param cell: contained element to focus
-        :type cell: Widget or int
         :raises IndexError: *cell* is an index with no child widget at it.
         :raises ValueError: *cell* is a widget that is not in the contents.
 
@@ -265,8 +264,8 @@ class GridFlow(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "only for backwards compatibility."
-            "You may also use the new standard container property `focus_position` to set the focus."
+            "only for backwards compatibility. "
+            "You may also use the new standard container property `focus_position` to set the focus. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -304,8 +303,8 @@ class GridFlow(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "only for backwards compatibility."
-            "You may also use the new standard container property `focus` to get the focus."
+            "only for backwards compatibility. "
+            "You may also use the new standard container property `focus` to get the focus. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -325,9 +324,9 @@ class GridFlow(
             This API will be removed in version 5.0.
         """
         warnings.warn(
-            "only for backwards compatibility."
-            "You may also use the new standard container property"
-            "`focus` to get the focus and `focus_position` to get/set the cell in focus by index."
+            "only for backwards compatibility. "
+            "You may also use the new standard container property "
+            "`focus` to get the focus and `focus_position` to get/set the cell in focus by index. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,
@@ -347,9 +346,9 @@ class GridFlow(
         :raises ValueError: *cell* is a widget that is not in the contents.
         """
         warnings.warn(
-            "only for backwards compatibility."
-            "You may also use the new standard container property"
-            "`focus` to get the focus and `focus_position` to get/set the cell in focus by index."
+            "only for backwards compatibility. "
+            "You may also use the new standard container property "
+            "`focus` to get the focus and `focus_position` to get/set the cell in focus by index. "
             "API will be removed in version 5.0.",
             DeprecationWarning,
             stacklevel=2,

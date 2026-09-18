@@ -41,14 +41,14 @@ from click_extra.recording import (
     record_command,
     type_line,
 )
-from click_extra.screenshot import (
+from click_extra.screenshot_presets import Cursor
+from click_extra.screenshot_svg import (
     CELL_HEIGHT,
     CELL_WIDTH,
     LINE_HEIGHT,
     animation_digest,
     render_svg,
 )
-from click_extra.screenshot_presets import Cursor
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
@@ -171,7 +171,7 @@ def test_screen_recovers_every_frame_a_spinner_draws(monkeypatch):
         style=Style(fg="green"),
         stream=stream,
         interval=0.02,
-        enabled=True,
+        live="always",
     )
     spinner.start()
     # Long enough to draw every frame of an eight-frame preset at 20ms each.

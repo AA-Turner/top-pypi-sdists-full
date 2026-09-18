@@ -124,6 +124,25 @@ Shared container so the Ops Webapp can adopt it too; consumed as env
 SLACK_BOT_TOKEN_HITL_SECRET_ID = "slack-bot-token-hitl"
 """Shared Slack bot token created by the `agent-message-bus` bootstrap."""
 
+SUBSCRIPTION_API_BEARER_TOKEN_SECRET_ID = "subscription-api-bearer-token"
+"""Bearer token authenticating Ops MCP calls to the agent-message-bus
+subscription API (`/subscriptions`, used by the `subscribe_*` tools in
+`mcp/github_ops.py`).
+
+Shared container owned by the `agent-message-bus` bootstrap in the same
+project; Pulumi only looks it up and wires it. The runtime-SA
+`secretAccessor` grant is a manual bootstrap step -- see `BOOTSTRAP.md`."""
+
+# Resolved from the agent-message-bus stack's `slack_service_url`: that
+# deployment has public ingress (the internal one is Cloud Armor-restricted
+# to Devin IPs) and the API is bearer-protected at the app layer. Override
+# via `subscription-api-url` config. The GCS backend needs the fully
+# qualified `organization/<project>/<stack>` StackReference form.
+AGENT_MESSAGE_BUS_STACK = config.get("agent-message-bus-stack") or (
+    "organization/agent-message-bus/prod"
+)
+SUBSCRIPTION_API_URL = config.get("subscription-api-url")
+
 LAUNCHDARKLY_API_TOKEN_SECRET_ID = "internal-ops-launchdarkly-api-token"
 """LaunchDarkly API token for the flag organization-targeting tools.
 
@@ -155,6 +174,7 @@ OPS_MCP_BACKEND_SECRET_IDS = [
     SLACK_BOT_TOKEN_HITL_SECRET_ID,
     ZENDESK_API_TOKEN_SECRET_ID,
     LAUNCHDARKLY_API_TOKEN_SECRET_ID,
+    SUBSCRIPTION_API_BEARER_TOKEN_SECRET_ID,
 ]
 
 OPS_MCP_CONTAINER_IMAGE = (
@@ -960,11 +980,22 @@ def main() -> None:
     firestore_iam = define_firestore_iam(service_account, api_services)
     # The runtime-SA `secretAccessor` grants for the Ops MCP backend secrets
     # (GitHub PAT, Orb key, MotherDuck token, shared Slack token, Zendesk API
-    # token) are manual bootstrap steps -- same as the OAuth client secret and
-    # the ops-webapp secrets -- because the deployer identity holds
-    # `roles/editor` and cannot
+    # token, subscription API bearer token) are manual bootstrap steps -- same
+    # as the OAuth client secret and the ops-webapp secrets -- because the
+    # deployer identity holds `roles/editor` and cannot
     # `setIamPolicy` on secret containers it did not create. See `BOOTSTRAP.md`.
+    if SUBSCRIPTION_API_URL:
+        subscription_api_url = SUBSCRIPTION_API_URL
+    else:
+        agent_message_bus_stack = pulumi.StackReference(AGENT_MESSAGE_BUS_STACK)
+        subscription_api_url = agent_message_bus_stack.get_output("slack_service_url")
     ops_mcp_backend_envs = [
+        # Agent-message-bus subscription API (see AGENT_MESSAGE_BUS_STACK).
+        _env("SUBSCRIPTION_API_URL", subscription_api_url),
+        _secret_env(
+            "SUBSCRIPTION_API_BEARER_TOKEN",
+            SUBSCRIPTION_API_BEARER_TOKEN_SECRET_ID,
+        ),
         _secret_env("GITHUB_TOKEN", GITHUB_TOKEN_SECRET_ID),
         # Same PAT, second name: the workflow-trigger and Copilot-review
         # resolvers read only this var and never fall back to `GITHUB_TOKEN`.

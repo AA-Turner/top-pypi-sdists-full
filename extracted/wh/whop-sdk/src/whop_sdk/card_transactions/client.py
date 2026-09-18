@@ -79,16 +79,16 @@ class CardTransactionsClient:
             The sort direction. Defaults to `desc`.
 
         first : typing.Optional[int]
-            The number of card transactions to return.
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            A cursor; returns card transactions after this position.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            The number of card transactions to return, counting back from the end.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            A cursor; returns card transactions before this position.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -103,7 +103,7 @@ class CardTransactionsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -166,7 +166,7 @@ class CardTransactionsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -244,16 +244,16 @@ class AsyncCardTransactionsClient:
             The sort direction. Defaults to `desc`.
 
         first : typing.Optional[int]
-            The number of card transactions to return.
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            A cursor; returns card transactions after this position.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            The number of card transactions to return, counting back from the end.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            A cursor; returns card transactions before this position.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -270,7 +270,7 @@ class AsyncCardTransactionsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -342,7 +342,7 @@ class AsyncCardTransactionsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

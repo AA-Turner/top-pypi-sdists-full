@@ -158,3 +158,30 @@ def test_a_launcher_that_dies_during_startup_is_reported_as_a_startup_failure() 
         f"{outcome} — the real startup failure is masked"
     )
     assert supervisor.running is False
+
+
+def test_rtc_refresh_rewrites_the_watched_inode_and_never_uses_a_rename(tmp_path) -> None:
+    """Selkies 1.6.2 observes close events on this inode, not a replacement path."""
+    config_path = tmp_path / "rtc.json"
+    config_path.write_text('{"old":true}')
+    before = config_path.stat().st_ino
+    supervisor = SelkiesSupervisor(rtc_config_path=str(config_path))
+
+    supervisor.configure_rtc(
+        {
+            "iceServers": [
+                {
+                    "urls": ["turn:relay.example:3478"],
+                    "username": "ephemeral",
+                    "credential": "secret",
+                }
+            ]
+        }
+    )
+
+    assert config_path.stat().st_ino == before
+    assert config_path.stat().st_mode & 0o777 == 0o600
+    assert (
+        config_path.read_text()
+        == '{"iceServers":[{"urls":["turn:relay.example:3478"],"username":"ephemeral","credential":"secret"}]}'
+    )

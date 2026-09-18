@@ -219,11 +219,21 @@ class Formatter(logging.Formatter):
         tag stays out of the message text itself, so a foreign formatter is free
         to render `record.label` its own way.
 
-        The record's `levelname` is restored afterwards: a record may be
-        formatted more than once (several handlers, a captured then re-rendered
-        record), and must not accumulate styling or glued labels.
+        A message spanning several lines starts on the line below its prefix.
+        Glued to the prefix, the first line of a block (a command's captured
+        output, a table) shifts right by the width of that prefix while the
+        lines below stay at the margin, which breaks the block's columns.
+
+        The record's `levelname` and `message` are restored afterwards: a record
+        may be formatted more than once (several handlers, a captured then
+        re-rendered record), and must not accumulate styling, glued labels or
+        line breaks.
         """
         original_levelname = record.levelname
+        message = getattr(record, "message", "")
+        # A trailing line break does not make a block, and a leading one already
+        # starts the message below its prefix.
+        block = "\n" in message.rstrip("\n") and not message.startswith("\n")
         try:
             theme = get_current_theme()
             level = original_levelname.lower()
@@ -233,9 +243,17 @@ class Formatter(logging.Formatter):
             label = getattr(record, "label", None)
             if label:
                 record.levelname += ":" + theme.invoked_command(label)
-            return super().formatMessage(record)
+            if not block:
+                return super().formatMessage(record)
+            record.message = "\n" + message
+            rendered = super().formatMessage(record)
+            head, moved, tail = rendered.partition(record.message)
+            # The format's separator now ends the prefix line: drop its space.
+            return head.rstrip(" ") + moved + tail if moved else rendered
         finally:
             record.levelname = original_levelname
+            if block:
+                record.message = message
 
 
 def basicConfig(
@@ -646,10 +664,11 @@ class _VerbosityOption(ExtraOption):
     def __init__(
         self,
         param_decls: Sequence[str] | None = None,
+        *,
         default_logger: Logger | str = logging.root.name,
-        expose_value=False,
-        is_eager=True,
-        **kwargs,
+        expose_value: bool = False,
+        is_eager: bool = True,
+        **kwargs: Any,
     ) -> None:
         """Set up a verbosity-altering option.
 
@@ -699,12 +718,15 @@ class VerbosityOption(_VerbosityOption):
     def __init__(
         self,
         param_decls: Sequence[str] | None = None,
+        *,
         default_logger: Logger | str = logging.root.name,
         default: LogLevel = DEFAULT_LEVEL,
-        metavar="LEVEL",
-        type=EnumChoice(LogLevel),
-        help=_("Either {log_levels}.").format(log_levels=", ".join(map(str, LogLevel))),
-        **kwargs,
+        metavar: str = "LEVEL",
+        type: click.ParamType | Any = EnumChoice(LogLevel),
+        help: str = _("Either {log_levels}.").format(
+            log_levels=", ".join(map(str, LogLevel))
+        ),
+        **kwargs: Any,
     ) -> None:
         if not param_decls:
             param_decls = ("--verbosity",)
@@ -751,11 +773,14 @@ class DebugOption(_VerbosityOption):
     def __init__(
         self,
         param_decls: Sequence[str] | None = None,
+        *,
         default_logger: Logger | str = logging.root.name,
-        is_flag=True,
-        default=False,
-        help=_("Shorthand for --verbosity {level}.").format(level=LogLevel.DEBUG),
-        **kwargs,
+        is_flag: bool = True,
+        default: bool = False,
+        help: str = _("Shorthand for --verbosity {level}.").format(
+            level=LogLevel.DEBUG
+        ),
+        **kwargs: Any,
     ) -> None:
         if not param_decls:
             param_decls = ("--debug",)
@@ -804,8 +829,9 @@ class _CounterOption(_VerbosityOption):
     def __init__(
         self,
         param_decls: Sequence[str] | None = None,
+        *,
         count: bool = True,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         # Force type and default to have them aligned with the counting option's
         # original behavior:
@@ -848,7 +874,7 @@ class VerboseOption(_CounterOption):
     def __init__(
         self,
         param_decls: Sequence[str] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         if not param_decls:
             param_decls = ("--verbose", "-v")
@@ -880,7 +906,7 @@ class QuietOption(_CounterOption):
     def __init__(
         self,
         param_decls: Sequence[str] | None = None,
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         if not param_decls:
             param_decls = ("--quiet", "-q")

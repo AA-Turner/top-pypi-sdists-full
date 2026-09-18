@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: seeq_spy
-Version: 202.12
+Version: 202.13
 Summary: Easy-to-use Python interface for Seeq
 Author-email: Seeq Corporation <support@seeq.com>
 License: Seeq Python Library – License File
@@ -448,7 +448,7 @@ Requires-Dist: matplotlib>=3.5.0; extra == "templates"
 Provides-Extra: jobs
 Requires-Dist: cron-descriptor>=1.2.24; extra == "jobs"
 Requires-Dist: jupyter_client>=7.2.0; extra == "jobs"
-Requires-Dist: nbconvert>=6.4.4; extra == "jobs"
+Requires-Dist: nbconvert>=7.1.0; extra == "jobs"
 Requires-Dist: nbformat>=5.2.0; extra == "jobs"
 Requires-Dist: recurrent>=0.4.0; extra == "jobs"
 Provides-Extra: jupyter
@@ -456,7 +456,7 @@ Requires-Dist: ipylab>=0.5.2; extra == "jupyter"
 Requires-Dist: ipython>=7.6.1; extra == "jupyter"
 Requires-Dist: ipywidgets>=7.6.0; extra == "jupyter"
 Requires-Dist: jupyterlab>=3.0.0; extra == "jupyter"
-Requires-Dist: nbconvert>=6.4.4; extra == "jupyter"
+Requires-Dist: nbconvert>=7.1.0; extra == "jupyter"
 Requires-Dist: nbformat>=5.2.0; extra == "jupyter"
 Requires-Dist: notebook>=6.0.0; extra == "jupyter"
 Requires-Dist: psutil>=5.9.0; extra == "jupyter"
@@ -470,7 +470,7 @@ Requires-Dist: ipywidgets>=7.6.0; extra == "all"
 Requires-Dist: jupyterlab>=3.0.0; extra == "all"
 Requires-Dist: Markdown>=3.3.4; extra == "all"
 Requires-Dist: matplotlib>=3.5.0; extra == "all"
-Requires-Dist: nbconvert>=6.4.4; extra == "all"
+Requires-Dist: nbconvert>=7.1.0; extra == "all"
 Requires-Dist: nbformat>=5.2.0; extra == "all"
 Requires-Dist: notebook>=6.0.0; extra == "all"
 Requires-Dist: psutil>=5.9.0; extra == "all"

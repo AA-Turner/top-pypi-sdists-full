@@ -104,7 +104,9 @@ def window_dotplot(
     # The axis must be wider than the window, or the shaded band fills the panel
     # and stops reading as a band -- and anything that started outside the window
     # has nowhere to be drawn. Take the span from the data and pad it.
-    finite = history["onset_median_days"].to_numpy(dtype="float64")
+    plot_column = ("onset_median_all_days" if "onset_median_all_days" in history
+                   else "onset_median_days")
+    finite = history[plot_column].to_numpy(dtype="float64")
     finite = finite[np.isfinite(finite)]
     span = max(float(window_days) * 1.25, 5.0)
     if finite.size:
@@ -118,7 +120,11 @@ def window_dotplot(
         axes = np.atleast_1d(axes)
         for ax, zone in zip(axes, zones):
             grp = history[history["zone"] == zone].sort_values("harvest_year")
-            med = grp["onset_median_days"].to_numpy(dtype="float64")
+            # Plot the median over EVERYTHING that started, not just the part
+            # inside the window: in a zone that mostly starts outside it, the
+            # in-window median speaks for a minority and drifts toward the band
+            # edge, which reads as "started on time" when it did not.
+            med = grp[plot_column].to_numpy(dtype="float64")
             years = grp["harvest_year"].to_numpy()
             ok = np.isfinite(med)
 
@@ -136,10 +142,14 @@ def window_dotplot(
                            label="Record median")
 
             row = cur_by_zone.get(zone)
-            if row is not None and np.isfinite(row.get("onset_median_days", np.nan)):
-                ax.scatter([row["onset_median_days"]], [0.0], s=70, marker="D",
-                           color=CURRENT_COLOR, zorder=5,
-                           label=f"{int(row['harvest_year'])}")
+            if row is not None:
+                value = row.get("onset_median_all_days", np.nan)
+                if not np.isfinite(value):
+                    value = row.get("onset_median_days", np.nan)
+                if np.isfinite(value):
+                    ax.scatter([value], [0.0], s=70, marker="D",
+                               color=CURRENT_COLOR, zorder=5,
+                               label=f"{int(row['harvest_year'])}")
 
             ax.set_yticks([])
             ax.set_ylabel(_display(zone), rotation=0, ha="right", va="center",

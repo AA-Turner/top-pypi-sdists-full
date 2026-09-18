@@ -969,6 +969,8 @@ class Host:
             mode_values.extend([SpotlightModeEnum.adaptive])
             if not (ledCtrl >> 6) & 1 or (ledCtrl >> 13) & 1:  # 7th bit (64), shift 6
                 mode_values.extend([SpotlightModeEnum.autoadaptive])
+        if (ledCtrl >> 22) & 1:  # auto_pir, bit 22
+            mode_values.extend([SpotlightModeEnum.auto_pir])
         return [val.name for val in mode_values]
 
     def whiteled_event_mode(self, channel: int) -> str | None:
@@ -1003,10 +1005,16 @@ class Host:
             return None
         return self._whiteled_settings.get(channel, {}).get("event_on_time")
 
+    def whiteled_event_on_time_range(self, channel: int) -> tuple[int, int]:
+        return self._whiteled_settings.get(channel, {}).get("event_on_time_range", (30, 900))
+
     def whiteled_event_flash_time(self, channel: int) -> int | None:
         if self.whiteled_event_mode(channel) != SpotlightEventModeEnum.flash.value:
             return None
         return self._whiteled_settings.get(channel, {}).get("event_flash_time")
+
+    def whiteled_event_flash_time_range(self, channel: int) -> tuple[int, int]:
+        return self._whiteled_settings.get(channel, {}).get("event_flash_time_range", (10, 30))
 
     def whiteled_schedule(self, channel: int) -> dict | None:
         """Return the spotlight state."""
@@ -1044,6 +1052,7 @@ class Host:
         if mode_list := self.baichuan._work_mode_battery_list.get(channel):
             modes = []
             for val in mode_list:
+                val = val.removesuffix("V2")
                 try:
                     modes.append(BatteryModeStrEnum(val).name)
                 except ValueError:
@@ -1087,7 +1096,7 @@ class Host:
                 enc_range = enc_range_i
                 break
 
-        return sorted(enc_range[stream_str]["bitRate"])
+        return sorted(enc_range.get(stream_str, {}).get("bitRate", []))
 
     def frame_rate(self, channel: int, stream: str | None = None) -> int | None:
         if channel not in self._enc_settings:
@@ -1113,7 +1122,7 @@ class Host:
                 enc_range = enc_range_i
                 break
 
-        return sorted(enc_range[stream_str]["frameRate"])
+        return sorted(enc_range.get(stream_str, {}).get("frameRate", []))
 
     def daynight_state(self, channel: int) -> Optional[str]:
         return self._isp_settings.get(channel, {}).get("dayNight")
@@ -1808,6 +1817,7 @@ class Host:
 
             if self.is_nvr and self.api_version("supportAutoTrackStream", channel) > 0:
                 self._add_capability("autotrack_stream", channel)
+                self._add_capability("autotrack_snapshot", channel)
 
             for sub_ch in self.sub_channels(channel):
                 if self.supported(channel, "pan_tilt", sub_ch) or self.supported(channel, "zoom_basic", sub_ch):
@@ -2552,24 +2562,26 @@ class Host:
                     [
                         {"cmd": "GetEmailV20", "action": 0, "param": {"channel": channel}},
                         {"cmd": "GetPushV20", "action": 0, "param": {"channel": channel}},
-                        {"cmd": "GetFtpV20", "action": 0, "param": {"channel": channel}},
                         {"cmd": "GetRecV20", "action": 1, "param": {"channel": channel}},
                         {"cmd": "GetAudioAlarmV20", "action": 0, "param": {"channel": channel}},
                         {"cmd": "GetMdAlarm", "action": 0, "param": {"channel": channel}},
                     ]
                 )
+                if self.baichuan.api_version("ftp", no_key_return=1) > 0:
+                    ch_body.append({"cmd": "GetFtpV20", "action": 0, "param": {"channel": channel}})
             else:
                 ch_body.extend(
                     [
                         {"cmd": "GetEmail", "action": 0, "param": {"channel": channel}},
                         {"cmd": "GetPush", "action": 0, "param": {"channel": channel}},
-                        {"cmd": "GetFtp", "action": 0, "param": {"channel": channel}},
                         {"cmd": "GetRec", "action": 1, "param": {"channel": channel}},
                         {"cmd": "GetAudioAlarm", "action": 0, "param": {"channel": channel}},
                         {"cmd": "GetAlarm", "action": 0, "param": {"Alarm": {"channel": channel, "type": "md"}}},
                         {"cmd": "GetMdAlarm", "action": 0, "param": {"channel": channel}},
                     ]
                 )
+                if self.baichuan.api_version("ftp", no_key_return=1) > 0:
+                    ch_body.append({"cmd": "GetFtp", "action": 0, "param": {"channel": channel}})
 
             body.extend(ch_body)
             channels.extend([channel] * len(ch_body))
@@ -3286,11 +3298,14 @@ class Host:
             return None
 
         param: dict[str, Any] = {"cmd": "Snap", "channel": channel}
+        use_baichuan = False
 
         if stream.startswith("autotrack_") or stream.startswith("telephoto_"):
             param["iLogicChannel"] = 1
             stream = stream.removeprefix("autotrack_")
             stream = stream.removeprefix("telephoto_")
+            if 1 in self.sub_channels(channel):
+                use_baichuan = True
 
         if stream.startswith("snapshots_"):
             stream = stream.removeprefix("snapshots_")
@@ -3307,7 +3322,7 @@ class Host:
                 param["width"] = width
                 param["height"] = height
 
-        if self.baichuan_only:
+        if self.baichuan_only or use_baichuan:
             return await self.baichuan.snapshot(**param)
 
         body: typings.reolink_json = [{}]

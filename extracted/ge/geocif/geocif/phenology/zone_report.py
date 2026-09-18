@@ -223,9 +223,18 @@ def zone_history(
                 "share_before_window": _share(before, w),
                 "share_after_window": _share(after, w),
                 "share_censored": censoring_share(v, w, search_lead_days),
+                # Two medians, because they answer different questions and
+                # diverge exactly where it matters. "_days" is over pixels that
+                # started INSIDE the window: when in the window did it start.
+                # "_all_days" is over everything that started at all: when did
+                # the season start, full stop. Where most of a zone starts
+                # outside the window the in-window median describes a minority
+                # -- Rift Valley 2026 had 5 % of its cropland in the window, so
+                # its in-window median spoke for one pixel in twenty.
                 "onset_median_days": _weighted_median(v[in_win], w[in_win]),
                 "onset_p25_days": _weighted_quantile(v[in_win], w[in_win], 0.25),
                 "onset_p75_days": _weighted_quantile(v[in_win], w[in_win], 0.75),
+                "onset_median_all_days": _weighted_median(v[started], w[started]),
             }
             if planting_dates:
                 plant = planting_dates.get((name, int(year)))
@@ -335,7 +344,9 @@ def current_vs_history(
 
     Returns:
         One row per zone: the window status and its coverage, this season's
-        in-window share and median onset, and how those rank against the record
+        in-window share and median onset, the shares that fell BEFORE and AFTER
+        the window (a low in-window share means nothing until you know which
+        side it went), and how those rank against the record
         (``share_percentile``, ``onset_percentile``, both over past years, NaN
         when the window is not complete enough to rank honestly).
     """
@@ -359,9 +370,21 @@ def current_vs_history(
 
         started = np.isfinite(v)
         in_win = started & (v >= -window_days) & (v <= window_days)
+        # WHICH SIDE the season fell on decides how the in-window share reads.
+        # A zone at a 0th percentile share may have started unusually EARLY,
+        # outside the window, not failed to start -- Kenya West 2026 was 100 %
+        # before the window at a median 57 days ahead of the calendar date, and
+        # without this split its 0 % in-window share reads as a failure.
+        before = started & (v < -window_days)
+        after = started & (v > window_days)
         share_in = _share(in_win, w) if status is not WindowStatus.NOT_OPEN else float("nan")
         med = (
             _weighted_median(v[in_win], w[in_win])
+            if status is not WindowStatus.NOT_OPEN
+            else float("nan")
+        )
+        med_all = (
+            _weighted_median(v[started], w[started])
             if status is not WindowStatus.NOT_OPEN
             else float("nan")
         )
@@ -401,12 +424,24 @@ def current_vs_history(
                     _share(started, w) if status is not WindowStatus.NOT_OPEN else float("nan")
                 ),
                 "share_in_window": share_in,
+                "share_before_window": (
+                    _share(before, w) if status is not WindowStatus.NOT_OPEN else float("nan")
+                ),
+                "share_after_window": (
+                    _share(after, w) if status is not WindowStatus.NOT_OPEN else float("nan")
+                ),
                 "share_censored": (
                     censoring_share(v, w, search_lead_days)
                     if status is not WindowStatus.NOT_OPEN
                     else float("nan")
                 ),
                 "onset_median_days": med,
+                "onset_median_all_days": med_all,
+                "onset_median_all_date": (
+                    (plant + _dt.timedelta(days=int(round(med_all)))).isoformat()
+                    if plant is not None and np.isfinite(med_all)
+                    else None
+                ),
                 "onset_median_date": (
                     (plant + _dt.timedelta(days=int(round(med)))).isoformat()
                     if plant is not None and np.isfinite(med)

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: docx-mailmerge2
-Version: 1.0.1
+Version: 1.0.2
 Summary: Performs a Mail Merge on docx (Microsoft Office Word) files
 Author-email: Iulian Ciorăscu <ciulian@gmail.com>
 License: MIT

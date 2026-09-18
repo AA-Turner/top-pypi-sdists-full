@@ -1231,8 +1231,22 @@ class CfnRegistryRecord(
                     data="data",
                     data_schema_version="dataSchemaVersion"
                 ),
+                agui=agentregistry.CfnRegistryRecord.AgUiDescriptorProperty(
+                    source=agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceProperty(
+                        from_url=agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceFromUrlProperty(
+                            url="url"
+                        )
+                    )
+                ),
                 custom=agentregistry.CfnRegistryRecord.CustomDescriptorProperty(
                     data="data"
+                ),
+                http=agentregistry.CfnRegistryRecord.HttpDescriptorProperty(
+                    source=agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceProperty(
+                        from_url=agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceFromUrlProperty(
+                            url="url"
+                        )
+                    )
                 ),
                 mcp_server=agentregistry.CfnRegistryRecord.McpServerDescriptorProperty(
                     additional_data=agentregistry.CfnRegistryRecord.McpServerAdditionalDataProperty(
@@ -1381,6 +1395,15 @@ class CfnRegistryRecord(
         :cloudformationAttribute: CreatedAt
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrCreatedAt"))
+
+    @builtins.property
+    @jsii.member(jsii_name="attrCreatedBy")
+    def attr_created_by(self) -> builtins.str:
+        '''The identifier of the AWS account that created the registry record.
+
+        :cloudformationAttribute: CreatedBy
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrCreatedBy"))
 
     @builtins.property
     @jsii.member(jsii_name="attrRecordArn")
@@ -1677,6 +1700,71 @@ class CfnRegistryRecord(
 
         def __repr__(self) -> str:
             return "A2aAgentCardDescriptorProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_agentregistry.CfnRegistryRecord.AgUiDescriptorProperty",
+        jsii_struct_bases=[],
+        name_mapping={"source": "source"},
+    )
+    class AgUiDescriptorProperty:
+        def __init__(
+            self,
+            *,
+            source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistryRecord.SourceOnlyDescriptorSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The AG-UI (Agent-User Interaction) descriptor, populated for records detected from an AG-UI protocol source.
+
+            This descriptor is source-only: its content is synchronized from the configured source URL rather than supplied inline.
+
+            :param source: Source configuration for a source-only descriptor. Unlike mcpServer/a2aAgentCard sources, source-only descriptors do not support credential providers.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registryrecord-aguidescriptor.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_agentregistry as agentregistry
+                
+                ag_ui_descriptor_property = agentregistry.CfnRegistryRecord.AgUiDescriptorProperty(
+                    source=agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceProperty(
+                        from_url=agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceFromUrlProperty(
+                            url="url"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__f14707a1d412fb23aeac570107aa3e17f2d92f3d9d3a1b55108cabaa4ba9f75b)
+                check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if source is not None:
+                self._values["source"] = source
+
+        @builtins.property
+        def source(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryRecord.SourceOnlyDescriptorSourceProperty"]]:
+            '''Source configuration for a source-only descriptor.
+
+            Unlike mcpServer/a2aAgentCard sources, source-only descriptors do not support credential providers.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registryrecord-aguidescriptor.html#cfn-agentregistry-registryrecord-aguidescriptor-source
+            '''
+            result = self._values.get("source")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryRecord.SourceOnlyDescriptorSourceProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "AgUiDescriptorProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -2178,7 +2266,9 @@ class CfnRegistryRecord(
         name_mapping={
             "a2_a_agent_card": "a2AAgentCard",
             "agent_skills_definition": "agentSkillsDefinition",
+            "agui": "agui",
             "custom": "custom",
+            "http": "http",
             "mcp_server": "mcpServer",
         },
     )
@@ -2188,7 +2278,9 @@ class CfnRegistryRecord(
             *,
             a2_a_agent_card: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistryRecord.A2aAgentCardDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             agent_skills_definition: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistryRecord.AgentSkillsDefinitionDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            agui: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistryRecord.AgUiDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             custom: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistryRecord.CustomDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+            http: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistryRecord.HttpDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             mcp_server: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistryRecord.McpServerDescriptorProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
             '''The typed set of descriptors for a registry record.
@@ -2197,7 +2289,9 @@ class CfnRegistryRecord(
 
             :param a2_a_agent_card: The A2A agent card descriptor, populated when the record type is AGENT.
             :param agent_skills_definition: The agent skills definition descriptor, populated when the record type is SKILL.
+            :param agui: The AG-UI (Agent-User Interaction) descriptor, populated for records detected from an AG-UI protocol source. This descriptor is source-only: its content is synchronized from the configured source URL rather than supplied inline.
             :param custom: The custom descriptor, populated when the record type is CUSTOM.
+            :param http: The HTTP descriptor, populated for records detected from an HTTP protocol source. This descriptor is source-only: its content is synchronized from the configured source URL rather than supplied inline.
             :param mcp_server: The MCP server descriptor, populated when the record type is MCP.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registryrecord-descriptors.html
@@ -2256,8 +2350,22 @@ class CfnRegistryRecord(
                         data="data",
                         data_schema_version="dataSchemaVersion"
                     ),
+                    agui=agentregistry.CfnRegistryRecord.AgUiDescriptorProperty(
+                        source=agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceProperty(
+                            from_url=agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceFromUrlProperty(
+                                url="url"
+                            )
+                        )
+                    ),
                     custom=agentregistry.CfnRegistryRecord.CustomDescriptorProperty(
                         data="data"
+                    ),
+                    http=agentregistry.CfnRegistryRecord.HttpDescriptorProperty(
+                        source=agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceProperty(
+                            from_url=agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceFromUrlProperty(
+                                url="url"
+                            )
+                        )
                     ),
                     mcp_server=agentregistry.CfnRegistryRecord.McpServerDescriptorProperty(
                         additional_data=agentregistry.CfnRegistryRecord.McpServerAdditionalDataProperty(
@@ -2302,15 +2410,21 @@ class CfnRegistryRecord(
                 type_hints = cached_type_hints(_typecheckingstub__eeaec09ea09830cf935441309df33f6f79c13bcf622fbbedf0296fbea3603915)
                 check_type(argname="argument a2_a_agent_card", value=a2_a_agent_card, expected_type=type_hints["a2_a_agent_card"])
                 check_type(argname="argument agent_skills_definition", value=agent_skills_definition, expected_type=type_hints["agent_skills_definition"])
+                check_type(argname="argument agui", value=agui, expected_type=type_hints["agui"])
                 check_type(argname="argument custom", value=custom, expected_type=type_hints["custom"])
+                check_type(argname="argument http", value=http, expected_type=type_hints["http"])
                 check_type(argname="argument mcp_server", value=mcp_server, expected_type=type_hints["mcp_server"])
             self._values: typing.Dict[builtins.str, typing.Any] = {}
             if a2_a_agent_card is not None:
                 self._values["a2_a_agent_card"] = a2_a_agent_card
             if agent_skills_definition is not None:
                 self._values["agent_skills_definition"] = agent_skills_definition
+            if agui is not None:
+                self._values["agui"] = agui
             if custom is not None:
                 self._values["custom"] = custom
+            if http is not None:
+                self._values["http"] = http
             if mcp_server is not None:
                 self._values["mcp_server"] = mcp_server
 
@@ -2337,6 +2451,19 @@ class CfnRegistryRecord(
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryRecord.AgentSkillsDefinitionDescriptorProperty"]], result)
 
         @builtins.property
+        def agui(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryRecord.AgUiDescriptorProperty"]]:
+            '''The AG-UI (Agent-User Interaction) descriptor, populated for records detected from an AG-UI protocol source.
+
+            This descriptor is source-only: its content is synchronized from the configured source URL rather than supplied inline.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registryrecord-descriptors.html#cfn-agentregistry-registryrecord-descriptors-agui
+            '''
+            result = self._values.get("agui")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryRecord.AgUiDescriptorProperty"]], result)
+
+        @builtins.property
         def custom(
             self,
         ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryRecord.CustomDescriptorProperty"]]:
@@ -2346,6 +2473,19 @@ class CfnRegistryRecord(
             '''
             result = self._values.get("custom")
             return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryRecord.CustomDescriptorProperty"]], result)
+
+        @builtins.property
+        def http(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryRecord.HttpDescriptorProperty"]]:
+            '''The HTTP descriptor, populated for records detected from an HTTP protocol source.
+
+            This descriptor is source-only: its content is synchronized from the configured source URL rather than supplied inline.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registryrecord-descriptors.html#cfn-agentregistry-registryrecord-descriptors-http
+            '''
+            result = self._values.get("http")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryRecord.HttpDescriptorProperty"]], result)
 
         @builtins.property
         def mcp_server(
@@ -2366,6 +2506,71 @@ class CfnRegistryRecord(
 
         def __repr__(self) -> str:
             return "DescriptorsProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_agentregistry.CfnRegistryRecord.HttpDescriptorProperty",
+        jsii_struct_bases=[],
+        name_mapping={"source": "source"},
+    )
+    class HttpDescriptorProperty:
+        def __init__(
+            self,
+            *,
+            source: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistryRecord.SourceOnlyDescriptorSourceProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''The HTTP descriptor, populated for records detected from an HTTP protocol source.
+
+            This descriptor is source-only: its content is synchronized from the configured source URL rather than supplied inline.
+
+            :param source: Source configuration for a source-only descriptor. Unlike mcpServer/a2aAgentCard sources, source-only descriptors do not support credential providers.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registryrecord-httpdescriptor.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_agentregistry as agentregistry
+                
+                http_descriptor_property = agentregistry.CfnRegistryRecord.HttpDescriptorProperty(
+                    source=agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceProperty(
+                        from_url=agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceFromUrlProperty(
+                            url="url"
+                        )
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__3f717a36df278a573d9cdd74a8f17f1cf8ff612b423008872eb5427cd0ba6127)
+                check_type(argname="argument source", value=source, expected_type=type_hints["source"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if source is not None:
+                self._values["source"] = source
+
+        @builtins.property
+        def source(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryRecord.SourceOnlyDescriptorSourceProperty"]]:
+            '''Source configuration for a source-only descriptor.
+
+            Unlike mcpServer/a2aAgentCard sources, source-only descriptors do not support credential providers.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registryrecord-httpdescriptor.html#cfn-agentregistry-registryrecord-httpdescriptor-source
+            '''
+            result = self._values.get("source")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryRecord.SourceOnlyDescriptorSourceProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "HttpDescriptorProperty(%s)" % ", ".join(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
@@ -3137,6 +3342,119 @@ class CfnRegistryRecord(
                 k + "=" + repr(v) for k, v in self._values.items()
             )
 
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceFromUrlProperty",
+        jsii_struct_bases=[],
+        name_mapping={"url": "url"},
+    )
+    class SourceOnlyDescriptorSourceFromUrlProperty:
+        def __init__(self, *, url: builtins.str) -> None:
+            '''URL-based source configuration for a source-only descriptor.
+
+            :param url: URL source for descriptor content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registryrecord-sourceonlydescriptorsourcefromurl.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_agentregistry as agentregistry
+                
+                source_only_descriptor_source_from_url_property = agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceFromUrlProperty(
+                    url="url"
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__43e185e48b7d4ebd67afe06f1ef043348d1f6ae2ba84b65c33c6283c40dd8af3)
+                check_type(argname="argument url", value=url, expected_type=type_hints["url"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {
+                "url": url,
+            }
+
+        @builtins.property
+        def url(self) -> builtins.str:
+            '''URL source for descriptor content.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registryrecord-sourceonlydescriptorsourcefromurl.html#cfn-agentregistry-registryrecord-sourceonlydescriptorsourcefromurl-url
+            '''
+            result = self._values.get("url")
+            assert result is not None, "Required property 'url' is missing"
+            return typing.cast(builtins.str, result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SourceOnlyDescriptorSourceFromUrlProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
+    @jsii.data_type(
+        jsii_type="aws-cdk-lib.aws_agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceProperty",
+        jsii_struct_bases=[],
+        name_mapping={"from_url": "fromUrl"},
+    )
+    class SourceOnlyDescriptorSourceProperty:
+        def __init__(
+            self,
+            *,
+            from_url: typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", typing.Union["CfnRegistryRecord.SourceOnlyDescriptorSourceFromUrlProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
+        ) -> None:
+            '''Source configuration for a source-only descriptor.
+
+            Unlike mcpServer/a2aAgentCard sources, source-only descriptors do not support credential providers.
+
+            :param from_url: URL-based source configuration for a source-only descriptor.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registryrecord-sourceonlydescriptorsource.html
+            :exampleMetadata: fixture=_generated
+
+            Example::
+
+                # The code below shows an example of how to instantiate this type.
+                # The values are placeholders you should change.
+                from aws_cdk import aws_agentregistry as agentregistry
+                
+                source_only_descriptor_source_property = agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceProperty(
+                    from_url=agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceFromUrlProperty(
+                        url="url"
+                    )
+                )
+            '''
+            if __debug__:
+                type_hints = cached_type_hints(_typecheckingstub__697de4a1d2bd7d5d400c4d0f9f2404a4e812bac51918f0531d571e46f1f07a12)
+                check_type(argname="argument from_url", value=from_url, expected_type=type_hints["from_url"])
+            self._values: typing.Dict[builtins.str, typing.Any] = {}
+            if from_url is not None:
+                self._values["from_url"] = from_url
+
+        @builtins.property
+        def from_url(
+            self,
+        ) -> typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryRecord.SourceOnlyDescriptorSourceFromUrlProperty"]]:
+            '''URL-based source configuration for a source-only descriptor.
+
+            :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-agentregistry-registryrecord-sourceonlydescriptorsource.html#cfn-agentregistry-registryrecord-sourceonlydescriptorsource-fromurl
+            '''
+            result = self._values.get("from_url")
+            return typing.cast(typing.Optional[typing.Union["_aws_cdk_0cae9daa.IResolvable", "CfnRegistryRecord.SourceOnlyDescriptorSourceFromUrlProperty"]], result)
+
+        def __eq__(self, rhs: typing.Any) -> builtins.bool:
+            return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+        def __ne__(self, rhs: typing.Any) -> builtins.bool:
+            return not (rhs == self)
+
+        def __repr__(self) -> str:
+            return "SourceOnlyDescriptorSourceProperty(%s)" % ", ".join(
+                k + "=" + repr(v) for k, v in self._values.items()
+            )
+
 
 @jsii.data_type(
     jsii_type="aws-cdk-lib.aws_agentregistry.CfnRegistryRecordProps",
@@ -3234,8 +3552,22 @@ class CfnRegistryRecordProps:
                         data="data",
                         data_schema_version="dataSchemaVersion"
                     ),
+                    agui=agentregistry.CfnRegistryRecord.AgUiDescriptorProperty(
+                        source=agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceProperty(
+                            from_url=agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceFromUrlProperty(
+                                url="url"
+                            )
+                        )
+                    ),
                     custom=agentregistry.CfnRegistryRecord.CustomDescriptorProperty(
                         data="data"
+                    ),
+                    http=agentregistry.CfnRegistryRecord.HttpDescriptorProperty(
+                        source=agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceProperty(
+                            from_url=agentregistry.CfnRegistryRecord.SourceOnlyDescriptorSourceFromUrlProperty(
+                                url="url"
+                            )
+                        )
                     ),
                     mcp_server=agentregistry.CfnRegistryRecord.McpServerDescriptorProperty(
                         additional_data=agentregistry.CfnRegistryRecord.McpServerAdditionalDataProperty(
@@ -3651,6 +3983,13 @@ def _typecheckingstub__afa9881107eac84791f3306a270cd236e769c8e820626a2d3fa82a068
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__f14707a1d412fb23aeac570107aa3e17f2d92f3d9d3a1b55108cabaa4ba9f75b(
+    *,
+    source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistryRecord.SourceOnlyDescriptorSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__6c5606d1e396f4b94e586f5e54c97f90c7d135dc36043fbf5824a249d6a5edbc(
     *,
     skill_md: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistryRecord.AgentSkillsMdDescriptorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
@@ -3702,8 +4041,17 @@ def _typecheckingstub__eeaec09ea09830cf935441309df33f6f79c13bcf622fbbedf0296fbea
     *,
     a2_a_agent_card: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistryRecord.A2aAgentCardDescriptorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     agent_skills_definition: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistryRecord.AgentSkillsDefinitionDescriptorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    agui: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistryRecord.AgUiDescriptorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     custom: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistryRecord.CustomDescriptorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+    http: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistryRecord.HttpDescriptorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
     mcp_server: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistryRecord.McpServerDescriptorProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__3f717a36df278a573d9cdd74a8f17f1cf8ff612b423008872eb5427cd0ba6127(
+    *,
+    source: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistryRecord.SourceOnlyDescriptorSourceProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -3778,6 +4126,20 @@ def _typecheckingstub__36100a2c70034e7269ce98469d7c7e1a48722fe1c424f841ea0238adc
 def _typecheckingstub__595c5cb5d6a3c5f7919222fc9acdb5b325682228947228957e5b1f08a4b28878(
     *,
     from_url: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistryRecord.SkillMdSourceFromUrlProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__43e185e48b7d4ebd67afe06f1ef043348d1f6ae2ba84b65c33c6283c40dd8af3(
+    *,
+    url: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__697de4a1d2bd7d5d400c4d0f9f2404a4e812bac51918f0531d571e46f1f07a12(
+    *,
+    from_url: typing.Optional[typing.Union[_aws_cdk_0cae9daa.IResolvable, typing.Union[CfnRegistryRecord.SourceOnlyDescriptorSourceFromUrlProperty, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass

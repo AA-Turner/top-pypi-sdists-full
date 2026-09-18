@@ -277,6 +277,7 @@ class InnoDayVersionStore(VersionStore):
         released_at: Optional[str] = None,
         summary: Optional[str] = None,
         changelog: Optional[List] = None,
+        repo_names: Optional[List[str]] = None,
     ) -> None:
         """Record ``version`` as a released ``Release`` row via the API.
 
@@ -289,6 +290,20 @@ class InnoDayVersionStore(VersionStore):
         InnoDay's ``Release.changelog`` column is a dict, so we wrap it as
         ``{"repos": [...]}`` -- the contract InnoDay's release router / CLI
         already expect for a structured per-repo inventory.
+
+        ``repo_names`` is what the engine actually tagged, in the order it
+        tagged them. **Sent on rather than left to the server to work out.** The
+        server infers the set from the repositories currently linked to the
+        project, which is right for a release and wrong for every narrowed
+        hotfix: ``--repo bps-ui-v2`` tags one repository and was recorded as
+        having covered all seven. Two things follow from that -- the next
+        release compares its coverage against the seven and warns about a shrink
+        that never happened, and a revert of the hotfix has nothing telling it
+        which single repository to clean up.
+
+        Left out -- an engine too old to report it, or a caller that genuinely
+        does not know -- and the server infers as before. An inferred record is
+        worse than a true one and much better than none.
         """
         released_iso = released_at or datetime.now(timezone.utc).isoformat()
 
@@ -302,13 +317,21 @@ class InnoDayVersionStore(VersionStore):
             body["summary"] = summary
         if changelog is not None:
             body["changelog"] = self._wrap_changelog(changelog)
+        if repo_names:
+            # Only when there is something to say. An empty list is not "the
+            # engine tagged nothing" -- it is an engine that does not report
+            # coverage -- and sending it would overwrite the server's inference
+            # with a claim that the release covered no repository at all.
+            body["repo_names"] = list(repo_names)
 
         _run_sync(self._create_or_update_release(body))
         logger.info(
-            "InnoDayVersionStore recorded release version=%s project_id=%s org_id=%s",
+            "InnoDayVersionStore recorded release version=%s project_id=%s "
+            "org_id=%s repos=%s",
             version,
             self._project_id,
             self._org_id,
+            len(repo_names) if repo_names else "inferred",
         )
 
     # ------------------------------------------------------------------ #

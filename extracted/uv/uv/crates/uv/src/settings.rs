@@ -29,7 +29,7 @@ use uv_cli::{
     ResolverArgs, ResolverInstallerArgs, ToolUpgradeArgs,
     options::{
         Flag, FlagSource, IntoPipOptions, check_conflicts, flag, resolve_flag, resolve_flag_pair,
-        resolver_installer_options, resolver_options,
+        resolver_installer_options, resolver_options, upgrade_options,
     },
 };
 use uv_client::{Certificates, Connectivity, MetadataRangeRequest};
@@ -43,7 +43,7 @@ use uv_configuration::{
 };
 use uv_distribution_types::{
     ConfigSettings, DependencyMetadata, ExtraBuildVariables, Index, IndexLocations, IndexUrl,
-    PackageConfigSettings, Requirement,
+    NameRequirementSpecification, PackageConfigSettings, Requirement,
 };
 use uv_install_wheel::LinkMode;
 use uv_normalize::{ExtraName, PackageName, PipGroupName};
@@ -333,14 +333,14 @@ impl NetworkSettings {
                 "The `--no-native-tls` flag is deprecated and will be removed in a future release. Use `--no-system-certs` instead."
             );
         }
-        if environment.native_tls.value.is_some() {
+        if environment.native_tls.value.is_some() && environment.system_certs.value.is_none() {
             warn_user_once!(
                 "The `UV_NATIVE_TLS` environment variable is deprecated and will be removed in a future release. Use `UV_SYSTEM_CERTS` instead."
             );
         }
-        if workspace
-            .and_then(|workspace| workspace.globals.native_tls)
-            .is_some()
+        if let Some(workspace) = workspace
+            && workspace.globals.native_tls.is_some()
+            && workspace.globals.system_certs.is_none()
         {
             warn_user_once!(
                 "The `native-tls` setting is deprecated and will be removed in a future release. Use `system-certs` instead."
@@ -2244,29 +2244,28 @@ impl UpgradeSettings {
         args: UpgradeArgs,
         filesystem: Option<FilesystemOptions>,
         environment: EnvironmentOptions,
-    ) -> Self {
+    ) -> anyhow::Result<Self> {
         let filesystem_install_mirrors = filesystem
             .as_ref()
             .map(|fs| fs.install_mirrors.clone())
             .unwrap_or_default();
-        let packages = args.packages;
-        let exclude = args.exclude;
-        let mut settings =
-            ResolverSettings::combine(ResolverOptions::default(), filesystem, &environment);
+        let (packages, exclude, options) =
+            upgrade_options(args, configured_indexes(filesystem.as_ref()))?;
+        let mut settings = ResolverSettings::combine(options, filesystem, &environment);
         settings.upgrade = if packages.is_empty() {
             Upgrade::default()
         } else {
             Upgrade::from_packages(packages.clone())
         };
 
-        Self {
+        Ok(Self {
             packages,
             exclude,
             install_mirrors: environment
                 .install_mirrors
                 .combine(filesystem_install_mirrors),
             settings,
-        }
+        })
     }
 }
 
@@ -3478,7 +3477,7 @@ pub(crate) struct PipCompileSettings {
     pub(crate) constraints_from_workspace: Vec<Requirement>,
     pub(crate) overrides_from_workspace: Vec<Override<Requirement>>,
     pub(crate) excludes_from_workspace: Vec<ExcludeDependency>,
-    pub(crate) build_constraints_from_workspace: Vec<Requirement>,
+    pub(crate) build_constraints_from_workspace: Vec<NameRequirementSpecification>,
     pub(crate) environments: SupportedEnvironments,
     pub(crate) required_environments: SupportedEnvironments,
     pub(crate) refresh: Refresh,
@@ -3578,7 +3577,13 @@ impl PipCompileSettings {
                 .unwrap_or_default()
                 .into_iter()
                 .map(|requirement| {
-                    Requirement::from(requirement.with_origin(RequirementOrigin::Workspace))
+                    let (requirement, hashes) = requirement.into_parts();
+                    NameRequirementSpecification {
+                        requirement: Requirement::from(
+                            requirement.with_origin(RequirementOrigin::Workspace),
+                        ),
+                        hashes,
+                    }
                 })
                 .collect()
         } else {
@@ -3797,7 +3802,7 @@ pub(crate) struct PipInstallSettings {
     pub(crate) constraints_from_workspace: Vec<Requirement>,
     pub(crate) overrides_from_workspace: Vec<Override<Requirement>>,
     pub(crate) excludes_from_workspace: Vec<ExcludeDependency>,
-    pub(crate) build_constraints_from_workspace: Vec<Requirement>,
+    pub(crate) build_constraints_from_workspace: Vec<NameRequirementSpecification>,
     pub(crate) modifications: Modifications,
     pub(crate) refresh: Refresh,
     pub(crate) settings: PipSettings,
@@ -3889,7 +3894,13 @@ impl PipInstallSettings {
                 .unwrap_or_default()
                 .into_iter()
                 .map(|requirement| {
-                    Requirement::from(requirement.with_origin(RequirementOrigin::Workspace))
+                    let (requirement, hashes) = requirement.into_parts();
+                    NameRequirementSpecification {
+                        requirement: Requirement::from(
+                            requirement.with_origin(RequirementOrigin::Workspace),
+                        ),
+                        hashes,
+                    }
                 })
                 .collect()
         } else {
@@ -4283,7 +4294,7 @@ pub(crate) struct BuildSettings {
     pub(crate) force_pep517: bool,
     pub(crate) clear: bool,
     pub(crate) build_constraints: Vec<PathBuf>,
-    pub(crate) build_constraints_from_workspace: Vec<Requirement>,
+    pub(crate) build_constraints_from_workspace: Vec<NameRequirementSpecification>,
     pub(crate) hash_checking: Option<HashCheckingMode>,
     pub(crate) python: Option<String>,
     pub(crate) install_mirrors: PythonInstallMirrors,
@@ -4336,7 +4347,13 @@ impl BuildSettings {
                 .unwrap_or_default()
                 .into_iter()
                 .map(|requirement| {
-                    Requirement::from(requirement.with_origin(RequirementOrigin::Workspace))
+                    let (requirement, hashes) = requirement.into_parts();
+                    NameRequirementSpecification {
+                        requirement: Requirement::from(
+                            requirement.with_origin(RequirementOrigin::Workspace),
+                        ),
+                        hashes,
+                    }
                 })
                 .collect()
         } else {
@@ -5434,6 +5451,8 @@ fn parse_failure(name: &str, expected: &str) -> ! {
 
 #[cfg(test)]
 mod tests {
+    use uv_cli::{IndexArgs, RegistryClientArgs};
+
     use super::*;
 
     #[test]
@@ -5443,10 +5462,22 @@ mod tests {
             UpgradeArgs {
                 packages: vec![package.clone()],
                 exclude: Vec::new(),
+                index_args: IndexArgs {
+                    index: None,
+                    default_index: None,
+                    index_url: None,
+                    extra_index_url: None,
+                    find_links: None,
+                    no_index: false,
+                },
+                registry_client: RegistryClientArgs {
+                    index_strategy: None,
+                    keyring_provider: None,
+                },
             },
             None,
             EnvironmentOptions::new()?,
-        );
+        )?;
         let expected = FxHashSet::from_iter([package]);
 
         assert!(!settings.settings.upgrade.is_all());

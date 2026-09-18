@@ -452,6 +452,14 @@ ICEBERG_METADATA_TABLE_QUERIES["all_delete_files"] = (
     + ") WHERE COALESCE(content, 0) != 0"
 )
 
+# `.changes` — Iceberg changelog-query parity.
+# This static entry is used only for suffix detection in _split_iceberg_metadata_table_name;
+# the actual query is built dynamically in _read_iceberg_metadata_table with literal args.
+ICEBERG_METADATA_TABLE_QUERIES["changes"] = (
+    "SELECT * FROM TABLE(INFORMATION_SCHEMA.ICEBERG_CHANGELOG_SCAN"
+    "(?, NULL, NULL, NULL, NULL))"
+)
+
 # Times the base table name is bound (one per `?`). `files`/`entries`/`data_files`/
 # `delete_files`/`all_entries`/`all_data_files`/`all_delete_files`/`all_files` call two
 # table functions; `manifests` now also binds ICEBERG_TABLE_METADATA for the
@@ -727,7 +735,7 @@ def _refresh_iceberg_table_metadata(
         logger.debug(
             "SYSTEM$GET_ICEBERG_TABLE_INFORMATION refresh skipped for %s: %s",
             base_table_name,
-            e,
+            type(e).__name__,
         )
 
 
@@ -738,6 +746,11 @@ def _read_iceberg_metadata_table(
     metadata_table_name: str,
     session: snowpark.Session,
     plan_id: int,
+    *,
+    changelog_start_snapshot_id: int | None = None,
+    changelog_end_snapshot_id: int | None = None,
+    changelog_start_timestamp_ms: int | None = None,
+    changelog_end_timestamp_ms: int | None = None,
 ) -> DataFrameContainer:
     if (
         metadata_table_name not in ICEBERG_METADATA_TABLE_QUERIES
@@ -757,6 +770,18 @@ def _read_iceberg_metadata_table(
         for part, flag in zip(base_table_parts, backtick_flags)
     )
 
+    # If the table name is unqualified (single part), qualify it with
+    # the session's current database and schema so Snowflake can resolve it.
+    if len(base_table_parts) == 1:
+        current_db = session.get_current_database()
+        current_schema = session.get_current_schema()
+        if current_db and current_schema:
+            # Strip surrounding quotes — Snowpark returns quoted identifiers
+            # but the table function args expect unquoted names.
+            db = unquote_if_quoted(current_db)
+            sch = unquote_if_quoted(current_schema)
+            base_table_name = f"{db}.{sch}.{base_table_name}"
+
     # Every metadata table (incl. `.files`, now backed by the async
     # ICEBERG_TABLE_MANIFEST_ENTRIES) reads metadata Managed Iceberg generates
     # asynchronously, so force a synchronous refresh before reading.
@@ -767,11 +792,34 @@ def _read_iceberg_metadata_table(
         # a static string — the projection is derived from the table's partition
         # spec at request time.
         query, n_binds = _build_partitions_query(session, base_table_name)
+        params = [base_table_name] * n_binds
+        df = session.sql(query, params=params)
+    elif metadata_table_name == "changes":
+        # Build ICEBERG_CHANGELOG_SCAN with 5 args.
+        # The table name must be a string literal (not a bind parameter)
+        # because Snowflake requires a constant expression.
+        # Remaining args use literals too (bind params are typed VARCHAR,
+        # but Snowflake expects INTEGER for snapshot/timestamp args).
+        def _lit(v):
+            return "NULL" if v is None else str(int(v))
+
+        safe_name = base_table_name.replace("'", "''")
+        query = (
+            "SELECT * FROM TABLE("
+            "INFORMATION_SCHEMA.ICEBERG_CHANGELOG_SCAN"
+            f"('{safe_name}'"
+            f", {_lit(changelog_start_snapshot_id)}"
+            f", {_lit(changelog_end_snapshot_id)}"
+            f", {_lit(changelog_start_timestamp_ms)}"
+            f", {_lit(changelog_end_timestamp_ms)}))"
+        )
+        df = session.sql(query)
     else:
         query = ICEBERG_METADATA_TABLE_QUERIES[metadata_table_name]
         # Bind the base table name once per `?` placeholder (see BIND_COUNTS).
         n_binds = ICEBERG_METADATA_TABLE_BIND_COUNTS.get(metadata_table_name, 1)
-    df = session.sql(query, params=[base_table_name] * n_binds)
+        params = [base_table_name] * n_binds
+        df = session.sql(query, params=params)
     try:
         # Force evaluation here. ``post_process_df`` rewrites Snowflake 2003 into a
         # generic TABLE_OR_VIEW_NOT_FOUND ``AnalysisException``, which would
@@ -1222,9 +1270,12 @@ def _extract_iceberg_incremental_snapshot_ids(
     Returns ``(start_snapshot_id, end_snapshot_id)`` where each component
     is ``None`` when the corresponding option is absent. Raises
     ``AnalysisException`` (INVALID_INPUT) when a present value cannot be
-    parsed as a 64-bit integer, when ``end-snapshot-id`` is supplied
-    without ``start-snapshot-id``, or when both dashed and underscored
+    parsed as a 64-bit integer, or when both dashed and underscored
     variants disagree.
+
+    ``end-snapshot-id`` without ``start-snapshot-id`` is permitted
+    (returns ``(None, end_id)``) to support changelog reads where
+    ``end-snapshot-id`` alone means "from the beginning up to this snapshot".
     """
     normalized = {k.lower(): v for k, v in options.items()}
 
@@ -1249,13 +1300,9 @@ def _extract_iceberg_incremental_snapshot_ids(
 
     if start_raw is None and end_raw is None:
         return None, None
-    if start_raw is None:
-        exception = AnalysisException(
-            "Iceberg incremental read requires 'start-snapshot-id'; "
-            "'end-snapshot-id' cannot be used alone."
-        )
-        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
-        raise exception
+    # end-snapshot-id without start-snapshot-id is valid for changelog
+    # queries (means "from beginning up to this snapshot"). The caller
+    # validates further if needed for non-changelog paths.
 
     def _parse_snapshot_id(raw: str, option_name: str) -> int:
         try:
@@ -1276,11 +1323,46 @@ def _extract_iceberg_incremental_snapshot_ids(
             raise exception
         return snapshot_id
 
-    start_id = _parse_snapshot_id(start_raw, "start-snapshot-id")
+    start_id = (
+        _parse_snapshot_id(start_raw, "start-snapshot-id")
+        if start_raw is not None
+        else None
+    )
     end_id = (
         _parse_snapshot_id(end_raw, "end-snapshot-id") if end_raw is not None else None
     )
     return start_id, end_id
+
+
+def _extract_iceberg_changelog_timestamps(
+    options: dict[str, str],
+) -> tuple[int | None, int | None]:
+    """Extract ``start-timestamp`` and ``end-timestamp`` reader options.
+
+    These are millis-since-epoch integers used by Spark's
+    ``IncrementalChangelogScan`` (and forwarded to
+    ``ICEBERG_CHANGELOG_SCAN`` as start/end timestamp bounds).
+
+    Returns ``(start_timestamp_ms, end_timestamp_ms)`` where each is
+    ``None`` when the corresponding option is absent.
+    """
+    normalized = {k.lower(): v for k, v in options.items()}
+
+    def _parse_ts(key: str) -> int | None:
+        raw = normalized.get(key)
+        if raw is None:
+            return None
+        try:
+            return int(raw)
+        except (TypeError, ValueError):
+            exception = AnalysisException(
+                f"Iceberg '{key}' option must be a 64-bit integer "
+                f"count of milliseconds since the Unix epoch, got {raw!r}."
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+            raise exception
+
+    return _parse_ts("start-timestamp"), _parse_ts("end-timestamp")
 
 
 def _resolve_iceberg_dataframe_as_of_aliases(
@@ -1684,6 +1766,8 @@ def get_table_from_name(
     iceberg_start_snapshot_id: int | None = None,
     iceberg_end_snapshot_id: int | None = None,
     iceberg_branch: str | None = None,
+    iceberg_start_timestamp_ms: int | None = None,
+    iceberg_end_timestamp_ms: int | None = None,
 ) -> DataFrameContainer:
     """Resolve a Spark table identifier to a Snowpark DataFrame container.
 
@@ -1794,34 +1878,105 @@ def get_table_from_name(
         )
         attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
         raise exception
-    if (
-        "end-snapshot-id" in set_incremental
-        and "start-snapshot-id" not in set_incremental
-    ):
-        # map_read_table validates options via _extract_iceberg_incremental_snapshot_ids
-        # first; this guard covers direct get_table_from_name callers that pass parsed
-        # iceberg_*_snapshot_id kwargs without going through option extraction.
-        exception = AnalysisException(
-            "Iceberg incremental read requires 'start-snapshot-id'; "
-            "'end-snapshot-id' cannot be used alone."
-        )
-        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
-        raise exception
-
     # Split the table name into parts and capture per-part backtick flags so
     # that `transform_identifier_for_snowflake` gets the right hint per part
     # without needing a request-global name-only lookup. The parts list itself
     # is identical to what `split_fully_qualified_spark_name` returns.
     parts, backtick_flags = split_fully_qualified_spark_name_with_quoting(table_name)
 
+    if (
+        "end-snapshot-id" in set_incremental
+        and "start-snapshot-id" not in set_incremental
+    ):
+        # Validate for non-changelog incremental reads only.
+        # ICEBERG_CHANGELOG_SCAN supports end-snapshot-id alone (= "from
+        # the beginning up to this snapshot"), matching OSS Spark behavior.
+        _, meta = _split_iceberg_metadata_table_name(parts)
+        if meta != "changes":
+            exception = AnalysisException(
+                "Iceberg incremental read requires 'start-snapshot-id'; "
+                "'end-snapshot-id' cannot be used alone."
+            )
+            attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+            raise exception
+
     base_table_parts, metadata_table_name = _split_iceberg_metadata_table_name(parts)
     if metadata_table_name is not None:
-        # SNOW-3471788: time travel options (snapshot-id, as-of-timestamp,
-        # tag, version-ref, branch, start/end-snapshot-id) are silently
-        # ignored on metadata tables
-        # — matching OSS Spark+Iceberg behaviour. Metadata tables always reflect
-        # current state. Previous behaviour raised AnalysisException; callers
-        # relying on that error will no longer receive it.
+        # SNOW-3471788: time travel options are silently ignored on
+        # metadata tables — matching OSS Spark+Iceberg behaviour.
+        #
+        # SEMANTIC COMPATIBILITY: `.changes` is an exception — it forwards
+        # start/end snapshot-id and timestamp bounds to ICEBERG_CHANGELOG_SCAN,
+        # and translates VERSION AS OF / TIMESTAMP AS OF into end-bound args
+        # (DELTA-003). This diverges from other metadata tables (which silently
+        # ignore bounds) to match Spark's IncrementalChangelogScan behavior.
+        # Unsupported bound forms (version-tag, version-ref, branch) are
+        # explicitly rejected with AnalysisException.
+        changelog_kwargs: dict = {}
+        if metadata_table_name == "changes":
+            # Reject unsupported time-travel forms on .changes
+            if iceberg_version_tag is not None:
+                exception = AnalysisException(
+                    "Iceberg changelog (.changes) does not support 'version-tag' time travel."
+                )
+                attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+                raise exception
+            if iceberg_version_ref is not None:
+                exception = AnalysisException(
+                    "Iceberg changelog (.changes) does not support 'version-ref' time travel."
+                )
+                attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+                raise exception
+            if iceberg_branch is not None:
+                exception = AnalysisException(
+                    "Iceberg changelog (.changes) does not support 'branch' time travel."
+                )
+                attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
+                raise exception
+            eff_start_snap = iceberg_start_snapshot_id
+            eff_end_snap = iceberg_end_snapshot_id
+            # DELTA-003: VERSION AS OF -> end snapshot bound
+            if iceberg_snapshot_id is not None and eff_end_snap is None:
+                eff_end_snap = iceberg_snapshot_id
+            # SNOW-3957372: a snapshot-bounded `.changes` read is an Iceberg
+            # incremental read (routed to ICEBERG_CHANGELOG_SCAN). Record it under
+            # surface="changelog" so incremental-read adoption isn't undercounted --
+            # this branch returns ~80 lines before the plain-table
+            # SPARK_INCREMENTAL_READ hook below. `.changes` also allows end-only.
+            if eff_start_snap is not None or eff_end_snap is not None:
+                from snowflake.snowpark_connect.utils.cld_context import (
+                    is_in_cld_context,
+                )
+
+                if eff_start_snap is not None and eff_end_snap is not None:
+                    _incr_bound_kind = "closed"
+                elif eff_start_snap is not None:
+                    _incr_bound_kind = "start_only"
+                else:
+                    _incr_bound_kind = "end_only"
+                telemetry.report_iceberg_incremental_read(
+                    bound_kind=_incr_bound_kind,
+                    surface="changelog",
+                    catalog_kind="cld" if is_in_cld_context() else "managed",
+                )
+            # DELTA-003: TIMESTAMP AS OF -> end timestamp bound
+            eff_start_ts = None
+            eff_end_ts = None
+            if iceberg_as_of_timestamp is not None:
+                eff_end_ts = int(iceberg_as_of_timestamp.timestamp() * 1000)
+            # Forward start-timestamp / end-timestamp reader options
+            # (millis-since-epoch, same contract as Spark's
+            # IncrementalChangelogScan).
+            if iceberg_start_timestamp_ms is not None:
+                eff_start_ts = iceberg_start_timestamp_ms
+            if iceberg_end_timestamp_ms is not None:
+                eff_end_ts = iceberg_end_timestamp_ms
+            changelog_kwargs = dict(
+                changelog_start_snapshot_id=eff_start_snap,
+                changelog_end_snapshot_id=eff_end_snap,
+                changelog_start_timestamp_ms=eff_start_ts,
+                changelog_end_timestamp_ms=eff_end_ts,
+            )
         return _read_iceberg_metadata_table(
             table_name,
             base_table_parts,
@@ -1829,6 +1984,7 @@ def get_table_from_name(
             metadata_table_name,
             session,
             plan_id,
+            **changelog_kwargs,
         )
 
     # Check temp view first with quoted (but not uppercased) name
@@ -1901,6 +2057,15 @@ def get_table_from_name(
     elif iceberg_branch is not None:
         df = session.read.option("branch", iceberg_branch).table(snowpark_name)
     elif iceberg_start_snapshot_id is not None:
+        from snowflake.snowpark_connect.utils.cld_context import is_in_cld_context
+
+        telemetry.report_iceberg_incremental_read(
+            bound_kind="closed"
+            if iceberg_end_snapshot_id is not None
+            else "start_only",
+            surface="plain_table",
+            catalog_kind="cld" if is_in_cld_context() else "managed",
+        )
         # SNOW-3527701: Snowpark routes incremental reads through
         # TABLE(SPARK_INCREMENTAL_READ(...)), which supports unmanaged Iceberg
         # (including CLD). The legacy CHANGES clause was managed-only; SCOS
@@ -1969,6 +2134,8 @@ def map_read_table(
     iceberg_start_snapshot_id: int | None = None
     iceberg_end_snapshot_id: int | None = None
     iceberg_branch: str | None = None
+    iceberg_start_timestamp_ms: int | None = None
+    iceberg_end_timestamp_ms: int | None = None
     if rel.read.HasField("named_table"):
         # ``spark.read.table("t")`` can carry per-read ``option()`` values on
         # the named-table Connect path (see PySpark ``Read`` plan). Iceberg
@@ -2011,6 +2178,10 @@ def map_read_table(
             iceberg_start_snapshot_id,
             iceberg_end_snapshot_id,
         ) = _extract_iceberg_incremental_snapshot_ids(options)
+        (
+            iceberg_start_timestamp_ms,
+            iceberg_end_timestamp_ms,
+        ) = _extract_iceberg_changelog_timestamps(options)
         has_explicit_time_travel = any(
             value is not None
             for value in (
@@ -2041,4 +2212,6 @@ def map_read_table(
         iceberg_start_snapshot_id=iceberg_start_snapshot_id,
         iceberg_end_snapshot_id=iceberg_end_snapshot_id,
         iceberg_branch=iceberg_branch,
+        iceberg_start_timestamp_ms=iceberg_start_timestamp_ms,
+        iceberg_end_timestamp_ms=iceberg_end_timestamp_ms,
     )

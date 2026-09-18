@@ -9,6 +9,7 @@ from iminuit._optional_dependencies import optional_module_for
 import pickle
 from iminuit._hide_modules import hide_modules
 from iminuit.util import is_module_available
+from iminuit.typing import Annotated, Gt, Lt
 
 
 def test_ndim():
@@ -20,6 +21,11 @@ def test_ndim():
     assert ndim((None, None)) == 1
     assert ndim(((1, 2), None)) == 2
     assert ndim((None, (1, 2))) == 2
+    # a str is treated as a scalar; otherwise this would loop forever, since
+    # indexing a 1-char str yields the str itself (reachable via e.g.
+    # m.limits[:] = "ab" typos)
+    assert ndim("ab") == 0
+    assert ndim("") == 0
 
 
 # def test_BasicView():
@@ -79,6 +85,21 @@ def test_ValueView():
     v[["x", "z"]] = (3, 1)
     assert_equal(v, (3, 2, 1))
 
+    # boolean masks must be honored as masks, not silently read as integer
+    # indices. This must hold for both plain-bool lists and numpy bool arrays,
+    # since np.bool_ is not a subclass of the builtin bool.
+    v[:] = (1, 2, 3)
+    assert_equal(v[[True, False, True]], (1, 3))
+    assert_equal(v[np.array([True, False, True])], (1, 3))
+    v[np.array([True, False, True])] = (4, 5)
+    assert_equal(v, (4, 2, 5))
+    v[[True, False, True]] = (1, 3)
+    assert_equal(v, (1, 2, 3))
+
+    # an empty key selects nothing instead of raising IndexError
+    assert_equal(v[[]], [])
+    assert_equal(v[np.array([], dtype=bool)], [])
+
 
 def test_FixedView_as_mask_for_other_views():
     state = MnUserParameterState()
@@ -126,10 +147,10 @@ def test_FixedView_comparison_with_broadcasting():
     assert_equal(f, [False, False, False])
 
     # broadcasting
-    assert f == False  # noqa
+    assert f == False
     f[0] = True
     assert_equal(f, [True, False, False])
-    assert f != False  # noqa
+    assert f != False
 
 
 def test_Matrix():
@@ -168,12 +189,48 @@ def test_Matrix():
     #  3 4 5
     #  6 7 8]
 
-    # m1 = m[:2]
-    # assert_equal(m1, [[0, 1], [3, 4]])
+    m1 = m[:2]
+    assert_equal(m1, [[0, 1], [3, 4]])
+    # sub-matrices track their names (regression test for stale _var2pos)
+    assert m1._names() == ("a", "b")
+    assert m1.to_dict() == {("a", "a"): 0, ("a", "b"): 1, ("b", "b"): 4}
+
     m2 = m[[0, 2]]
     assert_equal(m2, [[0, 2], [6, 8]])
+    assert m2._names() == ("a", "c")
+
+    # boolean selectors are masks, not positions
+    m3 = m[[True, False, True]]
+    assert_equal(m3, [[0, 2], [6, 8]])
+    assert m3._names() == ("a", "c")
+    assert m3["c", "c"] == 8
+
     m3 = m[["a", "c"]]
     assert_equal(m3, [[0, 2], [6, 8]])
+    assert m3.to_dict() == {("a", "a"): 0, ("a", "c"): 2, ("c", "c"): 8}
+    tab, header = m3.to_table()
+    assert header == ("a", "c")
+    assert [row[0] for row in tab] == ["a", "c"]
+    assert "a" in str(m3)
+    assert "a" in m3._repr_html_()
+
+    # negative indices map to the right name
+    assert m[[-1]]._names() == ("c",)
+
+    # fancy indexing with a numpy array is not tracked; labels are positional
+    m4 = m[np.array([0, 2])]
+    assert_equal(m4, [[0, 1, 2], [6, 7, 8]])  # 2x3, not square
+    assert m4._names() == ("0", "1")
+    # non-square matrices fall back to the plain ndarray repr
+    assert str(m4) == repr(m4)
+    assert "<pre>" in m4._repr_html_()
+    assert str(m[0]) == repr(m[0])
+    assert "<pre>" in m[0]._repr_html_()
+
+    # slicing an untracked matrix stays untracked instead of raising
+    m5 = m4[:1]
+    assert m5._names() == ("0",)
+    assert "0" in str(m5)
 
     d = m.to_dict()
     assert list(d.keys()) == [
@@ -236,6 +293,10 @@ def test_Params():
     assert p[1].number == 1
     assert p["foo"].number == 0
     assert p["bar"].number == 1
+
+    # an unknown name raises KeyError, not a bare AssertionError
+    with pytest.raises(KeyError):
+        p["baz"]
 
 
 def test_MError():
@@ -324,6 +385,24 @@ def test_MErrors():
 
     assert repr(mes) == f"<MErrors\n  {mes['x']!r}\n>"
 
+    # indexing works with str and integer keys, including numpy integers
+    assert mes["x"].name == "x"
+    assert mes[0].name == "x"
+    assert mes[np.int64(0)].name == "x"
+    assert mes[-1].name == "x"
+
+    # out-of-range integer raises IndexError
+    with pytest.raises(IndexError):
+        mes[1]
+
+    # unknown name raises KeyError
+    with pytest.raises(KeyError):
+        mes["y"]
+
+    # a non-integer, non-str key raises TypeError, not a bare AssertionError
+    with pytest.raises(TypeError):
+        mes[1.5]
+
 
 @pytest.mark.parametrize("errordef", (0.5, 1.0))
 def test_FMin(errordef):
@@ -377,6 +456,12 @@ def test_FMin(errordef):
     assert fmin != util.FMin(fm, "foo", 1, 2, 0, 0, 1, 0.3, 1.2)
     assert fmin != util.FMin(fm, "bar", 1, 2, 0, 0, 1, 0.1, 1.2)
     assert fmin != util.FMin(fm, "foo", 1, 2, 0, 0, 1, 0.1, 1.5)
+
+    # comparison with non-FMin objects returns False instead of raising
+    assert fmin != 5
+    assert fmin != None
+    assert not (fmin == None)
+    assert (fmin == 5) is False
 
     if errordef == 1:
         reduced_chi2 = fmin.fval
@@ -515,6 +600,20 @@ def test_merge_signatures():
     assert pg == [0, 3, 4]
 
 
+def test_merge_signatures_annotations():
+    def f(x, y: Annotated[float, Gt(0)]):
+        return x + y
+
+    def g(x: Annotated[float, Lt(0)], y):
+        return x + y
+
+    anns, _ = util.merge_signatures([f, g], annotations=True)
+    assert anns == {"x": (-np.inf, 0), "y": (0, np.inf)}
+
+    anns, _ = util.merge_signatures([g, f], annotations=True)
+    assert anns == {"x": (-np.inf, 0), "y": (0, np.inf)}
+
+
 def test_propagate_1():
     pytest.importorskip("scipy")
     cov = [
@@ -618,6 +717,48 @@ def test_iterate():
 def test_replace_none():
     assert util._replace_none(None, 2) == 2
     assert util._replace_none(3, 2) == 3
+
+
+def test_is_module_available():
+    assert is_module_available("numpy") is True
+    assert is_module_available("a_module_that_does_not_exist_xyz") is False
+    # a missing parent package must not raise, just return False
+    assert is_module_available("a_module_that_does_not_exist_xyz.sub") is False
+
+
+def test_hide_modules_restores_on_exception():
+    import sys
+
+    import json  # noqa: F401  (imported so it can be hidden and restored)
+
+    meta_path_before = list(sys.meta_path)
+
+    with pytest.raises(RuntimeError):
+        with hide_modules("json"):
+            assert "json" not in sys.modules
+            raise RuntimeError("boom")
+
+    # both sys.meta_path and the hidden module are restored despite the error
+    assert list(sys.meta_path) == meta_path_before
+    assert "json" in sys.modules
+
+
+def test_hide_modules_finder_already_removed():
+    import sys
+
+    import json  # noqa: F401
+
+    meta_path_before = list(sys.meta_path)
+
+    with hide_modules("json"):
+        # code inside the block rebuilds sys.meta_path without our finder;
+        # exit must not raise even though there is nothing to remove
+        sys.meta_path = [
+            f for f in sys.meta_path if type(f).__name__ != "HiddenModules"
+        ]
+
+    assert list(sys.meta_path) == meta_path_before
+    assert "json" in sys.modules
 
 
 def test_progressbar(capsys):
@@ -771,6 +912,14 @@ def test_positive_definite():
     assert util.is_positive_definite([[1, 0], [0, 1]])
     assert not util.is_positive_definite([[1, 1], [1, 1]])
     assert not util.is_positive_definite([[1, 0], [1, 1]])
+
+
+def test_timer_accumulates():
+    fmin = Namespace(time=1.0)
+    t = util._Timer(fmin)
+    with t:
+        pass
+    assert t.value >= 1.0
 
 
 def test_is_jupyter_1():

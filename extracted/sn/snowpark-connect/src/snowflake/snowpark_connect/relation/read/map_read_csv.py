@@ -124,7 +124,7 @@ def _nss_read_csv(
     paths: list[str],
     options: CsvReaderConfig,
     *,
-    relax_schema_nullability: bool = False,
+    glob_patterns: dict[str, str] | None = None,
 ) -> DataFrameContainer | None:
     """Read CSV through the NSS ``STAGE_FILE_READER`` path when enabled.
 
@@ -133,9 +133,6 @@ def _nss_read_csv(
     ``INFER_STAGE_FILE_SCHEMA`` — which returns columns in file order (sorted by
     ``ORDER_ID``), so the positional CSV read (Spark's ``enforceSchema`` default) stays
     aligned.
-
-    ``relax_schema_nullability`` mirrors the caller's ``_make_schema_nullable`` decision
-    onto the proto schema this branch re-parses (SNOW-3891605).
     """
     nss_enabled, nss_reason = resolve_nss_path()
     # SNOW-3957228: record the EFFECTIVE path at the point the read dispatches, so NSS vs
@@ -262,6 +259,7 @@ def _nss_read_csv(
             corrupt_record_column=corrupt_record_column_name,
             reader_options=nss_infer_reader_options,
             stage_paths=stage_paths,
+            glob_patterns=glob_patterns,
         )
         if not nss_columns:
             # Any non-empty CSV record has at least one positional field, so an
@@ -296,8 +294,21 @@ def _nss_read_csv(
             )
             attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
             raise exception
-        if relax_schema_nullability:
-            parsed_spark_schema = py_schema_as_nullable(parsed_spark_schema)
+        # SPARK-35912: a file source can always yield NULL, so Spark relaxes the read
+        # schema unconditionally (``dataSchema.asNullable`` in ``DataSource``) regardless
+        # of read mode. A NOT-NULL DATA_SCHEMA column instead makes GS materialize a
+        # genuinely non-nullable column, so an unparseable value that PERMISSIVE nulls out
+        # fails the read with 100072 (SNOW-3891605). The COPY path relaxes its temp table
+        # the same way (utils.py's `_load_file_with_copy_into`, also unconditional for
+        # csv/json), and ``map_read_json`` already does this unconditionally.
+        #
+        # Orthogonal to `io_validations_mode` (the lenient/strict knob above, in
+        # map_read_csv): that one controls whether the *reported* schema
+        # (`df.schema`) echoes the caller's literal nullable=False or relaxes it to
+        # match Spark's real output. This relaxation is about whether the *read
+        # itself succeeds* -- DATA_SCHEMA must be nullable regardless of that knob,
+        # the same way the COPY temp table is relaxed regardless of it.
+        parsed_spark_schema = py_schema_as_nullable(parsed_spark_schema)
         # Reject duplicates before the backend call: fail fast, and never ship a schema GS
         # would have to reject (#5446).
         check_read_schema_column_name_duplication(
@@ -322,6 +333,7 @@ def _nss_read_csv(
         session=session,
         stage_path=stage_path,
         stage_paths=stage_paths,
+        glob_patterns=glob_patterns,
         file_format=format_name,
         columns=nss_columns,
         reader_options=nss_reader_options,
@@ -347,7 +359,7 @@ def _nss_read_csv(
             df, rel.common.plan_id
         )
     except SnowparkSQLException as exc:
-        if len(stage_paths) > 1:
+        if len(stage_paths) > 1 or any(p in (glob_patterns or {}) for p in stage_paths):
             raise_if_locations_unsupported(exc, len(stage_paths))
         raise
     # Memoizable in df_cache_map, but not materialized (SNOW-3717231).
@@ -380,6 +392,7 @@ def map_read_csv(
     options: CsvReaderConfig,
     *,
     skip_partition_discovery: bool = False,
+    glob_patterns: dict[str, str] | None = None,
 ) -> DataFrameContainer:
     """
     Read a CSV file into a Snowpark DataFrame.
@@ -431,7 +444,7 @@ def map_read_csv(
             session,
             paths,
             options,
-            relax_schema_nullability=io_validations_mode == "strict",
+            glob_patterns=glob_patterns,
         )
         if nss_container is not None:
             return nss_container

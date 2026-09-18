@@ -37,6 +37,7 @@ from matrx_utils import capture_error, supervised_task, vcprint
 
 from matrx_scraper._ext import get_ext, has_ext
 from matrx_scraper.db.models_scraper import ScrapeFailureLog, ScrapeRetryQueue
+from matrx_scraper.ladder import LadderPolicy
 from matrx_scraper.orchestrator import ScrapeResult, scrape_many_stream
 from matrx_scraper.scrape_options import ScrapeOptions, apply_field_flags
 from matrx_scraper.search.search import async_brave_search
@@ -166,6 +167,17 @@ class ScrapeService:
         self.use_cache: bool = True
         self.options: ScrapeOptions = ScrapeOptions()
 
+        # The capture ladder's CLIENT rungs — the person's own logged-in Chrome
+        # (`own_browser`) and the person driving it (`human_drive`). Which of
+        # them an organization allows is an organization's decision, not this
+        # package's, and this package has no database to ask. So the HOST
+        # resolves it through the `ladder_policy_resolver` ext (aidream wires
+        # `aidream/services/capture_ladder/policy.py`), or a caller sets this
+        # attribute directly. Absent both, the ladder's own defaults apply —
+        # which are ON, because a capability defaulted off is a capability
+        # nobody has.
+        self.ladder_policy: LadderPolicy | None = None
+
         # Search-related state
         self.keyword: str | None = None
         self.keywords: list[str] = []
@@ -173,6 +185,33 @@ class ScrapeService:
         self.total_results_per_keyword: int = 10
         self.max_page_read: int = 10
         self.search_type: str = "all"
+
+    async def _resolve_ladder_policy(self) -> LadderPolicy | None:
+        """The organization's rung policy, from the caller or from the host.
+
+        Returns `None` when neither says anything, which the orchestrator reads
+        as the package defaults. A resolver that fails is never fatal and never
+        silent: the scrape continues on the defaults and the failure is printed,
+        because a scrape that dies because a settings row was unreadable is a
+        worse outcome than a scrape that offers a rung the org had turned off.
+        """
+        if self.ladder_policy is not None:
+            return self.ladder_policy
+        if not has_ext("ladder_policy_resolver"):
+            return None
+        try:
+            resolved = get_ext("ladder_policy_resolver")()
+            if hasattr(resolved, "__await__"):
+                resolved = await resolved
+            return resolved
+        except Exception as exc:  # noqa: BLE001 — announced, never fatal
+            vcprint(
+                f"[ScrapeService] ladder policy unresolved ({type(exc).__name__}: "
+                f"{exc}); this scrape uses the platform defaults for which rungs "
+                f"a page may be offered to next.",
+                color="yellow",
+            )
+            return None
 
     def _resolve_cache(self) -> Any | None:
         """The L2 page cache for this scrape, or ``None``.
@@ -198,8 +237,12 @@ class ScrapeService:
         ready.  The caller receives one ``fetch_results`` envelope per page.
         """
         start = time.monotonic()
+        ladder_policy = await self._resolve_ladder_policy()
         async for result in scrape_many_stream(
-            self.urls, use_proxy=True, cache=self._resolve_cache()
+            self.urls,
+            use_proxy=True,
+            cache=self._resolve_cache(),
+            ladder_policy=ladder_policy,
         ):
             if not result.success:
                 supervised_task(
@@ -225,8 +268,12 @@ class ScrapeService:
         """
         start = time.monotonic()
         results: list[dict[str, Any]] = []
+        ladder_policy = await self._resolve_ladder_policy()
         async for result in scrape_many_stream(
-            self.urls, use_proxy=True, cache=self._resolve_cache()
+            self.urls,
+            use_proxy=True,
+            cache=self._resolve_cache(),
+            ladder_policy=ladder_policy,
         ):
             results.append(_apply_field_flags(result.to_dict(), self.options))
         elapsed_ms = round((time.monotonic() - start) * 1000, 1)
@@ -320,8 +367,12 @@ class ScrapeService:
         )
 
         start = time.monotonic()
+        ladder_policy = await self._resolve_ladder_policy()
         async for result in scrape_many_stream(
-            all_urls, use_proxy=True, cache=self._resolve_cache()
+            all_urls,
+            use_proxy=True,
+            cache=self._resolve_cache(),
+            ladder_policy=ladder_policy,
         ):
             if not result.success:
                 supervised_task(

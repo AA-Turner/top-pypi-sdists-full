@@ -76,7 +76,7 @@ class PaymentMethodsClient:
             Returns the last _n_ elements from the list.
 
         member_id : typing.Optional[str]
-            The unique identifier of the member to list payment methods for. Omit this and company_id to list your own saved payment methods.
+            The unique identifier of the member to list payment methods for. Omit this and account_id to list your own saved payment methods.
 
         direction : typing.Optional[Direction]
 
@@ -124,7 +124,7 @@ class PaymentMethodsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -175,7 +175,7 @@ class PaymentMethodsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaymentMethod:
         """
-        Retrieves the details of an existing payment method. Addresses a member's wallet when member_id or company_id is given, otherwise your own.
+        Retrieves the details of an existing payment method. Addresses a member's wallet when member_id or account_id is given, otherwise your own.
 
         Required permissions:
          - `member:payment_methods:read`
@@ -186,7 +186,7 @@ class PaymentMethodsClient:
             The unique identifier of the payment method.
 
         member_id : typing.Optional[str]
-            The unique identifier of the member. Provide either this or company_id, not both. Omit both to address your own saved payment methods.
+            The unique identifier of the member. Provide either this or account_id, not both. Omit both to address your own saved payment methods.
 
         account_id : typing.Optional[str]
             The unique identifier of the company. Provide either this or member_id, not both. Omit both to address your own saved payment methods.
@@ -204,7 +204,7 @@ class PaymentMethodsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -239,7 +239,7 @@ class PaymentMethodsClient:
             The unique identifier of the payment method to delete.
 
         member_id : typing.Optional[str]
-            The unique identifier of the member. Provide either this or company_id, not both. Omit both to address your own saved payment methods.
+            The unique identifier of the member. Provide either this or account_id, not both. Omit both to address your own saved payment methods.
 
         account_id : typing.Optional[str]
             The unique identifier of the company. Provide either this or member_id, not both. Omit both to address your own saved payment methods.
@@ -257,7 +257,7 @@ class PaymentMethodsClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -332,7 +332,7 @@ class AsyncPaymentMethodsClient:
             Returns the last _n_ elements from the list.
 
         member_id : typing.Optional[str]
-            The unique identifier of the member to list payment methods for. Omit this and company_id to list your own saved payment methods.
+            The unique identifier of the member to list payment methods for. Omit this and account_id to list your own saved payment methods.
 
         direction : typing.Optional[Direction]
 
@@ -381,7 +381,7 @@ class AsyncPaymentMethodsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -439,7 +439,7 @@ class AsyncPaymentMethodsClient:
         request_options: typing.Optional[RequestOptions] = None,
     ) -> PaymentMethod:
         """
-        Retrieves the details of an existing payment method. Addresses a member's wallet when member_id or company_id is given, otherwise your own.
+        Retrieves the details of an existing payment method. Addresses a member's wallet when member_id or account_id is given, otherwise your own.
 
         Required permissions:
          - `member:payment_methods:read`
@@ -450,7 +450,7 @@ class AsyncPaymentMethodsClient:
             The unique identifier of the payment method.
 
         member_id : typing.Optional[str]
-            The unique identifier of the member. Provide either this or company_id, not both. Omit both to address your own saved payment methods.
+            The unique identifier of the member. Provide either this or account_id, not both. Omit both to address your own saved payment methods.
 
         account_id : typing.Optional[str]
             The unique identifier of the company. Provide either this or member_id, not both. Omit both to address your own saved payment methods.
@@ -470,7 +470,7 @@ class AsyncPaymentMethodsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -511,7 +511,7 @@ class AsyncPaymentMethodsClient:
             The unique identifier of the payment method to delete.
 
         member_id : typing.Optional[str]
-            The unique identifier of the member. Provide either this or company_id, not both. Omit both to address your own saved payment methods.
+            The unique identifier of the member. Provide either this or account_id, not both. Omit both to address your own saved payment methods.
 
         account_id : typing.Optional[str]
             The unique identifier of the company. Provide either this or member_id, not both. Omit both to address your own saved payment methods.
@@ -531,7 +531,7 @@ class AsyncPaymentMethodsClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

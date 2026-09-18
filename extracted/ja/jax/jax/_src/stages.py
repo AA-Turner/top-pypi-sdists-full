@@ -64,7 +64,7 @@ traceback_util.register_exclusion(__file__)
 map, unsafe_map = util.safe_map, map
 zip, unsafe_zip = util.safe_zip, zip
 
-CompilerOptions = dict[str, str | bool]
+CompilerOptions = dict[str, Any]
 
 
 # -- Internal types
@@ -390,7 +390,7 @@ def _traced_out_info(self):
   out = []
   for a, out_s, out_l in zip(self.jaxpr.out_avals, out_shardings, out_layouts):
     if isinstance(a, core.ShapedArray):
-      s = ((a.sharding if a.sharding.mesh._are_all_axes_explicit_or_manual
+      s = ((a.sharding if a.sharding.mesh.are_all_axes_explicit_or_manual
             else out_s) if out_s is None else out_s)
       out.append(
           core.ShapeDtypeStruct(
@@ -436,6 +436,10 @@ class Traced(Stage):
   @property
   def out_avals(self):
     return tree_unflatten(self.out_tree, self.jaxpr.out_avals)
+
+  @property
+  def effects(self) -> frozenset[core.Effect]:
+    return frozenset(core.positional_effects(self.jaxpr))
 
   def __call__(self, *args, **kwargs):
     args_flat = tree_util.tree_leaves_checked(self.in_tree, (args, kwargs))
@@ -491,6 +495,18 @@ class Traced(Stage):
     traced._params = dict(traced._params, name=self.fun_name)
     traced._fun_sourceinfo = self._fun_sourceinfo
     return consts, traced
+
+  def physicalize(self, ctx) -> Traced:
+    new_jaxpr = ctx.physicalize_closed_jaxpr(self.jaxpr)
+    new_params = dict(self._params, jaxpr=new_jaxpr)
+    return Traced(
+        list(new_jaxpr.in_avals),
+        new_params,
+        self._in_tree,
+        self.out_tree,
+        self._consts,
+        self._fun_sourceinfo,
+    )
 
   @property
   def lojax(self) -> LoJax:

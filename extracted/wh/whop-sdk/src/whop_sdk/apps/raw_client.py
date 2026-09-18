@@ -17,11 +17,8 @@ from ..core.serialization import convert_and_respect_annotation_metadata
 from ..errors.bad_request_error import BadRequestError
 from ..errors.conflict_error import ConflictError
 from ..errors.forbidden_error import ForbiddenError
-from ..errors.internal_server_error import InternalServerError
 from ..errors.not_found_error import NotFoundError
-from ..errors.too_many_requests_error import TooManyRequestsError
 from ..errors.unauthorized_error import UnauthorizedError
-from ..errors.unprocessable_entity_error import UnprocessableEntityError
 from ..types.app import App
 from ..types.app_deployment import AppDeployment
 from ..types.app_list_item import AppListItem
@@ -41,9 +38,6 @@ from .types.update_apps_request_app_type import UpdateAppsRequestAppType
 from .types.update_apps_request_icon import UpdateAppsRequestIcon
 from .types.update_apps_request_oauth_client_type import UpdateAppsRequestOauthClientType
 from .types.update_apps_request_status import UpdateAppsRequestStatus
-from .types.update_permissions_app_request_requested_permissions_item import (
-    UpdatePermissionsAppRequestRequestedPermissionsItem,
-)
 from .types.update_permissions_apps_request_requested_permissions_item import (
     UpdatePermissionsAppsRequestRequestedPermissionsItem,
 )
@@ -108,16 +102,16 @@ class RawAppsClient:
             Sort direction.
 
         first : typing.Optional[int]
-            The number of apps to return (default 20, max 100).
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            A cursor; returns apps after this position.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            The number of apps to return from the end of the range.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            A cursor; returns apps before this position.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -350,155 +344,14 @@ class RawAppsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    def update_permissions_app(
-        self,
-        app_id: str,
-        *,
-        requested_permissions: typing.Sequence[UpdatePermissionsAppRequestRequestedPermissionsItem],
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> HttpResponse[bool]:
-        """
-        Updates the permission requirements for an app
-
-        Required permissions:
-         - `developer:update_app_authorization`
-
-        Parameters
-        ----------
-        app_id : str
-            The ID of the app the permission requirements are being updated for
-
-        requested_permissions : typing.Sequence[UpdatePermissionsAppRequestRequestedPermissionsItem]
-            The permissions that the app will request off of users when a user installs the app.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        HttpResponse[bool]
-            A successful response
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"apps/{encode_path_param(app_id)}/permissions",
-            method="PATCH",
-            json={
-                "requested_permissions": convert_and_respect_annotation_metadata(
-                    object_=requested_permissions,
-                    annotation=typing.Sequence[UpdatePermissionsAppRequestRequestedPermissionsItem],
-                    direction="write",
-                ),
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    bool,
-                    parse_obj_as(
-                        type_=bool,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return HttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 429:
-                raise TooManyRequestsError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 500:
-                raise InternalServerError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
     def retrieve(self, id: str, *, request_options: typing.Optional[RequestOptions] = None) -> HttpResponse[App]:
         """
-        Retrieves an app by ID, claimed route, or proxy domain id. Credential fields (api_key, default_api_key, secrets) render `null` unless the caller has the corresponding developer permission on the owning account.
+        Retrieves an app by ID, claimed route, active verified custom hostname, or proxy domain id. Custom hostnames return 404 for inactive assignments, suspended accounts, or deleted apps. Credential fields (api_key, default_api_key, secrets) render `null` unless the caller has the corresponding developer permission on the owning account.
 
         Parameters
         ----------
         id : str
-            App ID (prefixed `app_`), the app's claimed route, or its proxy domain id.
+            App ID (prefixed `app_`). Retrieval also accepts the app's claimed route, an active verified custom hostname, or its proxy domain id.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -552,7 +405,7 @@ class RawAppsClient:
         Parameters
         ----------
         id : str
-            App ID (prefixed `app_`), the app's claimed route, or its proxy domain id.
+            App ID (prefixed `app_`). Retrieval also accepts the app's claimed route, an active verified custom hostname, or its proxy domain id.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -651,7 +504,7 @@ class RawAppsClient:
         Parameters
         ----------
         id : str
-            App ID (prefixed `app_`), the app's claimed route, or its proxy domain id.
+            App ID (prefixed `app_`). Retrieval also accepts the app's claimed route, an active verified custom hostname, or its proxy domain id.
 
         app_store_description : typing.Optional[str]
             The detailed description shown on the app store's in-depth app view page.
@@ -930,13 +783,13 @@ class RawAppsClient:
             End of the time window as an ISO 8601 timestamp. Defaults to now.
 
         first : typing.Optional[int]
-            The number of log lines to return (max 500).
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            A cursor for fetching logs after a previous page.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         before : typing.Optional[str]
-            A cursor for fetching logs before a later page.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1192,16 +1045,16 @@ class AsyncRawAppsClient:
             Sort direction.
 
         first : typing.Optional[int]
-            The number of apps to return (default 20, max 100).
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            A cursor; returns apps after this position.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            The number of apps to return from the end of the range.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            A cursor; returns apps before this position.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1437,157 +1290,16 @@ class AsyncRawAppsClient:
             )
         raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
 
-    async def update_permissions_app(
-        self,
-        app_id: str,
-        *,
-        requested_permissions: typing.Sequence[UpdatePermissionsAppRequestRequestedPermissionsItem],
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> AsyncHttpResponse[bool]:
-        """
-        Updates the permission requirements for an app
-
-        Required permissions:
-         - `developer:update_app_authorization`
-
-        Parameters
-        ----------
-        app_id : str
-            The ID of the app the permission requirements are being updated for
-
-        requested_permissions : typing.Sequence[UpdatePermissionsAppRequestRequestedPermissionsItem]
-            The permissions that the app will request off of users when a user installs the app.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        AsyncHttpResponse[bool]
-            A successful response
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"apps/{encode_path_param(app_id)}/permissions",
-            method="PATCH",
-            json={
-                "requested_permissions": convert_and_respect_annotation_metadata(
-                    object_=requested_permissions,
-                    annotation=typing.Sequence[UpdatePermissionsAppRequestRequestedPermissionsItem],
-                    direction="write",
-                ),
-            },
-            headers={
-                "content-type": "application/json",
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                _data = typing.cast(
-                    bool,
-                    parse_obj_as(
-                        type_=bool,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-                return AsyncHttpResponse(response=_response, data=_data)
-            if _response.status_code == 400:
-                raise BadRequestError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 401:
-                raise UnauthorizedError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 403:
-                raise ForbiddenError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 404:
-                raise NotFoundError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 429:
-                raise TooManyRequestsError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            if _response.status_code == 500:
-                raise InternalServerError(
-                    headers=dict(_response.headers),
-                    body=typing.cast(
-                        typing.Any,
-                        parse_obj_as(
-                            type_=typing.Any,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    ),
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response.text)
-        except ValidationError as e:
-            raise ParsingError(
-                status_code=_response.status_code, headers=dict(_response.headers), body=_response.json(), cause=e
-            )
-        raise ApiError(status_code=_response.status_code, headers=dict(_response.headers), body=_response_json)
-
     async def retrieve(
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[App]:
         """
-        Retrieves an app by ID, claimed route, or proxy domain id. Credential fields (api_key, default_api_key, secrets) render `null` unless the caller has the corresponding developer permission on the owning account.
+        Retrieves an app by ID, claimed route, active verified custom hostname, or proxy domain id. Custom hostnames return 404 for inactive assignments, suspended accounts, or deleted apps. Credential fields (api_key, default_api_key, secrets) render `null` unless the caller has the corresponding developer permission on the owning account.
 
         Parameters
         ----------
         id : str
-            App ID (prefixed `app_`), the app's claimed route, or its proxy domain id.
+            App ID (prefixed `app_`). Retrieval also accepts the app's claimed route, an active verified custom hostname, or its proxy domain id.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1641,7 +1353,7 @@ class AsyncRawAppsClient:
         Parameters
         ----------
         id : str
-            App ID (prefixed `app_`), the app's claimed route, or its proxy domain id.
+            App ID (prefixed `app_`). Retrieval also accepts the app's claimed route, an active verified custom hostname, or its proxy domain id.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1740,7 +1452,7 @@ class AsyncRawAppsClient:
         Parameters
         ----------
         id : str
-            App ID (prefixed `app_`), the app's claimed route, or its proxy domain id.
+            App ID (prefixed `app_`). Retrieval also accepts the app's claimed route, an active verified custom hostname, or its proxy domain id.
 
         app_store_description : typing.Optional[str]
             The detailed description shown on the app store's in-depth app view page.
@@ -2019,13 +1731,13 @@ class AsyncRawAppsClient:
             End of the time window as an ISO 8601 timestamp. Defaults to now.
 
         first : typing.Optional[int]
-            The number of log lines to return (max 500).
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            A cursor for fetching logs after a previous page.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         before : typing.Optional[str]
-            A cursor for fetching logs before a later page.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.

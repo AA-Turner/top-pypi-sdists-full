@@ -73,6 +73,23 @@ def test_feedback_unmasks_planted_bug_via_size_bound(ctx, cli, snapshot_cli):
     )
 
 
+# A malformed `Content-Type` on a rejection is the server's fault, not the schema's.
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_feedback_ignores_rejection_with_malformed_content_type(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.malformed_content_type_rejection()
+    assert (
+        cli.run(
+            api.schema_url,
+            "--seed=1",
+            "--no-shrink",
+            "--max-examples=5",
+            "--phases=fuzzing",
+            "--mode=positive",
+        )
+        == snapshot_cli
+    )
+
+
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_feedback_unmasks_planted_bug_via_format(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.format_planted_bug()
@@ -535,6 +552,22 @@ def test_feedback_unmasks_planted_bug_via_flask_rest_envelope(ctx, cli, snapshot
 @pytest.mark.snapshot(replace_reproduce_with=True)
 def test_feedback_unmasks_planted_bug_via_litestar_envelope(ctx, cli, snapshot_cli):
     api = ctx.openapi.apps.litestar_planted_bug()
+    assert (
+        cli.run(
+            api.schema_url,
+            "--no-shrink",
+            "--max-examples=10",
+            "--phases=coverage,fuzzing",
+            "--mode=positive",
+            "--continue-on-failure",
+        )
+        == snapshot_cli
+    )
+
+
+@pytest.mark.snapshot(replace_reproduce_with=True)
+def test_feedback_unmasks_planted_bug_via_restler_envelope(ctx, cli, snapshot_cli):
+    api = ctx.openapi.apps.restler_planted_bug()
     assert (
         cli.run(
             api.schema_url,

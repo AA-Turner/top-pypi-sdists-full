@@ -306,7 +306,8 @@ def approve(
         post_briefing,
         route_work_by_capability,
     )
-    from coord.network import classify_error, fetch_repos, fetch_status
+    from coord.dispatch_liveness import github_issue_liveness_fetcher
+    from coord.network import claude_credential_reachable, classify_error, fetch_repos, fetch_status
     from coord.state import (
         clear_proposals,
         load_proposals,
@@ -314,6 +315,11 @@ def approve(
     )
 
     cfg = _load_config(config_path)
+    # #3376 review round 1: `coord approve` is THE production entry point
+    # for approved-proposal dispatch — wire the real issue-liveness fetcher
+    # here the same way `credential_fetcher` is already wired just below,
+    # or the two new predicates stay a mechanism nothing calls.
+    _issue_liveness_fetcher = github_issue_liveness_fetcher(cfg)
     proposals = load_proposals()
     if not proposals:
         click.echo("No pending proposals. Run `coord plan` first.", err=True)
@@ -784,6 +790,16 @@ def approve(
                 # no-op is served from the batch cache rather than costing
                 # a second real `GET /status` per proposal (#3353 review).
                 status_fetcher=_status_fetcher,
+                # #3371: wire the STRUCTURAL CREDENTIAL-HEALTH GATE to a real
+                # live probe — `coord approve` is a production entry point,
+                # not a test, so this must not stay opt-in-but-unwired (the
+                # exact gap the #3371 review round found: a mechanism that
+                # exists but nothing actually calls).
+                credential_fetcher=claude_credential_reachable,
+                # #3376 review round 1: the other two STRUCTURAL DISPATCH-
+                # LIVENESS GATE predicates (issue closed / branch already
+                # merged) — see `github_issue_liveness_fetcher`'s docstring.
+                issue_liveness_fetcher=_issue_liveness_fetcher,
             )
         except httpx.HTTPError as e:
             state, reason = classify_error(e)
@@ -2210,9 +2226,28 @@ def retry(assignment_id: str, config_path: Path, acknowledge_cost: bool = False)
 
     original_model = assignment.model or cfg.models.default
     if provider_type_for(resolved_provider_name, cfg.providers) in IMPLICIT_PROVIDER_TYPES:
-        escalated = cfg.models.next_model(original_model)
-        if escalated != original_model:
-            click.echo(f"  escalating model: {original_model} → {escalated}")
+        # #3360: classify what actually failed before climbing the ladder —
+        # a compliance nit (a ratchet, a lint/formatter check, a
+        # files_forbidden violation) re-dispatches at the SAME rung, since no
+        # model-capability difference fixes a repo-specific fact the worker
+        # was never told (#3357 paid for exactly this on the top rung).
+        from coord.failure_classifier import (  # noqa: PLC0415
+            classify_failure,
+            failure_text_for_assignment,
+        )
+
+        classification = classify_failure(failure_text_for_assignment(assignment))
+        if classification.should_escalate:
+            escalated = cfg.models.next_model(original_model)
+            if escalated != original_model:
+                click.echo(f"  escalating model: {original_model} → {escalated}")
+        else:
+            escalated = original_model
+            click.echo(
+                f"  not escalating model (#3360, {classification.category}"
+                + (f": {classification.matched}" if classification.matched else "")
+                + f") — staying on {original_model or 'default'}"
+            )
         retry_model = escalated
     else:
         # Not a claude-family provider — the escalation ladder doesn't

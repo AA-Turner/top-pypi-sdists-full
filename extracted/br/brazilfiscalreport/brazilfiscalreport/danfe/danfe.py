@@ -44,6 +44,10 @@ tp_frete = {
     "9": "9 - Sem Frete",
 }
 
+RECEIPT_DEFAULT = "default"
+RECEIPT_COLLECTION = "collection"
+RECEIPT_DELIVERY = "delivery"
+
 
 def extract_text(node: Element, tag: str) -> str:
     return get_tag_text(node, URL, tag)
@@ -126,7 +130,11 @@ class Danfe(xFPDF):
             self.dest_cnpj_cpf = extract_text(self.dest, "CPF")
         self.dest_cnpj_cpf = format_cpf_cnpj(self.dest_cnpj_cpf)
 
-        self.recibo_text = self._get_receipt_text()
+        # Extra receipt for the carrier to sign on pickup. Only printed when
+        # enabled and the NF-e has a carrier (transporta) informed.
+        self.receipt_kinds = [RECEIPT_DEFAULT]
+        if config.carrier_receipt and self._has_carrier():
+            self.receipt_kinds = [RECEIPT_COLLECTION, RECEIPT_DELIVERY]
         self.nr_nota = extract_text(self.ide, "nNF")
         self.serie_nf = extract_text(self.ide, "serie")
         self.tp_nf = extract_text(self.ide, "tpNF")
@@ -154,7 +162,7 @@ class Danfe(xFPDF):
         with self._disable_writing():
             y_before = self.get_y()
             if self.receipt_pos == ReceiptPosition.TOP:
-                self._draw_receipt()
+                self._draw_receipts()
             self._draw_header()
             self._draw_recipient_sender()
             self._draw_delivery_location()
@@ -171,7 +179,7 @@ class Danfe(xFPDF):
             self._draw_issqn_calculation()
             self._draw_additional_data(addit_data_current_page)
             if self.receipt_pos == ReceiptPosition.BOTTOM:
-                self._draw_receipt()
+                self._draw_receipts()
             y_after = self.get_y()
         height_after = y_after - y_before
 
@@ -200,9 +208,9 @@ class Danfe(xFPDF):
         # draw real pdf (first page)
         self._draw_void_watermark()
         if self.receipt_pos == ReceiptPosition.LEFT:
-            self._draw_landscape_receipt()
+            self._draw_landscape_receipts()
         if self.receipt_pos == ReceiptPosition.TOP:
-            self._draw_receipt()
+            self._draw_receipts()
         self._draw_header()
         self._draw_recipient_sender()
         self._draw_delivery_location()
@@ -215,7 +223,7 @@ class Danfe(xFPDF):
         self._draw_issqn_calculation()
         self._draw_additional_data(addit_data_current_page)
         if self.receipt_pos == ReceiptPosition.BOTTOM:
-            self._draw_receipt()
+            self._draw_receipts()
         self._draw_footer_stamp()
 
         # draw next pages, if necessary.
@@ -274,7 +282,7 @@ class Danfe(xFPDF):
         """
         if self.orientation == "L" and self.page_no() == 1:
             # TODO get receipt width
-            return self.epw - 19
+            return self.epw - 19 * len(self.receipt_kinds)
         else:
             return self.epw
 
@@ -283,6 +291,34 @@ class Danfe(xFPDF):
         protocol = extract_text(self.prot_nfe, "nProt")
         prot_text = f"{protocol} - {dt} {hr}"
         return prot_text
+
+    def _has_carrier(self):
+        if self.transp is None:
+            return False
+        transporta = self.transp.find(f"{URL}transporta")
+        return any(extract_text(transporta, tag) for tag in ("CNPJ", "CPF", "xNome"))
+
+    def _get_receipt_labels(self, kind):
+        """Return (text, date label, signature label) for a receipt kind."""
+        text = self._get_receipt_text()
+        date_label = "DATA DE RECEBIMENTO"
+        sign_label = "IDENTIFICAÇÃO E ASSINATURA DO RECEBEDOR"
+        if kind == RECEIPT_COLLECTION:
+            transporta = self.transp.find(f"{URL}transporta")
+            carrier_id = extract_text(transporta, "CNPJ")
+            carrier_id_label = "CNPJ"
+            if not carrier_id:
+                carrier_id = extract_text(transporta, "CPF")
+                carrier_id_label = "CPF"
+            carrier = extract_text(transporta, "xNome")
+            if carrier_id:
+                carrier += f", {carrier_id_label}: {format_cpf_cnpj(carrier_id)}"
+            text = f"CANHOTO DE COLETA - {text}. TRANSPORTADOR: {carrier}"
+            date_label = "DATA DA COLETA"
+            sign_label = "IDENTIFICAÇÃO E ASSINATURA DO TRANSPORTADOR"
+        elif kind == RECEIPT_DELIVERY:
+            text = f"CANHOTO DE ENTREGA - {text}"
+        return text, date_label, sign_label
 
     def _get_receipt_text(self):
         dt, hr = get_date_utc(extract_text(self.ide, "dhEmi"))
@@ -571,11 +607,28 @@ class Danfe(xFPDF):
             )
         self.set_dash_pattern(dash=0, gap=0)
 
-    def _draw_landscape_receipt(self):
+    def _draw_landscape_receipts(self):
+        # The collection receipt is the outermost one (far left), so the
+        # carrier can detach it without removing the delivery receipt.
+        x = self.l_margin
+        for kind in self.receipt_kinds:
+            self._draw_landscape_receipt(kind, x)
+            x = self.x
+
+    def _draw_receipts(self):
+        # The collection receipt is the outermost one (page edge), so the
+        # carrier can detach it without removing the delivery receipt.
+        kinds = self.receipt_kinds
+        if self.receipt_pos == ReceiptPosition.BOTTOM:
+            kinds = reversed(kinds)
+        for kind in kinds:
+            self._draw_receipt(kind)
+
+    def _draw_landscape_receipt(self, kind, lin):
         h_recibo = 17
-        lin = self.y
+        recibo_text, date_label, sign_label = self._get_receipt_labels(kind)
         self.set_dash_pattern(dash=0, gap=0)
-        self.rect(x=self.l_margin, y=self.t_margin, w=h_recibo, h=self.eph, style="")
+        self.rect(x=lin, y=self.t_margin, w=h_recibo, h=self.eph, style="")
 
         # fields width
         w_number_field = 30
@@ -586,9 +639,9 @@ class Danfe(xFPDF):
         y_number_field = self.t_margin + w_number_field
         # column partition line
         self.line(
-            x1=self.l_margin,
+            x1=lin,
             y1=y_number_field,
-            x2=self.l_margin + h_recibo,
+            x2=lin + h_recibo,
             y2=y_number_field,
         )
 
@@ -596,35 +649,35 @@ class Danfe(xFPDF):
         x_line = lin + h_recibo / 2
         self.line(
             x1=x_line,
-            y1=lin + w_number_field,
+            y1=self.t_margin + w_number_field,
             x2=x_line,
-            y2=lin + w_number_field + w_desc_field,
+            y2=self.t_margin + w_number_field + w_desc_field,
         )
 
         w_date_field = 40  # width of field "data de recebimento"
         # line between the field 'data' and 'assinatura'
-        line_y = self.b_margin + w_number_field + w_sign_field
+        line_y = self.t_margin + w_number_field + w_sign_field
         self.line(x1=lin + h_recibo / 2, y1=line_y, x2=lin + h_recibo, y2=line_y)
         self.set_font(self.default_font, "", 5)
         h_text = 2
         self.set_xy(x=lin + 1, y=self.eph + h_text)
         with self.rotation(90):
             self.multi_cell(
-                w=w_desc_field, h=h_text, text=self.recibo_text, border=0, align="L"
+                w=w_desc_field, h=h_text, text=recibo_text, border=0, align="L"
             )
         self.set_xy(x=lin + h_recibo / 2 + 0.5, y=self.eph + h_text)
         with self.rotation(90):
             self.cell(
                 w=w_date_field,
                 h=h_text,
-                text="DATA DE RECEBIMENTO",
+                text=date_label,
                 new_x="RIGHT",
                 align="L",
             )
             self.cell(
                 w=None,
                 h=h_text,
-                text="IDENTIFICAÇÃO E ASSINATURA DO RECEBEDOR",
+                text=sign_label,
                 new_x="LEFT",
                 align="L",
             )
@@ -640,14 +693,15 @@ class Danfe(xFPDF):
             w=h_recibo,
             h=w_number_field,
             h_line=3,
-            x=self.l_margin,
+            x=lin,
             y=self.t_margin,
         )
         self._draw_dashed_line(distance=lin + h_recibo + 1)
-        self.set_xy(x=self.l_margin + h_recibo + 2, y=self.t_margin)
+        self.set_xy(x=lin + h_recibo + 2, y=self.t_margin)
 
-    def _draw_receipt(self):
+    def _draw_receipt(self, kind):
         h_recibo = 17
+        recibo_text, date_label, sign_label = self._get_receipt_labels(kind)
         lin = self.y
         if self.receipt_pos == ReceiptPosition.BOTTOM:
             self._draw_dashed_line(distance=self.y + 1)
@@ -677,17 +731,13 @@ class Danfe(xFPDF):
         self.set_font(self.default_font, "", self.get_font_size("RECEIPT_FONT", True))
 
         self.set_xy(x=self.l_margin, y=lin + 1)
-        self.multi_cell(
-            w=w_desc_field, h=None, text=self.recibo_text, border=0, align="L"
-        )
+        self.multi_cell(w=w_desc_field, h=None, text=recibo_text, border=0, align="L")
         self.set_xy(x=self.l_margin, y=lin + h_recibo / 2 + 0.5)
-        self.cell(
-            w=w_date_field, h=None, text="DATA DE RECEBIMENTO", new_x="RIGHT", align="L"
-        )
+        self.cell(w=w_date_field, h=None, text=date_label, new_x="RIGHT", align="L")
         self.cell(
             w=None,
             h=None,
-            text="IDENTIFICAÇÃO E ASSINATURA DO RECEBEDOR",
+            text=sign_label,
             new_x="LEFT",
             align="L",
         )

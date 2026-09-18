@@ -70,6 +70,7 @@ from matrx_ai.tools.kinds.execution import (  # noqa: E402
     ShellExecution,
 )
 from matrx_ai.tools.kinds.fact_check import FactCheckReviewSet  # noqa: E402
+from matrx_ai.tools.kinds.google import GOOGLE_TOOL_RESULT_KINDS  # noqa: E402
 from matrx_ai.tools.kinds.filesystem import (  # noqa: E402
     DirectoryCreateResult,
     DirectoryListing,
@@ -251,6 +252,12 @@ TOOL_RESULT_KINDS: dict[str, type[KindModel]] = {
     # image verification pair — ONE kind each, shared with the workflow nodes
     # web.google.reverse_image_search / image.metadata.read (no twin slugs).
     **MEDIA_FORENSICS_TOOL_RESULT_KINDS,
+    # the two Google tools (2026-09-17, google-native PLAN §5.8). ONE union kind
+    # each — google_workspace_result was a PLACEHOLDER declared beside the other
+    # agent-ops shapes and bound to nothing, so the tool it describes stamped no
+    # __kind at all; google_marketing_result is new with its tool. The twelve-
+    # action `google_read` these two replaced had no kind and no row here.
+    **GOOGLE_TOOL_RESULT_KINDS,
     # scope_system (aidream/services/scope_system/tools.py): render actions
     # reshaped from a bare string into `context` (a scalar cannot carry __kind).
     "scope_system": ScopeSystemResult,

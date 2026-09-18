@@ -1,11 +1,9 @@
-"""
-Integration tests using official TOON specification fixtures.
+"""Run the official TOON specification fixtures.
 
-This test suite validates the implementation against the comprehensive
-language-agnostic JSON test fixtures defined in the TOON specification.
-It covers all specification requirements for both encoding and decoding.
-
-Original repository: https://github.com/toon-format/spec/tree/main/tests
+The fixtures are language-agnostic JSON files copied from
+https://github.com/toon-format/spec/tree/main/tests and cover encoding and
+decoding for every section of the specification. Each case is run through
+all four entry points: dumps, dump, loads, and load.
 """
 
 import json
@@ -24,7 +22,8 @@ DECODE_FIXTURES_DIR = FIXTURES_DIR / "decode"
 
 def load_fixture_file(fixture_path: Path) -> dict[str, Any]:
     """Load a JSON fixture file."""
-    with open(fixture_path, "r") as f:
+    # The fixtures are UTF-8; Windows would otherwise decode them as cp1252.
+    with open(fixture_path, "r", encoding="utf-8") as f:
         return json.load(f)
 
 
@@ -106,14 +105,12 @@ def test_integration_dumps(
     should_error: bool,
     note: str,
 ):
-    """Test encoding from JSON to TOON format."""
+    """Encode a fixture case with dumps()."""
 
     if should_error:
-        # Test expects an error to be raised
         with pytest.raises(Exception):
             toons.dumps(input_data, **options)
     else:
-        # Test expects successful encoding
         result = toons.dumps(input_data, **options)
         assert result == expected, f"Failed: {test_id}\nNote: {note}"
 
@@ -132,14 +129,16 @@ def test_integration_dump(
     note: str,
     tmp_path: Path,
 ):
-    """Test encoding from JSON to TOON format."""
-    with open(tmp_path / "temp.toon", "w+t") as f:
+    """Encode a fixture case with dump()."""
+    # newline="" keeps a fixture's CRLF intact: Windows would otherwise
+    # translate every "\n" written in text mode into another "\r\n".
+    with open(
+        tmp_path / "temp.toon", "w+t", encoding="utf-8", newline=""
+    ) as f:
         if should_error:
-            # Test expects an error to be raised
             with pytest.raises(Exception):
                 toons.dump(input_data, f, **options)
         else:
-            # Test expects successful encoding
             toons.dump(input_data, f, **options)
             f.seek(0)
             result = f.read()
@@ -159,14 +158,12 @@ def test_integration_loads(
     should_error: bool,
     note: str,
 ):
-    """Test decoding from TOON to JSON format."""
+    """Decode a fixture case with loads()."""
 
     if should_error:
-        # Test expects an error to be raised
         with pytest.raises(Exception):
             toons.loads(input_toon, **options)
     else:
-        # Test expects successful decoding
         result = toons.loads(input_toon, **options)
         assert result == expected, f"Failed: {test_id}\nNote: {note}"
 
@@ -185,17 +182,19 @@ def test_integration_load(
     note: str,
     tmp_path: Path,
 ):
-    """Test decoding from TOON to JSON format."""
+    """Decode a fixture case with load()."""
 
-    with open(tmp_path / "temp.toon", "w+t") as f:
+    # newline="" keeps a fixture's CRLF intact: Windows would otherwise
+    # translate every "\n" written in text mode into another "\r\n".
+    with open(
+        tmp_path / "temp.toon", "w+t", encoding="utf-8", newline=""
+    ) as f:
         f.write(input_toon)
         f.seek(0)
 
         if should_error:
-            # Test expects an error to be raised
             with pytest.raises(Exception):
                 toons.load(f, **options)
         else:
-            # Test expects successful decoding
             result = toons.load(f, **options)
             assert result == expected, f"Failed: {test_id}\nNote: {note}"

@@ -5,6 +5,7 @@ import httpx
 
 from ... import errors
 from ...client import AuthenticatedClient, Client
+from ...models.list_flow_conversations_kind import ListFlowConversationsKind
 from ...models.list_flow_conversations_response_200_item import ListFlowConversationsResponse200Item
 from ...types import UNSET, Response, Unset
 
@@ -15,6 +16,7 @@ def _get_kwargs(
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
     flow_path: Union[Unset, None, str] = UNSET,
+    kind: Union[Unset, None, ListFlowConversationsKind] = UNSET,
 ) -> Dict[str, Any]:
     pass
 
@@ -24,6 +26,12 @@ def _get_kwargs(
     params["per_page"] = per_page
 
     params["flow_path"] = flow_path
+
+    json_kind: Union[Unset, None, str] = UNSET
+    if not isinstance(kind, Unset):
+        json_kind = kind.value if kind else None
+
+    params["kind"] = json_kind
 
     params = {k: v for k, v in params.items() if v is not UNSET and v is not None}
 
@@ -72,6 +80,7 @@ def sync_detailed(
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
     flow_path: Union[Unset, None, str] = UNSET,
+    kind: Union[Unset, None, ListFlowConversationsKind] = UNSET,
 ) -> Response[List["ListFlowConversationsResponse200Item"]]:
     """list flow conversations
 
@@ -80,6 +89,7 @@ def sync_detailed(
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
         flow_path (Union[Unset, None, str]):
+        kind (Union[Unset, None, ListFlowConversationsKind]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -94,6 +104,7 @@ def sync_detailed(
         page=page,
         per_page=per_page,
         flow_path=flow_path,
+        kind=kind,
     )
 
     response = client.get_httpx_client().request(
@@ -110,6 +121,7 @@ def sync(
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
     flow_path: Union[Unset, None, str] = UNSET,
+    kind: Union[Unset, None, ListFlowConversationsKind] = UNSET,
 ) -> Optional[List["ListFlowConversationsResponse200Item"]]:
     """list flow conversations
 
@@ -118,6 +130,7 @@ def sync(
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
         flow_path (Union[Unset, None, str]):
+        kind (Union[Unset, None, ListFlowConversationsKind]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -133,6 +146,7 @@ def sync(
         page=page,
         per_page=per_page,
         flow_path=flow_path,
+        kind=kind,
     ).parsed
 
 
@@ -143,6 +157,7 @@ async def asyncio_detailed(
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
     flow_path: Union[Unset, None, str] = UNSET,
+    kind: Union[Unset, None, ListFlowConversationsKind] = UNSET,
 ) -> Response[List["ListFlowConversationsResponse200Item"]]:
     """list flow conversations
 
@@ -151,6 +166,7 @@ async def asyncio_detailed(
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
         flow_path (Union[Unset, None, str]):
+        kind (Union[Unset, None, ListFlowConversationsKind]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -165,6 +181,7 @@ async def asyncio_detailed(
         page=page,
         per_page=per_page,
         flow_path=flow_path,
+        kind=kind,
     )
 
     response = await client.get_async_httpx_client().request(**kwargs)
@@ -179,6 +196,7 @@ async def asyncio(
     page: Union[Unset, None, int] = UNSET,
     per_page: Union[Unset, None, int] = UNSET,
     flow_path: Union[Unset, None, str] = UNSET,
+    kind: Union[Unset, None, ListFlowConversationsKind] = UNSET,
 ) -> Optional[List["ListFlowConversationsResponse200Item"]]:
     """list flow conversations
 
@@ -187,6 +205,7 @@ async def asyncio(
         page (Union[Unset, None, int]):
         per_page (Union[Unset, None, int]):
         flow_path (Union[Unset, None, str]):
+        kind (Union[Unset, None, ListFlowConversationsKind]):
 
     Raises:
         errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
@@ -203,5 +222,6 @@ async def asyncio(
             page=page,
             per_page=per_page,
             flow_path=flow_path,
+            kind=kind,
         )
     ).parsed

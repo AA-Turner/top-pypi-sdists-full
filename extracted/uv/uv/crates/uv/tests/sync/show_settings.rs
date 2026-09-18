@@ -339,6 +339,7 @@ fn publish_resolved_settings() -> anyhow::Result<()> {
                         "https://check-user:****@test.pypi.org/simple/",
                     ),
                     expanded: false,
+                    force_relative: false,
                 },
             ),
         ),
@@ -373,6 +374,7 @@ fn publish_resolved_settings() -> anyhow::Result<()> {
                                 "https://index-user:****@test.pypi.org/simple/",
                             ),
                             expanded: false,
+                            force_relative: false,
                         },
                     ),
                     explicit: false,
@@ -1095,6 +1097,7 @@ fn resolve_uv_toml() -> anyhow::Result<()> {
     +                                "https://pypi.org/simple",
     +                            ),
     +                            expanded: false,
+    +                            force_relative: false,
     +                        },
     +                    ),
     +                    explicit: false,
@@ -1249,6 +1252,7 @@ fn resolve_pyproject_toml() -> anyhow::Result<()> {
     +                                "https://pypi.org/simple",
     +                            ),
     +                            expanded: false,
+    +                            force_relative: false,
     +                        },
     +                    ),
     +                    explicit: false,
@@ -1408,6 +1412,7 @@ fn resolve_index_url() -> anyhow::Result<()> {
     +                                "https://pypi.org/simple",
     +                            ),
     +                            expanded: false,
+    +                            force_relative: false,
     +                        },
     +                    ),
     +                    explicit: false,
@@ -1444,6 +1449,7 @@ fn resolve_index_url() -> anyhow::Result<()> {
     +                                "https://test.pypi.org/simple",
     +                            ),
     +                            expanded: false,
+    +                            force_relative: false,
     +                        },
     +                    ),
     +                    explicit: false,
@@ -1498,6 +1504,7 @@ fn resolve_index_url() -> anyhow::Result<()> {
     +                                "https://test.pypi.org/simple",
     +                            ),
     +                            expanded: false,
+    +                            force_relative: false,
     +                        },
     +                    ),
     +                    explicit: false,
@@ -1589,6 +1596,7 @@ fn resolve_find_links() -> anyhow::Result<()> {
     +                                "https://download.pytorch.org/whl/torch_stable.html",
     +                            ),
     +                            expanded: false,
+    +                            force_relative: false,
     +                        },
     +                    ),
     +                    explicit: false,
@@ -1711,6 +1719,7 @@ fn resolve_top_level() -> anyhow::Result<()> {
     +                                "https://download.pytorch.org/whl",
     +                            ),
     +                            expanded: false,
+    +                            force_relative: false,
     +                        },
     +                    ),
     +                    explicit: false,
@@ -1747,6 +1756,7 @@ fn resolve_top_level() -> anyhow::Result<()> {
     +                                "https://test.pypi.org/simple",
     +                            ),
     +                            expanded: false,
+    +                            force_relative: false,
     +                        },
     +                    ),
     +                    explicit: false,
@@ -2158,6 +2168,7 @@ fn resolve_both() -> anyhow::Result<()> {
     +                                "https://pypi.org/simple",
     +                            ),
     +                            expanded: false,
+    +                            force_relative: false,
     +                        },
     +                    ),
     +                    explicit: false,
@@ -2292,6 +2303,7 @@ fn resolve_both_special_fields() -> anyhow::Result<()> {
     +                                "https://pypi.org/simple",
     +                            ),
     +                            expanded: false,
+    +                            force_relative: false,
     +                        },
     +                    ),
     +                    explicit: false,
@@ -2638,6 +2650,7 @@ fn resolve_config_file() -> anyhow::Result<()> {
     +                                "https://pypi.org/simple",
     +                            ),
     +                            expanded: false,
+    +                            force_relative: false,
     +                        },
     +                    ),
     +                    explicit: false,
@@ -3083,6 +3096,7 @@ fn index_priority() -> anyhow::Result<()> {
     +                                "https://cli.pypi.org/simple",
     +                            ),
     +                            expanded: false,
+    +                            force_relative: false,
     +                        },
     +                    ),
     +                    explicit: false,
@@ -3121,6 +3135,7 @@ fn index_priority() -> anyhow::Result<()> {
     +                                "https://file.pypi.org/simple",
     +                            ),
     +                            expanded: false,
+    +                            force_relative: false,
     +                        },
     +                    ),
     +                    explicit: false,
@@ -3284,9 +3299,10 @@ fn index_by_name() -> anyhow::Result<()> {
         assert_eq!(named, explicit, "{argument}");
     }
 
-    let commands: [fn(&TestContext) -> Command; 4] = [
+    let commands: [fn(&TestContext) -> Command; 5] = [
         TestContext::lock,
         TestContext::sync,
+        TestContext::upgrade,
         TestContext::venv,
         TestContext::pip_list,
     ];
@@ -3393,7 +3409,7 @@ fn index_by_name_with_matching_path() -> anyhow::Result<()> {
     +                                \"internal\",
                                  ),
                                  expanded: false,
-                             },
+                                 force_relative: false,
     ...
              reinstall: None,
          },
@@ -4698,6 +4714,31 @@ fn system_certs_cli_aliases_override_env() {
     windows,
     ignore = "Configuration tests are not yet supported on Windows"
 )]
+fn system_certs_env_overrides_native_tls() {
+    let context = uv_test::test_context_with_versions!(&[]);
+    let mut command = add_shared_args(context.version());
+    command
+        .arg("--show-settings")
+        .env(EnvVars::UV_SYSTEM_CERTS, "0")
+        .env_remove(EnvVars::UV_NATIVE_TLS);
+    let baseline = capture_uv_snapshot!(context.filters(), &mut command);
+
+    for native_tls in ["1", "invalid"] {
+        assert_eq!(
+            baseline,
+            capture_uv_snapshot!(
+                context.filters(),
+                command.env(EnvVars::UV_NATIVE_TLS, native_tls)
+            )
+        );
+    }
+}
+
+#[test]
+#[cfg_attr(
+    windows,
+    ignore = "Configuration tests are not yet supported on Windows"
+)]
 fn system_certs_config_aliases() -> anyhow::Result<()> {
     let context = uv_test::test_context!("3.12");
 
@@ -4730,16 +4771,7 @@ fn system_certs_config_aliases() -> anyhow::Result<()> {
     "})?;
 
     diff_uv_snapshot!(context.filters(), &baseline, add_shared_args(context.version())
-        .arg("--show-settings"), @"
-    ...
-             malware_check_url: None,
-         },
-     }
-    +
-    +----- stderr -----
-    +warning: The `native-tls` setting is deprecated and will be removed in a future release. Use `system-certs` instead.
-    ...
-    "
+        .arg("--show-settings"), @""
     );
 
     Ok(())

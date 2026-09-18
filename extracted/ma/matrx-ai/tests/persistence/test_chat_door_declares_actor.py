@@ -61,12 +61,20 @@ class _PackageMessage:
     _meta = _MessageMeta()
 
 
-def _bind_package_message_model() -> type:
-    """Bind the package-shaped chat.message seam without importing the host."""
-    from matrx_ai.persistence.registry import register_table
+def _bind_package_message_model():
+    """Bind the package-shaped chat.message seam without importing the host.
 
-    register_table("chat.message", _PackageMessage)
-    return _PackageMessage
+    SCOPED, not permanent. ``register_table`` is first-writer-wins, so binding
+    this stub with it would own the REAL ``chat.message`` key for the rest of
+    the process: leg 2 below could never bind the host Model, and every later
+    ``chat.message`` flush in the suite died on
+    ``_PackageMessage has no attribute 'bulk_create'`` (measured 2026-09-17 —
+    this test passed alone and failed in the suite it was poisoning).
+    ``override_table`` puts the previous binding back on exit.
+    """
+    from matrx_ai.persistence.registry import override_table
+
+    return override_table("chat.message", _PackageMessage)
 
 
 def _bind_host_message_model() -> type:
@@ -86,10 +94,10 @@ async def test_the_door_declares_an_author_per_row() -> None:
         queue_message_create,
         queue_message_update,
     )
-    _bind_package_message_model()
-
     coord = Coordinator(request_id=str(uuid.uuid4()))
     token = _coordinator_cv.set(coord)
+    stand_in = _bind_package_message_model()
+    stand_in.__enter__()
     try:
         conversation_id = str(uuid.uuid4())
         user_row = str(uuid.uuid4())
@@ -132,6 +140,7 @@ async def test_the_door_declares_an_author_per_row() -> None:
         assert coalesced[user_row].actor.tier == "human"
         assert coalesced[assistant_row].actor.tier == "ai"
     finally:
+        stand_in.__exit__(None, None, None)
         _coordinator_cv.reset(token)
         coord._session._ops.clear()
 

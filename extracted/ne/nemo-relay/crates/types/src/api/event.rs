@@ -526,6 +526,11 @@ pub enum AttributeValue {
 pub struct MetricAttributes(BTreeMap<String, AttributeValue>);
 
 impl MetricAttributes {
+    /// Insert or replace a typed metric attribute.
+    pub fn insert(&mut self, key: String, value: AttributeValue) {
+        self.0.insert(key, value);
+    }
+
     /// Iterate over validated attribute name and value pairs.
     pub fn iter(&self) -> impl Iterator<Item = (&String, &AttributeValue)> {
         self.0.iter()
@@ -974,6 +979,18 @@ pub struct BaseEvent {
     /// UUID of the parent scope, if any.
     #[builder(default)]
     pub parent_uuid: Option<Uuid>,
+    /// Stable causal root imported or resolved when the event was emitted.
+    #[builder(default)]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub propagation_root_uuid: Option<Uuid>,
+    /// Synthetic parent imported with the propagation context.
+    ///
+    /// This is runtime-only delivery state. It distinguishes an imported
+    /// parent from ordinary Relay scope parentage without extending the ATOF
+    /// wire format.
+    #[builder(default)]
+    #[serde(skip)]
+    pub propagation_parent_uuid: Option<Uuid>,
     /// Unique identifier for the event or span.
     #[builder(default = Uuid::now_v7())]
     pub uuid: Uuid,
@@ -1231,6 +1248,26 @@ impl Event {
     /// `Some` parent UUID when the event has a parent scope, otherwise `None`.
     pub fn parent_uuid(&self) -> Option<Uuid> {
         self.base().parent_uuid
+    }
+
+    /// Return the stable causal root captured when this event was emitted.
+    pub fn propagation_root_uuid(&self) -> Option<Uuid> {
+        self.base().propagation_root_uuid
+    }
+
+    /// Attach the causal root captured at event emission.
+    pub fn set_propagation_root_uuid(&mut self, root_uuid: Option<Uuid>) {
+        self.base_mut().propagation_root_uuid = root_uuid;
+    }
+
+    /// Return the synthetic parent imported with the propagation context.
+    pub fn propagation_parent_uuid(&self) -> Option<Uuid> {
+        self.base().propagation_parent_uuid
+    }
+
+    /// Attach the synthetic parent captured at event emission.
+    pub fn set_propagation_parent_uuid(&mut self, parent_uuid: Option<Uuid>) {
+        self.base_mut().propagation_parent_uuid = parent_uuid;
     }
 
     /// Return the unique event or span UUID.

@@ -12,8 +12,8 @@ use crate::api::event::{
     ScopeEvent,
 };
 use crate::api::llm::{
-    LlmCallExecuteParams, LlmCallParams, LlmRequest, LlmStreamCallExecuteParams, llm_call,
-    llm_call_execute, llm_stream_call_execute,
+    LlmCallEndParams, LlmCallExecuteParams, LlmCallParams, LlmRequest, LlmStreamCallExecuteParams,
+    llm_call, llm_call_end, llm_call_execute, llm_stream_call_execute,
 };
 use crate::api::runtime::{
     BuiltinLlmCodec, LlmCodecIdentity, LlmExecutionNextFn, LlmJsonStream,
@@ -35,9 +35,9 @@ use crate::codec::request::AnnotatedLlmRequest;
 use crate::codec::traits::{LlmCodec, LlmResponseCodec};
 use crate::plugin::{
     ConfigPolicy, DiagnosticLevel, PluginComponentSpec, PluginConfig, PluginError,
-    PluginRegistrationContext, UnsupportedBehavior, clear_plugin_configuration,
-    ensure_builtin_plugins_registered, initialize_plugins_exact as initialize_plugins,
-    list_plugin_kinds, rollback_registrations, validate_plugin_config,
+    PluginRegistrationContext, UnsupportedBehavior, ensure_builtin_plugins_registered,
+    list_plugin_kinds, rollback_registrations, test_close_plugin_host,
+    test_initialize_plugin_host_exact, test_validate_static_plugin_config,
 };
 use futures::StreamExt;
 use nemo_relay::observability::OpenTelemetryType;
@@ -178,7 +178,7 @@ fn top_level_policy_controls_component_diagnostics() {
         unsupported_value: UnsupportedBehavior::Warn,
         ..ConfigPolicy::default()
     };
-    let warn_report = validate_plugin_config(&warn_config);
+    let warn_report = test_validate_static_plugin_config(&warn_config);
     assert!(warn_report.diagnostics.iter().any(|diagnostic| {
         diagnostic.code == "pii_redaction.unsupported_value"
             && diagnostic.field.as_deref() == Some("builtin.action")
@@ -190,7 +190,7 @@ fn top_level_policy_controls_component_diagnostics() {
         unsupported_value: UnsupportedBehavior::Ignore,
         ..ConfigPolicy::default()
     };
-    let ignored_report = validate_plugin_config(&ignored_config);
+    let ignored_report = test_validate_static_plugin_config(&ignored_config);
     assert!(
         !ignored_report
             .diagnostics
@@ -210,7 +210,7 @@ fn top_level_policy_controls_component_diagnostics() {
         unknown_field: UnsupportedBehavior::Error,
         ..ConfigPolicy::default()
     };
-    let unknown_field_report = validate_plugin_config(&unknown_field_config);
+    let unknown_field_report = test_validate_static_plugin_config(&unknown_field_config);
     assert!(unknown_field_report.diagnostics.iter().any(|diagnostic| {
         diagnostic.code == "pii_redaction.unknown_field"
             && diagnostic.field.as_deref() == Some("unexpected")
@@ -220,7 +220,7 @@ fn top_level_policy_controls_component_diagnostics() {
 
 fn reset_runtime() {
     enable_operational_logs();
-    let _ = clear_plugin_configuration();
+    let _ = test_close_plugin_host();
     crate::plugins::pii_redaction::component::clear_local_backend_provider().unwrap();
     crate::shared_runtime::reset_runtime_owner_for_tests();
     let context = global_context();
@@ -277,11 +277,32 @@ fn builtin_backend_config_default_matches_documented_action_default() {
 
     assert!(config.preset.is_none());
     assert_eq!(config.action, "remove");
-    assert_eq!(config.custom_mark_payload_policy, "preserve");
+    assert_eq!(config.custom_mark_payload_policy, "redact_all_leaves");
+    assert!(config.metric_string_attribute_allowlist.is_empty());
     assert!(config.target_paths.is_empty());
     assert!(config.target_path_globs.is_empty());
     assert!(config.pattern.is_none());
     assert!(config.detector.is_none());
+}
+
+#[cfg(feature = "schema")]
+#[test]
+fn builtin_backend_schema_exposes_the_hardened_custom_mark_default() {
+    let schema = pii_redaction_config_schema();
+
+    assert_eq!(
+        schema["definitions"]["BuiltinBackendConfig"]["properties"]["custom_mark_payload_policy"]["default"],
+        "redact_all_leaves"
+    );
+}
+
+#[test]
+fn builtin_backend_editor_exposes_metric_string_allowlist_as_json() {
+    let schema = <BuiltinBackendConfig as nemo_relay::config_editor::EditorConfig>::editor_schema();
+    let field = schema
+        .field("metric_string_attribute_allowlist")
+        .expect("metric string allowlist should be editable");
+    assert_eq!(field.kind, nemo_relay::config_editor::EditorFieldKind::Json);
 }
 
 #[test]
@@ -309,7 +330,7 @@ fn component_spec_and_plugin_contract_preserve_the_public_configuration_shape() 
 fn trajectory_preset_validates_without_an_action_and_rejects_matcher_fields() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
-    let valid = validate_plugin_config(&plugin_config(json!({
+    let valid = test_validate_static_plugin_config(&plugin_config(json!({
         "codec": "openai_chat",
         "profiles": [{
             "mode": "builtin",
@@ -321,7 +342,7 @@ fn trajectory_preset_validates_without_an_action_and_rejects_matcher_fields() {
     })));
     assert!(!valid.has_errors(), "{:#?}", valid.diagnostics);
 
-    let invalid = validate_plugin_config(&plugin_config(json!({
+    let invalid = test_validate_static_plugin_config(&plugin_config(json!({
         "codec": "openai_chat",
         "profiles": [{
             "mode": "builtin",
@@ -348,7 +369,7 @@ fn trajectory_preset_validates_without_an_action_and_rejects_matcher_fields() {
         diagnostic.field.as_deref() == Some("profiles[0].builtin.target_path_globs")
     }));
 
-    let policy_without_preset = validate_plugin_config(&plugin_config(json!({
+    let policy_without_preset = test_validate_static_plugin_config(&plugin_config(json!({
         "codec": "openai_chat",
         "profiles": [{
             "mode": "builtin",
@@ -358,6 +379,122 @@ fn trajectory_preset_validates_without_an_action_and_rejects_matcher_fields() {
     assert!(policy_without_preset.diagnostics.iter().any(|diagnostic| {
         diagnostic.field.as_deref() == Some("profiles[0].builtin.custom_mark_payload_policy")
     }));
+}
+
+#[test]
+fn trajectory_metric_string_allowlist_validation_is_fail_closed() {
+    let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
+    reset_runtime();
+    ensure_builtin_plugins_registered().unwrap();
+
+    let valid = test_validate_static_plugin_config(&plugin_config(json!({
+        "codec": "openai_chat",
+        "profiles": [{
+            "mode": "builtin",
+            "builtin": {
+                "preset": "trajectory_context",
+                "metric_string_attribute_allowlist": {
+                    "query.source": ["main", "subagent"]
+                }
+            }
+        }]
+    })));
+    assert!(!valid.has_errors(), "{:#?}", valid.diagnostics);
+
+    let valid_legacy = test_validate_static_plugin_config(&plugin_config(json!({
+        "codec": "openai_chat",
+        "mode": "builtin",
+        "builtin": {
+            "preset": "trajectory_context",
+            "metric_string_attribute_allowlist": {"query.source": ["main"]}
+        }
+    })));
+    assert!(
+        !valid_legacy.has_errors(),
+        "{:#?}",
+        valid_legacy.diagnostics
+    );
+
+    let without_preset = test_validate_static_plugin_config(&plugin_config(json!({
+        "codec": "openai_chat",
+        "profiles": [{
+            "mode": "builtin",
+            "builtin": {
+                "metric_string_attribute_allowlist": {"query.source": ["main"]}
+            }
+        }]
+    })));
+    assert!(
+        without_preset.diagnostics.iter().any(|diagnostic| {
+            diagnostic.field.as_deref()
+                == Some("profiles[0].builtin.metric_string_attribute_allowlist")
+                && diagnostic.message.contains("requires builtin.preset")
+        }),
+        "{:#?}",
+        without_preset.diagnostics
+    );
+
+    for (allowlist, expected_message) in [
+        (json!({" ": ["main"]}), "keys must not be blank"),
+        (
+            json!({"query.source": []}),
+            "must contain at least one value",
+        ),
+        (json!({"query.source": [" "]}), "must not be blank"),
+        (
+            json!({"query.source": ["main", "main"]}),
+            "contains duplicate value",
+        ),
+    ] {
+        let report = test_validate_static_plugin_config(&plugin_config(json!({
+            "codec": "openai_chat",
+            "profiles": [{
+                "mode": "builtin",
+                "builtin": {
+                    "preset": "trajectory_context",
+                    "metric_string_attribute_allowlist": allowlist
+                }
+            }]
+        })));
+        assert!(report.diagnostics.iter().any(|diagnostic| {
+            diagnostic.field.as_deref()
+                == Some("profiles[0].builtin.metric_string_attribute_allowlist")
+                && diagnostic.message.contains(expected_message)
+        }));
+    }
+
+    let runtime_error = crate::builtin::CompiledBuiltinBackend::new(
+        BuiltinBackendConfig {
+            metric_string_attribute_allowlist: BTreeMap::from([(
+                "query.source".into(),
+                vec!["main".into()],
+            )]),
+            ..BuiltinBackendConfig::default()
+        },
+        None,
+    )
+    .err()
+    .expect("runtime construction must reject an allowlist without the trajectory preset");
+    assert!(
+        runtime_error
+            .to_string()
+            .contains("requires builtin.preset")
+    );
+
+    let runtime_error = crate::builtin::CompiledBuiltinBackend::new(
+        BuiltinBackendConfig {
+            preset: Some("trajectory_context".into()),
+            metric_string_attribute_allowlist: BTreeMap::from([(
+                "query.source".into(),
+                vec!["main".into(), "main".into()],
+            )]),
+            ..BuiltinBackendConfig::default()
+        },
+        None,
+    )
+    .err()
+    .expect("runtime construction must reject invalid allowlist entries");
+    assert!(runtime_error.to_string().contains("duplicate value"));
 }
 
 fn trajectory_backend(codec: Option<&str>, policy: &str) -> crate::builtin::CompiledBuiltinBackend {
@@ -370,6 +507,334 @@ fn trajectory_backend(codec: Option<&str>, policy: &str) -> crate::builtin::Comp
         codec.map(str::to_string),
     )
     .unwrap()
+}
+
+fn trajectory_backend_with_metric_allowlist(
+    allowlist: BTreeMap<String, Vec<String>>,
+) -> crate::builtin::CompiledBuiltinBackend {
+    crate::builtin::CompiledBuiltinBackend::new(
+        BuiltinBackendConfig {
+            preset: Some("trajectory_context".into()),
+            metric_string_attribute_allowlist: allowlist,
+            ..BuiltinBackendConfig::default()
+        },
+        None,
+    )
+    .unwrap()
+}
+
+fn trajectory_sanitizer() -> crate::trajectory::TrajectorySanitizer {
+    crate::trajectory::TrajectorySanitizer::new(
+        "[REDACTED]".into(),
+        crate::trajectory::CustomMarkPayloadPolicy::RedactAllLeaves,
+        BTreeMap::new(),
+    )
+}
+
+#[test]
+#[allow(clippy::cognitive_complexity)] // One sentinel-rich matrix covers every typed request shape.
+fn trajectory_typed_request_matrix_preserves_only_approved_structure() {
+    let request: AnnotatedLlmRequest = serde_json::from_value(json!({
+        "messages": [
+            {"role": "system", "content": "SECRET", "name": "SECRET"},
+            {"role": "user", "content": [
+                {"type": "text", "text": "SECRET", "future": "SECRET"},
+                {"type": "image_url", "image_url": {"url": "SECRET", "detail": "high"}},
+                {"type": "image", "image": {"data": "SECRET"}},
+                {"type": "audio", "audio": {"data": "SECRET"}},
+                {"type": "file", "file": {"data": "SECRET"}},
+                {"type": "refusal", "refusal": "SECRET"},
+                {"type": "tool_use", "id": "SECRET", "name": "search", "input": {"q": "SECRET"}},
+                {"type": "tool_result", "tool_use_id": "SECRET", "content": {"text": "SECRET"}, "is_error": true},
+                {"type": "provider_native", "provider": "openai", "kind": "output_text", "value": {"text": "SECRET"}}
+            ]},
+            {"role": "developer", "content": "SECRET"},
+            {"role": "assistant", "content": "SECRET", "tool_calls": [{
+                "id": "SECRET", "type": "function",
+                "function": {"name": "terminal", "arguments": "SECRET"}
+            }]},
+            {"role": "tool", "tool_call_id": "SECRET", "content": "SECRET"},
+            {"role": "function", "name": "legacy_tool", "content": "SECRET"},
+            {"role": "tool_call", "id": "SECRET", "call_id": "SECRET", "name": "browser", "arguments": {"q": "SECRET"}, "future": "SECRET"},
+            {"role": "tool_result", "id": "SECRET", "call_id": "SECRET", "output": {"text": "SECRET"}, "future": "SECRET"},
+            {"role": "provider_native", "provider": "anthropic", "kind": "tool_result", "value": {"text": "SECRET"}}
+        ],
+        "instructions": "SECRET",
+        "model": "gpt-5.6-sol",
+        "params": {"temperature": 0.2, "max_tokens": 512, "top_p": 0.9, "stop": ["SECRET"]},
+        "tools": [
+            {"type": "function", "function": {"name": "search", "description": "SECRET", "parameters": {"type": "object"}, "strict": true}, "future": "SECRET"},
+            {"type": "provider_native", "provider": "anthropic", "kind": "tool_use", "value": {"description": "SECRET"}}
+        ],
+        "tool_choice": {"type": "function", "function": {"name": "search"}},
+        "store": true,
+        "previous_response_id": "SECRET",
+        "truncation": {"type": "SECRET"},
+        "reasoning": {"summary": "SECRET"},
+        "include": ["SECRET"],
+        "user": "SECRET",
+        "metadata": {"owner": "SECRET"},
+        "service_tier": "SECRET",
+        "parallel_tool_calls": true,
+        "max_output_tokens": 256,
+        "max_tool_calls": 4,
+        "top_logprobs": 3,
+        "stream": true,
+        "api_specific": {
+            "api": "openai_chat",
+            "audio": {"voice": "SECRET"},
+            "frequency_penalty": 0.4,
+            "logprobs": true,
+            "modalities": ["text", "SECRET"],
+            "n": 2,
+            "presence_penalty": 0.5,
+            "prompt_cache_key": "SECRET",
+            "seed": 7
+        },
+        "future": {"secret": "SECRET"}
+    }))
+    .unwrap();
+
+    let sanitized = trajectory_sanitizer()
+        .sanitize_annotated_request(request)
+        .unwrap();
+    let value = serde_json::to_value(&sanitized).unwrap();
+    let serialized = serde_json::to_string(&value).unwrap();
+
+    assert!(!serialized.contains("SECRET"), "{serialized}");
+    assert_eq!(value["model"], "gpt-5.6-sol");
+    assert_eq!(value["params"]["temperature"], 0.2);
+    assert_eq!(value["params"]["max_tokens"], 512);
+    assert_eq!(value["params"]["top_p"], 0.9);
+    assert_eq!(value["params"]["stop"], json!(["[REDACTED]"]));
+    assert_eq!(value["messages"][0]["role"], "system");
+    assert_eq!(value["messages"][0]["content"], "[REDACTED]");
+    assert_eq!(value["messages"][1]["content"][1]["type"], "image_url");
+    assert_eq!(
+        value["messages"][1]["content"][1]["image_url"]["url"],
+        "[REDACTED]"
+    );
+    assert_eq!(value["messages"][1]["content"][6]["name"], "search");
+    assert_eq!(value["messages"][1]["content"][6]["input"], json!({}));
+    assert_eq!(value["messages"][4]["tool_call_id"], "[REDACTED]");
+    assert_eq!(value["messages"][6]["name"], "browser");
+    assert_eq!(value["messages"][6]["arguments"], json!({}));
+    assert_eq!(value["messages"][8]["value"], json!({}));
+    assert_eq!(value["tools"][0]["function"]["name"], "search");
+    assert_eq!(value["tools"][0]["function"]["parameters"], json!({}));
+    assert_eq!(value["previous_response_id"], "[REDACTED]");
+    assert_eq!(value["truncation"], json!({}));
+    assert_eq!(value["reasoning"], json!({}));
+    assert_eq!(value["include"], json!({}));
+    assert_eq!(value["metadata"], json!({}));
+    assert!(value.get("service_tier").is_none());
+    assert_eq!(value["parallel_tool_calls"], true);
+    assert_eq!(value["max_output_tokens"], 256);
+    assert_eq!(value["max_tool_calls"], 4);
+    assert_eq!(value["top_logprobs"], 3);
+    assert_eq!(value["stream"], true);
+    assert_eq!(value["api_specific"]["frequency_penalty"], 0.4);
+    assert_eq!(value["api_specific"]["n"], 2);
+    assert_eq!(value["api_specific"]["seed"], 7);
+    assert_eq!(value["api_specific"]["audio"], json!({}));
+    assert!(value.get("future").is_none());
+}
+
+#[test]
+fn trajectory_typed_api_specific_variants_fail_closed() {
+    let request_cases = [
+        json!({
+            "api": "anthropic_messages", "cache_control": {"secret": "SECRET"},
+            "container": "SECRET", "top_k": 17, "user_profile_id": "SECRET"
+        }),
+        json!({
+            "api": "openai_responses", "background": true,
+            "conversation": {"id": "SECRET"}, "prompt_cache_key": "SECRET", "text": {"secret": "SECRET"}
+        }),
+        json!({
+            "api": "oci_genai", "compartment_id": "SECRET",
+            "serving_mode": {"endpointId": "SECRET"}, "api_format": "GENERIC"
+        }),
+        json!({"api": "custom", "api_name": "SECRET", "data": {"secret": "SECRET"}}),
+    ];
+    for api_specific in request_cases {
+        let request: AnnotatedLlmRequest = serde_json::from_value(json!({
+            "api_specific": api_specific
+        }))
+        .unwrap();
+        let sanitized = trajectory_sanitizer()
+            .sanitize_annotated_request(request)
+            .unwrap();
+        let value = serde_json::to_value(&sanitized).unwrap();
+        let serialized = serde_json::to_string(&sanitized).unwrap();
+        assert!(!serialized.contains("SECRET"), "{serialized}");
+        match value["api_specific"]["api"].as_str() {
+            Some("anthropic_messages") => assert_eq!(value["api_specific"]["top_k"], 17),
+            Some("openai_responses") => assert_eq!(value["api_specific"]["background"], true),
+            Some("oci_genai") => assert_eq!(value["api_specific"]["api_format"], "GENERIC"),
+            Some("custom") => {}
+            other => panic!("unexpected API-specific request variant: {other:?}"),
+        }
+    }
+
+    let response_cases = [
+        json!({"api": "openai_chat", "logprobs": {"token": "SECRET"}, "system_fingerprint": "SECRET", "service_tier": "SECRET"}),
+        json!({"api": "openai_responses", "output_items": [{"text": "SECRET"}], "status": "completed", "previous_response_id": "SECRET", "store": true}),
+        json!({"api": "anthropic_messages", "object_type": "message", "role": "assistant", "stop_reason": "end_turn", "stop_sequence": "SECRET", "content_blocks": [{"text": "SECRET"}]}),
+        json!({"api": "oci_genai", "api_format": "GENERIC", "model_version": "oci-model-v1"}),
+        json!({"api": "gemini_generate_content", "thoughts_tokens": 9, "safety_ratings": {"secret": "SECRET"}, "future": "SECRET"}),
+        json!({"api": "custom", "api_name": "SECRET", "data": {"secret": "SECRET"}}),
+    ];
+    for api_specific in response_cases {
+        let response: crate::codec::response::AnnotatedLlmResponse =
+            serde_json::from_value(json!({
+                "finish_reason": {"unknown": "SECRET"},
+                "api_specific": api_specific
+            }))
+            .unwrap();
+        let sanitized = trajectory_sanitizer()
+            .sanitize_annotated_response(response)
+            .unwrap();
+        let serialized = serde_json::to_string(&sanitized).unwrap();
+        assert!(!serialized.contains("SECRET"), "{serialized}");
+        assert!(serde_json::to_value(&sanitized).unwrap()["finish_reason"].is_null());
+    }
+}
+
+#[tokio::test]
+async fn trajectory_event_profile_preserves_provider_and_marks_identifiers() {
+    let request: AnnotatedLlmRequest = serde_json::from_value(json!({
+        "model": "gpt-5.6-sol",
+        "messages": [{"role": "user", "content": "SECRET"}],
+        "api_specific": {"api": "openai_responses", "conversation": {"id": "SECRET"}}
+    }))
+    .unwrap();
+    let event = Event::Scope(ScopeEvent::new(
+        BaseEvent::builder()
+            .name("openai.responses")
+            .metadata(json!({"provider": "metadata-provider", "secret": "SECRET"}))
+            .build(),
+        ScopeCategory::Start,
+        Vec::new(),
+        EventCategory::llm(),
+        Some(
+            CategoryProfile::builder()
+                .model_name("gpt-5.6-sol")
+                .tool_call_id("SECRET")
+                .subtype("SECRET")
+                .tool_result_annotation(json!({"secret": "SECRET"}))
+                .extra(BTreeMap::from([
+                    ("gen_ai.provider.name".into(), json!("free-form-provider")),
+                    ("secret".into(), json!("SECRET")),
+                ]))
+                .annotated_request(Arc::new(request))
+                .build(),
+        ),
+    ));
+    let sanitized =
+        crate::builtin::event_sanitize_callback(trajectory_backend(None, "redact_all_leaves"))(
+            Arc::new(event.clone()),
+            EventSanitizeFields {
+                data: Some(json!({"secret": "SECRET"})),
+                category_profile: event.category_profile().cloned(),
+                metadata: event.metadata().cloned(),
+            },
+        )
+        .await
+        .unwrap();
+
+    assert_eq!(sanitized.data, Some(json!({})));
+    assert_eq!(sanitized.metadata, Some(json!({})));
+    let profile = sanitized.category_profile.unwrap();
+    assert_eq!(profile.model_name.as_deref(), Some("gpt-5.6-sol"));
+    assert_eq!(profile.tool_call_id.as_deref(), Some("[REDACTED]"));
+    assert_eq!(profile.subtype.as_deref(), Some("[REDACTED]"));
+    assert_eq!(profile.tool_result_annotation, Some(json!({})));
+    assert_eq!(
+        profile.extra,
+        BTreeMap::from([("gen_ai.provider.name".into(), json!("free-form-provider"))])
+    );
+    assert_eq!(
+        profile
+            .annotated_request
+            .as_deref()
+            .unwrap()
+            .last_user_message(),
+        Some("[REDACTED]")
+    );
+}
+
+#[tokio::test]
+async fn trajectory_provider_does_not_promote_generic_metadata_or_data() {
+    let request: AnnotatedLlmRequest = serde_json::from_value(json!({
+        "model": "gpt-5.6-sol",
+        "messages": [{"role": "user", "content": "SECRET request"}],
+        "api_specific": {"api": "openai_responses"}
+    }))
+    .unwrap();
+    let request_data = json!({
+        "headers": {},
+        "content": {
+            "model": "gpt-5.6-sol",
+            "input": "SECRET request"
+        }
+    });
+
+    for (metadata, data) in [
+        (
+            json!({"provider": "SECRET metadata provider"}),
+            request_data.clone(),
+        ),
+        (
+            json!({}),
+            json!({
+                "headers": {},
+                "content": {
+                    "model": "gpt-5.6-sol",
+                    "input": "SECRET request"
+                },
+                "provider": "SECRET data provider"
+            }),
+        ),
+    ] {
+        let event = Event::Scope(ScopeEvent::new(
+            BaseEvent::builder()
+                .name("llm")
+                .data(data.clone())
+                .metadata(metadata.clone())
+                .build(),
+            ScopeCategory::Start,
+            Vec::new(),
+            EventCategory::llm(),
+            Some(
+                CategoryProfile::builder()
+                    .annotated_request(Arc::new(request.clone()))
+                    .build(),
+            ),
+        ));
+        let sanitized =
+            crate::builtin::event_sanitize_callback(trajectory_backend(None, "redact_all_leaves"))(
+                Arc::new(event.clone()),
+                EventSanitizeFields {
+                    data: Some(data),
+                    category_profile: event.category_profile().cloned(),
+                    metadata: Some(metadata),
+                },
+            )
+            .await
+            .unwrap();
+
+        assert_eq!(sanitized.metadata, Some(json!({})));
+        assert_eq!(
+            sanitized.category_profile.unwrap().extra,
+            BTreeMap::from([("gen_ai.provider.name".into(), json!("openai"))])
+        );
+        assert!(
+            !serde_json::to_string(&sanitized.data)
+                .unwrap()
+                .contains("SECRET")
+        );
+    }
 }
 
 fn no_codec_context() -> LlmSanitizeResponseContext {
@@ -401,6 +866,215 @@ impl LlmCodec for IdentifiedRequestCodec {
     ) -> nemo_relay::error::Result<LlmRequest> {
         self.inner.encode(annotated, original)
     }
+}
+
+impl LlmResponseCodec for IdentifiedRequestCodec {
+    fn codec_identity(&self) -> LlmCodecIdentity {
+        self.identity.clone()
+    }
+
+    fn decode_response(
+        &self,
+        response: &Json,
+    ) -> nemo_relay::error::Result<crate::codec::response::AnnotatedLlmResponse> {
+        self.inner.decode_response(response)
+    }
+}
+
+struct WrappedResponsesCodec;
+
+impl LlmCodec for WrappedResponsesCodec {
+    fn codec_identity(&self) -> LlmCodecIdentity {
+        LlmCodecIdentity::BuiltIn(BuiltinLlmCodec::OpenAiResponses)
+    }
+
+    fn decode(&self, request: &LlmRequest) -> nemo_relay::error::Result<AnnotatedLlmRequest> {
+        let Some(payload) = request.content.get("payload") else {
+            return OpenAIResponsesCodec.decode(request);
+        };
+        OpenAIResponsesCodec.decode(&LlmRequest {
+            headers: request.headers.clone(),
+            content: payload.clone(),
+        })
+    }
+
+    fn encode(
+        &self,
+        annotated: &AnnotatedLlmRequest,
+        original: &LlmRequest,
+    ) -> nemo_relay::error::Result<LlmRequest> {
+        let Some(payload) = original.content.get("payload") else {
+            return OpenAIResponsesCodec.encode(annotated, original);
+        };
+        let encoded = OpenAIResponsesCodec.encode(
+            annotated,
+            &LlmRequest {
+                headers: original.headers.clone(),
+                content: payload.clone(),
+            },
+        )?;
+        let mut wrapped = original.clone();
+        wrapped.headers = encoded.headers;
+        wrapped.content = json!({"payload": encoded.content});
+        Ok(wrapped)
+    }
+}
+
+impl LlmResponseCodec for WrappedResponsesCodec {
+    fn codec_identity(&self) -> LlmCodecIdentity {
+        LlmCodecIdentity::BuiltIn(BuiltinLlmCodec::OpenAiResponses)
+    }
+
+    fn decode_response(
+        &self,
+        response: &Json,
+    ) -> nemo_relay::error::Result<crate::codec::response::AnnotatedLlmResponse> {
+        OpenAIResponsesCodec.decode_response(response.get("payload").unwrap_or(response))
+    }
+}
+
+#[tokio::test]
+async fn trajectory_managed_llm_events_fail_closed_for_runtime_and_opaque_codecs() {
+    let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
+    reset_runtime();
+    setup_isolated_thread();
+
+    for (case, identity) in [
+        (
+            "runtime",
+            LlmCodecIdentity::Runtime("com.example.responses.v1".to_owned()),
+        ),
+        ("opaque", LlmCodecIdentity::Opaque),
+    ] {
+        test_initialize_plugin_host_exact(plugin_config(json!({
+            "codec": "openai_responses",
+            "mode": "builtin",
+            "builtin": {"preset": "trajectory_context"}
+        })))
+        .await
+        .unwrap();
+        let subscriber_name = format!("pii-trajectory-{case}-codec");
+        let events = capture_events(&subscriber_name);
+        let request = LlmRequest {
+            headers: serde_json::Map::new(),
+            content: json!({
+                "model": "gpt-4.1-mini",
+                "input": [{
+                    "role": "user",
+                    "content": [{"type": "input_text", "text": "SECRET request"}]
+                }]
+            }),
+        };
+        let response = json!({
+            "id": "SECRET-response-id",
+            "model": "gpt-4.1-mini",
+            "status": "completed",
+            "output": [{
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "SECRET response"}]
+            }]
+        });
+
+        let result = llm_call_execute(
+            LlmCallExecuteParams::builder()
+                .name("openai.responses")
+                .request(request)
+                .func(noop_openai_chat_exec_fn(response.clone()))
+                .codec(Arc::new(IdentifiedRequestCodec {
+                    identity: identity.clone(),
+                    inner: OpenAIResponsesCodec,
+                }))
+                .response_codec(Arc::new(IdentifiedRequestCodec {
+                    identity,
+                    inner: OpenAIResponsesCodec,
+                }))
+                .build(),
+        )
+        .await
+        .unwrap();
+
+        assert_eq!(result, response);
+        let captured = captured_events_snapshot(&events);
+        assert_eq!(captured.len(), 2);
+        assert_eq!(captured[0].input(), Some(&json!({})));
+        assert_eq!(captured[1].output(), Some(&json!({})));
+        assert!(captured[0].annotated_request().is_none());
+        assert!(captured[1].annotated_response().is_none());
+        assert!(!serde_json::to_string(&captured).unwrap().contains("SECRET"));
+
+        deregister_subscriber(&subscriber_name).unwrap();
+        test_close_plugin_host().unwrap();
+    }
+}
+
+#[tokio::test]
+async fn trajectory_managed_llm_events_trust_the_active_builtin_codec_over_raw_shape_detection() {
+    let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
+    reset_runtime();
+    setup_isolated_thread();
+
+    test_initialize_plugin_host_exact(plugin_config(json!({
+        "codec": "openai_responses",
+        "mode": "builtin",
+        "builtin": {"preset": "trajectory_context"}
+    })))
+    .await
+    .unwrap();
+    let events = capture_events("pii-trajectory-active-codec-surface");
+    let request = LlmRequest {
+        headers: serde_json::Map::new(),
+        content: json!({
+            "payload": {
+                "model": "gpt-4.1-mini",
+                "input": "SECRET request"
+            }
+        }),
+    };
+    let response = json!({
+        "payload": {
+            "id": "SECRET-response-id",
+            "model": "gpt-4.1-mini",
+            "status": "completed",
+            "output": [{
+                "type": "message",
+                "role": "assistant",
+                "content": [{"type": "output_text", "text": "SECRET response"}]
+            }]
+        }
+    });
+    assert!(crate::codec::resolve::detect_request_surface(&request.content).is_none());
+    assert!(crate::codec::resolve::detect_response_surface(&response).is_none());
+
+    let result = llm_call_execute(
+        LlmCallExecuteParams::builder()
+            .name("openai.responses")
+            .request(request)
+            .func(noop_openai_chat_exec_fn(response.clone()))
+            .codec(Arc::new(WrappedResponsesCodec))
+            .response_codec(Arc::new(WrappedResponsesCodec))
+            .build(),
+    )
+    .await
+    .unwrap();
+
+    assert_eq!(result, response);
+    let captured = captured_events_snapshot(&events);
+    assert_eq!(captured.len(), 2);
+    assert_eq!(
+        captured[0].input().unwrap()["content"]["input"][0]["content"],
+        "[REDACTED]"
+    );
+    assert_eq!(
+        captured[1].output().unwrap()["output"][0]["content"][0]["text"],
+        "[REDACTED]"
+    );
+    assert!(captured[0].annotated_request().is_some());
+    assert!(captured[1].annotated_response().is_some());
+    assert!(!serde_json::to_string(&captured).unwrap().contains("SECRET"));
+
+    deregister_subscriber("pii-trajectory-active-codec-surface").unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -760,248 +1434,54 @@ async fn normalized_llm_paths_use_configured_anthropic_codec_without_a_system_me
 }
 
 #[tokio::test]
-async fn trajectory_preset_redacts_chat_content_without_erasing_request_structure() {
-    let callback = crate::builtin::llm_sanitize_request_callback(trajectory_backend(
-        Some("openai_chat"),
-        "preserve",
-    ));
-    let request = callback(LlmRequest {
-        headers: serde_json::Map::new(),
-        content: json!({
-            "model": "claude-sonnet-4-6",
-            "messages": [
-                {"role": "system", "content": "private system prompt"},
-                {"role": "user", "content": [
-                    {"type": "text", "text": "private user prompt"},
-                    {"type": "image_url", "image_url": {"url": "data:image/png;base64,secret", "detail": "high"}}
-                ]},
-                {"role": "assistant", "tool_calls": [{
-                    "id": "call_1",
-                    "type": "function",
-                    "function": {"name": "search", "arguments": "{\"query\":\"private query\",\"limit\":5}"}
-                }]},
-                {"role": "tool", "tool_call_id": "call_1", "content": "private result"}
+async fn normalized_anthropic_overlapping_paths_redact_multiple_text_blocks() {
+    let backend = crate::builtin::CompiledBuiltinBackend::new(
+        BuiltinBackendConfig {
+            action: "redact".to_string(),
+            detector: Some("email".to_string()),
+            target_path_globs: vec![
+                "/messages/*/content".to_string(),
+                "/messages/*/content/*/text".to_string(),
             ],
-            "tools": [{"type": "function", "function": {
-                "name": "search",
-                "description": "private description",
-                "parameters": {"type": "object", "properties": {
-                    "query": {"type": "string", "description": "private schema text", "default": "private default"}
-                }, "required": ["query"]}
-            }}],
-            "temperature": 0.2,
-            "stop": ["private stop sequence"],
-            "participant": {"name": "Alice Example", "username": "alice"},
-            "person_name": "Alice Example"
-        }),
-    }, no_codec_request_context())
-    .await
-    .unwrap()
-    .unwrap();
-
-    assert_eq!(request.content["model"], "claude-sonnet-4-6");
-    assert_eq!(request.content["temperature"], 0.2);
-    assert_eq!(request.content["stop"][0], "[REDACTED]");
-    assert_eq!(request.content["participant"]["name"], "[REDACTED]");
-    assert_eq!(request.content["participant"]["username"], "[REDACTED]");
-    assert_eq!(request.content["person_name"], "[REDACTED]");
-    assert_eq!(request.content["messages"][0]["role"], "system");
-    assert_eq!(request.content["messages"][0]["content"], "[REDACTED]");
-    assert_eq!(request.content["messages"][1]["content"][0]["type"], "text");
-    assert_eq!(
-        request.content["messages"][1]["content"][0]["text"],
-        "[REDACTED]"
-    );
-    assert_eq!(
-        request.content["messages"][1]["content"][1]["image_url"]["url"],
-        "[REDACTED]"
-    );
-    assert_eq!(
-        request.content["messages"][2]["tool_calls"][0]["id"],
-        "call_1"
-    );
-    assert_eq!(
-        request.content["messages"][2]["tool_calls"][0]["function"]["name"],
-        "search"
-    );
-    let arguments: Json = serde_json::from_str(
-        request.content["messages"][2]["tool_calls"][0]["function"]["arguments"]
-            .as_str()
-            .unwrap(),
+            ..BuiltinBackendConfig::default()
+        },
+        None,
     )
     .unwrap();
-    assert_eq!(arguments, json!({"query": "[REDACTED]", "limit": 0}));
-    assert_eq!(request.content["messages"][3]["tool_call_id"], "call_1");
-    assert_eq!(request.content["messages"][3]["content"], "[REDACTED]");
-    assert_eq!(request.content["tools"][0]["function"]["name"], "search");
-    assert_eq!(
-        request.content["tools"][0]["function"]["description"],
-        "[REDACTED]"
-    );
-    assert_eq!(
-        request.content["tools"][0]["function"]["parameters"]["required"][0],
-        "query"
-    );
-}
+    let sanitize_request = crate::builtin::llm_sanitize_request_callback(backend);
 
-#[tokio::test]
-async fn trajectory_preset_preserves_response_analytics_and_redacts_response_content() {
-    let callback = crate::builtin::llm_sanitize_response_callback(trajectory_backend(
-        Some("openai_chat"),
-        "preserve",
-    ));
-    let sanitized = callback(
-        json!({
-            "id": "chatcmpl_1",
-            "model": "claude-opus-4-6",
-            "choices": [{"index": 0, "finish_reason": "tool_calls", "message": {
-                "role": "assistant",
-                "content": "private answer",
-                "tool_calls": [{"id": "call_1", "type": "function", "function": {
-                    "name": "terminal", "arguments": "{\"command\":\"cat secret.txt\"}"
-                }}]
-            }, "logprobs": {"content": [{"token": "secret", "logprob": -0.5}]}}],
-            "usage": {"prompt_tokens": 20, "completion_tokens": 5, "total_tokens": 25},
-            "cost": {"total": 1.25}
-        }),
-        no_codec_context(),
+    let sanitized = sanitize_request(
+        LlmRequest {
+            headers: serde_json::Map::new(),
+            content: json!({
+                "model": "claude-opus-5",
+                "messages": [{
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": "first@example.com"},
+                        {"type": "text", "text": "second@example.com"}
+                    ]
+                }],
+                "stream": true
+            }),
+        },
+        LlmSanitizeRequestContext::for_request_codec(Some(Arc::new(
+            crate::codec::anthropic::AnthropicMessagesCodec,
+        ))),
     )
     .await
-    .unwrap()
-    .unwrap();
+    .expect("the sanitizer callback must succeed")
+    .expect("overlapping normalized paths must retain the request payload");
 
-    assert_eq!(sanitized["id"], "chatcmpl_1");
-    assert_eq!(sanitized["model"], "claude-opus-4-6");
-    assert_eq!(sanitized["choices"][0]["finish_reason"], "tool_calls");
-    assert_eq!(sanitized["choices"][0]["message"]["role"], "assistant");
-    assert_eq!(sanitized["choices"][0]["message"]["content"], "[REDACTED]");
     assert_eq!(
-        sanitized["choices"][0]["message"]["tool_calls"][0]["id"],
-        "call_1"
+        sanitized.content["messages"][0]["content"][0]["text"],
+        json!("[REDACTED]")
     );
     assert_eq!(
-        sanitized["choices"][0]["message"]["tool_calls"][0]["function"]["name"],
-        "terminal"
+        sanitized.content["messages"][0]["content"][1]["text"],
+        json!("[REDACTED]")
     );
-    let arguments: Json = serde_json::from_str(
-        sanitized["choices"][0]["message"]["tool_calls"][0]["function"]["arguments"]
-            .as_str()
-            .unwrap(),
-    )
-    .unwrap();
-    assert_eq!(arguments, json!({"command": "[REDACTED]"}));
-    assert_eq!(sanitized["usage"]["total_tokens"], 25);
-    assert_eq!(sanitized["cost"]["total"], 1.25);
-}
-
-#[tokio::test]
-async fn trajectory_preset_covers_responses_and_anthropic_provider_shapes() {
-    let responses_request = crate::builtin::llm_sanitize_request_callback(trajectory_backend(
-        Some("openai_responses"),
-        "preserve",
-    ))(LlmRequest {
-        headers: serde_json::Map::new(),
-        content: json!({
-            "model": "gpt-5",
-            "input": [{"role": "user", "content": [{"type": "input_text", "text": "private input"}]}],
-            "reasoning": {"effort": "high", "summary": "private reasoning"},
-            "max_output_tokens": 100
-        }),
-    }, no_codec_request_context())
-    .await
-    .unwrap()
-    .unwrap();
-    assert_eq!(responses_request.content["model"], "gpt-5");
-    assert_eq!(responses_request.content["input"][0]["role"], "user");
-    assert_eq!(
-        responses_request.content["input"][0]["content"][0]["text"],
-        "[REDACTED]"
-    );
-    assert_eq!(responses_request.content["max_output_tokens"], 100);
-
-    let responses_response = crate::builtin::llm_sanitize_response_callback(trajectory_backend(
-        Some("openai_responses"),
-        "preserve",
-    ))(
-        json!({
-            "id": "resp_1",
-            "model": "gpt-5",
-            "status": "completed",
-            "output": [{"id": "msg_1", "type": "message", "role": "assistant", "content": [
-                {"type": "output_text", "text": "private output"}
-            ]}],
-            "usage": {"input_tokens": 10, "output_tokens": 4, "total_tokens": 14}
-        }),
-        no_codec_context(),
-    )
-    .await
-    .unwrap()
-    .unwrap();
-    assert_eq!(responses_response["id"], "resp_1");
-    assert_eq!(responses_response["status"], "completed");
-    assert_eq!(responses_response["output"][0]["id"], "msg_1");
-    assert_eq!(
-        responses_response["output"][0]["content"][0]["text"],
-        "[REDACTED]"
-    );
-    assert_eq!(responses_response["usage"]["total_tokens"], 14);
-
-    let anthropic_request = crate::builtin::llm_sanitize_request_callback(trajectory_backend(
-        Some("anthropic_messages"),
-        "preserve",
-    ))(LlmRequest {
-        headers: serde_json::Map::new(),
-        content: json!({
-            "model": "claude-sonnet-4-6",
-            "system": "private system",
-            "messages": [{"role": "user", "content": [
-                {"type": "text", "text": "private user"},
-                {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "private-base64"}}
-            ]}],
-            "max_tokens": 128
-        }),
-    }, no_codec_request_context())
-    .await
-    .unwrap()
-    .unwrap();
-    assert_eq!(anthropic_request.content["model"], "claude-sonnet-4-6");
-    assert_eq!(anthropic_request.content["system"], "[REDACTED]");
-    assert_eq!(
-        anthropic_request.content["messages"][0]["content"][0]["text"], "[REDACTED]",
-        "{}",
-        anthropic_request.content
-    );
-    assert_eq!(
-        anthropic_request.content["messages"][0]["content"][1]["source"]["data"],
-        "[REDACTED]"
-    );
-    assert_eq!(anthropic_request.content["max_tokens"], 128);
-
-    let anthropic_response = crate::builtin::llm_sanitize_response_callback(trajectory_backend(
-        Some("anthropic_messages"),
-        "preserve",
-    ))(json!({
-        "id": "msg_1",
-        "model": "claude-sonnet-4-6",
-        "type": "message",
-        "role": "assistant",
-        "content": [
-            {"type": "thinking", "thinking": "private chain of thought", "signature": "private-signature"},
-            {"type": "text", "text": "private answer"}
-        ],
-        "stop_reason": "end_turn",
-        "usage": {"input_tokens": 12, "output_tokens": 6, "cache_read_input_tokens": 8}
-    }), no_codec_context())
-    .await
-    .unwrap()
-    .unwrap();
-    assert_eq!(anthropic_response["id"], "msg_1");
-    assert_eq!(anthropic_response["role"], "assistant");
-    assert_eq!(anthropic_response["content"][0]["type"], "thinking");
-    assert_eq!(anthropic_response["content"][0]["thinking"], "[REDACTED]");
-    assert_eq!(anthropic_response["content"][1]["text"], "[REDACTED]");
-    assert_eq!(anthropic_response["usage"]["input_tokens"], 12);
-    assert_eq!(anthropic_response["usage"]["cache_read_input_tokens"], 8);
+    assert_eq!(sanitized.content["stream"], json!(true));
 }
 
 #[tokio::test]
@@ -1026,14 +1506,10 @@ async fn trajectory_preset_redacts_known_marks_and_nested_scope_content() {
     )
     .await
     .unwrap();
-    assert_eq!(sanitized.data.as_ref().unwrap()["chunk_index"], 2);
+    assert_eq!(sanitized.data, Some(json!({})));
     assert_eq!(
-        sanitized.data.as_ref().unwrap()["event_type"],
-        "content_block_delta"
-    );
-    assert_eq!(
-        sanitized.data.as_ref().unwrap()["delta"]["text"],
-        "[REDACTED]"
+        sanitized.category_profile.unwrap().subtype.as_deref(),
+        Some("llm.chunk")
     );
 
     let optimization = Event::Mark(MarkEvent::new(
@@ -1067,21 +1543,10 @@ async fn trajectory_preset_redacts_known_marks_and_nested_scope_content() {
     )
     .await
     .unwrap();
+    assert_eq!(sanitized.data, Some(json!({})));
     assert_eq!(
-        sanitized.data.as_ref().unwrap()["producer"],
-        "neutral.router"
-    );
-    assert_eq!(
-        sanitized.data.as_ref().unwrap()["model_transition"]["baseline"]["model"],
-        "claude-opus-4-6"
-    );
-    assert_eq!(
-        sanitized.data.as_ref().unwrap()["token_impact"]["saved"]["total_tokens"],
-        40
-    );
-    assert_eq!(
-        sanitized.data.as_ref().unwrap()["payload"]["private_excerpt"],
-        "[REDACTED]"
+        sanitized.category_profile.unwrap().subtype.as_deref(),
+        Some("nemo_relay.llm.optimization")
     );
 
     let nested_agent = Event::Scope(ScopeEvent::new(
@@ -1105,28 +1570,12 @@ async fn trajectory_preset_redacts_known_marks_and_nested_scope_content() {
     )
     .await
     .unwrap();
-    assert_eq!(sanitized.data.as_ref().unwrap()["request_id"], "request-1");
-    assert_eq!(
-        sanitized.data.as_ref().unwrap()["instruction"],
-        "[REDACTED]"
-    );
-    assert_eq!(
-        sanitized.data.as_ref().unwrap()["history"][0]["role"],
-        "user"
-    );
-    assert_eq!(
-        sanitized.data.as_ref().unwrap()["history"][0]["content"],
-        "[REDACTED]"
-    );
-    assert_eq!(
-        sanitized.metadata.as_ref().unwrap()["parent_scope_id"],
-        "scope-1"
-    );
-    assert_eq!(sanitized.metadata.as_ref().unwrap()["note"], "[REDACTED]");
+    assert_eq!(sanitized.data, Some(json!({})));
+    assert_eq!(sanitized.metadata, Some(json!({})));
 }
 
 #[tokio::test]
-async fn trajectory_preset_preserves_trusted_scope_metadata_only() {
+async fn trajectory_preset_empties_untyped_scope_metadata() {
     let callback = crate::builtin::event_sanitize_callback(trajectory_backend(None, "preserve"));
     let metadata = json!({
         "nemo_relay_scope_role": "turn",
@@ -1149,28 +1598,6 @@ async fn trajectory_preset_preserves_trusted_scope_metadata_only() {
         "private_note": "private context",
         "nested": {"harness": "private nested context"}
     });
-    let expected_metadata = json!({
-        "nemo_relay_scope_role": "turn",
-        "agent_kind": "codex",
-        "hook_event_name": "UserPromptSubmit",
-        "gateway_config_profile": "development",
-        "gateway_mode": "passthrough",
-        "turn_source": "user_prompt",
-        "harness": "codex",
-        "source": "hook",
-        "identity_quality": "native",
-        "gateway_path": "responses",
-        "llm_correlation_status": "matched",
-        "llm_correlation_source": "provider",
-        "tool_correlation_status": "matched",
-        "tool_correlation_source": "provider",
-        "otel.status_code": "OK",
-        "fidelity_source": "provider",
-        "provider_payload_exact": true,
-        "private_note": "[REDACTED]",
-        "nested": {"harness": "[REDACTED]"}
-    });
-
     for (scope_category, category) in [
         (ScopeCategory::Start, EventCategory::agent()),
         (ScopeCategory::End, EventCategory::agent()),
@@ -1196,7 +1623,7 @@ async fn trajectory_preset_preserves_trusted_scope_metadata_only() {
         )
         .await
         .unwrap();
-        assert_eq!(sanitized.metadata, Some(expected_metadata.clone()));
+        assert_eq!(sanitized.metadata, Some(json!({})));
     }
 
     let malformed = Event::Scope(ScopeEvent::new(
@@ -1221,15 +1648,7 @@ async fn trajectory_preset_preserves_trusted_scope_metadata_only() {
     )
     .await
     .unwrap();
-    assert_eq!(
-        sanitized.metadata,
-        Some(json!({
-            "harness": {"private": "[REDACTED]"},
-            "source": 0,
-            "identity_quality": ["[REDACTED]"],
-            "provider_payload_exact": "[REDACTED]"
-        }))
-    );
+    assert_eq!(sanitized.metadata, Some(json!({})));
 
     let mark = Event::Mark(MarkEvent::new(
         BaseEvent::builder().name("llm.chunk").build(),
@@ -1246,14 +1665,11 @@ async fn trajectory_preset_preserves_trusted_scope_metadata_only() {
     )
     .await
     .unwrap();
-    assert_eq!(
-        sanitized.metadata,
-        Some(json!({"harness": "[REDACTED]", "source": "[REDACTED]"}))
-    );
+    assert_eq!(sanitized.metadata, Some(json!({})));
 }
 
 #[tokio::test]
-async fn trajectory_custom_mark_policy_is_explicit_and_shape_preserving() {
+async fn trajectory_custom_mark_policy_is_explicit_and_fail_closed() {
     let event = Event::Mark(MarkEvent::new(
         BaseEvent::builder().name("neutral.plugin.evidence").build(),
         Some(EventCategory::custom()),
@@ -1280,16 +1696,11 @@ async fn trajectory_custom_mark_policy_is_explicit_and_shape_preserving() {
     let redact =
         crate::builtin::event_sanitize_callback(trajectory_backend(None, "redact_all_leaves"));
     let sanitized = redact(Arc::new(event), fields).await.unwrap();
-    assert_eq!(
-        sanitized.data.unwrap(),
-        json!({
-            "text": "[REDACTED]", "score": 0, "nested": [false, null]
-        })
-    );
-    assert_eq!(sanitized.metadata.unwrap(), json!({"owner": "[REDACTED]"}));
+    assert_eq!(sanitized.data.unwrap(), json!({}));
+    assert_eq!(sanitized.metadata.unwrap(), json!({}));
     let profile = sanitized.category_profile.unwrap();
-    assert_eq!(profile.subtype.as_deref(), Some("neutral.plugin"));
-    assert_eq!(profile.extra["opaque"]["label"], "[REDACTED]");
+    assert_eq!(profile.subtype.as_deref(), Some("[REDACTED]"));
+    assert!(profile.extra.is_empty());
 }
 
 #[tokio::test]
@@ -1315,13 +1726,10 @@ async fn trajectory_custom_mark_preserves_only_valid_log_severity() {
     )
     .await
     .unwrap();
-    assert_eq!(sanitized.data, Some(json!({"message": "[REDACTED]"})));
+    assert_eq!(sanitized.data, Some(json!({})));
     assert_eq!(
         sanitized.metadata,
-        Some(json!({
-            LOG_SEVERITY_METADATA_KEY: "warn",
-            "owner": "[REDACTED]"
-        }))
+        Some(json!({LOG_SEVERITY_METADATA_KEY: "warn"}))
     );
 
     let sanitized = callback(
@@ -1334,10 +1742,7 @@ async fn trajectory_custom_mark_preserves_only_valid_log_severity() {
     )
     .await
     .unwrap();
-    assert_eq!(
-        sanitized.metadata,
-        Some(json!({LOG_SEVERITY_METADATA_KEY: "[REDACTED]"}))
-    );
+    assert_eq!(sanitized.metadata, Some(json!({})));
 }
 
 #[tokio::test]
@@ -1347,6 +1752,7 @@ async fn trajectory_metric_marks_preserve_typed_measurements_and_redact_text() {
             {
                 "name": "example.request_count",
                 "kind": "counter",
+                "unit": "request",
                 "value_type": "u64",
                 "value": 1,
                 "description": "private request count",
@@ -1404,6 +1810,9 @@ async fn trajectory_metric_marks_preserve_typed_measurements_and_redact_text() {
     let data = sanitized.data.unwrap();
     let envelope = serde_json::from_value::<MetricEnvelope>(data.clone()).unwrap();
     envelope.validate().unwrap();
+    assert_eq!(data["measurements"][0]["name"], "example.request_count");
+    assert_eq!(data["measurements"][0]["kind"], "counter");
+    assert_eq!(data["measurements"][0]["unit"], "request");
     assert_eq!(data["measurements"][0]["value_type"], "u64");
     assert_eq!(data["measurements"][0]["value"], 1);
     assert_eq!(data["measurements"][1]["value_type"], "i64");
@@ -1412,18 +1821,84 @@ async fn trajectory_metric_marks_preserve_typed_measurements_and_redact_text() {
     assert_eq!(data["measurements"][2]["value"], 3.5);
     assert_eq!(data["measurements"][2]["boundaries"], json!([1.0, 5.0]));
     assert_eq!(data["measurements"][0]["description"], "[REDACTED]");
-    assert_eq!(data["measurements"][0]["attributes"]["owner"], "[REDACTED]");
-    assert_eq!(
-        data["measurements"][0]["attributes"]["regions"],
-        json!(["[REDACTED]", "[REDACTED]"])
+    assert_eq!(data["measurements"][0]["attributes"], json!({}));
+    assert_eq!(sanitized.metadata, Some(json!({})));
+    assert!(sanitized.category_profile.unwrap().extra.is_empty());
+}
+
+#[tokio::test]
+async fn trajectory_metric_string_allowlist_requires_exact_key_and_value() {
+    let data = json!({
+        "measurements": [{
+            "name": "example.request_count",
+            "kind": "counter",
+            "value_type": "u64",
+            "value": 1,
+            "description": "private request count",
+            "attributes": {
+                "query.source": "main",
+                "allowed.modes": ["main", "subagent"],
+                "operation": "private operation",
+                "unapproved.key": "main",
+                "execution.modes": ["main", "private mode"],
+                "attempt": 2,
+                "sampled": true
+            }
+        }]
+    });
+    let event = Event::Mark(MarkEvent::new(
+        BaseEvent::builder()
+            .name("example.metrics")
+            .data(data.clone())
+            .data_schema(
+                DataSchema::builder()
+                    .name(METRIC_DATA_SCHEMA_NAME)
+                    .version(METRIC_DATA_SCHEMA_VERSION)
+                    .build(),
+            )
+            .build(),
+        None,
+        None,
+    ));
+    let callback = crate::builtin::event_sanitize_callback(
+        trajectory_backend_with_metric_allowlist(BTreeMap::from([
+            ("query.source".into(), vec!["main".into()]),
+            (
+                "allowed.modes".into(),
+                vec!["main".into(), "subagent".into()],
+            ),
+            ("operation".into(), vec!["chat".into()]),
+            ("execution.modes".into(), vec!["main".into()]),
+        ])),
     );
-    assert_eq!(data["measurements"][0]["attributes"]["attempt"], 2);
-    assert_eq!(data["measurements"][0]["attributes"]["sampled"], true);
-    assert_eq!(sanitized.metadata.unwrap()["owner"], "[REDACTED]");
-    assert_eq!(
-        sanitized.category_profile.unwrap().extra["owner"],
-        "[REDACTED]"
-    );
+    let sanitized = callback(
+        Arc::new(event),
+        EventSanitizeFields {
+            data: Some(data),
+            category_profile: Some(CategoryProfile {
+                extra: BTreeMap::from([("query.source".into(), json!("main"))]),
+                ..CategoryProfile::default()
+            }),
+            metadata: Some(json!({"query.source": "main"})),
+        },
+    )
+    .await
+    .unwrap();
+
+    let data = sanitized.data.unwrap();
+    let envelope = serde_json::from_value::<MetricEnvelope>(data.clone()).unwrap();
+    envelope.validate().unwrap();
+    let attributes = &data["measurements"][0]["attributes"];
+    assert_eq!(attributes["query.source"], "main");
+    assert_eq!(attributes["allowed.modes"], json!(["main", "subagent"]));
+    assert!(attributes.get("operation").is_none());
+    assert!(attributes.get("unapproved.key").is_none());
+    assert!(attributes.get("execution.modes").is_none());
+    assert!(attributes.get("attempt").is_none());
+    assert!(attributes.get("sampled").is_none());
+    assert_eq!(data["measurements"][0]["description"], "[REDACTED]");
+    assert_eq!(sanitized.metadata, Some(json!({})));
+    assert!(sanitized.category_profile.unwrap().extra.is_empty());
 }
 
 #[tokio::test]
@@ -1783,7 +2258,7 @@ async fn configured_target_path_globs_redact_otlp_content_and_preserve_typed_met
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "codec": "openai_chat",
         "profiles": [{
             "mode": "builtin",
@@ -1915,7 +2390,7 @@ async fn configured_target_path_globs_redact_otlp_content_and_preserve_typed_met
         .unwrap();
     trace_subscriber.shutdown().unwrap();
     metric_subscriber.shutdown().unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 
     let trace_request = trace_request
         .recv_timeout(Duration::from_secs(5))
@@ -2099,8 +2574,14 @@ async fn trajectory_profile_preserves_typed_llm_accounting_while_redacting_annot
                 "total_tokens": 120,
                 "cost": {
                     "total": 0.42,
-                    "currency": "USD",
-                    "source": "provider_reported"
+                    "currency": "usd",
+                    "input": 0.3,
+                    "output": 0.12,
+                    "source": "provider_reported",
+                    "pricing_provider": "SECRET",
+                    "pricing_model": "SECRET",
+                    "pricing_as_of": "SECRET",
+                    "pricing_source": "SECRET"
                 }
             },
             "optimization_summary": {
@@ -2112,6 +2593,12 @@ async fn trajectory_profile_preserves_typed_llm_accounting_while_redacting_annot
                 "effective_usage": {"prompt_tokens": 100, "completion_tokens": 20, "total_tokens": 120},
                 "baseline_usage": {"prompt_tokens": 140, "completion_tokens": 20, "total_tokens": 160},
                 "tokens_saved": {"prompt_tokens": 40, "total_tokens": 40},
+                "actual_cost": {
+                    "total": 0.42,
+                    "currency": "USD",
+                    "source": "provider_reported",
+                    "pricing_source": "SECRET"
+                },
                 "estimated_cost_saved": 0.8,
                 "currency": "USD",
                 "contributions": [{
@@ -2156,6 +2643,10 @@ async fn trajectory_profile_preserves_typed_llm_accounting_while_redacting_annot
     assert_eq!(profile.model_name.as_deref(), Some("claude-sonnet-4-6"));
     let response = profile.annotated_response.unwrap();
     assert_eq!(response.response_text(), Some("[REDACTED]"));
+    assert!(matches!(
+        response.finish_reason,
+        Some(crate::codec::response::FinishReason::Complete)
+    ));
     assert_eq!(response.usage.as_ref().unwrap().total_tokens, Some(120));
     assert_eq!(
         response
@@ -2168,23 +2659,138 @@ async fn trajectory_profile_preserves_typed_llm_accounting_while_redacting_annot
             .total,
         Some(0.42)
     );
+    let cost = response.usage.as_ref().unwrap().cost.as_ref().unwrap();
+    assert_eq!(cost.currency, "USD");
+    assert_eq!(cost.input, Some(0.3));
+    assert_eq!(cost.output, Some(0.12));
+    assert_eq!(
+        cost.source,
+        crate::codec::response::CostSource::ProviderReported
+    );
+    assert!(cost.pricing_provider.is_none());
+    assert!(cost.pricing_model.is_none());
+    assert!(cost.pricing_as_of.is_none());
+    assert!(cost.pricing_source.is_none());
     let summary = response.optimization_summary.as_ref().unwrap();
     assert_eq!(summary.tokens_saved.prompt_tokens, Some(40));
     assert_eq!(summary.estimated_cost_saved, Some(0.8));
-    assert_eq!(summary.contributions[0].producer, "neutral.optimizer");
-    assert_eq!(
-        summary.contributions[0].payload.as_ref().unwrap()["private_excerpt"],
-        "[REDACTED]"
+    assert!(summary.contributions.is_empty());
+    assert!(summary.baseline_model.is_none());
+    assert!(summary.effective_model.is_none());
+    assert!(
+        summary
+            .actual_cost
+            .as_ref()
+            .unwrap()
+            .pricing_source
+            .is_none()
     );
-    assert_eq!(
-        summary.contributions[0].payload.as_ref().unwrap()["strategy"],
-        "[REDACTED]"
+    assert_eq!(sanitized.data, Some(json!({})));
+}
+
+#[test]
+fn trajectory_component_preserves_normalized_cost_source_and_optimization_summary() {
+    let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
+    reset_runtime();
+    setup_isolated_thread();
+
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
+        "codec": "openai_chat",
+        "mode": "builtin",
+        "builtin": {"preset": "trajectory_context"}
+    }))))
+    .unwrap();
+
+    let captured = capture_events("trajectory-normalized-accounting");
+    let request = LlmRequest {
+        headers: serde_json::Map::new(),
+        content: json!({
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": "SECRET request"}]
+        }),
+    };
+    let response = json!({
+        "id": "SECRET-id",
+        "model": "gpt-4o-mini",
+        "choices": [{
+            "index": 0,
+            "message": {"role": "assistant", "content": "SECRET response"},
+            "finish_reason": "stop"
+        }],
+        "usage": {"prompt_tokens": 10, "completion_tokens": 4, "total_tokens": 14}
+    });
+    let mut annotated_response = OpenAIChatCodec.decode_response(&response).unwrap();
+    annotated_response.usage.as_mut().unwrap().cost = Some(crate::codec::response::CostEstimate {
+        total: Some(0.125),
+        currency: "USD".into(),
+        input: Some(0.1),
+        output: Some(0.025),
+        cache_read: None,
+        cache_write: None,
+        source: crate::codec::response::CostSource::ModelPricing,
+        pricing_provider: Some("SECRET-provider".into()),
+        pricing_model: Some("SECRET-model".into()),
+        pricing_as_of: Some("SECRET-date".into()),
+        pricing_source: Some("SECRET-source".into()),
+    });
+    annotated_response.optimization_summary = Some(
+        serde_json::from_value(json!({
+            "schema_version": "1",
+            "calculation_version": "1",
+            "status": "complete",
+            "tokens_saved": {"prompt_tokens": 4, "total_tokens": 4},
+            "estimated_cost_saved": 0.25,
+            "currency": "USD",
+            "contributions": []
+        }))
+        .unwrap(),
     );
+
+    let handle = llm_call(
+        LlmCallParams::builder()
+            .name("openai")
+            .request(&request)
+            .annotated_request(Arc::new(OpenAIChatCodec.decode(&request).unwrap()))
+            .build(),
+    )
+    .unwrap();
+    llm_call_end(
+        LlmCallEndParams::builder()
+            .handle(&handle)
+            .response(response.clone())
+            .annotated_response(Arc::new(annotated_response))
+            .build(),
+    )
+    .unwrap();
+
+    let events = captured_events_snapshot(&captured);
+    let end = events
+        .iter()
+        .find(|event| event.scope_category() == Some(ScopeCategory::End))
+        .expect("LLM end event");
+    let projected = end.data().unwrap();
+    assert_eq!(projected["id"], "[REDACTED]");
+    assert_eq!(projected["choices"][0]["message"]["content"], "[REDACTED]");
+    assert_eq!(projected["usage"]["total_tokens"], 14);
+    assert!(!serde_json::to_string(end).unwrap().contains("SECRET"));
+
+    let annotated = end.annotated_response().unwrap();
+    let cost = annotated.usage.as_ref().unwrap().cost.as_ref().unwrap();
     assert_eq!(
-        sanitized.data.unwrap()["already"],
-        "sanitized by the response callback",
-        "specialized LLM data must not be processed twice"
+        cost.source,
+        crate::codec::response::CostSource::ModelPricing
     );
+    assert_eq!(cost.total, Some(0.125));
+    assert!(cost.pricing_provider.is_none());
+    assert!(cost.pricing_model.is_none());
+    assert!(cost.pricing_as_of.is_none());
+    assert!(cost.pricing_source.is_none());
+    let summary = annotated.optimization_summary.as_ref().unwrap();
+    assert_eq!(summary.tokens_saved.prompt_tokens, Some(4));
+    assert_eq!(summary.estimated_cost_saved, Some(0.25));
+
+    assert!(deregister_subscriber("trajectory-normalized-accounting").unwrap());
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -2267,7 +2873,7 @@ fn typed_profile_config_serializes_without_conflicting_legacy_defaults() {
         assert!(!object.contains_key(legacy_field), "{legacy_field}");
     }
 
-    let report = validate_plugin_config(&plugin_config(serialized));
+    let report = test_validate_static_plugin_config(&plugin_config(serialized));
     assert!(!report.has_errors(), "{:?}", report.diagnostics);
 }
 
@@ -2281,6 +2887,11 @@ fn typed_trajectory_preset_omits_the_legacy_default_action() {
     assert_eq!(serialized["preset"], "trajectory_context");
     assert!(serialized.get("action").is_none());
     assert!(serialized.get("custom_mark_payload_policy").is_none());
+    assert!(
+        serialized
+            .get("metric_string_attribute_allowlist")
+            .is_none()
+    );
 }
 
 #[test]
@@ -2289,7 +2900,7 @@ fn profile_array_executes_every_profile_in_stable_array_order() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "codec": "openai_chat",
         "profiles": [
             {
@@ -2326,7 +2937,7 @@ fn profile_array_executes_every_profile_in_stable_array_order() {
     assert_eq!(captured[0].data().unwrap()["value"], "gamma");
 
     deregister_subscriber("pii-profile-order").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -2334,7 +2945,7 @@ fn profile_array_rejects_legacy_fields_and_reports_profile_paths() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "codec": "openai_chat",
         "mark": true,
         "profiles": [{
@@ -2370,7 +2981,7 @@ fn profile_array_requires_at_least_one_profile_and_matching_local_settings() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let empty = validate_plugin_config(&plugin_config(json!({
+    let empty = test_validate_static_plugin_config(&plugin_config(json!({
         "codec": "openai_chat",
         "profiles": []
     })));
@@ -2379,7 +2990,7 @@ fn profile_array_requires_at_least_one_profile_and_matching_local_settings() {
             && diagnostic.message.contains("at least one")
     }));
 
-    let all_disabled = validate_plugin_config(&plugin_config(json!({
+    let all_disabled = test_validate_static_plugin_config(&plugin_config(json!({
         "codec": "openai_chat",
         "profiles": [{
             "enabled": false,
@@ -2393,7 +3004,7 @@ fn profile_array_requires_at_least_one_profile_and_matching_local_settings() {
             && diagnostic.message.contains("at least one enabled")
     }));
 
-    let missing_local = validate_plugin_config(&plugin_config(json!({
+    let missing_local = test_validate_static_plugin_config(&plugin_config(json!({
         "codec": "openai_chat",
         "profiles": [{"mode": "local_model"}]
     })));
@@ -2408,7 +3019,7 @@ fn disabled_profiles_are_validated_when_an_enabled_profile_exists() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "codec": "openai_chat",
         "profiles": [
             {
@@ -2478,19 +3089,20 @@ fn failed_later_profile_rolls_back_earlier_profile_registrations() {
         ))
     }))
     .unwrap();
-    let activation = futures::executor::block_on(initialize_plugins(plugin_config(json!({
-        "codec": "openai_chat",
-        "profiles": [
-            {
-                "mode": "builtin",
-                "builtin": {"action": "redact", "detector": "email"}
-            },
-            {
-                "mode": "local_model",
-                "local": {"backend": "failing"}
-            }
-        ]
-    }))));
+    let activation =
+        futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
+            "codec": "openai_chat",
+            "profiles": [
+                {
+                    "mode": "builtin",
+                    "builtin": {"action": "redact", "detector": "email"}
+                },
+                {
+                    "mode": "local_model",
+                    "local": {"backend": "failing"}
+                }
+            ]
+        }))));
     assert!(activation.is_err());
 
     let events = capture_events("pii-profile-rollback");
@@ -2687,7 +3299,7 @@ fn validate_rejects_config_with_no_enabled_surfaces() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "builtin": {
@@ -2713,7 +3325,7 @@ fn validate_allows_documented_policy_unknown_component_field() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "mode": "builtin",
         "tool_input": true,
         "tool_output": false,
@@ -2740,7 +3352,7 @@ fn validate_rejects_unsupported_config_version() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "version": 2,
         "mode": "builtin",
         "tool_input": true,
@@ -2764,7 +3376,7 @@ fn validate_rejects_local_section_outside_local_mode() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "builtin": {
@@ -2785,7 +3397,7 @@ fn validate_rejects_builtin_mode_without_builtin_section() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "mode": "builtin"
     })));
 
@@ -2800,7 +3412,7 @@ fn validate_allows_llm_surfaces_without_codec() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "mode": "builtin",
         "builtin": {
             "action": "remove",
@@ -2818,7 +3430,7 @@ fn validate_rejects_ambiguous_gemini_codec_name() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "mode": "builtin",
         "codec": "gemini",
         "input": true,
@@ -2844,7 +3456,7 @@ fn validate_rejects_regex_replace_without_pattern() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "mode": "builtin",
         "builtin": {
             "action": "regex_replace"
@@ -2864,7 +3476,7 @@ fn validate_rejects_invalid_builtin_pattern_regex() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "mode": "builtin",
         "builtin": {
             "action": "regex_replace",
@@ -2883,7 +3495,7 @@ fn validate_rejects_malformed_builtin_target_paths() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "builtin": {
@@ -2910,7 +3522,7 @@ fn validate_accepts_valid_builtin_target_paths() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "builtin": {
@@ -2934,7 +3546,7 @@ fn validate_builtin_target_path_globs_as_json_pointers() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "builtin": {
@@ -2948,7 +3560,7 @@ fn validate_builtin_target_path_globs_as_json_pointers() {
     })));
     assert!(!report.has_errors(), "{:#?}", report.diagnostics);
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "builtin": {
@@ -2970,7 +3582,7 @@ fn profile_validation_reports_malformed_target_path_index() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "codec": "openai_chat",
         "profiles": [{
             "mode": "builtin",
@@ -2993,17 +3605,18 @@ fn activation_rejects_malformed_target_path_when_diagnostic_is_downgraded() {
     reset_runtime();
     setup_isolated_thread();
 
-    let activation = futures::executor::block_on(initialize_plugins(plugin_config(json!({
-        "mode": "builtin",
-        "codec": "openai_chat",
-        "builtin": {
-            "action": "remove",
-            "target_paths": ["messages/0/content"]
-        },
-        "policy": {
-            "unsupported_value": "warn"
-        }
-    }))));
+    let activation =
+        futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
+            "mode": "builtin",
+            "codec": "openai_chat",
+            "builtin": {
+                "action": "remove",
+                "target_paths": ["messages/0/content"]
+            },
+            "policy": {
+                "unsupported_value": "warn"
+            }
+        }))));
 
     let error = activation.expect_err("malformed target path must fail plugin activation");
     assert!(error.to_string().contains("builtin.target_paths[0]"));
@@ -3025,14 +3638,15 @@ fn preset_does_not_bypass_malformed_target_path_validation() {
             "unsupported_value": "warn"
         }
     });
-    let report = validate_plugin_config(&plugin_config(config.clone()));
+    let report = test_validate_static_plugin_config(&plugin_config(config.clone()));
     assert!(report.diagnostics.iter().any(|diagnostic| {
         diagnostic.field.as_deref() == Some("builtin.target_paths[0]")
             && diagnostic.message.contains("RFC 6901")
     }));
 
     setup_isolated_thread();
-    let activation = futures::executor::block_on(initialize_plugins(plugin_config(config)));
+    let activation =
+        futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(config)));
     let error = activation.expect_err("preset must not bypass malformed target path validation");
     assert!(error.to_string().contains("builtin.target_paths[0]"));
 }
@@ -3042,7 +3656,7 @@ fn validate_rejects_mask_with_empty_mask_char() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "mode": "builtin",
         "builtin": {
             "action": "mask",
@@ -3061,7 +3675,7 @@ fn validate_rejects_builtin_detector_and_pattern_together() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "mode": "builtin",
         "builtin": {
             "action": "mask",
@@ -3081,7 +3695,7 @@ fn validate_rejects_unknown_builtin_detector() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "mode": "builtin",
         "builtin": {
             "action": "mask",
@@ -3163,7 +3777,7 @@ fn builtin_backend_sanitizes_mark_and_generic_scope_observability_fields() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": true,
@@ -3232,7 +3846,7 @@ fn builtin_backend_sanitizes_mark_and_generic_scope_observability_fields() {
     assert_eq!(end.metadata().unwrap()["reviewer"], "[REDACTED]");
 
     deregister_subscriber("pii-redaction-event-fields").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -3241,7 +3855,7 @@ fn mark_false_preserves_mark_fields() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": true,
@@ -3269,7 +3883,7 @@ fn mark_false_preserves_mark_fields() {
     assert_eq!(captured[0].data().unwrap()["email"], "person@example.com");
 
     deregister_subscriber("pii-redaction-mark-opt-out").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -3278,15 +3892,14 @@ fn sanitized_trajectory_content_never_reaches_subscribers_or_exporters() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "codec": "openai_chat",
         "profiles": [
             {
                 "mode": "builtin",
                 "priority": 80,
                 "builtin": {
-                    "preset": "trajectory_context",
-                    "custom_mark_payload_policy": "redact_all_leaves"
+                    "preset": "trajectory_context"
                 }
             },
             {
@@ -3326,6 +3939,17 @@ fn sanitized_trajectory_content_never_reaches_subscribers_or_exporters() {
     let otel = OpenTelemetrySubscriber::from_tracer_provider(otel_provider, "pii-regression");
     otel.register("pii-regression-otel").unwrap();
 
+    let genai_exporter = InMemorySpanExporterBuilder::new().build();
+    let genai_provider = SdkTracerProvider::builder()
+        .with_simple_exporter(genai_exporter.clone())
+        .build();
+    let genai = OpenTelemetrySubscriber::from_tracer_provider_with_type(
+        genai_provider,
+        "pii-regression",
+        OpenTelemetryType::GenAi,
+    );
+    genai.register("pii-regression-genai").unwrap();
+
     let openinference_exporter = InMemorySpanExporterBuilder::new().build();
     let openinference_provider = SdkTracerProvider::builder()
         .with_simple_exporter(openinference_exporter.clone())
@@ -3341,7 +3965,7 @@ fn sanitized_trajectory_content_never_reaches_subscribers_or_exporters() {
 
     let raw_pii = "person@example.com";
     let raw_context = "private trajectory context canary";
-    let trusted_scope_metadata = json!({
+    let scope_metadata = json!({
         "nemo_relay_scope_role": "session",
         "agent_kind": "hermes",
         "hook_event_name": "SessionStart",
@@ -3366,10 +3990,86 @@ fn sanitized_trajectory_content_never_reaches_subscribers_or_exporters() {
             .name("hermes-agent")
             .scope_type(ScopeType::Agent)
             .input(json!({"prompt": raw_context, "request_id": "request-1"}))
-            .metadata(trusted_scope_metadata.clone())
+            .metadata(scope_metadata.clone())
             .build(),
     )
     .unwrap();
+    let raw_request = LlmRequest {
+        headers: [("authorization".into(), json!(raw_pii))]
+            .into_iter()
+            .collect(),
+        content: json!({
+            "model": "gpt-4o-mini",
+            "messages": [{"role": "user", "content": raw_context}],
+            "temperature": 0.25
+        }),
+    };
+    let raw_response = json!({
+        "id": "chatcmpl-private",
+        "model": "gpt-4o-mini",
+        "choices": [{
+            "index": 0,
+            "message": {"role": "assistant", "content": raw_context},
+            "finish_reason": "stop"
+        }],
+        "usage": {
+            "prompt_tokens": 7,
+            "completion_tokens": 3,
+            "total_tokens": 10,
+            "cost": {
+                "total": 0.01,
+                "currency": "USD",
+                "source": "provider_reported"
+            }
+        }
+    });
+    let provider_request = Arc::new(Mutex::new(None));
+    let captured_provider_request = Arc::clone(&provider_request);
+    let provider_response = raw_response.clone();
+    let provider: LlmExecutionNextFn = Arc::new(move |request| {
+        *captured_provider_request.lock().unwrap() = Some(request);
+        let response = provider_response.clone();
+        Box::pin(async move { Ok(response) })
+    });
+    let caller_response = futures::executor::block_on(async {
+        let caller_response = llm_call_execute(
+            LlmCallExecuteParams::builder()
+                .name("openai")
+                .request(raw_request.clone())
+                .func(provider)
+                .codec(Arc::new(OpenAIChatCodec))
+                .response_codec(Arc::new(OpenAIChatCodec))
+                .build(),
+        )
+        .await
+        .unwrap();
+        tool_call_execute(
+            ToolCallExecuteParams::builder()
+                .name("lookup")
+                .args(json!({"query": raw_context, "owner": raw_pii}))
+                .func(Arc::new(move |_args| {
+                    Box::pin(async move {
+                        Ok(ToolExecutionResult::new(json!({
+                            "result": raw_context,
+                            "owner": raw_pii
+                        })))
+                    })
+                }))
+                .build(),
+        )
+        .await
+        .unwrap();
+        caller_response
+    });
+    assert_eq!(caller_response, raw_response);
+    let provider_request = provider_request.lock().unwrap();
+    let provider_request = provider_request
+        .as_ref()
+        .expect("provider request captured");
+    assert_eq!(provider_request.content, raw_request.content);
+    for (key, value) in &raw_request.headers {
+        assert_eq!(provider_request.headers.get(key), Some(value));
+    }
     event(
         EmitMarkEventParams::builder()
             .name("hermes.checkpoint")
@@ -3392,19 +4092,23 @@ fn sanitized_trajectory_content_never_reaches_subscribers_or_exporters() {
     atof.force_flush().unwrap();
     let trajectory = atif.export().unwrap();
     otel.force_flush().unwrap();
+    genai.force_flush().unwrap();
     openinference.force_flush().unwrap();
 
     let subscriber_json = serde_json::to_string(&captured_events_snapshot(&captured)).unwrap();
     let atof_json = std::fs::read_to_string(atof.path().expect("file sink path")).unwrap();
     let atif_json = serde_json::to_string(&trajectory).unwrap();
     let otel_debug = format!("{:?}", otel_exporter.get_finished_spans().unwrap());
+    let genai_debug = format!("{:?}", genai_exporter.get_finished_spans().unwrap());
+    assert_redacted_genai_tool_span(&genai_exporter.get_finished_spans().unwrap());
     let openinference_debug = format!("{:?}", openinference_exporter.get_finished_spans().unwrap());
-    for (surface, output, retains_scope_metadata) in [
-        ("subscriber", subscriber_json, true),
-        ("ATOF", atof_json, true),
-        ("ATIF", atif_json, false),
-        ("OpenTelemetry", otel_debug, true),
-        ("OpenInference", openinference_debug, true),
+    for (surface, output) in [
+        ("subscriber", subscriber_json),
+        ("ATOF", atof_json),
+        ("ATIF", atif_json),
+        ("OpenTelemetry", otel_debug),
+        ("GenAI OpenTelemetry", genai_debug.clone()),
+        ("OpenInference", openinference_debug),
     ] {
         assert!(
             !output.contains(raw_pii),
@@ -3414,20 +4118,16 @@ fn sanitized_trajectory_content_never_reaches_subscribers_or_exporters() {
             !output.contains(raw_context),
             "trajectory context leaked through {surface}: {output}"
         );
-        if retains_scope_metadata {
-            for (key, value) in trusted_scope_metadata
-                .as_object()
-                .unwrap()
-                .iter()
-                .filter(|(key, _)| *key != "session_owner")
-            {
-                assert!(
-                    output.contains(key) && output.contains(value.to_string().trim_matches('"')),
-                    "trusted scope metadata {key} was not retained in {surface}: {output}"
-                );
-            }
-        }
     }
+    assert!(
+        genai_debug.contains("gen_ai.operation.name"),
+        "{genai_debug}"
+    );
+    assert!(genai_debug.contains("gpt-4o-mini"), "{genai_debug}");
+    assert!(
+        genai_debug.contains("gen_ai.usage.input_tokens"),
+        "{genai_debug}"
+    );
 
     let captured = captured_events_snapshot(&captured);
     let agent_start = captured
@@ -3436,40 +4136,54 @@ fn sanitized_trajectory_content_never_reaches_subscribers_or_exporters() {
             event.name() == "hermes-agent" && event.scope_category() == Some(ScopeCategory::Start)
         })
         .unwrap();
-    assert_eq!(agent_start.data().unwrap()["request_id"], "request-1");
-    assert_eq!(agent_start.data().unwrap()["prompt"], "[REDACTED]");
-    let agent_metadata = agent_start.metadata().unwrap();
-    for (key, value) in trusted_scope_metadata
-        .as_object()
-        .unwrap()
+    let agent_end = captured
         .iter()
-        .filter(|(key, _)| *key != "session_owner")
-    {
-        assert_eq!(agent_metadata[key], *value, "{key}");
-    }
-    assert_eq!(agent_metadata["session_owner"], "[REDACTED]");
+        .find(|event| {
+            event.name() == "hermes-agent" && event.scope_category() == Some(ScopeCategory::End)
+        })
+        .unwrap();
+    assert_eq!(agent_start.uuid(), agent_end.uuid());
+    assert_eq!(agent_start.data(), Some(&json!({})));
+    assert_eq!(agent_start.metadata(), Some(&json!({})));
     let custom_mark = captured
         .iter()
         .find(|event| event.name() == "hermes.checkpoint")
         .unwrap();
-    assert_eq!(custom_mark.data().unwrap()["content"], "[REDACTED]");
-    assert_eq!(custom_mark.data().unwrap()["score"], 0);
+    assert_eq!(custom_mark.parent_uuid(), Some(agent_start.uuid()));
+    assert_eq!(custom_mark.data(), Some(&json!({})));
     assert_eq!(
         custom_mark.metadata().unwrap(),
-        &json!({
-            LOG_SEVERITY_METADATA_KEY: "warn",
-            "reviewer": "[REDACTED]"
-        })
+        &json!({LOG_SEVERITY_METADATA_KEY: "warn"})
     );
 
     deregister_subscriber("pii-regression-subscriber").unwrap();
     atof.deregister("pii-regression-atof").unwrap();
     deregister_subscriber("pii-regression-atif").unwrap();
     otel.deregister("pii-regression-otel").unwrap();
+    genai.deregister("pii-regression-genai").unwrap();
     openinference
         .deregister("pii-regression-openinference")
         .unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
+}
+
+fn assert_redacted_genai_tool_span(genai_spans: &[opentelemetry_sdk::trace::SpanData]) {
+    let tool_span = genai_spans
+        .iter()
+        .find(|span| span.name == "execute_tool lookup")
+        .expect("sanitized tool span retains its identity");
+    for key in ["gen_ai.tool.call.arguments", "gen_ai.tool.call.result"] {
+        let value = tool_span
+            .attributes
+            .iter()
+            .find(|attribute| attribute.key.as_str() == key)
+            .expect("tool content is projected by default after sanitization");
+        assert_eq!(value.value.to_string(), "{}");
+    }
+    assert!(genai_spans.iter().any(|span| {
+        span.name == "invoke_agent hermes-agent"
+            && span.span_context.span_id() == tool_span.parent_span_id
+    }));
 }
 
 #[tokio::test]
@@ -3478,7 +4192,7 @@ async fn trajectory_preset_sanitizes_stream_finalization_without_changing_client
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "codec": "openai_chat",
         "profiles": [{
             "mode": "builtin",
@@ -3542,28 +4256,44 @@ async fn trajectory_preset_sanitizes_stream_finalization_without_changing_client
         .iter()
         .find(|event| event.scope_category() == Some(ScopeCategory::Start))
         .unwrap();
+    let start_input = start.input().unwrap();
+    assert_eq!(start_input["headers"], json!({}));
     assert_eq!(
-        start.input().unwrap()["content"]["messages"][0]["content"],
+        start_input["content"]["messages"][0]["content"],
         "[REDACTED]"
     );
+    let annotated_request = start
+        .category_profile()
+        .and_then(|profile| profile.annotated_request.as_deref())
+        .unwrap();
+    assert_eq!(annotated_request.last_user_message(), Some("[REDACTED]"));
     let chunk_mark = captured
         .iter()
         .find(|event| event.name() == "llm.chunk")
         .unwrap();
-    assert_eq!(chunk_mark.data().unwrap()["chunk_index"], 0);
+    assert_eq!(chunk_mark.data(), Some(&json!({})));
     assert!(!chunk_mark.to_json_string().unwrap().contains(raw_delta));
     let end = captured
         .iter()
         .find(|event| event.scope_category() == Some(ScopeCategory::End))
         .unwrap();
+    let end_output = end.output().unwrap();
+    assert_eq!(end_output["choices"].as_array().map(Vec::len), Some(1));
+    assert_eq!(end_output["choices"][0]["message"]["content"], "[REDACTED]");
+    assert_eq!(end_output["choices"][0]["finish_reason"], "stop");
+    assert_eq!(end_output["usage"]["total_tokens"], 11);
+    let annotated_response = end
+        .category_profile()
+        .and_then(|profile| profile.annotated_response.as_deref())
+        .unwrap();
+    assert_eq!(annotated_response.response_text(), Some("[REDACTED]"));
     assert_eq!(
-        end.output().unwrap()["choices"][0]["message"]["content"],
-        "[REDACTED]"
+        annotated_response.usage.as_ref().unwrap().total_tokens,
+        Some(11)
     );
-    assert_eq!(end.output().unwrap()["usage"]["total_tokens"], 11);
 
     deregister_subscriber("pii-trajectory-stream").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -3572,7 +4302,7 @@ async fn normalized_paths_use_the_active_codec_for_stream_finalization() {
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_responses",
         "input": false,
@@ -3650,7 +4380,7 @@ async fn normalized_paths_use_the_active_codec_for_stream_finalization() {
     );
 
     deregister_subscriber("pii-active-codec-stream-finalization").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -3659,7 +4389,7 @@ fn builtin_backend_sanitizes_tool_start_and_end_payloads_with_preorder_targets()
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -3738,7 +4468,7 @@ fn builtin_backend_sanitizes_tool_start_and_end_payloads_with_preorder_targets()
     );
 
     deregister_subscriber("pii-redaction-tool-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -3747,7 +4477,7 @@ fn builtin_remove_deletes_object_fields_and_nulls_array_or_root_targets() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -3813,7 +4543,7 @@ fn builtin_remove_deletes_object_fields_and_nulls_array_or_root_targets() {
     );
 
     deregister_subscriber("pii-redaction-remove-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -3832,13 +4562,13 @@ fn builtin_remove_without_target_paths_is_rejected() {
             "action": "remove"
         }
     }));
-    let report = validate_plugin_config(&config);
+    let report = test_validate_static_plugin_config(&config);
     assert!(report.diagnostics.iter().any(|diagnostic| {
         diagnostic.field.as_deref() == Some("builtin.target_paths")
             && diagnostic.message.contains("requires at least one")
     }));
 
-    let activation = futures::executor::block_on(initialize_plugins(config));
+    let activation = futures::executor::block_on(test_initialize_plugin_host_exact(config));
     let error = activation.expect_err("unscoped remove must fail plugin activation");
     assert!(error.to_string().contains("requires at least one"));
 }
@@ -3849,7 +4579,7 @@ fn builtin_remove_deletes_targeted_object_and_array_container_fields() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "input": false,
         "output": false,
@@ -3888,7 +4618,7 @@ fn builtin_remove_deletes_targeted_object_and_array_container_fields() {
     );
 
     deregister_subscriber("pii-redaction-remove-container-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -3897,7 +4627,7 @@ fn builtin_redact_replaces_matching_tool_payload_substrings_with_default_token()
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "tool_input": true,
         "tool_output": true,
@@ -3956,7 +4686,7 @@ fn builtin_redact_replaces_matching_tool_payload_substrings_with_default_token()
     );
 
     deregister_subscriber("pii-redaction-redact-tool-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -3965,7 +4695,7 @@ fn builtin_mask_preserves_configured_prefix_and_suffix() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4029,7 +4759,7 @@ fn builtin_mask_preserves_configured_prefix_and_suffix() {
     );
 
     deregister_subscriber("pii-redaction-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4038,7 +4768,7 @@ fn builtin_mask_with_detector_masks_only_matching_substrings() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4077,7 +4807,7 @@ fn builtin_mask_with_detector_masks_only_matching_substrings() {
     );
 
     deregister_subscriber("pii-redaction-detector-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4086,7 +4816,7 @@ fn builtin_mask_with_email_detector_preserves_domain_by_default() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4124,7 +4854,7 @@ fn builtin_mask_with_email_detector_preserves_domain_by_default() {
     );
 
     deregister_subscriber("pii-redaction-email-default-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4133,7 +4863,7 @@ fn builtin_mask_with_phone_detector_preserves_last_four_digits_by_default() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4171,7 +4901,7 @@ fn builtin_mask_with_phone_detector_preserves_last_four_digits_by_default() {
     );
 
     deregister_subscriber("pii-redaction-phone-default-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4180,7 +4910,7 @@ fn builtin_mask_with_api_key_detector_preserves_prefix_and_last_four_by_default(
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4218,7 +4948,7 @@ fn builtin_mask_with_api_key_detector_preserves_prefix_and_last_four_by_default(
     );
 
     deregister_subscriber("pii-redaction-api-key-default-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4227,7 +4957,7 @@ fn builtin_mask_with_detector_uses_explicit_prefix_suffix_over_defaults() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4267,7 +4997,7 @@ fn builtin_mask_with_detector_uses_explicit_prefix_suffix_over_defaults() {
     );
 
     deregister_subscriber("pii-redaction-detector-explicit-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4276,7 +5006,7 @@ fn builtin_mask_with_ip_address_detector_preserves_last_octet_by_default() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4314,16 +5044,16 @@ fn builtin_mask_with_ip_address_detector_preserves_last_octet_by_default() {
     );
 
     deregister_subscriber("pii-redaction-ip-default-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
-fn builtin_mask_with_url_detector_preserves_scheme_and_host_by_default() {
+fn builtin_mask_with_url_detector_preserves_only_host_and_port() {
     let _guard = crate::plugins::pii_redaction::test_mutex().lock().unwrap();
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4338,30 +5068,61 @@ fn builtin_mask_with_url_detector_preserves_scheme_and_host_by_default() {
     }))))
     .unwrap();
 
+    let cases = [
+        ("https://example.com/path?q=1", "https://example.com/*"),
+        (
+            "https://alice:s3cr3t@example.test/private",
+            "https://example.test/*",
+        ),
+        ("https://alice:s3cr3t@example.test", "https://example.test"),
+        (
+            "https://example.test?token=secret/path",
+            "https://example.test/*",
+        ),
+        (
+            "https://example.test#access_token=secret/path",
+            "https://example.test/*",
+        ),
+        (
+            "https://example.test\\@alice:s3cr3t",
+            "https://example.test/*",
+        ),
+        ("https://example.test", "https://example.test"),
+        (
+            "https://[2001:db8::1]:8443/private",
+            "https://[2001:db8::1]:8443/*",
+        ),
+    ];
+
     let events = capture_events("pii-redaction-url-default-mask-events");
-    let _handle = tool_call(
-        ToolCallParams::builder()
-            .name("notify")
-            .args(json!({
-                "url": "https://example.com/path?q=1",
-                "keep": "unchanged"
-            }))
-            .build(),
-    )
-    .unwrap();
+    let _handles = cases
+        .iter()
+        .map(|(input, _)| {
+            tool_call(
+                ToolCallParams::builder()
+                    .name("fetch")
+                    .args(json!({
+                        "url": input,
+                        "keep": "unchanged"
+                    }))
+                    .build(),
+            )
+            .unwrap()
+        })
+        .collect::<Vec<_>>();
 
     let captured_events = captured_events_snapshot(&events);
-    assert_eq!(captured_events.len(), 1);
-    assert_eq!(
-        captured_events[0].input(),
-        Some(&json!({
-            "url": "https://example.com/*",
+    assert_eq!(captured_events.len(), cases.len());
+    for (event, (input, expected)) in captured_events.iter().zip(cases) {
+        let expected_input = json!({
+            "url": expected,
             "keep": "unchanged"
-        }))
-    );
+        });
+        assert_eq!(event.input(), Some(&expected_input), "input: {input}");
+    }
 
     deregister_subscriber("pii-redaction-url-default-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4370,7 +5131,7 @@ fn builtin_mask_with_ipv6_detector_preserves_last_segment_by_default() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4408,7 +5169,7 @@ fn builtin_mask_with_ipv6_detector_preserves_last_segment_by_default() {
     );
 
     deregister_subscriber("pii-redaction-ipv6-default-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4417,7 +5178,7 @@ fn builtin_mask_with_ipv6_detector_supports_compressed_addresses() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4455,7 +5216,7 @@ fn builtin_mask_with_ipv6_detector_supports_compressed_addresses() {
     );
 
     deregister_subscriber("pii-redaction-ipv6-compressed-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4470,7 +5231,7 @@ fn builtin_mask_with_bearer_token_detector_preserves_scheme_and_last_four() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4508,7 +5269,7 @@ fn builtin_mask_with_bearer_token_detector_preserves_scheme_and_last_four() {
     );
 
     deregister_subscriber("pii-redaction-bearer-default-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4517,7 +5278,7 @@ fn builtin_bearer_token_detector_ignores_short_benign_values() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4555,7 +5316,7 @@ fn builtin_bearer_token_detector_ignores_short_benign_values() {
     );
 
     deregister_subscriber("pii-redaction-bearer-short-benign-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4564,7 +5325,7 @@ fn builtin_mask_with_credit_card_detector_preserves_last_four_digits() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4603,7 +5364,7 @@ fn builtin_mask_with_credit_card_detector_preserves_last_four_digits() {
     );
 
     deregister_subscriber("pii-redaction-credit-card-default-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4612,7 +5373,7 @@ fn builtin_mask_with_ip_detector_honors_custom_mask_char() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "input": false,
         "output": false,
@@ -4646,7 +5407,7 @@ fn builtin_mask_with_ip_detector_honors_custom_mask_char() {
     );
 
     deregister_subscriber("pii-redaction-ip-custom-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4665,7 +5426,7 @@ fn builtin_mask_with_jwt_detector_preserves_header_and_signature_tail() {
             mask_text(parts[2], "*", 0, 6)
         )
     };
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4703,7 +5464,7 @@ fn builtin_mask_with_jwt_detector_preserves_header_and_signature_tail() {
     );
 
     deregister_subscriber("pii-redaction-jwt-default-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4712,7 +5473,7 @@ fn builtin_mask_with_cloud_key_detectors_preserves_expected_segments() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4740,11 +5501,11 @@ fn builtin_mask_with_cloud_key_detectors_preserves_expected_segments() {
         Some(&json!({"key": mask_text(aws_access_key, "*", 4, 4)}))
     );
     deregister_subscriber("pii-redaction-aws-access-key-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 
     reset_runtime();
     setup_isolated_thread();
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4772,11 +5533,11 @@ fn builtin_mask_with_cloud_key_detectors_preserves_expected_segments() {
         Some(&json!({"key": mask_text(&gcp_key, "*", 6, 4)}))
     );
     deregister_subscriber("pii-redaction-gcp-key-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 
     reset_runtime();
     setup_isolated_thread();
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4804,7 +5565,7 @@ fn builtin_mask_with_cloud_key_detectors_preserves_expected_segments() {
         Some(&json!({"key": mask_text(&azure_key, "*", 0, 4)}))
     );
     deregister_subscriber("pii-redaction-azure-storage-key-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4813,7 +5574,7 @@ fn builtin_hash_with_detector_hashes_only_matching_substrings() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4854,7 +5615,7 @@ fn builtin_hash_with_detector_hashes_only_matching_substrings() {
     );
 
     deregister_subscriber("pii-redaction-detector-hash-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4863,7 +5624,7 @@ fn builtin_mask_with_short_detector_match_leaves_value_unchanged() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4901,7 +5662,7 @@ fn builtin_mask_with_short_detector_match_leaves_value_unchanged() {
     );
 
     deregister_subscriber("pii-redaction-short-detector-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4910,7 +5671,7 @@ fn builtin_mask_with_empty_target_paths_sanitizes_all_matching_string_leaves() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -4955,7 +5716,7 @@ fn builtin_mask_with_empty_target_paths_sanitizes_all_matching_string_leaves() {
     );
 
     deregister_subscriber("pii-redaction-empty-target-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4964,7 +5725,7 @@ fn builtin_mask_with_malformed_ip_or_url_detector_input_leaves_value_unchanged()
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -5004,7 +5765,7 @@ fn builtin_mask_with_malformed_ip_or_url_detector_input_leaves_value_unchanged()
     );
 
     deregister_subscriber("pii-redaction-malformed-detector-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -5013,7 +5774,7 @@ async fn builtin_mask_with_detector_sanitizes_llm_response_from_normalized_messa
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -5069,7 +5830,7 @@ async fn builtin_mask_with_detector_sanitizes_llm_response_from_normalized_messa
     );
 
     deregister_subscriber("pii-redaction-detector-llm-response-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -5078,7 +5839,7 @@ fn builtin_hash_with_detector_hashes_multiple_matches_in_one_string() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -5120,7 +5881,7 @@ fn builtin_hash_with_detector_hashes_multiple_matches_in_one_string() {
     );
 
     deregister_subscriber("pii-redaction-multi-detector-hash-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -5129,7 +5890,7 @@ fn builtin_mask_with_empty_target_paths_handles_arrays_and_multiple_detector_typ
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -5176,7 +5937,7 @@ fn builtin_mask_with_empty_target_paths_handles_arrays_and_multiple_detector_typ
     );
 
     deregister_subscriber("pii-redaction-array-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -5185,7 +5946,7 @@ fn builtin_mask_with_detector_sanitizes_tool_output_payloads() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -5237,7 +5998,7 @@ fn builtin_mask_with_detector_sanitizes_tool_output_payloads() {
     );
 
     deregister_subscriber("pii-redaction-tool-output-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -5246,7 +6007,7 @@ fn builtin_tool_output_sanitizes_annotation_as_an_independent_json_boundary() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "input": false,
         "output": false,
@@ -5314,7 +6075,7 @@ fn builtin_tool_output_sanitizes_annotation_as_an_independent_json_boundary() {
     );
 
     deregister_subscriber("pii-redaction-tool-annotation-mask-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -5323,7 +6084,7 @@ fn builtin_disabled_tool_output_preserves_tool_result_annotation() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "input": false,
         "output": true,
@@ -5365,7 +6126,7 @@ fn builtin_disabled_tool_output_preserves_tool_result_annotation() {
     );
 
     deregister_subscriber("pii-redaction-disabled-tool-annotation-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -5374,7 +6135,7 @@ fn builtin_root_remove_drops_tool_result_annotation() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "input": false,
         "output": false,
@@ -5413,7 +6174,7 @@ fn builtin_root_remove_drops_tool_result_annotation() {
     assert!(captured_events[1].tool_result_annotation().is_none());
 
     deregister_subscriber("pii-redaction-remove-tool-annotation-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -5422,7 +6183,7 @@ fn builtin_mask_with_phone_detector_ignores_non_matching_digit_shapes() {
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -5460,7 +6221,7 @@ fn builtin_mask_with_phone_detector_ignores_non_matching_digit_shapes() {
     );
 
     deregister_subscriber("pii-redaction-phone-false-positive-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -5469,7 +6230,7 @@ fn builtin_backend_sanitizes_llm_start_payload_via_codec_and_reencodes_provider_
     reset_runtime();
     setup_isolated_thread();
 
-    futures::executor::block_on(initialize_plugins(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": true,
@@ -5529,7 +6290,7 @@ fn builtin_backend_sanitizes_llm_start_payload_via_codec_and_reencodes_provider_
     );
 
     deregister_subscriber("pii-redaction-llm-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -5538,7 +6299,7 @@ async fn builtin_backend_removes_targeted_message_names_and_ignores_missing_norm
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": true,
@@ -5599,7 +6360,7 @@ async fn builtin_backend_removes_targeted_message_names_and_ignores_missing_norm
     );
 
     deregister_subscriber("pii-redaction-remove-message-names").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -5608,7 +6369,7 @@ async fn builtin_backend_sanitizes_gemini_generate_content_via_codec() {
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "gemini_generate_content",
         "input": true,
@@ -5654,7 +6415,7 @@ async fn builtin_backend_sanitizes_gemini_generate_content_via_codec() {
     );
 
     deregister_subscriber("pii-redaction-gemini-generate-content").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -5663,7 +6424,7 @@ async fn builtin_backend_sanitizes_gemini_provider_native_tools_via_codec() {
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "gemini_generate_content",
         "input": true,
@@ -5717,7 +6478,7 @@ async fn builtin_backend_sanitizes_gemini_provider_native_tools_via_codec() {
     );
 
     deregister_subscriber("pii-redaction-gemini-native-tools").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -5726,7 +6487,7 @@ async fn builtin_backend_sanitizes_gemini_provider_native_request_content_via_co
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "gemini_generate_content",
         "input": true,
@@ -5783,7 +6544,7 @@ async fn builtin_backend_sanitizes_gemini_provider_native_request_content_via_co
     );
 
     deregister_subscriber("pii-redaction-gemini-native-request-content").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -5792,7 +6553,7 @@ async fn builtin_backend_sanitizes_gemini_function_response_nested_parts_via_cod
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "gemini_generate_content",
         "input": true,
@@ -5859,7 +6620,7 @@ async fn builtin_backend_sanitizes_gemini_function_response_nested_parts_via_cod
     );
 
     deregister_subscriber("pii-redaction-gemini-function-response-parts").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -5869,7 +6630,7 @@ async fn builtin_backend_sanitizes_gemini_provider_native_response_content_via_c
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "gemini_generate_content",
         "input": false,
@@ -5931,7 +6692,7 @@ async fn builtin_backend_sanitizes_gemini_provider_native_response_content_via_c
     );
 
     deregister_subscriber("pii-redaction-gemini-native-response-content").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -5940,7 +6701,7 @@ async fn builtin_backend_omits_request_and_annotation_for_unsafe_normalized_arra
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_responses",
         "input": true,
@@ -5988,7 +6749,7 @@ async fn builtin_backend_omits_request_and_annotation_for_unsafe_normalized_arra
     );
 
     deregister_subscriber("pii-redaction-unsafe-normalized-array-removal").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -5997,7 +6758,7 @@ async fn builtin_backend_sanitizes_observable_llm_request_headers() {
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "input": true,
         "output": false,
@@ -6043,7 +6804,7 @@ async fn builtin_backend_sanitizes_observable_llm_request_headers() {
     );
 
     deregister_subscriber("pii-redaction-llm-request-headers").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -6052,7 +6813,7 @@ async fn trajectory_preset_redacts_opaque_llm_request_header_values() {
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "input": true,
         "output": false,
@@ -6086,10 +6847,7 @@ async fn trajectory_preset_redacts_opaque_llm_request_header_values() {
 
     let captured_events = captured_events_snapshot(&events);
     assert_eq!(captured_events.len(), 1);
-    assert_eq!(
-        captured_events[0].input().unwrap()["headers"]["model"],
-        json!("[REDACTED]")
-    );
+    assert!(captured_events[0].input().unwrap().get("headers").is_none());
     assert!(
         !serde_json::to_string(&captured_events[0])
             .unwrap()
@@ -6097,7 +6855,7 @@ async fn trajectory_preset_redacts_opaque_llm_request_header_values() {
     );
 
     deregister_subscriber("pii-trajectory-llm-request-headers").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -6106,7 +6864,7 @@ async fn builtin_backend_sanitizes_llm_end_payload_and_response_codec_decodes_sa
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -6204,7 +6962,7 @@ async fn builtin_backend_sanitizes_llm_end_payload_and_response_codec_decodes_sa
     );
 
     deregister_subscriber("pii-redaction-llm-end-events").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -6213,7 +6971,7 @@ async fn builtin_backend_sanitizes_openai_chat_response_from_normalized_message_
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -6270,7 +7028,7 @@ async fn builtin_backend_sanitizes_openai_chat_response_from_normalized_message_
     );
 
     deregister_subscriber("pii-redaction-openai-chat-normalized-response").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -6279,7 +7037,7 @@ async fn builtin_backend_omits_unprojectable_openai_chat_api_specific_response()
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -6335,7 +7093,7 @@ async fn builtin_backend_omits_unprojectable_openai_chat_api_specific_response()
     );
 
     deregister_subscriber("pii-redaction-openai-chat-api-specific-response").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -6344,7 +7102,7 @@ async fn builtin_backend_omits_multi_choice_openai_chat_normalized_response() {
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -6406,7 +7164,7 @@ async fn builtin_backend_omits_multi_choice_openai_chat_normalized_response() {
     assert!(!serialized_end.contains("sk-second-secret"));
 
     deregister_subscriber("pii-redaction-openai-chat-multi-choice-response").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -6415,7 +7173,7 @@ async fn builtin_redact_sanitizes_openai_chat_response_from_detector_path() {
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -6471,7 +7229,7 @@ async fn builtin_redact_sanitizes_openai_chat_response_from_detector_path() {
     );
 
     deregister_subscriber("pii-redaction-openai-chat-redact-response").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -6480,7 +7238,7 @@ async fn builtin_backend_sanitizes_anthropic_response_from_normalized_message_pa
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "anthropic_messages",
         "input": false,
@@ -6535,7 +7293,7 @@ async fn builtin_backend_sanitizes_anthropic_response_from_normalized_message_pa
     );
 
     deregister_subscriber("pii-redaction-anthropic-normalized-response").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -6544,7 +7302,7 @@ async fn builtin_backend_omits_unprojectable_anthropic_normalized_usage_response
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "anthropic_messages",
         "input": false,
@@ -6594,7 +7352,7 @@ async fn builtin_backend_omits_unprojectable_anthropic_normalized_usage_response
     assert!(captured_events[1].annotated_response().is_none());
 
     deregister_subscriber("pii-redaction-anthropic-normalized-usage-response").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -6603,7 +7361,7 @@ async fn builtin_backend_sanitizes_openai_responses_response_from_normalized_mes
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "openai_chat",
         "input": false,
@@ -6673,7 +7431,7 @@ async fn builtin_backend_sanitizes_openai_responses_response_from_normalized_mes
     );
 
     deregister_subscriber("pii-redaction-openai-responses-normalized-response").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -6682,7 +7440,7 @@ async fn builtin_backend_sanitizes_openai_responses_output_text_alias_on_stream_
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "input": false,
         "output": true,
@@ -6767,7 +7525,7 @@ async fn builtin_backend_sanitizes_openai_responses_output_text_alias_on_stream_
     assert!(!end.to_json_string().unwrap().contains("sk-stream-secret"));
 
     deregister_subscriber("pii-redaction-openai-responses-output-text-stream").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -6777,7 +7535,7 @@ async fn builtin_backend_omits_multi_candidate_gemini_normalized_response() {
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "gemini_generate_content",
         "input": false,
@@ -6841,7 +7599,7 @@ async fn builtin_backend_omits_multi_candidate_gemini_normalized_response() {
     assert!(!serialized_end.contains("sk-second-secret"));
 
     deregister_subscriber("pii-redaction-gemini-multi-candidate-response").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[tokio::test]
@@ -6851,7 +7609,7 @@ async fn builtin_backend_sanitizes_raw_multi_candidate_gemini_response() {
     reset_runtime();
     setup_isolated_thread();
 
-    initialize_plugins(plugin_config(json!({
+    test_initialize_plugin_host_exact(plugin_config(json!({
         "mode": "builtin",
         "codec": "gemini_generate_content",
         "input": false,
@@ -6920,5 +7678,5 @@ async fn builtin_backend_sanitizes_raw_multi_candidate_gemini_response() {
     assert!(captured_events[1].annotated_response().is_some());
 
     deregister_subscriber("pii-redaction-gemini-raw-multi-candidate-response").unwrap();
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }

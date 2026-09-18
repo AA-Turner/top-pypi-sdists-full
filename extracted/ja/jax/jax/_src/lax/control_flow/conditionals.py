@@ -21,7 +21,7 @@ import functools
 from functools import partial
 import itertools
 import operator
-from typing import Any, TypeVar
+from typing import Any
 
 from jax._src import flattree as ft
 from jax._src.tree_util import (
@@ -1135,7 +1135,8 @@ def _cond_state_discharge_rule(ctx, index, *args,
                                branches, **params):
   assert not ctx.should_discharge[0], "Can't discharge the index."
   discharged_branches = tuple(
-      discharge_state(branch, should_discharge=ctx.should_discharge[1:])
+      discharge_state(branch, should_discharge=ctx.should_discharge[1:],
+                      strip_memory_space=ctx.strip_memory_space)
       for branch in branches
   )
   # Don't thread the ref values through the cond if they never change.
@@ -1177,10 +1178,9 @@ def _cond_state_discharge_rule(ctx, index, *args,
   return new_invals, out_vals
 
 
-_T = TypeVar("_T")
-def platform_dependent(*args: Any,
-                       default: Callable[..., _T] | None = None,
-                       **per_platform: Callable[..., _T]):
+def platform_dependent[T](*args: Any,
+                          default: Callable[..., T] | None = None,
+                          **per_platform: Callable[..., T]):
   """Stages out platform-specific code.
 
   In JAX the actual platform on which a computation is run is determined
@@ -1233,7 +1233,8 @@ def platform_dependent(*args: Any,
       raise TypeError(f"lax.platform_dependent: the '{pname}' branch must "
                       "be a callable.")
     if pname == "gpu":
-      raise ValueError("Use 'cuda' or 'rocm' for lax.platform_dependent.")
+      raise ValueError(
+          "Use 'cuda', 'rocm', or 'oneapi' for lax.platform_dependent.")
     for ps, b in branches_platforms_list:
       if b == pbranch:
         ps.append(pname)

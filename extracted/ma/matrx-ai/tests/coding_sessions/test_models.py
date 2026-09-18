@@ -156,7 +156,7 @@ def test_account_identity_fields_are_consistent_and_display_safe() -> None:
         "provider_account_key": "a" * 64,
         "provider_account_key_version": 2,
         "provider_account_fingerprint": "a" * 12,
-        "provider_account_label": "a***n@t***.com",
+        "provider_account_label": "arman@titaniumsuccess.com",
         "importer_version": "matrx-local/1",
         "transcript_sha256": "b" * 64,
         "transcript_bytes": 12,
@@ -181,7 +181,7 @@ def test_account_identity_fields_are_consistent_and_display_safe() -> None:
     assert request.source_metadata is not None
     assert request.source_metadata.provider_account_key_version == 2
     assert request.source_metadata.provider_account_fingerprint == "a" * 12
-    assert request.source_metadata.provider_account_label == "a***n@t***.com"
+    assert request.source_metadata.provider_account_label == "arman@titaniumsuccess.com"
 
     with pytest.raises(ValidationError, match="first 12 hex chars"):
         BridgeRequest.model_validate(
@@ -204,7 +204,7 @@ def test_account_identity_object_is_observe_hook_only() -> None:
     identity = {
         "provider_account_key": "a" * 64,
         "provider_account_key_version": 2,
-        "provider_account_label": "a***n@t***.com",
+        "provider_account_label": "arman@titaniumsuccess.com",
     }
     request = BridgeRequest.model_validate(
         {

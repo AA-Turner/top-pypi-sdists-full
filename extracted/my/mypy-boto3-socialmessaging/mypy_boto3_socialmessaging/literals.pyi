@@ -33,6 +33,7 @@ __all__ = (
     "RegistrationStatusType",
     "ResourceServiceName",
     "ServiceName",
+    "WhatsAppDayOfWeekType",
 )
 
 ListLinkedWhatsAppBusinessAccountsPaginatorName = Literal["list_linked_whatsapp_business_accounts"]
@@ -52,6 +53,9 @@ MetaFlowCategoryType = Literal[
     "SURVEY",
 ]
 RegistrationStatusType = Literal["COMPLETE", "INCOMPLETE"]
+WhatsAppDayOfWeekType = Literal[
+    "FRIDAY", "MONDAY", "SATURDAY", "SUNDAY", "THURSDAY", "TUESDAY", "WEDNESDAY"
+]
 EndUserMessagingSocialServiceName = Literal["socialmessaging"]
 ServiceName = Literal[
     "accessanalyzer",

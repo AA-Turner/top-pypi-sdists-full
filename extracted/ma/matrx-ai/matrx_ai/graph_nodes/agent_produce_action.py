@@ -253,6 +253,7 @@ async def agent_produce(
         # an authored config_overrides must never be able to unbind it.
         top_config_overrides={"response_format": await _response_format_for(ctx, kind)},
         declared_variables=list(getattr(config, "exposed_variables", None) or []),
+        variable_sources=dict(getattr(config, "variable_sources", None) or {}),
     )
     completed = await run_step_agent(ctx, resolved.agent_id, request)
 

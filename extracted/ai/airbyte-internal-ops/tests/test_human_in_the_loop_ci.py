@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import json
+import re
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -22,8 +23,15 @@ from airbyte_ops_mcp.mcp.human_in_the_loop import (
     RequestType,
     escalate_to_human,
     lookup_person,
+    post_slack_newsletter,
 )
+from airbyte_ops_mcp.session_namer import generate_friendly_name
 from airbyte_ops_mcp.slack_api import SlackUsergroup
+from airbyte_ops_mcp.slack_ops.blocks import (
+    _MAX_BLOCKS,
+    build_blocks,
+    build_context_footer,
+)
 
 SESSION_URL = "https://app.devin.ai/sessions/abc123def456"
 DETAIL_URL = "https://github.com/airbytehq/airbyte/pull/123"
@@ -1030,3 +1038,143 @@ def test_dispatch_rejects_over_limit_summary(
             approval_request_summary="a" * (APPROVAL_REQUEST_SUMMARY_MAX_LENGTH + 1),
         )
     mock_dispatch.assert_not_called()
+
+
+@pytest.mark.unit
+def test_rich_text_bullets_render_emoji_elements() -> None:
+    """Rich-text bullet parsing emits typed emoji and link elements."""
+    blocks = build_blocks(
+        "- :github-pr: "
+        "<https://github.com/airbytehq/sonar/pull/6564|sonar#6564> "
+        "Title :todo-unchecked::github-checks-failing:  "
+        "<https://app.devin.ai/sessions/96fbe8dee129442696b2c235627fc566|"
+        "Unerring Governor> :devin:"
+    )
+
+    rich_text_blocks = [block for block in blocks if block["type"] == "rich_text"]
+    assert len(rich_text_blocks) == 1
+    sections = rich_text_blocks[0]["elements"][0]["elements"]
+    assert len(sections) == 1
+    elements = sections[0]["elements"]
+
+    assert [element["name"] for element in elements if element["type"] == "emoji"] == [
+        "github-pr",
+        "todo-unchecked",
+        "github-checks-failing",
+        "devin",
+    ]
+    assert sum(element["type"] == "link" for element in elements) == 2
+    assert not any(
+        re.search(r":[a-z0-9_+\-]+:", element.get("text", ""))
+        for element in elements
+        if element["type"] == "text"
+    )
+
+
+@pytest.mark.unit
+def test_section_text_keeps_emoji_shortcodes() -> None:
+    """Section blocks preserve Slack mrkdwn emoji shortcodes."""
+    blocks = build_blocks(":mag: hello")
+
+    assert blocks[0]["type"] == "section"
+    assert ":mag:" in blocks[0]["text"]["text"]
+
+
+@pytest.mark.unit
+def test_build_context_footer() -> None:
+    """Context footer helper returns one mrkdwn element."""
+    assert build_context_footer("Posted by <https://example.com|Name> :devin:") == {
+        "type": "context",
+        "elements": [
+            {
+                "type": "mrkdwn",
+                "text": "Posted by <https://example.com|Name> :devin:",
+            }
+        ],
+    }
+
+
+@pytest.mark.unit
+def test_post_slack_newsletter_local_appends_session_footer() -> None:
+    """Local newsletter previews include a linked authoring-session footer."""
+    session_id = "8dbef66647e94eef8ef86120461859de"
+    result = post_slack_newsletter(
+        message_text="## Hi\n\nbody",
+        newsletter_name="AJ",
+        dry_run="local",
+        agent_session_url=f"https://app.devin.ai/sessions/{session_id}",
+    )
+
+    assert result.success is True
+    assert result.blocks_json is not None
+    blocks = json.loads(result.blocks_json)
+    footer = blocks[-1]
+    assert footer["type"] == "context"
+    footer_text = footer["elements"][0]["text"]
+    assert f"https://app.devin.ai/sessions/{session_id}|" in footer_text
+    assert footer_text.endswith(":devin:")
+    assert footer_text.startswith("Posted by <")
+    assert footer_text == (
+        f"Posted by <https://app.devin.ai/sessions/{session_id}|"
+        f"{generate_friendly_name(session_id)}> :devin:"
+    )
+
+
+@pytest.mark.unit
+def test_post_slack_newsletter_footer_replaces_last_block_at_cap() -> None:
+    """The session footer replaces the last content block at Slack's cap."""
+    session_id = "8dbef66647e94eef8ef86120461859de"
+    message_text = "\n\n".join(
+        f"## Heading {number}" for number in range(1, _MAX_BLOCKS + 1)
+    )
+    assert len(build_blocks(message_text)) == _MAX_BLOCKS
+
+    result = post_slack_newsletter(
+        message_text=message_text,
+        newsletter_name="AJ",
+        dry_run="local",
+        agent_session_url=f"https://app.devin.ai/sessions/{session_id}",
+    )
+
+    assert result.success is True
+    assert result.blocks_json is not None
+    blocks = json.loads(result.blocks_json)
+    assert len(blocks) == _MAX_BLOCKS
+    assert blocks[-2]["type"] == "header"
+    assert blocks[-2]["text"]["text"] == "Heading 49"
+    assert not any(
+        block.get("text", {}).get("text") == "Heading 50" for block in blocks
+    )
+    footer = blocks[-1]
+    assert footer["type"] == "context"
+    footer_text = footer["elements"][0]["text"]
+    assert "Posted by" in footer_text
+    assert session_id in footer_text
+
+
+@pytest.mark.unit
+def test_post_slack_newsletter_local_without_footer() -> None:
+    """Local newsletter previews omit the footer when no session URL is given."""
+    result = post_slack_newsletter(
+        message_text="## Hi\n\nbody",
+        newsletter_name="AJ",
+        dry_run="local",
+    )
+
+    assert result.success is True
+    assert result.blocks_json is not None
+    blocks = json.loads(result.blocks_json)
+    assert blocks[-1]["type"] != "context"
+
+
+@pytest.mark.unit
+def test_post_slack_newsletter_rejects_bad_session_url() -> None:
+    """Invalid authoring-session URLs return a failed response."""
+    result = post_slack_newsletter(
+        message_text="## Hi\n\nbody",
+        newsletter_name="AJ",
+        dry_run="local",
+        agent_session_url="not-a-url",
+    )
+
+    assert result.success is False

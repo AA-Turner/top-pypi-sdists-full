@@ -4,12 +4,11 @@ description = "Yet another serialization library on top of dataclasses"
 authors = [{ name = "yukinarit", email = "yukinarit84@gmail.com" }]
 license = { file = "LICENSE" }
 readme = "README.md"
-requires-python = ">=3.10,<4.0"
+requires-python = ">=3.11,<4.0"
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
-  "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
@@ -19,8 +18,7 @@ classifiers = [
 ]
 dynamic = ["version"]
 dependencies = [
-  "typing-inspect>=0.4.0",
-  "typing_extensions>=4.1.0,<4.17.0",
+  "typing_extensions>=4.13.0,<4.17.0",
   "casefy",
   "jinja2",
   "plum-dispatch>=2.3",
@@ -30,7 +28,6 @@ dependencies = [
 [project.optional-dependencies]
 msgpack = ["msgpack"]
 toml = [
-  "tomli; python_version < '3.11'",
   "tomli-w",
 ]
 yaml = ["pyyaml"]
@@ -42,7 +39,6 @@ orjson = ["orjson"]
 sqlalchemy = ["sqlalchemy>2"]
 all = [
   "msgpack",
-  "tomli; python_version < '3.11'",
   "tomli-w",
   "pyyaml",
   "numpy>1.22.0,<3.0.0",
@@ -58,7 +54,6 @@ Homepage = "https://github.com/yukinarit/pyserde"
 [dependency-groups]
 dev = [
   "pyyaml",
-  "tomli; python_version <= '3.11'",
   "tomli-w",
   "msgpack",
   "numpy>1.22.0,<3.0.0",
@@ -67,20 +62,18 @@ dev = [
   "pyright==1.1.410",
   "ruff==0.15.9",
   "pytest",
-  "pytest-cov",
   "pytest-watch",
   "pytest-flake8",
-  "coverage==7.14.1",
   "mkdocs>=1.6",
   "mkdocs-material>=9.5",
   "mkdocstrings[python]>=0.24",
   "mkdocs-static-i18n>=1.2",
   "mike>=2.0",
   "more-itertools>=10.5.0,<10.9",
-  "pre-commit==4.5.1",
+  "pre-commit==4.6.2",
   "pytest-xdist>=3.5.0,<4.0",
   "types-PyYAML>=6.0.9,<7.0",
-  "msgpack-types>=0.5,<0.8",
+  "msgpack-types>=0.5,<0.9",
   "envclasses>=0.3.1,<0.4",
   "jedi",
   "jaxtyping",
@@ -97,7 +90,7 @@ source = "vcs"
 packages = ["serde"]
 
 [tool.black]
-target-version = ["py312"]
+target-version = ["py311"]
 line-length = 100
 
 [tool.pyright]
@@ -120,6 +113,7 @@ include = [
   "tests/test_flatten.py",
   "tests/test_lazy_type_evaluation.py",
   "tests/test_type_check.py",
+  "tests/test_typing.py",
   "tests/data.py",
 ]
 exclude = [
@@ -128,6 +122,8 @@ exclude = [
   "examples/type_numpy_jaxtyping.py"
 ]
 pythonVersion = "3.12"
+# PEP 747 TypeForm. Required for pyright to resolve union type expressions.
+enableExperimentalFeatures = true
 reportMissingImports = false
 reportUnhashable = false
 reportAttributeAccessIssue = false
@@ -135,6 +131,8 @@ reportAttributeAccessIssue = false
 [tool.mypy]
 strict = true
 ignore_missing_imports = true
+# PEP 747 TypeForm. Can be dropped once mypy enables it by default.
+enable_incomplete_feature = ["TypeForm"]
 exclude = [
   "serde/numpy.py",
   "examples/alias.py",
@@ -153,11 +151,16 @@ ignore_errors = true
 
 [tool.ruff]
 line-length = 100
+target-version = "py311"
 extend-exclude = [
   "examples/generics_pep695.py",
   "examples/type_alias_pep695.py",
   "examples/type_statement.py",
 ]
+
+[tool.ruff.per-file-target-version]
+# relies on PEP 649 deferred evaluation of annotations
+"tests/test_pep649.py" = "py314"
 
 [tool.ruff.lint]
 select = [
@@ -167,6 +170,7 @@ select = [
   "C", # flake8-comprehensions
   "B", # flake8-bugbear
   "NPY201", # numpy2-deprecation
+  "UP", # pyupgrade
 ]
 ignore = ["B904"]
 
@@ -176,3 +180,5 @@ max-complexity = 30
 [tool.ruff.lint.per-file-ignores]
 # https://docs.kidger.site/jaxtyping/faq/#flake8-or-ruff-are-throwing-an-error
 "examples/type_numpy_jaxtyping.py" = ["F722"]
+# tests intentionally exercise legacy typing generics (Dict, Set, Union, Optional, ...)
+"tests/**" = ["UP006", "UP007", "UP035", "UP045"]

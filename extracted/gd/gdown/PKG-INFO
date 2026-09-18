@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: gdown
-Version: 6.3.0
+Version: 6.4.0
 Summary: Google Drive Public File/Folder Downloader
 Project-URL: Homepage, https://github.com/wkentaro/gdown
 Author-email: Kentaro Wada <www.kentaro.wada@gmail.com>
@@ -26,6 +26,7 @@ Requires-Dist: filelock
 Requires-Dist: requests[socks]
 Requires-Dist: tqdm
 Requires-Dist: typing-extensions>=4.0; python_version < '3.12'
+Requires-Dist: urllib3
 Provides-Extra: secretstorage
 Requires-Dist: secretstorage; extra == 'secretstorage'
 Description-Content-Type: text/markdown
@@ -307,12 +308,16 @@ Yes. It works with any public HTTP/HTTPS URL.
 
 ## Contributing
 
+Install [just](https://just.systems/man/en/packages.html) 1.58.0 or newer and
+[uv](https://docs.astral.sh/uv/getting-started/installation/). Recipes use Bash;
+on Windows, install Git for Windows and make its Bash available on `PATH`.
+
 ```bash
 git clone https://github.com/wkentaro/gdown.git
 cd gdown
-make setup   # install dependencies
-make test    # run tests
-make lint    # run linters
+just setup   # install dependencies
+just test    # run tests
+just lint    # run linters
 ```
 
 ## License

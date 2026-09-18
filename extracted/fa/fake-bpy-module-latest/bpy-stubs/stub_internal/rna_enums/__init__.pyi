@@ -2630,6 +2630,10 @@ type ParticleEditHairBrushItems = typing.Literal[
     "CUT",  # Cut.Cut hairs.
     "WEIGHT",  # Weight.Weight hair particles.
 ]
+type PointcloudTypeItems = typing.Literal[
+    "POINTS",  # Points.Simple point cloud represented by points with position and radius.
+    "GAUSSIAN_SPLAT",  # 3D Gaussian Splat.A point cloud that represents the original 3D Gaussian Splats technique.
+]
 type PreferenceSectionItems = typing.Literal[
     "INTERFACE",  # Interface.
     "VIEWPORT",  # Viewport.

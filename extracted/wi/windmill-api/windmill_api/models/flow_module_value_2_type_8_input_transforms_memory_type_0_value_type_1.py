@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Type, TypeVar, Union
+from typing import Any, Dict, List, Type, TypeVar
 
 from attrs import define as _attrs_define
 from attrs import field as _attrs_field
@@ -6,43 +6,37 @@ from attrs import field as _attrs_field
 from ..models.flow_module_value_2_type_8_input_transforms_memory_type_0_value_type_1_kind import (
     FlowModuleValue2Type8InputTransformsMemoryType0ValueType1Kind,
 )
-from ..types import UNSET, Unset
 
 T = TypeVar("T", bound="FlowModuleValue2Type8InputTransformsMemoryType0ValueType1")
 
 
 @_attrs_define
 class FlowModuleValue2Type8InputTransformsMemoryType0ValueType1:
-    """Automatic context management
+    """Keeps the most recent messages of the memory named by the run's memory id (or the step's
+    `memory_id`). Without a memory id the agent runs without memory.
 
-    Attributes:
-        kind (FlowModuleValue2Type8InputTransformsMemoryType0ValueType1Kind):
-        context_length (Union[Unset, int]): Maximum number of messages to retain in context
-        memory_id (Union[Unset, str]): Identifier for persistent memory across agent invocations
+        Attributes:
+            kind (FlowModuleValue2Type8InputTransformsMemoryType0ValueType1Kind):
+            context_length (int): Number of most recent messages to load and store. 0 turns memory off.
     """
 
     kind: FlowModuleValue2Type8InputTransformsMemoryType0ValueType1Kind
-    context_length: Union[Unset, int] = UNSET
-    memory_id: Union[Unset, str] = UNSET
+    context_length: int
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
         kind = self.kind.value
 
         context_length = self.context_length
-        memory_id = self.memory_id
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
         field_dict.update(
             {
                 "kind": kind,
+                "context_length": context_length,
             }
         )
-        if context_length is not UNSET:
-            field_dict["context_length"] = context_length
-        if memory_id is not UNSET:
-            field_dict["memory_id"] = memory_id
 
         return field_dict
 
@@ -51,14 +45,11 @@ class FlowModuleValue2Type8InputTransformsMemoryType0ValueType1:
         d = src_dict.copy()
         kind = FlowModuleValue2Type8InputTransformsMemoryType0ValueType1Kind(d.pop("kind"))
 
-        context_length = d.pop("context_length", UNSET)
-
-        memory_id = d.pop("memory_id", UNSET)
+        context_length = d.pop("context_length")
 
         flow_module_value_2_type_8_input_transforms_memory_type_0_value_type_1 = cls(
             kind=kind,
             context_length=context_length,
-            memory_id=memory_id,
         )
 
         flow_module_value_2_type_8_input_transforms_memory_type_0_value_type_1.additional_properties = d

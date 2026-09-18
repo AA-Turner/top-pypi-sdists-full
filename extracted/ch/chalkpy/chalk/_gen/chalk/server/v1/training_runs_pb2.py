@@ -16,13 +16,14 @@ _sym_db = _symbol_database.Default()
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as chalk_dot_auth_dot_v1_dot_permissions__pb2
 from chalk._gen.chalk.container.v1 import service_pb2 as chalk_dot_container_dot_v1_dot_service__pb2
 from chalk._gen.chalk.server.v1 import model_registry_pb2 as chalk_dot_server_dot_v1_dot_model__registry__pb2
+from chalk._gen.chalk.volume.v2 import volume_pb2 as chalk_dot_volume_dot_v2_dot_volume__pb2
 from google.protobuf import field_mask_pb2 as google_dot_protobuf_dot_field__mask__pb2
 from google.protobuf import struct_pb2 as google_dot_protobuf_dot_struct__pb2
 from google.protobuf import timestamp_pb2 as google_dot_protobuf_dot_timestamp__pb2
 
 
 DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(
-    b'\n#chalk/server/v1/training_runs.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a chalk/container/v1/service.proto\x1a$chalk/server/v1/model_registry.proto\x1a google/protobuf/field_mask.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto"~\n\x15TrainingRunDataSource\x12#\n\x0c\x64\x61taset_name\x18\x01 \x01(\tH\x00R\x0b\x64\x61tasetName\x12\x17\n\x06s3_uri\x18\x02 \x01(\tH\x00R\x05s3Uri\x12\x1d\n\tinput_sql\x18\x03 \x01(\tH\x00R\x08inputSqlB\x08\n\x06source"\x9b\x08\n\x0bTrainingRun\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12:\n\x06status\x18\x03 \x01(\x0e\x32".chalk.server.v1.TrainingRunStatusR\x06status\x12:\n\x04\x64\x61ta\x18\x04 \x01(\x0b\x32&.chalk.server.v1.TrainingRunDataSourceR\x04\x64\x61ta\x12/\n\x06\x63onfig\x18\x05 \x01(\x0b\x32\x17.google.protobuf.StructR\x06\x63onfig\x12@\n\tresources\x18\x06 \x01(\x0b\x32".chalk.container.v1.ResourceLimitsR\tresources\x12\x14\n\x05image\x18\x07 \x01(\tR\x05image\x12\x37\n\x03\x65nv\x18\x08 \x03(\x0b\x32%.chalk.server.v1.TrainingRun.EnvEntryR\x03\x65nv\x12>\n\x0bsecret_refs\x18\t \x03(\x0b\x32\x1d.chalk.container.v1.SecretRefR\nsecretRefs\x12G\n\tmeta_data\x18\n \x03(\x0b\x32*.chalk.server.v1.TrainingRun.MetaDataEntryR\x08metaData\x12(\n\rerror_message\x18\x0b \x01(\tH\x00R\x0c\x65rrorMessage\x88\x01\x01\x12>\n\nstarted_at\x18\x0c \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\tstartedAt\x88\x01\x01\x12\x42\n\x0c\x66inalized_at\x18\r \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x02R\x0b\x66inalizedAt\x88\x01\x01\x12"\n\ncreated_by\x18\x0e \x01(\tH\x03R\tcreatedBy\x88\x01\x01\x12\x39\n\ncreated_at\x18\x0f \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12%\n\x0e\x65nvironment_id\x18\x10 \x01(\tR\renvironmentId\x12#\n\rdeployment_id\x18\x11 \x01(\tR\x0c\x64\x65ploymentId\x1a\x36\n\x08\x45nvEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1aS\n\rMetaDataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x42\x10\n\x0e_error_messageB\r\n\x0b_started_atB\x0f\n\r_finalized_atB\r\n\x0b_created_by"\xf9\x04\n\x18\x43reateTrainingRunRequest\x12\x17\n\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x12:\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32&.chalk.server.v1.TrainingRunDataSourceR\x04\x64\x61ta\x12/\n\x06\x63onfig\x18\x03 \x01(\x0b\x32\x17.google.protobuf.StructR\x06\x63onfig\x12@\n\tresources\x18\x04 \x01(\x0b\x32".chalk.container.v1.ResourceLimitsR\tresources\x12\x19\n\x05image\x18\x05 \x01(\tH\x01R\x05image\x88\x01\x01\x12\x44\n\x03\x65nv\x18\x06 \x03(\x0b\x32\x32.chalk.server.v1.CreateTrainingRunRequest.EnvEntryR\x03\x65nv\x12>\n\x0bsecret_refs\x18\x07 \x03(\x0b\x32\x1d.chalk.container.v1.SecretRefR\nsecretRefs\x12T\n\tmeta_data\x18\x08 \x03(\x0b\x32\x37.chalk.server.v1.CreateTrainingRunRequest.MetaDataEntryR\x08metaData\x1a\x36\n\x08\x45nvEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1aS\n\rMetaDataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x42\x07\n\x05_nameB\x08\n\x06_image"\\\n\x19\x43reateTrainingRunResponse\x12?\n\x0ctraining_run\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.TrainingRunR\x0btrainingRun"?\n\x15GetTrainingRunRequest\x12&\n\x0ftraining_run_id\x18\x01 \x01(\tR\rtrainingRunId"o\n\x16GetTrainingRunResponse\x12\x44\n\x0ctraining_run\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.TrainingRunH\x00R\x0btrainingRun\x88\x01\x01\x42\x0f\n\r_training_run"{\n\x17ListTrainingRunsFilters\x12\x17\n\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x12>\n\x08statuses\x18\x02 \x03(\x0e\x32".chalk.server.v1.TrainingRunStatusR\x08statusesB\x07\n\x05_name"\xaa\x01\n\x17ListTrainingRunsRequest\x12\x19\n\x05limit\x18\x01 \x01(\x05H\x00R\x05limit\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x01R\x06\x63ursor\x88\x01\x01\x12\x42\n\x07\x66ilters\x18\x03 \x01(\x0b\x32(.chalk.server.v1.ListTrainingRunsFiltersR\x07\x66iltersB\x08\n\x06_limitB\t\n\x07_cursor"\x93\x01\n\x18ListTrainingRunsResponse\x12\x41\n\rtraining_runs\x18\x01 \x03(\x0b\x32\x1c.chalk.server.v1.TrainingRunR\x0ctrainingRuns\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"\xd1\x02\n\x1aUpdateTrainingRunOperation\x12?\n\x06status\x18\x01 \x01(\x0e\x32".chalk.server.v1.TrainingRunStatusH\x00R\x06status\x88\x01\x01\x12(\n\rerror_message\x18\x02 \x01(\tH\x01R\x0c\x65rrorMessage\x88\x01\x01\x12V\n\tmeta_data\x18\x03 \x03(\x0b\x32\x39.chalk.server.v1.UpdateTrainingRunOperation.MetaDataEntryR\x08metaData\x1aS\n\rMetaDataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x42\t\n\x07_statusB\x10\n\x0e_error_message"\xc4\x01\n\x18UpdateTrainingRunRequest\x12&\n\x0ftraining_run_id\x18\x01 \x01(\tR\rtrainingRunId\x12\x43\n\x06update\x18\x02 \x01(\x0b\x32+.chalk.server.v1.UpdateTrainingRunOperationR\x06update\x12;\n\x0bupdate_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\nupdateMask"\\\n\x19UpdateTrainingRunResponse\x12?\n\x0ctraining_run\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.TrainingRunR\x0btrainingRun"B\n\x18\x43\x61ncelTrainingRunRequest\x12&\n\x0ftraining_run_id\x18\x01 \x01(\tR\rtrainingRunId"\x1b\n\x19\x43\x61ncelTrainingRunResponse"\xa3\x01\n\x1c\x43heckpointTrainingRunRequest\x12&\n\x0ftraining_run_id\x18\x01 \x01(\tR\rtrainingRunId\x12\x1d\n\nfile_names\x18\x02 \x03(\tR\tfileNames\x12<\n\rartifact_spec\x18\x03 \x01(\x0b\x32\x17.google.protobuf.StructR\x0c\x61rtifactSpec"\xeb\x01\n\x1d\x43heckpointTrainingRunResponse\x12*\n\x11model_artifact_id\x18\x01 \x01(\tR\x0fmodelArtifactId\x12_\n\x0bupload_urls\x18\x02 \x03(\x0b\x32>.chalk.server.v1.CheckpointTrainingRunResponse.UploadUrlsEntryR\nuploadUrls\x1a=\n\x0fUploadUrlsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01"D\n\x1aGetLatestCheckpointRequest\x12&\n\x0ftraining_run_id\x18\x01 \x01(\tR\rtrainingRunId"|\n\x1bGetLatestCheckpointResponse\x12J\n\x0emodel_artifact\x18\x01 \x01(\x0b\x32\x1e.chalk.server.v1.ModelArtifactH\x00R\rmodelArtifact\x88\x01\x01\x42\x11\n\x0f_model_artifact"\x8d\x01\n\x16ListCheckpointsRequest\x12&\n\x0ftraining_run_id\x18\x01 \x01(\tR\rtrainingRunId\x12\x19\n\x05limit\x18\x02 \x01(\x05H\x00R\x05limit\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x03 \x01(\tH\x01R\x06\x63ursor\x88\x01\x01\x42\x08\n\x06_limitB\t\n\x07_cursor"\x98\x01\n\x17ListCheckpointsResponse\x12G\n\x0fmodel_artifacts\x18\x01 \x03(\x0b\x32\x1e.chalk.server.v1.ModelArtifactR\x0emodelArtifacts\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"\x80\x02\n\x0eTrainingMetric\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n\x05value\x18\x02 \x01(\x01R\x05value\x12\x12\n\x04step\x18\x03 \x01(\x03R\x04step\x12\x38\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ttimestamp\x12=\n\x04tags\x18\x05 \x03(\x0b\x32).chalk.server.v1.TrainingMetric.TagsEntryR\x04tags\x1a\x37\n\tTagsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01"\x81\x01\n\x1cReportTrainingMetricsRequest\x12&\n\x0ftraining_run_id\x18\x01 \x01(\tR\rtrainingRunId\x12\x39\n\x07metrics\x18\x02 \x03(\x0b\x32\x1f.chalk.server.v1.TrainingMetricR\x07metrics"\x1f\n\x1dReportTrainingMetricsResponse*\xde\x01\n\x11TrainingRunStatus\x12#\n\x1fTRAINING_RUN_STATUS_UNSPECIFIED\x10\x00\x12\x1e\n\x1aTRAINING_RUN_STATUS_QUEUED\x10\x01\x12\x1f\n\x1bTRAINING_RUN_STATUS_WORKING\x10\x02\x12!\n\x1dTRAINING_RUN_STATUS_COMPLETED\x10\x03\x12\x1e\n\x1aTRAINING_RUN_STATUS_FAILED\x10\x04\x12 \n\x1cTRAINING_RUN_STATUS_CANCELED\x10\x05\x32\xa8\x08\n\x12TrainingRunService\x12o\n\x11\x43reateTrainingRun\x12).chalk.server.v1.CreateTrainingRunRequest\x1a*.chalk.server.v1.CreateTrainingRunResponse"\x03\x80}\x04\x12i\n\x0eGetTrainingRun\x12&.chalk.server.v1.GetTrainingRunRequest\x1a\'.chalk.server.v1.GetTrainingRunResponse"\x06\x90\x02\x01\x80}\x0b\x12o\n\x10ListTrainingRuns\x12(.chalk.server.v1.ListTrainingRunsRequest\x1a).chalk.server.v1.ListTrainingRunsResponse"\x06\x90\x02\x01\x80}\x0b\x12o\n\x11UpdateTrainingRun\x12).chalk.server.v1.UpdateTrainingRunRequest\x1a*.chalk.server.v1.UpdateTrainingRunResponse"\x03\x80}\x04\x12r\n\x11\x43\x61ncelTrainingRun\x12).chalk.server.v1.CancelTrainingRunRequest\x1a*.chalk.server.v1.CancelTrainingRunResponse"\x06\x90\x02\x02\x80}\x04\x12{\n\x15\x43heckpointTrainingRun\x12-.chalk.server.v1.CheckpointTrainingRunRequest\x1a..chalk.server.v1.CheckpointTrainingRunResponse"\x03\x80}\x04\x12x\n\x13GetLatestCheckpoint\x12+.chalk.server.v1.GetLatestCheckpointRequest\x1a,.chalk.server.v1.GetLatestCheckpointResponse"\x06\x90\x02\x01\x80}\x0b\x12l\n\x0fListCheckpoints\x12\'.chalk.server.v1.ListCheckpointsRequest\x1a(.chalk.server.v1.ListCheckpointsResponse"\x06\x90\x02\x01\x80}\x0b\x12{\n\x15ReportTrainingMetrics\x12-.chalk.server.v1.ReportTrainingMetricsRequest\x1a..chalk.server.v1.ReportTrainingMetricsResponse"\x03\x80}\x04\x42\x9a\x01\n\x13\x63om.chalk.server.v1B\x11TrainingRunsProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
+    b'\n#chalk/server/v1/training_runs.proto\x12\x0f\x63halk.server.v1\x1a\x1f\x63halk/auth/v1/permissions.proto\x1a chalk/container/v1/service.proto\x1a$chalk/server/v1/model_registry.proto\x1a\x1c\x63halk/volume/v2/volume.proto\x1a google/protobuf/field_mask.proto\x1a\x1cgoogle/protobuf/struct.proto\x1a\x1fgoogle/protobuf/timestamp.proto"~\n\x15TrainingRunDataSource\x12#\n\x0c\x64\x61taset_name\x18\x01 \x01(\tH\x00R\x0b\x64\x61tasetName\x12\x17\n\x06s3_uri\x18\x02 \x01(\tH\x00R\x05s3Uri\x12\x1d\n\tinput_sql\x18\x03 \x01(\tH\x00R\x08inputSqlB\x08\n\x06source"\x9b\x08\n\x0bTrainingRun\x12\x0e\n\x02id\x18\x01 \x01(\tR\x02id\x12\x12\n\x04name\x18\x02 \x01(\tR\x04name\x12:\n\x06status\x18\x03 \x01(\x0e\x32".chalk.server.v1.TrainingRunStatusR\x06status\x12:\n\x04\x64\x61ta\x18\x04 \x01(\x0b\x32&.chalk.server.v1.TrainingRunDataSourceR\x04\x64\x61ta\x12/\n\x06\x63onfig\x18\x05 \x01(\x0b\x32\x17.google.protobuf.StructR\x06\x63onfig\x12@\n\tresources\x18\x06 \x01(\x0b\x32".chalk.container.v1.ResourceLimitsR\tresources\x12\x14\n\x05image\x18\x07 \x01(\tR\x05image\x12\x37\n\x03\x65nv\x18\x08 \x03(\x0b\x32%.chalk.server.v1.TrainingRun.EnvEntryR\x03\x65nv\x12>\n\x0bsecret_refs\x18\t \x03(\x0b\x32\x1d.chalk.container.v1.SecretRefR\nsecretRefs\x12G\n\tmeta_data\x18\n \x03(\x0b\x32*.chalk.server.v1.TrainingRun.MetaDataEntryR\x08metaData\x12(\n\rerror_message\x18\x0b \x01(\tH\x00R\x0c\x65rrorMessage\x88\x01\x01\x12>\n\nstarted_at\x18\x0c \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\tstartedAt\x88\x01\x01\x12\x42\n\x0c\x66inalized_at\x18\r \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x02R\x0b\x66inalizedAt\x88\x01\x01\x12"\n\ncreated_by\x18\x0e \x01(\tH\x03R\tcreatedBy\x88\x01\x01\x12\x39\n\ncreated_at\x18\x0f \x01(\x0b\x32\x1a.google.protobuf.TimestampR\tcreatedAt\x12%\n\x0e\x65nvironment_id\x18\x10 \x01(\tR\renvironmentId\x12#\n\rdeployment_id\x18\x11 \x01(\tR\x0c\x64\x65ploymentId\x1a\x36\n\x08\x45nvEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1aS\n\rMetaDataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x42\x10\n\x0e_error_messageB\r\n\x0b_started_atB\x0f\n\r_finalized_atB\r\n\x0b_created_by"\xbb\x06\n\x18\x43reateTrainingRunRequest\x12\x17\n\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x12:\n\x04\x64\x61ta\x18\x02 \x01(\x0b\x32&.chalk.server.v1.TrainingRunDataSourceR\x04\x64\x61ta\x12/\n\x06\x63onfig\x18\x03 \x01(\x0b\x32\x17.google.protobuf.StructR\x06\x63onfig\x12@\n\tresources\x18\x04 \x01(\x0b\x32".chalk.container.v1.ResourceLimitsR\tresources\x12\x19\n\x05image\x18\x05 \x01(\tH\x01R\x05image\x88\x01\x01\x12\x44\n\x03\x65nv\x18\x06 \x03(\x0b\x32\x32.chalk.server.v1.CreateTrainingRunRequest.EnvEntryR\x03\x65nv\x12>\n\x0bsecret_refs\x18\x07 \x03(\x0b\x32\x1d.chalk.container.v1.SecretRefR\nsecretRefs\x12T\n\tmeta_data\x18\x08 \x03(\x0b\x32\x37.chalk.server.v1.CreateTrainingRunRequest.MetaDataEntryR\x08metaData\x12\x44\n\x0evolume_commits\x18\t \x03(\x0b\x32\x1d.chalk.volume.v2.CommitIntentR\rvolumeCommits\x12$\n\x0bmax_retries\x18\n \x01(\x05H\x02R\nmaxRetries\x88\x01\x01\x12\x44\n\rvolume_mounts\x18\x0b \x03(\x0b\x32\x1f.chalk.container.v1.VolumeMountR\x0cvolumeMounts\x1a\x36\n\x08\x45nvEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01\x1aS\n\rMetaDataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x42\x07\n\x05_nameB\x08\n\x06_imageB\x0e\n\x0c_max_retries"\\\n\x19\x43reateTrainingRunResponse\x12?\n\x0ctraining_run\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.TrainingRunR\x0btrainingRun"?\n\x15GetTrainingRunRequest\x12&\n\x0ftraining_run_id\x18\x01 \x01(\tR\rtrainingRunId"o\n\x16GetTrainingRunResponse\x12\x44\n\x0ctraining_run\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.TrainingRunH\x00R\x0btrainingRun\x88\x01\x01\x42\x0f\n\r_training_run"\xd4\x02\n\x17ListTrainingRunsFilters\x12\x17\n\x04name\x18\x01 \x01(\tH\x00R\x04name\x88\x01\x01\x12>\n\x08statuses\x18\x02 \x03(\x0e\x32".chalk.server.v1.TrainingRunStatusR\x08statuses\x12>\n\nstart_time\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x01R\tstartTime\x88\x01\x01\x12:\n\x08\x65nd_time\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampH\x02R\x07\x65ndTime\x88\x01\x01\x12+\n\x0ftraining_run_id\x18\x05 \x01(\tH\x03R\rtrainingRunId\x88\x01\x01\x42\x07\n\x05_nameB\r\n\x0b_start_timeB\x0b\n\t_end_timeB\x12\n\x10_training_run_id"\xaa\x01\n\x17ListTrainingRunsRequest\x12\x19\n\x05limit\x18\x01 \x01(\x05H\x00R\x05limit\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x02 \x01(\tH\x01R\x06\x63ursor\x88\x01\x01\x12\x42\n\x07\x66ilters\x18\x03 \x01(\x0b\x32(.chalk.server.v1.ListTrainingRunsFiltersR\x07\x66iltersB\x08\n\x06_limitB\t\n\x07_cursor"\x93\x01\n\x18ListTrainingRunsResponse\x12\x41\n\rtraining_runs\x18\x01 \x03(\x0b\x32\x1c.chalk.server.v1.TrainingRunR\x0ctrainingRuns\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"\xd1\x02\n\x1aUpdateTrainingRunOperation\x12?\n\x06status\x18\x01 \x01(\x0e\x32".chalk.server.v1.TrainingRunStatusH\x00R\x06status\x88\x01\x01\x12(\n\rerror_message\x18\x02 \x01(\tH\x01R\x0c\x65rrorMessage\x88\x01\x01\x12V\n\tmeta_data\x18\x03 \x03(\x0b\x32\x39.chalk.server.v1.UpdateTrainingRunOperation.MetaDataEntryR\x08metaData\x1aS\n\rMetaDataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01\x42\t\n\x07_statusB\x10\n\x0e_error_message"\xc4\x01\n\x18UpdateTrainingRunRequest\x12&\n\x0ftraining_run_id\x18\x01 \x01(\tR\rtrainingRunId\x12\x43\n\x06update\x18\x02 \x01(\x0b\x32+.chalk.server.v1.UpdateTrainingRunOperationR\x06update\x12;\n\x0bupdate_mask\x18\x03 \x01(\x0b\x32\x1a.google.protobuf.FieldMaskR\nupdateMask"\\\n\x19UpdateTrainingRunResponse\x12?\n\x0ctraining_run\x18\x01 \x01(\x0b\x32\x1c.chalk.server.v1.TrainingRunR\x0btrainingRun"B\n\x18\x43\x61ncelTrainingRunRequest\x12&\n\x0ftraining_run_id\x18\x01 \x01(\tR\rtrainingRunId"\x1b\n\x19\x43\x61ncelTrainingRunResponse"\xd1\x02\n\x1c\x43heckpointTrainingRunRequest\x12&\n\x0ftraining_run_id\x18\x01 \x01(\tR\rtrainingRunId\x12\x1d\n\nfile_names\x18\x02 \x03(\tR\tfileNames\x12<\n\rartifact_spec\x18\x03 \x01(\x0b\x32\x17.google.protobuf.StructR\x0c\x61rtifactSpec\x12W\n\x08metadata\x18\x04 \x03(\x0b\x32;.chalk.server.v1.CheckpointTrainingRunRequest.MetadataEntryR\x08metadata\x1aS\n\rMetadataEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12,\n\x05value\x18\x02 \x01(\x0b\x32\x16.google.protobuf.ValueR\x05value:\x02\x38\x01"\xeb\x01\n\x1d\x43heckpointTrainingRunResponse\x12*\n\x11model_artifact_id\x18\x01 \x01(\tR\x0fmodelArtifactId\x12_\n\x0bupload_urls\x18\x02 \x03(\x0b\x32>.chalk.server.v1.CheckpointTrainingRunResponse.UploadUrlsEntryR\nuploadUrls\x1a=\n\x0fUploadUrlsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01"D\n\x1aGetLatestCheckpointRequest\x12&\n\x0ftraining_run_id\x18\x01 \x01(\tR\rtrainingRunId"|\n\x1bGetLatestCheckpointResponse\x12J\n\x0emodel_artifact\x18\x01 \x01(\x0b\x32\x1e.chalk.server.v1.ModelArtifactH\x00R\rmodelArtifact\x88\x01\x01\x42\x11\n\x0f_model_artifact"\x8d\x01\n\x16ListCheckpointsRequest\x12&\n\x0ftraining_run_id\x18\x01 \x01(\tR\rtrainingRunId\x12\x19\n\x05limit\x18\x02 \x01(\x05H\x00R\x05limit\x88\x01\x01\x12\x1b\n\x06\x63ursor\x18\x03 \x01(\tH\x01R\x06\x63ursor\x88\x01\x01\x42\x08\n\x06_limitB\t\n\x07_cursor"\x98\x01\n\x17ListCheckpointsResponse\x12G\n\x0fmodel_artifacts\x18\x01 \x03(\x0b\x32\x1e.chalk.server.v1.ModelArtifactR\x0emodelArtifacts\x12$\n\x0bnext_cursor\x18\x02 \x01(\tH\x00R\nnextCursor\x88\x01\x01\x42\x0e\n\x0c_next_cursor"\x80\x02\n\x0eTrainingMetric\x12\x12\n\x04name\x18\x01 \x01(\tR\x04name\x12\x14\n\x05value\x18\x02 \x01(\x01R\x05value\x12\x12\n\x04step\x18\x03 \x01(\x03R\x04step\x12\x38\n\ttimestamp\x18\x04 \x01(\x0b\x32\x1a.google.protobuf.TimestampR\ttimestamp\x12=\n\x04tags\x18\x05 \x03(\x0b\x32).chalk.server.v1.TrainingMetric.TagsEntryR\x04tags\x1a\x37\n\tTagsEntry\x12\x10\n\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n\x05value\x18\x02 \x01(\tR\x05value:\x02\x38\x01"\x81\x01\n\x1cReportTrainingMetricsRequest\x12&\n\x0ftraining_run_id\x18\x01 \x01(\tR\rtrainingRunId\x12\x39\n\x07metrics\x18\x02 \x03(\x0b\x32\x1f.chalk.server.v1.TrainingMetricR\x07metrics"\x1f\n\x1dReportTrainingMetricsResponse*\xde\x01\n\x11TrainingRunStatus\x12#\n\x1fTRAINING_RUN_STATUS_UNSPECIFIED\x10\x00\x12\x1e\n\x1aTRAINING_RUN_STATUS_QUEUED\x10\x01\x12\x1f\n\x1bTRAINING_RUN_STATUS_WORKING\x10\x02\x12!\n\x1dTRAINING_RUN_STATUS_COMPLETED\x10\x03\x12\x1e\n\x1aTRAINING_RUN_STATUS_FAILED\x10\x04\x12 \n\x1cTRAINING_RUN_STATUS_CANCELED\x10\x05\x32\xa8\x08\n\x12TrainingRunService\x12o\n\x11\x43reateTrainingRun\x12).chalk.server.v1.CreateTrainingRunRequest\x1a*.chalk.server.v1.CreateTrainingRunResponse"\x03\x80}\x04\x12i\n\x0eGetTrainingRun\x12&.chalk.server.v1.GetTrainingRunRequest\x1a\'.chalk.server.v1.GetTrainingRunResponse"\x06\x90\x02\x01\x80}\x0b\x12o\n\x10ListTrainingRuns\x12(.chalk.server.v1.ListTrainingRunsRequest\x1a).chalk.server.v1.ListTrainingRunsResponse"\x06\x90\x02\x01\x80}\x0b\x12o\n\x11UpdateTrainingRun\x12).chalk.server.v1.UpdateTrainingRunRequest\x1a*.chalk.server.v1.UpdateTrainingRunResponse"\x03\x80}\x04\x12r\n\x11\x43\x61ncelTrainingRun\x12).chalk.server.v1.CancelTrainingRunRequest\x1a*.chalk.server.v1.CancelTrainingRunResponse"\x06\x90\x02\x02\x80}\x04\x12{\n\x15\x43heckpointTrainingRun\x12-.chalk.server.v1.CheckpointTrainingRunRequest\x1a..chalk.server.v1.CheckpointTrainingRunResponse"\x03\x80}\x04\x12x\n\x13GetLatestCheckpoint\x12+.chalk.server.v1.GetLatestCheckpointRequest\x1a,.chalk.server.v1.GetLatestCheckpointResponse"\x06\x90\x02\x01\x80}\x0b\x12l\n\x0fListCheckpoints\x12\'.chalk.server.v1.ListCheckpointsRequest\x1a(.chalk.server.v1.ListCheckpointsResponse"\x06\x90\x02\x01\x80}\x0b\x12{\n\x15ReportTrainingMetrics\x12-.chalk.server.v1.ReportTrainingMetricsRequest\x1a..chalk.server.v1.ReportTrainingMetricsResponse"\x03\x80}\x04\x42\x9a\x01\n\x13\x63om.chalk.server.v1B\x11TrainingRunsProtoP\x01Z\x12server/v1;serverv1\xa2\x02\x03\x43SX\xaa\x02\x0f\x43halk.Server.V1\xca\x02\x0f\x43halk\\Server\\V1\xe2\x02\x1b\x43halk\\Server\\V1\\GPBMetadata\xea\x02\x11\x43halk::Server::V1b\x06proto3'
 )
 
 _globals = globals()
@@ -43,6 +44,8 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_CREATETRAININGRUNREQUEST_METADATAENTRY"]._serialized_options = b"8\001"
     _globals["_UPDATETRAININGRUNOPERATION_METADATAENTRY"]._options = None
     _globals["_UPDATETRAININGRUNOPERATION_METADATAENTRY"]._serialized_options = b"8\001"
+    _globals["_CHECKPOINTTRAININGRUNREQUEST_METADATAENTRY"]._options = None
+    _globals["_CHECKPOINTTRAININGRUNREQUEST_METADATAENTRY"]._serialized_options = b"8\001"
     _globals["_CHECKPOINTTRAININGRUNRESPONSE_UPLOADURLSENTRY"]._options = None
     _globals["_CHECKPOINTTRAININGRUNRESPONSE_UPLOADURLSENTRY"]._serialized_options = b"8\001"
     _globals["_TRAININGMETRIC_TAGSENTRY"]._options = None
@@ -67,68 +70,70 @@ if _descriptor._USE_C_DESCRIPTORS == False:
     _globals["_TRAININGRUNSERVICE"].methods_by_name["ListCheckpoints"]._serialized_options = b"\220\002\001\200}\013"
     _globals["_TRAININGRUNSERVICE"].methods_by_name["ReportTrainingMetrics"]._options = None
     _globals["_TRAININGRUNSERVICE"].methods_by_name["ReportTrainingMetrics"]._serialized_options = b"\200}\004"
-    _globals["_TRAININGRUNSTATUS"]._serialized_start = 4850
-    _globals["_TRAININGRUNSTATUS"]._serialized_end = 5072
-    _globals["_TRAININGRUNDATASOURCE"]._serialized_start = 258
-    _globals["_TRAININGRUNDATASOURCE"]._serialized_end = 384
-    _globals["_TRAININGRUN"]._serialized_start = 387
-    _globals["_TRAININGRUN"]._serialized_end = 1438
-    _globals["_TRAININGRUN_ENVENTRY"]._serialized_start = 1234
-    _globals["_TRAININGRUN_ENVENTRY"]._serialized_end = 1288
-    _globals["_TRAININGRUN_METADATAENTRY"]._serialized_start = 1290
-    _globals["_TRAININGRUN_METADATAENTRY"]._serialized_end = 1373
-    _globals["_CREATETRAININGRUNREQUEST"]._serialized_start = 1441
-    _globals["_CREATETRAININGRUNREQUEST"]._serialized_end = 2074
-    _globals["_CREATETRAININGRUNREQUEST_ENVENTRY"]._serialized_start = 1234
-    _globals["_CREATETRAININGRUNREQUEST_ENVENTRY"]._serialized_end = 1288
-    _globals["_CREATETRAININGRUNREQUEST_METADATAENTRY"]._serialized_start = 1290
-    _globals["_CREATETRAININGRUNREQUEST_METADATAENTRY"]._serialized_end = 1373
-    _globals["_CREATETRAININGRUNRESPONSE"]._serialized_start = 2076
-    _globals["_CREATETRAININGRUNRESPONSE"]._serialized_end = 2168
-    _globals["_GETTRAININGRUNREQUEST"]._serialized_start = 2170
-    _globals["_GETTRAININGRUNREQUEST"]._serialized_end = 2233
-    _globals["_GETTRAININGRUNRESPONSE"]._serialized_start = 2235
-    _globals["_GETTRAININGRUNRESPONSE"]._serialized_end = 2346
-    _globals["_LISTTRAININGRUNSFILTERS"]._serialized_start = 2348
-    _globals["_LISTTRAININGRUNSFILTERS"]._serialized_end = 2471
-    _globals["_LISTTRAININGRUNSREQUEST"]._serialized_start = 2474
-    _globals["_LISTTRAININGRUNSREQUEST"]._serialized_end = 2644
-    _globals["_LISTTRAININGRUNSRESPONSE"]._serialized_start = 2647
-    _globals["_LISTTRAININGRUNSRESPONSE"]._serialized_end = 2794
-    _globals["_UPDATETRAININGRUNOPERATION"]._serialized_start = 2797
-    _globals["_UPDATETRAININGRUNOPERATION"]._serialized_end = 3134
-    _globals["_UPDATETRAININGRUNOPERATION_METADATAENTRY"]._serialized_start = 1290
-    _globals["_UPDATETRAININGRUNOPERATION_METADATAENTRY"]._serialized_end = 1373
-    _globals["_UPDATETRAININGRUNREQUEST"]._serialized_start = 3137
-    _globals["_UPDATETRAININGRUNREQUEST"]._serialized_end = 3333
-    _globals["_UPDATETRAININGRUNRESPONSE"]._serialized_start = 3335
-    _globals["_UPDATETRAININGRUNRESPONSE"]._serialized_end = 3427
-    _globals["_CANCELTRAININGRUNREQUEST"]._serialized_start = 3429
-    _globals["_CANCELTRAININGRUNREQUEST"]._serialized_end = 3495
-    _globals["_CANCELTRAININGRUNRESPONSE"]._serialized_start = 3497
-    _globals["_CANCELTRAININGRUNRESPONSE"]._serialized_end = 3524
-    _globals["_CHECKPOINTTRAININGRUNREQUEST"]._serialized_start = 3527
-    _globals["_CHECKPOINTTRAININGRUNREQUEST"]._serialized_end = 3690
-    _globals["_CHECKPOINTTRAININGRUNRESPONSE"]._serialized_start = 3693
-    _globals["_CHECKPOINTTRAININGRUNRESPONSE"]._serialized_end = 3928
-    _globals["_CHECKPOINTTRAININGRUNRESPONSE_UPLOADURLSENTRY"]._serialized_start = 3867
-    _globals["_CHECKPOINTTRAININGRUNRESPONSE_UPLOADURLSENTRY"]._serialized_end = 3928
-    _globals["_GETLATESTCHECKPOINTREQUEST"]._serialized_start = 3930
-    _globals["_GETLATESTCHECKPOINTREQUEST"]._serialized_end = 3998
-    _globals["_GETLATESTCHECKPOINTRESPONSE"]._serialized_start = 4000
-    _globals["_GETLATESTCHECKPOINTRESPONSE"]._serialized_end = 4124
-    _globals["_LISTCHECKPOINTSREQUEST"]._serialized_start = 4127
-    _globals["_LISTCHECKPOINTSREQUEST"]._serialized_end = 4268
-    _globals["_LISTCHECKPOINTSRESPONSE"]._serialized_start = 4271
-    _globals["_LISTCHECKPOINTSRESPONSE"]._serialized_end = 4423
-    _globals["_TRAININGMETRIC"]._serialized_start = 4426
-    _globals["_TRAININGMETRIC"]._serialized_end = 4682
-    _globals["_TRAININGMETRIC_TAGSENTRY"]._serialized_start = 4627
-    _globals["_TRAININGMETRIC_TAGSENTRY"]._serialized_end = 4682
-    _globals["_REPORTTRAININGMETRICSREQUEST"]._serialized_start = 4685
-    _globals["_REPORTTRAININGMETRICSREQUEST"]._serialized_end = 4814
-    _globals["_REPORTTRAININGMETRICSRESPONSE"]._serialized_start = 4816
-    _globals["_REPORTTRAININGMETRICSRESPONSE"]._serialized_end = 4847
-    _globals["_TRAININGRUNSERVICE"]._serialized_start = 5075
-    _globals["_TRAININGRUNSERVICE"]._serialized_end = 6139
+    _globals["_TRAININGRUNSTATUS"]._serialized_start = 5466
+    _globals["_TRAININGRUNSTATUS"]._serialized_end = 5688
+    _globals["_TRAININGRUNDATASOURCE"]._serialized_start = 288
+    _globals["_TRAININGRUNDATASOURCE"]._serialized_end = 414
+    _globals["_TRAININGRUN"]._serialized_start = 417
+    _globals["_TRAININGRUN"]._serialized_end = 1468
+    _globals["_TRAININGRUN_ENVENTRY"]._serialized_start = 1264
+    _globals["_TRAININGRUN_ENVENTRY"]._serialized_end = 1318
+    _globals["_TRAININGRUN_METADATAENTRY"]._serialized_start = 1320
+    _globals["_TRAININGRUN_METADATAENTRY"]._serialized_end = 1403
+    _globals["_CREATETRAININGRUNREQUEST"]._serialized_start = 1471
+    _globals["_CREATETRAININGRUNREQUEST"]._serialized_end = 2298
+    _globals["_CREATETRAININGRUNREQUEST_ENVENTRY"]._serialized_start = 1264
+    _globals["_CREATETRAININGRUNREQUEST_ENVENTRY"]._serialized_end = 1318
+    _globals["_CREATETRAININGRUNREQUEST_METADATAENTRY"]._serialized_start = 1320
+    _globals["_CREATETRAININGRUNREQUEST_METADATAENTRY"]._serialized_end = 1403
+    _globals["_CREATETRAININGRUNRESPONSE"]._serialized_start = 2300
+    _globals["_CREATETRAININGRUNRESPONSE"]._serialized_end = 2392
+    _globals["_GETTRAININGRUNREQUEST"]._serialized_start = 2394
+    _globals["_GETTRAININGRUNREQUEST"]._serialized_end = 2457
+    _globals["_GETTRAININGRUNRESPONSE"]._serialized_start = 2459
+    _globals["_GETTRAININGRUNRESPONSE"]._serialized_end = 2570
+    _globals["_LISTTRAININGRUNSFILTERS"]._serialized_start = 2573
+    _globals["_LISTTRAININGRUNSFILTERS"]._serialized_end = 2913
+    _globals["_LISTTRAININGRUNSREQUEST"]._serialized_start = 2916
+    _globals["_LISTTRAININGRUNSREQUEST"]._serialized_end = 3086
+    _globals["_LISTTRAININGRUNSRESPONSE"]._serialized_start = 3089
+    _globals["_LISTTRAININGRUNSRESPONSE"]._serialized_end = 3236
+    _globals["_UPDATETRAININGRUNOPERATION"]._serialized_start = 3239
+    _globals["_UPDATETRAININGRUNOPERATION"]._serialized_end = 3576
+    _globals["_UPDATETRAININGRUNOPERATION_METADATAENTRY"]._serialized_start = 1320
+    _globals["_UPDATETRAININGRUNOPERATION_METADATAENTRY"]._serialized_end = 1403
+    _globals["_UPDATETRAININGRUNREQUEST"]._serialized_start = 3579
+    _globals["_UPDATETRAININGRUNREQUEST"]._serialized_end = 3775
+    _globals["_UPDATETRAININGRUNRESPONSE"]._serialized_start = 3777
+    _globals["_UPDATETRAININGRUNRESPONSE"]._serialized_end = 3869
+    _globals["_CANCELTRAININGRUNREQUEST"]._serialized_start = 3871
+    _globals["_CANCELTRAININGRUNREQUEST"]._serialized_end = 3937
+    _globals["_CANCELTRAININGRUNRESPONSE"]._serialized_start = 3939
+    _globals["_CANCELTRAININGRUNRESPONSE"]._serialized_end = 3966
+    _globals["_CHECKPOINTTRAININGRUNREQUEST"]._serialized_start = 3969
+    _globals["_CHECKPOINTTRAININGRUNREQUEST"]._serialized_end = 4306
+    _globals["_CHECKPOINTTRAININGRUNREQUEST_METADATAENTRY"]._serialized_start = 4223
+    _globals["_CHECKPOINTTRAININGRUNREQUEST_METADATAENTRY"]._serialized_end = 4306
+    _globals["_CHECKPOINTTRAININGRUNRESPONSE"]._serialized_start = 4309
+    _globals["_CHECKPOINTTRAININGRUNRESPONSE"]._serialized_end = 4544
+    _globals["_CHECKPOINTTRAININGRUNRESPONSE_UPLOADURLSENTRY"]._serialized_start = 4483
+    _globals["_CHECKPOINTTRAININGRUNRESPONSE_UPLOADURLSENTRY"]._serialized_end = 4544
+    _globals["_GETLATESTCHECKPOINTREQUEST"]._serialized_start = 4546
+    _globals["_GETLATESTCHECKPOINTREQUEST"]._serialized_end = 4614
+    _globals["_GETLATESTCHECKPOINTRESPONSE"]._serialized_start = 4616
+    _globals["_GETLATESTCHECKPOINTRESPONSE"]._serialized_end = 4740
+    _globals["_LISTCHECKPOINTSREQUEST"]._serialized_start = 4743
+    _globals["_LISTCHECKPOINTSREQUEST"]._serialized_end = 4884
+    _globals["_LISTCHECKPOINTSRESPONSE"]._serialized_start = 4887
+    _globals["_LISTCHECKPOINTSRESPONSE"]._serialized_end = 5039
+    _globals["_TRAININGMETRIC"]._serialized_start = 5042
+    _globals["_TRAININGMETRIC"]._serialized_end = 5298
+    _globals["_TRAININGMETRIC_TAGSENTRY"]._serialized_start = 5243
+    _globals["_TRAININGMETRIC_TAGSENTRY"]._serialized_end = 5298
+    _globals["_REPORTTRAININGMETRICSREQUEST"]._serialized_start = 5301
+    _globals["_REPORTTRAININGMETRICSREQUEST"]._serialized_end = 5430
+    _globals["_REPORTTRAININGMETRICSRESPONSE"]._serialized_start = 5432
+    _globals["_REPORTTRAININGMETRICSRESPONSE"]._serialized_end = 5463
+    _globals["_TRAININGRUNSERVICE"]._serialized_start = 5691
+    _globals["_TRAININGRUNSERVICE"]._serialized_end = 6755
 # @@protoc_insertion_point(module_scope)

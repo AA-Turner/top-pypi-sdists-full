@@ -1,6 +1,6 @@
 [package]
 name = "uv-client"
-version = "0.0.82"
+version = "0.0.83"
 description = "This is an internal component crate of uv"
 edition = { workspace = true }
 rust-version = { workspace = true }
@@ -40,6 +40,7 @@ uv-pypi-types = { workspace = true }
 uv-small-str = { workspace = true }
 uv-redacted = { workspace = true }
 uv-static = { workspace = true }
+uv-threads = { workspace = true }
 uv-torch = { workspace = true }
 uv-version = { workspace = true }
 uv-warnings = { workspace = true }

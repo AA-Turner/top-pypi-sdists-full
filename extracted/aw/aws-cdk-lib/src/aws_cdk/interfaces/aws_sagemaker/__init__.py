@@ -3946,21 +3946,21 @@ class NotebookInstanceLifecycleConfigReference:
     jsii_type="aws-cdk-lib.interfaces.aws_sagemaker.NotebookInstanceReference",
     jsii_struct_bases=[],
     name_mapping={
+        "notebook_instance_arn": "notebookInstanceArn",
         "notebook_instance_id": "notebookInstanceId",
-        "notebook_instance_name": "notebookInstanceName",
     },
 )
 class NotebookInstanceReference:
     def __init__(
         self,
         *,
+        notebook_instance_arn: builtins.str,
         notebook_instance_id: builtins.str,
-        notebook_instance_name: builtins.str,
     ) -> None:
         '''A reference to a NotebookInstance resource.
 
+        :param notebook_instance_arn: The ARN of the NotebookInstance resource.
         :param notebook_instance_id: The Id of the NotebookInstance resource.
-        :param notebook_instance_name: The NotebookInstanceName of the NotebookInstance resource.
 
         :exampleMetadata: fixture=_generated
 
@@ -3971,31 +3971,31 @@ class NotebookInstanceReference:
             from aws_cdk.interfaces import aws_sagemaker as interfaces_sagemaker
             
             notebook_instance_reference = interfaces_sagemaker.NotebookInstanceReference(
-                notebook_instance_id="notebookInstanceId",
-                notebook_instance_name="notebookInstanceName"
+                notebook_instance_arn="notebookInstanceArn",
+                notebook_instance_id="notebookInstanceId"
             )
         '''
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__a755b532c8c9e307e8c797edce2cc8a880caf510ede5ca055a88def8d821580d)
+            check_type(argname="argument notebook_instance_arn", value=notebook_instance_arn, expected_type=type_hints["notebook_instance_arn"])
             check_type(argname="argument notebook_instance_id", value=notebook_instance_id, expected_type=type_hints["notebook_instance_id"])
-            check_type(argname="argument notebook_instance_name", value=notebook_instance_name, expected_type=type_hints["notebook_instance_name"])
         self._values: typing.Dict[builtins.str, typing.Any] = {
+            "notebook_instance_arn": notebook_instance_arn,
             "notebook_instance_id": notebook_instance_id,
-            "notebook_instance_name": notebook_instance_name,
         }
+
+    @builtins.property
+    def notebook_instance_arn(self) -> builtins.str:
+        '''The ARN of the NotebookInstance resource.'''
+        result = self._values.get("notebook_instance_arn")
+        assert result is not None, "Required property 'notebook_instance_arn' is missing"
+        return typing.cast(builtins.str, result)
 
     @builtins.property
     def notebook_instance_id(self) -> builtins.str:
         '''The Id of the NotebookInstance resource.'''
         result = self._values.get("notebook_instance_id")
         assert result is not None, "Required property 'notebook_instance_id' is missing"
-        return typing.cast(builtins.str, result)
-
-    @builtins.property
-    def notebook_instance_name(self) -> builtins.str:
-        '''The NotebookInstanceName of the NotebookInstance resource.'''
-        result = self._values.get("notebook_instance_name")
-        assert result is not None, "Required property 'notebook_instance_name' is missing"
         return typing.cast(builtins.str, result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
@@ -4945,8 +4945,8 @@ def _typecheckingstub__3bd4bd8843ef6d70f3dd8ae74880bf978f098b162369119c9940d2951
 
 def _typecheckingstub__a755b532c8c9e307e8c797edce2cc8a880caf510ede5ca055a88def8d821580d(
     *,
+    notebook_instance_arn: builtins.str,
     notebook_instance_id: builtins.str,
-    notebook_instance_name: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

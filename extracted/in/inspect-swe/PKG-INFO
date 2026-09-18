@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inspect_swe
-Version: 0.2.70
+Version: 0.2.71
 Summary: Software engineering agents for Inspect AI.
 Project-URL: Documentation, https://meridianlabs-ai.github.io/inspect_swe/
 Project-URL: Source Code, https://github.com/meridianlabs-ai/inspect_swe
@@ -12,7 +12,7 @@ Requires-Python: >=3.10
 Requires-Dist: agent-client-protocol>=0.11.0
 Requires-Dist: anyio
 Requires-Dist: httpx
-Requires-Dist: inspect-ai>=0.3.255
+Requires-Dist: inspect-ai>=0.3.261
 Requires-Dist: nest-asyncio
 Requires-Dist: platformdirs
 Requires-Dist: pydantic>=2.13.0
@@ -20,7 +20,7 @@ Requires-Dist: pyyaml
 Requires-Dist: sniffio
 Requires-Dist: typing-extensions>=4.9.0
 Provides-Extra: dev
-Requires-Dist: anthropic; extra == 'dev'
+Requires-Dist: anthropic>=1.0.0; extra == 'dev'
 Requires-Dist: griffe>=2; extra == 'dev'
 Requires-Dist: inspect-evals; extra == 'dev'
 Requires-Dist: inspect-k8s-sandbox; extra == 'dev'
@@ -28,7 +28,7 @@ Requires-Dist: ipython; extra == 'dev'
 Requires-Dist: markdown; extra == 'dev'
 Requires-Dist: mini-swe-agent; extra == 'dev'
 Requires-Dist: mypy; extra == 'dev'
-Requires-Dist: openai; extra == 'dev'
+Requires-Dist: openai>=3.1.0; extra == 'dev'
 Requires-Dist: panflute; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytest-dotenv; extra == 'dev'

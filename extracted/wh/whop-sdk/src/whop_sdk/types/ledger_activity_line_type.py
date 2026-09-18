@@ -4,6 +4,7 @@ import typing
 
 LedgerActivityLineType = typing.Union[
     typing.Literal[
+        "account_settlement",
         "ad_budget_release",
         "ad_campaign_budget",
         "ad_publisher_payout",
@@ -30,6 +31,8 @@ LedgerActivityLineType = typing.Union[
         "card_spend_refund",
         "card_unload_deposit",
         "card_unload_transfer",
+        "cashback",
+        "cashback_funding",
         "company_referral",
         "connected_account_negative_balance",
         "cross_border_percentage_fee",
@@ -102,6 +105,8 @@ LedgerActivityLineType = typing.Union[
         "platform_balance_transfer_outgoing",
         "platform_covered_dispute",
         "platform_earning",
+        "platform_markup_fee",
+        "platform_markup_fee_payout",
         "promo_reversal",
         "referral_bonus",
         "resolution_center_refund",
@@ -132,6 +137,11 @@ LedgerActivityLineType = typing.Union[
         "withdrawal_reclassification",
         "withdrawal_reversal",
         "withdrawal_topup_adjustment",
+        "deposit",
+        "wallet_transfer_incoming",
+        "wallet_transfer_outgoing",
+        "swap_source",
+        "swap_target",
     ],
     typing.Any,
 ]

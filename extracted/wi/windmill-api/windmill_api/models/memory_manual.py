@@ -14,7 +14,7 @@ T = TypeVar("T", bound="MemoryManual")
 
 @_attrs_define
 class MemoryManual:
-    """Explicit message history
+    """Deprecated, still read as it was written. Move the step to `off` with `previous_messages` instead.
 
     Attributes:
         kind (MemoryManualKind):

@@ -1,6 +1,7 @@
 # pylint:disable=superfluous-parens,too-many-boolean-expressions,line-too-long
 from __future__ import annotations
 
+import bisect
 import itertools
 import logging
 import math
@@ -10,10 +11,9 @@ import time
 from collections import OrderedDict, defaultdict
 from collections.abc import Iterator
 from enum import Enum, unique
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, NamedTuple
 
 import capstone
-import claripy
 import cle
 import networkx
 import pyvex
@@ -24,6 +24,7 @@ from cle.address_translator import AT
 from sortedcontainers import SortedDict
 
 import angr
+from angr import claripy
 from angr import sim_options as o
 from angr.analyses.analysis import AnalysesHub
 from angr.analyses.forward_analysis import ForwardAnalysis
@@ -60,6 +61,7 @@ from angr.utils.funcid import (
 )
 from angr.utils.go_runtime import find_go_noreturn_functions, has_go_hint
 from angr.utils.ins_addr_list import InsAddrList
+from angr.utils.vex import block_branch_ins_addr
 
 from .cfg_arch_options import CFGArchOptions
 from .cfg_base import CFGBase
@@ -205,6 +207,15 @@ class PendingJobs:
         self._jobs[func_addr].append(job)
         self._job_count += 1
 
+    def all_jobs(self):
+        """
+        Iterate over all pending jobs.
+
+        :return: An iterator over all pending CFGJob instances.
+        """
+        for jobs in self._jobs.values():
+            yield from jobs
+
     def pop_job(self, returning=True):
         """
         Pop a job from the pending jobs list.
@@ -316,6 +327,43 @@ class PendingJobs:
 #
 # Descriptors of edges in individual function graphs
 #
+
+
+class ResumeJob(NamedTuple):
+    """
+    Describes an unprocessed CFGJob captured when a CFG recovery is aborted, with enough context to faithfully
+    re-create the job when the recovery is resumed: func_addr preserves the function that the job belongs to (so
+    that resuming does not promote mid-function block addresses, e.g. call return sites, to function heads), and the
+    source block and function edges are stored as addresses (so that no CFGNode references survive across analyses)
+    and are re-resolved against the model when the job is re-created.
+    """
+
+    addr: int
+    func_addr: int
+    jumpkind: str
+    returning_source: int | None = None
+    syscall: bool = False
+    gp: int | None = None
+    last_addr: int | None = None
+    src_node_addr: int | None = None
+    src_ins_addr: int | None = None
+    src_stmt_idx: int | None = None
+    # function-edge descriptors: tagged tuples mirroring the FunctionEdge subclasses, with the source node stored
+    # implicitly (it is the job's source block)
+    func_edges: tuple[tuple, ...] = ()
+
+
+class CFGResumeState:
+    """
+    Captured state of an aborted CFG recovery. Pass it to a new CFGFast instance (via the resume_state parameter,
+    together with model=) to resume the recovery where it left off.
+    """
+
+    __slots__ = ("indirect_jumps", "jobs")
+
+    def __init__(self, jobs: list[ResumeJob] | None = None, indirect_jumps: list[IndirectJump] | None = None):
+        self.jobs: list[ResumeJob] = jobs if jobs is not None else []
+        self.indirect_jumps: list[IndirectJump] = indirect_jumps if indirect_jumps is not None else []
 
 
 class FunctionEdge:
@@ -645,7 +693,9 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         low_priority=False,
         cfb=None,
         model=None,
+        resume_state: CFGResumeState | None = None,
         eh_frame=True,
+        eh_frame_boundaries=True,
         exceptions=True,
         skip_unmapped_addrs=True,
         nodecode_window_size=2048,
@@ -657,6 +707,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         jumptable_resolver_resolves_calls: bool | None = None,
         retedges: bool = False,
         drop_bad_funcs: bool = True,
+        treat_functions_as_complete: bool = True,
         start=None,  # deprecated
         end=None,  # deprecated
         collect_data_references=None,  # deprecated
@@ -703,6 +754,11 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         :param bool detect_tail_calls:  Enable aggressive tail-call optimization detection.
         :param bool eh_frame:           Retrieve function starts (and maybe sizes later) from the .eh_frame of ELF
                                         binaries or exception records of PE binaries.
+        :param bool eh_frame_boundaries: Treat function starts recorded in the .eh_frame of ELF binaries as hard
+                                        function boundaries while tracing, the same way symbol addresses are treated.
+                                        Without it, a tail-called function that is reached through a jump before it
+                                        is reached through a call is absorbed into the caller. Only used if eh_frame
+                                        is enabled.
         :param skip_unmapped_addrs:     Ignore all branches into unmapped regions. True by default. You may want to set
                                         it to False if you are analyzing manually patched binaries or malware samples.
         :param indirect_calls_always_return:    Should CFG assume indirect calls must return or not. Assuming indirect
@@ -736,8 +792,53 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                                         useful during analysis; You can set retedges to True or call
                                         make_return_edges() after CFG recovery to create return edges. Note that this
                                         option does not impact function graphs.
-        :param progress_callback:       (Inherited from angr.Analysis.) Callback for CFG recovery progress.
+        :param model:                   An existing CFGModel to write into. When a partial model from a previously
+                                        aborted CFG recovery is passed in, recovery resumes on top of it: bytes covered
+                                        by existing nodes and memory data are treated as already scanned and will not
+                                        be re-lifted.
+        :param treat_functions_as_complete: Whether post-analysis may treat the recovered functions as complete
+                                        (drop bad functions, conclude returning=False for functions without
+                                        return paths). Set to False for incremental runs that extend a partial
+                                        model without completing it (see the resume recipes below).
+        :param resume_state:            The resume_state captured by a previously aborted CFGFast instance. Its
+                                        unprocessed jobs and unresolved indirect jumps are re-created (with their
+                                        original function context) so that the recovery continues where it left off.
+                                        Pass it together with model=.
+        :param progress_callback:       (Inherited from angr.Analysis.) Callback for CFG recovery progress. The
+                                        callback receives (percentage, text=..., cfg=...) where cfg is this CFGFast
+                                        instance; calling cfg.abort() from the callback gracefully aborts the analysis:
+                                        the core recovery loop stops at the next job boundary, post-analysis still runs
+                                        and finalizes the partially recovered model, and cfg.should_abort remains True
+                                        so callers can tell the model is partial.
         :param bool show_progressbar:   (Inherited from angr.Analysis.) Show a progressbar during CFG recovery.
+
+        Aborting and resuming CFG recovery:
+
+        After a graceful abort (see progress_callback above), self.resume_state captures the jobs that were still
+        unprocessed (with their function context) and the unresolved indirect jumps; self.unprocessed_job_addrs holds
+        the corresponding addresses for informational purposes. To resume recovery, create a new CFGFast instance
+        reusing the partial model. To resume global scanning and finish the entire binary, re-inject the captured
+        state while keeping the seeding options (symbols, function_prologues, eh_frame, force_smart_scan) at their
+        original values::
+
+            proj.analyses.CFGFast(model=partial_cfg.model, start_at_entry=False,
+                                  resume_state=partial_cfg.resume_state)
+
+        Do not pass unprocessed_job_addrs as function_starts instead: function_starts seeds are treated as function
+        heads, which would promote unprocessed call return sites and intra-function jump targets to functions.
+
+        To only resume from specific addresses (they must not be part of the partial model already; seeding an
+        already-scanned address is a no-op)::
+
+            proj.analyses.CFGFast(model=partial_cfg.model, function_starts=[addr], start_at_entry=False,
+                                  symbols=False, function_prologues=False, eh_frame=False,
+                                  force_smart_scan=False, force_complete_scan=False,
+                                  treat_functions_as_complete=False)
+
+        treat_functions_as_complete=False tells post-analysis that the resulting model is still partial: functions
+        must not be dropped as bad, and returning=False must not be concluded for (possibly truncated) functions -
+        such conclusions would poison a later full resume the same way an abort would without them being reset.
+
         :return: None
         """
 
@@ -831,7 +932,12 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         self._force_smart_scan = force_smart_scan
         self._force_complete_scan = force_complete_scan
         self._use_eh_frame = eh_frame
+        self._eh_frame_boundaries = eh_frame_boundaries
         self._use_exceptions = exceptions
+        # the instruction that CET-enabled compilers place at every indirect branch target, i.e., function entries
+        self._ibt_marker: bytes | None = {"AMD64": b"\xf3\x0f\x1e\xfa", "X86": b"\xf3\x0f\x1e\xfb"}.get(
+            self.project.arch.name
+        )
         self._check_funcret_max_job = check_funcret_max_job
         self._retedges = retedges
 
@@ -902,7 +1008,19 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         self._read_addr_to_run = defaultdict(list)
         self._write_addr_to_run = defaultdict(list)
 
+        # addresses of jobs that were still unprocessed when the analysis was aborted (informational; derived from
+        # resume_state)
+        self.unprocessed_job_addrs: set[int] = set()
+        # the captured state of this analysis if it gets aborted; pass it to a new CFGFast instance (together with
+        # model=self.model) to resume the aborted analysis
+        self.resume_state: CFGResumeState | None = None
+        # the resume state of a previously aborted analysis that this analysis should continue from
+        self._input_resume_state = resume_state
+
         self._remaining_eh_frame_addrs: list[int] | None = None
+        # function starts from .eh_frame that act as hard function boundaries during tracing
+        self._eh_frame_boundary_addrs: set[int] = set()
+        self._eh_frame_boundary_addrs_sorted: list[int] = []
         self._remaining_function_prologue_addrs: list[int] | None = None
         self._used_function_prologue_addrs: set[int] = set()
         self._ptr_hints: SortedDict | None = None
@@ -923,6 +1041,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         self._defer_unbounded_jumptables = True
 
         self._drop_bad_funcs = drop_bad_funcs
+        self._treat_functions_as_complete = treat_functions_as_complete
 
         self.stage: str = ""
 
@@ -1683,6 +1802,153 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
     def _job_key(self, job: CFGJob):
         return job.addr
 
+    @staticmethod
+    def _capture_resume_job(job: CFGJob) -> ResumeJob:
+        """
+        Convert an unprocessed CFGJob into a ResumeJob descriptor that carries no CFGNode references.
+        """
+        func_edges = []
+        for edge in job._func_edges or ():
+            if isinstance(edge, FunctionTransitionEdge):
+                func_edges.append(
+                    (
+                        "transition",
+                        edge.dst_addr,
+                        edge.src_func_addr,
+                        edge.to_outside,
+                        edge.dst_func_addr,
+                        edge.stmt_idx,
+                        edge.ins_addr,
+                        edge.is_exception,
+                    )
+                )
+            elif isinstance(edge, FunctionCallEdge):
+                func_edges.append(
+                    (
+                        "call",
+                        edge.dst_addr,
+                        edge.ret_addr,
+                        edge.src_func_addr,
+                        edge.syscall,
+                        edge.stmt_idx,
+                        edge.ins_addr,
+                    )
+                )
+            elif isinstance(edge, FunctionFakeRetEdge):
+                func_edges.append(("fakeret", edge.dst_addr, edge.src_func_addr, edge.confirmed))
+            elif isinstance(edge, FunctionReturnEdge):
+                func_edges.append(("return", edge.ret_from_addr, edge.ret_to_addr, edge.dst_func_addr))
+        # only integer source addresses can be re-resolved against the model when resuming
+        src_node_addr = job.src_node.addr if job.src_node is not None else None
+        return ResumeJob(
+            addr=job.addr,
+            func_addr=job.func_addr,
+            jumpkind=job.jumpkind,
+            returning_source=job.returning_source,
+            syscall=job.syscall,
+            gp=job.gp,
+            last_addr=job.last_addr,
+            src_node_addr=src_node_addr if isinstance(src_node_addr, int) else None,
+            src_ins_addr=job.src_ins_addr,
+            src_stmt_idx=job.src_stmt_idx,
+            func_edges=tuple(func_edges),
+        )
+
+    def _rebuild_resume_job(self, rj: ResumeJob) -> CFGJob:
+        """
+        Re-create a CFGJob from a ResumeJob descriptor, re-resolving the source block against the current model (the
+        original node may have been replaced during normalization).
+        """
+        src_node = None
+        if rj.src_node_addr is not None:
+            src_node = self._model.get_any_node(rj.src_node_addr, force_fastpath=True)
+            if rj.src_ins_addr is not None and (
+                src_node is None
+                or src_node.size is None
+                or not src_node.addr <= rj.src_ins_addr < src_node.addr + src_node.size
+            ):
+                # the source block was split (normalization); find the node that contains the source instruction
+                node = self._model.get_any_node(rj.src_ins_addr, anyaddr=True)
+                if node is not None:
+                    src_node = node
+
+        func_edges = []
+        for desc in rj.func_edges:
+            tag = desc[0]
+            if tag == "return":
+                func_edges.append(FunctionReturnEdge(desc[1], desc[2], desc[3]))
+            elif src_node is None:
+                continue
+            elif tag == "transition":
+                func_edges.append(
+                    FunctionTransitionEdge(
+                        src_node,
+                        desc[1],
+                        desc[2],
+                        to_outside=desc[3],
+                        dst_func_addr=desc[4],
+                        stmt_idx=desc[5],
+                        ins_addr=desc[6],
+                        is_exception=desc[7],
+                    )
+                )
+            elif tag == "call":
+                func_edges.append(
+                    FunctionCallEdge(
+                        src_node, desc[1], desc[2], desc[3], syscall=desc[4], stmt_idx=desc[5], ins_addr=desc[6]
+                    )
+                )
+            elif tag == "fakeret":
+                func_edges.append(FunctionFakeRetEdge(src_node, desc[1], desc[2], confirmed=desc[3]))
+
+        return CFGJob(
+            rj.addr,
+            rj.func_addr,
+            rj.jumpkind,
+            last_addr=rj.last_addr,
+            src_node=src_node,
+            src_ins_addr=rj.src_ins_addr,
+            src_stmt_idx=rj.src_stmt_idx,
+            returning_source=rj.returning_source,
+            syscall=rj.syscall,
+            func_edges=func_edges or None,
+            job_type=CFGJobType.NORMAL,
+            gp=rj.gp,
+        )
+
+    def _seed_resume_state(self, resume_state: CFGResumeState) -> None:
+        """
+        Re-create the unprocessed jobs and unresolved indirect jumps of a previously aborted CFG recovery. Jobs are
+        re-created with their original function context (func_addr) and source block/function edges, so mid-function
+        block addresses (e.g., call return sites and intra-function jump targets) are neither promoted to function
+        heads the way function_starts seeds would be, nor left without incoming edges (which would make
+        make_functions treat them as unreachable function chunks).
+        """
+        for rj in resume_state.jobs:
+            if rj.jumpkind == "Ijk_FakeRet" and rj.returning_source is not None:
+                if (
+                    self.functions.contains_addr(rj.returning_source)
+                    and self.functions.get_by_addr(rj.returning_source, meta_only=True).returning is False
+                ):
+                    # the callee is already known to never return; do not re-create the return-site job
+                    continue
+                if (
+                    self.functions.contains_addr(rj.returning_source)
+                    and self.functions.get_by_addr(rj.returning_source, meta_only=True).returning is True
+                ):
+                    self._pending_jobs.add_returning_function(rj.returning_source)
+            job = self._rebuild_resume_job(rj)
+            if rj.jumpkind == "Ijk_FakeRet":
+                self._pending_jobs.add_job(job)
+            else:
+                self._insert_job(job)
+            self._register_analysis_job(rj.func_addr, job)
+
+        for ij in resume_state.indirect_jumps:
+            self.indirect_jumps[ij.addr] = ij
+            self._indirect_jumps_to_resolve.add(ij)
+            self._register_analysis_job(ij.func_addr, ij)
+
     def _pre_analysis(self):
         self.stage = "Pre-analysis"
 
@@ -1775,10 +2041,18 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
             # register the job to function `sp`
             self._register_analysis_job(sp, job)
 
+        if self._input_resume_state is not None:
+            self._seed_resume_state(self._input_resume_state)
+
         self._updated_nonreturning_functions = set()
 
         if self._use_eh_frame:
-            self._remaining_eh_frame_addrs = sorted(self._function_addresses_from_eh_frame, reverse=True)
+            eh_frame_addrs = {a for a in self._function_addresses_from_eh_frame if self._inside_regions(a)}
+            self._remaining_eh_frame_addrs = sorted(eh_frame_addrs, reverse=True)
+            if self._eh_frame_boundaries and isinstance(self._binary, cle.ELF):
+                # PE exception records describe function chunks as well as functions, so only ELF FDEs are trusted
+                self._eh_frame_boundary_addrs = eh_frame_addrs
+                self._eh_frame_boundary_addrs_sorted = sorted(eh_frame_addrs)
 
         if self._use_function_prologues:
             func_addrs_from_prologs = self._func_addrs_from_prologues()
@@ -2623,6 +2897,54 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
             return next_expr.con.value
         return None
 
+    def _absorb_eh_frame_chunks(self) -> None:
+        """
+        Cold parts (.text.unlikely) get their own FDEs but are chunks of the function that jumps into them, not
+        functions. Such an FDE start is only reached by jumps from one function, and it either jumps back into that
+        function, is only reached by conditional jumps, or never returns. Drop these functions before
+        make_functions() so that the traversal absorbs their blocks into the owner.
+        """
+        for addr in self._eh_frame_boundary_addrs_sorted:
+            if addr in self._function_addresses_from_symbols or not self.kb.functions.contains_addr(addr):
+                continue
+            entry = self.model.get_any_node(addr)
+            if entry is None:
+                continue
+            preds = [
+                (src, jumpkind)
+                for src, jumpkind in self.model.get_predecessors_and_jumpkinds(entry)
+                if jumpkind != "Ijk_FakeRet"
+            ]
+            if not preds or any(jumpkind != "Ijk_Boring" for _, jumpkind in preds):
+                continue
+            # falling through from the preceding block (usually alignment padding) is not a jump into a chunk
+            preds = [(src, jumpkind) for src, jumpkind in preds if src.addr + src.size != addr]
+            if not preds:
+                continue
+            owners = {src.function_address for src, _ in preds}
+            if len(owners) != 1:
+                continue
+            owner = next(iter(owners))
+            if owner == addr or not self.kb.functions.contains_addr(owner):
+                continue
+
+            func = self.kb.functions.get_by_addr(addr)
+            jumps_back = any(
+                jumpkind == "Ijk_Boring" and succ.function_address == owner and succ.addr != owner
+                for block_addr in func.block_addrs_set
+                for node in self.model.nodes_by_addr(block_addr)
+                for succ, jumpkind in self.model.get_successors_and_jumpkinds(node)
+            )
+            conditional_only = all(
+                sum(1 for _, jumpkind in self.model.get_successors_and_jumpkinds(src) if jumpkind != "Ijk_FakeRet") > 1
+                for src, _ in preds
+            )
+            if jumps_back or conditional_only or func.returning is False:
+                l.debug("FDE start %#x is a chunk of function %#x; absorbing it.", addr, owner)
+                del self.kb.functions[addr]
+                self._eh_frame_boundary_addrs.discard(addr)
+        self._eh_frame_boundary_addrs_sorted = sorted(self._eh_frame_boundary_addrs)
+
     def _propagate_key_func_info_to_jump_thunks(self) -> None:
         """
         Copy the ``info`` metadata of every key function onto any function that is a trivial jump thunk to it.
@@ -2665,8 +2987,41 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
     def _post_analysis(self):
         self.stage = "Analysis (Stage 2)"
 
+        # is the resulting model known to be partial? this is the case when the analysis was aborted, and when the
+        # caller declared upfront that this run only extends a partial model (treat_functions_as_complete=False)
+        model_is_partial = self.should_abort or not self._treat_functions_as_complete
+
+        if self.should_abort:
+            # the analysis was aborted before completion; capture the unprocessed jobs (preserving their function
+            # context) and the unresolved indirect jumps so that the caller may resume the analysis later by passing
+            # resume_state (and model) to a new CFGFast instance
+            unprocessed_jobs = [job_info.job for job_info in self._job_info_queue] + list(self._pending_jobs.all_jobs())
+            self.resume_state = CFGResumeState(
+                jobs=[self._capture_resume_job(j) for j in unprocessed_jobs],
+                indirect_jumps=sorted(self._indirect_jumps_to_resolve, key=lambda ij: ij.addr),
+            )
+            self.unprocessed_job_addrs = {j.addr for j in unprocessed_jobs}
+
+        if model_is_partial:
+            # returning=False conclusions reached over a partial model may be transient: e.g., a PLT stub is
+            # concluded as non-returning while the job that would process its jump target (an always-returning extern
+            # function) is still sitting in the queue, or the callee simply lies in a not-yet-recovered part of the
+            # binary. An analysis over the complete binary corrects such conclusions once the callee is processed;
+            # since the correction will not come in this run, reset them to undetermined so that neither this run's
+            # make_functions() nor a future resumed analysis (which would suppress all return sites of calls to these
+            # functions) treats them as ground truth. Provably non-returning SimProcedures and syscalls keep their
+            # status.
+            for func_addr in list(self.functions.nonreturning_func_addrs()):
+                if not self.functions.contains_addr(func_addr):
+                    continue
+                func = self.functions.get_by_addr(func_addr)
+                if not func.is_simprocedure and not func.is_syscall:
+                    func.returning = None
+
         self._calculate_progress_and_notify(skip_percentage=True)
-        if (self._force_complete_scan or self._force_smart_scan) and self._drop_bad_funcs:
+        if (self._force_complete_scan or self._force_smart_scan) and self._drop_bad_funcs and not model_is_partial:
+            # note: when the model is partial, functions may be truncated (their outgoing edges were never
+            # processed), which makes them look like bad functions; do not drop them
             self.drop_bad_functions()
         self._calculate_progress_and_notify(skip_percentage=True)
 
@@ -2689,6 +3044,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
 
         # Propagate special metadata from key functions to trivial jump thunks that target them.
         self._propagate_key_func_info_to_jump_thunks()
+        self._absorb_eh_frame_chunks()
 
         # Revisit all edges and rebuild all functions to correctly handle returning/non-returning functions.
         self.make_functions()
@@ -2698,7 +3054,13 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         # before the returning fixpoint runs over it.
         self._apply_go_noreturn_funcs()
 
-        self._analyze_all_function_features(all_funcs_completed=True)
+        # when the model is partial, functions may be truncated and callees may be missing; the batch function-
+        # feature analysis would incorrectly conclude returning=False for functions whose return sites or callees
+        # were simply never processed, and a future resumed analysis would then suppress their fall-through edges.
+        # skip it entirely for partial models - the incrementally determined features stay in place, and a full
+        # analysis re-runs this pass with complete knowledge.
+        if not model_is_partial:
+            self._analyze_all_function_features(all_funcs_completed=True)
 
         # Scan all functions, and make sure all fake ret edges are either confirmed or removed
         for nonreturning_func_addr in sorted(self.functions.nonreturning_func_addrs()):
@@ -2744,14 +3106,16 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                 # Finally, mark endpoints of every single function
                 f.mark_nonreturning_calls_endpoints()
 
-        for func_addr in sorted(self.functions.unknown_returning_func_addrs()):
-            f = self.functions.get_by_addr(func_addr)
-            # Scan all functions, and make sure .returning for all functions are either True or False
-            if f.returning is None:
-                f.returning = len(f.endpoints) > 0  # pylint:disable=len-as-condition
+        if not model_is_partial:
+            # keep returning=None (undetermined) for truncated functions when the model is partial
+            for func_addr in sorted(self.functions.unknown_returning_func_addrs()):
+                f = self.functions.get_by_addr(func_addr)
+                # Scan all functions, and make sure .returning for all functions are either True or False
+                if f.returning is None:
+                    f.returning = len(f.endpoints) > 0  # pylint:disable=len-as-condition
 
-        # optional: find and mark functions that must be alignments
-        self.mark_function_alignments()
+            # optional: find and mark functions that must be alignments
+            self.mark_function_alignments()
 
         if self._retedges:
             # make return edges
@@ -3077,7 +3441,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         # This is for rare cases where we cannot successfully determine the end boundary of a previous function, and
         # as a consequence, our analysis mistakenly thinks the previous function goes all the way across the boundary,
         # resulting the missing of the second function in function manager.
-        if addr in self._function_addresses_from_symbols:
+        if addr in self._function_addresses_from_symbols or addr in self._eh_frame_boundary_addrs:
             current_func_addr = addr
 
         if self._addr_hooked_or_syscall(addr):
@@ -3176,7 +3540,15 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
             blocks_ahead.append(self._lift(cfg_job.src_node.addr).vex)
             procedure.project = self.project
             procedure.arch = self.project.arch
-            new_exits = procedure.static_exits(blocks_ahead, cfg=self)
+            try:
+                new_exits = procedure.static_exits(blocks_ahead, cfg=self)
+            except Exception:  # pylint: disable=broad-except
+                # static_exits() is a best-effort heuristic that speculatively
+                # executes blocks CFGFast lifted ahead of the callsite. Those
+                # blocks may not even lie on a path to the call, so any failure
+                # is local to this callsite and must not abort the whole scan.
+                l.warning("Error computing static exits for %s at %#x.", name, cfg_job.src_node.addr, exc_info=True)
+                new_exits = []
 
             for new_exit in new_exits:
                 addr_ = new_exit["address"]
@@ -3312,9 +3684,20 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         if irsb.statements:
             last_ins_addr = None
             ins_addr = addr
+            ins_len = None
             for i, stmt in enumerate(irsb.statements):
                 if isinstance(stmt, pyvex.IRStmt.Exit):
-                    branch_ins_addr = last_ins_addr if self.project.arch.branch_delay_slot else ins_addr
+                    if not self.project.arch.branch_delay_slot:
+                        branch_ins_addr = ins_addr
+                    elif last_ins_addr is None or (ins_len is not None and ins_len > ins_addr - last_ins_addr):
+                        # the current IMark spans more bytes than a single instruction: the lifter
+                        # merged the branch and its delay slot into one IMark (Valgrind 3.27.1+),
+                        # so the exit belongs to the branch itself
+                        branch_ins_addr = ins_addr
+                    else:
+                        # the exit sits in the delay-slot IMark; the branch is the previous
+                        # instruction
+                        branch_ins_addr = last_ins_addr
                     assert branch_ins_addr is not None
                     if self._is_branch_vex_artifact_only(irsb, branch_ins_addr, stmt):
                         continue
@@ -3322,6 +3705,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                 elif isinstance(stmt, pyvex.IRStmt.IMark):
                     last_ins_addr = ins_addr
                     ins_addr = stmt.addr + stmt.delta
+                    ins_len = stmt.len
         else:
             for ins_addr, stmt_idx, exit_stmt in irsb.exit_statements:
                 branch_ins_addr = ins_addr
@@ -3332,20 +3716,25 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                 ):
                     idx_ = irsb.instruction_addresses.index(ins_addr)
                     if idx_ > 0:
-                        branch_ins_addr = irsb.instruction_addresses[idx_ - 1]
+                        next_ins_addr = (
+                            irsb.instruction_addresses[idx_ + 1]
+                            if idx_ + 1 < len(irsb.instruction_addresses)
+                            else irsb.addr + irsb.size
+                        )
+                        if next_ins_addr - ins_addr <= ins_addr - irsb.instruction_addresses[idx_ - 1]:
+                            # the exit-carrying IMark covers a single instruction: it is the delay
+                            # slot and the branch is the previous instruction. otherwise the IMark
+                            # merges the branch and its delay slot (Valgrind 3.27.1+) and ins_addr
+                            # is already the branch address
+                            branch_ins_addr = irsb.instruction_addresses[idx_ - 1]
                 elif self._is_branch_vex_artifact_only(irsb, branch_ins_addr, exit_stmt):
                     continue
                 successors.append((stmt_idx, branch_ins_addr, exit_stmt.dst, exit_stmt.jumpkind))
 
         # default statement
-        default_branch_ins_addr = None
-        if irsb.instruction_addresses:
-            if self.project.arch.branch_delay_slot and len(irsb.instruction_addresses) > 1:
-                # the last instruction is the delay slot, so the branch is the one before it. a
-                # single-instruction block has no delay slot and is its own branch.
-                default_branch_ins_addr = irsb.instruction_addresses[-2]
-            else:
-                default_branch_ins_addr = irsb.instruction_addresses[-1]
+        default_branch_ins_addr = block_branch_ins_addr(
+            irsb.instruction_addresses, irsb.addr, irsb.size, self.project.arch
+        )
 
         successors.append((DEFAULT_STATEMENT, default_branch_ins_addr, irsb_next, jumpkind))
 
@@ -3458,10 +3847,14 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         is_syscall = jumpkind.startswith("Ijk_Sys")
 
         # Special handling:
-        # If a call instruction has a target that points to the immediate next instruction, we treat it as a boring jump
+        # If a call instruction has a target that points to the immediate next instruction, we treat it as a boring
+        # jump. This does not apply to delay-slot architectures: a call whose target is the address right past the
+        # delay slot (e.g., MIPS "bal .+8" in crt code) still updates the return-address register, and its target is
+        # treated as a function start.
         if (
             jumpkind == "Ijk_Call"
             and not self.project.arch.call_pushes_ret
+            and not self.project.arch.branch_delay_slot
             and cfg_node.instruction_addrs
             and ins_addr == cfg_node.instruction_addrs[-1]
             and irsb is not None
@@ -3627,7 +4020,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
             # This is a direct jump with a concrete target.
 
             # pylint: disable=too-many-nested-blocks
-            if jumpkind in {"Ijk_Boring", "Ijk_InvalICache", "Ijk_Exception"}:
+            if jumpkind in {"Ijk_Boring", "Ijk_InvalICache", "Ijk_Privileged", "Ijk_Exception"}:
                 to_outside, target_func_addr = self._is_branching_to_outside(
                     cfg_node, target_addr, current_function_addr, jumpkind, all_successors
                 )
@@ -3865,6 +4258,10 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
             # if the target address is at another section, it has to be jumping to a new function
             target_func_addr = target_addr
             to_outside = True
+        elif target_addr in self._eh_frame_boundary_addrs:
+            # .eh_frame records a function starting at the target
+            target_func_addr = target_addr
+            to_outside = target_addr != current_function_addr
         else:
             # it might be a jumpout
             target_func_addr = None
@@ -3899,6 +4296,20 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                 )
                 if not target_is_inside_current_symbol:
                     target_func_addr = target_addr
+            # case 3: an unconditional jump to an untraced indirect-branch landing pad (endbr64/endbr32). compilers
+            # only emit these at function entries (jump table cases are reached with notrack jumps), so this is a
+            # tail call.
+            if (
+                target_func_addr is None
+                and self._ibt_marker is not None
+                and jumpkind == "Ijk_Boring"
+                and all_successors is not None
+                and len(all_successors) == 1
+                and target_addr != src_addr + src_node.size
+                and real_target_addr not in self._traced_addresses
+                and self._fast_memory_load_bytes(target_addr, len(self._ibt_marker)) == self._ibt_marker
+            ):
+                target_func_addr = target_addr
             # last resort: the block probably belongs to the current function
             if target_func_addr is None:
                 target_func_addr = current_function_addr
@@ -5129,18 +5540,7 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                 src = self.model.get_any_node(ep.addr)
                 assert src is not None
                 for rt in return_targets:
-                    if not src.instruction_addrs:
-                        ins_addr = None
-                    else:
-                        if self.project.arch.branch_delay_slot:
-                            if len(src.instruction_addrs) > 1:
-                                ins_addr = src.instruction_addrs[-2]
-                            else:
-                                l.error("At %s: expecting more than one instruction. Only got one.", src)
-                                ins_addr = None
-                        else:
-                            ins_addr = src.instruction_addrs[-1]
-
+                    ins_addr = block_branch_ins_addr(src.instruction_addrs, src.addr, src.size, self.project.arch)
                     self._graph_add_edge(rt, src, "Ijk_Ret", ins_addr, DEFAULT_STATEMENT)
 
     #
@@ -5721,6 +6121,13 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                 if distance_to_func != 0:
                     distance = distance_to_func if distance is None else min(distance, distance_to_func)
 
+            # also stop at the next function start recorded in .eh_frame
+            if self._eh_frame_boundary_addrs_sorted:
+                idx = bisect.bisect_right(self._eh_frame_boundary_addrs_sorted, real_addr)
+                if idx < len(self._eh_frame_boundary_addrs_sorted):
+                    distance_to_boundary = self._eh_frame_boundary_addrs_sorted[idx] - real_addr
+                    distance = distance_to_boundary if distance is None else min(distance, distance_to_boundary)
+
             # in the end, check the distance between `addr` and the closest occupied region in segment list
             next_noncode_addr = self._seg_list.next_pos_with_sort_not_in(addr, {"code"}, max_distance=distance)
             if next_noncode_addr is not None:
@@ -5917,8 +6324,8 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                 nodecode_size = 1
 
                 # special handling for ud, ud1, and ud2 on x86 and x86-64
-                if self.project.arch.name == "AMD64" and irsb_string[-2:] == b"\x0f\x0b":
-                    # VEX supports ud2 and make it part of the block size, only in AMD64.
+                if is_x86_x64_arch and irsb_string[-2:] == b"\x0f\x0b":
+                    # VEX decodes ud2 on both x86 and AMD64 and counts it towards the block size.
                     valid_ins = True
                     nodecode_size = 0
                 elif (
@@ -5935,7 +6342,8 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                 ):
                     # ud0, ud1, and ud2 are actually valid instructions.
                     valid_ins = True
-                    # VEX does not support ud0 or ud1 or ud2 under AMD64. they are not part of the block size.
+                    # VEX decodes none of ud0/ud1 here, so they are not part of the block size. ud2 only
+                    # reaches this branch when it is not the instruction the block stopped on.
                     nodecode_size = 2
                 elif is_arm_arch(self.project.arch):
                     # check for UND
@@ -6011,7 +6419,8 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
                 irsb._instruction_addresses = tuple(
                     ins_addr for ins_addr in irsb.instruction_addresses if ins_addr < next_func_addr
                 )
-                irsb.data_refs = [dr for dr in irsb.data_refs if dr.ins_addr < next_func_addr]
+                if irsb.data_refs is not None:
+                    irsb.data_refs = [dr for dr in irsb.data_refs if dr.ins_addr < next_func_addr]
                 irsb._exit_statements = tuple(x for x in irsb.exit_statements if x[0] < next_func_addr)
                 irsb.next = pyvex.expr.Const(
                     pyvex.const.U32(next_func_addr) if self.project.arch.bits == 32 else pyvex.const.U64(next_func_addr)
@@ -6380,6 +6789,11 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
 
                 self._remove_jobs_by_source_node_addr(existing_node.addr)
 
+            if self._cfb is not None:
+                # remove the block from the control-flow blanket as well, so that stale blocks are not displayed
+                # (the blanket key is the real address; already-carved entries hit the no-op path)
+                self._cfb.remove_obj(assumption_addr)
+
             if not self.model.has_node_addr(assumption_addr) and not self.model.has_node_addr(assumption_addr + 1):
                 # remove the address (the real address) from the traced addresses set. only remove this address if both
                 # the ARM node and the THUMB node no longer exist.
@@ -6604,6 +7018,8 @@ class CFGFast(ForwardAnalysis[CFGNode, CFGNode, CFGJob, int, object], CFGBase): 
         n._exec_mem_regions = self._exec_mem_regions[::]
         n._seg_list = self._seg_list.copy()
         n._function_addresses_from_symbols = self._function_addresses_from_symbols.copy()
+        n._eh_frame_boundary_addrs = self._eh_frame_boundary_addrs.copy()
+        n._eh_frame_boundary_addrs_sorted = self._eh_frame_boundary_addrs_sorted[::]
 
         n._model = self._model.copy()
 

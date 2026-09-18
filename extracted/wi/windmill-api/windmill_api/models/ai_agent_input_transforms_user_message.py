@@ -8,7 +8,11 @@ T = TypeVar("T", bound="AiAgentInputTransformsUserMessage")
 
 @_attrs_define
 class AiAgentInputTransformsUserMessage:
-    """The user's prompt/message to the AI agent. Supports variable interpolation with flow.input syntax."""
+    """The user's prompt/message to the AI agent. Supports variable interpolation with
+    flow.input syntax. Required unless memory is off and `previous_messages` supplies
+    the prompt; image output always needs it.
+
+    """
 
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 

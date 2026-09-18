@@ -23,7 +23,7 @@ import functools
 import itertools
 import json
 import re
-from typing import Any, Protocol, TypeVar, cast
+from typing import Any, Protocol, cast
 
 import logging
 import numpy as np
@@ -341,7 +341,6 @@ def deserialize(blob: bytearray) -> Exported:
   return deserialize(blob)
 
 
-T = TypeVar("T")
 PyTreeAuxData = Any  # alias for tree_util._AuxData
 
 
@@ -384,7 +383,7 @@ def _is_namedtuple(nodetype: type) -> bool:
           isinstance(nodetype._fields, Sequence) and
           all(isinstance(f, str) for f in nodetype._fields))
 
-def register_pytree_node_serialization(
+def register_pytree_node_serialization[T](
     nodetype: type[T],
     *,
     serialized_name: str,
@@ -454,7 +453,7 @@ def register_pytree_node_serialization(
   return nodetype
 
 
-def register_namedtuple_serialization(
+def register_namedtuple_serialization[T](
     nodetype: type[T],
     *,
     serialized_name: str) -> type[T]:
@@ -812,7 +811,7 @@ def _export_lowered(
         apply_jit=True,
         flat_primal_fun=True,
         mesh=cur_mesh)
-    return export(fun_vjp_jax,
+    return export(fun_vjp_jax,  # pyrefly: ignore[bad-argument-type]
                   platforms=exp_primal.platforms,
                   disabled_checks=exp_primal.disabled_safety_checks)(*vjp_in_avals)
 
@@ -1258,6 +1257,17 @@ def _check_module(mod: ir.Module, *,
            "See https://docs.jax.dev/en/latest/export/export.html#compatibility-guarantees-for-custom-calls. "
            "Examples are:\n"
            f"{disallowed_custom_call_ops_str}.\n")
+    targets_with_disabled_check = (
+        allowed_custom_call_targets - _CUSTOM_CALL_TARGETS_GUARANTEED_STABLE)
+    if targets_with_disabled_check:
+      msg += ("The custom call safety check was disabled for the following "
+              "targets via disabled_checks: "
+              f"{', '.join(sorted(targets_with_disabled_check))}.\n")
+    else:
+      msg += ("The custom call safety check was not disabled for any target. "
+              "You can disable it for a target by adding "
+              "jax.export.DisabledSafetyCheck.custom_call('<target>') to "
+              "disabled_checks.\n")
     raise ValueError(msg)
   return module_uses_non_replicated_sharding
 

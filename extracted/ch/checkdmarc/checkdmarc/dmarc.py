@@ -22,6 +22,7 @@ from checkdmarc.utils import (
     MAILTO_REGEX,
     WSP_REGEX,
     DNSException,
+    _txt_cname_conflict_warning,
     get_base_domain,
     get_mx_records,
     normalize_domain,
@@ -370,12 +371,19 @@ class _DMARCErrorResultsOptionalFields(TypedDict, total=False):
 
 
 class DMARCErrorResults(_DMARCErrorResultsOptionalFields):
-    """Error return type for check_dmarc"""
+    """Error return type for check_dmarc
+
+    ``warnings`` holds the warnings gathered before the error — from the
+    record lookup when the record was found but failed to parse — so that,
+    for example, a ``_dmarc`` name that has both a TXT record and a CNAME
+    record is still reported when its TXT record is malformed.
+    """
 
     record: str | None
     location: str | None
     valid: Literal[False]
     error: str
+    warnings: list[str]
 
 
 class DMARCErrorData(TypedDict, total=False):
@@ -861,6 +869,48 @@ def _query_dmarc_record(
     return dmarc_record
 
 
+def _dmarc_cname_conflict_warning(
+    location: str,
+    record: str,
+    *,
+    nameservers: Sequence[str | Nameserver] | None = None,
+    resolver: dns.resolver.Resolver | None = None,
+    timeout: float = DEFAULT_DNS_TIMEOUT,
+    retries: int = DEFAULT_DNS_MAX_RETRIES,
+) -> str | None:
+    """
+    Builds a warning when ``_dmarc.{location}`` holds both the DMARC TXT
+    record that was found and a CNAME record; see
+    ``checkdmarc.utils._txt_cname_conflict_warning`` for the reasoning.
+    A receiver that gets several DMARC records for one name discards them
+    all (RFC 9989 section 4.10 step 2).
+
+    Args:
+        location (str): The domain the DMARC record was found for
+        record (str): The DMARC record that was found
+        nameservers (list): A list of nameservers to query
+        resolver (dns.resolver.Resolver): A resolver object to use for DNS
+                                          requests
+        timeout (float): number of seconds to wait for an answer from DNS
+        retries (int): The number of times to retry on timeout or other transient errors
+
+    Returns:
+        str: The warning text, or ``None``
+    """
+    return _txt_cname_conflict_warning(
+        f"_dmarc.{location}",
+        record,
+        record_kind="DMARC",
+        is_record=_is_dmarc_record,
+        multiple_records_outcome="discards them all (RFC 9989 section 4.10 step 2)",
+        lookup=query_dns,
+        nameservers=nameservers,
+        resolver=resolver,
+        timeout=timeout,
+        retries=retries,
+    )
+
+
 def query_dmarc_record(
     domain: str,
     *,
@@ -1016,6 +1066,17 @@ def query_dmarc_record(
         else:
             error_str += " for this domain or its parent domains."
         raise DMARCRecordNotFound(error_str)
+
+    cname_warning = _dmarc_cname_conflict_warning(
+        location,
+        record,
+        nameservers=nameservers,
+        resolver=resolver,
+        timeout=timeout,
+        retries=retries,
+    )
+    if cname_warning is not None:
+        warnings.append(cname_warning)
 
     return {"record": record, "location": location, "warnings": warnings}
 
@@ -1818,6 +1879,7 @@ def check_dmarc(
 
                   - ``error``  - An error message
                   - ``valid`` - False
+                  - ``warnings`` - warning conditions found before the error
 
     """
     try:
@@ -1835,6 +1897,7 @@ def check_dmarc(
             "location": None,
             "valid": False,
             "error": str(error),
+            "warnings": [],
         }
         return error_results
     try:
@@ -1864,6 +1927,10 @@ def check_dmarc(
             "location": dmarc_query["location"],
             "valid": False,
             "error": str(error),
+            # The record was found but is unusable; what the lookup noticed
+            # along the way (a CNAME next to it, a record at the apex) still
+            # matters to whoever fixes it
+            "warnings": dmarc_query["warnings"],
         }
         # error.data only contains a "target" key based on codebase analysis
         if hasattr(error, "data") and error.data and "target" in error.data:

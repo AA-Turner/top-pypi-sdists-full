@@ -5,7 +5,7 @@ Secret fields are automatically loaded from environment variables using pydantic
 
 Example:
     from plato.agents import AgentConfig, Secret
-    from typing import Annotated
+    from typing import Annotated, Literal
 
     class OpenHandsConfig(AgentConfig):
         model_name: str = "anthropic/claude-sonnet-4"
@@ -116,6 +116,16 @@ class AgentConfig(BaseSettings):
     Claude Code only. Codex reaches the sandbox through an exec-server
     environment with ``include_local = false``, so it has no local built-in set
     to widen and this field does nothing there."""
+
+    computer_use_mcp_screenshots: Literal["every_action", "on_request"] = "every_action"
+    """When the computer-use MCP tools return a frame. ``every_action`` (the
+    default, unchanged behaviour): every action's result carries the desktop's
+    post-action screenshot. ``on_request``: only the ``screenshot`` tool
+    returns an image; every other action answers with a short text
+    acknowledgement, so a harness that issues several actions per turn sees
+    one frame per group instead of one per action — the same observation
+    model the computer-use agent's batched Anthropic provider uses. Only read
+    when ``computer_use_mcp_enabled`` is True."""
 
     @model_validator(mode="after")
     def _sandbox_tools_only_enables_computer_use(self) -> AgentConfig:

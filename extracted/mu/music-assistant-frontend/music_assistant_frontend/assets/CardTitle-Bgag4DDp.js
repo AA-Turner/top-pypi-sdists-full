@@ -1,0 +1,1 @@
+import{Ii as e,Sa as t,_i as n,fi as r,ya as i,zi as a}from"./lucide-DJxHsl0k.js";import{t as o}from"./utils-DojpP95n.js";var s=n({__name:`CardTitle`,props:{class:{type:[Boolean,null,String,Object,Array]}},setup(n){let s=n;return(n,c)=>(e(),r(`h3`,{"data-slot":`card-title`,class:t(i(o)(`leading-none font-semibold`,s.class))},[a(n.$slots,`default`)],2))}});export{s as t};

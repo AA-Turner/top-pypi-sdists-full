@@ -78,7 +78,8 @@ __all__ = [
 _module_type = type(sys.modules[__name__])
 _builtin_zip = zip
 _get = object.__getattribute__
-_set = object.__setattr__
+from mo_dots.datas import _set  # hackcheck-SAFE FOR C-BACKED Data
+
 _new = object.__new__
 _dict_zip = zip
 
@@ -276,13 +277,13 @@ def _get_attr(obj, path):
                 if len(path) == 1:
                     # GET MODULE OBJECT
                     output = __import__(
-                        obj.__name__ + str(".") + str(attr_name), globals(), locals(), [str(attr_name)], 0,
+                        obj.__name__ + str(".") + str(attr_name), globals(), locals(), [str(attr_name)], 0
                     )
                     return output
                 else:
                     # GET VARIABLE IN MODULE
                     output = __import__(
-                        obj.__name__ + str(".") + str(attr_name), globals(), locals(), [str(path[1])], 0,
+                        obj.__name__ + str(".") + str(attr_name), globals(), locals(), [str(path[1])], 0
                     )
                     return _get_attr(output, path[1:])
             except Exception as e:
@@ -293,7 +294,7 @@ def _get_attr(obj, path):
         matched_attr_name = lower_match(attr_name, dir(obj))
         if not matched_attr_name:
             get_logger().warning(
-                PATH_NOT_FOUND + "({{name|quote}}) Returning None.", name=attr_name, cause=possible_error,
+                PATH_NOT_FOUND + "({{name|quote}}) Returning None.", name=attr_name, cause=possible_error
             )
         elif len(matched_attr_name) > 1:
             get_logger().error(AMBIGUOUS_PATH_FOUND + " {{paths}}", paths=attr_name)
@@ -367,7 +368,7 @@ def to_data(v=None) -> object:
     type_ = _get(v, CLASS)
 
     if type_ in (dict, OrderedDict):
-        m = _new(Data)
+        m = Data.__new__(Data)
         _set(m, SLOT, v)
         return m
     elif type_ is none_type:
@@ -507,6 +508,25 @@ setattr(datas, "_data_types", _DeferDataTypes())
 setattr(datas, "data_types", _DeferDataTypes())
 
 
+# OPTIONAL C ACCELERATOR: REBIND BEFORE EXPORT SO EXPECTING MODULES RECEIVE C VERSIONS
+if utils._speedups:
+    _speedups = utils._speedups
+
+    def _from_data_gen(v):
+        return (from_data(vv) for vv in v)
+
+    _speedups._init(Data, FlatList, NullType, Null, DataObject, OrderedDict, tuple(generator_types), _from_data_gen)
+    to_data = _speedups.to_data
+    from_data = _speedups.from_data
+    dict_to_data = _speedups.dict_to_data
+    list_to_data = _speedups.list_to_data
+    wrap = to_data
+    unwrap = from_data
+    datas.dict_to_data = dict_to_data
+    datas.list_to_data = list_to_data
+    lists.list_to_data = list_to_data
+
+
 # EXPORT
 export("mo_dots.datas", to_data)
 export("mo_dots.datas", from_data)
@@ -527,3 +547,6 @@ export("mo_dots.objects", from_data)
 export("mo_dots.objects", get_attr)
 export("mo_dots.objects", set_attr)
 export("mo_dots.objects", set_default)
+
+# REBUILD NOW THAT EXPORTS RESOLVED PLACEHOLDERS
+datas._rebuild_getattr_dispatch()

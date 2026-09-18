@@ -46,6 +46,8 @@ class RunnableItem:
             auto_kind (Union[Unset, str]):
             use_codebase (Union[Unset, bool]):
             has_deploy_errors (Union[Unset, bool]):
+            chat_input_enabled (Union[Unset, bool]): flow-only. `chat_input_enabled` of the flow's value, projected so the
+                list can mark flows that open as a chat. Omitted when the value has no such field.
             raw_app (Union[Unset, bool]):
             execution_mode (Union[Unset, str]):
             id (Union[Unset, int]):
@@ -73,6 +75,7 @@ class RunnableItem:
     auto_kind: Union[Unset, str] = UNSET
     use_codebase: Union[Unset, bool] = UNSET
     has_deploy_errors: Union[Unset, bool] = UNSET
+    chat_input_enabled: Union[Unset, bool] = UNSET
     raw_app: Union[Unset, bool] = UNSET
     execution_mode: Union[Unset, str] = UNSET
     id: Union[Unset, int] = UNSET
@@ -121,6 +124,7 @@ class RunnableItem:
         auto_kind = self.auto_kind
         use_codebase = self.use_codebase
         has_deploy_errors = self.has_deploy_errors
+        chat_input_enabled = self.chat_input_enabled
         raw_app = self.raw_app
         execution_mode = self.execution_mode
         id = self.id
@@ -172,6 +176,8 @@ class RunnableItem:
             field_dict["use_codebase"] = use_codebase
         if has_deploy_errors is not UNSET:
             field_dict["has_deploy_errors"] = has_deploy_errors
+        if chat_input_enabled is not UNSET:
+            field_dict["chat_input_enabled"] = chat_input_enabled
         if raw_app is not UNSET:
             field_dict["raw_app"] = raw_app
         if execution_mode is not UNSET:
@@ -246,6 +252,8 @@ class RunnableItem:
 
         has_deploy_errors = d.pop("has_deploy_errors", UNSET)
 
+        chat_input_enabled = d.pop("chat_input_enabled", UNSET)
+
         raw_app = d.pop("raw_app", UNSET)
 
         execution_mode = d.pop("execution_mode", UNSET)
@@ -276,6 +284,7 @@ class RunnableItem:
             auto_kind=auto_kind,
             use_codebase=use_codebase,
             has_deploy_errors=has_deploy_errors,
+            chat_input_enabled=chat_input_enabled,
             raw_app=raw_app,
             execution_mode=execution_mode,
             id=id,

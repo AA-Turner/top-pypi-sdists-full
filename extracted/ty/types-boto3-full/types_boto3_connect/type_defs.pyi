@@ -4373,8 +4373,8 @@ class ReleasePhoneNumberRequestTypeDef(TypedDict):
 class ReplicateInstanceRequestTypeDef(TypedDict):
     InstanceId: str
     ReplicaRegion: str
-    ReplicaAlias: str
     ClientToken: NotRequired[str]
+    ReplicaAlias: NotRequired[str]
 
 class ReplicationStatusSummaryTypeDef(TypedDict):
     Region: NotRequired[str]

@@ -21919,7 +21919,7 @@ class CloudFrontWebDistributionProps:
         :param enable_ip_v6: If your distribution should have IPv6 enabled. Default: true
         :param error_configurations: How CloudFront should handle requests that are not successful (eg PageNotFound). By default, CloudFront does not replace HTTP status codes in the 4xx and 5xx range with custom error messages. CloudFront does not cache HTTP status codes. Default: - No custom error configuration.
         :param geo_restriction: Controls the countries in which your content is distributed. Default: No geo restriction
-        :param http_version: The max supported HTTP Versions. Default: HttpVersion.HTTP2
+        :param http_version: The HTTP version(s) to enable for viewers communicating with CloudFront. Default: HttpVersion.HTTP2
         :param logging_config: Optional - if we should enable logging. You can pass an empty object ({}) to have us auto create a bucket for logging. Omission of this property indicates no logging is to be enabled. Default: - no logging is enabled by default.
         :param price_class: The price class for the distribution (this impacts how many locations CloudFront uses for your distribution, and billing). Default: PriceClass.PRICE_CLASS_100 the cheapest option for CloudFront is picked by default.
         :param viewer_certificate: Specifies whether you want viewers to use HTTP or HTTPS to request your objects, whether you're using an alternate domain name with HTTPS, and if so, if you're using AWS Certificate Manager (ACM) or a third-party certificate authority. Default: ViewerCertificate.fromCloudFrontDefaultCertificate()
@@ -22063,7 +22063,7 @@ class CloudFrontWebDistributionProps:
 
     @builtins.property
     def http_version(self) -> typing.Optional["HttpVersion"]:
-        '''The max supported HTTP Versions.
+        '''The HTTP version(s) to enable for viewers communicating with CloudFront.
 
         :default: HttpVersion.HTTP2
         '''
@@ -22557,7 +22557,7 @@ class DistributionProps:
         :param enable_logging: Enable access logging for the distribution. Default: - false, unless ``logBucket`` is specified.
         :param error_responses: How CloudFront should handle requests that are not successful (e.g., PageNotFound). Default: - No custom error responses.
         :param geo_restriction: Controls the countries in which your content is distributed. Default: - No geographic restrictions
-        :param http_version: The HTTP version(s) to enable on the distribution. For viewers and CloudFront to use HTTP/2, viewers must support TLS 1.2 or later, and must support server name identification (SNI). Default: HttpVersion.HTTP2
+        :param http_version: The HTTP version(s) to enable on the distribution. For viewers and CloudFront to use HTTP/2, viewers must support TLS 1.2 or later, and must support Server Name Indication (SNI). For viewers and CloudFront to use HTTP/3, viewers must support TLS 1.3 and Server Name Indication (SNI). Default: HttpVersion.HTTP2
         :param log_bucket: The Amazon S3 bucket to store the access logs in. Make sure to set ``objectOwnership`` to ``s3.ObjectOwnership.OBJECT_WRITER`` in your custom bucket. Default: - A bucket is created if ``enableLogging`` is true
         :param log_file_prefix: An optional string that you want CloudFront to prefix to the access log filenames for this distribution. Default: - no prefix
         :param log_includes_cookies: Specifies whether you want CloudFront to include cookies in access logs. Default: false
@@ -22770,7 +22770,8 @@ class DistributionProps:
     def http_version(self) -> typing.Optional["HttpVersion"]:
         '''The HTTP version(s) to enable on the distribution.
 
-        For viewers and CloudFront to use HTTP/2, viewers must support TLS 1.2 or later, and must support server name identification (SNI).
+        For viewers and CloudFront to use HTTP/2, viewers must support TLS 1.2 or later, and must support Server Name Indication (SNI).
+        For viewers and CloudFront to use HTTP/3, viewers must support TLS 1.3 and Server Name Indication (SNI).
 
         :default: HttpVersion.HTTP2
         '''
@@ -23913,9 +23914,9 @@ class HttpVersion(enum.Enum):
     '''
 
     HTTP1_1 = "HTTP1_1"
-    '''HTTP 1.1.'''
+    '''HTTP 1.1 only.'''
     HTTP2 = "HTTP2"
-    '''HTTP 2.'''
+    '''HTTP 2 only.'''
     HTTP2_AND_3 = "HTTP2_AND_3"
     '''HTTP 2 and HTTP 3.'''
     HTTP3 = "HTTP3"
@@ -31494,7 +31495,7 @@ class CloudFrontWebDistribution(
         :param enable_ip_v6: If your distribution should have IPv6 enabled. Default: true
         :param error_configurations: How CloudFront should handle requests that are not successful (eg PageNotFound). By default, CloudFront does not replace HTTP status codes in the 4xx and 5xx range with custom error messages. CloudFront does not cache HTTP status codes. Default: - No custom error configuration.
         :param geo_restriction: Controls the countries in which your content is distributed. Default: No geo restriction
-        :param http_version: The max supported HTTP Versions. Default: HttpVersion.HTTP2
+        :param http_version: The HTTP version(s) to enable for viewers communicating with CloudFront. Default: HttpVersion.HTTP2
         :param logging_config: Optional - if we should enable logging. You can pass an empty object ({}) to have us auto create a bucket for logging. Omission of this property indicates no logging is to be enabled. Default: - no logging is enabled by default.
         :param price_class: The price class for the distribution (this impacts how many locations CloudFront uses for your distribution, and billing). Default: PriceClass.PRICE_CLASS_100 the cheapest option for CloudFront is picked by default.
         :param viewer_certificate: Specifies whether you want viewers to use HTTP or HTTPS to request your objects, whether you're using an alternate domain name with HTTPS, and if so, if you're using AWS Certificate Manager (ACM) or a third-party certificate authority. Default: ViewerCertificate.fromCloudFrontDefaultCertificate()
@@ -31731,7 +31732,7 @@ class Distribution(
         :param enable_logging: Enable access logging for the distribution. Default: - false, unless ``logBucket`` is specified.
         :param error_responses: How CloudFront should handle requests that are not successful (e.g., PageNotFound). Default: - No custom error responses.
         :param geo_restriction: Controls the countries in which your content is distributed. Default: - No geographic restrictions
-        :param http_version: The HTTP version(s) to enable on the distribution. For viewers and CloudFront to use HTTP/2, viewers must support TLS 1.2 or later, and must support server name identification (SNI). Default: HttpVersion.HTTP2
+        :param http_version: The HTTP version(s) to enable on the distribution. For viewers and CloudFront to use HTTP/2, viewers must support TLS 1.2 or later, and must support Server Name Indication (SNI). For viewers and CloudFront to use HTTP/3, viewers must support TLS 1.3 and Server Name Indication (SNI). Default: HttpVersion.HTTP2
         :param log_bucket: The Amazon S3 bucket to store the access logs in. Make sure to set ``objectOwnership`` to ``s3.ObjectOwnership.OBJECT_WRITER`` in your custom bucket. Default: - A bucket is created if ``enableLogging`` is true
         :param log_file_prefix: An optional string that you want CloudFront to prefix to the access log filenames for this distribution. Default: - no prefix
         :param log_includes_cookies: Specifies whether you want CloudFront to include cookies in access logs. Default: false

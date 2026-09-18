@@ -5,6 +5,7 @@ import typing
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .account_summary import AccountSummary
+from .receipt_line_item import ReceiptLineItem
 from .resolution_buyer import ResolutionBuyer
 from .resolution_center_case_available_actions_item import ResolutionCenterCaseAvailableActionsItem
 from .resolution_center_case_outcome import ResolutionCenterCaseOutcome
@@ -56,6 +57,7 @@ class ResolutionCenterCase(UniversalBaseModel):
     Resolution center case ID, prefixed `reso_`.
     """
 
+    line_items: typing.List[ReceiptLineItem]
     outcome: typing.Optional[ResolutionCenterCaseOutcome] = pydantic.Field(default=None)
     """
     Who prevailed on the claim. `null` until the case closes. Read `refund` for whether any money actually moved.

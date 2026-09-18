@@ -3,6 +3,7 @@
 
 //! PII redaction plugin component contract.
 
+use std::collections::{BTreeMap, BTreeSet};
 use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
@@ -20,6 +21,7 @@ use serde_json::{Map, Value as Json};
 use super::builtin::{
     CompiledBuiltinBackend, is_valid_json_pointer, llm_sanitize_request_callback,
     llm_sanitize_response_callback, tool_sanitize_callback,
+    trajectory_llm_request_projection_callback, trajectory_llm_response_projection_callback,
 };
 #[cfg(test)]
 pub(crate) use super::builtin::{hex_sha256, mask_text};
@@ -29,6 +31,7 @@ pub use super::local::{clear_local_backend_provider, register_local_backend_prov
 
 /// The plugin kind reserved for the built-in privacy component.
 pub const PII_REDACTION_PLUGIN_KIND: &str = "pii_redaction";
+pub(super) const DEFAULT_CUSTOM_MARK_PAYLOAD_POLICY: &str = "redact_all_leaves";
 
 /// Top-level PII redaction component wrapper.
 #[derive(Debug, Clone)]
@@ -224,6 +227,9 @@ pub struct BuiltinBackendConfig {
         schemars(schema_with = "custom_mark_payload_policy_schema")
     )]
     pub custom_mark_payload_policy: String,
+    /// Exact string values that the trajectory preset may preserve for each typed metric attribute.
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub metric_string_attribute_allowlist: BTreeMap<String, Vec<String>>,
 }
 
 impl Default for BuiltinBackendConfig {
@@ -240,6 +246,7 @@ impl Default for BuiltinBackendConfig {
             unmasked_prefix: None,
             unmasked_suffix: None,
             custom_mark_payload_policy: default_custom_mark_payload_policy(),
+            metric_string_attribute_allowlist: BTreeMap::new(),
         }
     }
 }
@@ -398,6 +405,10 @@ nemo_relay::editor_config! {
             kind: Enum,
             values: ["preserve", "redact_all_leaves"],
         },
+        metric_string_attribute_allowlist => {
+            label: "metric_string_attribute_allowlist",
+            kind: Json,
+        },
     }
 }
 
@@ -500,7 +511,7 @@ fn custom_mark_payload_policy_schema(
     string_enum_schema(
         generator,
         &["preserve", "redact_all_leaves"],
-        Some("preserve"),
+        Some(DEFAULT_CUSTOM_MARK_PAYLOAD_POLICY),
     )
 }
 
@@ -667,6 +678,7 @@ fn validate_pii_redaction_plugin_config_with_policy(
             "unmasked_prefix",
             "unmasked_suffix",
             "custom_mark_payload_policy",
+            "metric_string_attribute_allowlist",
         ],
     );
     validate_section_fields(
@@ -770,6 +782,7 @@ fn validate_profile_configuration(
                 "unmasked_prefix",
                 "unmasked_suffix",
                 "custom_mark_payload_policy",
+                "metric_string_attribute_allowlist",
             ],
         );
         validate_section_fields(
@@ -996,6 +1009,22 @@ fn validate_builtin_action_requirements(
         );
     }
 
+    let metric_allowlist_configured = plugin_config
+        .get("builtin")
+        .and_then(Json::as_object)
+        .is_some_and(|builtin| builtin.contains_key("metric_string_attribute_allowlist"));
+    if metric_allowlist_configured {
+        push_policy_diag(
+            diagnostics,
+            policy.unsupported_value,
+            "pii_redaction.unsupported_value",
+            Some(PII_REDACTION_PLUGIN_KIND.to_string()),
+            Some("builtin.metric_string_attribute_allowlist".to_string()),
+            "builtin.metric_string_attribute_allowlist requires builtin.preset = 'trajectory_context'"
+                .to_string(),
+        );
+    }
+
     if !matches!(
         builtin.action.as_str(),
         "remove" | "redact" | "regex_replace" | "hash" | "mask"
@@ -1115,6 +1144,18 @@ fn validate_builtin_preset_requirements(
                 .to_string(),
         );
     }
+    if let Err(message) =
+        validate_metric_string_attribute_allowlist(&builtin.metric_string_attribute_allowlist)
+    {
+        push_policy_diag(
+            diagnostics,
+            policy.unsupported_value,
+            "pii_redaction.unsupported_value",
+            Some(PII_REDACTION_PLUGIN_KIND.to_string()),
+            Some("builtin.metric_string_attribute_allowlist".to_string()),
+            message,
+        );
+    }
     let raw_builtin = plugin_config.get("builtin").and_then(Json::as_object);
     for field in [
         "action",
@@ -1137,6 +1178,38 @@ fn validate_builtin_preset_requirements(
             );
         }
     }
+}
+
+pub(super) fn validate_metric_string_attribute_allowlist(
+    allowlist: &BTreeMap<String, Vec<String>>,
+) -> Result<(), String> {
+    for (attribute, values) in allowlist {
+        if attribute.trim().is_empty() {
+            return Err(
+                "builtin.metric_string_attribute_allowlist keys must not be blank".to_string(),
+            );
+        }
+        if values.is_empty() {
+            return Err(format!(
+                "builtin.metric_string_attribute_allowlist['{attribute}'] must contain at least one value"
+            ));
+        }
+
+        let mut seen = BTreeSet::new();
+        for (index, value) in values.iter().enumerate() {
+            if value.trim().is_empty() {
+                return Err(format!(
+                    "builtin.metric_string_attribute_allowlist['{attribute}'][{index}] must not be blank"
+                ));
+            }
+            if !seen.insert(value) {
+                return Err(format!(
+                    "builtin.metric_string_attribute_allowlist['{attribute}'] contains duplicate value '{value}'"
+                ));
+            }
+        }
+    }
+    Ok(())
 }
 
 fn validate_version(diagnostics: &mut Vec<ConfigDiagnostic>, policy: &ConfigPolicy, version: u32) {
@@ -1222,10 +1295,15 @@ fn register_builtin_backend(
         )?;
     }
     if config.input {
+        let sanitizer = if compiled.is_trajectory() {
+            trajectory_llm_request_projection_callback(compiled.clone())
+        } else {
+            llm_sanitize_request_callback(compiled.clone())
+        };
         ctx.register_llm_sanitize_request_guardrail(
             &registration_name(profile_name, "input"),
             config.priority,
-            llm_sanitize_request_callback(compiled.clone()),
+            sanitizer,
         )?;
     }
     if config.input || config.tool_input {
@@ -1247,10 +1325,15 @@ fn register_builtin_backend(
         )?;
     }
     if config.output {
+        let sanitizer = if compiled.is_trajectory() {
+            trajectory_llm_response_projection_callback(compiled.clone())
+        } else {
+            llm_sanitize_response_callback(compiled.clone())
+        };
         ctx.register_llm_sanitize_response_guardrail(
             &registration_name(profile_name, "output"),
             config.priority,
-            llm_sanitize_response_callback(compiled.clone()),
+            sanitizer,
         )?;
     }
     if config.output || config.tool_output {
@@ -1413,7 +1496,7 @@ fn default_builtin_action() -> String {
 }
 
 fn default_custom_mark_payload_policy() -> String {
-    "preserve".to_string()
+    DEFAULT_CUSTOM_MARK_PAYLOAD_POLICY.to_string()
 }
 
 fn default_true() -> bool {
@@ -1433,7 +1516,7 @@ fn is_default_builtin_action(action: &str) -> bool {
 }
 
 fn is_default_custom_mark_payload_policy(policy: &str) -> bool {
-    policy == "preserve"
+    policy == DEFAULT_CUSTOM_MARK_PAYLOAD_POLICY
 }
 
 fn is_true(value: &bool) -> bool {

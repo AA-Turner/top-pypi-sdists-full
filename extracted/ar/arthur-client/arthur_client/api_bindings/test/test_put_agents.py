@@ -40,7 +40,21 @@ class TestPutAgents(unittest.TestCase):
                         name = '', 
                         data_plane_id = '', 
                         task_id = '', 
-                        creation_source = null, 
+                        provenance = arthur_client.api_bindings.models.provenance.Provenance(
+                            sources = [
+                                arthur_client.api_bindings.models.provenance_source.ProvenanceSource(
+                                    source_class = 'cloud', 
+                                    source_id = '', 
+                                    vendor = '', 
+                                    address = arthur_client.api_bindings.models.source_address.SourceAddress(
+                                        instance = '', 
+                                        scope = '', 
+                                        resource_kind = '', 
+                                        resource_id = '', 
+                                        query = '', ), )
+                                ], 
+                            runs_on = 'aws', 
+                            platform = 'darwin', ), 
                         model_id = '', 
                         num_spans = 56, 
                         is_autocreated = True, 
@@ -59,6 +73,18 @@ class TestPutAgents(unittest.TestCase):
                             ], 
                         last_fetched = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         muted_until = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        evidence = [
+                            arthur_client.api_bindings.models.evidence.Evidence(
+                                creation_source = null, 
+                                external_id = '', 
+                                visibility = 'full', 
+                                last_seen = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                                last_scanned = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                                first_seen = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                                discovered_in_run = '', 
+                                source_id = '', )
+                            ], 
+                        creation_source = null, 
                         tools = [
                             arthur_client.api_bindings.models.tool.Tool(
                                 name = '', 
@@ -89,7 +115,21 @@ class TestPutAgents(unittest.TestCase):
                         name = '', 
                         data_plane_id = '', 
                         task_id = '', 
-                        creation_source = null, 
+                        provenance = arthur_client.api_bindings.models.provenance.Provenance(
+                            sources = [
+                                arthur_client.api_bindings.models.provenance_source.ProvenanceSource(
+                                    source_class = 'cloud', 
+                                    source_id = '', 
+                                    vendor = '', 
+                                    address = arthur_client.api_bindings.models.source_address.SourceAddress(
+                                        instance = '', 
+                                        scope = '', 
+                                        resource_kind = '', 
+                                        resource_id = '', 
+                                        query = '', ), )
+                                ], 
+                            runs_on = 'aws', 
+                            platform = 'darwin', ), 
                         model_id = '', 
                         num_spans = 56, 
                         is_autocreated = True, 
@@ -108,6 +148,18 @@ class TestPutAgents(unittest.TestCase):
                             ], 
                         last_fetched = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         muted_until = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                        evidence = [
+                            arthur_client.api_bindings.models.evidence.Evidence(
+                                creation_source = null, 
+                                external_id = '', 
+                                visibility = 'full', 
+                                last_seen = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                                last_scanned = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                                first_seen = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
+                                discovered_in_run = '', 
+                                source_id = '', )
+                            ], 
+                        creation_source = null, 
                         tools = [
                             arthur_client.api_bindings.models.tool.Tool(
                                 name = '', 

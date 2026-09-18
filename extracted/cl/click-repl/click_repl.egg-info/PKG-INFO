@@ -1,24 +1,32 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: click-repl
-Version: 0.3.0
+Version: 0.4.0
 Summary: REPL plugin for Click
-Home-page: https://github.com/untitaker/click-repl
+Home-page: https://github.com/click-contrib/click-repl
 Author: Markus Unterwaditzer
 Author-email: markus@unterwaditzer.net
 License: MIT
-Platform: UNKNOWN
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
-Requires-Python: >=3.6
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
-Provides-Extra: testing
 License-File: LICENSE
+Requires-Dist: click<9.0,>=7.0
+Requires-Dist: prompt_toolkit>=3.0.36
+Requires-Dist: typing-extensions>=4.7.0
+Provides-Extra: testing
+Requires-Dist: pytest>=7.2.1; extra == "testing"
+Requires-Dist: pytest-cov>=4.0.0; extra == "testing"
+Requires-Dist: tox>=4.4.3; extra == "testing"
+Requires-Dist: flake8>=6.0.0; extra == "testing"
+Requires-Dist: mypy>=1.9.0; extra == "testing"
+Dynamic: license-file
 
 click-repl
 ===
@@ -108,5 +116,3 @@ will start a REPL which has its history stored in
 Any arguments that can be passed to the [`python-prompt-toolkit`](https://github.com/prompt-toolkit/python-prompt-toolkit) [Prompt](http://python-prompt-toolkit.readthedocs.io/en/stable/pages/reference.html?prompt_toolkit.shortcuts.Prompt#prompt_toolkit.shortcuts.Prompt) class
 can be passed in the `prompt_kwargs` argument and will be used when
 instantiating your `Prompt`.
-
-

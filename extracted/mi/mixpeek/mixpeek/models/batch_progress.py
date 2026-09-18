@@ -23,6 +23,7 @@ from typing import Any, ClassVar, Dict, List, Optional, Union
 from mixpeek.models.batch_chunk_stats import BatchChunkStats
 from mixpeek.models.batch_phases import BatchPhases
 from mixpeek.models.batch_stage_info import BatchStageInfo
+from mixpeek.models.batch_stage_timing import BatchStageTiming
 from mixpeek.models.batch_step_info import BatchStepInfo
 from typing import Optional, Set
 from typing_extensions import Self
@@ -46,7 +47,7 @@ class BatchProgress(BaseModel):
     active_step: Optional[BatchStepInfo] = Field(default=None, description="Active pipeline step for multi-step extractors. Shows which processor is currently running (e.g., 'GroundingDINOProcessor 1/3'). None for single-step pipelines.")
     overshoot_percent: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="When processed exceeds total (due to Ray Data retries or pipeline data expansion), this field shows the excess percentage above 100%. For example, 32.0 means 132% of items have been processed. None when processed <= total.")
     queue_position: Optional[StrictInt] = Field(default=None, description="1-based position in the Ray job submission queue. Non-null only while the batch is waiting for a concurrency slot. Once a slot is acquired (job submitted to Ray), this becomes null.")
-    stage_history: Optional[List[Dict[str, Any]]] = Field(default=None, description="Completed stage timing breakdown. Each entry: name, index, total, started_at (epoch), ended_at (epoch), duration_seconds. Populated as stages complete; the current (in-progress) stage is in current_stage.")
+    stage_history: Optional[List[BatchStageTiming]] = Field(default=None, description="Completed stage timing breakdown, newest last. Populated as stages complete, capped at 50 entries by the writer; the stage still running is in current_stage and is NOT here. Null on the batch LIST path, which strips it for payload size, and present on GET /v1/buckets/{bucket_id}/batches/{batch_id}: null here means not returned on this path, not that no stages ran.")
     documents_written: Optional[StrictInt] = Field(default=None, description="Derived documents written across completed tier/extractor jobs.")
     chunk_stats: Optional[BatchChunkStats] = Field(default=None, description="Realized chunking statistics (unit, total_chunks, mean units per chunk) reported by the text chunker. None for non-chunking extractors or engine images that pre-date this field.")
     status_warnings: Optional[List[StrictStr]] = Field(default=None, description="Read-time warnings that explain ambiguous terminal status or accounting gaps.")
@@ -100,6 +101,13 @@ class BatchProgress(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of active_step
         if self.active_step:
             _dict['active_step'] = self.active_step.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of each item in stage_history (list)
+        _items = []
+        if self.stage_history:
+            for _item_stage_history in self.stage_history:
+                if _item_stage_history:
+                    _items.append(_item_stage_history.to_dict())
+            _dict['stage_history'] = _items
         # override the default output from pydantic by calling `to_dict()` of chunk_stats
         if self.chunk_stats:
             _dict['chunk_stats'] = self.chunk_stats.to_dict()
@@ -130,7 +138,7 @@ class BatchProgress(BaseModel):
             "active_step": BatchStepInfo.from_dict(obj["active_step"]) if obj.get("active_step") is not None else None,
             "overshoot_percent": obj.get("overshoot_percent"),
             "queue_position": obj.get("queue_position"),
-            "stage_history": obj.get("stage_history"),
+            "stage_history": [BatchStageTiming.from_dict(_item) for _item in obj["stage_history"]] if obj.get("stage_history") is not None else None,
             "documents_written": obj.get("documents_written"),
             "chunk_stats": BatchChunkStats.from_dict(obj["chunk_stats"]) if obj.get("chunk_stats") is not None else None,
             "status_warnings": obj.get("status_warnings")

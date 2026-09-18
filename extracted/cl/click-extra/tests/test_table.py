@@ -29,7 +29,7 @@ import yaml
 from boltons.strutils import strip_ansi
 from extra_platforms import is_windows
 from tabulate import tabulate_formats
-from wcwidth import list_term_programs, width as cell_width
+from wcwidth import list_term_programs, wcswidth, width as cell_width
 
 # tabulate 0.10 introduced the ``colon_grid`` format and changed the asciidoc
 # cell-alignment marker from ``8<`` to ``<8``. Older releases (still shipped
@@ -49,13 +49,13 @@ from click_extra import (
     style,
     table_format_option,
 )
+from click_extra.columns import ColumnSpec, select_columns
 from click_extra.pytest import command_decorators
 from click_extra.table import (
     SERIALIZATION_FORMATS,
     STYLED_FORMATS,
     WRAPPABLE_FORMATS,
     ColumnsOption,
-    ColumnSpec,
     SortByOption,
     TableFormat,
     _apply_default,
@@ -67,7 +67,6 @@ from click_extra.table import (
     print_data,
     print_table,
     render_table,
-    select_columns,
     serialize_data,
 )
 
@@ -800,6 +799,23 @@ def test_emoji_presentation_padding_stays_out_of_markup(monkeypatch):
     assert "⁉️ ripe" in markup
 
 
+def test_markup_pads_emoji_presentation_by_unicode_width(monkeypatch):
+    """A markup table pads an emoji-presentation sequence by the Unicode tables.
+
+    Whatever terminal renders it: a Markdown table is read by a formatter and a
+    browser that never see that terminal, and `mdformat` pads it with
+    `wcswidth`. Rendered from Apple Terminal, a `github` table came out one
+    column wider on every row carrying such a sequence, which `mdformat` took
+    back on its next pass, one commit at a time.
+    """
+    rows = (("⁉️ ripe",), ("✅ ripe",))
+    monkeypatch.setenv("TERM_PROGRAM", "Ghostty")
+    reference = render_table(rows, ("state",), table_format=TableFormat.GITHUB)
+    monkeypatch.setenv("TERM_PROGRAM", "Apple_Terminal")
+    assert render_table(rows, ("state",), table_format=TableFormat.GITHUB) == reference
+    assert len({wcswidth(line) for line in reference.splitlines()}) == 1
+
+
 @pytest.mark.parametrize("term_program", sorted(list_term_programs()))
 def test_table_rows_line_up_on_every_terminal_wcwidth_knows(monkeypatch, term_program):
     """Rows advance the same width on each terminal, not just the default one.
@@ -1450,25 +1466,33 @@ def test_column_sort_key(header_defs, rows, sort_columns, cell_key, expected_fir
     ("header_defs", "expected_choices", "expected_default"),
     (
         pytest.param(
-            (("Name", "name"), ("Age", "age"), ("Notes", None)),
+            (
+                ColumnSpec("name", "Name"),
+                ColumnSpec("age", "Age"),
+                ColumnSpec("notes", "Notes", sortable=False),
+            ),
             ["name", "age"],
             ("name",),
-            id="none-key-excluded",
+            id="unsortable-excluded",
         ),
         pytest.param(
-            (("ID", "id"), ("Label", "label")),
+            (ColumnSpec("id", "ID"), ColumnSpec("label", "Label")),
             ["id", "label"],
             ("id",),
             id="first-sortable-as-default",
         ),
         pytest.param(
-            (("First", "name"), ("Last", "name"), ("Age", "age")),
+            (
+                ColumnSpec("name", "First"),
+                ColumnSpec("name", "Last"),
+                ColumnSpec("age", "Age"),
+            ),
             ["name", "name", "age"],
             ("name",),
             id="duplicate-keys",
         ),
         pytest.param(
-            (("Notes", ""), ("Name", "name")),
+            (ColumnSpec("", "Notes"), ColumnSpec("name", "Name")),
             ["name"],
             ("name",),
             id="empty-key-excluded",
@@ -1486,7 +1510,7 @@ def test_sort_by_option_choices_and_default(
 
 def test_sort_by_option_wires_context(invoke):
     """SortByOption publishes the sort key that ctx.print_table applies."""
-    sort_opt = SortByOption(("Fruit", "fruit"), ("Count", "count"))
+    sort_opt = SortByOption(ColumnSpec("fruit", "Fruit"), ColumnSpec("count", "Count"))
 
     @command(params=[sort_opt])
     @table_format_option
@@ -1545,7 +1569,7 @@ def test_print_table_without_table_option(invoke):
 
 def test_render_table_context_method_honors_sort_by(invoke):
     """ctx.render_table applies the --sort-by selection, like ctx.print_table."""
-    sort_opt = SortByOption(("Fruit", "fruit"), ("Count", "count"))
+    sort_opt = SortByOption(ColumnSpec("fruit", "Fruit"), ColumnSpec("count", "Count"))
 
     @command(params=[sort_opt])
     @table_format_option
@@ -1565,9 +1589,9 @@ def test_render_table_context_method_honors_sort_by(invoke):
 def test_sort_by_option_multi_column(invoke):
     """Multiple --sort-by options define sort priority."""
     sort_opt = SortByOption(
-        ("City", "city"),
-        ("Name", "name"),
-        ("Age", "age"),
+        ColumnSpec("city", "City"),
+        ColumnSpec("name", "Name"),
+        ColumnSpec("age", "Age"),
     )
 
     @command(params=[sort_opt])
@@ -1601,7 +1625,7 @@ def test_sort_by_option_decorator(invoke):
     """The sort_by_option decorator wires sorting like a direct SortByOption."""
 
     @command
-    @sort_by_option(("Fruit", "fruit"), ("Count", "count"))
+    @sort_by_option(ColumnSpec("fruit", "Fruit"), ColumnSpec("count", "Count"))
     @pass_context
     def cli(ctx):
         headers = ("Fruit", "Count")
@@ -1624,7 +1648,7 @@ def test_sort_by_option_decorator_in_option_group(invoke):
     @command
     @option_group(
         "Sorting",
-        sort_by_option(("Fruit", "fruit"), ("Count", "count")),
+        sort_by_option(ColumnSpec("fruit", "Fruit"), ColumnSpec("count", "Count")),
         option("--reverse", is_flag=True),
     )
     @pass_context
@@ -1670,7 +1694,9 @@ def test_sort_by_option_accepts_column_spec_varargs():
 def test_sort_by_option_rejects_positional_and_columns():
     """Column definitions cannot be passed both positionally and via columns=."""
     with pytest.raises(TypeError, match="positionally or via columns="):
-        SortByOption(("Fruit", "fruit"), columns=[ColumnSpec("fruit", "Fruit")])
+        SortByOption(
+            ColumnSpec("fruit", "Fruit"), columns=[ColumnSpec("fruit", "Fruit")]
+        )
 
 
 def test_sort_by_and_columns_share_registry():
@@ -1698,21 +1724,21 @@ def test_sort_by_and_columns_share_registry():
     ("header_defs", "sort_columns", "rows", "expected_first_col"),
     (
         pytest.param(
-            [("Name", "name"), ("Age", "age")],
+            [ColumnSpec("name", "Name"), ColumnSpec("age", "Age")],
             ("age", "name", "age"),
             [["Bob", "30"], ["Alice", "25"], ["Charlie", "25"]],
             ["Alice", "Charlie", "Bob"],
             id="duplicate-requests-deduplicated",
         ),
         pytest.param(
-            [ColumnSpec("name", "Name"), ("Age", "age")],
+            [ColumnSpec("name", "Name"), "age"],
             ("name",),
             [["Bob", "30"], ["Alice", "25"]],
             ["Alice", "Bob"],
-            id="column-spec-defs",
+            id="column-spec-and-bare-id-defs",
         ),
         pytest.param(
-            [("Name", "name"), ("Notes", None)],
+            [ColumnSpec("name", "Name"), ColumnSpec("notes", "Notes", sortable=False)],
             ("version", "name"),
             [["Bob", "x"], ["Alice", "y"]],
             ["Alice", "Bob"],
@@ -1739,17 +1765,49 @@ def test_column_sort_key_field_mapping(
 )
 def test_column_sort_key_none_when_not_carried(sort_columns):
     """No requested field carried by the table: rows must keep their order."""
-    assert column_sort_key([("Name", "name"), ("Notes", None)], sort_columns) is None
+    defs = [ColumnSpec("name", "Name"), ColumnSpec("notes", "Notes", sortable=False)]
+    assert column_sort_key(defs, sort_columns) is None
 
 
 def test_render_table_rich_headers_render_labels():
-    """ColumnSpec and (label, column_id) header entries render their labels."""
+    """ColumnSpec and plain label header entries render their labels."""
     result = render_table(
         [["a", "1"]],
-        [ColumnSpec("fruit", "Fruit"), ("Count", "count")],
+        [ColumnSpec("fruit", "Fruit"), "Count"],
         table_format=TableFormat.JSON,
     )
     assert json.loads(result) == [{"Fruit": "a", "Count": "1"}]
+
+
+def test_render_table_tuple_header_is_deprecated():
+    """A (label, column_id) header still renders its label, warning at the caller."""
+    with pytest.warns(DeprecationWarning, match="use ColumnSpec") as record:
+        result = render_table(
+            [["a", "1"]],
+            [ColumnSpec("fruit", "Fruit"), ("Count", "count")],
+            table_format=TableFormat.JSON,
+        )
+    assert record[0].filename == __file__
+    assert json.loads(result) == [{"Fruit": "a", "Count": "1"}]
+
+
+def test_sort_by_option_tuple_definition_is_deprecated():
+    """A (label, column_id) definition still resolves, warning at the caller."""
+    with pytest.warns(DeprecationWarning, match="use ColumnSpec") as record:
+        opt = SortByOption(("Fruit", "fruit"), ("Notes", None))
+    assert record[0].filename == __file__
+    assert opt.header_defs == (("Fruit", "fruit"), ("Notes", None))
+    assert list(opt.type.choices) == ["fruit"]  # type: ignore[attr-defined]
+
+
+def test_unsortable_column_keeps_its_place():
+    """`sortable=False` keeps a column in the layout, out of the sort choices."""
+    notes = ColumnSpec("notes", "Notes", sortable=False)
+    opt = SortByOption(ColumnSpec("fruit", "Fruit"), notes)
+    assert opt.header_defs == (("Fruit", "fruit"), ("Notes", None))
+    assert list(opt.type.choices) == ["fruit"]  # type: ignore[attr-defined]
+    # A header selection naming the unsortable column matches nothing.
+    assert column_sort_key([notes, ColumnSpec("fruit", "Fruit")], ("notes",)) is None
 
 
 def test_sort_by_option_field_vocabulary():
@@ -1767,7 +1825,7 @@ def test_sort_by_option_field_vocabulary():
 
 def test_sort_by_option_labeled_defs_not_vocabulary():
     """Labeled definitions keep the declaration-time baked-sort behavior."""
-    assert SortByOption(("Fruit", "fruit")).field_vocabulary is False
+    assert SortByOption(ColumnSpec("fruit", "Fruit")).field_vocabulary is False
     assert SortByOption(columns=(ColumnSpec("fruit", "Fruit"),)).field_vocabulary is (
         False
     )
@@ -1778,7 +1836,7 @@ def test_sort_by_option_rejects_mixed_defs():
     with pytest.raises(
         TypeError, match="bare column IDs or labeled column definitions"
     ):
-        SortByOption("fruit", ("Count", "count"))
+        SortByOption("fruit", ColumnSpec("count", "Count"))
 
 
 def test_sort_by_group_heterogeneous_tables(invoke):
@@ -1797,7 +1855,7 @@ def test_sort_by_group_heterogeneous_tables(invoke):
     def fruits():
         print_table(
             [["banana", "3"], ["apple", "1"]],
-            [("Fruit", "fruit"), ("Count", None)],
+            [ColumnSpec("fruit", "Fruit"), "Count"],
             table_format=TableFormat.JSON,
         )
 
@@ -1805,7 +1863,7 @@ def test_sort_by_group_heterogeneous_tables(invoke):
     def cities():
         print_table(
             [["NYC", "8M"], ["LA", "4M"]],
-            [("City", "city"), ("Population", None)],
+            [ColumnSpec("city", "City"), "Population"],
             table_format=TableFormat.JSON,
         )
 
@@ -1833,7 +1891,7 @@ def test_print_table_explicit_sort_key_wins(invoke):
     def cli():
         print_table(
             [["banana"], ["apple"], ["cherry"]],
-            [("Fruit", "fruit")],
+            [ColumnSpec("fruit", "Fruit")],
             table_format=TableFormat.JSON,
             # Sort by reversed name: ananab < elppa < yrrehc.
             sort_key=lambda row: (row[0] or "")[::-1],

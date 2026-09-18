@@ -46,6 +46,32 @@ class Brand(MatrxEntity):
     _is_org_scoped = True
     _rls_variant = "entity"
 
+class ChannelAnalyticsDaily(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    channel_resource_id = ForeignKey(to_model='IntegrationConnectionResources', to_column='id', to_schema='users', null=False)
+    date = DateField(null=False)
+    views = IntegerField(null=False, default=0)
+    watch_time_minutes = DecimalField(null=False, default=0)
+    avg_view_duration_seconds = DecimalField(null=False, default=0)
+    subscribers_gained = IntegerField(null=False, default=0)
+    video_external_id = TextField()
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_web"
+    _table_name = "channel_analytics_daily"
+    _db_schema = "web"
+    _entity_token = "web_channel_analytics_daily"
+    _is_versioned = False
+    _has_soft_delete = False
+    _is_org_scoped = True
+    _rls_variant = "ledger"
+
 
 
 class Visibility(str, Enum):
@@ -157,6 +183,47 @@ class Provider(MatrxEntity):
     _has_soft_delete = True
     _is_org_scoped = True
     _rls_variant = "system"
+
+
+
+class Visibility(str, Enum):
+    PERSONAL = "personal"
+    INTERNAL = "internal"
+    LINK = "link"
+    PUBLIC = "public"
+
+class YoutubeVideo(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    channel_resource_id = ForeignKey(to_model='IntegrationConnectionResources', to_column='id', to_schema='users', null=False)
+    external_id = TextField(null=False)
+    title = TextField(null=False)
+    description = TextField()
+    published_at = DateTimeField()
+    thumbnail_url = TextField()
+    external_url = TextField()
+    duration_seconds = IntegerField()
+    stats = JSONBField(null=False, default={'__kind': 'youtube_video_stats'})
+    synced_at = DateTimeField()
+    sync_status = TextField(null=False, default='available')
+    sync_status_reason = TextField()
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    deleted_at = DateTimeField()
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    visibility = EnumField(enum_class=Visibility, null=False, default='personal')
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_web"
+    _table_name = "youtube_video"
+    _db_schema = "web"
+    _entity_token = "web_youtube_video"
+    _is_versioned = False
+    _has_soft_delete = True
+    _is_org_scoped = True
+    _rls_variant = "entity"
 
 
 
@@ -919,7 +986,7 @@ class Site(MatrxEntity):
     plan_profile_id = ForeignKey(to_model='Profile', to_column='id', to_schema='plan', )
     slug = TextField()
     previous_slugs = TextArrayField(null=False, default=[])
-    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'analysis_result': {'from_model': 'AnalysisResult', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'analysis_result', 'from_schema': 'web'}, 'crawl_event': {'from_model': 'CrawlEvent', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_event', 'from_schema': 'web'}, 'crawl_preset': {'from_model': 'CrawlPreset', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_preset', 'from_schema': 'web'}, 'crawl_schedule': {'from_model': 'CrawlSchedule', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_schedule', 'from_schema': 'web'}, 'crawl_session': {'from_model': 'CrawlSession', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_session', 'from_schema': 'web'}, 'crawl_url': {'from_model': 'CrawlUrl', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_url', 'from_schema': 'web'}, 'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'endpoint_family_sweep_state': {'from_model': 'EndpointFamilySweepState', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'endpoint_family_sweep_state', 'from_schema': 'web'}, 'finding': {'from_model': 'Finding', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'finding', 'from_schema': 'web'}, 'gsc_page_stat': {'from_model': 'GscPageStat', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'gsc_page_stat', 'from_schema': 'web'}, 'link_edge': {'from_model': 'LinkEdge', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'link_edge', 'from_schema': 'web'}, 'page_content': {'from_model': 'PageContent', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page_content', 'from_schema': 'web'}, 'page_evidence': {'from_model': 'PageEvidence', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page_evidence', 'from_schema': 'web'}, 'page': {'from_model': 'Page', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page', 'from_schema': 'web'}, 'page_sitemap': {'from_model': 'PageSitemap', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page_sitemap', 'from_schema': 'web'}, 'property': {'from_model': 'Property', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'property', 'from_schema': 'web'}, 'screenshot': {'from_model': 'Screenshot', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'screenshot', 'from_schema': 'web'}, 'site_endpoint_rule': {'from_model': 'SiteEndpointRule', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'site_endpoint_rule', 'from_schema': 'web'}, 'site_item_config': {'from_model': 'SiteItemConfig', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'site_item_config', 'from_schema': 'web'}, 'site_offering': {'from_model': 'SiteOffering', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'site_offering', 'from_schema': 'web'}, 'sitemap': {'from_model': 'Sitemap', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'sitemap', 'from_schema': 'web'}, 'snapshot': {'from_model': 'Snapshot', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'snapshot', 'from_schema': 'web'}}
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {'analysis_result': {'from_model': 'AnalysisResult', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'analysis_result', 'from_schema': 'web'}, 'crawl_event': {'from_model': 'CrawlEvent', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_event', 'from_schema': 'web'}, 'crawl_preset': {'from_model': 'CrawlPreset', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_preset', 'from_schema': 'web'}, 'crawl_schedule': {'from_model': 'CrawlSchedule', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_schedule', 'from_schema': 'web'}, 'crawl_session': {'from_model': 'CrawlSession', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_session', 'from_schema': 'web'}, 'crawl_url': {'from_model': 'CrawlUrl', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'crawl_url', 'from_schema': 'web'}, 'discovered_item': {'from_model': 'DiscoveredItem', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'discovered_item', 'from_schema': 'web'}, 'endpoint_family_sweep_state': {'from_model': 'EndpointFamilySweepState', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'endpoint_family_sweep_state', 'from_schema': 'web'}, 'finding': {'from_model': 'Finding', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'finding', 'from_schema': 'web'}, 'gsc_page_stat': {'from_model': 'GscPageStat', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'gsc_page_stat', 'from_schema': 'web'}, 'link_edge': {'from_model': 'LinkEdge', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'link_edge', 'from_schema': 'web'}, 'page_content': {'from_model': 'PageContent', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page_content', 'from_schema': 'web'}, 'page_evidence': {'from_model': 'PageEvidence', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page_evidence', 'from_schema': 'web'}, 'page': {'from_model': 'Page', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page', 'from_schema': 'web'}, 'page_sitemap': {'from_model': 'PageSitemap', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'page_sitemap', 'from_schema': 'web'}, 'property': {'from_model': 'Property', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'property', 'from_schema': 'web'}, 'screenshot': {'from_model': 'Screenshot', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'screenshot', 'from_schema': 'web'}, 'site_endpoint_rule': {'from_model': 'SiteEndpointRule', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'site_endpoint_rule', 'from_schema': 'web'}, 'site_item_config': {'from_model': 'SiteItemConfig', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'site_item_config', 'from_schema': 'web'}, 'site_offering': {'from_model': 'SiteOffering', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'site_offering', 'from_schema': 'web'}, 'sitemap': {'from_model': 'Sitemap', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'sitemap', 'from_schema': 'web'}, 'snapshot': {'from_model': 'Snapshot', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'snapshot', 'from_schema': 'web'}, 'tag_manager_snapshot': {'from_model': 'TagManagerSnapshot', 'from_field': 'site_id', 'referenced_field': 'id', 'related_name': 'tag_manager_snapshot', 'from_schema': 'web'}}
     _database = "matrx_web"
     _table_name = "site"
     _db_schema = "web"
@@ -1079,6 +1146,34 @@ class Snapshot(MatrxEntity):
     _is_org_scoped = True
     _rls_variant = "component"
 
+class TagManagerSnapshot(MatrxEntity):
+    id = UUIDField(primary_key=True, null=False)
+    site_id = ForeignKey(to_model=Site, to_column='id', to_schema='web', null=False)
+    provider = TextField(null=False, default='google_tag_manager')
+    container_id = TextField(null=False)
+    taken_at = DateTimeField(null=False)
+    findings = JSONBField(null=False, default={'__kind': 'tag_manager_findings', 'checks': []})
+    has_ga4 = BooleanField(null=False)
+    has_conversion_tag = BooleanField(null=False)
+    has_consent = BooleanField(null=False)
+    organization_id = ForeignKey(to_model='Organizations', to_column='id', to_schema='iam', null=False)
+    created_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    updated_by = ForeignKey(to_model='Users', to_column='id', to_schema='auth', )
+    created_at = DateTimeField(null=False)
+    updated_at = DateTimeField(null=False)
+    deleted_at = DateTimeField()
+    version = IntegerField(null=False, default=1)
+    metadata = JSONBField(null=False, default={})
+    _inverse_foreign_keys: ClassVar[dict[str, dict[str, str]]] = {}
+    _database = "matrx_web"
+    _table_name = "tag_manager_snapshot"
+    _db_schema = "web"
+    _entity_token = "web_tag_manager_snapshot"
+    _is_versioned = False
+    _has_soft_delete = True
+    _is_org_scoped = True
+    _rls_variant = "component"
+
 # Read-only model for the web.v_latest_result VIEW (auto-generated — views are not writable).
 class VLatestResult(Model):
     id = UUIDField()
@@ -1212,9 +1307,11 @@ class VSiteScore(Model):
 
 __all__ = [
     "Brand",
+    "ChannelAnalyticsDaily",
     "ListingPublisher",
     "OfferingTemplate",
     "Provider",
+    "YoutubeVideo",
     "AnalysisItem",
     "BrandAsset",
     "BrandOffering",
@@ -1244,6 +1341,7 @@ __all__ = [
     "SiteOffering",
     "Sitemap",
     "Snapshot",
+    "TagManagerSnapshot",
     "Visibility",
     "VLatestResult",
     "VPageList",
@@ -1257,9 +1355,11 @@ __all__ = [
 model_registry.register_all(
 [
         Brand,
+        ChannelAnalyticsDaily,
         ListingPublisher,
         OfferingTemplate,
         Provider,
+        YoutubeVideo,
         AnalysisItem,
         BrandAsset,
         BrandOffering,
@@ -1289,6 +1389,7 @@ model_registry.register_all(
         SiteOffering,
         Sitemap,
         Snapshot,
+        TagManagerSnapshot,
         VLatestResult,
         VPageList,
         VPageScore,

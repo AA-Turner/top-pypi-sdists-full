@@ -5,7 +5,7 @@ from enum import StrEnum
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, JsonValue, model_validator
+from pydantic import AfterValidator, BaseModel, ConfigDict, Field, JsonValue, model_validator
 
 
 class BridgeAction(StrEnum):
@@ -18,8 +18,8 @@ class BridgeAction(StrEnum):
     member arrives only WITH its implementation, or it is refused out loud
     (:class:`BridgeRefusal`). Never add a placeholder member.
 
-    The dispatch family (``capabilities`` and ``handoff`` today;
-    ``start``/``send``/``cancel`` in their own lanes) answers with
+    The dispatch family (``capabilities``, ``handoff`` and ``send`` today;
+    ``start``/``cancel`` in their own lanes) answers with
     :class:`BridgeDispatchResult` on ``BridgeResponse.dispatch`` — never by
     overloading the entry-ledger counters.
     """
@@ -32,6 +32,9 @@ class BridgeAction(StrEnum):
     HEALTH = "health"
     CAPABILITIES = "capabilities"
     HANDOFF = "handoff"
+    SEND = "send"
+    DIAGNOSE = "diagnose"
+    REPROJECT = "reproject"
 
 
 IMPLEMENTED_ACTIONS: frozenset[BridgeAction] = frozenset(
@@ -44,6 +47,9 @@ IMPLEMENTED_ACTIONS: frozenset[BridgeAction] = frozenset(
         BridgeAction.HEALTH,
         BridgeAction.CAPABILITIES,
         BridgeAction.HANDOFF,
+        BridgeAction.SEND,
+        BridgeAction.DIAGNOSE,
+        BridgeAction.REPROJECT,
     }
 )
 """The actions this contract actually serves.
@@ -118,6 +124,38 @@ class BridgeOperation(StrEnum):
     HANDOFF = "handoff"
 
 
+class BridgeSendTarget(StrEnum):
+    """WHO is meant to receive a turn sent with ``action=send``.
+
+    There is no default and there never will be one. The three things a person
+    could mean by "reply to this coding conversation" have completely different
+    consequences — an AI Matrx agent answers and the coding tool never learns of
+    it; the tool's own runtime continues the session and the provider's
+    transcript grows — and a verb that guessed between them would silently do
+    the other one. The caller names the target, and the answer says which target
+    served it (:class:`BridgeSendResult.target`).
+
+    ``seeded_handoff`` is deliberately NOT a target: handing a conversation to a
+    second tool is its own verb (``action=handoff``) because it writes a binding
+    rather than a turn, and folding it in here would put two different write
+    shapes behind one word.
+    """
+
+    MATRX_AGENT = "matrx_agent"
+    """AI Matrx answers, in AI Matrx, with the agent the
+    ``coding_session.conversation_responder`` mandate resolves for this account.
+    The coding tool does NOT see the question or the answer, and both rows say so
+    (``metadata.origin = "ai_matrx_reply"``). This is the SAME producer as the web
+    reply composer — one door's answer is the other door's answer."""
+
+    PROVIDER_NATIVE = "provider_native"
+    """The binding's own runtime continues the provider session, so the turn lands
+    in the coding tool's own transcript. Served only where a registered
+    ``SessionRuntime`` can actually be reached from this door; anywhere else the
+    call is refused with the runtime's own name and a remedy, never queued and
+    never silently rerouted to an AI Matrx agent."""
+
+
 class EntryFidelity(StrEnum):
     EVENT_MIRROR = "event_mirror"
     NATIVE = "native"
@@ -164,6 +202,50 @@ class BridgeEntry(BaseModel):
     source_cursor: dict[str, JsonValue] | None = None
 
 
+ACCOUNT_LABEL_MASK_CHARACTER = "*"
+
+
+def refuse_masked_account_label(value: str) -> str:
+    """THE BRIDGE DOOR'S REFUSAL OF A MASKED PROVIDER ACCOUNT LABEL.
+
+    ``provider_account_label`` is the provider account's own identity as the
+    person knows it — the signed-in email, else ``org:<id>``. Arman ruled on
+    2026-09-07 that an account name is not a secret, and the masking code was
+    deleted the same day. But the rows written before that deletion still
+    carried ``a***n@t***.com``, every reader shows what the row holds, and on
+    2026-09-17 Arman saw his own email masked in AI Matrx. The code fix alone
+    could not prevent the class from re-entering, because nothing refused a
+    masked label at the door.
+
+    ``*`` is never a character in an email address (RFC 5322 dot-atom) nor in
+    an organization UUID, so its presence is unambiguous evidence that a
+    producer masked the value. Both wire carriers of the label —
+    :class:`BridgeAccountIdentity` and :class:`BridgeSourceMetadata` — apply
+    this validator, so the whole bridge has exactly one door and a masked
+    envelope is refused as a typed validation error, never stored.
+
+    Guard: ``packages/matrx-ai/tests/coding_sessions/test_account_label_is_never_masked.py``
+    (it plants a masked envelope and proves the refusal, and proves the same
+    validator accepts the real label).
+    """
+
+    if ACCOUNT_LABEL_MASK_CHARACTER in value:
+        raise ValueError(
+            "provider_account_label must be the account's own identity, never a mask: "
+            f"{ACCOUNT_LABEL_MASK_CHARACTER!r} is not a character in an email address "
+            "or an organization id (an account name is not a secret — Arman, 2026-09-07)"
+        )
+    return value
+
+
+AccountLabel = Annotated[
+    str,
+    Field(min_length=1, max_length=320),
+    AfterValidator(refuse_masked_account_label),
+]
+"""The only accepted shape of a provider account label on the bridge wire."""
+
+
 class BridgeAccountIdentity(BaseModel):
     """Opaque, display-safe provider-account provenance. Never authorization.
 
@@ -184,7 +266,7 @@ class BridgeAccountIdentity(BaseModel):
     provider_account_key: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
     provider_account_key_version: Literal[1, 2] = 2
     provider_account_fingerprint: Annotated[str, Field(pattern=r"^[0-9a-f]{12}$")] | None = None
-    provider_account_label: Annotated[str, Field(min_length=1, max_length=320)] | None = None
+    provider_account_label: AccountLabel | None = None
 
     @model_validator(mode="after")
     def enforce_fingerprint_consistency(self) -> BridgeAccountIdentity:
@@ -206,7 +288,7 @@ class BridgeSourceMetadata(BaseModel):
     provider_account_key: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")] | None = None
     provider_account_key_version: Literal[1, 2] = 1
     provider_account_fingerprint: Annotated[str, Field(pattern=r"^[0-9a-f]{12}$")] | None = None
-    provider_account_label: Annotated[str, Field(min_length=1, max_length=320)] | None = None
+    provider_account_label: AccountLabel | None = None
     importer_version: Annotated[str, Field(min_length=1, max_length=64)]
     client_version: Annotated[str, Field(min_length=1, max_length=64)] | None = None
     transcript_sha256: Annotated[str, Field(pattern=r"^[0-9a-f]{64}$")]
@@ -251,6 +333,23 @@ class BridgeRequest(BaseModel):
     writer_lease_seconds: Annotated[int, Field(ge=30, le=3600)] = 300
     after_source_sequence: Annotated[int, Field(ge=0)] | None = None
     limit: Annotated[int, Field(ge=1, le=1000)] = 250
+    # --- the `send` verb (lane XT-03b) -----------------------------------
+    text: Annotated[str, Field(min_length=1, max_length=200_000)] | None = None
+    """The turn being sent. Required by ``send`` and valid for nothing else:
+    every other action carries provider ENTRIES, and a free-text field that
+    silently did nothing on them would be the quietest possible lie."""
+    target: BridgeSendTarget | None = None
+    """Who receives the turn. Required by ``send``; never defaulted."""
+    client_request_id: Annotated[str, Field(min_length=1, max_length=200)] | None = None
+    """The caller's own replay identity for ONE paid dispatch (plan-attack F10).
+
+    MCP hosts retry tool calls and Matrx Local's outbox replays envelopes after a
+    restart by design, so a dispatch verb without a client key bills twice for
+    one intention. Pass the host's tool-call id (the only value stable across a
+    retry that re-sends the same arguments). Omitted, the server derives the key
+    from the content of the dispatch, which is still replay-safe for an identical
+    retry — and two deliberately different sends of the SAME text then need two
+    different keys, which is the honest way to ask for two turns."""
 
     @model_validator(mode="after")
     def validate_action_shape(self) -> BridgeRequest:
@@ -259,6 +358,11 @@ class BridgeRequest(BaseModel):
             BridgeAction.APPEND_NATIVE,
             BridgeAction.LOAD_NATIVE,
             BridgeAction.DELETE,
+            # Both sync-truth verbs answer ABOUT one provider session, so the
+            # id is the whole input. Without it there is nothing to diagnose
+            # and nothing to re-project.
+            BridgeAction.DIAGNOSE,
+            BridgeAction.REPROJECT,
         }
         if self.action in session_actions and self.provider_session_id is None:
             raise ValueError(f"provider_session_id is required for {self.action.value}")
@@ -322,6 +426,54 @@ class BridgeRequest(BaseModel):
                 raise ValueError(
                     "handoff claims no writer lease; a seeded binding has no runtime writing "
                     "native entries"
+                )
+        if (
+            self.action in {BridgeAction.DIAGNOSE, BridgeAction.REPROJECT}
+            and self.conversation is not None
+        ):
+            raise ValueError(
+                f"{self.action.value} resolves its persisted binding; omit conversation"
+            )
+        if self.action is BridgeAction.SEND:
+            if self.conversation is None:
+                raise ValueError(
+                    "conversation is required for send: a turn is sent INTO an existing "
+                    "conversation"
+                )
+            if self.conversation.is_new:
+                raise ValueError(
+                    "send never creates a conversation; send conversation.is_new=false with "
+                    "the id of the conversation you are replying in"
+                )
+            if self.text is None:
+                raise ValueError("text is required for send: it is the turn being sent")
+            if self.target is None:
+                raise ValueError(
+                    "target is required for send: name matrx_agent (AI Matrx answers and the "
+                    "coding tool never sees it) or provider_native (the tool's own runtime "
+                    "continues the session). There is no default — the two do different things"
+                )
+            if self.origin is not None:
+                raise ValueError(
+                    "send does not take an origin: the origin is the binding's own, read "
+                    "server-side from the conversation"
+                )
+            if self.writer_runtime_id is not None:
+                raise ValueError(
+                    "send claims no writer lease; it writes canonical turns, never native "
+                    "ledger entries"
+                )
+        else:
+            if self.text is not None:
+                raise ValueError("text is only valid for send")
+            if self.target is not None:
+                raise ValueError("target is only valid for send")
+            if self.client_request_id is not None:
+                raise ValueError(
+                    "client_request_id is only valid for send — it is the replay identity of a "
+                    "PAID dispatch, and no other action here spends a model call. handoff's "
+                    "replay identity is structural (the deterministic offer id), and the entry "
+                    "ledger's is provider_entry_id"
                 )
         if self.action is BridgeAction.LOAD_NATIVE and self.conversation is not None:
             raise ValueError("load_native resolves its persisted binding; omit conversation")
@@ -462,6 +614,26 @@ class BridgeRefusalCode(StrEnum):
     doors, which is exactly the defect the action refusal was built to end.
     """
 
+    MALFORMED_FIELD = "malformed_field"
+    """An OBJECT-typed field carried a value that is not the shape it accepts.
+
+    The sibling of ``UNKNOWN_FIELD_VALUE``, for the fields whose value is a
+    structure rather than a token: ``conversation``, ``hook_event``, ``entries``,
+    ``source_metadata``, ``account_identity``. It names which part is wrong, in
+    plain words, and lists the field's accepted keys in ``supported_values`` —
+    the object equivalent of a vocabulary.
+
+    The class this closes (2026-09-17, V-CLOSE P3): the typed refusal was built
+    for every enum and stopped there, so the object fields on the SAME signature
+    were the untouched siblings — a malformed ``hook_event`` came back as "5
+    validation errors for coding_session_bridgeArguments … visit
+    https://errors.pydantic.dev/2.12/v/missing", and ``conversation`` sent as a
+    string as "Input should be a valid dictionary or instance of
+    BridgeConversation". A refusal that names our internal class names and links
+    a validator's documentation is the same dead end the action refusal was
+    built to end.
+    """
+
     UNSUPPORTED_RUNTIME = "unsupported_runtime"
     """The action is implemented, but no runtime can serve this provider/origin."""
 
@@ -489,6 +661,30 @@ class BridgeRefusalCode(StrEnum):
     "Something went wrong. Please try again later." and filed TWO
     `ops.system_error` rows per call. A refusal is client-fixable and is never
     a server fault.
+    """
+
+    SEND_NOT_POSSIBLE = "send_not_possible"
+    """``send`` cannot be served for this conversation, and nothing was charged.
+
+    The two real cases (lane XT-03b): the conversation carries no coding-session
+    binding this account owns, so the bridge is not the door for it (an ordinary
+    AI Matrx conversation is continued in AI Matrx); and no agent is bound to
+    answer coding-conversation replies at all — neither
+    ``coding_session.conversation_responder`` nor the platform's own default chat
+    mandate resolves to an agent Holder, so answering would mean running an agent
+    nobody configured. Both name the conversation and the remedy.
+    """
+
+    RUN_IN_FLIGHT = "run_in_flight"
+    """Something is already running, so this turn was NOT started or charged.
+
+    Three readings, each with its own remedy in the refusal's own words: another
+    turn is live on this conversation (one live run per conversation is the
+    platform's rule, so wait or cancel it); an IDENTICAL send — same
+    ``client_request_id`` — is in flight and did not finish inside this call's
+    wait bound, so call again with the SAME key to collect its answer rather than
+    buying a second one; or that identical send gave its claim back without an
+    answer, in which case retrying now wins the claim outright.
     """
 
     DISPATCH_CEILING = "dispatch_ceiling"
@@ -647,8 +843,69 @@ class BridgeHandoffResult(BaseModel):
     """The placeholder offer row this claim replaced, when the claim landed on a
     different row. It is deleted, so the conversation never shows a stale
     "handoff offered" binding beside the real one."""
+
+    archived_source_conversation_id: UUID | None = None
+    """The conversation this move left with nothing, and therefore ARCHIVED.
+
+    Set only when the rebind emptied the source completely — no live message, no
+    live binding — and the row was archived in the same unit of work as the
+    move. Null when the source still holds something, which is every other case.
+    Reported rather than done quietly: a move that changes the state of a second
+    conversation must say which one (the XT-05 residue, still live on production
+    2026-09-17 as an empty `status: active` row per handoff rebind)."""
+
     bindings_on_conversation: Annotated[int, Field(ge=1)]
     seed: BridgeSeedPacket
+
+
+class BridgeSendState(StrEnum):
+    """Where one ``send`` stands. Never inferred by a reader from other fields."""
+
+    ANSWERED = "answered"
+    """The turn was delivered and this call carries its answer."""
+
+    REPLAYED = "replayed"
+    """An earlier send with the same replay identity already produced this answer;
+    nothing was run and nothing was charged a second time."""
+
+
+class BridgeSendResult(BaseModel):
+    """What a ``send`` did — with the one fact a coding agent must not get wrong.
+
+    ``provider_sees_this`` is that fact. A turn answered by an AI Matrx agent is
+    invisible to Claude Code, Codex, Cursor and VS Code: their transcripts never
+    learn it happened. An agent that read an answer here and told the person "I
+    have updated the session" would be inventing. So the flag is on the wire, and
+    the ``detail`` sentence says it in words as well.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    state: BridgeSendState
+    target: BridgeSendTarget
+    conversation_id: UUID
+    client_request_id: Annotated[str, Field(min_length=1, max_length=256)]
+    """The replay identity this send was filed under — host-supplied or derived.
+    Passing it back on a retry collects THIS answer instead of buying another."""
+    provider_sees_this: bool
+    """False for ``matrx_agent``: the coding tool never receives the turn or the
+    answer. True only when a provider runtime actually delivered it."""
+    answered_by_agent_id: UUID | None = None
+    answered_by_agent_name: Annotated[str, Field(min_length=1, max_length=255)] | None = None
+    responder_setting_key: Annotated[str, Field(min_length=1, max_length=128)] | None = None
+    used_platform_default: bool = False
+    """True when no agent is chosen for coding-conversation replies and the
+    platform's default chat agent stood in — announced, never silent."""
+    user_message_id: UUID | None = None
+    answer_message_id: UUID | None = None
+    answer: Annotated[str, Field(max_length=32_000)] = ""
+    """The answer's text, so the calling agent can show it in the coding session
+    without a second round trip. Truncated to the bound above; when it is,
+    ``answer_truncated`` says so and the full turn is at the conversation."""
+    answer_truncated: bool = False
+    messages_written: Annotated[int, Field(ge=0)] = 0
+    """How many canonical rows this turn persisted — the person's own turn and the
+    answer. A reader never has to infer it from the two id fields."""
 
 
 class BridgeDispatchResult(BaseModel):
@@ -668,6 +925,7 @@ class BridgeDispatchResult(BaseModel):
     runtime: BridgeRuntimeKind | None = None
     capabilities: BridgeCapabilityReport | None = None
     handoff: BridgeHandoffResult | None = None
+    send: BridgeSendResult | None = None
     detail: Annotated[str, Field(min_length=1, max_length=2048)] | None = None
 
 
@@ -679,6 +937,152 @@ class BridgeHealth(BaseModel):
     provider: BridgeProvider
     capabilities: BridgeCapabilities
     checkpoint: BridgeCheckpoint | None = None
+
+
+SYNC_VERDICT_CODES: frozenset[str] = frozenset(
+    {
+        "in_sync",
+        "partial_by_design",
+        "behind_local",
+        "behind_cloud",
+        "mirror_stale",
+        "diverged",
+        "quarantined",
+        "not_in_cloud",
+        "unknown",
+    }
+)
+"""The CLOSED verdict vocabulary of per-conversation sync truth (CS-25 §1).
+
+Three surfaces in two repos render these words. A code outside this set is not
+a verdict, and ``unknown`` is mandatory whenever a layer could not be read: a
+layer that could not be read is NEVER rendered as agreement.
+"""
+
+
+FORBIDDEN_CLOUD_VERDICTS: frozenset[str] = frozenset({"in_sync"})
+"""What the SERVER may never conclude, however good the cloud half looks.
+
+The server sees the entry ledger and the projected messages. It cannot see this
+Mac's transcript, the delivery queue, or the local mirror — so ``in_sync`` is
+not a verdict it is entitled to reach. Only the engine, which reads all four
+layers, may. This is the dead fish (Arman, 2026-09-17: *"A normal DB system
+would show me that it can't sync… this thing is a dead fish."*) stated as data
+instead of as a comment, so :data:`CLOUD_VERDICT_SENTENCES` cannot grow the
+branch by accident.
+"""
+
+
+CLOUD_VERDICT_SENTENCES: dict[tuple[str, str | None], tuple[str, str | None]] = {
+    ("partial_by_design", "hook_lane"): (
+        "AI Matrx has the shape of this conversation — the {cloud_entries} prompts and "
+        "tool calls its hooks recorded, projected into {messages} messages — not the "
+        "{transcript_entries}-entry transcript. Hook capture is a summary by design.",
+        "Reconcile to import the full transcript file into AI Matrx.",
+    ),
+    ("behind_local", "no_delivery_ledger_in_cloud"): (
+        "AI Matrx has a conversation for this session but no record of a single "
+        "delivered entry, so none of the {transcript_entries} entries in your local "
+        "transcript are in it. The {messages} messages you see there came from the run "
+        "itself, not from this transcript.",
+        "Reconcile to deliver the transcript.",
+    ),
+    ("behind_cloud", "projection_error"): (
+        "AI Matrx received all {cloud_entries} entries but {error_entries} never became "
+        "messages: {error_reason}.",
+        "Reconcile to ask the server to project them again.",
+    ),
+    ("behind_cloud", "awaiting_projection"): (
+        "AI Matrx received all {cloud_entries} entries but {pending_projection} are still "
+        "waiting to become messages.",
+        "Reconcile to ask the server to project them now.",
+    ),
+    ("not_in_cloud", None): (
+        "This conversation is not in AI Matrx at all — no session, no messages. Its "
+        "{transcript_entries} local entries have never been delivered.",
+        "Reconcile to send it.",
+    ),
+    ("unknown", None): (
+        "Cannot tell whether this conversation is in sync: {unreadable_layer} could not "
+        "be read ({reason}).",
+        "Try again in a moment; if it keeps failing, check that AI Matrx is reachable "
+        "and you are signed in.",
+    ),
+}
+"""VERBATIM CS-25 §2 wording for the verdicts the CLOUD HALF can reach.
+
+Keyed by ``(code, reason)``; the value is ``(sentence template, remedy)``, and a
+``None`` remedy means the row has none. The rows this table omits
+(``mirror_stale``, ``diverged``, ``quarantined``, ``in_sync``) need the
+transcript, the delivery queue or the mirror to decide, so they belong to the
+engine door that reads those layers (§5) — not to this server.
+
+A ``{substitution}`` this server cannot see is left in the rendered sentence as
+its own placeholder rather than filled with a guessed number: the engine, which
+holds the transcript, substitutes it before anything is shown to a person. A
+fabricated count would be the same lie in a politer voice.
+"""
+
+
+class BridgeProjectionErrorGroup(BaseModel):
+    """One ``projection_error`` shape, and how many entries carry it."""
+
+    model_config = ConfigDict(extra="forbid")
+
+    code: str | None = None
+    detail: str | None = None
+    count: int
+
+
+class BridgeDiagnosis(BaseModel):
+    """What AI Matrx actually holds for ONE provider session (CS-25 §4).
+
+    Every count here is read from the cloud's own rows. The verdict is computed
+    from those rows ALONE: see :data:`FORBIDDEN_CLOUD_VERDICTS` for the one
+    conclusion this half is never entitled to reach.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: int = 1
+    provider_session_id: str
+    session_present: bool
+    conversation_id: UUID | None = None
+    fidelity: str | None = None
+    status: str | None = None
+    last_seen_at: datetime | None = None
+    entries: int
+    projected_entries: int
+    skipped_entries: int
+    pending_entries: int
+    error_entries: int
+    projection_errors: list[BridgeProjectionErrorGroup] = Field(default_factory=list)
+    last_entry_at: datetime | None = None
+    last_entry_id: str | None = None
+    messages: int
+    last_position: int | None = None
+    last_message_at: datetime | None = None
+    cloud_verdict: str
+    cloud_sentence: str
+    cloud_remedy: str | None = None
+
+
+class BridgeReprojection(BaseModel):
+    """The result of re-entering the ONE projector over a session's stuck rows.
+
+    Idempotent by construction: it only ever examines entries whose
+    ``projection_status`` is ``error`` or ``pending``, so a second pass over an
+    already-healed session examines nothing and returns the same diagnosis.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: int = 1
+    examined: int
+    projected: int
+    skipped: int
+    still_error: int
+    diagnosis: BridgeDiagnosis
 
 
 class BridgeResponse(BaseModel):
@@ -706,6 +1110,8 @@ class BridgeResponse(BaseModel):
     has_more: bool = False
     checkpoint: BridgeCheckpoint | None = None
     health: BridgeHealth | None = None
+    diagnosis: BridgeDiagnosis | None = None
+    reprojection: BridgeReprojection | None = None
     deleted: bool = False
     hook_specific_output: dict[str, JsonValue] | None = Field(
         default=None,

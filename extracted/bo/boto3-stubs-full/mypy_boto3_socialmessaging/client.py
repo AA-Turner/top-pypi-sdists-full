@@ -58,6 +58,8 @@ from .type_defs import (
     GetLinkedWhatsAppBusinessAccountPhoneNumberOutputTypeDef,
     GetWhatsAppBusinessPublicKeyInputTypeDef,
     GetWhatsAppBusinessPublicKeyOutputTypeDef,
+    GetWhatsAppCallPermissionInputTypeDef,
+    GetWhatsAppCallPermissionOutputTypeDef,
     GetWhatsAppFlowInputTypeDef,
     GetWhatsAppFlowOutputTypeDef,
     GetWhatsAppFlowPreviewInputTypeDef,
@@ -83,6 +85,8 @@ from .type_defs import (
     PublishWhatsAppFlowInputTypeDef,
     PutWhatsAppBusinessAccountEventDestinationsInputTypeDef,
     PutWhatsAppBusinessPublicKeyInputTypeDef,
+    SendWhatsAppCallEventInputTypeDef,
+    SendWhatsAppCallEventOutputTypeDef,
     SendWhatsAppConversionEventInputTypeDef,
     SendWhatsAppConversionEventOutputTypeDef,
     SendWhatsAppMessageInputTypeDef,
@@ -91,6 +95,8 @@ from .type_defs import (
     TagResourceOutputTypeDef,
     UntagResourceInputTypeDef,
     UntagResourceOutputTypeDef,
+    UpdateLinkedWhatsAppBusinessAccountPhoneNumberInputTypeDef,
+    UpdateLinkedWhatsAppBusinessAccountPhoneNumberOutputTypeDef,
     UpdateWhatsAppFlowAssetsInputTypeDef,
     UpdateWhatsAppFlowAssetsOutputTypeDef,
     UpdateWhatsAppFlowInputTypeDef,
@@ -110,6 +116,7 @@ class Exceptions(BaseClientExceptions):
     AccessDeniedByMetaException: type[BotocoreClientError]
     AccessDeniedException: type[BotocoreClientError]
     ClientError: type[BotocoreClientError]
+    ConflictException: type[BotocoreClientError]
     DependencyException: type[BotocoreClientError]
     InternalServiceException: type[BotocoreClientError]
     InvalidParametersException: type[BotocoreClientError]
@@ -299,6 +306,17 @@ class EndUserMessagingSocialClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/client/#get_whatsapp_business_public_key)
         """
 
+    def get_whatsapp_call_permission(
+        self, **kwargs: Unpack[GetWhatsAppCallPermissionInputTypeDef]
+    ) -> GetWhatsAppCallPermissionOutputTypeDef:
+        """
+        Retrieves the current calling permission for a WhatsApp end user, along with
+        the calling actions the business is allowed to take with that user.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/get_whatsapp_call_permission.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/client/#get_whatsapp_call_permission)
+        """
+
     def get_whatsapp_flow(
         self, **kwargs: Unpack[GetWhatsAppFlowInputTypeDef]
     ) -> GetWhatsAppFlowOutputTypeDef:
@@ -443,6 +461,17 @@ class EndUserMessagingSocialClient(BaseClient):
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/client/#put_whatsapp_business_public_key)
         """
 
+    def send_whatsapp_call_event(
+        self, **kwargs: Unpack[SendWhatsAppCallEventInputTypeDef]
+    ) -> SendWhatsAppCallEventOutputTypeDef:
+        """
+        Sends a WhatsApp calling event, such as connecting or terminating a call, for a
+        business phone number.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/send_whatsapp_call_event.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/client/#send_whatsapp_call_event)
+        """
+
     def send_whatsapp_conversion_event(
         self, **kwargs: Unpack[SendWhatsAppConversionEventInputTypeDef]
     ) -> SendWhatsAppConversionEventOutputTypeDef:
@@ -480,6 +509,18 @@ class EndUserMessagingSocialClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/untag_resource.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/client/#untag_resource)
+        """
+
+    def update_linked_whatsapp_business_account_phone_number(
+        self, **kwargs: Unpack[UpdateLinkedWhatsAppBusinessAccountPhoneNumberInputTypeDef]
+    ) -> UpdateLinkedWhatsAppBusinessAccountPhoneNumberOutputTypeDef:
+        """
+        Updates the calling settings for a linked WhatsApp business phone number, such
+        as whether calling is enabled and the hours during which the business accepts
+        calls.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/socialmessaging/client/update_linked_whatsapp_business_account_phone_number.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_socialmessaging/client/#update_linked_whatsapp_business_account_phone_number)
         """
 
     def update_whatsapp_flow(

@@ -29,11 +29,9 @@
    DAMAGES OR  OTHER LIABILITY, WHETHER  IN AN  ACTION OF CONTRACT,  TORT OR
    OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE
    USE OR OTHER DEALINGS IN THE SOFTWARE.
-*/
 
-#ifdef __cplusplus
-extern "C" {
-#endif
+   SPDX-License-Identifier: MIT
+*/
 
 #ifndef XML_MEMCHECK_H
 #  define XML_MEMCHECK_H 1
@@ -51,7 +49,3 @@ void *tracking_realloc(void *ptr, size_t size);
 int tracking_report(void);
 
 #endif /* XML_MEMCHECK_H */
-
-#ifdef __cplusplus
-}
-#endif

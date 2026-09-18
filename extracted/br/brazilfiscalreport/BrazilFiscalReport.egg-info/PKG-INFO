@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: BrazilFiscalReport
-Version: 1.0.2
+Version: 1.1.0
 Summary: Python library for generating Brazilian auxiliary fiscal documents in PDF from XML documents.
 Author: Engenere
 License:   GNU LESSER GENERAL PUBLIC LICENSE
@@ -324,6 +324,4 @@ BrazilFiscalReport is free software licensed under the [LGPL-3.0](https://github
 
 ## Maintainer
 
-Developed and maintained by [Engenere](https://engenere.one/). Issues and pull requests are welcome — see the [contributing guide](https://engenere.github.io/BrazilFiscalReport/contributing/).
-
-[![Engenere](https://storage.googleapis.com/eng-imagens/logo-fundo-preto.webp)](https://engenere.one/)
+Developed and maintained by [Engenere](https://github.com/Engenere). Issues and pull requests are welcome — see the [contributing guide](https://engenere.github.io/BrazilFiscalReport/contributing/).

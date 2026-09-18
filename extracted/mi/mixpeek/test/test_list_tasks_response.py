@@ -49,6 +49,10 @@ class TestListTasksResponse(unittest.TestCase):
                             ], 
                         additional_data = { }, 
                         error = '', 
+                        cancellation = mixpeek.models.cancellation_outcome.CancellationOutcome(
+                            ray_jobs_requested = 56, 
+                            ray_jobs_accepted = 56, 
+                            ray_jobs_refused = 56, ), 
                         queue_position = 56, 
                         estimated_wait_minutes = 1.337, )
                     ],
@@ -76,6 +80,10 @@ class TestListTasksResponse(unittest.TestCase):
                             ], 
                         additional_data = { }, 
                         error = '', 
+                        cancellation = mixpeek.models.cancellation_outcome.CancellationOutcome(
+                            ray_jobs_requested = 56, 
+                            ray_jobs_accepted = 56, 
+                            ray_jobs_refused = 56, ), 
                         queue_position = 56, 
                         estimated_wait_minutes = 1.337, )
                     ],

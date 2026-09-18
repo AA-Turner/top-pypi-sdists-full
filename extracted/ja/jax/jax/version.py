@@ -21,15 +21,15 @@ import os
 import pathlib
 import subprocess
 
-_version = "0.11.1"
+_version = "0.11.2"
 
 # The following line is overwritten by build scripts in distributions &
 # releases. Do not modify this manually, or jax/jaxlib build will fail.
-_release_version: str = '0.11.1'
+_release_version: str = '0.11.2'
 
 # The following line is overwritten by build scripts in distributions &
 # releases. Do not modify this manually, or jax/jaxlib build will fail.
-_git_hash: str = '2d66622450e2c8633cda2307688ef7aa294bd6eb'
+_git_hash: str = '32544801e26115ac1794926d027148abf3baf009'
 
 def _get_version_string() -> str:
   # The build/source distribution for jax & jaxlib overwrites _release_version.
@@ -103,7 +103,7 @@ def _is_prerelease() -> bool:
 def _write_version(fname: str) -> None:
   """Used by setup.py to write the specified version info into the source tree."""
   release_version = _get_version_for_build()
-  old_version_string = "_release_version: str = '0.11.1'"
+  old_version_string = "_release_version: str = '0.11.2'"
   new_version_string = f"_release_version: str = {release_version!r}"
   fhandle = pathlib.Path(fname)
   contents = fhandle.read_text()
@@ -114,7 +114,7 @@ def _write_version(fname: str) -> None:
 
   githash = os.environ.get("JAX_GIT_HASH")
   if githash:
-    old_githash_string = "_git_hash: str = '2d66622450e2c8633cda2307688ef7aa294bd6eb'"
+    old_githash_string = "_git_hash: str = '32544801e26115ac1794926d027148abf3baf009'"
     new_githash_string = f"_git_hash: str = {githash!r}"
     if contents.count(old_githash_string) != 2:
       raise RuntimeError(f"Build: could not find {old_githash_string!r} in {fname}")
@@ -157,7 +157,7 @@ def _get_cmdclass(pkg_source_path):
 
 
 __version__ = _get_version_string()
-_minimum_jaxlib_version = '0.11.1'
+_minimum_jaxlib_version = '0.11.2'
 
 def _version_as_tuple(version_str):
   return tuple(int(i) for i in version_str.split(".") if i.isdigit())

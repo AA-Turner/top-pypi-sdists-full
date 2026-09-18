@@ -5,6 +5,7 @@ import typing
 import pydantic
 from ....core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
 from .retrieve_preferences_response_ads_agreement import RetrievePreferencesResponseAdsAgreement
+from .retrieve_preferences_response_ads_certifications_item import RetrievePreferencesResponseAdsCertificationsItem
 from .retrieve_preferences_response_ads_payment_methods import RetrievePreferencesResponseAdsPaymentMethods
 from .retrieve_preferences_response_ads_triple_whale_integration import (
     RetrievePreferencesResponseAdsTripleWhaleIntegration,
@@ -15,6 +16,11 @@ class RetrievePreferencesResponse(UniversalBaseModel):
     ads_agreement: RetrievePreferencesResponseAdsAgreement = pydantic.Field()
     """
     The account's Whop Ads services and payment authorization agreement. While `pending_signature`, campaign launch is blocked; sign by answering `requested_information` via `PATCH /verifications/{id}`.
+    """
+
+    ads_certifications: typing.List[RetrievePreferencesResponseAdsCertificationsItem] = pydantic.Field()
+    """
+    The account's advertising certifications, one entry per certification type Whop offers. Start an application by setting a type's `status` to `pending_information` via `PATCH`, then answer the fields it requests via `GET`/`PATCH /verifications/{id}`.
     """
 
     ads_payment_methods: typing.Optional[RetrievePreferencesResponseAdsPaymentMethods] = pydantic.Field(default=None)
@@ -34,7 +40,7 @@ class RetrievePreferencesResponse(UniversalBaseModel):
 
     ads_triple_whale_integration: RetrievePreferencesResponseAdsTripleWhaleIntegration = pydantic.Field()
     """
-    The account's Triple Whale integration, which pushes Whop ad spend to Triple Whale's Data-In API so it reports as a `whop` channel.
+    The account's Triple Whale integration, which pushes Whop ad spend to Triple Whale's Data-In API so it reports as a `whop` channel. Available to any Triple Whale customer — Shopify, WooCommerce, a custom checkout, or no connected store — by setting `shop_domain` explicitly; Shopify merchants may instead rely on a connected store's domain. Requires the `ad_campaign:create` scope. Once connected, ad click-through URLs Whop serves carry `tw_source=whop` and `tw_adid=<ad id>` query parameters so Triple Whale's pixel attributes conversions back to the originating ad — no destination URL changes are needed.
     """
 
     cards_auto_top_up: bool = pydantic.Field()
@@ -42,9 +48,19 @@ class RetrievePreferencesResponse(UniversalBaseModel):
     Whether incoming funds are automatically moved to the account's cards balance. `false` when the account has no cards balance.
     """
 
+    cards_notifications: bool = pydantic.Field()
+    """
+    Whether Whop Card notifications reach this account's team. `true` by default, including when the account has no cards balance. Set it to `false` to stop every card email and push notification for the account — application status, verification and action-required alerts, card-ready alerts, declines, large charges, and cashback summaries. Cardholder onboarding invitations still send, because they carry the only link an invited cardholder can onboard with. Requesting a card is rejected while notifications are off, since the request reaches nobody. Cards on personal accounts are unaffected.
+    """
+
     dispute_fighter_enabled: bool = pydantic.Field()
     """
     Whether Whop assembles and files the evidence response when this account's payments are disputed. Off by default; enabling it also opts the account into the success fee charged only on disputes it wins.
+    """
+
+    economic_intelligence: bool = pydantic.Field()
+    """
+    Whether economic intelligence is enabled for the account.
     """
 
     if IS_PYDANTIC_V2:

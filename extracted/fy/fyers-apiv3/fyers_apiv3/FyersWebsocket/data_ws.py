@@ -15,7 +15,6 @@ import json
 from fyers_apiv3.FyersWebsocket import defines
 from fyers_apiv3.fyers_logger import FyersLogger
 
-
 class SymbolConversion:
     def __init__(self, access_token: str, data_type: str, log_path: str):
         """
@@ -45,6 +44,23 @@ class SymbolConversion:
             logger_handler=logging.FileHandler(log_path + "fyersDataSocket.log"),
         )
 
+    _index_hsm_mapping_cache = None
+    _index_hsm_mapping_lock = threading.Lock()
+
+    @classmethod
+    def load_index_hsm_mapping_from_api(cls):
+        if cls._index_hsm_mapping_cache is None:
+            with cls._index_hsm_mapping_lock:
+                if cls._index_hsm_mapping_cache is None:
+                    response = requests.get(
+                        defines.INDEX_HSM_MAPPING_API,
+                        timeout=10,
+                    )
+                    response.raise_for_status()
+                    cls._index_hsm_mapping_cache = response.json()
+
+        return cls._index_hsm_mapping_cache
+
     def symbol_to_hsmtoken(self, symbols: list):
         """
         Converts symbols to HSM tokens.
@@ -72,7 +88,17 @@ class SymbolConversion:
             file_path = resource_filename('fyers_apiv3.FyersWebsocket', 'map.json')
             with open(file_path, "r") as file:
                 mapper = json.load(file)
-            index_dict = mapper["index_dict"]
+            try:
+                index_dict = self.load_index_hsm_mapping_from_api()
+                self.data_logger.info("Successfully loaded index_hsm_mapping from public API")
+            except Exception as e:
+                self.data_logger.error(
+                    "Failed to load index_hsm_mapping from URL. "
+                    "Fetch from public API failed. Falling back to map.json. %s",
+                    e
+                )
+                self.data_logger.info("Fetch from public API failed. Falling back to map.json.")
+                index_dict = mapper["index_dict"]
             exch_seg_dict = mapper["exch_seg_dict"]
             wrong_symbol = []
             dp_index_flag = False
@@ -87,12 +113,13 @@ class SymbolConversion:
                     symbol_split = symbol.split("-")
                     update_dict = True
                     if len(symbol_split) > 1 and symbol_split[-1] == "INDEX" and self.data_type != "DepthUpdate":
+                        exch_token = ""
                         if symbol in index_dict:
                                 exch_token = index_dict[symbol]
-                        else:
-                            exch_token = (
-                                symbol.split(":")[1].split("-")[0]
-                            )
+                        if not exch_token and symbol in mapper["index_dict"]:
+                            exch_token = mapper["index_dict"][symbol]
+                        if not exch_token:
+                            exch_token = symbol.split(":")[1].split("-")[0]
                         hsm_symbol = (
                                 "if" + "|" + segment + "|" + exch_token
                             )                
@@ -124,7 +151,6 @@ class SymbolConversion:
 
         except Exception as e:
             self.data_logger.exception(e)
-
 
 class FyersDataSocket:
 
@@ -1564,13 +1590,16 @@ class FyersDataSocket:
             ws (websocket.WebSocketApp): The WebSocket object.
         """
         if self.__ws_object is None:
-            self.message = []
             self.__ws_object = ws
-            self.message_thread = Thread(target=self.__process_message_queue)
-            self.ping_thread = Thread(target=self.__ping)
-            self.message_thread_stop_event = threading.Event()  # Event to signal stopping
-            self.message_thread.start()
-            self.ping_thread.start()
+            # Reuse workers across reconnects to avoid orphaned message_thread.
+            if self.message_thread is None or not self.message_thread.is_alive():
+                self.message = []
+                self.message_thread_stop_event = threading.Event()
+                self.message_thread = Thread(target=self.__process_message_queue)
+                self.message_thread.start()
+            if self.ping_thread is None or not self.ping_thread.is_alive():
+                self.ping_thread = Thread(target=self.__ping)
+                self.ping_thread.start()
             message = self.__access_token_msg()
             # self.message.append(message)
             self.add_message(message)
@@ -1691,7 +1720,7 @@ class FyersDataSocket:
             self.ws_thread.join()
             self.message_thread_stop_event.set()
             with self.message_lock:
-                self.message_condition.notify()  # Notify the thread to wake up
+                self.message_condition.notify_all()
             self.message_thread.join()
             self.ping_thread.join()
             self.__ws_run = False

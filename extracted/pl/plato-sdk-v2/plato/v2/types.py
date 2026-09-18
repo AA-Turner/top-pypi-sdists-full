@@ -96,22 +96,28 @@ class Env:
         artifact_id: str,
         *,
         alias: str | None = None,
+        restore_memory: bool = True,
     ) -> EnvFromArtifact:
         """Create env from explicit artifact ID.
 
         Args:
             artifact_id: Specific artifact/snapshot ID to use
             alias: Custom name for this environment
+            restore_memory: If True (default), resume from memory snapshot.
+                If False, do a fresh boot with disk state only — a cold boot of
+                the snapshot's disk, the same path a disk-only artifact takes.
 
         Returns:
             EnvFromArtifact
 
         Example:
             >>> Env.artifact("artifact-123")
+            >>> Env.artifact("artifact-123", restore_memory=False)  # cold boot from the disk
         """
         return EnvFromArtifact(
             artifact_id=artifact_id,
             alias=alias,
+            restore_memory=restore_memory,
         )
 
     @staticmethod

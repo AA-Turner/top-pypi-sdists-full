@@ -17,6 +17,7 @@ from dstack._internal.core.models.configurations import (
 from dstack._internal.core.models.gateways import GatewayConfiguration, GatewayStatus
 from dstack._internal.core.models.runs import RunSpec, ServiceModelSpec, ServiceSpec
 from dstack._internal.core.models.services import OpenAIChatModel
+from dstack._internal.core.services.gateways import is_tls_terminated_at_load_balancer
 from dstack._internal.server import settings
 from dstack._internal.server.models import GatewayModel, RunModel
 from dstack._internal.server.services import events
@@ -117,23 +118,18 @@ async def _assign_service_to_gateway(
     show_service_https = _should_show_service_https(run_spec, gateway_configuration)
     service_protocol = "https" if show_service_https else "http"
 
-    if (
-        not show_service_https
-        and gateway_configuration.certificate is not None
-        and gateway_configuration.certificate.type == "acm"
+    if not show_service_https and is_tls_terminated_at_load_balancer(
+        gateway_configuration.certificate
     ):
         # SSL termination is done globally at load balancer so cannot runs only some services via http.
         raise ServerClientError(
-            "Cannot run HTTP service on gateway with ACM certificates configured"
+            "Cannot run HTTP service on gateway with load balancer certificates configured"
         )
 
     if show_service_https and gateway_configuration.certificate is None:
         raise ServerClientError(
             "Cannot run HTTPS service on gateway with no SSL certificates configured"
         )
-
-    gateway_https = get_gateway_https(gateway_configuration)
-    gateway_protocol = "https" if gateway_https else "http"
 
     wildcard_domain = gateway.wildcard_domain.lstrip("*.") if gateway.wildcard_domain else None
     if wildcard_domain is None:
@@ -147,6 +143,7 @@ async def _assign_service_to_gateway(
     if isinstance(run_spec.configuration.model, OpenAIChatModel):
         model_url = service_url + run_spec.configuration.model.prefix
     else:
+        gateway_protocol = "https" if gateway_configuration.certificate is not None else "http"
         model_url = f"{gateway_protocol}://gateway.{wildcard_domain}"
     service_spec = _get_service_spec(
         configuration=run_spec.configuration,
@@ -221,11 +218,11 @@ def _get_service_spec(
     return service_spec
 
 
-def should_configure_service_https_on_gateway(
+def should_configure_service_https_on_gateway_replica(
     run_spec: RunSpec, configuration: GatewayConfiguration
 ) -> bool:
     """
-    Returns `True` if the gateway needs to serve the service with HTTPS.
+    Returns `True` if the gateway replica needs to serve the service with HTTPS.
     May be `False` for HTTPS services, e.g. SSL termination is done on a load balancer.
     """
     assert run_spec.configuration.type == "service"
@@ -235,14 +232,22 @@ def should_configure_service_https_on_gateway(
     if https == "auto":
         if configuration.certificate is None:
             return False
-        if configuration.certificate.type == "acm":
+        if is_tls_terminated_at_load_balancer(configuration.certificate):
             return False
         return True
     if not https:
         return False
-    if configuration.certificate is not None and configuration.certificate.type == "acm":
+    if is_tls_terminated_at_load_balancer(configuration.certificate):
         return False
     return True
+
+
+def should_configure_gateway_endpoint_https_on_gateway_replica(
+    configuration: GatewayConfiguration,
+) -> bool:
+    return (
+        configuration.certificate is not None and configuration.certificate.type == "lets-encrypt"
+    )
 
 
 def _should_show_service_https(run_spec: RunSpec, configuration: GatewayConfiguration) -> bool:
@@ -258,11 +263,3 @@ def _should_show_service_https(run_spec: RunSpec, configuration: GatewayConfigur
             return False
         return True
     return https
-
-
-def get_gateway_https(configuration: GatewayConfiguration) -> bool:
-    if configuration.certificate is not None and configuration.certificate.type == "acm":
-        return False
-    if configuration.certificate is not None and configuration.certificate.type == "lets-encrypt":
-        return True
-    return False

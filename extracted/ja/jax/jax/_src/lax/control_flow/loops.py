@@ -20,7 +20,7 @@ from functools import partial
 import inspect
 import itertools as it
 import operator
-from typing import Any, TypeVar
+from typing import Any
 import weakref
 
 from jax._src import ad_checkpoint
@@ -79,7 +79,6 @@ import numpy as np
 _map = safe_map
 zip = safe_zip
 
-T = TypeVar('T')
 BooleanNumeric = Any  # A bool, or a Boolean array.
 
 ### Helper functions
@@ -98,11 +97,7 @@ def _promote_weak_typed_input(
 
 ### scan
 
-Carry = TypeVar('Carry')
-X = TypeVar('X')
-Y = TypeVar('Y')
-
-class Scan3(hijax.VJPHiPrimitive):
+class Scan3(hijax.HiPrim):
 
   extensives : list[bool]
   length : int
@@ -164,11 +159,12 @@ def keep(keeps, xs):
   return [x for x, k in zip(xs, keeps) if k]
 
 @partial(api_boundary, repro_api_name="jax.lax.scan")
-def scan_nocarry(f: Callable[[Carry, X], tuple[Carry, Y]],
-         xs: X | None = None,
-         length: int | None = None,
-         reverse: bool = False,
-         unroll: int | bool = 1) -> tuple[Carry, Y]:
+def scan_nocarry[X, Y](
+    f: Callable[[X], Y],
+    xs: X | None = None,
+    length: int | None = None,
+    reverse: bool = False,
+    unroll: int | bool = 1) -> Y:
   dbg_body = api_util.debug_info("scan", f, (xs,), {})
   xs_flat = ft.flatten(xs)
   check_no_transformed_refs_args(lambda: dbg_body, list(xs_flat))
@@ -212,13 +208,14 @@ def scan_nocarry(f: Callable[[Carry, X], tuple[Carry, Y]],
   return y_avals.update(out).unflatten()
 
 @partial(api_boundary, repro_api_name="jax.lax.scan")
-def scan3(f: Callable[[Carry, X], tuple[Carry, Y]],
-         init: Carry,
-         xs: X | None = None,
-         length: int | None = None,
-         reverse: bool = False,
-         unroll: int | bool = 1,
-         _split_transpose: bool = False) -> tuple[Carry, Y]:
+def scan3[Carry, X, Y](
+    f: Callable[[Carry, X], tuple[Carry, Y]],
+    init: Carry,
+    xs: X | None = None,
+    length: int | None = None,
+    reverse: bool = False,
+    unroll: int | bool = 1,
+    _split_transpose: bool = False) -> tuple[Carry, Y]:
   init_flat = ft.flatten(init)
   carry_avals = init_flat.map(typeof)
   carry_refs = [core.new_ref(x) for x in init_flat]
@@ -232,7 +229,7 @@ def scan3(f: Callable[[Carry, X], tuple[Carry, Y]],
     for ref, c in zip(carry_refs, carry_flat):
       ref[...] = c
 
-  def body_no_carry(x):
+  def body_no_carry(x: X) -> Y:
     carry, y = f(read_carry(), x)
     write_carry(carry)
     return y
@@ -244,13 +241,14 @@ def scan3(f: Callable[[Carry, X], tuple[Carry, Y]],
 
 
 @partial(api_boundary, repro_api_name="jax.lax.scan")
-def scan(f: Callable[[Carry, X], tuple[Carry, Y]],
-         init: Carry,
-         xs: X | None = None,
-         length: int | None = None,
-         reverse: bool = False,
-         unroll: int | bool = 1,
-         _split_transpose: bool = False) -> tuple[Carry, Y]:
+def scan[Carry, X, Y](
+    f: Callable[[Carry, X], tuple[Carry, Y]],
+    init: Carry,
+    xs: X | None = None,
+    length: int | None = None,
+    reverse: bool = False,
+    unroll: int | bool = 1,
+    _split_transpose: bool = False) -> tuple[Carry, Y]:
   """Scan a function over leading array axes while carrying along state.
 
   The `Haskell-like type signature`_ in brief is
@@ -1463,7 +1461,8 @@ def _scan_state_discharge_rule(
   # jaxpr: [*consts, *pure_carry, *xs] -> [*pure_carry, *pure_ys]
   # jaxpr_: [*consts, *pure_carry, *xs] -> [*pure_carry, *pure_ys, *ref_outs]
   discharged_jaxpr = state_discharge.discharge_state(
-      jaxpr, should_discharge=ctx.should_discharge)
+      jaxpr, should_discharge=ctx.should_discharge,
+      strip_memory_space=ctx.strip_memory_space)
 
   num_consts, num_carry, num_xs = _map(len, ft_in.unpack())
   is_ref = [isinstance(a, AbstractRef) and s for a, s in zip(jaxpr.in_avals, ctx.should_discharge)]
@@ -1606,9 +1605,9 @@ scan_p.to_lojax = _scan_to_lojax
 ### while_loop
 
 @partial(api_boundary, repro_api_name="jax.lax.while_loop")
-def while_loop(cond_fun: Callable[[T], BooleanNumeric],
-               body_fun: Callable[[T], T],
-               init_val: T) -> T:
+def while_loop[T](cond_fun: Callable[[T], BooleanNumeric],
+                  body_fun: Callable[[T], T],
+                  init_val: T) -> T:
   """Call ``body_fun`` repeatedly in a loop while ``cond_fun`` is True.
 
   The `Haskell-like type signature`_ in brief is
@@ -2222,7 +2221,7 @@ def _while_lowering(ctx, *args, cond_jaxpr, body_jaxpr, cond_nconsts,
           dim_var_values=ctx.dim_var_values, const_lowering=ctx.const_lowering,
           outer_traceback=ctx.traceback)
       new_z = _map(
-          partial(_pred_bcast_select_hlo, ctx, pred_aval, body_pred), new_z, z,
+          partial(_pred_bcast_select_hlo, ctx, pred_aval, body_pred), new_z, z,  # pyrefly: ignore[bad-argument-type]
           body_jaxpr.out_avals)
 
     flat_out, _ = mlir.ir_tree_registry.flatten([out_tokens, x, y, new_z])
@@ -2306,7 +2305,9 @@ def _while_discharge_rule(ctx, *args,
                               "please open an issue at "
                               "https://github.com/jax-ml/jax/issues")
   discharged_cond_jaxpr = state_discharge.discharge_state(
-      cond_jaxpr, should_discharge=[*cond_consts_discharge, *carry_discharge]
+      cond_jaxpr,
+      should_discharge=[*cond_consts_discharge, *carry_discharge],
+      strip_memory_space=ctx.strip_memory_space,
   )
   if discharged_cond_jaxpr.consts:
     raise NotImplementedError
@@ -2317,7 +2318,9 @@ def _while_discharge_rule(ctx, *args,
   # Therefore we need to rewrite the jaxpr to shuffle around the `Ref`s so that
   # they are part of the carry.
   discharged_body_jaxpr = state_discharge.discharge_state(
-      body_jaxpr, should_discharge=[*body_consts_discharge, *carry_discharge]
+      body_jaxpr,
+      should_discharge=[*body_consts_discharge, *carry_discharge],
+      strip_memory_space=ctx.strip_memory_space,
   )
   if discharged_body_jaxpr.consts:
     raise NotImplementedError
@@ -3001,7 +3004,6 @@ def _cumred_chlo_lowering(ctx, x, *, axis, reverse, reducer, identity):
 
 
 def _is_supported_cumred(inp, axis, reverse):
-  return False
   return (
       not reverse
       and isinstance(inp, ShapedArray)

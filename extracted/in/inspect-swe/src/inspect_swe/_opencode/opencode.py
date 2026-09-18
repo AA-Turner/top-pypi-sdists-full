@@ -23,6 +23,10 @@ from inspect_ai.util._sandbox import ExecRemoteAwaitableOptions
 
 from inspect_swe._util._async import is_callable_coroutine
 from inspect_swe._util.centaur import CentaurOptions, run_centaur
+from inspect_swe._util.mcp_ready import (
+    DEFAULT_MCP_READY_TIMEOUT,
+    wait_for_mcp_endpoints,
+)
 from inspect_swe._util.messages import build_user_prompt
 from inspect_swe._util.sandbox import resolve_agent_cwd
 from inspect_swe._util.trace import trace
@@ -42,6 +46,7 @@ def opencode(
     skills: Sequence[str | Path | Skill] | None = None,
     mcp_servers: Sequence[MCPServerConfig] | None = None,
     bridged_tools: Sequence[BridgedToolsSpec] | None = None,
+    mcp_ready_timeout: float = DEFAULT_MCP_READY_TIMEOUT,
     centaur: bool | CentaurOptions = False,
     attempts: int | AgentAttempts = 1,
     model: str | None = None,
@@ -55,6 +60,7 @@ def opencode(
     sandbox: str | None = None,
     version: Literal["auto", "sandbox", "stable", "latest"] | str = "auto",
     debug: bool | None = None,
+    session_title: str | None = "Inspect eval",
 ) -> Agent:
     """OpenCode agent.
 
@@ -71,6 +77,8 @@ def opencode(
         skills: Additional [skills](https://inspect.aisi.org.uk/tools-standard.html#sec-skill) to make available to the agent.
         mcp_servers: MCP servers to make available to the agent
         bridged_tools: Host-side Inspect tools to expose to the agent via MCP
+        mcp_ready_timeout: Seconds to wait for bridged MCP endpoints to serve
+            tools before the agent launch errors.
         centaur: Run in 'centaur' mode, which makes OpenCode available to an Inspect `human_cli()` agent rather than running it unattended.
         attempts: Configure agent to make multiple attempts
         model: Model name to use for inspect bridge (defaults to main model for task)
@@ -92,7 +100,18 @@ def opencode(
             - "sandbox": Use sandbox version (raises RuntimeError if not available)
             - "stable"/"latest": Download and use the latest version
             - "x.x.x": Download and use a specific version
+            The prompt is delivered on stdin, which needs opencode >= 1.14.42;
+            earlier versions prepend a newline to piped input (only reachable
+            with an older opencode pre-installed in the sandbox).
         debug: Trace all debug output.
+        session_title: Session title passed to `opencode run --title`. Any
+            non-default title makes opencode skip its automatic
+            title-generation model call -- an extra bridged request per
+            session whose result a headless run never uses -- so the default
+            fixed title suppresses that call. Pass `None` to restore
+            opencode's title generation. An empty string makes opencode use
+            the first 50 characters of the prompt as the title (also without
+            a model call).
     """
     # resolve centaur
     if centaur is True:
@@ -183,8 +202,8 @@ def opencode(
                 )
             await sbox.write_file(opencode_config_path, json.dumps(opencode_config))
 
-            # build system prompt (opencode run takes a single positional message
-            # and has no separate --system-prompt flag, so we prepend)
+            # build system prompt (opencode run takes a single message and has no
+            # separate --system-prompt flag, so we prepend)
             system_messages = [
                 m.text for m in state.messages if isinstance(m, ChatMessageSystem)
             ]
@@ -206,6 +225,18 @@ def opencode(
                 "--format",
                 "json",
             ]
+
+            # A non-default session title makes opencode skip its automatic
+            # title-generation step (`ensureTitle` returns early). That avoids
+            # an extra bridged model call per session whose result a headless
+            # run never uses. Applied in both centaur and non-centaur modes;
+            # `session_title=None` restores opencode's title generation.
+            if session_title is not None:
+                # A single `--title=<value>` argument (rather than two separate
+                # argv entries) keeps a dash-prefixed title (e.g. "--continue")
+                # from being parsed by opencode's CLI parser as another option
+                # instead of a literal value.
+                cmd.append(f"--title={session_title}")
 
             # add auto-approve flag only for non-centaur mode
             if centaur is False:
@@ -231,6 +262,25 @@ def opencode(
                 "HOME": sandbox_home,
             } | (env or {})
 
+            # Compute bridged HTTP configs once at the outer scope so both the
+            # centaur and non-centaur paths gate on the same set. OpenCode's
+            # headless mode blocks the first turn on MCP connect, but the
+            # endpoint has to be answering `tools/list` first -- this pre-launch
+            # gate covers the endpoint half in both centaur and non-centaur modes.
+            _http_mcp_configs = [
+                c
+                for c in bridge.mcp_server_configs
+                if isinstance(c, MCPServerConfigHTTP)
+            ]
+            if _http_mcp_configs:
+                await wait_for_mcp_endpoints(
+                    _http_mcp_configs,
+                    bridge,
+                    sandbox=sandbox,
+                    timeout=mcp_ready_timeout,
+                    required=True,
+                )
+
             if centaur:
                 await _run_opencode_centaur(
                     options=centaur,
@@ -251,14 +301,40 @@ def opencode(
                     if has_assistant_response or attempt_count > 0:
                         agent_cmd.append("--continue")
 
-                    # add prompt as positional argument at the end
-                    agent_cmd.append(agent_prompt)
+                    # Retry-loop gate: fires ONLY when this loop is actually
+                    # retrying (attempt_count > 0), so the cold-start
+                    # pre-centaur gate is not paid for twice on the first
+                    # iteration.
+                    if _http_mcp_configs and attempt_count > 0:
+                        await wait_for_mcp_endpoints(
+                            _http_mcp_configs,
+                            bridge,
+                            sandbox=sandbox,
+                            timeout=mcp_ready_timeout,
+                            required=True,
+                        )
 
-                    # run agent
+                    # Deliver the prompt on stdin rather than as a positional
+                    # argument. `opencode run` quote-wraps a positional message
+                    # that contains spaces and backslash-escapes the double
+                    # quotes inside it (packages/opencode/src/cli/cmd/run.ts),
+                    # so a prompt passed as an argument reaches the model -- and
+                    # crosses the agent bridge -- as `"..."` with `\"` inside
+                    # rather than as the task input. The bridge anchors
+                    # main-thread tracking on the task input, and for prompts
+                    # containing `"` that mismatch let opencode's session-title
+                    # generation call displace the agent's answer as the sample
+                    # output. Piped stdin is used verbatim (`resolveRunInput`,
+                    # opencode >= 1.14.42; earlier versions prepend "\n" to it,
+                    # which only costs exact-match anchoring for prompts under
+                    # the bridge's 20-char containment floor), and also
+                    # sidesteps argv length limits for long prompts.
+                    # exec_remote closes stdin after writing `input`, giving
+                    # opencode the EOF it needs.
                     result = await sbox.exec_remote(
-                        cmd=["bash", "-c", 'exec 0</dev/null; "$@"', "bash"]
-                        + agent_cmd,
+                        cmd=agent_cmd,
                         options=ExecRemoteAwaitableOptions(
+                            input=agent_prompt,
                             cwd=agent_cwd,
                             env=agent_env,
                             user=user,

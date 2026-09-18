@@ -33,6 +33,7 @@ def make_widget(
     # near the end of the function.
     original_values = minuit.values[:]
     original_limits = minuit.limits[:]
+    original_fixed = minuit.fixed[:]
 
     def plot_with_frame(from_fit, report_success):
         trans = plt.gca().transAxes
@@ -84,7 +85,7 @@ def make_widget(
             minuit.simplex()
             return False
         else:
-            assert False  # pragma: no cover, should never happen
+            raise AssertionError  # pragma: no cover, should never happen
         return True
 
     class OnParameterChange:
@@ -97,7 +98,7 @@ def make_widget(
         def __init__(self, skip: int = 0):
             self.skip = skip
 
-        def __call__(self, change: Dict[str, Any] = {}):
+        def __call__(self, change: Dict[str, Any] = {}):  # noqa: B006
             if self.skip > 0:
                 self.skip -= 1
                 return
@@ -113,8 +114,10 @@ def make_widget(
                 for i, x in enumerate(parameters):
                     minuit.fixed[i] = not x.fit.value
                 from_fit = True
-                report_success = do_fit(None)
-                minuit.fixed = saved
+                try:
+                    report_success = do_fit(None)
+                finally:
+                    minuit.fixed = saved
 
             # Implementation like in ipywidegts.interaction.interactive_output
             with out:
@@ -140,8 +143,9 @@ def make_widget(
         minuit.reset()
         minuit.values = original_values
         minuit.limits = original_limits
+        minuit.fixed = original_fixed
         for i, x in enumerate(parameters):
-            x.reset(minuit.values[i], minuit.limits[i])
+            x.reset(minuit.values[i], minuit.limits[i], original_fixed[i])
         OnParameterChange()()
 
     class Parameter(widgets.HBox):
@@ -221,11 +225,21 @@ def make_widget(
                     self.fix.value = False
                 OnParameterChange()()
 
+            self.on_fix_toggled = on_fix_toggled
+            self.on_fit_toggled = on_fit_toggled
             self.fix.observe(on_fix_toggled, "value")
             self.fit.observe(on_fit_toggled, "value")
             super().__init__([tlabel, tmin, self.slider, tmax, self.fix, self.fit])
 
-        def reset(self, value, limits=None):
+        def reset(self, value, limits=None, fixed=None):
+            if fixed is not None:
+                self.fix.unobserve(self.on_fix_toggled, "value")
+                self.fit.unobserve(self.on_fit_toggled, "value")
+                self.fix.value = fixed
+                self.fit.value = False
+                self.slider.disabled = False
+                self.fix.observe(self.on_fix_toggled, "value")
+                self.fit.observe(self.on_fit_toggled, "value")
             self.slider.unobserve_all("value")
             self.slider.value = value
             if limits:

@@ -106,6 +106,9 @@ def test_quantile_comparison(array, quantiles):
     kwargs = dict(quantiles=quantiles)
 
     result = c["numbagg"](array, **kwargs)()
+    # Both wrappers close over the same `array`, so a second identical call
+    # must produce the same result — a regression guard against nanquantile
+    # mutating its input (#251).
     assert_allclose(result, c["numbagg"](array, **kwargs)())
     expected = c["pandas"](array, **kwargs)().values
     assert_allclose(result, expected)
@@ -119,6 +122,10 @@ def test_quantile_comparison(array, quantiles):
         assert_allclose(result, expected)
 
 
+def slow_count(x, axis=None):
+    return np.sum(~np.isnan(x), axis=axis)
+
+
 def functions():
     # TODO: test tuple axes
     yield nansum, np.nansum, np.inf
@@ -127,7 +134,7 @@ def functions():
     yield nanargmax, np.nanargmax, np.inf
     yield nanmin, np.nanmin, np.inf
     yield nanmean, np.nanmean, 5
-    yield nanmean, np.nanmean, True
+    yield nanmean, np.nanmean, 1
     yield nanstd, partial(np.nanstd, ddof=1), 5
     yield nanvar, partial(np.nanvar, ddof=1), 5
     # yield anynan, bn.anynan, np.inf
@@ -149,7 +156,7 @@ def functions():
 @pytest.mark.filterwarnings("ignore:All-NaN slice encountered")
 @pytest.mark.filterwarnings("ignore:Mean of empty slice")
 @pytest.mark.filterwarnings("ignore:invalid value encountered")
-@pytest.mark.parametrize("numbagg_func,comp_func,decimal", functions())
+@pytest.mark.parametrize("numbagg_func,comp_func,decimal", list(functions()))
 def test_numerical_results_identical(numbagg_func, comp_func, decimal):
     msg = "\nfunc %s | input %s (%s) | shape %s | axis %s\n"
     msg += "\nInput array:\n%s\n"
@@ -185,7 +192,7 @@ def test_numerical_results_identical(numbagg_func, comp_func, decimal):
                 else:
                     assert desired == actual
 
-            elif desiredraised and actual.size == 0:
+            elif desiredraised and hasattr(actual, "size") and actual.size == 0:
                 # there are no array values, so don't worry about not raising
                 pass
             else:
@@ -218,14 +225,9 @@ def test_numerical_results_identical(numbagg_func, comp_func, decimal):
                 assert_equal(da, dd, err_msg % (da, dd))
 
 
-def slow_count(x, axis=None):
-    return np.sum(~np.isnan(x), axis=axis)
-
-
 @pytest.mark.parametrize("axis", [None, -1, 1, (1, 2), (0,), (-1, -2)])
 @pytest.mark.parametrize("quantiles", [0.5, [0.25, 0.75]])
-def test_nanquantile(axis, quantiles, rs):
-    arr = rs.rand(2000).reshape(10, 10, -1)
+def test_nanquantile(axis, quantiles):
     arr = np.arange(60).reshape(3, 4, 5).astype(np.float64)
 
     result = nanquantile(arr, quantiles, axis=axis)
@@ -310,16 +312,27 @@ class TestAllnanAnynanEdgeCases:
         expected = np.array([False, True, False])
         assert_array_equal(result, expected)
 
-    def test_allnan_empty_along_axis(self):
-        """allnan handles edge case with 2D where entire row is NaN."""
-        arr = np.array([[np.nan, np.nan, np.nan], [1.0, 2.0, 3.0]])
-        result = allnan(arr, axis=1)
-        expected = np.array([True, False])
-        assert_array_equal(result, expected)
+    def test_allnan_zero_length_axis(self):
+        """allnan is vacuously True over a zero-length axis, matching numpy.
 
-    def test_anynan_empty_along_axis(self):
-        """anynan handles edge case with 2D where entire row has no NaN."""
-        arr = np.array([[1.0, 2.0, 3.0], [np.nan, np.nan, np.nan]])
+        The sharpest test of the output initialization this class covers: with no
+        elements to iterate, `out[0] = True` is the only statement the kernel runs,
+        so the result comes entirely from the initialization rather than from the
+        loop. Every other case here has at least one element and can be satisfied
+        by the loop writing `out[0]` itself.
+        """
+        arr = np.empty((3, 0))
+
+        result = allnan(arr, axis=1)
+
+        assert_array_equal(result, np.array([True, True, True]))
+        assert_array_equal(result, np.all(np.isnan(arr), axis=1))
+
+    def test_anynan_zero_length_axis(self):
+        """anynan is vacuously False over a zero-length axis, matching numpy."""
+        arr = np.empty((3, 0))
+
         result = anynan(arr, axis=1)
-        expected = np.array([False, True])
-        assert_array_equal(result, expected)
+
+        assert_array_equal(result, np.array([False, False, False]))
+        assert_array_equal(result, np.any(np.isnan(arr), axis=1))

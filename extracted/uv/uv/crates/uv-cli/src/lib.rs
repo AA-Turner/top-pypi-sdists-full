@@ -15,12 +15,14 @@ use uv_audit::VulnerabilityServiceFormat;
 use uv_auth::Service;
 use uv_cache::CacheArgs;
 use uv_configuration::{
-    ExportFormat, IndexStrategy, KeyringProviderType, PackageNameSpecifier, PipCompileFormat,
-    ProjectBuildBackend, TargetTriple, TrustedHost, TrustedPublishing, VersionControlSystem,
+    AnnotationStyle, ExcludeNewerPackageEntry, ExportFormat, ForkStrategy, IndexStrategy,
+    KeyringProviderType, PackageNameSpecifier, PipCompileFormat, PrereleaseMode,
+    PrereleasePackageEntry, ProjectBuildBackend, ResolutionMode, TargetTriple, TrustedHost,
+    TrustedPublishing, VersionControlSystem,
 };
 use uv_distribution_types::{
-    ConfigSettingEntry, ConfigSettingPackageEntry, Index, IndexName, IndexSourceError, IndexUrl,
-    Origin, PipExtraIndex, PipFindLinks, PipIndex,
+    ConfigSettingEntry, ConfigSettingPackageEntry, ExcludeNewerOverride, Index, IndexName,
+    IndexSourceError, IndexUrl, Origin, PipExtraIndex, PipFindLinks, PipIndex,
 };
 use uv_normalize::{ExtraName, GroupName, PackageName, PipGroupName};
 use uv_pep508::{MarkerTree, Requirement, VerbatimUrl};
@@ -28,10 +30,6 @@ use uv_preview::{MaybePreviewFeature, PreviewFeature};
 use uv_pypi_types::VerbatimParsedUrl;
 use uv_python::{PythonDownloads, PythonPreference, PythonVersion};
 use uv_redacted::DisplaySafeUrl;
-use uv_resolver::{
-    AnnotationStyle, ExcludeNewerOverride, ExcludeNewerPackageEntry, ForkStrategy, PrereleaseMode,
-    PrereleasePackageEntry, ResolutionMode,
-};
 use uv_settings::PythonInstallMirrors;
 use uv_static::EnvVars;
 use uv_torch::TorchMode;
@@ -1385,7 +1383,7 @@ impl UnresolvedIndex {
                 // Keep relative paths anchored to their configuration file without marking them
                 // as absolute when CLI settings are rebased or written back to a project.
                 if let IndexUrl::Path(url) = index.url()
-                    && !url.was_given_absolute()
+                    && url.prefers_relative()
                 {
                     index.url = IndexUrl::from(VerbatimUrl::from_url(index.raw_url().clone()));
                 }
@@ -4177,6 +4175,12 @@ pub struct UpgradeArgs {
     /// Exclude the named package from upgrades.
     #[arg(long, value_hint = ValueHint::Other)]
     pub exclude: Vec<PackageName>,
+
+    #[command(flatten)]
+    pub index_args: IndexArgs,
+
+    #[command(flatten)]
+    pub registry_client: RegistryClientArgs,
 }
 
 #[derive(Args)]

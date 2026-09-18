@@ -98,7 +98,8 @@ class TestListClusterExecutionsResponse(unittest.TestCase):
                                 stale = 56, 
                                 reaped = 56, 
                                 wal_seq = 56, 
-                                confirmed_seq = 56, )
+                                confirmed_seq = 56, 
+                                confirmed_unavailable_reason = '', )
                             ], )
                     ],
                 pagination = mixpeek.models.pagination_response.PaginationResponse(
@@ -183,7 +184,8 @@ class TestListClusterExecutionsResponse(unittest.TestCase):
                                 stale = 56, 
                                 reaped = 56, 
                                 wal_seq = 56, 
-                                confirmed_seq = 56, )
+                                confirmed_seq = 56, 
+                                confirmed_unavailable_reason = '', )
                             ], )
                     ],
                 pagination = mixpeek.models.pagination_response.PaginationResponse(

@@ -209,49 +209,6 @@ __all__ = ["SelfPromptResult", "RulebookToolResult", "ResearchRunState", "Office
 
 
 @kind(
-    "google_workspace_result",
-    label="Google Workspace Result",
-    family="google_workspace",
-    example={"created": True, "file_id": "1AbC", "name": "Notes", "kind": "google_document", "open_in_google": "https://docs.google.com/…"},
-    # PLACEHOLDER — list_resources/create/read/append (Docs), read/write
-    # (Sheets) and prepare_email (which NEVER sends) receipts.
-    maturity="placeholder",
-)
-class GoogleWorkspaceResult(KindModel):
-    #: `list_resources`.
-    resources: list[dict] | None = None
-    count: int | None = None
-    note: str | None = None
-    #: create receipts.
-    created: bool | None = None
-    file_id: str | None = None
-    name: str | None = None
-    kind: str | None = None
-    open_in_google: str | None = None
-    #: document read/append window.
-    title: str | None = None
-    text: str | None = None
-    total_chars: int | None = None
-    showing_chars: str | None = None
-    has_more: bool | None = None
-    next_start_char: int | None = None
-    appended: bool | None = None
-    #: sheet read/write window.
-    tab: str | None = None
-    range: str | None = None
-    rows: list[list[JsonValue]] | None = None
-    row_count: int | None = None
-    sheet_size: str | None = None
-    next_range_a1: str | None = None
-    written: bool | None = None
-    #: `prepare_email` — a draft for the HUMAN send step; never sent here.
-    sent: bool | None = None
-    draft: dict | None = None
-    from_email: str | None = None
-    next_step: str | None = None
-
-
-@kind(
     "tool_result_page",
     label="Tool Result Page",
     family="tooling",

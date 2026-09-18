@@ -30,6 +30,7 @@ from arthur_client.api_bindings.models.resource_list_llm_model import ResourceLi
 from arthur_client.api_bindings.models.resource_list_sub_agent import ResourceListSubAgent
 from arthur_client.api_bindings.models.resource_list_tool import ResourceListTool
 from arthur_client.api_bindings.models.sort_order import SortOrder
+from arthur_client.api_bindings.models.source_class import SourceClass
 
 from arthur_client.api_bindings.api_client import ApiClient, RequestSerialized
 from arthur_client.api_bindings.api_response import ApiResponse
@@ -1227,6 +1228,9 @@ class AgentsV1Api:
         data_source_urls: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that use any of these data source URLs.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
+        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.")] = None,
+        source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1270,6 +1274,12 @@ class AgentsV1Api:
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
         :type page_size: int
+        :param source_ids: Filter agents that any discovery source in this list reported.
+        :type source_ids: List[str]
+        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.
+        :type external_ids: List[str]
+        :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
+        :type source_classes: List[SourceClass]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1306,6 +1316,9 @@ class AgentsV1Api:
             data_source_urls=data_source_urls,
             page=page,
             page_size=page_size,
+            source_ids=source_ids,
+            external_ids=external_ids,
+            source_classes=source_classes,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1344,6 +1357,9 @@ class AgentsV1Api:
         data_source_urls: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that use any of these data source URLs.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
+        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.")] = None,
+        source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1387,6 +1403,12 @@ class AgentsV1Api:
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
         :type page_size: int
+        :param source_ids: Filter agents that any discovery source in this list reported.
+        :type source_ids: List[str]
+        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.
+        :type external_ids: List[str]
+        :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
+        :type source_classes: List[SourceClass]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1423,6 +1445,9 @@ class AgentsV1Api:
             data_source_urls=data_source_urls,
             page=page,
             page_size=page_size,
+            source_ids=source_ids,
+            external_ids=external_ids,
+            source_classes=source_classes,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1461,6 +1486,9 @@ class AgentsV1Api:
         data_source_urls: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that use any of these data source URLs.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
+        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.")] = None,
+        source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -1504,6 +1532,12 @@ class AgentsV1Api:
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
         :type page_size: int
+        :param source_ids: Filter agents that any discovery source in this list reported.
+        :type source_ids: List[str]
+        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.
+        :type external_ids: List[str]
+        :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
+        :type source_classes: List[SourceClass]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -1540,6 +1574,9 @@ class AgentsV1Api:
             data_source_urls=data_source_urls,
             page=page,
             page_size=page_size,
+            source_ids=source_ids,
+            external_ids=external_ids,
+            source_classes=source_classes,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -1573,6 +1610,9 @@ class AgentsV1Api:
         data_source_urls,
         page,
         page_size,
+        source_ids,
+        external_ids,
+        source_classes,
         _request_auth,
         _content_type,
         _headers,
@@ -1589,6 +1629,9 @@ class AgentsV1Api:
             'tool_names': 'multi',
             'llm_model_names': 'multi',
             'data_source_urls': 'multi',
+            'source_ids': 'multi',
+            'external_ids': 'multi',
+            'source_classes': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -1651,6 +1694,18 @@ class AgentsV1Api:
         if page_size is not None:
             
             _query_params.append(('page_size', page_size))
+            
+        if source_ids is not None:
+            
+            _query_params.append(('source_ids', source_ids))
+            
+        if external_ids is not None:
+            
+            _query_params.append(('external_ids', external_ids))
+            
+        if source_classes is not None:
+            
+            _query_params.append(('source_classes', source_classes))
             
         # process the header parameters
         # process the form parameters
@@ -3551,6 +3606,9 @@ class AgentsV1Api:
         show_muted: Annotated[Optional[StrictBool], Field(description="Filter agents that are muted.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
+        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.")] = None,
+        source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3592,6 +3650,12 @@ class AgentsV1Api:
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
         :type page_size: int
+        :param source_ids: Filter agents that any discovery source in this list reported.
+        :type source_ids: List[str]
+        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.
+        :type external_ids: List[str]
+        :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
+        :type source_classes: List[SourceClass]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3627,6 +3691,9 @@ class AgentsV1Api:
             show_muted=show_muted,
             page=page,
             page_size=page_size,
+            source_ids=source_ids,
+            external_ids=external_ids,
+            source_classes=source_classes,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3664,6 +3731,9 @@ class AgentsV1Api:
         show_muted: Annotated[Optional[StrictBool], Field(description="Filter agents that are muted.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
+        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.")] = None,
+        source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3705,6 +3775,12 @@ class AgentsV1Api:
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
         :type page_size: int
+        :param source_ids: Filter agents that any discovery source in this list reported.
+        :type source_ids: List[str]
+        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.
+        :type external_ids: List[str]
+        :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
+        :type source_classes: List[SourceClass]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3740,6 +3816,9 @@ class AgentsV1Api:
             show_muted=show_muted,
             page=page,
             page_size=page_size,
+            source_ids=source_ids,
+            external_ids=external_ids,
+            source_classes=source_classes,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3777,6 +3856,9 @@ class AgentsV1Api:
         show_muted: Annotated[Optional[StrictBool], Field(description="Filter agents that are muted.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
+        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.")] = None,
+        source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -3818,6 +3900,12 @@ class AgentsV1Api:
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
         :type page_size: int
+        :param source_ids: Filter agents that any discovery source in this list reported.
+        :type source_ids: List[str]
+        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.
+        :type external_ids: List[str]
+        :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
+        :type source_classes: List[SourceClass]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -3853,6 +3941,9 @@ class AgentsV1Api:
             show_muted=show_muted,
             page=page,
             page_size=page_size,
+            source_ids=source_ids,
+            external_ids=external_ids,
+            source_classes=source_classes,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -3885,6 +3976,9 @@ class AgentsV1Api:
         show_muted,
         page,
         page_size,
+        source_ids,
+        external_ids,
+        source_classes,
         _request_auth,
         _content_type,
         _headers,
@@ -3900,6 +3994,9 @@ class AgentsV1Api:
             'tool_names': 'multi',
             'llm_model_names': 'multi',
             'data_source_urls': 'multi',
+            'source_ids': 'multi',
+            'external_ids': 'multi',
+            'source_classes': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -3961,6 +4058,18 @@ class AgentsV1Api:
             
             _query_params.append(('page_size', page_size))
             
+        if source_ids is not None:
+            
+            _query_params.append(('source_ids', source_ids))
+            
+        if external_ids is not None:
+            
+            _query_params.append(('external_ids', external_ids))
+            
+        if source_classes is not None:
+            
+            _query_params.append(('source_classes', source_classes))
+            
         # process the header parameters
         # process the form parameters
         # process the body parameter
@@ -4014,6 +4123,9 @@ class AgentsV1Api:
         show_muted: Annotated[Optional[StrictBool], Field(description="Filter agents that are muted.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
+        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.")] = None,
+        source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4057,6 +4169,12 @@ class AgentsV1Api:
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
         :type page_size: int
+        :param source_ids: Filter agents that any discovery source in this list reported.
+        :type source_ids: List[str]
+        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.
+        :type external_ids: List[str]
+        :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
+        :type source_classes: List[SourceClass]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -4093,6 +4211,9 @@ class AgentsV1Api:
             show_muted=show_muted,
             page=page,
             page_size=page_size,
+            source_ids=source_ids,
+            external_ids=external_ids,
+            source_classes=source_classes,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -4131,6 +4252,9 @@ class AgentsV1Api:
         show_muted: Annotated[Optional[StrictBool], Field(description="Filter agents that are muted.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
+        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.")] = None,
+        source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4174,6 +4298,12 @@ class AgentsV1Api:
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
         :type page_size: int
+        :param source_ids: Filter agents that any discovery source in this list reported.
+        :type source_ids: List[str]
+        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.
+        :type external_ids: List[str]
+        :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
+        :type source_classes: List[SourceClass]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -4210,6 +4340,9 @@ class AgentsV1Api:
             show_muted=show_muted,
             page=page,
             page_size=page_size,
+            source_ids=source_ids,
+            external_ids=external_ids,
+            source_classes=source_classes,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -4248,6 +4381,9 @@ class AgentsV1Api:
         show_muted: Annotated[Optional[StrictBool], Field(description="Filter agents that are muted.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
+        source_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents that any discovery source in this list reported.")] = None,
+        external_ids: Annotated[Optional[List[StrictStr]], Field(description="Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.")] = None,
+        source_classes: Annotated[Optional[List[SourceClass]], Field(description="Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.")] = None,
         _request_timeout: Union[
             None,
             Annotated[StrictFloat, Field(gt=0)],
@@ -4291,6 +4427,12 @@ class AgentsV1Api:
         :type page: int
         :param page_size: The number of records per page. The max is 1000.
         :type page_size: int
+        :param source_ids: Filter agents that any discovery source in this list reported.
+        :type source_ids: List[str]
+        :param external_ids: Filter agents by the source's own identifier for them. Canonical identity: never re-derived or reconciled across sensors.
+        :type external_ids: List[str]
+        :param source_classes: Filter agents by where they were observed from -- cloud, siem, endpoint, otel or manual.
+        :type source_classes: List[SourceClass]
         :param _request_timeout: timeout setting for this request. If one
                                  number provided, it will be total request
                                  timeout. It can also be a pair (tuple) of
@@ -4327,6 +4469,9 @@ class AgentsV1Api:
             show_muted=show_muted,
             page=page,
             page_size=page_size,
+            source_ids=source_ids,
+            external_ids=external_ids,
+            source_classes=source_classes,
             _request_auth=_request_auth,
             _content_type=_content_type,
             _headers=_headers,
@@ -4360,6 +4505,9 @@ class AgentsV1Api:
         show_muted,
         page,
         page_size,
+        source_ids,
+        external_ids,
+        source_classes,
         _request_auth,
         _content_type,
         _headers,
@@ -4375,6 +4523,9 @@ class AgentsV1Api:
             'tool_names': 'multi',
             'llm_model_names': 'multi',
             'data_source_urls': 'multi',
+            'source_ids': 'multi',
+            'external_ids': 'multi',
+            'source_classes': 'multi',
         }
 
         _path_params: Dict[str, str] = {}
@@ -4437,6 +4588,18 @@ class AgentsV1Api:
         if page_size is not None:
             
             _query_params.append(('page_size', page_size))
+            
+        if source_ids is not None:
+            
+            _query_params.append(('source_ids', source_ids))
+            
+        if external_ids is not None:
+            
+            _query_params.append(('external_ids', external_ids))
+            
+        if source_classes is not None:
+            
+            _query_params.append(('source_classes', source_classes))
             
         # process the header parameters
         # process the form parameters

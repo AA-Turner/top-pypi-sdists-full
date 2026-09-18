@@ -7,13 +7,14 @@ The primary interface to CLE is the Loader class.
 
 from __future__ import annotations
 
-__version__ = "9.3.4"
+__version__ = "10.0.0"
 
 from .address_translator import AT, AddressTranslator
 from .backends import (
     ALL_BACKENDS,
     CGC,
     ELF,
+    MZ,
     PE,
     TE,
     XBE,
@@ -110,6 +111,7 @@ __all__ = [
     "MachO",
     "MetaELF",
     "Minidump",
+    "MZ",
     "NamedRegion",
     "Region",
     "Regions",

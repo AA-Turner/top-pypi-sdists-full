@@ -71,6 +71,53 @@ def _role_can_release(role: str) -> bool:
     return role_satisfies(actual, OrganizationRole.DEVELOPER)
 
 
+# --------------------------------------------------------------------------- #
+# Borrowing the `gh` CLI's credential -- an explicitly-labelled stopgap
+# --------------------------------------------------------------------------- #
+#
+# **The organisation's credential is supposed to live on the platform.** InnoDay
+# holds each organisation's GitHub credential and uses it server-side, which is
+# why a release *report* needs no token from anybody: the content arrives
+# already assembled (see `_fetch_content`). Tagging is different -- it writes,
+# and it writes from this machine -- and there is as yet no way for the platform
+# to lend the organisation's credential to a client for that write.
+# `havilandsoftware/innoday#753` is where that capability is tracked.
+#
+# Until it exists the only credential within reach is the person's own, and the
+# run dead-ended telling them to set an environment variable. So we offer
+# theirs -- never silently, and never without naming whose account ends up on
+# the tag. Every tag and GitHub Release created this way is attributed to that
+# personal account rather than to the organisation, which is precisely the thing
+# a server-side credential fixes. This whole path is a stopgap: when #753 lands,
+# delete it rather than tidying it.
+def _run_gh(*argv: str) -> Optional[Tuple[str, str]]:
+    """``(stdout, stderr)`` from ``gh``, or ``None`` if it is absent or failed.
+
+    Both streams come back because `gh auth status` has written its answer to
+    stderr in some versions of `gh` and to stdout in others, and the caller
+    wants the account name out of whichever one carried it. They are handed back
+    separately rather than concatenated because `gh auth token` prints a
+    credential on stdout, and folding a stray line of stderr into it would hand
+    the engine a token that silently is not one.
+
+    Never raises -- an absent binary, a timeout and a non-zero exit are all the
+    same answer here, "no token" -- and never logs what it captured.
+    """
+    import shutil
+    import subprocess
+
+    exe = shutil.which("gh")
+    if exe is None:
+        return None
+    try:
+        done = subprocess.run([exe, *argv], capture_output=True, text=True, timeout=15)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    if done.returncode != 0:
+        return None
+    return done.stdout, done.stderr
+
+
 class ReleaseProxyCommands:
     """`innoday release` / `innoday hotfix` -- blastoff proxied through InnoDay."""
 
@@ -148,6 +195,18 @@ class ReleaseProxyCommands:
             "--commit",
             metavar="SHA",
             help="Hotfix this exact commit. Requires --hotfix and --repo.",
+        )
+        # **The same thing said the other way round.** `--commit` pins the tag
+        # to a SHA; `--branch` pins it to whatever that branch points at now.
+        # Both exist because a hotfix is usually a cherry-pick onto a release
+        # line, and which of the two you have to hand depends on whether you
+        # made the branch or were sent the commit. The engine treats them as one
+        # answer and refuses both together, so this does too -- before the
+        # report, where stopping costs nothing.
+        parser.add_argument(
+            "--branch",
+            metavar="NAME",
+            help="Hotfix this branch's head. Requires --hotfix and --repo.",
         )
         parser.add_argument(
             "--org-id",
@@ -321,10 +380,14 @@ class ReleaseProxyCommands:
         )
 
         try:
-            if hotfix:
-                return ReleaseProxyCommands._drive_hotfix(
-                    args, store, alias, github_org, topics
-                )
+            # **One driver, and the flag is the only difference.** There were
+            # two, and the hotfix one was thirty lines against a hundred and
+            # fifty -- not because a hotfix needs less, but because everything
+            # added to a release since they were split was added to one of them.
+            # It was never handed `config`, `org_id` or `project_id`, so it
+            # could not ask InnoDay what the release contained; never handed the
+            # reporter, so the spinner ran over the engine's own output and over
+            # the `[y/N]` prompt.
             return await ReleaseProxyCommands._drive_release(
                 args,
                 store,
@@ -334,6 +397,7 @@ class ReleaseProxyCommands:
                 config,
                 org_id,
                 project_id,
+                hotfix=hotfix,
                 reporter=reporter,
             )
         finally:
@@ -533,6 +597,8 @@ class ReleaseProxyCommands:
         config,
         org_id,
         project_id,
+        *,
+        hotfix: bool = False,
         reporter=None,
     ) -> int:
         """Drive blastoff with a brief, and ask before anything is tagged.
@@ -547,6 +613,16 @@ class ReleaseProxyCommands:
         with `--release` -- re-lists every repo and re-fetches every PR, and
         somebody can merge in between, which means approving one report and
         shipping another.
+
+        **A hotfix is this same run with the patch digit moving.** It used to be
+        a driver of its own, and being separate is the whole reason it fell
+        behind: every one of the four things above was added to a release and
+        never carried across. A hotfix got no brief, so its preview demanded a
+        personal GitHub token for content the platform could already fetch with
+        the organisation's own credential; no ticket picture; no reporter, so
+        the spinner animated over the engine's report and over the `[y/N]`
+        prompt; and no hint afterwards saying how to actually tag. `hotfix` now
+        decides the version and adds one flag, and nothing else differs.
         """
         import json as _json
 
@@ -558,6 +634,19 @@ class ReleaseProxyCommands:
             org_config = store.load_org_config(alias)
         except FileNotFoundError as e:
             console.print(format_error(str(e)))
+            return 1
+
+        version = ReleaseProxyCommands._version_to_cut(org_config, hotfix)
+        if version is None:
+            # Only reachable for a hotfix: a project with nothing released has
+            # no line to patch, and inventing v0.0.1 would claim it had one. A
+            # release is never in this position -- the store bootstraps it.
+            console.print(
+                format_error(
+                    f"{alias} has no released version, so there is nothing to "
+                    "patch. Cut a release first."
+                )
+            )
             return 1
 
         as_json = getattr(args, "as_json", False)
@@ -580,15 +669,13 @@ class ReleaseProxyCommands:
         if reporter is not None:
             reporter.update("🚀 Working out what ships")
         with contextlib.nullcontext():
-            picture = ReleaseProxyCommands._ticket_picture(
-                store, org_config.next_version
-            )
+            picture = ReleaseProxyCommands._ticket_picture(store, version)
 
             brief = {
                 "name": alias,
                 "github_org": github_org,
                 "topics": topics,
-                "version": org_config.next_version,
+                "version": version,
                 "previous_version": org_config.last_released_version,
                 "previous_released_at": org_config.last_released,
             }
@@ -601,39 +688,67 @@ class ReleaseProxyCommands:
             # command -- and the nearest one to hand is a personal login. That is
             # the wrong credential for a release, and needing it at all hid the fact
             # that the right one was already stored server-side.
-            since_label = (
-                f"since {org_config.last_released_version}"
-                if org_config.last_released_version
-                else "since the last release"
+            #
+            # **Except for a hotfix that has been narrowed.** The platform
+            # assembles a window with a start and no end, covering every
+            # repository the project has. `--commit` and `--branch` put an end on
+            # it and `--repo` takes the other repositories out, and neither is
+            # something this payload can be asked for -- so handing it over would
+            # render a report listing work the tag does not contain. A narrowed
+            # hotfix therefore reads GitHub from here, as it always has, and is
+            # offered a credential below. Giving it the same token-free preview
+            # means teaching `/release/content` to take a repository and an end
+            # to the window; until then, saying so beats a confident wrong page.
+            narrowed = any(
+                getattr(args, name, None) for name in ("repo", "commit", "branch")
             )
-            if reporter is not None:
-                reporter.update(f"🚀 Reading what shipped {since_label}")
-
-            content = await ReleaseProxyCommands._fetch_content(
-                config,
-                org_id,
-                project_id,
-                since=org_config.last_released,
-                window_label=(
+            content = None
+            if not narrowed:
+                since_label = (
                     f"since {org_config.last_released_version}"
                     if org_config.last_released_version
-                    else None
-                ),
-                version=org_config.next_version,
-            )
-            if content is not None:
-                brief["content"] = content
+                    else "since the last release"
+                )
+                if reporter is not None:
+                    reporter.update(f"🚀 Reading what shipped {since_label}")
+
+                content = await ReleaseProxyCommands._fetch_content(
+                    config,
+                    org_id,
+                    project_id,
+                    since=org_config.last_released,
+                    window_label=(
+                        f"since {org_config.last_released_version}"
+                        if org_config.last_released_version
+                        else None
+                    ),
+                    version=version,
+                )
+                if content is not None:
+                    brief["content"] = content
 
             if reporter is not None:
                 reporter.update("🚀 Writing the report")
 
         # **Put the spinner away before anything is printed.** The report goes
         # to stdout and the confirmation prompt waits on a person; an animation
-        # running over either is the thing the rocket was supposed to fix.
+        # running over either is the thing the rocket was supposed to fix. The
+        # hotfix driver was never handed the reporter at all, so on that path
+        # the spinner kept drawing over the engine's own report and over the
+        # question asking whether to tag.
         if reporter is not None:
             reporter.stop()
 
         argv = ["--brief", "-"]
+        if hotfix:
+            argv.append("--hotfix")
+        # Where the hotfix stops: one repository, and optionally one commit or
+        # one branch head inside it. Refused for a release by `_check_scope`
+        # long before here, and refused again by the engine.
+        for flag in ("repo", "commit", "branch"):
+            value = getattr(args, flag, None)
+            if value:
+                argv += [f"--{flag}", value]
         if getattr(args, "token", None):
             argv += ["-k", args.token]
         if getattr(args, "summary", None):
@@ -654,6 +769,36 @@ class ReleaseProxyCommands:
             argv.append("--release")
             confirm = None
 
+        # **A run that can tag needs its credential before it starts, not when
+        # it reaches the write.** The report needs none -- the content arrives
+        # assembled, fetched server-side with the organisation's own credential
+        # -- so this fires for a run on its way to tagging: `--yes`, which put
+        # `--release` in argv just above, or a confirm callback, which is a run
+        # about to ask.
+        #
+        # **And for a narrowed hotfix, which has no assembled content to render
+        # from.** That run has to read GitHub to print a single line, so the
+        # engine refuses outright without a credential -- which is what the old
+        # hotfix driver made this offer unconditionally for, back when no hotfix
+        # ever had content. A *release* whose content fetch fell back is in the
+        # same position and still dead-ends on the engine's own message. Widening
+        # the offer to cover that is a change to the release path, and belongs on
+        # its own rather than smuggled in with a merge of two drivers.
+        #
+        # **Without this the failure is invisible rather than loud.** With
+        # content supplied and no token, the engine's own check does not fire at
+        # all: it prints the report, asks, is told yes, finds no GitHub client
+        # to tag with, and so prints every repository as "would_create" -- and
+        # then records the release anyway. Nothing is tagged and InnoDay says it
+        # shipped.
+        will_tag = confirm is not None or "--release" in argv
+        needs_credential = will_tag or (hotfix and content is None)
+        if needs_credential and not ReleaseProxyCommands._has_github_token(args):
+            borrowed = ReleaseProxyCommands._borrow_personal_token(args)
+            if borrowed is None:
+                return 1
+            argv += ["-k", borrowed]
+
         result = ReleaseProxyCommands._invoke_blastoff(
             Release,
             argv,
@@ -673,6 +818,40 @@ class ReleaseProxyCommands:
                 )
             )
         return result
+
+    @staticmethod
+    def _version_to_cut(org_config, hotfix: bool) -> Optional[str]:
+        """The version this run will tag, or ``None`` when there is not one.
+
+        A release cuts the version the project is heading toward -- slot one of
+        its pipeline, the same one the Releases tab calls the next launch. A
+        hotfix moves the patch digit on the line that last shipped instead,
+        which is a different question with a different answer: a project that
+        released v1.9.0 and has v1.10.0 planned patches to v1.9.1, not v1.10.1.
+
+        **Computed here rather than left to the engine.** The engine knows how,
+        but only on the path where it loads the config itself; a supplied brief
+        names the version outright, and a brief is what this command sends. The
+        alternative -- passing the tag as `-t` -- reads as an override and turns
+        the post-release bookkeeping off, so the release would ship and never be
+        recorded.
+
+        ``None`` only for a hotfix on a project that has never released:
+        there is no line to patch, and a v0.0.1 invented here would claim there
+        was one.
+        """
+        if not hotfix:
+            return org_config.next_version
+
+        from blastoff.version_manager import SemanticVersion
+
+        last = getattr(org_config, "last_released_version", None)
+        if not last:
+            return None
+        try:
+            return SemanticVersion.from_string(last).bump_patch().to_string()
+        except Exception:  # noqa: BLE001 -- an unparseable tag is "cannot patch"
+            return None
 
     @staticmethod
     def _stopped_at_the_report(args) -> bool:
@@ -704,7 +883,7 @@ class ReleaseProxyCommands:
         exactly as a release does.
         """
         if not hotfix:
-            for flag in ("repo", "commit"):
+            for flag in ("repo", "commit", "branch"):
                 if getattr(args, flag, None):
                     return (
                         f"--{flag} is only for a hotfix.\n"
@@ -714,11 +893,17 @@ class ReleaseProxyCommands:
                         "release counting the same work twice.\n"
                         f"  Did you mean `--hotfix --{flag} ...`?"
                     )
-        if getattr(args, "commit", None) and not getattr(args, "repo", None):
+        for flag in ("commit", "branch"):
+            if getattr(args, flag, None) and not getattr(args, "repo", None):
+                return (
+                    f"--{flag} needs --repo.\n"
+                    "  A commit belongs to one repository, and a hotfix may "
+                    "span several. Name the one you mean."
+                )
+        if getattr(args, "commit", None) and getattr(args, "branch", None):
             return (
-                "--commit needs --repo.\n"
-                "  A commit belongs to one repository, and a hotfix may span "
-                "several. Name the one you mean."
+                "--commit and --branch are two ways to say the same thing.\n"
+                "  Both name where the window ends. Pass one."
             )
         return None
 
@@ -779,6 +964,125 @@ class ReleaseProxyCommands:
         return ask
 
     @staticmethod
+    def _has_github_token(args) -> bool:
+        """Whether this run already holds a credential, without asking anybody.
+
+        The two the engine itself reads, and they keep precedence exactly as
+        they had it: an explicit ``--token``, then ``GH_TOKEN``. The offer below
+        exists only for the run that has neither.
+        """
+        import os
+
+        return bool(getattr(args, "token", None) or os.environ.get("GH_TOKEN"))
+
+    @staticmethod
+    def _gh_account() -> Optional[str]:
+        """The account ``gh`` is signed in as, or ``None``.
+
+        ``None`` covers both "gh is not installed" and "gh is installed but
+        logged out". From here those are the same answer and earn the same
+        message, so they are not distinguished.
+
+        The name is read out of `gh auth status`'s own prose, which is not a
+        stable interface. When its shape changes we fall back to a nameless
+        stand-in rather than reporting a signed-in user as signed out: the name
+        is there to tell somebody whose credential they are about to lend, and
+        losing the name is worth a vaguer prompt, not a dead end.
+        """
+        import re
+
+        result = _run_gh("auth", "status")
+        if result is None:
+            return None
+        stdout, stderr = result
+        match = re.search(r"account (\S+)", f"{stdout}\n{stderr}")
+        return match.group(1) if match else "your GitHub account"
+
+    @staticmethod
+    def _borrow_personal_token(args) -> Optional[str]:
+        """Offer the `gh` CLI's credential to a run that has none. Never silent.
+
+        Returns the token, or ``None`` meaning **stop** -- `gh` is not there,
+        this run cannot ask anybody, or the person said no. The caller turns
+        every one of those into a non-zero exit: a release that did not happen
+        must not look like one that did.
+
+        **The token value is never printed** -- not in the prompt, not in the
+        confirmation that follows, not in an error. It is handed to the engine
+        as an argument to an in-process call rather than through a shell, so it
+        does not reach a process listing either.
+
+        **Saying what it costs is the point, not decoration.** This lends a
+        *personal* credential to an organisation's release: the tags and the
+        GitHub Releases carry that person's name, and the scopes are whatever
+        that account happens to have rather than what the release needs. See the
+        note above `_run_gh` and `havilandsoftware/innoday#753`.
+        """
+        import sys
+
+        # Word for word what this said before the offer existed -- for somebody
+        # without `gh`, nothing has changed.
+        no_token = format_error(
+            "No GitHub token provided! Set GH_TOKEN environment variable or "
+            "use --token flag."
+        )
+
+        account = ReleaseProxyCommands._gh_account()
+        if account is None:
+            console.print(no_token)
+            return None
+
+        # **A prompt needs somebody to answer it.** With no terminal there is
+        # nobody, and under `--json` the output is one document for a machine
+        # that a question would corrupt. Borrowing somebody's personal
+        # credential is the last thing to do on an assumption, so neither case
+        # asks: they say what could be done and fail, as before.
+        if getattr(args, "as_json", False) or not sys.stdin.isatty():
+            console.print(no_token)
+            console.print(
+                format_info(
+                    f"`gh` is signed in as {account}. Run this from a terminal "
+                    "to be offered that credential, or pass --token."
+                )
+            )
+            return None
+
+        console.print(
+            format_warning(
+                "No organisation credential reached this run. `gh` is signed "
+                f"in as {account} -- that is a personal credential: every tag "
+                "and GitHub Release created here would be attributed to that "
+                "account, not to the organisation."
+            )
+        )
+        print(
+            f"\nUse {account}'s personal GitHub token for this release? [y/N] ",
+            end="",
+            flush=True,
+        )
+        if sys.stdin.readline().strip().lower() not in ("y", "yes"):
+            console.print(format_info("Nothing was tagged."))
+            return None
+
+        result = _run_gh("auth", "token")
+        token = result[0].strip() if result else ""
+        if not token:
+            # `gh auth status` said yes and `gh auth token` said nothing: the
+            # same dead end as having no `gh` at all, and treated as one.
+            console.print(format_error("`gh auth token` returned no token."))
+            console.print(no_token)
+            return None
+
+        console.print(
+            format_warning(
+                f"Releasing with {account}'s personal credential -- the tags "
+                "and GitHub Releases will be attributed to that account rather "
+                "than to the organisation."
+            )
+        )
+        return token
+
+    @staticmethod
     def _ticket_picture(store, version: str):
         """``(planned, unfinished)`` for the version, or ``None`` if unknowable.
 
@@ -801,38 +1105,6 @@ class ReleaseProxyCommands:
             return counts(version)
         except Exception:  # noqa: BLE001 -- informational only, never blocks
             return None
-
-    @staticmethod
-    def _drive_hotfix(args, store, alias, github_org, topics) -> int:
-        """Patch the last released version, optionally narrowed to one commit.
-
-        The base version comes from InnoDay's release records through the
-        injected store, not a file. ``--repo`` and ``--commit`` narrow it; with
-        neither, a hotfix covers the whole project exactly as a release does.
-
-        ``--commit`` pins the tag to an exact SHA, which is the normal case: the
-        fix is a cherry-pick and the branch has moved on since. blastoff creates
-        the git tag at that SHA before creating the release, because creating the
-        release alone lets GitHub resolve to the branch head instead.
-        """
-        from blastoff.hotfix import Hotfix
-
-        argv = ["-c", alias, "-o", github_org, "--topics", ",".join(topics)]
-        if getattr(args, "token", None):
-            argv += ["-k", args.token]
-        if getattr(args, "repo", None):
-            argv += ["--repo", args.repo]
-        if getattr(args, "commit", None):
-            argv += ["--commit", args.commit]
-
-        confirm = ReleaseProxyCommands._confirmer(args)
-        if confirm is True:
-            argv.append("--release")
-            confirm = None
-
-        return ReleaseProxyCommands._invoke_blastoff(
-            Hotfix, argv, store, confirm=confirm
-        )
 
     @staticmethod
     def _invoke_blastoff(app_cls, argv, store, stdin=None, confirm=None) -> int:
@@ -879,7 +1151,20 @@ class ReleaseProxyCommands:
                 _instance, retcode = app_cls.run(["blastoff", *argv], exit=False)
             finally:
                 sys.stdin = real_stdin
-            return retcode or 0
+            # **Whatever the engine returned is the answer, including 2.**
+            # `retcode or 0` read as defensive and was the opposite: plumbum has
+            # already turned a `main()` that returned None into 0 by the time we
+            # see it, so the expression could only ever flatten a code, never
+            # supply a missing one. It is spelt out because the bug it stood
+            # next to -- an engine that stopped without a GitHub token and
+            # returned None, which the CLI reported as a successful release --
+            # looked like something this line was doing.
+            #
+            # None is unreachable through plumbum and reachable through a test
+            # double, and means the same thing there: nothing said it failed.
+            if retcode is None:
+                return 0
+            return int(retcode)
         except Exception as e:  # noqa: BLE001 -- surface blastoff errors cleanly
             console.print(format_error(f"blastoff failed: {e}"))
             return 1

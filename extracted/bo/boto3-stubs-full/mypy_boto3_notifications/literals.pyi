@@ -111,7 +111,7 @@ NotificationConfigurationSubtypeType = Literal["ACCOUNT", "ADMIN_MANAGED"]
 NotificationHubStatusType = Literal["ACTIVE", "DEREGISTERING", "INACTIVE", "REGISTERING"]
 NotificationTypeType = Literal["ALERT", "ANNOUNCEMENT", "INFORMATIONAL", "WARNING"]
 SchemaVersionType = Literal["v1.0"]
-TextPartTypeType = Literal["LOCALIZED_TEXT", "PLAIN_TEXT", "URL"]
+TextPartTypeType = Literal["LOCALIZED_TEXT", "PLAIN_TEXT", "PORTABLE_TEXT", "URL"]
 UserNotificationsServiceName = Literal["notifications"]
 ServiceName = Literal[
     "accessanalyzer",

@@ -39,9 +39,6 @@ repos:
   - repo: https://github.com/pre-commit/pre-commit-hooks
     rev: v6.0.0
     hooks:
-      - id: trailing-whitespace
-        args: [--markdown-linebreak-ext=md]
-        exclude: ^\.github/workflows/
       - id: end-of-file-fixer
         exclude: ^(\.github/workflows/|\.mcp\.json$)
       - id: check-merge-conflict
@@ -377,6 +374,12 @@ repos:
         name: Reject skip-gate bypass tokens in commit messages (OMN-10414)
         entry: .pre-commit-hooks/reject-deploy-gate-skip-token.sh
         language: script
+        pass_filenames: true
+        stages: [commit-msg]
+      - id: strip-ai-coauthor-trailer
+        name: Strip AI-generated Co-Authored-By trailers from commit messages
+        entry: perl -i -ne 'print unless /^co-authored-by:.*claude.*noreply\@anthropic\.com/i'
+        language: system
         pass_filenames: true
         stages: [commit-msg]
 

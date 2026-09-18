@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: sap-cloud-sdk
-Version: 0.53.3
+Version: 0.54.0
 Summary: SAP Cloud SDK for Python
 Author-email: SAP SE <ospo@sap.com>
 License-Expression: Apache-2.0
@@ -31,6 +31,7 @@ Requires-Dist: protobuf<8,>=7.36.0
 Requires-Dist: protovalidate<2,>=1.0.0
 Requires-Dist: pydantic~=2.12.3
 Requires-Dist: pyjwt<3,>=2.13.0
+Requires-Dist: python-odata>=0.7.0
 Requires-Dist: requests-oauthlib<3,>=2.0.0
 Requires-Dist: requests<3,>=2.33.0
 Requires-Dist: setuptools<84,>=83.0
@@ -59,7 +60,7 @@ Description-Content-Type: text/markdown
 
 ## About this project
 
-This SDK provides consistent interfaces for interacting with foundational services such as object storage, destination management, audit logging, data anonymization, telemetry, and secure credential handling.
+This SDK provides consistent interfaces for interacting with foundational services such as object storage, destination management, audit logging, data anonymization, data privacy integration, telemetry, and secure credential handling.
 
 The Python SDK offers a clean, type-safe API following Python best practices while maintaining compatibility with the SAP Application Foundation ecosystem.
 
@@ -79,6 +80,7 @@ The Python SDK offers a clean, type-safe API following Python best practices whi
 - **Secret Resolver**
 - **Telemetry & Observability**
 - **Data Anonymization Service**
+- **Data Privacy Integration Service**
 - **Print Service**
 
 ## Requirements and Setup
@@ -135,6 +137,7 @@ Each module has comprehensive usage guides:
 - [Telemetry](src/sap_cloud_sdk/core/telemetry/user-guide.md)
 - [Print](src/sap_cloud_sdk/print/user-guide.md)
 - [Data Anonymization](src/sap_cloud_sdk/core/data_anonymization/user-guide.md)
+- [Data Privacy Integration](src/sap_cloud_sdk/dpi_ng/consent/user-guide.md)
 
 ## Support, Feedback, Contributing
 

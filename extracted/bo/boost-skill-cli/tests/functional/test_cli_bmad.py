@@ -71,7 +71,8 @@ class TestInstall:
         assert "installed BMAD" in r.out
         # correct installer invocation
         cmd = npx[0]
-        assert cmd[:4] == ["npx", "--yes", "bmad-method@latest", "install"]
+        assert cmd[:4] == ["npx", "--yes", "bmad-method@%s" % core_bmad.BMAD_VERSION,
+                           "install"]
         assert "--directory" in cmd and str(proj) in cmd
         assert cmd[cmd.index("--tools") + 1] == "claude-code"
         assert cmd[cmd.index("--modules") + 1] == "bmm"
@@ -110,7 +111,7 @@ class TestStartupToggle:
         # hook command routes back through boost
         block = cs.load("project", proj)["hooks"]["SessionStart"][0]
         assert "bmad orient --scope project" in block["hooks"][0]["command"]
-        assert block["matcher"] == "startup|resume|clear"
+        assert block["matcher"] == "startup|resume|clear|compact"
 
         boost("bmad", "startup", "off")
         assert not cs.has_hook("project", "SessionStart", "bmad", project_dir=proj)
@@ -267,6 +268,126 @@ class TestResilience:
         assert {d.name for d in (sandbox / ".claude" / "skills").glob("bmad-*")} == {
             "bmad-agent-dev", "bmad-agent-pm", "bmad-help"}
 
+
+def _installer(monkeypatch, *skills, version="6.12.0"):
+    """Stub `npx bmad-method install` to stage exactly ``skills``."""
+    def fake_run(cmd, **kw):
+        directory = Path(cmd[cmd.index("--directory") + 1])
+        for name in skills:
+            d = directory / ".claude" / "skills" / name
+            d.mkdir(parents=True, exist_ok=True)
+            (d / "SKILL.md").write_text("---\nname: %s\n---\n" % name,
+                                        encoding="utf-8")
+        return types.SimpleNamespace(
+            returncode=0, stdout="BMAD Method v%s installed" % version, stderr="")
+
+    monkeypatch.setattr(bmad.shutil, "which", lambda _n: "/usr/bin/npx")
+    monkeypatch.setattr(bmad.subprocess, "run", fake_run)
+
+
+class TestGlobalInstallTracksWhatItShipped:
+    """A global install records what it copied, and retires only that."""
+
+    def _skills(self, sandbox):
+        return {d.name for d in (sandbox / ".claude" / "skills").glob("bmad-*")}
+
+    def test_records_the_version_and_the_skill_list(
+            self, boost, sandbox, monkeypatch, proj):
+        _installer(monkeypatch, "bmad-help", "bmad-prd")
+        r = boost("bmad", "install", "--scope", "global")
+        st = bmad._get_scope_state("global")
+        assert st["version"] == "6.12.0"
+        assert st["skill_list"] == ["bmad-help", "bmad-prd"]
+        assert st["skills"] == 2
+        assert "(v6.12.0)" in r.out
+
+    def test_a_skill_the_new_release_dropped_is_removed(
+            self, boost, sandbox, monkeypatch, proj):
+        _installer(monkeypatch, "bmad-help", "bmad-document-project")
+        boost("bmad", "install", "--scope", "global")
+        _installer(monkeypatch, "bmad-help", "bmad-project-context")
+        r = boost("bmad", "install", "--scope", "global")
+        assert self._skills(sandbox) == {"bmad-help", "bmad-project-context"}
+        assert "no longer installs: bmad-document-project" in r.out
+
+    def test_a_bmad_dir_it_never_recorded_is_left_alone(
+            self, boost, sandbox, monkeypatch, proj):
+        mine = sandbox / ".claude" / "skills" / "bmad-my-own"
+        mine.mkdir(parents=True)
+        _installer(monkeypatch, "bmad-help")
+        boost("bmad", "install", "--scope", "global")
+        boost("bmad", "install", "--scope", "global")
+        assert mine.is_dir()
+
+    def test_a_first_install_with_no_record_removes_nothing(
+            self, boost, sandbox, monkeypatch, proj):
+        old = sandbox / ".claude" / "skills" / "bmad-document-project"
+        old.mkdir(parents=True)
+        _installer(monkeypatch, "bmad-help")
+        r = boost("bmad", "install", "--scope", "global")
+        assert old.is_dir() and "no longer installs" not in r.out
+
+    @pytest.mark.parametrize("record", [
+        ["bmad-gone", "../escape", "bmad-x/../../escape", 7],
+        "bmad-gone",
+    ])
+    def test_a_hand_edited_record_cannot_steer_the_delete(
+            self, boost, sandbox, monkeypatch, proj, record):
+        escape = sandbox / ".claude" / "escape"
+        escape.mkdir(parents=True)
+        gone = sandbox / ".claude" / "skills" / "bmad-gone"
+        gone.mkdir(parents=True)
+        bmad._set_scope_state("global", skill_list=record)
+        _installer(monkeypatch, "bmad-help")
+        boost("bmad", "install", "--scope", "global")
+        assert escape.is_dir()
+        assert gone.is_dir() == (not isinstance(record, list))
+
+    def test_a_narrower_module_set_retires_nothing(
+            self, boost, sandbox, monkeypatch, proj):
+        """`--modules` defaults to bmm, so the natural reinstall stages less
+        than the last one did — and every other module's skill would read as
+        retired by the release and be deleted."""
+        _installer(monkeypatch, "bmad-help", "bmad-brainstorm")
+        boost("bmad", "install", "--scope", "global", "--modules", "bmm,cis")
+        _installer(monkeypatch, "bmad-help")
+        r = boost("bmad", "install", "--scope", "global")
+        assert self._skills(sandbox) == {"bmad-help", "bmad-brainstorm"}
+        assert "no longer installs" not in r.out
+
+    def test_the_same_module_set_still_retires(
+            self, boost, sandbox, monkeypatch, proj):
+        _installer(monkeypatch, "bmad-help", "bmad-brainstorm")
+        boost("bmad", "install", "--scope", "global", "--modules", "bmm,cis")
+        _installer(monkeypatch, "bmad-help")
+        r = boost("bmad", "install", "--scope", "global", "--modules", "bmm,cis")
+        assert self._skills(sandbox) == {"bmad-help"}
+        assert "no longer installs: bmad-brainstorm" in r.out
+
+    def test_a_wider_module_set_still_retires(
+            self, boost, sandbox, monkeypatch, proj):
+        _installer(monkeypatch, "bmad-help", "bmad-old")
+        boost("bmad", "install", "--scope", "global")
+        _installer(monkeypatch, "bmad-help")
+        r = boost("bmad", "install", "--scope", "global", "--modules", "bmm,cis")
+        assert self._skills(sandbox) == {"bmad-help"}
+        assert "no longer installs: bmad-old" in r.out
+
+    def test_names_the_skills_that_need_bmad_init(
+            self, boost, sandbox, monkeypatch, proj):
+        _installer(monkeypatch, "bmad-build", "bmad-build-auto", "bmad-help")
+        r = boost("bmad", "install", "--scope", "global")
+        assert "bmad-build and bmad-build-auto halt without a per-repo _bmad/" in (
+            r.out + r.err)
+        assert "boost bmad init" in r.out + r.err
+
+    def test_without_those_skills_it_only_points_at_init(
+            self, boost, sandbox, monkeypatch, proj):
+        _installer(monkeypatch, "bmad-help")
+        r = boost("bmad", "install", "--scope", "global")
+        assert "halt without" not in r.out + r.err
+        assert "boost bmad init" in r.out
+
     def test_corrupt_state_file_ignored(self, boost, sandbox, proj):
         sp = bmad._state_path()
         sp.parent.mkdir(parents=True, exist_ok=True)
@@ -291,6 +412,17 @@ class TestDoctor:
         r = boost("bmad", "doctor")
         assert "autopilot=on" in r.out
         assert "%d personas" % len(core_bmad.PERSONAS) in r.out
+
+    def test_an_old_briefing_hook_is_reported_as_stale(
+            self, boost, sandbox, proj):
+        """The matcher lives in the user's settings.json from their last `on`,
+        so an install from before `compact` never forgets a compacted session."""
+        boost("bmad", "on")
+        assert "stale matcher" not in boost("bmad", "doctor").out
+        cs.add_hook("global", "SessionStart", bmad.HOOK_NAME, "x",
+                    matcher="startup|resume|clear")
+        r = boost("bmad", "doctor")
+        assert "stale matcher: re-run `boost bmad on`" in r.out
 
     def test_autopilot_reads_as_off_when_the_hook_is_gone(
             self, boost, sandbox, proj):
@@ -357,7 +489,8 @@ class TestAutopilotOn:
             p.slug for p in core_bmad.PERSONAS)
         assert cs.has_hook("global", "SessionStart", "bmad")
         assert cs.has_hook("global", "UserPromptSubmit", "bmad-route")
-        assert "bmad route" in _hook_cmd("global", "UserPromptSubmit", "bmad-route")
+        assert "bmad route --scope global" in _hook_cmd(
+            "global", "UserPromptSubmit", "bmad-route")
         assert "bmad orient --scope global" in _hook_cmd(
             "global", "SessionStart", "bmad")
 
@@ -367,6 +500,13 @@ class TestAutopilotOn:
         assert "BMAD autopilot ON" in r.out
         # the agents dir is only watched if it existed at launch
         assert "restart" in r.out.lower()
+
+    def test_no_restart_is_asked_for_when_the_agents_dir_already_existed(
+            self, boost, sandbox, proj):
+        """An agents dir open sessions already watch picks new files up live."""
+        (sandbox / ".claude" / "agents").mkdir(parents=True)
+        r = boost("bmad", "on")
+        assert "restart" not in r.out.lower()
 
     def test_both_hooks_cannot_report_failure(self, boost, sandbox, proj):
         """A boost older than this change does not know `bmad route` and exits
@@ -401,6 +541,8 @@ class TestAutopilotOn:
         assert not (sandbox / ".claude" / "agents").exists()
         assert cs.has_hook("project", "UserPromptSubmit", "bmad-route",
                            project_dir=proj)
+        assert "bmad route --scope project" in _hook_cmd(
+            "project", "UserPromptSubmit", "bmad-route", project_dir=proj)
 
     def test_does_not_disturb_a_users_own_hooks(self, boost, sandbox, proj):
         boost("hooks", "add", "UserPromptSubmit", "-c", "echo hi", "-n", "mine",
@@ -477,25 +619,65 @@ class TestRoute:
     def _pipe(self, monkeypatch, payload):
         monkeypatch.setattr(sys, "stdin", io.StringIO(payload))
 
-    def test_emits_the_hook_json_contract(self, boost, sandbox, monkeypatch, proj):
+    @pytest.mark.parametrize("host,event,lead", [
+        ([], "UserPromptSubmit", "`bmad-dev` subagent"),
+        (["--host", "claude"], "UserPromptSubmit", "`bmad-dev` subagent"),
+        (["--host", "gemini"], "BeforeAgent", "take the role of Amelia"),
+    ])
+    def test_emits_the_hook_json_contract(self, boost, sandbox, monkeypatch, proj,
+                                          host, event, lead):
+        boost("bmad", "on")
         (proj / "tests").mkdir()
         (proj / "Makefile").write_text("check:\n\ttrue\n", encoding="utf-8")
         self._pipe(monkeypatch, json.dumps({
-            "hook_event_name": "UserPromptSubmit",
+            "hook_event_name": event,
             "prompt": "implement the new export command",
             "cwd": str(proj)}))
 
-        r = boost("bmad", "route")
+        r = boost("bmad", "route", *host)
 
         payload = json.loads(r.out)
         ctx = payload["hookSpecificOutput"]["additionalContext"]
-        assert payload["hookSpecificOutput"]["hookEventName"] == "UserPromptSubmit"
-        assert "bmad-dev" in ctx and "Amelia" in ctx
+        assert payload["hookSpecificOutput"]["hookEventName"] == event
+        assert lead in ctx and "Amelia" in ctx
         assert "make check" in ctx and "tests/" in ctx
+
+    def test_gemini_gets_the_briefing_as_model_context_not_text(
+            self, boost, sandbox, proj):
+        """Plain stdout on Gemini is a message to the user, never context."""
+        boost("bmad", "on")
+        r = boost("bmad", "orient", "--scope", "global", "--host", "gemini")
+        payload = json.loads(r.out)["hookSpecificOutput"]
+        assert payload["hookEventName"] == "SessionStart"
+        assert "BMAD autopilot active" in payload["additionalContext"]
+        assert "~/.claude" not in payload["additionalContext"]
+        claude = boost("bmad", "orient", "--scope", "global")
+        assert claude.out.startswith("[BMAD autopilot active]")
+
+    def test_asking_by_hand_for_a_host_gets_that_host_s_banner(
+            self, boost, sandbox, proj):
+        """`--host` picked the envelope but not the dialect, so the only way to
+        preview Gemini's banner printed Claude's subagent wording inside it."""
+        r = boost("bmad", "route", "implement the new export command",
+                  "--host", "gemini", "--plain")
+        assert "take the role of Amelia" in r.out
+        assert "subagent" not in r.out
+        assert "`bmad-dev` subagent" in boost(
+            "bmad", "route", "implement the new export command", "--plain").out
+
+    def test_a_gemini_hook_keeps_no_session_record(
+            self, boost, sandbox, monkeypatch, proj):
+        boost("bmad", "on")
+        for _ in range(2):
+            self._pipe(monkeypatch, json.dumps({
+                "prompt": "implement the new export command", "cwd": str(proj),
+                "session_id": "g1"}))
+            assert "Amelia" in boost("bmad", "route", "--host", "gemini").out
 
     def test_uses_the_cwd_the_hook_reports_not_its_own(
             self, boost, sandbox, monkeypatch, tmp_path, proj):
         """The hook may run anywhere; `cwd` from stdin is the project."""
+        boost("bmad", "on")
         elsewhere = tmp_path / "elsewhere"
         (elsewhere / "spec").mkdir(parents=True)
         self._pipe(monkeypatch, json.dumps({
@@ -505,6 +687,7 @@ class TestRoute:
 
     def test_trivial_prompts_produce_no_output_at_all(
             self, boost, sandbox, monkeypatch, proj):
+        boost("bmad", "on")
         self._pipe(monkeypatch, json.dumps({"prompt": "what is a tap?"}))
         r = boost("bmad", "route")
         assert r.out == "" and r.rc == 0
@@ -572,11 +755,241 @@ class TestRoute:
 
     def test_a_project_signal_failure_still_exits_zero(
             self, boost, sandbox, monkeypatch, proj):
-        monkeypatch.setattr(core_bmad, "project_signals",
-                            lambda _root: (_ for _ in ()).throw(RuntimeError("nope")))
+        boost("bmad", "on")
+        called = []
+
+        def explode(_root):
+            called.append("signals")
+            raise RuntimeError("nope")
+
+        monkeypatch.setattr(core_bmad, "project_signals", explode)
         self._pipe(monkeypatch, json.dumps({"prompt": "implement the thing"}))
         r = boost("bmad", "route", expect=None)
-        assert r.rc == 0
+        assert called == ["signals"]       # the gate let it get that far
+        assert r.rc == 0 and r.out == ""
+
+
+class TestRouteRemembersTheSession:
+    """A banner the session already holds is not sent again.
+
+    The hook is handed `session_id` and used to drop it, so every prompt was
+    judged as if it opened a session: a same-track follow-up re-sent ~650 chars
+    the model already had, and "sure, add a test for that too" handed the lead
+    to Murat mid-task.
+    """
+
+    def _hook(self, boost, monkeypatch, proj, prompt, session="s1", **extra):
+        payload = {"prompt": prompt, "cwd": str(proj), "session_id": session}
+        payload.update(extra)
+        monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(payload)))
+        return boost("bmad", "route", expect=None).out
+
+    def test_the_same_track_twice_in_one_session_is_one_banner(
+            self, boost, sandbox, monkeypatch, proj):
+        boost("bmad", "on")
+        assert "track: build" in self._hook(
+            boost, monkeypatch, proj, "implement the export command")
+        assert self._hook(boost, monkeypatch, proj,
+                          "refactor the export command too") == ""
+
+    def test_a_new_session_gets_its_own_banner(
+            self, boost, sandbox, monkeypatch, proj):
+        boost("bmad", "on")
+        self._hook(boost, monkeypatch, proj, "implement the export command")
+        assert "track: build" in self._hook(
+            boost, monkeypatch, proj, "implement the export command", "s2")
+
+    def test_a_new_track_is_news(self, boost, sandbox, monkeypatch, proj):
+        boost("bmad", "on")
+        self._hook(boost, monkeypatch, proj, "implement the export command")
+        assert "track: quality" in self._hook(
+            boost, monkeypatch, proj, "add tests for the export command")
+
+    def test_a_reply_continues_the_task_it_answers(
+            self, boost, sandbox, monkeypatch, proj):
+        boost("bmad", "on")
+        self._hook(boost, monkeypatch, proj, "implement the export command")
+        assert self._hook(boost, monkeypatch, proj,
+                          "sure, add a test for that too") == ""
+
+    def test_a_trivial_prompt_leaves_no_record(
+            self, boost, sandbox, monkeypatch, proj):
+        boost("bmad", "on")
+        self._hook(boost, monkeypatch, proj, "what is a tap?")
+        assert "track: build" in self._hook(
+            boost, monkeypatch, proj, "ok update both and rerun")
+
+    @pytest.mark.parametrize("source", ["clear", "compact"])
+    def test_clear_and_compact_forget_the_banner(
+            self, boost, sandbox, monkeypatch, proj, source):
+        boost("bmad", "on")
+        self._hook(boost, monkeypatch, proj, "implement the export command")
+        monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(
+            {"session_id": "s1", "source": source})))
+        boost("bmad", "orient", "--scope", "global")
+        assert "track: build" in self._hook(
+            boost, monkeypatch, proj, "refactor the export command too")
+
+    def test_resume_keeps_it(self, boost, sandbox, monkeypatch, proj):
+        boost("bmad", "on")
+        self._hook(boost, monkeypatch, proj, "implement the export command")
+        monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(
+            {"session_id": "s1", "source": "resume"})))
+        assert "BMAD autopilot active" in boost(
+            "bmad", "orient", "--scope", "global").out
+        assert self._hook(boost, monkeypatch, proj,
+                          "refactor the export command too") == ""
+
+    def test_gemini_gets_the_banner_every_turn(
+            self, boost, sandbox, monkeypatch, proj):
+        """Gemini appends hook context for one turn only."""
+        boost("bmad", "on")
+        for _ in range(2):
+            assert "track: build" in self._hook(
+                boost, monkeypatch, proj, "implement the export command",
+                hook_event_name="BeforeAgent")
+
+    @pytest.mark.parametrize("junk", ["{{{", "[]"])
+    def test_an_unreadable_record_file_costs_one_banner_not_the_hook(
+            self, boost, sandbox, monkeypatch, proj, junk):
+        boost("bmad", "on")
+        path = bmad._sessions_path()
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(junk, encoding="utf-8")
+        assert "track: build" in self._hook(
+            boost, monkeypatch, proj, "implement the export command")
+        assert json.loads(path.read_text(encoding="utf-8"))["s1"]["track"] == "build"
+
+    def test_an_unwritable_state_dir_costs_a_banner_not_the_router(
+            self, boost, sandbox, monkeypatch, proj):
+        """The record is written after the banner is built, so an escaping
+        OSError silenced every banner instead of repeating one."""
+        boost("bmad", "on")
+        monkeypatch.setattr(bmad.util, "atomic_write_text",
+                            lambda *a, **k: (_ for _ in ()).throw(OSError("full")))
+        for _ in range(2):
+            assert "track: build" in self._hook(
+                boost, monkeypatch, proj, "implement the export command")
+
+    def test_the_record_file_stays_bounded(
+            self, boost, sandbox, monkeypatch, proj):
+        boost("bmad", "on")
+        old = {"old%03d" % i: {"track": "build", "root": "/x",
+                               "at": "2020-01-01T00:00:%02dZ" % (i % 60)}
+               for i in range(bmad.SESSIONS_KEPT)}
+        bmad._sessions_write(old)
+        self._hook(boost, monkeypatch, proj, "implement the export command", "new")
+        kept = json.loads(bmad._sessions_path().read_text(encoding="utf-8"))
+        assert len(kept) == bmad.SESSIONS_KEPT and "new" in kept
+
+    def test_the_oldest_record_is_the_one_dropped(self, sandbox):
+        records = {"b": {"at": "2026-01-02"}, "a": {"at": "2026-01-01"},
+                   "junk": "not a record"}
+        records.update({"k%03d" % i: {"at": "2026-02-%02d" % (i % 28 + 1)}
+                        for i in range(bmad.SESSIONS_KEPT - 1)})
+        bmad._sessions_write(records)
+        kept = json.loads(bmad._sessions_path().read_text(encoding="utf-8"))
+        assert "junk" not in kept and "a" not in kept and "b" in kept
+
+
+class TestRouteFollowsAutopilotState:
+    """The router hook speaks only while the autopilot is on, like the briefing.
+
+    `off` used to be the only thing silencing it, and `off` works by deleting
+    the hook — so any copy it missed kept routing with the autopilot reading as
+    off everywhere else.
+    """
+
+    PROMPT = "implement the new export command"
+
+    def _hook(self, boost, monkeypatch, cwd, *argv):
+        monkeypatch.setattr(sys, "stdin", io.StringIO(json.dumps(
+            {"prompt": self.PROMPT, "cwd": str(cwd)})))
+        return boost("bmad", "route", *argv, expect=None)
+
+    def test_a_hook_is_silent_while_the_autopilot_is_off(
+            self, boost, sandbox, monkeypatch, proj):
+        r = self._hook(boost, monkeypatch, proj)
+        assert r.rc == 0 and r.out == ""
+
+    def test_a_hook_that_off_missed_stays_silent(
+            self, boost, sandbox, monkeypatch, proj):
+        """The restore-net repro: a settings snapshot holding only the router."""
+        boost("bmad", "on")
+        boost("bmad", "off")
+        r = self._hook(boost, monkeypatch, proj, "--scope", "global")
+        assert r.rc == 0 and r.out == ""
+
+    def test_a_second_checkout_does_not_route_on_the_first_ones_state(
+            self, boost, sandbox, monkeypatch, tmp_path, proj):
+        """A committed project hook, run in a copy whose state was never set."""
+        boost("bmad", "on", "--scope", "project")
+        copy = tmp_path / "copy"
+        copy.mkdir()
+        assert self._hook(boost, monkeypatch, copy, "--scope", "project").out == ""
+        r = self._hook(boost, monkeypatch, proj, "--scope", "project")
+        assert "bmad-dev" in r.out
+
+    def test_project_state_is_keyed_by_the_hook_cwd_not_the_process_cwd(
+            self, boost, sandbox, monkeypatch, tmp_path, proj):
+        boost("bmad", "on", "--scope", "project")
+        elsewhere = tmp_path / "elsewhere"
+        elsewhere.mkdir()
+        monkeypatch.chdir(elsewhere)
+        r = self._hook(boost, monkeypatch, proj, "--scope", "project")
+        assert "bmad-dev" in r.out
+
+    def test_a_scoped_hook_ignores_the_other_scope(
+            self, boost, sandbox, monkeypatch, proj):
+        boost("bmad", "on")
+        assert self._hook(boost, monkeypatch, proj, "--scope", "project").out == ""
+        assert "bmad-dev" in self._hook(
+            boost, monkeypatch, proj, "--scope", "global").out
+
+    @pytest.mark.parametrize("scope", ["global", "project"])
+    def test_an_unscoped_hook_accepts_either_scope(
+            self, boost, sandbox, monkeypatch, proj, scope):
+        """Every install before this change wrote the hook without --scope."""
+        boost("bmad", "on", "--scope", scope)
+        assert "bmad-dev" in self._hook(boost, monkeypatch, proj).out
+
+    def test_a_corrupt_state_file_reads_as_off(
+            self, boost, sandbox, monkeypatch, proj):
+        boost("bmad", "on")
+        bmad._state_path().write_text("{{{", encoding="utf-8")
+        r = self._hook(boost, monkeypatch, proj)
+        assert r.rc == 0 and r.out == ""
+
+    def test_a_state_file_of_the_wrong_shape_reads_as_off(
+            self, boost, sandbox, monkeypatch, proj):
+        boost("bmad", "on")
+        bmad._state_path().write_text("[]", encoding="utf-8")
+        r = self._hook(boost, monkeypatch, proj)
+        assert r.rc == 0 and r.out == ""
+
+    def test_asking_by_hand_answers_whatever_the_state(
+            self, boost, sandbox, monkeypatch, proj):
+        assert "bmad-dev" in boost("bmad", "route", self.PROMPT).out
+        monkeypatch.setattr(sys, "stdin", io.StringIO(self.PROMPT))
+        assert "bmad-dev" in boost("bmad", "route", "--plain").out
+
+    def test_a_live_autopilot_whose_personas_are_gone_names_no_subagent(
+            self, boost, sandbox, monkeypatch, proj):
+        boost("bmad", "on")
+        for f in (sandbox / ".claude" / "agents").glob("*.md"):
+            f.unlink()
+        ctx = json.loads(self._hook(boost, monkeypatch, proj).out)[
+            "hookSpecificOutput"]["additionalContext"]
+        assert "Lead:" not in ctx and "Support:" not in ctx
+        assert "Done means" in ctx
+
+    def test_project_personas_count_for_a_global_hook(
+            self, boost, sandbox, monkeypatch, proj):
+        boost("bmad", "on")
+        boost("bmad", "on", "--scope", "project")
+        for f in (sandbox / ".claude" / "agents").glob("*.md"):
+            f.unlink()
+        assert "Lead: `bmad-dev`" in self._hook(boost, monkeypatch, proj).out
 
 
 class TestPersonas:

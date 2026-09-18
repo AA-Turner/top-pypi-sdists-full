@@ -1,25 +1,20 @@
 """
 Serialize and Deserialize in TOML format. This module depends on
-[tomli](https://github.com/hukkin/tomli) (for python==3.10) and
-[tomli-w](https://github.com/hukkin/tomli-w) packages.
+the standard library [tomllib](https://docs.python.org/3/library/tomllib.html) and
+[tomli-w](https://github.com/hukkin/tomli-w) package.
 """
 
-import sys
+import tomllib
 from typing import Any, overload
 
 import tomli_w
+from typing_extensions import TypeForm
 
 from .compat import T
 from .de import Deserializer, from_dict
 from .se import Serializer, to_dict
 
 __all__ = ["from_toml", "to_toml"]
-
-
-if sys.version_info[:2] >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
 
 
 class TomlSerializer(Serializer[str]):
@@ -73,7 +68,14 @@ def from_toml(
 ) -> T: ...
 
 
-# For Union, Optional etc.
+# For Union, Optional, list[Foo] and other type expressions (PEP 747).
+@overload
+def from_toml(
+    c: TypeForm[T], s: str, de: type[Deserializer[str]] = TomlDeserializer, **opts: Any
+) -> T: ...
+
+
+# For tagging instances such as Untagged, InternalTagging and AdjacentTagging.
 @overload
 def from_toml(
     c: Any, s: str, de: type[Deserializer[str]] = TomlDeserializer, **opts: Any

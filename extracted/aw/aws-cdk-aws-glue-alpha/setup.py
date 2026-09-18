@@ -5,8 +5,8 @@ kwargs = json.loads(
     """
 {
     "name": "aws-cdk.aws-glue-alpha",
-    "version": "2.269.0.a0",
-    "description": "The CDK Construct Library for AWS::Glue",
+    "version": "2.270.0.a0",
+    "description": "This module is deprecated. All constructs are now available under aws-cdk-lib/aws-glue",
     "license": "Apache-2.0",
     "url": "https://github.com/aws/aws-cdk",
     "long_description_content_type": "text/markdown",
@@ -26,7 +26,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "aws_cdk.aws_glue_alpha._jsii": [
-            "aws-glue-alpha@2.269.0-alpha.0.jsii.tgz"
+            "aws-glue-alpha@2.270.0-alpha.0.jsii.tgz"
         ],
         "aws_cdk.aws_glue_alpha": [
             "py.typed"
@@ -34,7 +34,7 @@ kwargs = json.loads(
     },
     "python_requires": ">=3.10",
     "install_requires": [
-        "aws-cdk-lib>=2.269.0, <3.0.0",
+        "aws-cdk-lib>=2.270.0, <3.0.0",
         "constructs>=10.5.0, <11.0.0",
         "jsii>=1.139.0, <2.0.0",
         "publication>=0.0.3"
@@ -50,7 +50,7 @@ kwargs = json.loads(
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
         "Typing :: Typed",
-        "Development Status :: 4 - Beta",
+        "Development Status :: 7 - Inactive",
         "License :: OSI Approved",
         "Framework :: AWS CDK",
         "Framework :: AWS CDK :: 2"

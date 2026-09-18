@@ -9,6 +9,11 @@ FeeMarkupTypes = typing.Union[
         "next_day_bank_withdrawal_markup",
         "bank_wire_withdrawal_markup",
         "digital_wallet_withdrawal_markup",
+        "transfer_markup",
+        "crypto_deposit_markup",
+        "bank_deposit_markup",
+        "crypto_swap_markup",
+        "payment_markup",
     ],
     typing.Any,
 ]

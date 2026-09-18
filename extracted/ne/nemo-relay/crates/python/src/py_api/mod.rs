@@ -27,6 +27,7 @@ use nemo_relay::api::runtime::{
 use nemo_relay::api::runtime::{
     TASK_SCOPE_STACK, capture_propagation_context as capture_propagation_context_handle,
     capture_propagation_context_with_root as capture_propagation_context_with_root_handle,
+    capture_rootless_propagation_context as capture_rootless_propagation_context_handle,
     capture_thread_scope_stack as capture_thread_scope_stack_handle,
     capture_traceparent as capture_traceparent_handle,
     create_scope_stack as create_scope_stack_handle,
@@ -454,6 +455,14 @@ pub fn create_scope_stack() -> PyScopeStack {
 #[pyfunction]
 pub fn capture_propagation_context() -> PyResult<PyPropagationContext> {
     capture_propagation_context_handle()
+        .map(|inner| PyPropagationContext { inner })
+        .map_err(to_py_err)
+}
+
+/// Capture a context without a propagation root UUID.
+#[pyfunction]
+pub fn capture_rootless_propagation_context() -> PyResult<PyPropagationContext> {
+    capture_rootless_propagation_context_handle()
         .map(|inner| PyPropagationContext { inner })
         .map_err(to_py_err)
 }
@@ -1548,8 +1557,8 @@ py_intercept_tool_api!(
 
 /// Register a tool execution intercept that can replace the tool function.
 ///
-/// ``callable``: ``async (args: Any, next) -> Any`` — middleware intercept function.
-/// Call ``await next(args)`` to invoke the next intercept or original
+/// ``callable``: ``async (context: ToolExecutionContext, next) -> Any``.
+/// Call ``await next(context.args)`` to invoke the next intercept or original
 /// implementation; skip calling ``next`` to short-circuit.
 #[pyfunction]
 fn register_tool_execution_intercept(
@@ -2296,6 +2305,7 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     // Scope stack creation / binding / query
     m.add_function(wrap_pyfunction!(create_scope_stack, m)?)?;
     m.add_function(wrap_pyfunction!(capture_propagation_context, m)?)?;
+    m.add_function(wrap_pyfunction!(capture_rootless_propagation_context, m)?)?;
     m.add_function(wrap_pyfunction!(capture_propagation_context_with_root, m)?)?;
     m.add_function(wrap_pyfunction!(capture_traceparent, m)?)?;
     m.add_function(wrap_pyfunction!(create_scope_stack_from_propagation, m)?)?;

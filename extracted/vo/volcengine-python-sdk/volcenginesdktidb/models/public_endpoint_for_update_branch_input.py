@@ -33,7 +33,7 @@ class PublicEndpointForUpdateBranchInput(object):
                             and the value is json key in definition.
     """
     swagger_types = {
-        'authorized_networks': 'list[ConvertAuthorizedNetworkForUpdateBranchInput]',
+        'authorized_networks': 'list[AuthorizedNetworkForUpdateBranchInput]',
         'disabled': 'bool',
         'host': 'str',
         'port': 'int'
@@ -73,7 +73,7 @@ class PublicEndpointForUpdateBranchInput(object):
 
 
         :return: The authorized_networks of this PublicEndpointForUpdateBranchInput.  # noqa: E501
-        :rtype: list[ConvertAuthorizedNetworkForUpdateBranchInput]
+        :rtype: list[AuthorizedNetworkForUpdateBranchInput]
         """
         return self._authorized_networks
 
@@ -83,7 +83,7 @@ class PublicEndpointForUpdateBranchInput(object):
 
 
         :param authorized_networks: The authorized_networks of this PublicEndpointForUpdateBranchInput.  # noqa: E501
-        :type: list[ConvertAuthorizedNetworkForUpdateBranchInput]
+        :type: list[AuthorizedNetworkForUpdateBranchInput]
         """
 
         self._authorized_networks = authorized_networks

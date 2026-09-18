@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dbt
-Version: 2.0.4
+Version: 2.0.5
 Summary: Build analytics the way engineers build applications
 Requires-Python: >=3.11
 Requires-Dist: mashumaro[msgpack]>=3.14
@@ -16,13 +16,6 @@ Author-email: dbt Labs <info@dbtlabs.com>
 Description-Content-Type: text/markdown
 
 # dbt
-
-> **Note:** v2 of the dbt engine is now available, and ships as two distributions:
->
-> - `pip install dbt` (recommended) - installs the default distribution with the full feature set
-> - `pip install dbt-oss` - installs the subset distribution, with only Apache 2 open source code
->
-> With v2, you no longer need to install adapters separately, so you can remove `pip install dbt-<adapter>` from your installation. [See the install docs](https://docs.getdbt.com/docs/local/install-dbt?utm_source=dbt-cli) to get started.
 
 **[dbt](https://www.getdbt.com/)** enables data analysts and engineers to transform their data using the same practices that software engineers use to build applications.
 

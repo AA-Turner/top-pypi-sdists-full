@@ -96,16 +96,16 @@ class RawPlansClient:
             Only return plans created after this timestamp.
 
         first : typing.Optional[int]
-            The number of plans to return (default and max 100).
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            A cursor; returns plans after this position.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            The number of plans to return from the end of the range.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            A cursor; returns plans before this position.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -234,7 +234,7 @@ class RawPlansClient:
         Parameters
         ----------
         account_id : typing.Optional[str]
-            The unique identifier of the account to create this plan for. Defaults to the caller's account.
+            The unique identifier of the account to create this plan for. Required when authenticating as a user; an account API key supplies its own account.
 
         adaptive_pricing_enabled : typing.Optional[bool]
             Whether this plan accepts local currency payments via adaptive pricing.
@@ -261,7 +261,7 @@ class RawPlansClient:
             An image displayed on the product page to represent this plan.
 
         initial_price : typing.Optional[float]
-            Initial amount charged in the plan's currency, e.g. 10.43 for $10.43.
+            Initial amount charged in the plan's currency, e.g. 10.43 for $10.43. A paid fiat plan charges at least 1.00 in its currency; use 0 for free.
 
         internal_notes : typing.Optional[str]
             Private notes visible only to the account owner. Not shown to customers.
@@ -285,7 +285,7 @@ class RawPlansClient:
             Sales method for this plan.
 
         renewal_price : typing.Optional[float]
-            The amount charged each billing period for recurring plans, in the plan's currency.
+            The amount charged each billing period for recurring plans, in the plan's currency. A paid fiat plan charges at least 1.00 in its currency.
 
         split_pay_required_payments : typing.Optional[int]
             Installment payments required before the subscription pauses.
@@ -294,7 +294,7 @@ class RawPlansClient:
             The maximum number of units available for purchase. Ignored when unlimited_stock is true.
 
         three_ds_level : typing.Optional[CreatePlansRequestThreeDsLevel]
-            3D Secure behavior for this plan. Send `null` to inherit the account default.
+            3D Secure behavior for supported on-session card payments. `mandate_challenge` requires a 3DS challenge before payment processing; `mandate_if_required` mandates a challenge only when the payment processor requires it; `frictionless_if_required` uses the regular frictionless 3DS flow. Payments of $1,000 or more use `mandate_if_required` unless `mandate_challenge` is selected. Risk and authentication recovery requirements can override the preference. Send `null` to inherit the account default.
 
         title : typing.Optional[str]
             The display name of the plan shown to customers on the product page.
@@ -470,7 +470,7 @@ class RawPlansClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> HttpResponse[DeletePlansResponse]:
         """
-        Permanently delete a plan from a product. Existing memberships on this plan will not be affected.
+        Delete a plan from a product. It stops selling immediately; existing memberships on this plan will not be affected.
 
         Parameters
         ----------
@@ -591,7 +591,7 @@ class RawPlansClient:
             An image displayed on the product page to represent this plan.
 
         initial_price : typing.Optional[float]
-            Initial amount charged in the plan's currency, e.g. 10.43 for $10.43.
+            Initial amount charged in the plan's currency, e.g. 10.43 for $10.43. A paid fiat plan charges at least 1.00 in its currency; use 0 for free.
 
         internal_notes : typing.Optional[str]
             Private notes visible only to the account owner. Not shown to customers.
@@ -612,7 +612,7 @@ class RawPlansClient:
             Sales method for this plan.
 
         renewal_price : typing.Optional[float]
-            The amount charged each billing period for recurring plans, in the plan's currency.
+            The amount charged each billing period for recurring plans, in the plan's currency. A paid fiat plan charges at least 1.00 in its currency.
 
         stock : typing.Optional[int]
             The maximum number of units available for purchase. Ignored when unlimited_stock is true.
@@ -624,7 +624,7 @@ class RawPlansClient:
             A comparison price displayed with a strikethrough for the renewal price.
 
         three_ds_level : typing.Optional[UpdatePlansRequestThreeDsLevel]
-            3D Secure behavior for this plan. Send `null` to inherit the account default.
+            3D Secure behavior for supported on-session card payments. `mandate_challenge` requires a 3DS challenge before payment processing; `mandate_if_required` mandates a challenge only when the payment processor requires it; `frictionless_if_required` uses the regular frictionless 3DS flow. Payments of $1,000 or more use `mandate_if_required` unless `mandate_challenge` is selected. Risk and authentication recovery requirements can override the preference. Send `null` to inherit the account default.
 
         title : typing.Optional[str]
             The display name of the plan shown to customers on the product page.
@@ -907,16 +907,16 @@ class AsyncRawPlansClient:
             Only return plans created after this timestamp.
 
         first : typing.Optional[int]
-            The number of plans to return (default and max 100).
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            A cursor; returns plans after this position.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            The number of plans to return from the end of the range.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            A cursor; returns plans before this position.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1048,7 +1048,7 @@ class AsyncRawPlansClient:
         Parameters
         ----------
         account_id : typing.Optional[str]
-            The unique identifier of the account to create this plan for. Defaults to the caller's account.
+            The unique identifier of the account to create this plan for. Required when authenticating as a user; an account API key supplies its own account.
 
         adaptive_pricing_enabled : typing.Optional[bool]
             Whether this plan accepts local currency payments via adaptive pricing.
@@ -1075,7 +1075,7 @@ class AsyncRawPlansClient:
             An image displayed on the product page to represent this plan.
 
         initial_price : typing.Optional[float]
-            Initial amount charged in the plan's currency, e.g. 10.43 for $10.43.
+            Initial amount charged in the plan's currency, e.g. 10.43 for $10.43. A paid fiat plan charges at least 1.00 in its currency; use 0 for free.
 
         internal_notes : typing.Optional[str]
             Private notes visible only to the account owner. Not shown to customers.
@@ -1099,7 +1099,7 @@ class AsyncRawPlansClient:
             Sales method for this plan.
 
         renewal_price : typing.Optional[float]
-            The amount charged each billing period for recurring plans, in the plan's currency.
+            The amount charged each billing period for recurring plans, in the plan's currency. A paid fiat plan charges at least 1.00 in its currency.
 
         split_pay_required_payments : typing.Optional[int]
             Installment payments required before the subscription pauses.
@@ -1108,7 +1108,7 @@ class AsyncRawPlansClient:
             The maximum number of units available for purchase. Ignored when unlimited_stock is true.
 
         three_ds_level : typing.Optional[CreatePlansRequestThreeDsLevel]
-            3D Secure behavior for this plan. Send `null` to inherit the account default.
+            3D Secure behavior for supported on-session card payments. `mandate_challenge` requires a 3DS challenge before payment processing; `mandate_if_required` mandates a challenge only when the payment processor requires it; `frictionless_if_required` uses the regular frictionless 3DS flow. Payments of $1,000 or more use `mandate_if_required` unless `mandate_challenge` is selected. Risk and authentication recovery requirements can override the preference. Send `null` to inherit the account default.
 
         title : typing.Optional[str]
             The display name of the plan shown to customers on the product page.
@@ -1286,7 +1286,7 @@ class AsyncRawPlansClient:
         self, id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> AsyncHttpResponse[DeletePlansResponse]:
         """
-        Permanently delete a plan from a product. Existing memberships on this plan will not be affected.
+        Delete a plan from a product. It stops selling immediately; existing memberships on this plan will not be affected.
 
         Parameters
         ----------
@@ -1407,7 +1407,7 @@ class AsyncRawPlansClient:
             An image displayed on the product page to represent this plan.
 
         initial_price : typing.Optional[float]
-            Initial amount charged in the plan's currency, e.g. 10.43 for $10.43.
+            Initial amount charged in the plan's currency, e.g. 10.43 for $10.43. A paid fiat plan charges at least 1.00 in its currency; use 0 for free.
 
         internal_notes : typing.Optional[str]
             Private notes visible only to the account owner. Not shown to customers.
@@ -1428,7 +1428,7 @@ class AsyncRawPlansClient:
             Sales method for this plan.
 
         renewal_price : typing.Optional[float]
-            The amount charged each billing period for recurring plans, in the plan's currency.
+            The amount charged each billing period for recurring plans, in the plan's currency. A paid fiat plan charges at least 1.00 in its currency.
 
         stock : typing.Optional[int]
             The maximum number of units available for purchase. Ignored when unlimited_stock is true.
@@ -1440,7 +1440,7 @@ class AsyncRawPlansClient:
             A comparison price displayed with a strikethrough for the renewal price.
 
         three_ds_level : typing.Optional[UpdatePlansRequestThreeDsLevel]
-            3D Secure behavior for this plan. Send `null` to inherit the account default.
+            3D Secure behavior for supported on-session card payments. `mandate_challenge` requires a 3DS challenge before payment processing; `mandate_if_required` mandates a challenge only when the payment processor requires it; `frictionless_if_required` uses the regular frictionless 3DS flow. Payments of $1,000 or more use `mandate_if_required` unless `mandate_challenge` is selected. Risk and authentication recovery requirements can override the preference. Send `null` to inherit the account default.
 
         title : typing.Optional[str]
             The display name of the plan shown to customers on the product page.

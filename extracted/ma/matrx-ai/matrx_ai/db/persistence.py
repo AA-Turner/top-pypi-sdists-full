@@ -1311,36 +1311,29 @@ async def persist_completed_request(
         # the rollup is derived once on the final commit (and on cancel via
         # the shield-persist path) — always recomputable from those rows.
         if _should_persist and is_final and user_request_id and _is_valid_uuid(user_request_id):
-            # Compute aggregate IN-MEMORY from req_list. Previously this
-            # read every cx_request row under user_request_id from the DB —
-            # which no longer works because the rows are queued in the
-            # coordinator (not yet flushed). Each persist_completed_request
-            # call covers one execute_until_complete invocation, and each
-            # invocation produces a unique request_id (== user_request_id).
-            # Multi-call workflows on the same user_request_id are not the
-            # supported pattern — when they happen, the second call's
-            # aggregate will reflect only that call's req_list, and the
-            # coordinator's UPDATE coalesces in last-write-wins fashion.
-            agg_input = agg_output = agg_cached = agg_total_tokens = 0
+            # THIS CALL's cost, for metadata only — never for the parent's
+            # columns. Those are derived by the database from the cx_request
+            # children (migration 0791); see the note on ur_update_data below
+            # for why assigning them here was a last-write-wins money bug.
+            #
+            # What survives is the honest caveat: when a child's cost is
+            # unknown, the row says so out loud (cost_reconciliation) and
+            # carries the subtotal we DO know, rather than reporting a total
+            # that silently omits it.
+            # agg_input / agg_output / agg_cached stay because the cache-state
+            # phase below reports THIS call's own last-request token split —
+            # that is a per-call fact, not a parent total, so it is not derived.
+            agg_input = agg_output = agg_cached = 0
             agg_cost = 0.0
             agg_cost_unknown = False
-            agg_api_ms = agg_tool_ms = agg_total_ms = 0
-            agg_tool_calls = 0
-            agg_iterations = 0
             for r in req_list:
                 agg_input += int(r.get("input_tokens") or 0)
                 agg_output += int(r.get("output_tokens") or 0)
                 agg_cached += int(r.get("cached_tokens") or 0)
-                agg_total_tokens += int(r.get("total_tokens") or 0)
                 if r.get("cost") is None:
                     agg_cost_unknown = True
                 else:
                     agg_cost += float(r["cost"])
-                agg_api_ms += int(r.get("api_duration_ms") or 0)
-                agg_tool_ms += int(r.get("tool_duration_ms") or 0)
-                agg_total_ms += int(r.get("total_duration_ms") or 0)
-                agg_tool_calls += int(r.get("tool_calls_count") or 0)
-                agg_iterations += 1
 
             # Prior usage_by_model: when running outside the coordinator,
             # read existing metadata for the row. When running through the
@@ -1396,17 +1389,30 @@ async def persist_completed_request(
             if merged_by_model:
                 request_metadata["usage_by_model"] = merged_by_model
 
+            # 🚨 THE TOTALS ARE NOT WRITTEN HERE — they are DERIVED (migration
+            # 0791). Every one of total_cost / total_*_tokens / *_duration_ms /
+            # iterations / total_tool_calls is maintained by the
+            # `_propagate_totals` trigger on chat.request, which applies each
+            # child row's signed contribution to the parent.
+            #
+            # Assigning them here was a LAST-WRITE-WINS money bug. This
+            # function computes its aggregate from `req_list` — the ONE
+            # execute_ai_request call it is persisting — so when several calls
+            # share a cx_user_request (every batch job, workflow, fan-out
+            # mandate and multi-step agent), each call overwrote the parent
+            # with just its own numbers and the earlier calls' money vanished.
+            # Not merely a concurrency race: a purely sequential second call
+            # overwrote the first just as completely. Measured before the fix:
+            # 650 parent rows wrong, $328.39 of real spend under-reported,
+            # from 2026-04-26 onward — under-reporting the admin usage rollup,
+            # the ONE spend ledger behind the Spend Explorer, the cx-dashboard,
+            # and the 6h/24h spend ceilings fed by fn_cx_user_usage_summary_apply.
+            #
+            # The aggregate is still computed above, but ONLY to describe this
+            # call in metadata (cost_reconciliation / known_cost_subtotal).
+            # Re-adding any of these keys re-opens the defect; the guard
+            # scripts/check_user_request_totals_derived.py fails on it.
             ur_update_data: dict[str, Any] = {
-                "total_input_tokens": agg_input,
-                "total_output_tokens": agg_output,
-                "total_cached_tokens": agg_cached,
-                "total_tokens": agg_total_tokens,
-                "total_cost": None if agg_cost_unknown else round(agg_cost, 6),
-                "api_duration_ms": agg_api_ms,
-                "tool_duration_ms": agg_tool_ms,
-                "total_duration_ms": agg_total_ms,
-                "iterations": agg_iterations,
-                "total_tool_calls": agg_tool_calls,
                 "status": ur_data.get("status", "completed"),
                 "completed_at": now,
                 "metadata": request_metadata,

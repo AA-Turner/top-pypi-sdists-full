@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: FLAML
-Version: 2.6.0
+Version: 2.7.0
 Summary: A fast library for automated machine learning and tuning
 Author-email: Microsoft Corporation <hpo@microsoft.com>
 License: MIT
@@ -31,8 +31,8 @@ Requires-Dist: pandas<3; extra == "spark"
 Requires-Dist: joblibspark>=0.5.0; extra == "spark"
 Requires-Dist: joblib<=1.3.2; extra == "spark"
 Provides-Extra: test
-Requires-Dist: numpy<2.0.0,>=1.17; python_version < "3.13" and extra == "test"
-Requires-Dist: numpy>=1.17; python_version >= "3.13" and extra == "test"
+Requires-Dist: numpy<2.0.0,>=1.17; (python_version < "3.13" and (sys_platform != "win32" or platform_machine != "ARM64")) and extra == "test"
+Requires-Dist: numpy>=1.17; (python_version >= "3.13" or (sys_platform == "win32" and platform_machine == "ARM64")) and extra == "test"
 Requires-Dist: jupyter; extra == "test"
 Requires-Dist: lightgbm>=2.3.1; extra == "test"
 Requires-Dist: xgboost<2.0.0,>=0.90; python_version < "3.11" and extra == "test"
@@ -40,34 +40,37 @@ Requires-Dist: xgboost>=2.0.0; python_version >= "3.11" and extra == "test"
 Requires-Dist: scipy>=1.4.1; extra == "test"
 Requires-Dist: pandas>=1.1.4; extra == "test"
 Requires-Dist: scikit-learn>=1.2.0; extra == "test"
-Requires-Dist: thop; extra == "test"
+Requires-Dist: thop; (sys_platform != "win32" or platform_machine != "ARM64") and extra == "test"
 Requires-Dist: pytest>=6.1.1; extra == "test"
 Requires-Dist: pytest-rerunfailures>=13.0; extra == "test"
+Requires-Dist: pytest-asyncio; (sys_platform == "win32" and platform_machine == "ARM64") and extra == "test"
 Requires-Dist: coverage>=5.3; extra == "test"
 Requires-Dist: pre-commit; extra == "test"
-Requires-Dist: torch; extra == "test"
-Requires-Dist: torchvision; extra == "test"
-Requires-Dist: catboost>=0.26; extra == "test"
+Requires-Dist: torch; (sys_platform != "win32" or platform_machine != "ARM64") and extra == "test"
+Requires-Dist: torchvision; (sys_platform != "win32" or platform_machine != "ARM64") and extra == "test"
+Requires-Dist: catboost>=0.26; (sys_platform != "win32" or platform_machine != "ARM64") and extra == "test"
 Requires-Dist: rgf-python; extra == "test"
 Requires-Dist: optuna<=3.6.1,>=2.8.0; extra == "test"
-Requires-Dist: openml; extra == "test"
+Requires-Dist: openml; (sys_platform != "win32" or platform_machine != "ARM64") and extra == "test"
 Requires-Dist: statsmodels>=0.12.2; extra == "test"
 Requires-Dist: psutil; extra == "test"
-Requires-Dist: transformers[torch]; extra == "test"
-Requires-Dist: datasets; extra == "test"
-Requires-Dist: evaluate; extra == "test"
+Requires-Dist: transformers[torch]; (sys_platform != "win32" or platform_machine != "ARM64") and extra == "test"
+Requires-Dist: transformers; (sys_platform == "win32" and platform_machine == "ARM64") and extra == "test"
+Requires-Dist: datasets; (sys_platform != "win32" or platform_machine != "ARM64") and extra == "test"
+Requires-Dist: evaluate; (sys_platform != "win32" or platform_machine != "ARM64") and extra == "test"
 Requires-Dist: nltk!=3.8.2; extra == "test"
 Requires-Dist: rouge_score; extra == "test"
 Requires-Dist: hcrystalball; extra == "test"
 Requires-Dist: seqeval; extra == "test"
-Requires-Dist: pytorch-forecasting; extra == "test"
+Requires-Dist: pytorch-forecasting; (sys_platform != "win32" or platform_machine != "ARM64") and extra == "test"
+Requires-Dist: cryptography==46.0.3; (sys_platform == "win32" and platform_machine == "ARM64") and extra == "test"
 Requires-Dist: mlflow-skinny<=2.22.1; extra == "test"
 Requires-Dist: joblibspark>=0.5.0; extra == "test"
 Requires-Dist: joblib<=1.3.2; extra == "test"
 Requires-Dist: nbconvert; extra == "test"
 Requires-Dist: nbformat; extra == "test"
 Requires-Dist: ipykernel; extra == "test"
-Requires-Dist: pytorch-lightning; extra == "test"
+Requires-Dist: pytorch-lightning; (sys_platform != "win32" or platform_machine != "ARM64") and extra == "test"
 Requires-Dist: tensorboardX; extra == "test"
 Requires-Dist: requests; extra == "test"
 Requires-Dist: packaging; extra == "test"
@@ -142,6 +145,10 @@ Dynamic: license-file
     <br>
 </p>
 
+<p align="center">
+  <b>English</b> · <a href="https://github.com/microsoft/FLAML/blob/main/README.zh.md">简体中文</a>
+</p>
+
 :fire: FLAML supports AutoML and Hyperparameter Tuning in [Microsoft Fabric Data Science](https://learn.microsoft.com/en-us/fabric/data-science/automated-machine-learning-fabric). In addition, we've introduced Python 3.11+ support, along with a range of new estimators, and comprehensive integration with MLflow—thanks to contributions from the Microsoft Fabric product team.
 
 :fire: Heads-up: [AutoGen](https://microsoft.github.io/autogen/) has moved to a dedicated [GitHub repository](https://github.com/microsoft/autogen). FLAML no longer includes the `autogen` module—please use AutoGen directly.
@@ -202,7 +209,7 @@ automl.fit(X_train, y_train, task="classification", estimator_list=["lgbm"])
 from flaml import tune
 
 tune.run(
-    evaluation_function, config={…}, low_cost_partial_config={…}, time_budget_s=3600
+    evaluation_function, config={...}, low_cost_partial_config={...}, time_budget_s=3600
 )
 ```
 
@@ -237,7 +244,7 @@ This project welcomes contributions and suggestions. Most contributions require 
 Contributor License Agreement (CLA) declaring that you have the right to, and actually do, grant us
 the rights to use your contribution. For details, visit <https://cla.opensource.microsoft.com>.
 
-If you are new to GitHub [here](https://help.github.com/categories/collaborating-with-issues-and-pull-requests/) is a detailed help source on getting involved with development on GitHub.
+If you are new to GitHub [here](https://docs.github.com/en/pull-requests/collaborating-with-pull-requests) is a detailed help source on getting involved with development on GitHub.
 
 When you submit a pull request, a CLA bot will automatically determine whether you need to provide
 a CLA and decorate the PR appropriately (e.g., status check, comment). Simply follow the instructions

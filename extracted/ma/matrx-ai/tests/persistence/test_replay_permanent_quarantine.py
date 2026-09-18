@@ -29,6 +29,7 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from matrx_orm.exceptions import QueryTimeoutError
 from matrx_orm.session.fallback import (
     DIRECT_WRITE_PRESERVED_MARKER,
     DISK_SPILL_RECOVERED_MARKER,
@@ -417,6 +418,36 @@ async def test_transient_refusal_during_execute_burns_one_attempt_only(monkeypat
     ]
     assert report.quarantined_count == 0
     assert [c["kind"] for c in h.captured] == ["persistence_replay_failed"]
+
+
+@pytest.mark.asyncio
+async def test_replay_failure_capture_never_serializes_bound_arguments(monkeypatch) -> None:
+    """A replay retry cannot copy a snapshot prompt into system_error diagnostics."""
+    captured: dict[str, Any] = {}
+
+    async def capture_error(exc: Exception, **kwargs: Any) -> None:
+        captured["text"] = str(exc)
+        captured.update(kwargs)
+
+    import matrx_connect.streaming.error_capture as error_capture
+
+    monkeypatch.setattr(error_capture, "capture_error", capture_error)
+    private = "PRIVATE_SENTINEL"
+    await replay._capture_replay_failure(
+        QueryTimeoutError(
+            operation="execute_query",
+            query="INSERT INTO chat.request_snapshot (request_payload) VALUES ($1)",
+            args=[private],
+        ),
+        request_id="request-1",
+        rows=[_row("snapshot", "QueryTimeoutError: lock timeout")],
+        phase="execute",
+    )
+
+    assert private not in str(captured)
+    assert "Args:" not in str(captured)
+    assert captured["error_type"] == "QueryTimeoutError"
+    assert captured["text"] == "QueryTimeoutError: replay execution failed"
 
 
 # ── the accounting itself ────────────────────────────────────────────────────

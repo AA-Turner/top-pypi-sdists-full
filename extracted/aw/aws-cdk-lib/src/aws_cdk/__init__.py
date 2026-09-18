@@ -1718,6 +1718,19 @@ Validations.of(app).add_plugins(CloudFormationValidatePlugin(
 ))
 ```
 
+In addition to the validation engine's built-in rule set, the CDK ships its
+own default rules that catch cross-field and cross-resource misconfigurations
+which pass template validation but fail (or silently misbehave) at deployment
+time. These run automatically on every synth. Their findings are reported as
+warnings unless the `@aws-cdk/core:validateAgainstDefaultRules` context key is
+set to `true`, in which case they become errors and fail synthesis. Suppress an
+individual rule by its ID using the same `acknowledge` mechanism shown above
+(for example `CloudFormation-Validate::CDK-GameLift-001`).
+
+An explicitly registered `CloudFormationValidatePlugin` still runs the CDK
+default rules in addition to your custom rules; pass
+`includeDefaultRules: false` to opt out of the default rules entirely.
+
 ### Additional plugins
 
 You can also add custom plugins like [cdk-nag](https://github.com/cdklabs/cdk-nag) and
@@ -12797,18 +12810,24 @@ class CliCredentialsStackSynthesizerProps:
 @jsii.data_type(
     jsii_type="aws-cdk-lib.CloudFormationValidatePluginProps",
     jsii_struct_bases=[],
-    name_mapping={"guard_rules": "guardRules", "rego_rules": "regoRules"},
+    name_mapping={
+        "guard_rules": "guardRules",
+        "include_default_rules": "includeDefaultRules",
+        "rego_rules": "regoRules",
+    },
 )
 class CloudFormationValidatePluginProps:
     def __init__(
         self,
         *,
         guard_rules: typing.Optional[typing.Sequence[typing.Union["ValidationRuleSource", typing.Dict[builtins.str, typing.Any]]]] = None,
+        include_default_rules: typing.Optional[builtins.bool] = None,
         rego_rules: typing.Optional[typing.Sequence[typing.Union["ValidationRuleSource", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''Properties for configuring the CloudFormationValidatePlugin.
 
         :param guard_rules: Custom Guard rules to evaluate in addition to built-in rules. Default: - no guard rules
+        :param include_default_rules: Whether to evaluate the default Rego rules that ship with the CDK. Registering a ``CloudFormationValidatePlugin`` explicitly replaces the auto-registered default instance, so without this flag adding custom rules would silently drop the CDK default rules. Individual default rules can be suppressed by ID via ``Validations.of(scope).acknowledge()``. Default: true
         :param rego_rules: Custom Rego rules to evaluate in addition to built-in rules. Default: - no custom rules
 
         :exampleMetadata: fixture=validation-plugin infused
@@ -12832,10 +12851,13 @@ class CloudFormationValidatePluginProps:
         if __debug__:
             type_hints = cached_type_hints(_typecheckingstub__0ff4fc8fed74150e97452ce7e95e7fb94d42dc79d9e98f3d1f814f577a87c769)
             check_type(argname="argument guard_rules", value=guard_rules, expected_type=type_hints["guard_rules"])
+            check_type(argname="argument include_default_rules", value=include_default_rules, expected_type=type_hints["include_default_rules"])
             check_type(argname="argument rego_rules", value=rego_rules, expected_type=type_hints["rego_rules"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if guard_rules is not None:
             self._values["guard_rules"] = guard_rules
+        if include_default_rules is not None:
+            self._values["include_default_rules"] = include_default_rules
         if rego_rules is not None:
             self._values["rego_rules"] = rego_rules
 
@@ -12847,6 +12869,20 @@ class CloudFormationValidatePluginProps:
         '''
         result = self._values.get("guard_rules")
         return typing.cast(typing.Optional[typing.List["ValidationRuleSource"]], result)
+
+    @builtins.property
+    def include_default_rules(self) -> typing.Optional[builtins.bool]:
+        '''Whether to evaluate the default Rego rules that ship with the CDK.
+
+        Registering a ``CloudFormationValidatePlugin`` explicitly replaces the
+        auto-registered default instance, so without this flag adding custom
+        rules would silently drop the CDK default rules. Individual default
+        rules can be suppressed by ID via ``Validations.of(scope).acknowledge()``.
+
+        :default: true
+        '''
+        result = self._values.get("include_default_rules")
+        return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
     def rego_rules(self) -> typing.Optional[typing.List["ValidationRuleSource"]]:
@@ -41161,14 +41197,18 @@ class CloudFormationValidatePlugin(
         self,
         *,
         guard_rules: typing.Optional[typing.Sequence[typing.Union["ValidationRuleSource", typing.Dict[builtins.str, typing.Any]]]] = None,
+        include_default_rules: typing.Optional[builtins.bool] = None,
         rego_rules: typing.Optional[typing.Sequence[typing.Union["ValidationRuleSource", typing.Dict[builtins.str, typing.Any]]]] = None,
     ) -> None:
         '''
         :param guard_rules: Custom Guard rules to evaluate in addition to built-in rules. Default: - no guard rules
+        :param include_default_rules: Whether to evaluate the default Rego rules that ship with the CDK. Registering a ``CloudFormationValidatePlugin`` explicitly replaces the auto-registered default instance, so without this flag adding custom rules would silently drop the CDK default rules. Individual default rules can be suppressed by ID via ``Validations.of(scope).acknowledge()``. Default: true
         :param rego_rules: Custom Rego rules to evaluate in addition to built-in rules. Default: - no custom rules
         '''
         props = CloudFormationValidatePluginProps(
-            guard_rules=guard_rules, rego_rules=rego_rules
+            guard_rules=guard_rules,
+            include_default_rules=include_default_rules,
+            rego_rules=rego_rules,
         )
 
         jsii.create(self.__class__, self, [props])
@@ -46220,6 +46260,7 @@ def _typecheckingstub__582012b1da715680697bba8cad465d232673167a367d4087116d4afdd
 def _typecheckingstub__0ff4fc8fed74150e97452ce7e95e7fb94d42dc79d9e98f3d1f814f577a87c769(
     *,
     guard_rules: typing.Optional[typing.Sequence[typing.Union[ValidationRuleSource, typing.Dict[builtins.str, typing.Any]]]] = None,
+    include_default_rules: typing.Optional[builtins.bool] = None,
     rego_rules: typing.Optional[typing.Sequence[typing.Union[ValidationRuleSource, typing.Dict[builtins.str, typing.Any]]]] = None,
 ) -> None:
     """Type checking stubs"""

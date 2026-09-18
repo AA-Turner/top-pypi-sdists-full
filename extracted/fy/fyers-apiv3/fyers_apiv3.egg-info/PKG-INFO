@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: fyers_apiv3
-Version: 3.1.17
+Version: 3.1.18
 Summary: Fyers trading APIs.
 Home-page: https://github.com/FyersDev/fyers-api-sample-code/tree/sample_v3/v3/python
 Author: Fyers-Tech
@@ -419,7 +419,8 @@ data = {
     "date_format": "1",
     "range_from": "2024-11-01",
     "range_to": "2024-11-28",
-    "greeks": "1"
+    "include_greeks": "1",
+    "include_oi": "1"
 }
 response = fyers.fno_historical_data(data)
 print(response)

@@ -8,16 +8,19 @@ use crate::api::event::{
     BaseEvent, DataSchema, EventCategory, METRIC_DATA_SCHEMA_NAME, METRIC_DATA_SCHEMA_VERSION,
     MarkEvent, ScopeEvent,
 };
-use crate::api::runtime::NemoRelayContextState;
-use crate::api::runtime::global_context;
+use crate::api::runtime::{
+    NemoRelayContextState, PropagationContext, ThreadScopeStackBinding, capture_thread_scope_stack,
+    create_scope_stack_from_propagation, global_context, restore_thread_scope_stack,
+    set_thread_scope_stack,
+};
 use crate::api::scope::{PopScopeParams, PushScopeParams};
 use crate::api::subscriber::scope_deregister_subscriber;
 use crate::config_editor::{EditorConfig, EditorFieldKind, EditorSchema};
 #[cfg(feature = "schema")]
 use crate::plugin::plugin_config_schema;
 use crate::plugin::{
-    PluginComponentSpec, PluginConfig, clear_plugin_configuration, initialize_plugins_exact,
-    list_plugin_kinds, lookup_plugin, validate_plugin_config,
+    PluginComponentSpec, PluginConfig, list_plugin_kinds, lookup_plugin, test_close_plugin_host,
+    test_initialize_plugin_host_exact, test_validate_static_plugin_config,
 };
 use serde_json::json;
 use std::fs;
@@ -29,6 +32,14 @@ use std::sync::Mutex;
 use std::sync::atomic::{AtomicU64, AtomicUsize, Ordering};
 use std::sync::mpsc;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+struct RestoreThreadScopeStackGuard(ThreadScopeStackBinding);
+
+impl Drop for RestoreThreadScopeStackGuard {
+    fn drop(&mut self) {
+        restore_thread_scope_stack(self.0.clone());
+    }
+}
 
 #[derive(Debug)]
 struct ShutdownFailureSpanProcessor {
@@ -185,7 +196,7 @@ fn wait_for_captures(captures: &Arc<Mutex<Vec<HttpCapture>>>, expected: usize) -
 fn reset_runtime() {
     let _ = spdlog::init_log_crate_proxy();
     log::set_max_level(log::LevelFilter::Info);
-    let _ = clear_plugin_configuration();
+    let _ = test_close_plugin_host();
     crate::shared_runtime::reset_runtime_owner_for_tests();
     let context = global_context();
     *context.write().unwrap() = NemoRelayContextState::new();
@@ -391,6 +402,7 @@ fn editor_schema_tracks_observability_config_types() {
             "timeout_millis": 3000,
             "headers": {},
             "header_env": {},
+            "header_file": {},
             "resource_attributes": {},
         })
     );
@@ -431,7 +443,7 @@ fn observability_v3_remains_trace_only_and_v4_accepts_signal_sections() {
             }]
         }
     }));
-    assert!(!validate_plugin_config(&trace_only).has_errors());
+    assert!(!test_validate_static_plugin_config(&trace_only).has_errors());
 
     let version_three_logs = plugin_config(json!({
         "version": 3,
@@ -444,7 +456,7 @@ fn observability_v3_remains_trace_only_and_v4_accepts_signal_sections() {
             "logs": {"enabled": false}
         }
     }));
-    let report = validate_plugin_config(&version_three_logs);
+    let report = test_validate_static_plugin_config(&version_three_logs);
     assert!(report.has_errors());
     assert!(report.diagnostics.iter().any(|diagnostic| {
         diagnostic.field.as_deref() == Some("logs")
@@ -462,7 +474,7 @@ fn observability_v3_remains_trace_only_and_v4_accepts_signal_sections() {
             "metrics": {"enabled": false}
         }
     }));
-    let report = validate_plugin_config(&version_three_metrics);
+    let report = test_validate_static_plugin_config(&version_three_metrics);
     assert!(report.has_errors());
     assert!(report.diagnostics.iter().any(|diagnostic| {
         diagnostic.field.as_deref() == Some("metrics")
@@ -483,7 +495,7 @@ fn observability_v3_remains_trace_only_and_v4_accepts_signal_sections() {
             }
         }
     }));
-    assert!(!validate_plugin_config(&version_four).has_errors());
+    assert!(!test_validate_static_plugin_config(&version_four).has_errors());
 }
 
 #[test]
@@ -510,7 +522,7 @@ fn disabled_signal_sections_reject_duplicate_explicit_destinations() {
         }
     }));
 
-    let report = validate_plugin_config(&config);
+    let report = test_validate_static_plugin_config(&config);
     for signal in ["logs", "metrics"] {
         let component = format!("opentelemetry.{signal}");
         assert!(
@@ -590,6 +602,7 @@ fn signal_endpoint_resolution_derives_or_preserves_the_expected_destination() {
         transport: default_otlp_transport(),
         headers: HashMap::new(),
         header_env: HashMap::new(),
+        header_file: HashMap::new(),
         resource_attributes: HashMap::new(),
         service_name: default_otel_service_name(),
         service_namespace: None,
@@ -645,6 +658,7 @@ fn signal_endpoint_resolution_rejects_explicit_wrong_signal_paths() {
         transport: default_otlp_transport(),
         headers: HashMap::new(),
         header_env: HashMap::new(),
+        header_file: HashMap::new(),
         resource_attributes: HashMap::new(),
         service_name: default_otel_service_name(),
         service_namespace: None,
@@ -836,6 +850,7 @@ fn default_config_and_component_conversion_cover_public_shape() {
             completed_span_context_ttl_millis: None,
             headers: HashMap::new(),
             header_env: HashMap::new(),
+            header_file: HashMap::new(),
             resource_attributes: HashMap::new(),
             mark_projection: MarkProjection::default(),
             mark_exclude_names: default_mark_exclude_names(),
@@ -939,8 +954,8 @@ fn full_payload_policy_activates_and_clears_with_the_plugin() {
     reset_runtime();
 
     let config = plugin_config(json!({"enable_full_payloads": true}));
-    assert!(!validate_plugin_config(&config).has_errors());
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    assert!(!test_validate_static_plugin_config(&config).has_errors());
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
     assert!(
         global_context()
             .read()
@@ -948,7 +963,7 @@ fn full_payload_policy_activates_and_clears_with_the_plugin() {
             .observability_full_payloads_enabled
     );
 
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
     assert!(
         !global_context()
             .read()
@@ -973,12 +988,13 @@ fn assert_default_stream_sink_shape() {
 #[test]
 fn version_three_rejects_removed_otlp_controls() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "opentelemetry": {
             "enabled": false,
             "mark_projection": "tool",
             "attribute_mappings": [],
-            "endpoint": "http://localhost:4318/v1/traces"
+            "endpoint": "http://localhost:4318/v1/traces",
+            "header_file": {"authorization": "/var/run/secrets/telemetry/token"}
         },
         "openinference": {
             "enabled": false,
@@ -997,6 +1013,10 @@ fn version_three_rejects_removed_otlp_controls() {
     assert!(report.diagnostics.iter().any(|diagnostic| {
         diagnostic.code == "observability.legacy_opentelemetry_field"
             && diagnostic.field.as_deref() == Some("endpoint")
+    }));
+    assert!(report.diagnostics.iter().any(|diagnostic| {
+        diagnostic.code == "observability.legacy_opentelemetry_field"
+            && diagnostic.field.as_deref() == Some("header_file")
     }));
     assert!(report.diagnostics.iter().any(|diagnostic| {
         diagnostic.code == "observability.legacy_openinference_section"
@@ -1026,6 +1046,7 @@ fn opentelemetry_endpoint_header_env_is_resolved_and_snapshotted() {
             completed_span_context_ttl_millis: None,
             headers: HashMap::new(),
             header_env: HashMap::from([("authorization".to_string(), variable.to_string())]),
+            header_file: HashMap::new(),
             resource_attributes: HashMap::new(),
             mark_projection: MarkProjection::default(),
             mark_exclude_names: default_mark_exclude_names(),
@@ -1056,12 +1077,37 @@ fn test_opentelemetry_endpoint() -> OpenTelemetryEndpointConfig {
         completed_span_context_ttl_millis: None,
         headers: HashMap::new(),
         header_env: HashMap::new(),
+        header_file: HashMap::new(),
         resource_attributes: HashMap::new(),
         mark_projection: MarkProjection::default(),
         mark_exclude_names: default_mark_exclude_names(),
         attribute_mappings: Vec::new(),
         promote_metadata_prefixes: Vec::new(),
         promote_resource_metadata_prefixes: Vec::new(),
+    }
+}
+
+#[test]
+fn all_trace_plugin_endpoints_reject_remote_plaintext() {
+    for (endpoint, allowed) in [
+        ("http://collector.example:4318", false),
+        ("https://collector.example:4318", true),
+        ("http://127.0.0.1:4318", true),
+        ("http://[::1]:4318", true),
+    ] {
+        for otel_type in [
+            OpenTelemetryType::Full,
+            OpenTelemetryType::GenAi,
+            OpenTelemetryType::OpenInference,
+        ] {
+            for transport in ["http_binary", "grpc"] {
+                let mut section = test_opentelemetry_endpoint();
+                section.otel_type = otel_type;
+                section.transport = transport.to_string();
+                section.endpoint = endpoint.to_string();
+                assert_eq!(build_otel_config(0, section).is_ok(), allowed, "{endpoint}");
+            }
+        }
     }
 }
 
@@ -1091,6 +1137,7 @@ fn test_signal_endpoint() -> OpenTelemetrySignalEndpointConfig {
         transport: default_otlp_transport(),
         headers: HashMap::new(),
         header_env: HashMap::new(),
+        header_file: HashMap::new(),
         resource_attributes: HashMap::new(),
         service_name: default_otel_service_name(),
         service_namespace: None,
@@ -1306,24 +1353,24 @@ fn invalid_batch_config_identifies_the_endpoint_during_activation() {
             "endpoints": [
                 {
                     "type": "full",
-                    "endpoint": "http://jaeger-local:4318/v1/traces",
+                    "endpoint": "https://jaeger-local:4318/v1/traces",
                     "max_queue_size": 256
                 },
                 {
                     "type": "full",
-                    "endpoint": "http://tempo-prod:4319/v1/traces",
+                    "endpoint": "https://tempo-prod:4319/v1/traces",
                     "max_queue_size": 0
                 },
                 {
                     "type": "full",
-                    "endpoint": "http://compliance:4320/v1/traces",
+                    "endpoint": "https://compliance:4320/v1/traces",
                     "max_queue_size": 128
                 }
             ]
         }
     }));
 
-    let report = validate_plugin_config(&config);
+    let report = test_validate_static_plugin_config(&config);
     assert!(!report.has_errors());
     assert!(report.diagnostics.iter().any(|diagnostic| {
         diagnostic.field.as_deref() == Some("endpoints[1].max_queue_size")
@@ -1334,14 +1381,14 @@ fn invalid_batch_config_identifies_the_endpoint_during_activation() {
                 .contains("OpenTelemetry endpoints[1].max_queue_size must be greater than 0")
     }));
 
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
-    let report = crate::plugin::active_plugin_report().unwrap();
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
+    let report = crate::plugin::test_plugin_host_report().unwrap();
     assert!(report.diagnostics.iter().any(|diagnostic| {
         diagnostic.field.as_deref() == Some("endpoints[1].max_queue_size")
             && diagnostic.level == DiagnosticLevel::Warning
             && diagnostic.code == "observability.invalid_otel_endpoint"
     }));
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -1354,20 +1401,20 @@ fn all_invalid_trace_batch_configs_still_block_activation() {
             "enabled": true,
             "endpoints": [{
                 "type": "full",
-                "endpoint": "http://jaeger-local:4318/v1/traces",
+                "endpoint": "https://jaeger-local:4318/v1/traces",
                 "max_queue_size": 0
             }]
         }
     }));
 
-    assert!(!validate_plugin_config(&config).has_errors());
-    let error = futures::executor::block_on(initialize_plugins_exact(config)).unwrap_err();
+    assert!(!test_validate_static_plugin_config(&config).has_errors());
+    let error = futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap_err();
     assert!(
         error
             .to_string()
             .contains("requires at least one valid trace, log, or metric endpoint")
     );
-    assert!(crate::plugin::active_plugin_report().is_none());
+    assert!(crate::plugin::test_plugin_host_report().is_none());
 }
 
 #[test]
@@ -1474,7 +1521,7 @@ fn opentelemetry_endpoint_header_env_rejects_missing_and_duplicate_headers() {
         .unwrap_or_else(|error| error.into_inner());
     let variable = "NEMO_RELAY_TEST_MISSING_OTEL_HEADER_ENV";
     unsafe { std::env::remove_var(variable) };
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "opentelemetry": {
             "enabled": true,
             "endpoints": [{
@@ -1493,19 +1540,20 @@ fn opentelemetry_endpoint_header_env_rejects_missing_and_duplicate_headers() {
         diagnostic.field.as_deref() == Some("endpoints[0].header_env.authorization")
             && diagnostic.message.contains("both headers and header_env")
     }));
-    let activation = futures::executor::block_on(initialize_plugins_exact(plugin_config(json!({
-        "opentelemetry": {
-            "enabled": true,
-            "endpoints": [{
-                "type": "full",
-                "endpoint": "http://localhost:4318/v1/traces",
-                "header_env": {"x-api-key": variable}
-            }]
-        }
-    }))));
+    let activation =
+        futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
+            "opentelemetry": {
+                "enabled": true,
+                "endpoints": [{
+                    "type": "full",
+                    "endpoint": "http://localhost:4318/v1/traces",
+                    "header_env": {"x-api-key": variable}
+                }]
+            }
+        }))));
     assert!(activation.is_err());
 
-    futures::executor::block_on(initialize_plugins_exact(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "opentelemetry": {
             "enabled": true,
             "endpoints": [
@@ -1529,7 +1577,45 @@ fn opentelemetry_endpoint_header_env_rejects_missing_and_duplicate_headers() {
             .event_subscribers
             .contains_key("nemo-relay-plugin.v1.observability:1:opentelemetry")
     );
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
+}
+
+#[cfg(unix)]
+#[test]
+fn opentelemetry_header_env_non_unicode_errors_do_not_expose_values() {
+    use std::os::unix::ffi::OsStringExt;
+
+    let _guard = crate::observability::test_mutex()
+        .lock()
+        .unwrap_or_else(|error| error.into_inner());
+    let variable = "NEMO_RELAY_TEST_NON_UNICODE_OTEL_HEADER_ENV";
+    let secret = "relay-plugin-secret";
+    let mut value = vec![0xff];
+    value.extend_from_slice(secret.as_bytes());
+    unsafe { std::env::set_var(variable, std::ffi::OsString::from_vec(value)) };
+
+    let trace: OpenTelemetryEndpointConfig = serde_json::from_value(json!({
+        "type": "full",
+        "endpoint": "http://localhost:4318/v1/traces",
+        "header_env": {"authorization": variable}
+    }))
+    .unwrap();
+    let trace_error = build_otel_config(0, trace).unwrap_err().to_string();
+    assert!(trace_error.contains(variable));
+    assert!(!trace_error.contains(secret));
+
+    let logs: OpenTelemetrySignalEndpointConfig = serde_json::from_value(json!({
+        "endpoint": "http://localhost:4318/v1/logs",
+        "header_env": {"authorization": variable}
+    }))
+    .unwrap();
+    let log_error = resolve_signal_headers("logs", 0, &logs)
+        .unwrap_err()
+        .to_string();
+    assert!(log_error.contains(variable));
+    assert!(!log_error.contains(secret));
+
+    unsafe { std::env::remove_var(variable) };
 }
 
 #[test]
@@ -1557,7 +1643,7 @@ fn invalid_log_endpoint_keeps_valid_signal_subscriber() {
         }
     }));
 
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
     assert!(
         global_context()
             .read()
@@ -1565,7 +1651,7 @@ fn invalid_log_endpoint_keeps_valid_signal_subscriber() {
             .event_subscribers
             .contains_key("nemo-relay-plugin.v1.observability:1:opentelemetry")
     );
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -1593,7 +1679,7 @@ fn invalid_metric_endpoint_keeps_valid_signal_subscriber() {
         }
     }));
 
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
     assert!(
         global_context()
             .read()
@@ -1601,7 +1687,7 @@ fn invalid_metric_endpoint_keeps_valid_signal_subscriber() {
             .event_subscribers
             .contains_key("nemo-relay-plugin.v1.observability:1:opentelemetry")
     );
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -1633,7 +1719,7 @@ fn malformed_derived_signal_endpoint_keeps_valid_peers() {
         }
     }));
 
-    let report = validate_plugin_config(&config);
+    let report = test_validate_static_plugin_config(&config);
     assert!(!report.has_errors());
     for signal in ["logs", "metrics"] {
         let component = format!("opentelemetry.{signal}");
@@ -1645,7 +1731,7 @@ fn malformed_derived_signal_endpoint_keeps_valid_peers() {
         }));
     }
 
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
     assert!(
         global_context()
             .read()
@@ -1653,7 +1739,7 @@ fn malformed_derived_signal_endpoint_keeps_valid_peers() {
             .event_subscribers
             .contains_key("nemo-relay-plugin.v1.observability:1:opentelemetry")
     );
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -1718,13 +1804,13 @@ fn all_invalid_log_and_metric_endpoints_still_block_activation() {
         }
     }));
 
-    let error = futures::executor::block_on(initialize_plugins_exact(config)).unwrap_err();
+    let error = futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap_err();
     assert!(
         error
             .to_string()
             .contains("requires at least one valid trace, log, or metric endpoint")
     );
-    assert!(crate::plugin::active_plugin_report().is_none());
+    assert!(crate::plugin::test_plugin_host_report().is_none());
 }
 
 #[test]
@@ -1743,14 +1829,14 @@ fn outer_disabled_component_does_not_resolve_opentelemetry_header_env() {
         }
     }));
     config.components[0].enabled = false;
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
-    clear_plugin_configuration().unwrap();
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
 fn opentelemetry_endpoint_accepts_legacy_projection_controls_and_rejects_unknown_fields() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "policy": {"unknown_field": "error"},
         "opentelemetry": {
             "enabled": true,
@@ -1836,21 +1922,21 @@ fn opentelemetry_endpoint_rejects_invalid_attribute_mappings() {
                 }]
             }
         }));
-        let report = validate_plugin_config(&config);
+        let report = test_validate_static_plugin_config(&config);
         assert!(report.has_errors());
         assert!(report.diagnostics.iter().any(|diagnostic| {
             diagnostic.code == "observability.unsupported_value"
                 && diagnostic.field.as_deref() == Some("endpoints[0].attribute_mappings")
                 && diagnostic.message.contains(expected_message)
         }));
-        assert!(futures::executor::block_on(initialize_plugins_exact(config)).is_err());
+        assert!(futures::executor::block_on(test_initialize_plugin_host_exact(config)).is_err());
     }
 }
 
 #[test]
 fn opentelemetry_endpoint_accepts_valid_attribute_mappings() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "opentelemetry": {
             "enabled": true,
             "endpoints": [{
@@ -1874,7 +1960,7 @@ fn opentelemetry_endpoint_accepts_valid_attribute_mappings() {
 #[test]
 fn opentelemetry_endpoint_rejects_glob_metadata_promotion_prefix() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "opentelemetry": {
             "enabled": true,
             "endpoints": [{
@@ -1896,7 +1982,7 @@ fn opentelemetry_endpoint_rejects_glob_metadata_promotion_prefix() {
 #[test]
 fn opentelemetry_endpoint_rejects_invalid_and_case_duplicate_headers() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "opentelemetry": {
             "enabled": true,
             "endpoints": [
@@ -1948,7 +2034,7 @@ fn disabled_opentelemetry_does_not_resolve_header_env() {
     let variable = "NEMO_RELAY_TEST_DISABLED_OTEL_HEADER_ENV";
     unsafe { std::env::remove_var(variable) };
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "opentelemetry": {
             "enabled": false,
             "endpoints": [{
@@ -2093,7 +2179,7 @@ fn built_in_registration_is_automatic() {
     assert!(lookup_plugin(OBSERVABILITY_PLUGIN_KIND).is_some());
 
     let config = plugin_config(json!({}));
-    assert!(!validate_plugin_config(&config).has_errors());
+    assert!(!test_validate_static_plugin_config(&config).has_errors());
 }
 
 #[test]
@@ -2118,11 +2204,12 @@ fn empty_and_disabled_config_register_nothing() {
         "atif": {"enabled": false},
         "opentelemetry": {"enabled": false, "traces": []}
     }));
-    assert!(!validate_plugin_config(&config).has_errors());
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    assert!(!test_validate_static_plugin_config(&config).has_errors());
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
 
     let state = global_context();
     assert!(state.read().unwrap().event_subscribers.is_empty());
+    crate::plugin::test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -2142,12 +2229,12 @@ fn disabled_file_sections_do_not_create_files() {
             "filename_template": "trajectory-{session_id}.json"
         }
     }));
-    assert!(!validate_plugin_config(&config).has_errors());
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    assert!(!test_validate_static_plugin_config(&config).has_errors());
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
 
     let agent = push_agent("disabled-agent");
     pop(&agent);
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 
     assert!(!dir.join("events.jsonl").exists());
     assert!(!dir.join(format!("trajectory-{}.json", agent.uuid)).exists());
@@ -2163,7 +2250,7 @@ fn duplicate_component_is_rejected_as_singleton() {
         components: vec![component(json!({})), component(json!({}))],
         policy: Default::default(),
     };
-    let report = validate_plugin_config(&config);
+    let report = test_validate_static_plugin_config(&config);
     assert!(report.has_errors());
     assert!(
         report
@@ -2178,7 +2265,7 @@ fn unknown_fields_and_bad_values_follow_policy() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let warn_report = validate_plugin_config(&plugin_config(json!({
+    let warn_report = test_validate_static_plugin_config(&plugin_config(json!({
         "atof": {"bogus": true, "sinks": [{"type": "file", "mode": "invalid"}]},
         "atif": {"filename_template": "missing-session"}
     })));
@@ -2202,7 +2289,7 @@ fn unknown_fields_and_bad_values_follow_policy() {
             .any(|diag| diag.field.as_deref() == Some("filename_template"))
     );
 
-    let ignore_report = validate_plugin_config(&plugin_config(json!({
+    let ignore_report = test_validate_static_plugin_config(&plugin_config(json!({
         "policy": {"unknown_field": "ignore", "unsupported_value": "ignore"},
         "atof": {"bogus": true, "sinks": [{"type": "file", "mode": "invalid"}]},
         "atif": {"filename_template": "missing-session"}
@@ -2216,7 +2303,7 @@ fn atif_filename_template_syntax_is_rejected_before_activation() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let valid_report = validate_plugin_config(&plugin_config(json!({
+    let valid_report = test_validate_static_plugin_config(&plugin_config(json!({
         "atif": {
             "filename_template": "{metadata.workflow_id:-unassigned}/trajectory-{session_id}.json"
         }
@@ -2224,7 +2311,7 @@ fn atif_filename_template_syntax_is_rejected_before_activation() {
     assert!(!valid_report.has_errors());
 
     let malformed = "trajectory-{session_id}.json/{metadata.tenant";
-    let invalid_report = validate_plugin_config(&plugin_config(json!({
+    let invalid_report = test_validate_static_plugin_config(&plugin_config(json!({
         "atif": {"filename_template": malformed}
     })));
     assert!(invalid_report.diagnostics.iter().any(|diag| {
@@ -2232,11 +2319,12 @@ fn atif_filename_template_syntax_is_rejected_before_activation() {
             && diag.message.contains("unclosed metadata placeholder")
     }));
 
-    let error = futures::executor::block_on(initialize_plugins_exact(plugin_config(json!({
-        "policy": {"unsupported_value": "ignore"},
-        "atif": {"enabled": true, "filename_template": malformed}
-    }))))
-    .unwrap_err();
+    let error =
+        futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
+            "policy": {"unsupported_value": "ignore"},
+            "atif": {"enabled": true, "filename_template": malformed}
+        }))))
+        .unwrap_err();
     assert!(error.to_string().contains("unclosed metadata placeholder"));
 }
 
@@ -2245,7 +2333,7 @@ fn invalid_shapes_and_strict_policy_are_reported() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let invalid_shape = validate_plugin_config(&plugin_config(json!({
+    let invalid_shape = test_validate_static_plugin_config(&plugin_config(json!({
         "version": "one",
     })));
     assert!(invalid_shape.has_errors());
@@ -2256,7 +2344,7 @@ fn invalid_shapes_and_strict_policy_are_reported() {
             .any(|diag| diag.code == "observability.invalid_plugin_config")
     );
 
-    let unsupported_version = validate_plugin_config(&plugin_config(json!({
+    let unsupported_version = test_validate_static_plugin_config(&plugin_config(json!({
         "version": 1,
     })));
     assert!(unsupported_version.has_errors());
@@ -2264,7 +2352,7 @@ fn invalid_shapes_and_strict_policy_are_reported() {
         == "observability.unsupported_config_version"
         && diag.field.as_deref() == Some("version")));
 
-    let strict_unknown = validate_plugin_config(&plugin_config(json!({
+    let strict_unknown = test_validate_static_plugin_config(&plugin_config(json!({
         "policy": {"unknown_field": "error"},
         "opentelemetry": {"unexpected": true}
     })));
@@ -2278,7 +2366,7 @@ fn invalid_shapes_and_strict_policy_are_reported() {
                 && diag.field.as_deref() == Some("unexpected"))
     );
 
-    let strict_bad_transport = validate_plugin_config(&plugin_config(json!({
+    let strict_bad_transport = test_validate_static_plugin_config(&plugin_config(json!({
         "opentelemetry": {
             "enabled": true,
             "endpoints": [{"type": "openinference", "endpoint": "http://localhost:4318/v1/traces", "transport": "udp"}]
@@ -2298,7 +2386,7 @@ fn atof_endpoint_validation_rejects_bad_values() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "atof": {
             "enabled": true,
             "sinks": [
@@ -2386,7 +2474,7 @@ fn atof_stream_sink_name_validation_reports_each_invalid_name() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
     reset_runtime();
 
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "atof": {
             "enabled": true,
             "sinks": [
@@ -2455,6 +2543,7 @@ fn build_atof_sink_config_maps_headers_timeout_and_rejects_transport() {
                 "x-api-key".into(),
                 "SWITCHYARD_API_KEY".into(),
             )]),
+            header_file: std::collections::HashMap::new(),
             timeout_millis: 123,
             field_name_policy: "replace_dots".into(),
         }),
@@ -2488,6 +2577,7 @@ fn build_atof_sink_config_maps_headers_timeout_and_rejects_transport() {
             transport: "smtp".into(),
             headers: std::collections::HashMap::new(),
             header_env: std::collections::HashMap::new(),
+            header_file: std::collections::HashMap::new(),
             timeout_millis: 3_000,
             field_name_policy: "preserve".into(),
         }),
@@ -2503,6 +2593,7 @@ fn build_atof_sink_config_maps_headers_timeout_and_rejects_transport() {
             transport: "http_post".into(),
             headers: std::collections::HashMap::new(),
             header_env: std::collections::HashMap::new(),
+            header_file: std::collections::HashMap::new(),
             timeout_millis: 3_000,
             field_name_policy: "bogus".into(),
         }),
@@ -2526,7 +2617,8 @@ fn initialization_fails_for_invalid_enabled_file_exporters() {
             "sinks": [{"type": "file", "mode": "invalid", "output_directory": dir, "filename": "events.jsonl"}]
         }
     }));
-    let error = futures::executor::block_on(initialize_plugins_exact(invalid_atof)).unwrap_err();
+    let error =
+        futures::executor::block_on(test_initialize_plugin_host_exact(invalid_atof)).unwrap_err();
     assert!(error.to_string().contains("ATOF sinks[0].mode"));
 
     let invalid_atif_template = plugin_config(json!({
@@ -2538,7 +2630,8 @@ fn initialization_fails_for_invalid_enabled_file_exporters() {
         }
     }));
     let error =
-        futures::executor::block_on(initialize_plugins_exact(invalid_atif_template)).unwrap_err();
+        futures::executor::block_on(test_initialize_plugin_host_exact(invalid_atif_template))
+            .unwrap_err();
     assert!(error.to_string().contains("filename_template"));
 
     let invalid_path = plugin_config(json!({
@@ -2547,7 +2640,8 @@ fn initialization_fails_for_invalid_enabled_file_exporters() {
             "sinks": [{"type": "file", "output_directory": not_a_directory, "filename": "events.jsonl"}]
         }
     }));
-    let error = futures::executor::block_on(initialize_plugins_exact(invalid_path)).unwrap_err();
+    let error =
+        futures::executor::block_on(test_initialize_plugin_host_exact(invalid_path)).unwrap_err();
     assert!(error.to_string().contains("registration failed"));
 
     let invalid_otel_transport = plugin_config(json!({
@@ -2558,7 +2652,8 @@ fn initialization_fails_for_invalid_enabled_file_exporters() {
         }
     }));
     let error =
-        futures::executor::block_on(initialize_plugins_exact(invalid_otel_transport)).unwrap_err();
+        futures::executor::block_on(test_initialize_plugin_host_exact(invalid_otel_transport))
+            .unwrap_err();
     assert!(
         error
             .to_string()
@@ -2581,7 +2676,7 @@ fn atof_enabled_writes_jsonl_and_teardown_flushes() {
             ]
         }
     }));
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
 
     {
         let state = global_context();
@@ -2605,7 +2700,7 @@ fn atof_enabled_writes_jsonl_and_teardown_flushes() {
     )
     .unwrap();
     pop(&agent);
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 
     let content = fs::read_to_string(dir.join("events.jsonl")).unwrap();
     let lines = content.lines().collect::<Vec<_>>();
@@ -2639,7 +2734,7 @@ fn atof_stream_sinks_fan_out_and_teardown_all_workers() {
             ]
         }
     }));
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
 
     let agent = push_agent("atof-stream-agent");
     crate::api::scope::event(
@@ -2651,7 +2746,7 @@ fn atof_stream_sinks_fan_out_and_teardown_all_workers() {
     )
     .unwrap();
     pop(&agent);
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 
     for captures in [&first_captures, &second_captures] {
         let bodies = wait_for_captures(captures, 3);
@@ -2687,7 +2782,7 @@ fn atof_stream_sink_header_env_is_snapshotted_at_activation() {
             }]
         }
     }));
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
     // SAFETY: The active endpoint must use the header value captured at activation.
     unsafe { std::env::remove_var(&variable) };
 
@@ -2701,7 +2796,7 @@ fn atof_stream_sink_header_env_is_snapshotted_at_activation() {
     )
     .unwrap();
     pop(&agent);
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 
     let captures = wait_for_captures(&captures, 3);
     assert_eq!(captures.len(), 3, "captured requests: {captures:?}");
@@ -2746,6 +2841,7 @@ fn atif_remote_storage_validates_s3_configuration_and_http_access_outcomes() {
                 endpoint,
                 headers: std::collections::HashMap::new(),
                 header_env: std::collections::HashMap::new(),
+                header_file: std::collections::HashMap::new(),
                 timeout_millis: 5_000,
             }),
         )
@@ -2780,7 +2876,7 @@ fn atif_defaults_create_one_file_per_top_level_agent() {
             "output_directory": dir
         }
     }));
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
 
     let first = push_agent("first-agent");
     let nested = push_agent("nested-agent");
@@ -2789,7 +2885,7 @@ fn atif_defaults_create_one_file_per_top_level_agent() {
 
     let second = push_agent("second-agent");
     pop(&second);
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 
     let first_path = dir.join(format!("nemo-relay-atif-{}.json", first.uuid));
     let second_path = dir.join(format!("nemo-relay-atif-{}.json", second.uuid));
@@ -2825,6 +2921,50 @@ fn atif_defaults_create_one_file_per_top_level_agent() {
 }
 
 #[test]
+fn atif_propagation_root_session_id_flows_through_plugin_e2e() {
+    let _guard = crate::observability::test_mutex().lock().unwrap();
+    reset_runtime();
+    let _restore_guard = RestoreThreadScopeStackGuard(capture_thread_scope_stack());
+    let dir = temp_dir("observability-atif-propagation-root");
+    let request_id = Uuid::parse_str("018f47a4-3af7-7d94-8e61-9f0f89b5d312").unwrap();
+    let parent_id = Uuid::now_v7();
+    let stack = create_scope_stack_from_propagation(&PropagationContext {
+        version: PropagationContext::VERSION,
+        root_uuid: Some(request_id),
+        parent_uuid: parent_id,
+    })
+    .unwrap();
+    set_thread_scope_stack(stack);
+
+    let config = plugin_config(json!({
+        "atif": {
+            "enabled": true,
+            "output_directory": dir,
+            "filename_template": "trajectory-{session_id}.json"
+        }
+    }));
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
+
+    let first = push_agent("first-propagated-agent");
+    pop(&first);
+    let second = push_agent("second-propagated-agent");
+    pop(&second);
+    test_close_plugin_host().unwrap();
+
+    for agent in [&first, &second] {
+        let path = dir.join(format!("trajectory-{}.json", agent.uuid));
+        let trajectory: Json = serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
+        assert_eq!(trajectory["session_id"], request_id.to_string());
+        assert_eq!(trajectory["trajectory_id"], agent.uuid.to_string());
+        assert_eq!(
+            trajectory["extra"]["nemo_relay"]["session_instance_id"],
+            request_id.to_string()
+        );
+    }
+    assert_ne!(first.uuid, second.uuid);
+}
+
+#[test]
 fn atif_filename_template_sanitizes_metadata_paths() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
     reset_runtime();
@@ -2837,7 +2977,7 @@ fn atif_filename_template_sanitizes_metadata_paths() {
             "filename_template": "{metadata.routing.artifact_path}/trajectory-{session_id}.json"
         }
     }));
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
 
     let sanitized = crate::api::scope::push_scope(
         PushScopeParams::builder()
@@ -2873,9 +3013,9 @@ fn atif_filename_template_sanitizes_metadata_paths() {
         .exists()
     );
 
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 
-    futures::executor::block_on(initialize_plugins_exact(plugin_config(json!({
+    futures::executor::block_on(test_initialize_plugin_host_exact(plugin_config(json!({
         "atif": {
             "enabled": true,
             "output_directory": dir,
@@ -2883,7 +3023,7 @@ fn atif_filename_template_sanitizes_metadata_paths() {
         }
     }))))
     .expect("ATIF teardown errors should not block later activation");
-    clear_plugin_configuration().expect("later ATIF teardown should succeed");
+    test_close_plugin_host().expect("later ATIF teardown should succeed");
 }
 
 #[test]
@@ -2905,7 +3045,7 @@ fn atif_routes_global_descendant_events_by_parent_uuid() {
     })));
     let empty_storage: Arc<Vec<Arc<AtifRemoteStorage>>> = Arc::new(Vec::new());
 
-    let start_event = Event::Scope(ScopeEvent::new(
+    let mut start_event = Event::Scope(ScopeEvent::new(
         BaseEvent::builder()
             .uuid(agent_uuid)
             .parent_uuid(root_uuid)
@@ -2920,6 +3060,7 @@ fn atif_routes_global_descendant_events_by_parent_uuid() {
         EventCategory::agent(),
         None,
     ));
+    start_event.set_propagation_root_uuid(Some(root_uuid));
     assert!(
         manager
             .lock()
@@ -3008,7 +3149,7 @@ fn atif_routes_global_descendant_events_by_parent_uuid() {
             .is_none()
     );
 
-    let end_event = Event::Scope(ScopeEvent::new(
+    let mut end_event = Event::Scope(ScopeEvent::new(
         BaseEvent::builder()
             .uuid(agent_uuid)
             .parent_uuid(root_uuid)
@@ -3019,6 +3160,7 @@ fn atif_routes_global_descendant_events_by_parent_uuid() {
         EventCategory::agent(),
         None,
     ));
+    end_event.set_propagation_root_uuid(Some(root_uuid));
     let (pending_write, targets) = manager
         .lock()
         .unwrap()
@@ -3044,7 +3186,7 @@ fn atif_routes_global_descendant_events_by_parent_uuid() {
 
     let value: Json = serde_json::from_str(&fs::read_to_string(path).unwrap()).unwrap();
     assert_eq!(value["trajectory_id"], agent_uuid.to_string());
-    assert_eq!(value["session_id"], agent_uuid.to_string());
+    assert_eq!(value["session_id"], root_uuid.to_string());
     assert_eq!(value["extra"]["nemo_relay"]["session_id"], "root-session");
     assert_eq!(
         value["extra"]["nemo_relay"]["session_instance_id"],
@@ -3655,12 +3797,12 @@ fn atif_explicit_options_and_open_agent_teardown_are_written() {
             "filename_template": "custom-{session_id}.atif.json"
         }
     }));
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
 
     let ignored = push_function("not-an-agent");
     pop(&ignored);
     let agent = push_agent("open-agent");
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 
     let path = dir.join(format!("custom-{}.atif.json", agent.uuid));
     assert!(path.exists());
@@ -3676,7 +3818,7 @@ fn atif_explicit_options_and_open_agent_teardown_are_written() {
 
 #[test]
 #[cfg(feature = "object-store")]
-fn atif_open_agent_teardown_failure_retains_runtime_diagnostic_report() {
+fn atif_open_agent_teardown_failure_retains_report_until_retry() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
     reset_runtime();
     let dir = temp_dir("observability-atif-open-agent-delivery-failure");
@@ -3689,30 +3831,18 @@ fn atif_open_agent_teardown_failure_retains_runtime_diagnostic_report() {
             "storage": [{"type": "http", "endpoint": endpoint}]
         }
     }));
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
     let agent = push_agent("open-agent-delivery-failure");
 
-    let teardown = clear_plugin_configuration().unwrap_err();
+    let teardown = test_close_plugin_host().unwrap_err();
     assert!(teardown.to_string().contains("atif.remote_delivery_failed"));
     server.join().unwrap().unwrap();
 
-    let report = crate::plugin::active_plugin_report()
-        .expect("failed teardown should retain its runtime diagnostics");
-    let diagnostic = report
-        .runtime_diagnostics
-        .iter()
-        .find(|diagnostic| diagnostic.code == "atif.remote_delivery_failed")
-        .expect("remote failure should be retained in the report");
-    assert_eq!(diagnostic.field.as_deref(), Some("storage[0]"));
-    assert_eq!(
-        diagnostic.session_id.as_deref(),
-        Some(agent.uuid.to_string().as_str())
-    );
-    assert!(!diagnostic.message.is_empty());
+    assert!(crate::plugin::test_plugin_host_report().is_some());
+    test_close_plugin_host().expect("inactive test-host activation should clear on retry");
+    assert!(crate::plugin::test_plugin_host_report().is_none());
 
     pop(&agent);
-    clear_plugin_configuration().unwrap();
-    assert!(crate::plugin::active_plugin_report().is_none());
 }
 
 #[test]
@@ -3728,8 +3858,10 @@ fn atif_rejects_unsafe_template_and_ignores_non_top_level_agents() {
             "filename_template": "single-file.json"
         }
     }));
-    assert!(validate_plugin_config(&invalid_template).has_errors());
-    assert!(futures::executor::block_on(initialize_plugins_exact(invalid_template)).is_err());
+    assert!(test_validate_static_plugin_config(&invalid_template).has_errors());
+    assert!(
+        futures::executor::block_on(test_initialize_plugin_host_exact(invalid_template)).is_err()
+    );
 
     let config = plugin_config(json!({
         "atif": {
@@ -3738,13 +3870,13 @@ fn atif_rejects_unsafe_template_and_ignores_non_top_level_agents() {
             "filename_template": "trajectory-{session_id}.json"
         }
     }));
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
 
     let function = push_function("top-level-function");
     let nested_agent = push_agent("nested-under-function");
     pop(&nested_agent);
     pop(&function);
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 
     assert_eq!(fs::read_dir(dir).unwrap().count(), 0);
 }
@@ -3782,8 +3914,8 @@ fn otlp_sections_register_inferred_subscribers_with_full_config() {
             ]
         }
     }));
-    assert!(!validate_plugin_config(&config).has_errors());
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    assert!(!test_validate_static_plugin_config(&config).has_errors());
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
 
     let state = global_context();
     let names = state
@@ -3801,7 +3933,7 @@ fn otlp_sections_register_inferred_subscribers_with_full_config() {
             .count(),
         1
     );
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -3822,11 +3954,11 @@ fn opentelemetry_endpoints_fan_out_to_heterogeneous_and_repeated_types() {
             ]
         }
     }));
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
 
     let agent = push_agent("fanout-agent");
     pop(&agent);
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 
     for request in [full_request, gen_ai_request, repeated_request] {
         let body = request
@@ -3876,7 +4008,7 @@ fn opentelemetry_rejects_canonical_equivalent_destinations() {
             }
         }));
 
-        let report = validate_plugin_config(&config);
+        let report = test_validate_static_plugin_config(&config);
         assert!(
             report.diagnostics.iter().any(|diagnostic| {
                 diagnostic.code == "observability.unsafe_otel_destination_collision"
@@ -3902,7 +4034,7 @@ fn opentelemetry_rejects_canonical_equivalent_destinations() {
             ]
         }
     }));
-    assert!(validate_plugin_config(&grpc).has_errors());
+    assert!(test_validate_static_plugin_config(&grpc).has_errors());
 }
 
 #[test]
@@ -3951,7 +4083,7 @@ fn opentelemetry_allows_distinct_canonical_destinations() {
         }));
 
         assert!(
-            !validate_plugin_config(&config).has_errors(),
+            !test_validate_static_plugin_config(&config).has_errors(),
             "expected distinct destinations {first:?} and {second:?} to remain valid"
         );
     }
@@ -3973,7 +4105,7 @@ fn opentelemetry_allows_distinct_canonical_destinations() {
             ]
         }
     }));
-    assert!(!validate_plugin_config(&different_transports).has_errors());
+    assert!(!test_validate_static_plugin_config(&different_transports).has_errors());
 }
 
 #[test]
@@ -3991,7 +4123,7 @@ fn opentelemetry_rejects_canonical_collision_during_validation_and_activation() 
         }
     }));
 
-    let report = validate_plugin_config(&config);
+    let report = test_validate_static_plugin_config(&config);
     assert!(report.has_errors());
     assert!(report.diagnostics.iter().any(|diagnostic| {
         diagnostic.code == "observability.unsafe_otel_destination_collision"
@@ -4002,7 +4134,7 @@ fn opentelemetry_rejects_canonical_collision_during_validation_and_activation() 
                 .message
                 .contains("http://<loopback>:80/v1/traces")
     }));
-    assert!(futures::executor::block_on(initialize_plugins_exact(config)).is_err());
+    assert!(futures::executor::block_on(test_initialize_plugin_host_exact(config)).is_err());
     assert!(
         !global_context()
             .read()
@@ -4025,7 +4157,7 @@ fn opentelemetry_allows_repeated_projection_types_at_the_same_destination() {
         }
     }));
 
-    assert!(!validate_plugin_config(&config).has_errors());
+    assert!(!test_validate_static_plugin_config(&config).has_errors());
 }
 
 #[test]
@@ -4046,11 +4178,11 @@ fn opentelemetry_endpoint_delivery_failure_does_not_block_other_endpoints() {
             ]
         }
     }));
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
 
     let agent = push_agent("failure-isolation-agent");
     pop(&agent);
-    let _ = clear_plugin_configuration();
+    let _ = test_close_plugin_host();
 
     let body = healthy_request
         .recv_timeout(Duration::from_secs(5))
@@ -4078,7 +4210,7 @@ fn invalid_later_opentelemetry_endpoint_keeps_fanout_registration() {
         }
     }));
 
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
     assert!(
         global_context()
             .read()
@@ -4086,7 +4218,7 @@ fn invalid_later_opentelemetry_endpoint_keeps_fanout_registration() {
             .event_subscribers
             .contains_key("nemo-relay-plugin.v1.observability:1:opentelemetry")
     );
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4214,7 +4346,7 @@ fn metric_cardinality_limit_rejects_usize_max_in_plugin_validation() {
         }
     }));
 
-    let report = validate_plugin_config(&config);
+    let report = test_validate_static_plugin_config(&config);
     assert!(report.diagnostics.iter().any(|diagnostic| {
         diagnostic.component.as_deref() == Some("opentelemetry.metrics")
             && diagnostic.field.as_deref() == Some("cardinality_limit")
@@ -4267,7 +4399,7 @@ fn plugin_validation_reports_each_signal_specific_invalid_value() {
         }
     }));
 
-    let report = validate_plugin_config(&config);
+    let report = test_validate_static_plugin_config(&config);
     for (component, field) in [
         ("opentelemetry.logs", "minimum_severity"),
         ("opentelemetry.logs", "max_queue_size"),
@@ -4515,7 +4647,7 @@ fn log_only_plugin_reports_invalid_reserved_metric_marks_once() {
             "metrics": {"enabled": false}
         }
     }));
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
 
     for (version, data) in [
         ("999", json!({"measurements": [{"name": "ignored"}]})),
@@ -4537,7 +4669,7 @@ fn log_only_plugin_reports_invalid_reserved_metric_marks_once() {
     }
     flush_subscribers().unwrap();
 
-    let report = crate::plugin::active_plugin_report().unwrap();
+    let report = crate::plugin::test_plugin_host_report().unwrap();
     let diagnostics = report
         .runtime_diagnostics
         .iter()
@@ -4547,7 +4679,7 @@ fn log_only_plugin_reports_invalid_reserved_metric_marks_once() {
     assert_eq!(diagnostics[0].count, 2);
     assert_eq!(diagnostics[0].field.as_deref(), None);
 
-    clear_plugin_configuration().unwrap();
+    test_close_plugin_host().unwrap();
 }
 
 #[test]
@@ -4576,7 +4708,7 @@ fn plugin_signal_rejections_record_runtime_diagnostics() {
             }
         }
     }));
-    futures::executor::block_on(initialize_plugins_exact(config)).unwrap();
+    futures::executor::block_on(test_initialize_plugin_host_exact(config)).unwrap();
 
     crate::api::scope::event(
         crate::api::scope::EmitMarkEventParams::builder()
@@ -4629,7 +4761,7 @@ fn plugin_signal_rejections_record_runtime_diagnostics() {
     }
     flush_subscribers().unwrap();
 
-    let report = crate::plugin::active_plugin_report().unwrap();
+    let report = crate::plugin::test_plugin_host_report().unwrap();
     for (code, field) in [
         (
             "otel.log_mark_invalid_severity",
@@ -4657,7 +4789,7 @@ fn plugin_signal_rejections_record_runtime_diagnostics() {
         );
     }
 
-    assert!(clear_plugin_configuration().is_err());
+    assert!(test_close_plugin_host().is_err());
 }
 
 #[test]
@@ -4775,7 +4907,7 @@ fn atif_storage_section_parses_empty_array() {
 #[test]
 fn atif_storage_unknown_backend_type_is_rejected() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "atif": {
             "enabled": true,
             "filename_template": "trajectory-{session_id}.json",
@@ -4794,7 +4926,7 @@ fn atif_storage_unknown_backend_type_is_rejected() {
 #[test]
 fn disabled_atif_storage_config_does_not_report_feature_disabled() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "atif": {
             "enabled": false,
             "filename_template": "trajectory-{session_id}.json",
@@ -4815,7 +4947,7 @@ fn disabled_atif_storage_config_does_not_report_feature_disabled() {
 #[test]
 fn atif_storage_empty_bucket_is_rejected() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "atif": {
             "enabled": true,
             "filename_template": "trajectory-{session_id}.json",
@@ -4834,7 +4966,7 @@ fn atif_storage_empty_bucket_is_rejected() {
 #[test]
 fn atif_storage_diagnostics_carry_sink_index() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "atif": {
             "enabled": true,
             "filename_template": "trajectory-{session_id}.json",
@@ -4858,7 +4990,7 @@ fn atif_storage_diagnostics_carry_sink_index() {
 #[test]
 fn atif_storage_empty_http_endpoint_is_rejected() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "atif": {
             "enabled": true,
             "filename_template": "trajectory-{session_id}.json",
@@ -4879,7 +5011,7 @@ fn atif_storage_empty_http_endpoint_is_rejected() {
 #[test]
 fn atif_storage_malformed_http_endpoint_is_rejected() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "atif": {
             "enabled": true,
             "filename_template": "trajectory-{session_id}.json",
@@ -4900,7 +5032,7 @@ fn atif_storage_malformed_http_endpoint_is_rejected() {
 #[test]
 fn atif_storage_http_timeout_must_be_positive() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "atif": {
             "enabled": true,
             "filename_template": "trajectory-{session_id}.json",
@@ -4925,7 +5057,7 @@ fn atif_storage_http_timeout_must_be_positive() {
 #[test]
 fn atif_storage_http_invalid_literal_header_name_is_rejected() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "atif": {
             "enabled": true,
             "filename_template": "trajectory-{session_id}.json",
@@ -4950,7 +5082,7 @@ fn atif_storage_http_invalid_literal_header_name_is_rejected() {
 #[test]
 fn atif_storage_http_invalid_literal_header_value_is_rejected() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "atif": {
             "enabled": true,
             "filename_template": "trajectory-{session_id}.json",
@@ -4983,7 +5115,7 @@ fn atif_storage_http_header_env_missing_env_is_rejected() {
     unsafe {
         std::env::remove_var(var_name);
     }
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "atif": {
             "enabled": true,
             "filename_template": "trajectory-{session_id}.json",
@@ -5015,7 +5147,7 @@ fn atif_storage_http_header_env_empty_env_is_rejected() {
     unsafe {
         std::env::set_var(var_name, "");
     }
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "atif": {
             "enabled": true,
             "filename_template": "trajectory-{session_id}.json",
@@ -5044,7 +5176,7 @@ fn atif_storage_http_header_env_empty_env_is_rejected() {
 #[test]
 fn atif_storage_http_header_env_whitespace_name_is_rejected() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "atif": {
             "enabled": true,
             "filename_template": "trajectory-{session_id}.json",
@@ -5075,7 +5207,7 @@ fn atif_storage_http_header_env_present_env_is_accepted() {
     unsafe {
         std::env::set_var(var_name, "Bearer test-token");
     }
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "atif": {
             "enabled": true,
             "filename_template": "trajectory-{session_id}.json",
@@ -5164,7 +5296,7 @@ fn atif_storage_secret_var_missing_env_is_rejected() {
     unsafe {
         std::env::remove_var(var_name);
     }
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "atif": {
             "enabled": true,
             "filename_template": "trajectory-{session_id}.json",
@@ -5196,7 +5328,7 @@ fn atif_storage_secret_var_empty_env_is_rejected() {
     unsafe {
         std::env::set_var(var_name, "");
     }
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "atif": {
             "enabled": true,
             "filename_template": "trajectory-{session_id}.json",
@@ -5232,7 +5364,7 @@ fn atif_storage_secret_var_present_env_is_accepted() {
     unsafe {
         std::env::set_var(var_name, "secret-value");
     }
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "atif": {
             "enabled": true,
             "filename_template": "trajectory-{session_id}.json",
@@ -5257,7 +5389,7 @@ fn atif_storage_secret_var_present_env_is_accepted() {
 #[test]
 fn atif_storage_secret_var_empty_name_is_rejected() {
     let _guard = crate::observability::test_mutex().lock().unwrap();
-    let report = validate_plugin_config(&plugin_config(json!({
+    let report = test_validate_static_plugin_config(&plugin_config(json!({
         "atif": {
             "enabled": true,
             "filename_template": "trajectory-{session_id}.json",
@@ -5370,6 +5502,7 @@ fn http_storage_config(endpoint: impl Into<String>) -> HttpStorageConfig {
         endpoint: endpoint.into(),
         headers: std::collections::HashMap::new(),
         header_env: std::collections::HashMap::new(),
+        header_file: std::collections::HashMap::new(),
         timeout_millis: 1_000,
     }
 }
@@ -5396,6 +5529,28 @@ fn http_upload_config_rejects_endpoint_timeout_and_header_errors() {
     config.headers.insert("x-bad".into(), "bad\nvalue".into());
     assert!(HttpUploadConfig::resolve(2, &config).is_err());
 
+    let directory = tempfile::tempdir().unwrap();
+    let path = directory.path().join("token");
+    std::fs::write(&path, "Bearer token\n").unwrap();
+    let mut remote_file_header = http_storage_config("http://collector.example/atif");
+    remote_file_header
+        .header_file
+        .insert("authorization".into(), path.to_string_lossy().into_owned());
+    assert!(HttpUploadConfig::resolve(2, &remote_file_header).is_err());
+    remote_file_header.endpoint = "http://127.0.0.1:4318/atif".into();
+    assert!(HttpUploadConfig::resolve(2, &remote_file_header).is_ok());
+    remote_file_header.endpoint = "http://collector.example/atif".into();
+    remote_file_header.header_file.clear();
+    assert!(HttpUploadConfig::resolve(2, &remote_file_header).is_ok());
+
+    remote_file_header
+        .headers
+        .insert("authorization".into(), "Bearer static".into());
+    assert!(HttpUploadConfig::resolve(2, &remote_file_header).is_err());
+    remote_file_header.endpoint = "http://127.0.0.1:4318/atif".into();
+    assert!(HttpUploadConfig::resolve(2, &remote_file_header).is_ok());
+    remote_file_header.headers.clear();
+
     let variable = "NEMO_RELAY_TEST_ATIF_HTTP_RESOLVE_ZZZZ";
     // SAFETY: this uniquely named environment variable is serialized by the observability mutex.
     unsafe { std::env::set_var(variable, "Bearer resolved") };
@@ -5403,6 +5558,9 @@ fn http_upload_config_rejects_endpoint_timeout_and_header_errors() {
     config
         .header_env
         .insert("authorization".into(), variable.into());
+    config.endpoint = "http://collector.example/atif".into();
+    assert!(HttpUploadConfig::resolve(2, &config).is_err());
+    config.endpoint = "http://127.0.0.1:4318/atif".into();
     let resolved = HttpUploadConfig::resolve(2, &config).unwrap();
     assert_eq!(
         resolved.headers.get("authorization").map(String::as_str),

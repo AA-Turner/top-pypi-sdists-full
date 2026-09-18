@@ -233,6 +233,19 @@ class TaktileIdToken(BaseModel):
 
         return results
 
+    def _assert_every(self, permissions: t.Sequence[str]) -> None:
+        """Every permission, unmetered — the caller owns the metric.
+
+        One access decision is one ``AssertAccessDuration``, so a method that
+        checks several permissions to reach a single answer wraps this once
+        rather than calling a metered method per permission.
+        """
+        for permission in permissions:
+            self._is_allowed(
+                permission,
+                (self.build_role(role) for role in self.roles if role.split("/")[0] in ROLES),
+            )
+
     def assert_access(self, permission: t.Union[str, t.Sequence[str]]) -> None:
         t0 = time.perf_counter()
         if isinstance(permission, str):
@@ -240,11 +253,7 @@ class TaktileIdToken(BaseModel):
 
         allowed = True
         try:
-            for p in permission:
-                self._is_allowed(
-                    p,
-                    (self.build_role(role) for role in self.roles if role.split("/")[0] in ROLES),
-                )
+            self._assert_every(permission)
         except InsufficientRightsException:
             allowed = False
             raise
@@ -263,6 +272,34 @@ class TaktileIdToken(BaseModel):
         except InsufficientRightsException:
             return False
         return True
+
+    def assert_any_access(self, permissions: t.Union[str, t.Sequence[str]]) -> None:
+        """Assert access to at least one of ``permissions``.
+
+        ``assert_access`` requires every permission in a sequence; this is the
+        OR form, for an endpoint several different grants can reach.
+        """
+        if isinstance(permissions, str):
+            permissions = [permissions]
+
+        t0 = time.perf_counter()
+        allowed = False
+        try:
+            for permission in permissions:
+                try:
+                    self._assert_every([permission])
+                except InsufficientRightsException:
+                    continue
+                allowed = True
+                return
+            raise InsufficientRightsException
+        finally:
+            duration_ms = (time.perf_counter() - t0) * 1000
+            emit_metric(
+                "AssertAccessDuration",
+                duration_ms,
+                {"Allowed": str(allowed)},
+            )
 
     def assert_access_with_fallback(
         self,

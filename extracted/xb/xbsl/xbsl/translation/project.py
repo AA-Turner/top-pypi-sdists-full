@@ -24,10 +24,11 @@ from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath
 
 from xbsl import engine, i18n, libs, scaffold, terms
-from xbsl.engine import RESOURCE_DIRS
+from xbsl.restext import RESOURCE_DIRS
 from xbsl.rules.yaml_schema import _parsed, object_kind
 from xbsl.translation import names as project_names_module
-from xbsl.translation.code import Resolver, has_cyrillic, translate_code
+from xbsl.translation import platform_map
+from xbsl.translation.code import ProjectIndex, Resolver, has_cyrillic, translate_code
 from xbsl.translation.dictionary import (
     DICTIONARY_DIR, DICTIONARY_FILE, Dictionary,
 )
@@ -95,6 +96,18 @@ MESSAGES = {
     "translate.problem.shadow-more": {
         "ru": " (ещё мест: {count})",
         "en": " (+{count} places)",
+    },
+    "translate.problem.platform-type": {
+        "ru": "проект объявляет тип \"{name}\", и платформа объявляет тип с таким же именем"
+              " ({platform}); запись словаря \"{name}: {entry}\" переименовывает оба."
+              " Английское дерево получает либо два типа под одним словом, либо платформенный"
+              " тип под словом проекта – и сборка падает в файле, который про этот тип ничего"
+              " не знает. Переименуйте тип проекта",
+        "en": "the project declares a type \"{name}\" and the platform declares a type of the"
+              " same name ({platform}); the dictionary entry \"{name}: {entry}\" renames both."
+              " The English tree gets either two types under one word or the platform's type"
+              " under the project's word - and the build fails in a file that knows nothing of"
+              " the type. Rename the project's type",
     },
     "translate.problem.placeholders": {
         "ru": "{place}: литерал '{text}': подстановки перевода [{found}] не совпадают с"
@@ -194,6 +207,17 @@ class ProjectReport:
                     entry["sample"] = f"{rel}:{places[0][0]}"
         return out
 
+    def merged_missing_visible_literals(self) -> dict[str, dict]:
+        """The part of the literal gaps a person reads (see FileReport.missing_visible_literals)."""
+        out: dict[str, dict] = {}
+        for rel, report in sorted(self.files.items()):
+            for text, places in report.missing_visible_literals.items():
+                entry = out.setdefault(text, {"count": 0, "sample": ""})
+                entry["count"] += len(places)
+                if not entry["sample"] and places:
+                    entry["sample"] = f"{rel}:{places[0][0]}"
+        return out
+
     def merged_platform_gaps(self) -> dict[str, dict]:
         out: dict[str, dict] = {}
         for rel, report in sorted(self.files.items()):
@@ -240,6 +264,10 @@ class ProjectReport:
             # sentence can be added, compared and turned into a percentage.
             "literals_translated": len(self.merged_named_literals()),
             "missing_literals": len(self.merged_missing_literals()),
+            # The exception to "apart": a yaml text the metamodel types `Localizable`, left in the
+            # source language, is a page of the English build shown in Russian. The strict gate
+            # counts these (see FileReport.missing_visible_literals).
+            "missing_visible_literals": len(self.merged_missing_visible_literals()),
             #: How many literal SPANS the pass rewrote - the size of the change, not of the
             #: dictionary; kept apart so no summary line mixes it with the counts above.
             "literal_occurrences": sum(r.literals_done for r in self.files.values()),
@@ -299,6 +327,36 @@ class ProjectReport:
                     "translate.problem.placeholders", place=f"{rel}:{line}", text=preview,
                     expected=", ".join(expected), found=", ".join(found),
                 ))
+
+    def collect_platform_type_clashes(self, project_types, dictionary: Dictionary) -> None:
+        """A TYPE the project declares under the spelling of a platform type, with an entry.
+
+        The one shape the writer of a pair cannot judge: whether a key that spells a platform
+        type is fatal depends on what the project declares, and the writer has the dictionary
+        alone. Here both are in hand, and the verdict is proven rather than guessed.
+
+        A type expression normally takes the platform's word over any name of the project - but
+        a type the project DECLARES is the exception (see `Resolver.platform_type`), because its
+        declaration and its uses have to move together. So the entry answers every type
+        expression of that spelling, the platform's own among them: `new Образец(...)` of a file
+        that never heard of the project's type came out `new Swatch(...)`, and the English build
+        refused it. The cure is not a value - the project's type has to be renamed.
+
+        An entry that repeats the platform's own spelling is left alone: it moves no platform
+        word anywhere, and a project that names a component after a platform one and translates
+        it the same way builds. Without an entry the name stays Cyrillic, which the gaps of the
+        strict pass already report, so nothing is said twice.
+        """
+        for name in sorted(project_types):
+            entry = dictionary.tokens.get(name)
+            if entry is None:
+                continue
+            platform = platform_map.type_english(name)
+            if not platform or platform == entry:
+                continue
+            self.problems.append(i18n.t(
+                "translate.problem.platform-type", name=name, entry=entry, platform=platform,
+            ))
 
 
 def _iter_files(root: Path, dictionary: Dictionary | None = None) -> list[Path]:
@@ -420,6 +478,8 @@ def translate_project(
         project_names_module.collect_types(root, engine.load),
         component_methods=project_names_module.component_methods(root, engine.load),
         resource_keys=project_names_module.resource_keys(root),
+        project_component_types=project_names_module.component_types(root, engine.load),
+        project_index=ProjectIndex.build(root),
     )
     fields = project_names_module.collect_structure_fields(root, engine.load)
     report = ProjectReport(root=root)
@@ -468,6 +528,7 @@ def translate_project(
     _apply_language_flip(root, outputs, swaps, dictionary, report)
     report.collect_collisions()
     report.collect_dictionary_defects()
+    report.collect_platform_type_clashes(resolver.project_types, dictionary)
     # The last word on the entries the pass USED: an entry the platform answers itself at
     # every place it answered. A key the project declares is left out whatever the tables
     # say - there the platform is gated off and the entry is the only answer - which also

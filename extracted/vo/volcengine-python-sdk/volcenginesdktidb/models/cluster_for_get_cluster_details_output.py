@@ -33,7 +33,7 @@ class ClusterForGetClusterDetailsOutput(object):
                             and the value is json key in definition.
     """
     swagger_types = {
-        'annotations': 'list[AnnotationForGetClusterDetailsOutput]',
+        'annotations': 'str',
         'audit_log_config': 'AuditLogConfigForGetClusterDetailsOutput',
         'auto_scaling': 'AutoScalingForGetClusterDetailsOutput',
         'automated_backup_policy': 'AutomatedBackupPolicyForGetClusterDetailsOutput',
@@ -43,14 +43,13 @@ class ClusterForGetClusterDetailsOutput(object):
         'encryption_config': 'EncryptionConfigForGetClusterDetailsOutput',
         'endpoints': 'EndpointsForGetClusterDetailsOutput',
         'high_availability_type': 'str',
-        'labels': 'list[LabelForGetClusterDetailsOutput]',
+        'labels': 'str',
         'name': 'str',
         'project_name': 'str',
         'region_id': 'str',
         'service_plan': 'str',
         'spending_limit': 'SpendingLimitForGetClusterDetailsOutput',
         'state': 'str',
-        'tags': 'list[TagForGetClusterDetailsOutput]',
         'update_time': 'str',
         'user_prefix': 'str',
         'version': 'str',
@@ -76,7 +75,6 @@ class ClusterForGetClusterDetailsOutput(object):
         'service_plan': 'ServicePlan',
         'spending_limit': 'SpendingLimit',
         'state': 'State',
-        'tags': 'Tags',
         'update_time': 'UpdateTime',
         'user_prefix': 'UserPrefix',
         'version': 'Version',
@@ -84,7 +82,7 @@ class ClusterForGetClusterDetailsOutput(object):
         'zones': 'Zones'
     }
 
-    def __init__(self, annotations=None, audit_log_config=None, auto_scaling=None, automated_backup_policy=None, cluster_id=None, create_time=None, display_name=None, encryption_config=None, endpoints=None, high_availability_type=None, labels=None, name=None, project_name=None, region_id=None, service_plan=None, spending_limit=None, state=None, tags=None, update_time=None, user_prefix=None, version=None, vpc_id=None, zones=None, _configuration=None):  # noqa: E501
+    def __init__(self, annotations=None, audit_log_config=None, auto_scaling=None, automated_backup_policy=None, cluster_id=None, create_time=None, display_name=None, encryption_config=None, endpoints=None, high_availability_type=None, labels=None, name=None, project_name=None, region_id=None, service_plan=None, spending_limit=None, state=None, update_time=None, user_prefix=None, version=None, vpc_id=None, zones=None, _configuration=None):  # noqa: E501
         """ClusterForGetClusterDetailsOutput - a model defined in Swagger"""  # noqa: E501
         if _configuration is None:
             _configuration = Configuration()
@@ -107,7 +105,6 @@ class ClusterForGetClusterDetailsOutput(object):
         self._service_plan = None
         self._spending_limit = None
         self._state = None
-        self._tags = None
         self._update_time = None
         self._user_prefix = None
         self._version = None
@@ -149,8 +146,6 @@ class ClusterForGetClusterDetailsOutput(object):
             self.spending_limit = spending_limit
         if state is not None:
             self.state = state
-        if tags is not None:
-            self.tags = tags
         if update_time is not None:
             self.update_time = update_time
         if user_prefix is not None:
@@ -168,7 +163,7 @@ class ClusterForGetClusterDetailsOutput(object):
 
 
         :return: The annotations of this ClusterForGetClusterDetailsOutput.  # noqa: E501
-        :rtype: list[AnnotationForGetClusterDetailsOutput]
+        :rtype: str
         """
         return self._annotations
 
@@ -178,7 +173,7 @@ class ClusterForGetClusterDetailsOutput(object):
 
 
         :param annotations: The annotations of this ClusterForGetClusterDetailsOutput.  # noqa: E501
-        :type: list[AnnotationForGetClusterDetailsOutput]
+        :type: str
         """
 
         self._annotations = annotations
@@ -378,7 +373,7 @@ class ClusterForGetClusterDetailsOutput(object):
 
 
         :return: The labels of this ClusterForGetClusterDetailsOutput.  # noqa: E501
-        :rtype: list[LabelForGetClusterDetailsOutput]
+        :rtype: str
         """
         return self._labels
 
@@ -388,7 +383,7 @@ class ClusterForGetClusterDetailsOutput(object):
 
 
         :param labels: The labels of this ClusterForGetClusterDetailsOutput.  # noqa: E501
-        :type: list[LabelForGetClusterDetailsOutput]
+        :type: str
         """
 
         self._labels = labels
@@ -518,27 +513,6 @@ class ClusterForGetClusterDetailsOutput(object):
         """
 
         self._state = state
-
-    @property
-    def tags(self):
-        """Gets the tags of this ClusterForGetClusterDetailsOutput.  # noqa: E501
-
-
-        :return: The tags of this ClusterForGetClusterDetailsOutput.  # noqa: E501
-        :rtype: list[TagForGetClusterDetailsOutput]
-        """
-        return self._tags
-
-    @tags.setter
-    def tags(self, tags):
-        """Sets the tags of this ClusterForGetClusterDetailsOutput.
-
-
-        :param tags: The tags of this ClusterForGetClusterDetailsOutput.  # noqa: E501
-        :type: list[TagForGetClusterDetailsOutput]
-        """
-
-        self._tags = tags
 
     @property
     def update_time(self):

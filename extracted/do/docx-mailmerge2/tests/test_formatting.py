@@ -14,15 +14,15 @@ class FormattingTest(EtreeMixin, unittest.TestCase):
         self.open_docx(path.join(path.dirname(__file__), "test_one_simple_field.docx"))
         zi, part = self.get_part()
         self.replacement_parts = {zi: part}
-        self.simple_merge_field = part.getroot().find(".//{%(w)s}fldSimple" % NAMESPACES)
+        self.simple_merge_field = part.getroot().find(".//{{{w}}}fldSimple".format(**NAMESPACES))
 
     def _test_formats(self, flag, format_tests):
         for formatting, value_list in format_tests.items():
             rows = [{"fieldname": value} for value, _ in value_list]
             # print(formatting)
 
-            instr = 'MERGEFIELD fieldname {} "{}"'.format(flag, formatting)
-            self.simple_merge_field.set("{%(w)s}instr" % NAMESPACES, instr)
+            instr = f'MERGEFIELD fieldname {flag} "{formatting}"'
+            self.simple_merge_field.set("{{{w}}}instr".format(**NAMESPACES), instr)
             with MailMerge(self.get_new_docx(self.replacement_parts)) as document:
                 self.assertEqual(document.get_merge_fields(), {"fieldname"})
                 document.merge_templates(rows, "page_break")
@@ -34,7 +34,7 @@ class FormattingTest(EtreeMixin, unittest.TestCase):
             self.assertEqual(
                 output_fields,
                 [output_value for _, output_value in value_list],
-                "Format <{} {}>".format(flag, formatting),
+                f"Format <{flag} {formatting}>",
             )
 
     def test_number(self):
@@ -57,7 +57,7 @@ class FormattingTest(EtreeMixin, unittest.TestCase):
         )
 
     def test_date(self):
-        datetime_value = datetime.datetime(2022, 3, 9, 17, 7, 8)
+        datetime_value = datetime.datetime(2022, 3, 9, 17, 7, 8)  # noqa: DTZ001
         date_value = datetime_value.date()
         time_value = datetime_value.time()
         # time12_value = datetime_value - datetime.timedelta(hours=12)

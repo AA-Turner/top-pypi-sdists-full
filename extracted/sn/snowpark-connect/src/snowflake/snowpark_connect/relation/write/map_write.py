@@ -374,6 +374,51 @@ def _is_iceberg_write_v2_target(
     return get_table_type(snowpark_table_name, session) == "ICEBERG"
 
 
+def _is_unstated_format_iceberg_append_v1(
+    write_op: commands_proto.WriteOperation,
+    write_mode: str | None,
+    session: snowpark.Session,
+    *,
+    client_specified_source: bool,
+) -> bool:
+    """Whether a V1 ``saveAsTable`` append should adopt the target's Iceberg provider.
+
+    Spark's ``saveAsTable`` in Append mode against an existing table appends
+    through the table the catalog loaded -- ``AppendData.byName`` on the loaded
+    relation -- and never reads the writer's provider; only Overwrite rebuilds
+    the table from ``source`` via ``ReplaceTableAsSelect``
+    (DataFrameWriter.scala:590-641). So a client that never called
+    ``.format(...)`` must inherit the existing table's provider instead of being
+    held to SCOS's FDN default, which otherwise rejects a managed-Iceberg target
+    with "is not a FDN table".
+
+    Scoped to append deliberately: overwrite really does take the provider from
+    the writer in Spark, and an explicit ``.format(...)`` stays authoritative so
+    a contradictory format still fails.
+
+    Both metadata lookups are served by the session table-metadata cache and are
+    repeated by whichever branch the write lands in, so this costs no extra
+    round-trip on the paths it can reroute.
+    """
+    if client_specified_source or write_mode != "append":
+        return False
+    if not write_op.HasField("table"):
+        return False
+    if (
+        write_op.table.save_method
+        != commands_proto.WriteOperation.SaveTable.TableSaveMethod.TABLE_SAVE_METHOD_SAVE_AS_TABLE
+    ):
+        return False
+    snowpark_table_name = _spark_to_snowflake(write_op.table.table_name)
+    if not isinstance(
+        _get_table_schema_or_error(snowpark_table_name, session), DataType
+    ):
+        # Append to a table that does not exist creates it; Spark builds that
+        # table from the writer's provider, so the FDN default still applies.
+        return False
+    return get_table_type(snowpark_table_name, session) == "ICEBERG"
+
+
 def _write_v2_dml_routing(
     dml_target: IcebergRefDmlTarget,
     *,
@@ -847,6 +892,9 @@ def map_write(request: proto_base.ExecutePlanRequest):
         result.partition_hint if hasattr(result, "partition_hint") else None
     )
 
+    # Captured before the rewrites below, which make HasField("source") true.
+    client_specified_source = write_op.HasField("source") and bool(write_op.source)
+
     # Snowflake saveAsTable doesn't support format
     if (
         write_op.HasField("table")
@@ -888,6 +936,15 @@ def map_write(request: proto_base.ExecutePlanRequest):
     elif should_write_to_single_file:
         # providing default size as 1GB for single file write
         max_file_size = 1073741824
+
+    if _is_unstated_format_iceberg_append_v1(
+        write_op,
+        write_mode,
+        session,
+        client_specified_source=client_specified_source,
+    ):
+        write_op.source = "iceberg"
+
     match write_op.source:
         case "csv" | "parquet" | "json" | "text":
             # Text format requires exactly one non-partition column of StringType
@@ -1350,6 +1407,24 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 write_mode = "append"  # Default to append for Neo4j
             map_write_jdbc(result, session, jdbc_options, write_mode)
         case "iceberg":
+            is_insert_into = (
+                write_op.table.save_method
+                == commands_proto.WriteOperation.SaveTable.TableSaveMethod.TABLE_SAVE_METHOD_INSERT_INTO
+            )
+            if is_insert_into and write_mode in (
+                None,
+                "error",
+                "errorifexists",
+                "ignore",
+            ):
+                # SNOW-3968184: insertInto has no create / error / ignore
+                # semantics. Spark reads the save mode only to pick overwrite vs
+                # append, folding Append, ErrorIfExists and Ignore alike into
+                # AppendData (DataFrameWriter.scala:461-463, and :489 for the V1
+                # relation). Without this the unset mode fell into the
+                # errorifexists arm below and raised "already exists" against
+                # the target insertInto requires to already exist.
+                write_mode = "append"
             table_name = (
                 write_op.path
                 if write_op.path is not None and write_op.path != ""
@@ -1401,10 +1476,6 @@ def map_write(request: proto_base.ExecutePlanRequest):
                 cld_create_options
             )
 
-            is_insert_into = (
-                write_op.table.save_method
-                == commands_proto.WriteOperation.SaveTable.TableSaveMethod.TABLE_SAVE_METHOD_INSERT_INTO
-            )
             # Fetch once here; all write_mode branches consume it so we avoid
             # a second round-trip in the common case.
             table_schema_or_error = _get_table_schema_or_error(
@@ -3444,13 +3515,12 @@ _ENABLE_TABLE_PROPERTIES_DDL_CONFIG_KEY = (
 
 def _iceberg_table_properties_ddl_enabled() -> bool:
     """Return True when the client-side gate for TABLE_PROPERTIES(...) emission on
-    CREATE / ALTER ICEBERG TABLE is enabled via the session config
-    ``snowpark.connect.iceberg.enable_table_properties_ddl``. Defaults to False.
-    Read from session config only — no Snowflake round trip.
+    CREATE / ALTER ICEBERG TABLE is enabled via the config
+    ``snowpark.connect.iceberg.enable_table_properties_ddl`` (default False,
+    settable with ``spark.conf.set``). No Snowflake round trip.
     """
-    session_config = sessions_config.get(get_spark_session_id(), {})
     return str_to_bool(
-        str(session_config.get(_ENABLE_TABLE_PROPERTIES_DDL_CONFIG_KEY, "false"))
+        str(global_config.get(_ENABLE_TABLE_PROPERTIES_DDL_CONFIG_KEY, "false"))
     )
 
 

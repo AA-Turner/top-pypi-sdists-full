@@ -167,3 +167,142 @@ class TestFetchMeTeamSecret:
         await session._fetch_me("https://api", "idt_plat0.tok", None)
 
         assert "X-Team-Secret" not in _CapturingClient.captured_headers
+
+
+class _FakeAPIClient:
+    """Records what `auth tokens` asked the shared client to do.
+
+    Standing in for `InnoDayAPIClient` rather than for `httpx` is the point:
+    the assertion is that this handler goes through the client at all. Building
+    its own httpx client is what lost the team-secret header, and a test that
+    mocked httpx would have passed either way.
+    """
+
+    calls: list = []
+
+    def __init__(self, *a, **kw):
+        _FakeAPIClient.calls = []
+
+    async def close(self):
+        _FakeAPIClient.calls.append(("close", None, None))
+
+    async def get(self, endpoint, params=None):
+        _FakeAPIClient.calls.append(("get", endpoint, None))
+        return self._resp(200, [])
+
+    async def post(self, endpoint, json=None, headers=None):
+        _FakeAPIClient.calls.append(("post", endpoint, json))
+        return self._resp(
+            200,
+            {"id": "t-1", "name": (json or {}).get("name"), "token": "idt_plat0.raw"},
+        )
+
+    async def delete(self, endpoint, headers=None):
+        _FakeAPIClient.calls.append(("delete", endpoint, None))
+        return self._resp(204, None)
+
+    @staticmethod
+    def _resp(code, body):
+        class _Resp:
+            status_code = code
+            text = ""
+
+            @staticmethod
+            def json():
+                return body
+
+        return _Resp()
+
+
+class TestTokensGoesThroughTheSharedClient:
+    """`innoday auth tokens` answered 401 against every gated deployment.
+
+    It built its own `httpx.AsyncClient` carrying only the Bearer header, so
+    `TeamSecretMiddleware` rejected it before routing — and the deployed API
+    always has `TEAM_ACCESS_SECRET` set. Listing or revoking your own tokens
+    was impossible from the CLI. `TestFetchMeTeamSecret` above is the same bug
+    found in `_fetch_me`; this handler was the copy nobody had hit yet.
+
+    The fix is to use the client, which attaches the secret for you — a rule
+    that cannot be forgotten rather than one to remember.
+    """
+
+    def _args(self, **over):
+        import argparse
+
+        ns = argparse.Namespace(revoke=None, create=None, expires_days=None)
+        for k, v in over.items():
+            setattr(ns, k, v)
+        return ns
+
+    def _run(self, monkeypatch, config, args):
+        import asyncio
+
+        from src.cli.commands import auth as auth_cmd
+
+        monkeypatch.setattr(auth_cmd, "InnoDayAPIClient", _FakeAPIClient)
+        config.store_cli_token("idt_plat0.tok")
+        # Cleared here, not in `__init__`: the refusal path never constructs the
+        # client, so a stale list from the previous test would let
+        # "no calls were made" pass without meaning anything.
+        _FakeAPIClient.calls = []
+        return asyncio.run(auth_cmd.AuthCommands._handle_tokens(args, config))
+
+    def test_listing_uses_the_client(self, monkeypatch, config):
+        assert self._run(monkeypatch, config, self._args()) == 0
+        verbs = [(v, e) for v, e, _ in _FakeAPIClient.calls]
+        assert ("get", "/api/v1/auth/tokens") in verbs
+
+    def test_revoking_uses_the_client(self, monkeypatch, config):
+        assert self._run(monkeypatch, config, self._args(revoke="t-9")) == 0
+        verbs = [(v, e) for v, e, _ in _FakeAPIClient.calls]
+        assert ("delete", "/api/v1/auth/tokens/t-9") in verbs
+
+    def test_the_client_is_closed_even_on_the_early_returns(self, monkeypatch, config):
+        """`--revoke` and `--create` return from inside the `try`. `finally`
+        runs first, so both close — but only because it is unconditional."""
+        self._run(monkeypatch, config, self._args(revoke="t-9"))
+        assert ("close", None, None) in _FakeAPIClient.calls
+
+
+class TestCreatingATokenAdds:
+    """The browser form revokes every active token before minting. That is the
+    right shape for a person who lost theirs, and the wrong one for adding a
+    second with a job — a scheduled sweep, a CI runner. Revoking the token your
+    own shell is holding in order to hand one to a cron job is a bad afternoon.
+    """
+
+    def _args(self, **over):
+        return TestTokensGoesThroughTheSharedClient()._args(**over)
+
+    def _run(self, monkeypatch, config, args):
+        return TestTokensGoesThroughTheSharedClient()._run(monkeypatch, config, args)
+
+    def test_it_posts_the_name(self, monkeypatch, config):
+        assert self._run(monkeypatch, config, self._args(create="routine")) == 0
+        posts = [(e, b) for v, e, b in _FakeAPIClient.calls if v == "post"]
+        assert posts == [("/api/v1/auth/tokens", {"name": "routine"})]
+
+    def test_it_revokes_nothing(self, monkeypatch, config):
+        """The whole reason this exists rather than pointing at the web form."""
+        self._run(monkeypatch, config, self._args(create="routine"))
+        assert not [v for v, _, _ in _FakeAPIClient.calls if v == "delete"]
+
+    def test_no_expiry_unless_asked(self, monkeypatch, config):
+        """`mint_cli_token` leaves `expires_at` NULL when `expires_days` is
+        absent. Sending a default would silently expire an unattended job's
+        credential; the web path's 90 days is exactly that trap."""
+        self._run(monkeypatch, config, self._args(create="routine"))
+        [(_, body)] = [(e, b) for v, e, b in _FakeAPIClient.calls if v == "post"]
+        assert "expires_days" not in body
+
+    def test_an_expiry_is_passed_through_when_given(self, monkeypatch, config):
+        self._run(monkeypatch, config, self._args(create="short", expires_days=7))
+        [(_, body)] = [(e, b) for v, e, b in _FakeAPIClient.calls if v == "post"]
+        assert body["expires_days"] == 7
+
+    def test_create_and_revoke_together_is_refused(self, monkeypatch, config):
+        """They disagree about what should happen to the token you name."""
+        code = self._run(monkeypatch, config, self._args(create="x", revoke="t-9"))
+        assert code == 1
+        assert not _FakeAPIClient.calls

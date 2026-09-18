@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: pyproject-api
-Version: 1.11.1
+Version: 1.11.2
 Summary: API to interact with the python pyproject.toml based projects
 Project-URL: Changelog, https://github.com/tox-dev/pyproject-api/releases
 Project-URL: Homepage, https://pyproject-api.readthedocs.io

@@ -193,6 +193,8 @@ class PackageConfig(google.protobuf.message.Message):
     RETENTION_DEFAULTS_FIELD_NUMBER: builtins.int
     VERCEL_ID_FIELD_NUMBER: builtins.int
     FEATURE_CONFIGS_FIELD_NUMBER: builtins.int
+    LIMIT_FIELD_NUMBER: builtins.int
+    IS_UNLIMITED_FIELD_NUMBER: builtins.int
     uid: builtins.str
     base_price_cents: builtins.int
     """Base price for the package."""
@@ -213,6 +215,8 @@ class PackageConfig(google.protobuf.message.Message):
     """Identifier for the matching plan in Vercel's marketplace. Set only on
     packages that can be bought through Vercel; unset otherwise.
     """
+    limit: builtins.int
+    is_unlimited: builtins.bool
     @property
     def line_item_configs(self) -> google.protobuf.internal.containers.RepeatedCompositeFieldContainer[global___LineItemConfig]: ...
     @property
@@ -254,9 +258,14 @@ class PackageConfig(google.protobuf.message.Message):
         retention_defaults: collections.abc.Iterable[sentry_protos.billing.v1.common.v1.retention_pb2.DataCategoryRetention] | None = ...,
         vercel_id: builtins.str | None = ...,
         feature_configs: global___PackageFeatureConfigs | None = ...,
+        limit: builtins.int = ...,
+        is_unlimited: builtins.bool = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_vercel_id", b"_vercel_id", "feature_configs", b"feature_configs", "flexible_base_price_cents", b"flexible_base_price_cents", "vercel_id", b"vercel_id"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_vercel_id", b"_vercel_id", "admin_title", b"admin_title", "base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "feature_configs", b"feature_configs", "flexible_base_price_cents", b"flexible_base_price_cents", "has_payg_modes", b"has_payg_modes", "is_enterprise", b"is_enterprise", "line_item_configs", b"line_item_configs", "retention_defaults", b"retention_defaults", "shared_line_item_pools", b"shared_line_item_pools", "supported_month_intervals", b"supported_month_intervals", "title", b"title", "uid", b"uid", "user_selectable", b"user_selectable", "vercel_id", b"vercel_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_vercel_id", b"_vercel_id", "feature_configs", b"feature_configs", "flexible_base_price_cents", b"flexible_base_price_cents", "is_unlimited", b"is_unlimited", "limit", b"limit", "max_members", b"max_members", "vercel_id", b"vercel_id"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_vercel_id", b"_vercel_id", "admin_title", b"admin_title", "base_price_cents", b"base_price_cents", "billing_interval", b"billing_interval", "feature_configs", b"feature_configs", "flexible_base_price_cents", b"flexible_base_price_cents", "has_payg_modes", b"has_payg_modes", "is_enterprise", b"is_enterprise", "is_unlimited", b"is_unlimited", "limit", b"limit", "line_item_configs", b"line_item_configs", "max_members", b"max_members", "retention_defaults", b"retention_defaults", "shared_line_item_pools", b"shared_line_item_pools", "supported_month_intervals", b"supported_month_intervals", "title", b"title", "uid", b"uid", "user_selectable", b"user_selectable", "vercel_id", b"vercel_id"]) -> None: ...
+    @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_vercel_id", b"_vercel_id"]) -> typing.Literal["vercel_id"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["max_members", b"max_members"]) -> typing.Literal["limit", "is_unlimited"] | None: ...
 
 global___PackageConfig = PackageConfig

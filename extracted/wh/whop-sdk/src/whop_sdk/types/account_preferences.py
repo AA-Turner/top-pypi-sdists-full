@@ -12,6 +12,7 @@ class AccountPreferences(UniversalBaseModel):
     The account's Whop Ads services and payment authorization agreement. `status` is `not_required`, `pending_signature` (a signature has been requested and campaign launch is blocked until it is provided), or `signed`. While pending, read the fields to answer from `GET /verifications/{id}` and sign by submitting them via `PATCH /verifications/{id}`.
     """
 
+    ads_certifications: typing.List[typing.Dict[str, typing.Any]]
     ads_payment_methods: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
     How the account pays for Whop Ads spend. `primary` is charged first; `backup` covers the charge when it fails. Each entry has a `type` of `platform_balance` (id `ldgr_`) or `card` (id `payt_`), plus display fields so the configured source renders even for a viewer who doesn't own it. `backup` is `null` when only one method is configured. `null` until ads billing has been configured.
@@ -29,7 +30,7 @@ class AccountPreferences(UniversalBaseModel):
 
     ads_triple_whale_integration: typing.Dict[str, typing.Any] = pydantic.Field()
     """
-    The account's Triple Whale integration, which pushes Whop ad spend to Triple Whale's Data-In API so it reports as a `whop` channel. `status` is `connected`, `not_connected`, or `requires_shopify_store` (Triple Whale keys records by Shopify shop, so spend only flows while a store is connected). `masked_api_key` shows the leading characters of the stored key; the full key is never returned. `shop_domain` is the Shopify store spend is reported for.
+    The account's Triple Whale integration, which pushes Whop ad spend to Triple Whale's Data-In API so it reports as a `whop` channel, and tags ad click-through URLs with `tw_source`/`tw_adid` so Triple Whale's pixel attributes conversions back to the right ad. `status` is `connected`, `not_connected`, or `requires_shop_domain` (Triple Whale keys records by shop, so spend only flows once one is set — either explicitly via `shop_domain`, which every non-Shopify merchant needs, or by connecting a Shopify store). `masked_api_key` shows the leading characters of the stored key; the full key is never returned. `shop_domain` is the shop spend is reported for: the explicit value, or (if unset) a connected Shopify store's domain.
     """
 
     cards_auto_top_up: bool = pydantic.Field()
@@ -37,9 +38,19 @@ class AccountPreferences(UniversalBaseModel):
     Whether incoming funds are automatically moved to the account's cards balance. `false` when the account has no cards balance.
     """
 
+    cards_notifications: bool = pydantic.Field()
+    """
+    Whether Whop Card notifications reach this account's team. `true` by default, including when the account has no cards balance. Set it to `false` to stop every card email and push notification for the account — application status, verification and action-required alerts, card-ready alerts, declines, large charges, and cashback summaries. Cardholder onboarding invitations still send, because they carry the only link an invited cardholder can onboard with. Requesting a card is rejected while notifications are off, since the request reaches nobody. Cards on personal accounts are unaffected.
+    """
+
     dispute_fighter_enabled: bool = pydantic.Field()
     """
     Whether Whop assembles and files the evidence response when this account's payments are disputed. Off by default; enabling it also opts the account into the success fee charged only on disputes it wins.
+    """
+
+    economic_intelligence: bool = pydantic.Field()
+    """
+    Whether economic intelligence is enabled for the account.
     """
 
     if IS_PYDANTIC_V2:

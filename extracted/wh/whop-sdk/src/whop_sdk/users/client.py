@@ -65,16 +65,16 @@ class UsersClient:
             A search term to filter users by name or username.
 
         first : typing.Optional[int]
-            The number of users to return (max 50).
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            A cursor; returns users after this position.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            The number of users to return from the end of the range.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            A cursor; returns users before this position.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -89,7 +89,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -108,6 +108,7 @@ class UsersClient:
         self,
         *,
         account_id: typing.Optional[str] = None,
+        include_balance: typing.Optional[bool] = None,
         include_balance_history: typing.Optional[bool] = None,
         from_: typing.Optional[str] = None,
         to: typing.Optional[str] = None,
@@ -122,6 +123,9 @@ class UsersClient:
         ----------
         account_id : typing.Optional[str]
             When set, returns your account-specific profile overrides for this account.
+
+        include_balance : typing.Optional[bool]
+            Compute live wallet and owned-account balances (default true). Set false for identity-only reads. Ignored for callers without balance-read scope.
 
         include_balance_history : typing.Optional[bool]
             Also compute your balance history (opt-in; runs a heavier query). Ignored for callers without balance-read scope.
@@ -151,7 +155,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -159,6 +163,7 @@ class UsersClient:
         """
         _response = self._raw_client.me(
             account_id=account_id,
+            include_balance=include_balance,
             include_balance_history=include_balance_history,
             from_=from_,
             to=to,
@@ -210,7 +215,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -232,6 +237,7 @@ class UsersClient:
         id: str,
         *,
         account_id: typing.Optional[str] = None,
+        include_balance: typing.Optional[bool] = None,
         include_balance_history: typing.Optional[bool] = None,
         from_: typing.Optional[str] = None,
         to: typing.Optional[str] = None,
@@ -249,6 +255,9 @@ class UsersClient:
 
         account_id : typing.Optional[str]
             When set, returns the user's account-specific profile overrides for this account.
+
+        include_balance : typing.Optional[bool]
+            Compute live wallet and owned-account balances on the self view (default true). Set false for identity-only reads. Ignored when the id is not `me` or the caller lacks balance-read scope.
 
         include_balance_history : typing.Optional[bool]
             Also compute your balance history (opt-in; runs a heavier query). Only applies when the id is `me`; ignored for callers without balance-read scope.
@@ -278,7 +287,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -289,6 +298,7 @@ class UsersClient:
         _response = self._raw_client.retrieve(
             id,
             account_id=account_id,
+            include_balance=include_balance,
             include_balance_history=include_balance_history,
             from_=from_,
             to=to,
@@ -344,7 +354,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -391,7 +401,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -427,7 +437,7 @@ class UsersClient:
         from whop_sdk import Whop
 
         client = Whop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -501,16 +511,16 @@ class AsyncUsersClient:
             A search term to filter users by name or username.
 
         first : typing.Optional[int]
-            The number of users to return (max 50).
+            Number of results to return from the start of the range.
 
         after : typing.Optional[str]
-            A cursor; returns users after this position.
+            Return results after this cursor. Use `page_info.end_cursor` from the previous response to fetch the next page.
 
         last : typing.Optional[int]
-            The number of users to return from the end of the range.
+            Number of results to return from the end of the range.
 
         before : typing.Optional[str]
-            A cursor; returns users before this position.
+            Return results before this cursor. Use `page_info.start_cursor` from the previous response to fetch the previous page.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -527,7 +537,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -553,6 +563,7 @@ class AsyncUsersClient:
         self,
         *,
         account_id: typing.Optional[str] = None,
+        include_balance: typing.Optional[bool] = None,
         include_balance_history: typing.Optional[bool] = None,
         from_: typing.Optional[str] = None,
         to: typing.Optional[str] = None,
@@ -567,6 +578,9 @@ class AsyncUsersClient:
         ----------
         account_id : typing.Optional[str]
             When set, returns your account-specific profile overrides for this account.
+
+        include_balance : typing.Optional[bool]
+            Compute live wallet and owned-account balances (default true). Set false for identity-only reads. Ignored for callers without balance-read scope.
 
         include_balance_history : typing.Optional[bool]
             Also compute your balance history (opt-in; runs a heavier query). Ignored for callers without balance-read scope.
@@ -598,7 +612,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -612,6 +626,7 @@ class AsyncUsersClient:
         """
         _response = await self._raw_client.me(
             account_id=account_id,
+            include_balance=include_balance,
             include_balance_history=include_balance_history,
             from_=from_,
             to=to,
@@ -665,7 +680,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -693,6 +708,7 @@ class AsyncUsersClient:
         id: str,
         *,
         account_id: typing.Optional[str] = None,
+        include_balance: typing.Optional[bool] = None,
         include_balance_history: typing.Optional[bool] = None,
         from_: typing.Optional[str] = None,
         to: typing.Optional[str] = None,
@@ -710,6 +726,9 @@ class AsyncUsersClient:
 
         account_id : typing.Optional[str]
             When set, returns the user's account-specific profile overrides for this account.
+
+        include_balance : typing.Optional[bool]
+            Compute live wallet and owned-account balances on the self view (default true). Set false for identity-only reads. Ignored when the id is not `me` or the caller lacks balance-read scope.
 
         include_balance_history : typing.Optional[bool]
             Also compute your balance history (opt-in; runs a heavier query). Only applies when the id is `me`; ignored for callers without balance-read scope.
@@ -741,7 +760,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -758,6 +777,7 @@ class AsyncUsersClient:
         _response = await self._raw_client.retrieve(
             id,
             account_id=account_id,
+            include_balance=include_balance,
             include_balance_history=include_balance_history,
             from_=from_,
             to=to,
@@ -815,7 +835,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -870,7 +890,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )
@@ -914,7 +934,7 @@ class AsyncUsersClient:
         from whop_sdk import AsyncWhop
 
         client = AsyncWhop(
-            "2026-09-02-2",
+            "2026-09-15",
             idempotency_key="YOUR_IDEMPOTENCY_KEY",
             token="YOUR_TOKEN",
         )

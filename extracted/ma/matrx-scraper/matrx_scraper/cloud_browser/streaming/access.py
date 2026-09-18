@@ -18,9 +18,20 @@ import threading
 from dataclasses import dataclass, field
 from typing import Protocol
 
-# Canonical DB enum; UI shows view/edit/full. "admin" = item-level Full, never
-# organization admin (SHARE_LEVELS.md).
-LEVEL_ORDER = {"viewer": 1, "editor": 2, "admin": 3}
+# The canonical ladder; UI shows view/comment/edit/full. "admin" = item-level
+# Full, never organization admin (SHARE_LEVELS.md).
+#
+# This mirrors ``matrx_orm.platform_access.PERMISSION_LEVELS`` rather than
+# importing it: matrx-scraper does not depend on matrx-orm, and adding that edge
+# for four strings would be worse than the duplication. The mirror is not left
+# on trust — aidream/api/tests/test_permission_level_ladder.py fails if this map
+# and the canonical ladder ever disagree.
+#
+# `commenter` is in the code ladder before it is in the database enum; that is
+# additive and harmless — the value simply never arrives until the enum gains
+# it, and when it does `meets()` already ranks it correctly instead of
+# defaulting it to 0 and denying the holder in silence.
+LEVEL_ORDER = {"viewer": 1, "commenter": 2, "editor": 3, "admin": 4}
 
 
 @dataclass(frozen=True)
@@ -28,7 +39,7 @@ class AccessAnswer:
     """The resolver's verdict at one instant."""
 
     has_access: bool
-    level: str  # "viewer" | "editor" | "admin" | "" when none
+    level: str  # a LEVEL_ORDER key, or "" when none
     grant_revision: int
     membership_ok: bool = True
 

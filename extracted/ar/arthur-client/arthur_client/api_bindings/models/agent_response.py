@@ -22,9 +22,12 @@ from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, Strict
 from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.agent_creation_source import AgentCreationSource
 from arthur_client.api_bindings.models.data_source_response import DataSourceResponse
-from arthur_client.api_bindings.models.infrastructure import Infrastructure
+from arthur_client.api_bindings.models.evidence_response import EvidenceResponse
 from arthur_client.api_bindings.models.llm_model_response import LLMModelResponse
+from arthur_client.api_bindings.models.provenance_input import ProvenanceInput
 from arthur_client.api_bindings.models.rule_response import RuleResponse
+from arthur_client.api_bindings.models.runs_on import RunsOn
+from arthur_client.api_bindings.models.source_class import SourceClass
 from arthur_client.api_bindings.models.sub_agent_response import SubAgentResponse
 from arthur_client.api_bindings.models.tool_response import ToolResponse
 from typing import Optional, Set
@@ -39,7 +42,7 @@ class AgentResponse(BaseModel):
     name: StrictStr = Field(description="Name of the agent.")
     data_plane_id: StrictStr = Field(description="UUID of the data plane where this agent was detected.")
     task_id: StrictStr = Field(description="UUID of the associated task.")
-    creation_source: AgentCreationSource = Field(description="Information about how this agent was created.")
+    provenance: Optional[ProvenanceInput] = None
     model_id: Optional[StrictStr] = None
     num_spans: Optional[StrictInt] = Field(default=0, description="Number of spans associated with this agent.")
     is_autocreated: Optional[StrictBool] = Field(default=True, description="Whether this agent was auto-created from traces.")
@@ -48,12 +51,18 @@ class AgentResponse(BaseModel):
     muted_until: Optional[datetime] = None
     id: StrictStr = Field(description="Agent ID.")
     workspace_id: StrictStr = Field(description="UUID of the workspace this agent belongs to.")
+    evidence: Optional[List[EvidenceResponse]] = Field(default=None, description="Every sensor's report of this agent, one record each. A list rather than the singular creation_source it replaces: two sensors disagree about how much they can see, when they last looked and whether they are still reporting, and flattening them would make one of those answers win arbitrarily. Merged per sensor on upsert rather than replaced, so a fetch job scoped to one discovery source cannot wipe another source's evidence.")
+    creation_source: AgentCreationSource = Field(description="DEPRECATED -- use `evidence`. Retained so publishers that predate the evidence model keep working: on write it is wrapped into a single evidence record, and on read it is served from the agent's primary evidence record.")
     tools: Optional[List[ToolResponse]] = Field(default=None, description="Tools used by this agent.")
     sub_agents: Optional[List[SubAgentResponse]] = Field(default=None, description="Sub-agents used by this agent.")
     llm_models: Optional[List[LLMModelResponse]] = Field(default=None, description="LLM models used by this agent.")
     data_sources: Optional[List[DataSourceResponse]] = Field(default=None, description="Data sources used by this agent.")
-    infrastructure: Infrastructure = Field(description="Infrastructure where this agent is running (derived from creation_source).")
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "name", "data_plane_id", "task_id", "creation_source", "model_id", "num_spans", "is_autocreated", "rules", "last_fetched", "muted_until", "id", "workspace_id", "tools", "sub_agents", "llm_models", "data_sources", "infrastructure"]
+    infrastructure: RunsOn = Field(description="Where the machine hosting this agent is, served from `provenance.runs_on`. Typed as RunsOn rather than the data plane's Infrastructure enum because that enum describes how the ENGINE was deployed and cannot say `endpoint` or `unknown` -- so a Jamf finding used to report the engine's cloud. Agents with no provenance fall back to their data plane's infrastructure, which is what it has always meant for them.")
+    is_stale: Optional[StrictBool] = Field(default=False, description="Whether every sensor reporting this agent has gone quiet. An AND across evidence, not an OR: a finding corroborated by a live Splunk query is not stale because a decommissioned Jamf source stopped answering. False for an agent with no evidence, which is every agent predating discovery.")
+    source_ids: Optional[List[StrictStr]] = Field(default=None, description="Discovery sources behind this agent, in evidence order. Backs the inventory's \"Found by\" column and the source_id filter. Evidence with no configured source behind it -- OTEL, manual, anything predating discovery -- contributes nothing here.")
+    external_ids: Optional[List[StrictStr]] = Field(default=None, description="The sources' own identifiers for this agent, in evidence order. Canonical identity, never reconciled across sensors, so an agent seen by two sources legitimately carries two different values.")
+    source_classes: Optional[List[SourceClass]] = Field(default=None, description="Where this agent has been observed from -- cloud, siem, endpoint, otel or manual -- in evidence order. Backs the \"Found by\" column and the source_type filter.")
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "name", "data_plane_id", "task_id", "provenance", "model_id", "num_spans", "is_autocreated", "rules", "last_fetched", "muted_until", "id", "workspace_id", "evidence", "creation_source", "tools", "sub_agents", "llm_models", "data_sources", "infrastructure", "is_stale", "source_ids", "external_ids", "source_classes"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -94,9 +103,9 @@ class AgentResponse(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
-        # override the default output from pydantic by calling `to_dict()` of creation_source
-        if self.creation_source:
-            _dict['creation_source'] = self.creation_source.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of provenance
+        if self.provenance:
+            _dict['provenance'] = self.provenance.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each item in rules (list)
         _items = []
         if self.rules:
@@ -104,6 +113,16 @@ class AgentResponse(BaseModel):
                 if _item_rules:
                     _items.append(_item_rules.to_dict())
             _dict['rules'] = _items
+        # override the default output from pydantic by calling `to_dict()` of each item in evidence (list)
+        _items = []
+        if self.evidence:
+            for _item_evidence in self.evidence:
+                if _item_evidence:
+                    _items.append(_item_evidence.to_dict())
+            _dict['evidence'] = _items
+        # override the default output from pydantic by calling `to_dict()` of creation_source
+        if self.creation_source:
+            _dict['creation_source'] = self.creation_source.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each item in tools (list)
         _items = []
         if self.tools:
@@ -132,6 +151,11 @@ class AgentResponse(BaseModel):
                 if _item_data_sources:
                     _items.append(_item_data_sources.to_dict())
             _dict['data_sources'] = _items
+        # set to None if provenance (nullable) is None
+        # and model_fields_set contains the field
+        if self.provenance is None and "provenance" in self.model_fields_set:
+            _dict['provenance'] = None
+
         # set to None if model_id (nullable) is None
         # and model_fields_set contains the field
         if self.model_id is None and "model_id" in self.model_fields_set:
@@ -164,7 +188,7 @@ class AgentResponse(BaseModel):
             "name": obj.get("name"),
             "data_plane_id": obj.get("data_plane_id"),
             "task_id": obj.get("task_id"),
-            "creation_source": AgentCreationSource.from_dict(obj["creation_source"]) if obj.get("creation_source") is not None else None,
+            "provenance": ProvenanceInput.from_dict(obj["provenance"]) if obj.get("provenance") is not None else None,
             "model_id": obj.get("model_id"),
             "num_spans": obj.get("num_spans") if obj.get("num_spans") is not None else 0,
             "is_autocreated": obj.get("is_autocreated") if obj.get("is_autocreated") is not None else True,
@@ -173,11 +197,17 @@ class AgentResponse(BaseModel):
             "muted_until": obj.get("muted_until"),
             "id": obj.get("id"),
             "workspace_id": obj.get("workspace_id"),
+            "evidence": [EvidenceResponse.from_dict(_item) for _item in obj["evidence"]] if obj.get("evidence") is not None else None,
+            "creation_source": AgentCreationSource.from_dict(obj["creation_source"]) if obj.get("creation_source") is not None else None,
             "tools": [ToolResponse.from_dict(_item) for _item in obj["tools"]] if obj.get("tools") is not None else None,
             "sub_agents": [SubAgentResponse.from_dict(_item) for _item in obj["sub_agents"]] if obj.get("sub_agents") is not None else None,
             "llm_models": [LLMModelResponse.from_dict(_item) for _item in obj["llm_models"]] if obj.get("llm_models") is not None else None,
             "data_sources": [DataSourceResponse.from_dict(_item) for _item in obj["data_sources"]] if obj.get("data_sources") is not None else None,
-            "infrastructure": obj.get("infrastructure")
+            "infrastructure": obj.get("infrastructure"),
+            "is_stale": obj.get("is_stale") if obj.get("is_stale") is not None else False,
+            "source_ids": obj.get("source_ids"),
+            "external_ids": obj.get("external_ids"),
+            "source_classes": obj.get("source_classes")
         })
         return _obj
 

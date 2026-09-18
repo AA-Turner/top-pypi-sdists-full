@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: model_compression_toolkit
-Version: 2.6.0
+Version: 2.6.1
 Summary: A Model Compression Toolkit for neural networks
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: Apache Software License

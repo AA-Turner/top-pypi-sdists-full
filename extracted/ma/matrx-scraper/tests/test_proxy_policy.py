@@ -5,7 +5,16 @@ from typing import Any
 
 import pytest
 
-from matrx_scraper import scraper
+from matrx_scraper import proxy_health, scraper
+
+
+@pytest.fixture(autouse=True)
+def _clean_proxy_health() -> None:
+    """Refusal memory is process-wide by design — never let it leak between
+    tests, or a later test silently exercises the direct-first path."""
+    proxy_health.reset_for_tests()
+    yield
+    proxy_health.reset_for_tests()
 
 
 def _failed_response(reason: scraper.FailureReason) -> SimpleNamespace:
@@ -223,10 +232,12 @@ async def test_proxy_pool_exhaustion_is_structured_once_without_error_log_noise(
     assert isinstance(exc, scraper.ProxyPoolExhaustedError)
     assert str(exc) == "Configured proxy pool exhausted"
     assert kind == "scraper_proxy_pool_exhausted"
-    assert kwargs["context"] == {
-        "url": "https://example.com",
-        "failure_reason": "proxy_error",
-    }
+    assert kwargs["context"]["url"] == "https://example.com"
+    assert kwargs["context"]["failure_reason"] == "proxy_error"
+    # The capture carries pool telemetry, so an outage is diagnosable from the
+    # error row alone instead of needing a live reproduction.
+    assert kwargs["context"]["proxy_pool"]["proxy_refusals"] >= 1
+    assert kwargs["context"]["proxy_pool"]["direct_fallbacks"] >= 1
     assert prints[-1]["color"] == "yellow"
 
 
@@ -235,14 +246,18 @@ async def test_proxy_pool_exhaustion_capture_rearms_after_recovery(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     captures: list[BaseException] = []
+    # Two proxies per call, plus the DIRECT rescue attempt that now follows an
+    # all-proxy-error round (see `scraper.direct_fallback_enabled`).
     outcomes = iter(
         [
             scraper.FailureReason.PROXY_ERROR,
             scraper.FailureReason.PROXY_ERROR,
+            scraper.FailureReason.REQUEST_ERROR,  # direct rescue also fails
             scraper.FailureReason.BAD_STATUS,
             scraper.FailureReason.BAD_STATUS,
             scraper.FailureReason.PROXY_ERROR,
             scraper.FailureReason.PROXY_ERROR,
+            scraper.FailureReason.REQUEST_ERROR,  # direct rescue also fails
         ]
     )
 
@@ -259,8 +274,10 @@ async def test_proxy_pool_exhaustion_capture_rearms_after_recovery(
     monkeypatch.setattr("matrx_utils.vcprint", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(scraper, "_proxy_pool_exhausted", False)
 
-    await scraper.fetch_normally_with_proxy("https://example.com/first")
-    await scraper.fetch_normally_with_proxy("https://example.com/recovery")
-    await scraper.fetch_normally_with_proxy("https://example.com/second")
+    # Distinct hosts: the refusal memory is per-host, and reusing one host
+    # would send the later calls down the direct-first path instead.
+    await scraper.fetch_normally_with_proxy("https://first.example/first")
+    await scraper.fetch_normally_with_proxy("https://recovery.example/recovery")
+    await scraper.fetch_normally_with_proxy("https://second.example/second")
 
     assert len(captures) == 2

@@ -635,6 +635,11 @@ class Response:
     # None means the transport could not report it (today: the Playwright
     # browser path), and every consumer must treat that as "not measured".
     ttfb_ms: int | None = None
+    # True when this response came back on a DIRECT connection after the
+    # configured proxy pool refused to carry the request (CONNECT 403/407).
+    # Never silent: the result carries it to the caller so "we reached this
+    # without our proxy" is a stated fact, not an invisible policy change.
+    proxy_bypassed: bool = False
 
     def to_dict(self) -> dict:
         d = {
@@ -1025,6 +1030,28 @@ async def fetch(
     )
 
 
+def direct_fallback_enabled() -> bool:
+    """May a proxy-REFUSED request be retried on a direct connection?
+
+    `fetch_normally_with_proxy` used to mean proxy-only, absolutely, and the
+    documented reason was that a direct retry would "silently expose the host
+    IP". The silence was the real hazard, not the direct connection: the site
+    crawler has always done this fallback (`crawler._emit_proxy_bypass`) and
+    is fine, because it ANNOUNCES it. So the absolute is now an announced
+    policy — every rescued response carries `proxy_bypassed=True` and the
+    result says so in plain English — and an operator who must keep the host
+    IP off the wire sets `SCRAPER_DIRECT_FALLBACK=0`.
+
+    Default ON because the alternative is what shipped: on 2026-09-17 our own
+    proxy vendor's CONNECT-403 made SEC EDGAR, OSHA, the FDA, the IRS, eCFR,
+    the Federal Register, PubMed, California's legislature and courts, and
+    `docs.stripe.com` all report as unreachable when every one of them was
+    perfectly reachable from a plain connection.
+    """
+    raw = (os.getenv("SCRAPER_DIRECT_FALLBACK") or "").strip().lower()
+    return raw not in {"0", "false", "no", "off"}
+
+
 def _configured_proxies() -> list[str]:
     proxies_str = os.getenv("DATACENTER_PROXIES")
     if not proxies_str:
@@ -1051,7 +1078,22 @@ def _is_retryable_failure(response: Response) -> bool:
 async def fetch_normally_with_proxy(
     url: str, use_random_proxy: bool = True, user_agent: str | None = None
 ) -> Response:
+    """Fetch through the datacenter proxy pool, falling back to a DIRECT
+    connection when the pool itself refuses to carry the request.
+
+    🚨 A `proxy_error` is OUR infrastructure failing, not the site defending
+    itself: `CONNECT tunnel failed, response 403` is the vendor's own edge
+    declining the destination, which is why it hit five U.S. government
+    domains, PubMed, `docs.stripe.com` and YouTube identically on 2026-09-17
+    while those sites were perfectly reachable. Rotating to another proxy —
+    the only thing this function used to do — cannot help when the whole
+    vendor declines that destination class. The site never blocked us, so the
+    honest recovery is the one the crawler has always done
+    (`crawler._emit_proxy_bypass`): retry the page directly and say so.
+    """
     from matrx_utils import capture_error, vcprint
+
+    from matrx_scraper import proxy_health
 
     proxies = _configured_proxies()
     if not proxies:
@@ -1059,17 +1101,37 @@ async def fetch_normally_with_proxy(
             "Proxy-backed fetch requested but DATACENTER_PROXIES is missing or empty"
         )
 
+    # The pool refused this host minutes ago. Paying for every configured proxy
+    # to refuse it again is latency for nothing — go direct first and only pay
+    # the proxy path again once the refusal memory ages out.
+    if direct_fallback_enabled() and proxy_health.pool_refuses(url):
+        vcprint(
+            f"[PROXY] Pool recently refused {redact_url_secrets(url)}; going direct first",
+            color="yellow",
+        )
+        proxy_health.record_attempt(proxied=False)
+        direct = await fetch(url, RequestType.NORMAL, None, user_agent=user_agent)
+        direct.proxy_bypassed = True
+        proxy_health.record_direct_fallback(rescued=not direct.failed)
+        if not direct.failed:
+            return direct
+        # Direct did not work either — fall through and give the pool a chance
+        # rather than reporting a failure we never re-tested properly.
+
     if use_random_proxy:
         proxy = random.choice(proxies)
     else:
         proxy = proxies[0]
 
+    proxy_health.record_attempt(proxied=True)
     response = await fetch(url, RequestType.NORMAL, proxy, user_agent=user_agent)
 
     global _proxy_pool_exhausted
 
     if response.failed_primary_reason != FailureReason.PROXY_ERROR:
         _proxy_pool_exhausted = False
+        if not response.failed:
+            proxy_health.record_proxy_success(url)
 
     if not _is_retryable_failure(response):
         return response
@@ -1088,6 +1150,7 @@ async def fetch_normally_with_proxy(
         vcprint(
             f"[RETRY] Different proxy for: {redact_url_secrets(url)} (original failure: {first_reason})", color="cyan"
         )
+        proxy_health.record_attempt(proxied=True)
         response = await fetch(url, RequestType.NORMAL, alt_proxy, user_agent=user_agent)
         all_proxy_errors = (
             all_proxy_errors and response.failed_primary_reason == FailureReason.PROXY_ERROR
@@ -1096,6 +1159,7 @@ async def fetch_normally_with_proxy(
             _proxy_pool_exhausted = False
         if not response.failed:
             vcprint(f"[RETRY] ALT PROXY WORKED: {redact_url_secrets(url)}", color="green")
+            proxy_health.record_proxy_success(url)
             return response
         vcprint(
             f"[RETRY] Alt proxy also failed: {redact_url_secrets(url)} ({response.failed_primary_reason})",
@@ -1106,6 +1170,36 @@ async def fetch_normally_with_proxy(
         f"[RETRY] Proxy retries exhausted for: {redact_url_secrets(url)} ({response.failed_primary_reason})",
         color="yellow",
     )
+    if all_proxy_errors and direct_fallback_enabled():
+        # EVERY configured proxy refused to carry this request. That is our
+        # vendor declining the destination, not the destination declining us —
+        # so the page is very probably reachable on a direct connection, and
+        # returning `proxy_error` without trying is us reporting our own
+        # outage as the web's hostility. Remember the host so the next request
+        # for it skips straight to direct.
+        proxy_health.record_proxy_refusal(
+            url, response.failed_primary_reason.value if response.failed_primary_reason else None
+        )
+        vcprint(
+            f"[PROXY] Whole pool refused {redact_url_secrets(url)}; retrying DIRECT",
+            color="yellow",
+        )
+        proxy_health.record_attempt(proxied=False)
+        direct = await fetch(url, RequestType.NORMAL, None, user_agent=user_agent)
+        direct.proxy_bypassed = True
+        proxy_health.record_direct_fallback(rescued=not direct.failed)
+        if not direct.failed:
+            vcprint(
+                f"[PROXY] DIRECT RESCUED a proxy-refused URL: {redact_url_secrets(url)}",
+                color="green",
+            )
+            return direct
+        # Direct failed too. Return the DIRECT response: its failure is the
+        # site's own answer, which is the true one — `proxy_error` here would
+        # blame our vendor for a wall the site put up. The proxy outage is not
+        # lost: it is counted in proxy_health and captured below.
+        response = direct
+
     if all_proxy_errors and not _proxy_pool_exhausted:
         # A pool outage affects every URL in flight. Capture its transition once,
         # then re-arm only after a proxy returns a non-proxy outcome.
@@ -1113,7 +1207,13 @@ async def fetch_normally_with_proxy(
         await capture_error(
             ProxyPoolExhaustedError("Configured proxy pool exhausted"),
             kind="scraper_proxy_pool_exhausted",
-            context={"url": url, "failure_reason": response.failed_primary_reason.value},
+            context={
+                "url": url,
+                "failure_reason": response.failed_primary_reason.value
+                if response.failed_primary_reason
+                else None,
+                "proxy_pool": proxy_health.proxy_health_snapshot(),
+            },
         )
     return response
 

@@ -1,12 +1,13 @@
 # pylint:disable=missing-class-docstring,too-many-boolean-expressions,unused-argument,no-self-use,protected-access
 from __future__ import annotations
 
+import hashlib
 import logging
 import re
 import struct
 from collections import Counter, defaultdict
 from collections.abc import Callable, Iterable
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from angr.ailment import Block, Expr, Stmt, Tmp
 from angr.ailment.block_walker import _dispatch_key
@@ -16,6 +17,7 @@ from angr.analyses.analysis import Analysis, register_analysis
 from angr.analyses.decompiler.notes.deobfuscated_strings import DeobfuscatedStringsNote
 from angr.analyses.decompiler.peephole_optimizations.cas_intrinsics import cas_intrinsic_name
 from angr.analyses.decompiler.region_identifier import MultiNode
+from angr.analyses.decompiler.stl_field_accessors import stl_accessor_name
 from angr.analyses.decompiler.structurer_nodes import (
     BreakNode,
     CascadingConditionNode,
@@ -41,6 +43,7 @@ from angr.sim_type import (
     SimType,
     SimTypeArray,
     SimTypeBitfield,
+    SimTypeBool,
     SimTypeBottom,
     SimTypeChar,
     SimTypeDouble,
@@ -74,7 +77,7 @@ from angr.utils.constants import should_use_hex
 from angr.utils.library import get_cpp_function_name
 from angr.utils.loader import is_in_readonly_section, is_in_readonly_segment
 from angr.utils.strings import decode_utf16_string
-from angr.utils.types import dereference_simtype_by_lib, unpack_pointer_and_array, unpack_typeref
+from angr.utils.types import unpack_pointer_and_array, unpack_typeref
 
 from .base import (
     BaseStructuredCodeGenerator,
@@ -83,6 +86,7 @@ from .base import (
     InstructionMapping,
     PositionMapping,
     PositionMappingElement,
+    vector_convert_name,
 )
 
 if TYPE_CHECKING:
@@ -114,11 +118,15 @@ _CAST_TYPES_BY_BITS: dict[int, type[SimTypeInt | SimTypeChar]] = {
 def qualifies_for_simple_cast(ty1, ty2):
     # converting ty1 to ty2 - can this happen precisely?
     # used to decide whether to add explicit typecasts instead of doing *(int*)&v1
-    return (
-        ty1.size == ty2.size
-        and isinstance(ty1, (SimTypeInt, SimTypeChar, SimTypeNum, SimTypePointer))
-        and isinstance(ty2, (SimTypeInt, SimTypeChar, SimTypeNum, SimTypePointer))
-    )
+    if not isinstance(ty1, (SimTypeInt, SimTypeChar, SimTypeNum, SimTypePointer)) or not isinstance(
+        ty2, (SimTypeInt, SimTypeChar, SimTypeNum, SimTypePointer)
+    ):
+        return False
+    # a SimTypeNum without a size cannot be cast precisely (its size property asserts); the register-sized types
+    # take theirs from the architecture
+    if (isinstance(ty1, SimTypeNum) and ty1._size is None) or (isinstance(ty2, SimTypeNum) and ty2._size is None):
+        return False
+    return ty1.size == ty2.size
 
 
 def qualifies_for_width_cast(ty):
@@ -217,26 +225,68 @@ def _safe_type_size(ty) -> int:
     return sz if isinstance(sz, int) else -1
 
 
-def type_layout_key(ty, _seen: frozenset = frozenset()) -> str:
+_SIGNED_TYPES = SimTypeNum, SimTypeInt, SimTypeChar, SimTypeWideChar, SimTypeBool
+
+# Levels of struct nesting that a layout key considers.
+TYPE_LAYOUT_KEY_DEPTH = 4
+
+
+class _LayoutKeyMemo:
+    """
+    Scratch space shared by the layout keys computed for one sort: keys and field offsets already computed, plus
+    strong references to the types they were computed for so that their ids cannot be reused while in use.
+    """
+
+    __slots__ = ("keys", "offsets", "types")
+
+    def __init__(self):
+        self.keys: dict[tuple[int, int], str] = {}
+        self.offsets: dict[int, dict[str, int]] = {}
+        self.types: list[SimType] = []
+
+
+def type_layout_key(ty, memo: _LayoutKeyMemo | None = None) -> str:
     """
     A structural sort key for a type, derived purely from its memory layout (sizes, field offsets, and the
     layouts of field/element/pointee types) and not from any user-renamable struct or field name. This lets
     the code generator order type definitions stably without their order changing when the user renames a struct
-    or a field. Cycles through recursive struct/pointer references are broken with a marker.
+    or a field.
+
+    The key covers the type down to TYPE_LAYOUT_KEY_DEPTH levels of struct nesting. The key summarizes the member of
+    each struct level in a hash.
     """
+    if memo is None:
+        memo = _LayoutKeyMemo()
+    return _type_layout_key(ty, TYPE_LAYOUT_KEY_DEPTH, memo)
+
+
+def _type_layout_key(ty, depth: int, memo: _LayoutKeyMemo) -> str:
     ty = unpack_typeref(ty)
     if isinstance(ty, SimStruct):
-        if id(ty) in _seen:
-            return "@"  # a reference back to an enclosing struct (recursive type)
-        _seen = _seen | {id(ty)}
-        offsets = ty.offsets
-        fields = sorted(f"{offsets.get(fname, -1)}:{type_layout_key(fty, _seen)}" for fname, fty in ty.fields.items())
-        return f"S[{_safe_type_size(ty)};{int(bool(getattr(ty, 'packed', False)))};{';'.join(fields)}]"
+        if depth <= 0:
+            return "@"
+        cache_key = (id(ty), depth)
+        cached = memo.keys.get(cache_key)
+        if cached is not None:
+            return cached
+        memo.types.append(ty)
+        offsets = memo.offsets.get(id(ty))
+        if offsets is None:
+            offsets = ty.offsets
+            memo.offsets[id(ty)] = offsets
+        fields = sorted(
+            f"{offsets.get(fname, -1)}:{_type_layout_key(fty, depth - 1, memo)}" for fname, fty in ty.fields.items()
+        )
+        digest = hashlib.blake2b(";".join(fields).encode(), digest_size=8).hexdigest()
+        key = f"S[{_safe_type_size(ty)};{int(ty.packed)};{len(fields)};{digest}]"
+        memo.keys[cache_key] = key
+        return key
     if isinstance(ty, SimTypePointer):
-        return f"P({type_layout_key(ty.pts_to, _seen)})"
+        return f"P({_type_layout_key(ty.pts_to, depth, memo)})"
     if isinstance(ty, (SimTypeArray, SimTypeFixedSizeArray)):
-        return f"A{getattr(ty, 'length', None)}({type_layout_key(ty.elem_type, _seen)})"
-    return f"T:{type(ty).__name__}:{_safe_type_size(ty)}:{getattr(ty, 'signed', None)}"
+        return f"A{ty.length}({_type_layout_key(ty.elem_type, depth, memo)})"
+    signed = ty.signed if isinstance(ty, _SIGNED_TYPES) else None
+    return f"T:{type(ty).__name__}:{_safe_type_size(ty)}:{signed}"
 
 
 def cextern_sort_key(cextern) -> tuple:
@@ -813,12 +863,14 @@ class CFunction(CConstruct):  # pylint:disable=abstract-method
             # struct or a field. Structurally identical structs (e.g. isomorphic recursive types) are broken by
             # the translator's name-independent definition order, also rename-proof; the name is only a final
             # fallback for types with no such order (e.g. library structs not produced by type inference).
+            layout_key_memo = _LayoutKeyMemo()  # shared so that types referenced by several locals are keyed once
+
             def _local_type_sort_key(ty) -> tuple:
-                order = getattr(ty, "_def_order", None)
+                order = ty._def_order if isinstance(ty, SimStruct) else None
                 tiebreak = (
                     (0, order) if order is not None else (1, ty.name if isinstance(ty, SimStruct) and ty.name else "")
                 )
-                return (type_layout_key(ty), tiebreak)
+                return (type_layout_key(ty, layout_key_memo), tiebreak)
 
             emitted_struct_names: set[str] = set()
             for ty in sorted(local_types, key=_local_type_sort_key):
@@ -1679,11 +1731,7 @@ class CFunctionCall(CExpression):
     @property
     def prototype(self) -> SimTypeFunction | None:  # TODO there should be a prototype for each callsite!
         if self.callee_func is not None and self.callee_func.prototype is not None:
-            proto = self.callee_func.prototype
-            if self.callee_func.prototype_libname is not None:
-                # we need to deref the prototype in case it uses SimTypeRef internally
-                proto = cast(SimTypeFunction, dereference_simtype_by_lib(proto, self.callee_func.prototype_libname))
-            return proto
+            return self.callee_func.prototype
         returnty = SimTypeInt(signed=False)
         return SimTypeFunction([arg.type for arg in self.args], returnty).with_arch(self.codegen.project.arch)
 
@@ -2061,6 +2109,14 @@ class CVariableField(CExpression):
     Represent a field of a variable.
     """
 
+    # When this field read is a recognized accessor of a C++ STL container whose type was recovered by type
+    # inference (e.g. "m_data" of a std::string), the fully qualified accessor name to display it under, e.g.
+    # "std::string::c_str". Set by CStructuredCodeGenerator._access_constant_offset, and only for reads: writing to
+    # (or taking the address of) the field must keep rendering as a field. Declared at class level so that instances
+    # built without __init__ (deserialization) always have the attribute. See
+    # angr.analyses.decompiler.stl_field_accessors.
+    stl_accessor: str | None = None
+
     def __init__(self, variable: CExpression, field: CStructField, var_is_ptr: bool = False, **kwargs):
         super().__init__(**kwargs)
         self.variable = variable
@@ -2075,12 +2131,26 @@ class CVariableField(CExpression):
         if self.collapsed:
             yield "...", self
             return
+        if self.stl_accessor is not None and self.codegen.stl_accessor_calls:
+            yield from self._c_repr_chunks_accessor()
+            return
         yield from self.variable.c_repr_chunks()
         if self.var_is_ptr:
             yield "->", self
         else:
             yield ".", self
         yield from self.field.c_repr_chunks()
+
+    def _c_repr_chunks_accessor(self):
+        """Render the field read as ``std::string::c_str(s)`` rather than ``s->m_data``."""
+        yield self.stl_accessor, self
+        paren = CClosingObject("(")
+        yield "(", paren
+        if not self.var_is_ptr:
+            # ``self.variable`` is the container object itself; the accessor takes a pointer to it
+            yield "&", self
+        yield from CExpression._try_c_repr_chunks(self.variable)
+        yield ")", paren
 
 
 class CUnaryOp(CExpression):
@@ -2127,6 +2197,7 @@ class CUnaryOp(CExpression):
             "Reference": self._c_repr_chunks_reference,
             "Dereference": self._c_repr_chunks_dereference,
             "Clz": self._c_repr_chunks_clz,
+            "ClzNat": self._c_repr_chunks_clz,  # libVEX 3.27+ name for the zero-defined scalar Clz
         }
 
         handler = OP_MAP.get(self.op)
@@ -2272,7 +2343,6 @@ class CBinaryOp(CExpression):
     def op_precedence(self):
         precedence_list = [
             # lowest precedence
-            ["Concat"],
             ["LogicalOr"],
             ["LogicalXor"],
             ["LogicalAnd"],
@@ -2475,7 +2545,7 @@ class CBinaryOp(CExpression):
             yield from self._c_repr_chunks(" != ")
 
     def _c_repr_chunks_concat(self):
-        yield from self._c_repr_chunks(" CONCAT ")
+        yield from self._c_repr_chunks_opfirst("CONCAT")
 
     def _c_repr_chunks_rol(self):
         yield "__ROL__", self
@@ -2544,7 +2614,13 @@ class CConstant(CExpression):
         "value",
     )
 
-    def __init__(self, value, type_: SimType, reference_values=None, **kwargs):
+    def __init__(
+        self,
+        value,
+        type_: SimType,
+        reference_values: dict[SimType, str | bytes | int | float | Function | MemoryData] | None = None,
+        **kwargs,
+    ):
         super().__init__(**kwargs)
 
         self.value: int | float | str = value
@@ -2872,6 +2948,34 @@ class CVEXCCallExpression(CExpression):
         yield ")", paren
 
 
+class CVectorConvert(CExpression):
+    """
+    A lane-wise conversion (an AIL Convert with vector_count), rendered as an intrinsic-style call because C has no
+    vector cast syntax.
+    """
+
+    __slots__ = ("expr", "operand")
+
+    def __init__(self, expr: Expr.Convert, operand: CExpression, **kwargs):
+        super().__init__(**kwargs)
+        self.expr = expr
+        self.operand = operand
+
+    @property
+    def type(self):
+        return self.codegen.default_simtype_from_bits(self.expr.to_bits, self.expr.is_signed)
+
+    def c_repr_chunks(self, indent=0, asexpr=False):
+        if self.collapsed:
+            yield "...", self
+            return
+        yield vector_convert_name(self.expr), self
+        paren = CClosingObject("(")
+        yield "(", paren
+        yield from CExpression._try_c_repr_chunks(self.operand)
+        yield ")", paren
+
+
 class CDirtyExpression(CExpression):
     """
     Ideally all dirty expressions should be handled and converted to proper conversions during conversion from VEX to
@@ -2987,6 +3091,7 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
         cstyle_void_param: bool = True,
         indent_size: int = 4,
         variable_map: VariableMap | None = None,
+        stl_accessor_calls: bool = False,
     ):
         super().__init__(
             flavor=flavor,
@@ -3065,6 +3170,7 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
         self.show_demangled_name = show_demangled_name
         self.show_disambiguated_name = show_disambiguated_name
         self.ail_graph = ail_graph
+        self._errno_vvars: frozenset[int] | None = None
         self.simplify_else_scope = simplify_else_scope
         self.cstyle_ifs = cstyle_ifs
         self.omit_func_header = omit_func_header
@@ -3084,6 +3190,7 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
         self.max_str_len = max_str_len
         self.prettify_thiscall = prettify_thiscall
         self.cstyle_void_param = cstyle_void_param
+        self.stl_accessor_calls = stl_accessor_calls
         # Number of space characters per indentation level in the emitted pseudocode.
         self.indent_delta = indent_size
 
@@ -3113,6 +3220,8 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
                 self.cstyle_ifs = value
             elif option.param == "cstyle_void_param":
                 self.cstyle_void_param = value
+            elif option.param == "stl_accessor_calls":
+                self.stl_accessor_calls = value
             elif option.param == "indent_size":
                 self.indent_delta = value
 
@@ -3442,7 +3551,10 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
                 result = CUnaryOp("Reference", CVariableField(base_expr, field, False, codegen=self), codegen=self)
             else:
                 result = CUnaryOp("Reference", CVariableField(expr, field, True, codegen=self), codegen=self)
-            return self._access_constant_offset(result, remainder - field_offset, data_type, lvalue, renegotiate_type)
+            result = self._access_constant_offset(result, remainder - field_offset, data_type, lvalue, renegotiate_type)
+            if not lvalue:
+                self._tag_stl_accessor(result, base_type, field_name)
+            return result
 
         if isinstance(base_type, (SimTypeFixedSizeArray, SimTypeArray)):
             result = base_expr or expr  # death to C
@@ -3498,6 +3610,25 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
             )
         # otherwise, normal cast
         return CTypeCast(base_type, data_type, base_expr, codegen=self)
+
+    def _tag_stl_accessor(self, result: CExpression, base_type: SimStruct, field_name: str) -> None:
+        """
+        Name a read of a field of a recognized ``cpp::std`` class after the accessor it implements, so that it is
+        displayed as e.g. ``std::string::c_str(s)`` instead of ``s->m_data``.
+
+        Unlike the structural KnownPattern matchers, which have to recognize the *code shape* of an inlined accessor
+        before variable recovery, this naming is driven purely by the recovered type: it applies only where type
+        inference already proved the base is an STL container, so it cannot mislabel an unrelated pointer
+        dereference. See :mod:`angr.analyses.decompiler.stl_field_accessors`.
+
+        ``result`` is whatever the field access resolved to; the accessor name is attached only when that is exactly
+        the field access itself (optionally wrapped in a cast), not when the access continued into a sub-field of it.
+        """
+
+        field_access = result.expr if isinstance(result, CTypeCast) else result
+        if not isinstance(field_access, CVariableField) or field_access.field.field != field_name:
+            return
+        field_access.stl_accessor = stl_accessor_name(base_type, field_name)
 
     def _access(
         self,
@@ -3888,6 +4019,9 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
                 return proposed_ty
             return old_ty
 
+        if self._is_errno_location(stmt.addr):
+            return CAssignment(self._errno_variable(), cdata, tags=stmt.tags, codegen=self)
+
         stmt_var = self._variable_map.variable(stmt)
         if stmt_var is not None and cdata.type is not None:
             cvar = self._variable(stmt_var, stmt.size)
@@ -3985,8 +4119,6 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
                     and i < len(target_func.prototype.args)
                 ):
                     type_ = target_func.prototype.args[i].with_arch(self.project.arch)
-                    if target_func.prototype_libname is not None:
-                        type_ = dereference_simtype_by_lib(type_, target_func.prototype_libname)
 
                 if isinstance(arg, Expr.Const):
                     if isinstance(arg.value, int) and (
@@ -4064,8 +4196,6 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
                     and i < len(target_func.prototype.args)
                 ):
                     type_ = target_func.prototype.args[i].with_arch(self.project.arch)
-                    if target_func.prototype_libname is not None:
-                        type_ = dereference_simtype_by_lib(type_, target_func.prototype_libname)
 
                 if isinstance(arg, Expr.Const):
                     if isinstance(arg.value, int) and (
@@ -4087,7 +4217,14 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
             codegen=self,
         )
 
-        if expr.bits and call_expr.type is not None and call_expr.type.size != expr.size * self.project.arch.byte_width:
+        # a call narrower than a byte is a predicate (a known-pattern call standing in for a 1-bit comparison);
+        # its declared return type is the right type, and a cast to a zero-byte integer is not a type at all
+        if (
+            expr.bits
+            and expr.bits >= self.project.arch.byte_width
+            and call_expr.type is not None
+            and call_expr.type.size != expr.size * self.project.arch.byte_width
+        ):
             call_expr = CTypeCast(
                 call_expr.type,
                 self.default_simtype_from_bits(
@@ -4154,10 +4291,37 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
         if len(stmt.ret_exprs) == 1:
             ret_expr = stmt.ret_exprs[0]
             return CReturn(self._handle(ret_expr), tags=stmt.tags, codegen=self)
-        # TODO: Multiple return expressions
-        l.warning("StructuredCodeGen does not support multiple return expressions yet. Only picking the first one.")
-        ret_expr = stmt.ret_exprs[0]
-        return CReturn(self._handle(ret_expr), tags=stmt.tags, codegen=self)
+        if not self._returnty_holds_every_ret_expr(stmt.ret_exprs):
+            l.warning("StructuredCodeGen does not support multiple return expressions yet. Only picking the first one.")
+            return CReturn(self._handle(stmt.ret_exprs[0]), tags=stmt.tags, codegen=self)
+        # SimComboArg lists its locations least significant first, so build the Concat up from the first
+        # expression: every piece joins on the left of what is already there, as the high half.
+        retval = self._handle(stmt.ret_exprs[0])
+        for ret_expr in stmt.ret_exprs[1:]:
+            retval = CBinaryOp("Concat", self._handle(ret_expr), retval, tags=stmt.tags, codegen=self)
+        return CReturn(retval, tags=stmt.tags, codegen=self)
+
+    def _returnty_holds_every_ret_expr(self, ret_exprs: list[Expr.Expression]) -> bool:
+        """
+        Whether the recovered return type accounts for every one of a return statement's expressions.
+
+        ``SimCC.return_val()`` answers with a :class:`SimComboArg` whenever the return type is wider than one
+        register -- a ``long long`` in ``edx:eax`` on x86, an ``__int128`` in ``rax:rdx`` on amd64, the two-word
+        values Go returns in ``rax:rbx`` -- and ``ReturnMaker`` expands that into one return expression per
+        location. Two things can put the expressions and the return type out of step afterwards, and in both the
+        pieces must not be rendered as one value:
+
+        - The return type is an aggregate or a floating-point value spread over several registers, which is not a
+          scalar with a high and a low half. angr/angr#6851 tracks carrying those through as one typed value.
+        - ``Clinic._make_function_prototype`` rewrote the prototype after ``ReturnMaker`` ran, leaving a return
+          type that is not as wide as the expressions it left behind.
+        """
+        if self._func.prototype is None or self._func.prototype.returnty is None:
+            return False
+        returnty = unpack_typeref(self._func.prototype.returnty).with_arch(self.project.arch)
+        if not qualifies_for_width_cast(returnty):
+            return False
+        return returnty.size == sum(ret_expr.bits for ret_expr in ret_exprs)
 
     def _handle_Stmt_Label(self, stmt: Stmt.Label, **kwargs):
         clabel = CLabel(stmt.name, tags=stmt.tags, codegen=self)
@@ -4211,6 +4375,71 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
             return self._access_constant_offset(self._get_variable_reference(cvar), offset, type_, lvalue, negotiate)
         return CRegister(expr, tags=expr.tags, codegen=self)
 
+    #: The libc functions that return ``&errno``. ``errno`` is a macro that
+    #: dereferences one of them, so it never survives into a binary as a symbol;
+    #: what reaches decompilation is ``*(__errno_location())``, which is both
+    #: correct and unreadable.
+    ERRNO_LOCATION_FUNCS = frozenset(
+        {
+            "__errno_location",  # glibc
+            "__error",  # BSD, macOS
+            "__errno",  # musl, bionic
+            "_errno",  # MSVC
+        }
+    )
+
+    def _is_errno_call(self, expr) -> bool:
+        """Whether ``expr`` is a call to one of :attr:`ERRNO_LOCATION_FUNCS`."""
+        if not isinstance(expr, Expr.Call):
+            return False
+        target = expr.target
+        if isinstance(target, str):
+            return target in self.ERRNO_LOCATION_FUNCS
+        if not isinstance(target, Expr.Const) or not isinstance(target.value, int):
+            return False
+        func = self.kb.functions.function(addr=target.value)
+        return func is not None and func.name in self.ERRNO_LOCATION_FUNCS
+
+    def _errno_vvar_ids(self) -> frozenset[int]:
+        """Virtual variables that hold ``&errno``.
+
+        ``errno`` expands per use, but the compiler calls the location function
+        once and keeps the pointer in a register, so most uses reach codegen as
+        a read through a variable rather than as the call itself. Copies of that
+        variable count too, hence the fixpoint.
+        """
+        if self._errno_vvars is not None:
+            return self._errno_vvars
+        found: set[int] = set()
+        if self.ail_graph is not None:
+            changed = True
+            while changed:
+                changed = False
+                for block in self.ail_graph.nodes():
+                    for stmt in block.statements:
+                        if not isinstance(stmt, Stmt.Assignment) or not isinstance(stmt.dst, Expr.VirtualVariable):
+                            continue
+                        if stmt.dst.varid in found:
+                            continue
+                        src = stmt.src
+                        if self._is_errno_call(src) or (isinstance(src, Expr.VirtualVariable) and src.varid in found):
+                            found.add(stmt.dst.varid)
+                            changed = True
+        self._errno_vvars = frozenset(found)
+        return self._errno_vvars
+
+    def _is_errno_location(self, expr) -> bool:
+        """Whether ``expr`` evaluates to ``&errno``."""
+        if self._is_errno_call(expr):
+            return True
+        return isinstance(expr, Expr.VirtualVariable) and expr.varid in self._errno_vvar_ids()
+
+    def _errno_variable(self):
+        """``errno`` as a plain name. A CFakeVariable rather than a CVariable
+        because there is no address to point at: the thread-local slot is
+        wherever the libc function said it was."""
+        return CFakeVariable("errno", SimTypeInt().with_arch(self.project.arch), codegen=self)
+
     def _handle_Expr_Load(self, expr: Expr.Load, **kwargs):
         if expr.size == UNDETERMINED_SIZE:
             # the size is undetermined; we force it to 1
@@ -4235,6 +4464,9 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
                 return proposed_ty
             return old_ty
 
+        if self._is_errno_location(expr.addr):
+            return self._errno_variable()
+
         expr_var = self._variable_map.variable(expr)
         if expr_var is not None:
             cvar = self._variable(expr_var, expr_size)
@@ -4254,7 +4486,7 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
         self,
         expr: Expr.Const,
         type_=None,
-        reference_values: dict[SimType | str, str | bytes | int | float | Function | CExpression] | None = None,
+        reference_values: dict[SimType, str | bytes | int | float | Function | MemoryData] | None = None,
         variable=None,
         likely_signed=True,
         **kwargs,
@@ -4357,16 +4589,12 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
             elif function_pointer:
                 self._function_pointers.add(expr_reference_variable)
 
-        var_access = None
-        if variable is not None and not reference_values:
+        if variable is not None and not reference_values and expr.value >= self.min_data_addr:
+            # small integers are rendered as-is; only values above min_data_addr are shown as variable references
             cvar = self._variable(variable, None)
             offset = self._variable_map.reference_variable_offset(expr)
-            var_access = self._access_constant_offset_reference(self._get_variable_reference(cvar), offset, None)
+            return self._access_constant_offset_reference(self._get_variable_reference(cvar), offset, None)
 
-        if var_access is not None:
-            if expr.value >= self.min_data_addr:
-                return var_access
-            reference_values["offset"] = var_access
         return CConstant(expr.value, type_, reference_values=reference_values, tags=expr.tags, codegen=self)
 
     def _handle_Expr_UnaryOp(self, expr, type_: SimType | None = None, **kwargs):
@@ -4412,6 +4640,9 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
     def _handle_Expr_Convert(self, expr: Expr.Convert, **kwargs):
         child = self._handle(expr.operand)
 
+        if expr.vector_count is not None:
+            return CVectorConvert(expr, child, tags=expr.tags, codegen=self)
+
         # Use a mask to represent non-standard size conversions
         if expr.to_bits < expr.from_bits and expr.to_bits not in _CAST_TYPES_BY_BITS:
             const_type = child.type if child.type is not None else self.default_simtype_from_bits(expr.from_bits, False)
@@ -4437,7 +4668,9 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
         # do we need an intermediate cast?
         if orig_child_signed != expr.is_signed and expr.to_bits > expr.from_bits and child.type is not None:
             # this is a problem. sign-extension only happens when the SOURCE of the cast is signed
-            child_ty = self.default_simtype_from_bits(child.type.size, expr.is_signed)
+            # a child whose type has no size (e.g., a function or a bottom type) is as wide as the conversion says
+            child_bits = child.type.size if child.type.size is not None else expr.from_bits
+            child_ty = self.default_simtype_from_bits(child_bits, expr.is_signed)
             child = CTypeCast(None, child_ty, child, codegen=self)
 
         return CTypeCast(None, dst_type.with_arch(self.project.arch), child, tags=expr.tags, codegen=self)
@@ -4563,6 +4796,14 @@ class CStructuredCodeGenerator(BaseStructuredCodeGenerator, Analysis, Serializab
                     dst_type = dst_type.with_arch(self.project.arch)
                     return CTypeCast(src_type, dst_type, cvar, tags=expr.tags, codegen=self)
             return cvar
+
+        if expr.was_reg:
+            # Variable recovery does not create variables for the stack pointer, the instruction
+            # pointer or the link register, so a surviving write to one of them arrives here with
+            # nothing mapped. A register we could not name as a variable is still a register.
+            reg_name = self.project.arch.translate_register_name(expr.oident, expr.size)
+            return CRegister(reg_name or f"reg{expr.oident}", tags=expr.tags, codegen=self)
+
         return CDirtyExpression(expr, codegen=self)
 
     def _handle_Expr_StackBaseOffset(self, expr: StackBaseOffset, **kwargs):
@@ -4698,6 +4939,14 @@ class CStructuredCodeWalker:
         obj.cond = self.handle(obj.cond)
         obj.iftrue = self.handle(obj.iftrue)
         obj.iffalse = self.handle(obj.iffalse)
+        return obj
+
+    def handle_CVectorConvert(self, obj):
+        obj.operand = self.handle(obj.operand)
+        return obj
+
+    def handle_CVEXCCallExpression(self, obj):
+        obj.operands = [self.handle(operand) for operand in obj.operands]
         return obj
 
 

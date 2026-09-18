@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: openai-agents
-Version: 0.22.2
+Version: 0.22.3
 Summary: OpenAI Agents SDK
 Project-URL: Homepage, https://openai.github.io/openai-agents-python/
 Project-URL: Repository, https://github.com/openai/openai-agents-python
@@ -20,35 +20,55 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 Requires-Python: >=3.10
 Requires-Dist: griffelib<3,>=2
+Requires-Dist: httpx2>=2.12.0
 Requires-Dist: mcp<3,>=1.19.0; python_version >= '3.10'
 Requires-Dist: openai<4,>=3.0.0
 Requires-Dist: pydantic<3,>=2.12.2
+Requires-Dist: pyjwt>=2.13.0
+Requires-Dist: python-multipart>=0.0.31
 Requires-Dist: requests<3,>=2.0
+Requires-Dist: starlette>=1.3.1
 Requires-Dist: typing-extensions<5,>=4.12.2
+Requires-Dist: urllib3>=2.7.0
 Requires-Dist: websockets<17,>=15.0
 Provides-Extra: any-llm
 Requires-Dist: any-llm-sdk<2,>=1.11.0; (python_version >= '3.11') and extra == 'any-llm'
+Requires-Dist: pygments>=2.20.0; (python_version >= '3.11') and extra == 'any-llm'
 Provides-Extra: blaxel
-Requires-Dist: aiohttp<4,>=3.12; extra == 'blaxel'
+Requires-Dist: aiohttp<4,>=3.14.3; extra == 'blaxel'
 Requires-Dist: blaxel>=0.2.50; extra == 'blaxel'
 Provides-Extra: cloudflare
-Requires-Dist: aiohttp<4,>=3.12; extra == 'cloudflare'
+Requires-Dist: aiohttp<4,>=3.14.3; extra == 'cloudflare'
 Provides-Extra: dapr
+Requires-Dist: aiohttp<4,>=3.14.3; extra == 'dapr'
 Requires-Dist: dapr>=1.16.0; extra == 'dapr'
 Requires-Dist: grpcio>=1.60.0; extra == 'dapr'
+Requires-Dist: protobuf!=6.30.*,!=6.31.*,!=6.32.*,!=6.33.0.*,!=6.33.1.*,!=6.33.2.*,!=6.33.3.*,!=6.33.4.*,>=5.29.6; extra == 'dapr'
 Provides-Extra: daytona
+Requires-Dist: aiohttp<4,>=3.14.3; extra == 'daytona'
 Requires-Dist: daytona>=0.155.0; extra == 'daytona'
+Requires-Dist: protobuf!=6.30.*,!=6.31.*,!=6.32.*,!=6.33.0.*,!=6.33.1.*,!=6.33.2.*,!=6.33.3.*,!=6.33.4.*,>=5.29.6; extra == 'daytona'
 Provides-Extra: docker
 Requires-Dist: docker>=6.1; extra == 'docker'
 Provides-Extra: e2b
 Requires-Dist: e2b-code-interpreter==2.8.1; extra == 'e2b'
 Requires-Dist: e2b==2.31.0; extra == 'e2b'
+Requires-Dist: h2>=4.4.1; extra == 'e2b'
+Requires-Dist: protobuf!=6.30.*,!=6.31.*,!=6.32.*,!=6.33.0.*,!=6.33.1.*,!=6.33.2.*,!=6.33.3.*,!=6.33.4.*,>=5.29.6; extra == 'e2b'
+Requires-Dist: pygments>=2.20.0; extra == 'e2b'
 Provides-Extra: encrypt
-Requires-Dist: cryptography<46,>=45.0; extra == 'encrypt'
+Requires-Dist: cryptography<51,>=45.0; extra == 'encrypt'
 Provides-Extra: litellm
+Requires-Dist: aiohttp<4,>=3.14.3; extra == 'litellm'
+Requires-Dist: filelock>=3.20.3; extra == 'litellm'
 Requires-Dist: litellm>=1.83.0; extra == 'litellm'
 Provides-Extra: modal
+Requires-Dist: aiohttp<4,>=3.14.3; extra == 'modal'
+Requires-Dist: cbor2>=5.9.0; extra == 'modal'
+Requires-Dist: h2>=4.4.1; extra == 'modal'
 Requires-Dist: modal==1.4.3; extra == 'modal'
+Requires-Dist: protobuf!=6.30.*,!=6.31.*,!=6.32.*,!=6.33.0.*,!=6.33.1.*,!=6.33.2.*,!=6.33.3.*,!=6.33.4.*,>=5.29.6; extra == 'modal'
+Requires-Dist: pygments>=2.20.0; extra == 'modal'
 Provides-Extra: mongodb
 Requires-Dist: pymongo>=4.14; extra == 'mongodb'
 Provides-Extra: realtime
@@ -63,9 +83,12 @@ Provides-Extra: sqlalchemy
 Requires-Dist: asyncpg>=0.29.0; extra == 'sqlalchemy'
 Requires-Dist: sqlalchemy>=2.0; extra == 'sqlalchemy'
 Provides-Extra: temporal
+Requires-Dist: protobuf!=6.30.*,!=6.31.*,!=6.32.*,!=6.33.0.*,!=6.33.1.*,!=6.33.2.*,!=6.33.3.*,!=6.33.4.*,>=5.29.6; extra == 'temporal'
+Requires-Dist: pygments>=2.20.0; extra == 'temporal'
 Requires-Dist: temporalio==1.26.0; extra == 'temporal'
 Requires-Dist: textual<8.3,>=8.2.3; extra == 'temporal'
 Provides-Extra: vercel
+Requires-Dist: cbor2>=5.9.0; extra == 'vercel'
 Requires-Dist: vercel<0.6,>=0.5.6; extra == 'vercel'
 Provides-Extra: viz
 Requires-Dist: graphviz>=0.17; extra == 'viz'

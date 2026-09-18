@@ -211,10 +211,16 @@ dependencies = [
     # project, since PyPI has no rename. The import name did not change.
     #
     # Upper bound is deliberate: what we consume is an unstable ABC plus a
-    # class-attribute injection point (`app_cls.version_store`), so a 0.3.0
+    # class-attribute injection point (`app_cls.version_store`), so a 0.9.0
     # that adds a fourth @abstractmethod or renames that attribute breaks
     # `innoday release` at runtime, and uv.lock only protects checkouts.
-    "innoday-blastoff>=0.7.0,<0.8.0",
+    #
+    # Floor raised to 0.8.0 for `--hotfix`/`--repo`/`--commit`/`--branch` on
+    # the release command (a hotfix used to be a separate `Hotfix` app) and
+    # for `record_release` accepting `repo_names` -- introspected before it is
+    # passed (`_accepts` in `blastoff/release.py`), so a 0.7.x store still
+    # works, but the CLI flags this repo now forwards are 0.8.0-only.
+    "innoday-blastoff>=0.8.0,<0.9.0",
     # Supabase JWT verification (JWKS/asymmetric + HS256 fallback) -- auth (PF-350)
     "pyjwt[crypto]>=2.9.0",
     # Supabase admin client, for provisioning auth.users identities on user

@@ -30,9 +30,8 @@ For more information on the resources and properties available for this service,
 Here is an example of creating a glue table and putting lakeformation tags on it. Note: this example uses deprecated constructs and overly permissive IAM roles. This example is meant to give a general idea of using the L1s; it is not production level.
 
 ```python
-from aws_cdk.aws_glue_alpha import Column, Column
 import aws_cdk as cdk
-from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
+from aws_cdk.aws_glue import S3Table, Database, DataFormat, Schema
 from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
 
 # stack: cdk.Stack
@@ -46,10 +45,10 @@ database = Database(self, "Database")
 
 table = S3Table(self, "Table",
     database=database,
-    columns=[Column(
+    columns=[cdk.aws_glue.Column(
         name="col1",
         type=Schema.STRING
-    ), Column(
+    ), cdk.aws_glue.Column(
         name="col2",
         type=Schema.STRING
     )
@@ -715,9 +714,8 @@ class CfnDataLakeSettings(
 
     Example::
 
-        from aws_cdk.aws_glue_alpha import Column, Column
         import aws_cdk as cdk
-        from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
+        from aws_cdk.aws_glue import S3Table, Database, DataFormat, Schema
         from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
         
         # stack: cdk.Stack
@@ -731,10 +729,10 @@ class CfnDataLakeSettings(
         
         table = S3Table(self, "Table",
             database=database,
-            columns=[Column(
+            columns=[cdk.aws_glue.Column(
                 name="col1",
                 type=Schema.STRING
-            ), Column(
+            ), cdk.aws_glue.Column(
                 name="col2",
                 type=Schema.STRING
             )
@@ -1273,9 +1271,8 @@ class CfnDataLakeSettingsProps:
 
         Example::
 
-            from aws_cdk.aws_glue_alpha import Column, Column
             import aws_cdk as cdk
-            from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
+            from aws_cdk.aws_glue import S3Table, Database, DataFormat, Schema
             from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
             
             # stack: cdk.Stack
@@ -1289,10 +1286,10 @@ class CfnDataLakeSettingsProps:
             
             table = S3Table(self, "Table",
                 database=database,
-                columns=[Column(
+                columns=[cdk.aws_glue.Column(
                     name="col1",
                     type=Schema.STRING
-                ), Column(
+                ), cdk.aws_glue.Column(
                     name="col2",
                     type=Schema.STRING
                 )
@@ -4513,9 +4510,8 @@ class CfnTag(
 
     Example::
 
-        from aws_cdk.aws_glue_alpha import Column, Column
         import aws_cdk as cdk
-        from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
+        from aws_cdk.aws_glue import S3Table, Database, DataFormat, Schema
         from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
         
         # stack: cdk.Stack
@@ -4529,10 +4525,10 @@ class CfnTag(
         
         table = S3Table(self, "Table",
             database=database,
-            columns=[Column(
+            columns=[cdk.aws_glue.Column(
                 name="col1",
                 type=Schema.STRING
-            ), Column(
+            ), cdk.aws_glue.Column(
                 name="col2",
                 type=Schema.STRING
             )
@@ -4726,9 +4722,8 @@ class CfnTagAssociation(
 
     Example::
 
-        from aws_cdk.aws_glue_alpha import Column, Column
         import aws_cdk as cdk
-        from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
+        from aws_cdk.aws_glue import S3Table, Database, DataFormat, Schema
         from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
         
         # stack: cdk.Stack
@@ -4742,10 +4737,10 @@ class CfnTagAssociation(
         
         table = S3Table(self, "Table",
             database=database,
-            columns=[Column(
+            columns=[cdk.aws_glue.Column(
                 name="col1",
                 type=Schema.STRING
-            ), Column(
+            ), cdk.aws_glue.Column(
                 name="col2",
                 type=Schema.STRING
             )
@@ -5040,9 +5035,8 @@ class CfnTagAssociation(
 
             Example::
 
-                from aws_cdk.aws_glue_alpha import Column, Column
                 import aws_cdk as cdk
-                from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
+                from aws_cdk.aws_glue import S3Table, Database, DataFormat, Schema
                 from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
                 
                 # stack: cdk.Stack
@@ -5056,10 +5050,10 @@ class CfnTagAssociation(
                 
                 table = S3Table(self, "Table",
                     database=database,
-                    columns=[Column(
+                    columns=[cdk.aws_glue.Column(
                         name="col1",
                         type=Schema.STRING
-                    ), Column(
+                    ), cdk.aws_glue.Column(
                         name="col2",
                         type=Schema.STRING
                     )
@@ -5559,9 +5553,8 @@ class CfnTagAssociationProps:
 
         Example::
 
-            from aws_cdk.aws_glue_alpha import Column, Column
             import aws_cdk as cdk
-            from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
+            from aws_cdk.aws_glue import S3Table, Database, DataFormat, Schema
             from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
             
             # stack: cdk.Stack
@@ -5575,10 +5568,10 @@ class CfnTagAssociationProps:
             
             table = S3Table(self, "Table",
                 database=database,
-                columns=[Column(
+                columns=[cdk.aws_glue.Column(
                     name="col1",
                     type=Schema.STRING
-                ), Column(
+                ), cdk.aws_glue.Column(
                     name="col2",
                     type=Schema.STRING
                 )
@@ -5705,9 +5698,8 @@ class CfnTagProps:
 
         Example::
 
-            from aws_cdk.aws_glue_alpha import Column, Column
             import aws_cdk as cdk
-            from aws_cdk.aws_glue_alpha import S3Table, Database, DataFormat, Schema
+            from aws_cdk.aws_glue import S3Table, Database, DataFormat, Schema
             from aws_cdk.aws_lakeformation import CfnDataLakeSettings, CfnTag, CfnTagAssociation
             
             # stack: cdk.Stack
@@ -5721,10 +5713,10 @@ class CfnTagProps:
             
             table = S3Table(self, "Table",
                 database=database,
-                columns=[Column(
+                columns=[cdk.aws_glue.Column(
                     name="col1",
                     type=Schema.STRING
-                ), Column(
+                ), cdk.aws_glue.Column(
                     name="col2",
                     type=Schema.STRING
                 )

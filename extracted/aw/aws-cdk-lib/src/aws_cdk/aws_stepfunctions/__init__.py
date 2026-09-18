@@ -1234,7 +1234,7 @@ AWS Step functions integrate directly with other services, either through an opt
 Therefore, it is possible to change the `integrationPattern` of services, to enable additional functionality of the said AWS Service:
 
 ```python
-import aws_cdk.aws_glue_alpha as glue
+import aws_cdk.aws_glue as glue
 
 # submit_glue: glue.Job
 

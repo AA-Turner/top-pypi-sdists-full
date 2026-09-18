@@ -54086,7 +54086,7 @@ class CfnNotebookInstance(
         :param id: Construct identifier for this resource (unique in its scope).
         :param instance_type: The type of ML compute instance to launch for the notebook instance. .. epigraph:: Expect some interruption of service if this parameter is changed as CloudFormation stops a notebook instance and starts it up again to update it.
         :param role_arn: When you send any requests to AWS resources from the notebook instance, SageMaker AI assumes this role to perform tasks on your behalf. You must grant this role necessary permissions so SageMaker AI can perform these tasks. The policy must allow the SageMaker AI service principal (sagemaker.amazonaws.com) permissions to assume this role. For more information, see `SageMaker AI Roles <https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html>`_ . .. epigraph:: To be able to pass this role to SageMaker AI, the caller of this API must have the ``iam:PassRole`` permission.
-        :param accelerator_types: A list of Amazon Elastic Inference (EI) instance types to associate with the notebook instance. Currently, only one instance type can be associated with a notebook instance. For more information, see `Using Elastic Inference in Amazon SageMaker <https://docs.aws.amazon.com/sagemaker/latest/dg/ei.html>`_ . *Valid Values:* ``ml.eia1.medium | ml.eia1.large | ml.eia1.xlarge | ml.eia2.medium | ml.eia2.large | ml.eia2.xlarge`` .
+        :param accelerator_types: (deprecated) A list of Amazon Elastic Inference (EI) instance types to associate with the notebook instance. Currently, only one instance type can be associated with a notebook instance. For more information, see `Using Elastic Inference in Amazon SageMaker <https://docs.aws.amazon.com/sagemaker/latest/dg/ei.html>`_ . *Valid Values:* ``ml.eia1.medium | ml.eia1.large | ml.eia1.xlarge | ml.eia2.medium | ml.eia2.large | ml.eia2.xlarge`` .
         :param additional_code_repositories: An array of up to three Git repositories associated with the notebook instance. These can be either the names of Git repositories stored as resources in your account, or the URL of Git repositories in `AWS CodeCommit <https://docs.aws.amazon.com/codecommit/latest/userguide/welcome.html>`_ or in any other Git repository. These repositories are cloned at the same level as the default repository of your notebook instance. For more information, see `Associating Git Repositories with SageMaker AI Notebook Instances <https://docs.aws.amazon.com/sagemaker/latest/dg/nbi-git-repo.html>`_ .
         :param default_code_repository: The Git repository associated with the notebook instance as its default code repository. This can be either the name of a Git repository stored as a resource in your account, or the URL of a Git repository in `AWS CodeCommit <https://docs.aws.amazon.com/codecommit/latest/userguide/welcome.html>`_ or in any other Git repository. When you open a notebook instance, it opens in the directory that contains this repository. For more information, see `Associating Git Repositories with SageMaker AI Notebook Instances <https://docs.aws.amazon.com/sagemaker/latest/dg/nbi-git-repo.html>`_ .
         :param direct_internet_access: Sets whether SageMaker AI provides internet access to the notebook instance. If you set this to ``Disabled`` this notebook instance is able to access resources only in your VPC, and is not be able to connect to SageMaker AI training and endpoint services unless you configure a NAT Gateway in your VPC. For more information, see `Notebook Instances Are Internet-Enabled by Default <https://docs.aws.amazon.com/sagemaker/latest/dg/appendix-additional-considerations.html#appendix-notebook-and-internet-access>`_ . You can set the value of this parameter to ``Disabled`` only if you set a value for the ``SubnetId`` parameter.
@@ -54191,6 +54191,15 @@ class CfnNotebookInstance(
         return typing.cast(builtins.str, jsii.get(self, "attrId"))
 
     @builtins.property
+    @jsii.member(jsii_name="attrNotebookInstanceArn")
+    def attr_notebook_instance_arn(self) -> builtins.str:
+        '''The Amazon Resource Name (ARN) of the notebook instance.
+
+        :cloudformationAttribute: NotebookInstanceArn
+        '''
+        return typing.cast(builtins.str, jsii.get(self, "attrNotebookInstanceArn"))
+
+    @builtins.property
     @jsii.member(jsii_name="attrNotebookInstanceName")
     def attr_notebook_instance_name(self) -> builtins.str:
         '''The name of the notebook instance, such as ``MyNotebookInstance`` .
@@ -54252,7 +54261,12 @@ class CfnNotebookInstance(
     @builtins.property
     @jsii.member(jsii_name="acceleratorTypes")
     def accelerator_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of Amazon Elastic Inference (EI) instance types to associate with the notebook instance.'''
+        '''(deprecated) A list of Amazon Elastic Inference (EI) instance types to associate with the notebook instance.
+
+        :deprecated: this property has been deprecated
+
+        :stability: deprecated
+        '''
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "acceleratorTypes"))
 
     @accelerator_types.setter
@@ -54920,7 +54934,7 @@ class CfnNotebookInstanceProps:
 
         :param instance_type: The type of ML compute instance to launch for the notebook instance. .. epigraph:: Expect some interruption of service if this parameter is changed as CloudFormation stops a notebook instance and starts it up again to update it.
         :param role_arn: When you send any requests to AWS resources from the notebook instance, SageMaker AI assumes this role to perform tasks on your behalf. You must grant this role necessary permissions so SageMaker AI can perform these tasks. The policy must allow the SageMaker AI service principal (sagemaker.amazonaws.com) permissions to assume this role. For more information, see `SageMaker AI Roles <https://docs.aws.amazon.com/sagemaker/latest/dg/sagemaker-roles.html>`_ . .. epigraph:: To be able to pass this role to SageMaker AI, the caller of this API must have the ``iam:PassRole`` permission.
-        :param accelerator_types: A list of Amazon Elastic Inference (EI) instance types to associate with the notebook instance. Currently, only one instance type can be associated with a notebook instance. For more information, see `Using Elastic Inference in Amazon SageMaker <https://docs.aws.amazon.com/sagemaker/latest/dg/ei.html>`_ . *Valid Values:* ``ml.eia1.medium | ml.eia1.large | ml.eia1.xlarge | ml.eia2.medium | ml.eia2.large | ml.eia2.xlarge`` .
+        :param accelerator_types: (deprecated) A list of Amazon Elastic Inference (EI) instance types to associate with the notebook instance. Currently, only one instance type can be associated with a notebook instance. For more information, see `Using Elastic Inference in Amazon SageMaker <https://docs.aws.amazon.com/sagemaker/latest/dg/ei.html>`_ . *Valid Values:* ``ml.eia1.medium | ml.eia1.large | ml.eia1.xlarge | ml.eia2.medium | ml.eia2.large | ml.eia2.xlarge`` .
         :param additional_code_repositories: An array of up to three Git repositories associated with the notebook instance. These can be either the names of Git repositories stored as resources in your account, or the URL of Git repositories in `AWS CodeCommit <https://docs.aws.amazon.com/codecommit/latest/userguide/welcome.html>`_ or in any other Git repository. These repositories are cloned at the same level as the default repository of your notebook instance. For more information, see `Associating Git Repositories with SageMaker AI Notebook Instances <https://docs.aws.amazon.com/sagemaker/latest/dg/nbi-git-repo.html>`_ .
         :param default_code_repository: The Git repository associated with the notebook instance as its default code repository. This can be either the name of a Git repository stored as a resource in your account, or the URL of a Git repository in `AWS CodeCommit <https://docs.aws.amazon.com/codecommit/latest/userguide/welcome.html>`_ or in any other Git repository. When you open a notebook instance, it opens in the directory that contains this repository. For more information, see `Associating Git Repositories with SageMaker AI Notebook Instances <https://docs.aws.amazon.com/sagemaker/latest/dg/nbi-git-repo.html>`_ .
         :param direct_internet_access: Sets whether SageMaker AI provides internet access to the notebook instance. If you set this to ``Disabled`` this notebook instance is able to access resources only in your VPC, and is not be able to connect to SageMaker AI training and endpoint services unless you configure a NAT Gateway in your VPC. For more information, see `Notebook Instances Are Internet-Enabled by Default <https://docs.aws.amazon.com/sagemaker/latest/dg/appendix-additional-considerations.html#appendix-notebook-and-internet-access>`_ . You can set the value of this parameter to ``Disabled`` only if you set a value for the ``SubnetId`` parameter.
@@ -55053,13 +55067,16 @@ class CfnNotebookInstanceProps:
 
     @builtins.property
     def accelerator_types(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''A list of Amazon Elastic Inference (EI) instance types to associate with the notebook instance.
+        '''(deprecated) A list of Amazon Elastic Inference (EI) instance types to associate with the notebook instance.
 
         Currently, only one instance type can be associated with a notebook instance. For more information, see `Using Elastic Inference in Amazon SageMaker <https://docs.aws.amazon.com/sagemaker/latest/dg/ei.html>`_ .
 
         *Valid Values:* ``ml.eia1.medium | ml.eia1.large | ml.eia1.xlarge | ml.eia2.medium | ml.eia2.large | ml.eia2.xlarge`` .
 
+        :deprecated: this property has been deprecated
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-sagemaker-notebookinstance.html#cfn-sagemaker-notebookinstance-acceleratortypes
+        :stability: deprecated
         '''
         result = self._values.get("accelerator_types")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

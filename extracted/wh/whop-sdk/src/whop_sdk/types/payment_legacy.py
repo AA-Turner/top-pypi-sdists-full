@@ -219,6 +219,11 @@ class PaymentLegacy(UniversalBaseModel):
     The promo code used for this payment.
     """
 
+    recovery_url: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    Whop-hosted URL where the buyer can sign in and complete 3D Secure for an off-session charge the bank challenged — a subscription renewal or a saved-card payment. `null` when recovery is unavailable or you lack `member:basic:read`.
+    """
+
     refundable: bool = pydantic.Field()
     """
     True only for payments that are `paid`, have not been fully refunded, and were processed by a payment processor that allows refunds.
@@ -256,7 +261,7 @@ class PaymentLegacy(UniversalBaseModel):
 
     risk_signals: typing.Optional[typing.Dict[str, typing.Any]] = pydantic.Field(default=None)
     """
-    A curated set of factors behind the risk score, grouped by category (business transaction history, buyer, device). Each entry has a key, human-readable label, category, and value. Null when there is no risk assessment for this payment.
+    Deprecated. Always null.
     """
 
     settlement_amount: float = pydantic.Field()
@@ -276,7 +281,7 @@ class PaymentLegacy(UniversalBaseModel):
 
     settlement_time_at: typing.Optional[dt.datetime] = pydantic.Field(default=None)
     """
-    When this payment's funds post to the company's available balance, at midnight UTC. Known at payment time and never changes. The `ledger_account.funds_available` webhook carries the same `settlement_time_at` when that batch posts — match them to know these funds are now withdrawable.
+    When this payment's funds post to the company's available balance, at midnight UTC. Known at payment time and never changes. The `financial_activity.funds_available` webhook's `posted_at` carries the same value when the settlement that clears it posts — match them to know these funds are now withdrawable.
     """
 
     shipment: typing.Optional[PaymentLegacyShipment] = pydantic.Field(default=None)

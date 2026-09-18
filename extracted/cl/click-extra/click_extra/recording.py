@@ -55,21 +55,19 @@ from .color import forced_color
 from .execution import args_cleanup
 from .layout import cell_width, number_lines
 from .screenshot import (
-    AUTO_HOLD,
     CAPTURE_HIDDEN_TERMINAL_VARS,
     CAPTURE_TERMINAL_HINTS,
-    DEFAULT_BORDER_WIDTH,
     DEFAULT_COLUMNS,
-    DEFAULT_MARGIN,
-    DEFAULT_PADDING,
-    DEFAULT_WATERMARK,
-    NO_PAINT,
-    OPAQUE,
-    CaptureBackground,
+    Chrome,
     append_prompt,
+    fold_chrome_arguments,
     prompt_line,
     render,
 )
+from .screenshot_presets import (
+    CaptureBackground,
+)
+from .screenshot_svg import AUTO_HOLD
 
 # A pseudo-terminal is what makes a CLI checking `isatty` animate for a
 # recorder, and `pty` reaches for `termios`, which Windows does not ship. The
@@ -85,9 +83,12 @@ TYPE_CHECKING = False
 if TYPE_CHECKING:
     from collections.abc import Callable, Sequence
 
+    from typing_extensions import Unpack
+
     from .execution import TArg, TNestedArgs
-    from .screenshot import THold
+    from .screenshot import ChromeArguments
     from .screenshot_presets import Cursor, TerminalPreset
+    from .screenshot_svg import THold
 
 CSI_RE = re.compile(r"\x1b\[[0-9;?]*[a-zA-Z]")
 """One control sequence, from the escape that opens it to the letter ending it.
@@ -120,7 +121,7 @@ A recording ends somewhere, and the end is usually its point: the trail filled
 in, the bar run out, the outcome landed. Looping straight back gives a reader no
 time to read any of it, and how much time reading takes depends on how much the
 ending shows, so the default scales with it: see
-{func}`~click_extra.screenshot.auto_hold`. A declared animation cycles in place
+{func}`~click_extra.screenshot_svg.auto_hold`. A declared animation cycles in place
 and ends nowhere, so it holds for nothing unless a page asks.
 """
 
@@ -550,7 +551,7 @@ def quantize(
     This settles jitter and nothing else. A frame the scheduler dropped leaves a
     shorter recording of the same frames, which no rounding recovers. That case
     is answered a layer up, by
-    {func}`~click_extra.screenshot.animation_digest`, which fingerprints the
+    {func}`~click_extra.screenshot_svg.animation_digest`, which fingerprints the
     frames a cycle holds rather than how many of them were caught.
     ```
 
@@ -616,10 +617,10 @@ def type_line(
     ```{note}
     Ordinary frames, carrying no mechanism of their own: they prepend to a
     recording's and travel through
-    {func}`~click_extra.screenshot.render_svg` like any others. Everything the
+    {func}`~click_extra.screenshot_svg.render_svg` like any others. Everything the
     picture does for a frame therefore reaches these too, the gutter numbering
     them and the cursor following the text along, see
-    {func}`~click_extra.screenshot.cursor_cell`.
+    {func}`~click_extra.screenshot_svg.cursor_cell`.
     ```
 
     The last frame holds the finished line for `submit`, which is the beat
@@ -672,16 +673,8 @@ def record_and_render(
     title: str = "",
     unique_id: str | None = None,
     preset: TerminalPreset | None = None,
-    border: str | None = None,
-    border_width: int = DEFAULT_BORDER_WIDTH,
-    radius: int | None = None,
-    backdrop: str = NO_PAINT,
-    shadow: str | None = None,
-    margin: int = DEFAULT_MARGIN,
-    padding: int = DEFAULT_PADDING,
-    opacity: float = OPAQUE,
-    watermark: str = DEFAULT_WATERMARK,
-    watermark_color: str | None = None,
+    chrome: Chrome = Chrome(),
+    **legacy: Unpack[ChromeArguments],
 ) -> tuple[str, int]:
     """Record a command under a pseudo-terminal and render it as an animated SVG.
 
@@ -706,7 +699,7 @@ def record_and_render(
     :param quantum: grid the frame durations are rounded onto, see
         {func}`quantize`.
     :param hold: extra seconds the last frame stays up, or
-        {data}`~click_extra.screenshot.AUTO_HOLD` (the default here) to scale
+        {data}`~click_extra.screenshot_svg.AUTO_HOLD` (the default here) to scale
         them to that frame's line count.
     :param blank: seconds of empty screen closing the cycle.
     :param speed: how much faster to play than recorded. The typed opening is
@@ -721,7 +714,7 @@ def record_and_render(
     :param line_numbers: draw each line's number in a gutter, the prompt
         counting as the first of them.
     :param emphasize: lines to draw a band behind, see
-        {func}`~click_extra.screenshot.render_svg`.
+        {func}`~click_extra.screenshot_svg.render_svg`.
     :param cursor: the terminal cursor to draw, see
         {class}`~click_extra.screenshot_presets.Cursor`. It follows the text
         from screen to screen on its own, so a typed opening gets its caret
@@ -733,21 +726,15 @@ def record_and_render(
     :param title: see {func}`~click_extra.screenshot.render`.
     :param unique_id: see {func}`~click_extra.screenshot.render`.
     :param preset: see {func}`~click_extra.screenshot.render`.
-    :param border: see {func}`~click_extra.screenshot.render`.
-    :param border_width: see {func}`~click_extra.screenshot.render`.
-    :param radius: see {func}`~click_extra.screenshot.render`.
-    :param backdrop: see {func}`~click_extra.screenshot.render`.
-    :param shadow: see {func}`~click_extra.screenshot.render`.
-    :param margin: see {func}`~click_extra.screenshot.render`.
-    :param padding: see {func}`~click_extra.screenshot.render`.
-    :param opacity: see {func}`~click_extra.screenshot.render`.
-    :param watermark: see {func}`~click_extra.screenshot.render`.
-    :param watermark_color: see {func}`~click_extra.screenshot.render`.
+    :param chrome: see {func}`~click_extra.screenshot.render`.
+    :param legacy: deprecated: the {class}`~click_extra.screenshot.Chrome` fields,
+        passed one by one.
     :return: the rendered SVG document, and the command's exit code.
     :raises NotImplementedError: on a platform with no pseudo-terminal.
     :raises ValueError: when the command drew nothing to record, or when a
         stated `typing` or `submit` is not positive.
     """
+    chrome = fold_chrome_arguments("record_and_render", chrome, legacy)
     frames, returncode = _record_process(
         args,
         columns=columns,
@@ -795,16 +782,7 @@ def record_and_render(
             unique_id=unique_id,
             background=background,
             preset=preset,
-            border=border,
-            border_width=border_width,
-            radius=radius,
-            backdrop=backdrop,
-            shadow=shadow,
-            margin=margin,
-            padding=padding,
-            opacity=opacity,
-            watermark=watermark,
-            watermark_color=watermark_color,
+            chrome=chrome,
         ),
         returncode,
     )

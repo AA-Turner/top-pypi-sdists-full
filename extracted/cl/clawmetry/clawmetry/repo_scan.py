@@ -69,6 +69,10 @@ WORKSPACE_KINDS = (
     "repo_config_exec",      # the checkout's own config names a program
     "agent_config_tamper",   # an agent hook config was changed under us
     "package_manifest_exec", # the checkout runs its own code on `npm install`
+    # Raised from clawmetry/agent_inventory.py, which reads the same kind of
+    # surface (configuration an agent loads) and emits in this module's shape.
+    # Declared here so there is still ONE list of workspace kinds.
+    "agent_component_change",  # an MCP server, skill or plugin was added or changed
 )
 
 # Git config keys whose VALUE is a program git will execute. Section+key, lowered.
@@ -715,15 +719,19 @@ def scan_package_manifest(workspace: str, session_id: str = "",
 
 
 def scan_workspace(workspace: str, session_id: str = "",
-                   runtime: str = "unknown") -> list:
+                   runtime: str = "unknown", *, disabled=None) -> list:
     """Run every workspace check. Never raises; a broken check costs its finding.
 
     Returns incidents in the same shape as ``detectors.run_all``, so the Guard
     tab, the policy engine and the red-team audit all consume one vocabulary.
     """
     findings: list = []
-    for check in (scan_git_config, scan_autorun_tasks, scan_agent_hooks,
-                  scan_package_manifest):
+    for kind, check in (("repo_config_exec", scan_git_config),
+                        ("repo_config_exec", scan_autorun_tasks),
+                        ("agent_config_tamper", scan_agent_hooks),
+                        ("package_manifest_exec", scan_package_manifest)):
+        if disabled and kind in disabled:
+            continue
         try:
             findings.extend(check(workspace, session_id, runtime) or [])
         except Exception:

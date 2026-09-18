@@ -30,7 +30,10 @@ image knows which desktop it came from:
 
 None of it is applied unless asked for: a capture with no preset keeps the
 renderer's own neutral window, which is what every image in this project's
-documentation is drawn as.
+documentation is drawn as. That window is described here too: {data}`DEFAULT_PRESET`
+is the terminal it resolves its colors against, {class}`CaptureBackground` names
+the dark or light chrome a capture is drawn on, and {func}`resolve_palette`
+answers the palette any preset shows on either.
 
 ```{caution}
 A palette here is a *published default*, transcribed from the scheme each
@@ -124,13 +127,13 @@ class CursorShape(Enum):
 class Cursor(NamedTuple):
     """The cursor a capture draws, and how it behaves.
 
-    Passed to {func}`~click_extra.screenshot.render_svg` to draw one at all: a
+    Passed to {func}`~click_extra.screenshot_svg.render_svg` to draw one at all: a
     capture shows no cursor unless asked, which is what keeps an image taken
     before this existed byte-identical to the one taken after.
 
     ```{note}
     Where the cursor *is* is never stated here. A frame's text already says so,
-    see {func}`~click_extra.screenshot.cursor_cell`, so a caller states what the
+    see {func}`~click_extra.screenshot_svg.cursor_cell`, so a caller states what the
     cursor looks like and the picture answers for the rest.
     ```
     """
@@ -149,7 +152,7 @@ class Cursor(NamedTuple):
     ```{caution}
     Blinking is motion, and a reader may have asked their system for less of
     it. The rule sits behind
-    {data}`~click_extra.screenshot.REDUCED_MOTION_QUERY` like every other
+    {data}`~click_extra.screenshot_svg.REDUCED_MOTION_QUERY` like every other
     animation this package emits, which leaves the cursor lit and still. That
     guard is also what answers [WCAG 2.2.2](https://www.w3.org/WAI/WCAG22/Understanding/pause-stop-hide),
     which asks that anything blinking past five seconds can be stopped.
@@ -331,3 +334,138 @@ PRESETS: Final[dict[str, TerminalPreset]] = {
 rounded corners for a capture that has to read as a block of output rather than
 as a window, on a slide or in a paper.
 """
+
+
+DEFAULT_PRESET: Final = PRESETS["plain"]
+"""Terminal a capture with no `--preset` is drawn as.
+
+`plain` mimics no desktop, which is what a capture wearing no decoration should
+resolve its colors against. Naming it here is what keeps the two formats looking
+like the same terminal, and keeps one catalog answering for every palette a
+capture can use: without it the default colors would be a second set of literals
+free to drift from the one the presets publish.
+"""
+
+CAPTURE_FONT_STACK: Final = DEFAULT_PRESET.font_stack
+"""Monospaced fonts a capture asks for, best first.
+
+Nothing is embedded and nothing is fetched, so both formats set the text in the
+first family the reader already has, and a capture renders the same offline, on
+a page forbidding third-party requests, and in a viewer that speaks no CSS
+`@font-face`.
+
+Family names are single-quoted on purpose: this lands in a double-quoted
+`style` attribute, which a double quote here would terminate early.
+
+```{note}
+Not embedding is a decision, not an omission: a subsetted font would ship inside
+this package, and redistribute someone else's font under its own license. The
+bytes are small; the license management is not worth a terminal picture. The
+JuliaMono subset under `docs/_static/` does not change this: it sets the
+documentation's own HTML, where a stylesheet reaches the text, and reusing it in
+a capture would be that same redistribution.
+
+The fallback cost is measured. A stock macOS falls through to Menlo, which
+carries no Braille and none of the Mathematical Operators the spinner catalog
+draws, so those resolve to the proportional Apple Symbols: 26 of the 89 tiles
+under `docs/assets/spinner-*.svg` draw 11% to 80% wider than their column, and
+the window's clip cuts the overflow. A reader with either of the first two
+families sees none of it, and emoji stay out of reach of every monospaced font.
+
+Fitting each run to its columns instead (`lengthAdjust="spacingAndGlyphs"`) was
+measured and rejected: across the 1407 runs in the committed captures it
+distorts 425 of them by more than 6%, some past 100%, because it stretches a
+narrow glyph as readily as it squeezes a wide one.
+
+Note that {data}`~click_extra.screenshot_svg.WATERMARK_URL` documents the other half
+of this: a capture embedded with `<img>` never sees the page's own `@font-face`
+either, so a stylesheet cannot fix this from the outside.
+```
+"""
+
+
+class CaptureBackground(Enum):
+    """Terminal chrome a capture is drawn on.
+
+    A capture freezes the colors of the run it pictures, so the chrome has to
+    answer to the palette that run was colored for. Neither direction survives
+    the other: a screen colored for a dark terminal is unreadable on white, and
+    click-extra's own `light` and `manpage` themes wash out on the dark chrome
+    a renderer defaults to.
+
+    The value doubles as the `--background` choice the CLI offers.
+    """
+
+    DARK = "dark"
+    """What a terminal, and this package's default theme, usually look like."""
+
+    LIGHT = "light"
+    """For a CLI rendered with a light-background theme."""
+
+    def __str__(self):
+        return self.name.lower()
+
+
+CAPTURE_PALETTES: dict[CaptureBackground, TerminalPalette] = {
+    CaptureBackground.DARK: DEFAULT_PRESET.dark,
+    CaptureBackground.LIGHT: DEFAULT_PRESET.light,
+}
+"""Colors each chrome resolves a capture's ANSI codes against.
+
+A palette carries the 16 ANSI colors alongside the background and foreground,
+which is the other half of the job: a CLI naming `blue` leaves the shade to
+whoever draws it, and the one that reads on white is not the one that reads on
+`#292929`.
+"""
+
+
+CAPTURE_BACKGROUND = CAPTURE_PALETTES[CaptureBackground.DARK].background
+"""Background a dark capture is drawn on.
+
+Stating it is not optional: a help screen colored for a dark terminal is
+unreadable on a page that defaults to white.
+"""
+
+
+CAPTURE_FOREGROUND = CAPTURE_PALETTES[CaptureBackground.DARK].foreground
+"""Color of the text a dark capture leaves unstyled. See {data}`CAPTURE_BACKGROUND`."""
+
+
+LIGHT_CAPTURE_BACKGROUND = CAPTURE_PALETTES[CaptureBackground.LIGHT].background
+"""Background a light capture is drawn on.
+
+See {data}`CAPTURE_BACKGROUND`: an SVG and an HTML capture of the same run have
+to look like the same terminal.
+"""
+
+
+LIGHT_CAPTURE_FOREGROUND = CAPTURE_PALETTES[CaptureBackground.LIGHT].foreground
+"""Color of the text a light capture leaves unstyled.
+
+See {data}`LIGHT_CAPTURE_BACKGROUND`.
+"""
+
+
+def preset_palette(
+    preset: TerminalPreset,
+    background: CaptureBackground,
+) -> TerminalPalette:
+    """The colors a preset shows on the given chrome."""
+    return preset.dark if background is CaptureBackground.DARK else preset.light
+
+
+def resolve_palette(
+    preset: TerminalPreset | None,
+    background: CaptureBackground,
+) -> TerminalPalette:
+    """The colors a capture resolves its ANSI codes against.
+
+    The preset's palette on the given chrome, or the default terminal's
+    ({data}`CAPTURE_PALETTES`) when no preset dresses the capture. The one
+    resolution rule shared by {func}`~click_extra.screenshot.render` and
+    {func}`~click_extra.screenshot_html.render_html`, so the two formats cannot disagree
+    on what a chrome looks like.
+    """
+    if preset is None:
+        return CAPTURE_PALETTES[background]
+    return preset_palette(preset, background)

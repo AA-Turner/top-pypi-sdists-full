@@ -78,6 +78,14 @@ class AgentStartConfig(BaseModel):
             "workflow studio. Not sent to the agent — only used for edge wiring."
         ),
     )
+    variable_sources: dict[str, Literal["default", "connected", "custom"]] = Field(
+        default_factory=dict,
+        description=(
+            "Per-variable source selection persisted by the Studio. This is "
+            "execution wiring, not a form field."
+        ),
+        json_schema_extra=field_extras(hidden=True),
+    )
     # THE ONE KNOB over the all-zero refusal (``matrx_graph.emptiness``): an
     # agent whose honest answer can be "nothing here" — a checker that finds no
     # issues, a filter that matches nothing — says so HERE, at author time, on
@@ -819,6 +827,7 @@ def build_agent_request(
     node_type: str,
     top_config_overrides: dict[str, Any] | None = None,
     declared_variables: list[str] | None = None,
+    variable_sources: dict[str, Literal["default", "connected", "custom"]] | None = None,
 ) -> Any:
     """Build the host ``AgentStartRequest`` for one workflow agent step.
 
@@ -878,11 +887,19 @@ def build_agent_request(
             *extra_vars,
         },
     )
-    if extra_vars:
-        request_payload["variables"] = {
-            **(request_payload.get("variables") or {}),
-            **extra_vars,
-        }
+    effective_variable_sources = {
+        name: "connected" for name in (declared_variables or []) if name
+    }
+    effective_variable_sources.update(variable_sources or {})
+    variables = _resolve_variable_sources(
+        dict(request_payload.get("variables") or {}),
+        extra_vars,
+        effective_variable_sources,
+    )
+    if variables:
+        request_payload["variables"] = variables
+    else:
+        request_payload.pop("variables", None)
     # ── config precedence, lowest → highest ──────────────────────────────
     #   1. the MANDATE's config   (system default → org binding → user binding,
     #      already merged by `resolve_mandate`)
@@ -916,6 +933,40 @@ def build_agent_request(
     if step_mandate_key:
         request._mandate_key = step_mandate_key
     return request
+
+
+def _resolve_variable_sources(
+    authored_variables: dict[str, Any],
+    incoming_variables: dict[str, Any],
+    variable_sources: dict[str, Literal["default", "connected", "custom"]],
+) -> dict[str, Any]:
+    """Apply the saved source mode without losing falsy authored values.
+
+    Unspecified names retain the established precedence: an incoming edge
+    overrides the node's authored literal. ``default`` omits a key so the
+    agent's saved definition applies it; ``custom`` keeps only the authored
+    value; and ``connected`` keeps only the edge value.
+    """
+    variables = {**authored_variables, **incoming_variables}
+    for name, source in variable_sources.items():
+        if source == "default":
+            variables.pop(name, None)
+        elif source == "custom":
+            if name in authored_variables:
+                variables[name] = authored_variables[name]
+            else:
+                variables.pop(name, None)
+        elif source == "connected":
+            if name in incoming_variables:
+                variables[name] = incoming_variables[name]
+            else:
+                raise ValueError(
+                    f"Agent variable '{name}' is set to connected, but this step "
+                    "received no value on that input. Reconnect the variable's "
+                    "edge or choose the agent default or a custom value before "
+                    "running the workflow."
+                )
+    return variables
 
 
 async def run_step_agent(ctx: NodeExecutionContext, agent_id: str, request: Any) -> Any:
@@ -1107,6 +1158,7 @@ async def agent_start(
         # What the AUTHOR exposed as this step's variable connection points —
         # the declaration a broadcast agent_result is projected onto.
         declared_variables=list(getattr(config, "exposed_variables", None) or []),
+        variable_sources=dict(getattr(config, "variable_sources", None) or {}),
     )
     completed = await run_step_agent(ctx, resolved.agent_id, request)
 

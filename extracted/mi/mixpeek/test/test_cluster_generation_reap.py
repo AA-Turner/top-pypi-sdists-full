@@ -43,7 +43,8 @@ class TestClusterGenerationReap(unittest.TestCase):
                 stale = 56,
                 reaped = 56,
                 wal_seq = 56,
-                confirmed_seq = 56
+                confirmed_seq = 56,
+                confirmed_unavailable_reason = ''
             )
         else:
             return ClusterGenerationReap(

@@ -113,6 +113,9 @@ from snowflake.snowpark_connect.relation.iceberg_branch_dml import (
     snowflake_fast_forward_sql,
     snowpark_table_for_ref_dml,
 )
+from snowflake.snowpark_connect.relation.iceberg_changelog_view import (
+    translate_create_changelog_view,
+)
 from snowflake.snowpark_connect.relation.iceberg_sql_branch_tag_suffix import (
     try_parse_iceberg_branch_tag_suffix,
 )
@@ -389,6 +392,10 @@ def _dispatch_set_table_properties(
     if not _alter_target_is_iceberg(session, table_name):
         _translate_and_execute_alter_via_sqlglot(session, sql_string)
         return
+    # Gate parity with CREATE (SNOW-4061004): GS rejects TABLE_PROPERTIES unless
+    # ENABLE_ICEBERG_TABLE_PROPERTIES_DDL is on, so no-op instead of failing.
+    if not _iceberg_table_properties_ddl_enabled():
+        return
     props: dict[str, str] = {}
     props_iter = logical_plan.properties().iterator()
     while props_iter.hasNext():
@@ -409,6 +416,8 @@ def _dispatch_unset_table_properties(
     table_name = get_relation_identifier_name(logical_plan.table(), True)
     if not _alter_target_is_iceberg(session, table_name):
         _translate_and_execute_alter_via_sqlglot(session, sql_string)
+        return
+    if not _iceberg_table_properties_ddl_enabled():  # gate parity with SET/CREATE
         return
     keys = [str(k) for k in as_java_list(logical_plan.propertyKeys())]
     snowflake_sql = _build_unset_table_properties_sql(table_name, keys)
@@ -832,6 +841,34 @@ def _merge_dml_target(target_rel) -> IcebergRefDmlTarget:
     return _dml_target_from_relation(target_rel, dml_op="merge")
 
 
+def _publish_dml_target_container(
+    plan_id: int,
+    dataframe: snowpark.DataFrame,
+    spark_column_names: list[str],
+    snowpark_column_names: list[str],
+) -> DataFrameContainer:
+    """Build the DML target's container over the table's physical columns and
+    re-publish it under ``plan_id``.
+
+    Row-level DML re-maps the mapped relation's plan-mangled Snowpark names
+    (``"id-0000000a-0"``) onto the target table's real column names, because
+    ``Table.delete`` / ``update`` / ``merge`` address the physical table.  A
+    qualified predicate reference (``DELETE FROM tbl t WHERE t.id = 1``) is
+    turned by ``map_sql_expression`` into an attribute carrying the plan_id that
+    the qualifier ``t`` resolves to, and ``map_relation`` bound that plan_id to
+    the *pre-rename* container.  Re-publishing keeps the two in sync so the
+    reference resolves against the names the predicate will actually be built
+    from; otherwise resolution fails with RESOLVED_REFERENCE_COLUMN_NOT_FOUND.
+    """
+    container = DataFrameContainer.create_with_column_mapping(
+        dataframe=dataframe,
+        spark_column_names=spark_column_names,
+        snowpark_column_names=snowpark_column_names,
+    )
+    set_plan_id_map(plan_id, container)
+    return container
+
+
 def _iceberg_call_literal_value(expr: object) -> object:
     """Read the Python value out of a Spark `Literal` CALL argument expression."""
     simple_name = str(expr.getClass().getSimpleName())
@@ -882,6 +919,104 @@ def _parse_ancestors_of_args(logical_plan: object) -> tuple[str, int | None]:
             attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
             raise exception from None
     return str(table_val), snapshot_id
+
+
+def _iceberg_call_expr_value(expr: object) -> object:
+    """Read a Python value from a Spark CALL argument expression.
+
+    Unlike ``_iceberg_call_literal_value`` (which only handles ``Literal``),
+    this also handles ``CreateArray``/``CreateMap`` and their
+    ``UnresolvedFunction`` equivalents — the AST nodes the Iceberg parser
+    produces for ``array(...)`` and ``map(...)`` argument expressions in
+    ``create_changelog_view``.  The node type depends on the Spark/Iceberg
+    version: older parsers emit ``CreateArray``/``CreateMap``, newer parsers
+    emit ``UnresolvedFunction`` with name ``array`` or ``map``.
+    """
+    simple_name = str(expr.getClass().getSimpleName())
+    if simple_name == "Literal":
+        return expr.value()
+    if simple_name == "CreateArray":
+        return [_iceberg_call_expr_value(e) for e in as_java_list(expr.children())]
+    if simple_name == "CreateMap":
+        children = [_iceberg_call_expr_value(e) for e in as_java_list(expr.children())]
+        return dict(zip(children[::2], children[1::2]))
+    if simple_name == "UnresolvedFunction":
+        fn_name = str(as_java_list(expr.nameParts())[0]).lower()
+        args = [_iceberg_call_expr_value(e) for e in as_java_list(expr.arguments())]
+        if fn_name == "array":
+            return args
+        if fn_name == "map":
+            return dict(zip(args[::2], args[1::2]))
+    raise AnalysisException(
+        f"Unsupported expression type in CALL argument: {simple_name}."
+    )
+
+
+def _parse_create_changelog_view_args(
+    logical_plan: object,
+):
+    """Extract parameters from a parsed ``create_changelog_view`` CallStatement.
+
+    Iceberg's ``CreateChangelogViewProcedure`` declares all parameters as named,
+    so the SQL extension parser always emits ``NamedArgument`` nodes.  Positional
+    extraction is only used for ``table`` (arg 0) as a robustness fallback.
+
+    Returns:
+        CreateChangelogViewMatch with extracted parameters.
+    """
+    from snowflake.snowpark_connect.relation.iceberg_changelog_view import (
+        CreateChangelogViewMatch,
+    )
+
+    named: dict[str, object] = {}
+    positional: list[object] = []
+    for arg in as_java_list(logical_plan.args()):
+        if str(arg.getClass().getSimpleName()) == "NamedArgument":
+            named[str(arg.name()).lower()] = _iceberg_call_expr_value(arg.expr())
+        else:
+            positional.append(_iceberg_call_expr_value(arg.expr()))
+
+    table_val = named.get("table", positional[0] if positional else None)
+    if table_val is None:
+        exception = AnalysisException(
+            "`create_changelog_view` requires a `table` argument."
+        )
+        attach_custom_error_code(exception, ErrorCodes.INVALID_INPUT)
+        raise exception
+
+    result = CreateChangelogViewMatch(table=str(table_val))
+    if "changelog_view" in named:
+        result.changelog_view = str(named["changelog_view"])
+    if "compute_updates" in named:
+        result.compute_updates = bool(named["compute_updates"])
+    if "net_changes" in named:
+        result.net_changes = bool(named["net_changes"])
+
+    # identifier_columns => array('col1', 'col2')
+    if "identifier_columns" in named:
+        id_cols = named["identifier_columns"]
+        if isinstance(id_cols, list):
+            result.identifier_columns = [str(c) for c in id_cols]
+        else:
+            result.identifier_columns = [str(id_cols)]
+
+    # options => map('start-snapshot-id', '123', 'end-snapshot-id', '456')
+    if "options" in named:
+        opts = named["options"]
+        if isinstance(opts, dict):
+            for k, v in opts.items():
+                key = str(k).lower()
+                val = str(v)
+                if key == "start-snapshot-id":
+                    result.start_snapshot_id = val
+                elif key == "end-snapshot-id":
+                    result.end_snapshot_id = val
+                elif key == "start-timestamp":
+                    result.start_timestamp = val
+                elif key == "end-timestamp":
+                    result.end_timestamp = val
+
+    return result
 
 
 def _build_ancestors_of_query(
@@ -969,7 +1104,7 @@ def _resolve_iceberg_system_procedure(proc_name_parts: list[str]) -> str:
         )
         attach_custom_error_code(exception, ErrorCodes.UNSUPPORTED_OPERATION)
         raise exception
-    supported = {"ancestors_of", "fast_forward"}
+    supported = {"ancestors_of", "fast_forward", "create_changelog_view"}
     if proc not in supported:
         # Sizes PrPr demand for unimplemented WAP publish procedures
         # (notably ``cherrypick_snapshot``) and any other system proc.
@@ -2780,7 +2915,8 @@ def map_sql_to_pandas_df(
         # TODO: Add support for temporary views for SQL cases such as ShowViews, ShowColumns ect. (Currently the cases are not compatible with Spark, returning raw Snowflake rows)
         match class_name:
             case "CallStatement":
-                # SNOW-3527695: Iceberg `CALL [<catalog>.]system.<proc>(...)`.
+                # SNOW-3527695 / SNOW-3471824: Iceberg
+                # `CALL [<catalog>.]system.<proc>(...)`.
                 proc_name_parts = [
                     str(part) for part in as_java_list(logical_plan.name())
                 ]
@@ -2804,32 +2940,36 @@ def map_sql_to_pandas_df(
                     )
                     return pandas.DataFrame(), '{"type": "struct", "fields": []}'
 
-                table_sql, snapshot_id = _parse_ancestors_of_args(logical_plan)
-                table_name = _spark_table_sql_to_snowflake(table_sql)
-                base_table_parts = split_fully_qualified_spark_name(table_name)
-                # ICEBERG_TABLE_SNAPSHOTS/METADATA are populated asynchronously on
-                # Managed Iceberg, so force a synchronous refresh first.
-                _refresh_iceberg_table_metadata(session, table_name)
-                query, n_binds = _build_ancestors_of_query(table_name, snapshot_id)
-                try:
-                    rows = session.sql(query, params=[table_name] * n_binds).collect()
-                except (
-                    SnowparkInvalidObjectNameException,
-                    SnowparkSQLException,
-                ) as e:
-                    _raise_mapped_ancestors_of_error(
-                        e, table_name, base_table_parts, session
+                if proc == "ancestors_of":
+                    table_sql, snapshot_id = _parse_ancestors_of_args(logical_plan)
+                    table_name = _spark_table_sql_to_snowflake(table_sql)
+                    base_table_parts = split_fully_qualified_spark_name(table_name)
+                    _refresh_iceberg_table_metadata(session, table_name)
+                    query, n_binds = _build_ancestors_of_query(table_name, snapshot_id)
+                    try:
+                        rows = session.sql(
+                            query, params=[table_name] * n_binds
+                        ).collect()
+                    except (
+                        SnowparkInvalidObjectNameException,
+                        SnowparkSQLException,
+                    ) as e:
+                        _raise_mapped_ancestors_of_error(
+                            e, table_name, base_table_parts, session
+                        )
+                    pdf = pandas.DataFrame(
+                        [{"snapshot_id": row[0], "timestamp": row[1]} for row in rows],
+                        columns=["snapshot_id", "timestamp"],
                     )
+                    return pdf, _ANCESTORS_OF_SCHEMA_JSON
 
-                # Spark returns the `snapshot_id`/`timestamp` columns even when
-                # the ancestry is empty (unknown/expired snapshot_id), so emit
-                # the typed schema explicitly instead of falling through to the
-                # shared empty-struct return.
-                pdf = pandas.DataFrame(
-                    [{"snapshot_id": row[0], "timestamp": row[1]} for row in rows],
-                    columns=["snapshot_id", "timestamp"],
-                )
-                return pdf, _ANCESTORS_OF_SCHEMA_JSON
+                if proc == "create_changelog_view":
+                    match = _parse_create_changelog_view_args(logical_plan)
+                    translate_create_changelog_view(match, session)
+                    return (
+                        pandas.DataFrame(),
+                        '{"type": "struct", "fields": []}',
+                    )
             case "AddColumns":
                 # Handle ALTER TABLE ... ADD COLUMNS (col_name data_type) -> ADD COLUMN col_name data_type
                 table_name = get_relation_identifier_name(logical_plan.table(), True)
@@ -3629,13 +3769,12 @@ def map_sql_to_pandas_df(
                             )
                         ]
                     )
-                target_df_container = DataFrameContainer.create_with_column_mapping(
-                    dataframe=target_df,
-                    spark_column_names=target_df_spark_names,
-                    snowpark_column_names=target_table_columns,
+                target_df_container = _publish_dml_target_container(
+                    plan_id,
+                    target_df,
+                    target_df_spark_names,
+                    target_table_columns,
                 )
-
-                set_plan_id_map(plan_id, target_df_container)
 
                 joined_df_before_condition: snowpark.DataFrame = source_df.join(
                     target_df
@@ -3724,8 +3863,9 @@ def map_sql_to_pandas_df(
                         "",
                     )
             case "DeleteFromTable":
+                plan_id = gen_sql_plan_id()
                 df_container = map_relation(
-                    map_logical_plan_relation(logical_plan.table())
+                    map_logical_plan_relation(logical_plan.table(), plan_id)
                 )
                 dml_target = _dml_target_from_relation(
                     logical_plan.table(), dml_op="delete"
@@ -3745,10 +3885,8 @@ def map_sql_to_pandas_df(
                             )
                         ]
                     )
-                df_container = DataFrameContainer.create_with_column_mapping(
-                    dataframe=df,
-                    spark_column_names=spark_names,
-                    snowpark_column_names=table_columns,
+                df_container = _publish_dml_target_container(
+                    plan_id, df, spark_names, table_columns
                 )
                 df = df_container.dataframe
                 (
@@ -3768,8 +3906,9 @@ def map_sql_to_pandas_df(
                         "",
                     )
             case "UpdateTable":
+                plan_id = gen_sql_plan_id()
                 df_container = map_relation(
-                    map_logical_plan_relation(logical_plan.table())
+                    map_logical_plan_relation(logical_plan.table(), plan_id)
                 )
                 dml_target = _dml_target_from_relation(
                     logical_plan.table(), dml_op="update"
@@ -3786,10 +3925,8 @@ def map_sql_to_pandas_df(
                         table_col,
                     )
                     spark_names.append(df_col.spark_name)
-                df_container = DataFrameContainer.create_with_column_mapping(
-                    dataframe=df,
-                    spark_column_names=spark_names,
-                    snowpark_column_names=table_columns,
+                df_container = _publish_dml_target_container(
+                    plan_id, df, spark_names, table_columns
                 )
                 df = df_container.dataframe
                 typer = ExpressionTyper(df)

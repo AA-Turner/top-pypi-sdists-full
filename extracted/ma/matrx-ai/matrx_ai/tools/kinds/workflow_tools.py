@@ -134,6 +134,19 @@ class WorkflowAuthorResult(KindModel):
     #: folded into the prose hint.
     warnings: list[dict] | None = None
     hint: str | None = None
+    #: The saved row's fresh concurrency token (ISO-8601), so a client that
+    #: already holds the row can adopt it without a second read.
+    updated_at: str | None = None
+    #: update/patch only — the RECEIPT of the write: the ids of the steps and
+    #: connections it added, changed or removed (``nodes_added`` /
+    #: ``nodes_updated`` / ``nodes_removed`` / ``edges_added`` /
+    #: ``edges_updated`` / ``edges_removed``), each list capped, with
+    #: ``truncated`` naming any list that was cut. The Studio reveals exactly
+    #: these on the canvas instead of diffing a re-read (Conductor mode,
+    #: 2026-09-17). Added to the KIND the same day it was added to the tool:
+    #: an undeclared key fails ``extra="forbid"`` and the whole result loses
+    #: its ``__kind`` stamp.
+    changed: dict[str, list[str]] | None = None
 
 
 @kind(

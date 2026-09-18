@@ -94,18 +94,29 @@ def _resolve_enabled_disabled_categories() -> tuple[list[str], list[str]]:
 def are_skills_enabled() -> bool:
     """Check whether skills tools are enabled based on environment/config.
 
-    Skills are enabled when 'skills' appears in the enabled categories and NOT
-    in the disabled categories. Category state is resolved from the YAML config
-    file when present, otherwise from the OPENSEARCH_ENABLED_CATEGORIES /
+    Returns True when 'skills' or 'analytics' appears in the enabled
+    categories and NOT in the disabled categories.  'observability' alone
+    does NOT trigger this — it only enables PPLQueryTool and contains no
+    skills tools, so emitting skills-related server instructions would
+    reference tools the user hasn't enabled.
+
+    Category state is resolved from the YAML config file when present,
+    otherwise from the OPENSEARCH_ENABLED_CATEGORIES /
     OPENSEARCH_DISABLED_CATEGORIES environment variables — matching how
     ``process_tool_filter`` decides tool visibility.
     """
     enabled_cats, disabled_cats = _resolve_enabled_disabled_categories()
-    if 'skills' in disabled_cats:
+    trigger_names = ('analytics', 'skills')
+    if any(name in disabled_cats for name in trigger_names):
         return False
-    if 'skills' in enabled_cats:
+    if any(name in enabled_cats for name in trigger_names):
         return True
     return False
+
+
+def is_header_auth_enabled() -> bool:
+    """Whether request-header auth mode is active (``OPENSEARCH_HEADER_AUTH=true``)."""
+    return os.getenv('OPENSEARCH_HEADER_AUTH', '').strip().lower() == 'true'
 
 
 def is_dynamic_mode_enabled() -> bool:
@@ -173,8 +184,10 @@ def get_server_instructions() -> str | None:
 
     parts = []
 
-    if get_mode() == 'single' and is_dynamic_mode_enabled():
-        parts.append(_DYNAMIC_CONNECTION_INSTRUCTIONS)
+    if get_mode() == 'single':
+        # Header auth supplies URL/credentials in headers, so the LLM needs no instructions.
+        if not is_header_auth_enabled() and is_dynamic_mode_enabled():
+            parts.append(_DYNAMIC_CONNECTION_INSTRUCTIONS)
 
     if are_skills_enabled():
         parts.append(_SKILLS_TOOLS_INSTRUCTIONS)

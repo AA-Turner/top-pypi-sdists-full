@@ -236,18 +236,8 @@ class Buffered:
   prefetched_count: int = 0
 
 
-@runtime_checkable
-class MemoryRefBase(Protocol):
-
-  def get_array_aval(self) -> jax_core.ShapedArray:
-    ...
-
-  def get_ref_aval(self) -> TransformedRef | state.AbstractRef:
-    ...
-
-
 @dataclasses.dataclass(frozen=True)
-class MemoryRef(MemoryRefBase):
+class MemoryRef:
   """Like jax.ShapeDtypeStruct but with memory spaces."""
   inner_aval: jax_core.AbstractValue
   # TODO(b/368122763): Unify memory space types across backends
@@ -297,13 +287,14 @@ class MemorySpace(enum.Enum):
   def from_type(self, type: jax_core.AbstractValue) -> MemoryRef:
     return MemoryRef(type, memory_space=self)
 
-  def __call__(self, shape: tuple[int, ...], dtype: jnp.dtype):
+  def __call__(self, shape: tuple[int, ...], dtype: jax_typing.DTypeLike):
     # A convenience function for constructing MemoryRef types of ShapedArrays.
     return self.from_type(jax_core.ShapedArray(shape, dtype))
 
   def __str__(self) -> str:
     return self.value
 
+state_discharge.register_neutral_memory_space(MemorySpace.ANY)
 
 @dataclasses.dataclass(frozen=True)
 class CoreMemorySpace:
@@ -319,7 +310,7 @@ class CoreMemorySpace:
           f" {self.mesh}"
       )
 
-  def __call__(self, shape: Sequence[int], dtype: jnp.dtype[Any]):
+  def __call__(self, shape: Sequence[int], dtype: jax_typing.DTypeLike):
     return MemoryRef(jax_core.ShapedArray(tuple(shape), dtype), self)
 
   def __str__(self) -> str:
@@ -821,7 +812,7 @@ class BlockMapping:
     return TransformedRef(self.transformed_block_aval, reverse_transforms)
 
   def compute_start_indices_interpret(self, loop_idx, *args):
-    jaxpr = state_discharge.discharge_state(self.index_map_jaxpr)
+    jaxpr = state_discharge.discharge_state(self.index_map_jaxpr, strip_memory_space=True)
     block_indices_and_rest = jax_core.jaxpr_as_fun(jaxpr)(*loop_idx, *args)
     # Since we're passing in `Ref`s potentially, we need to split out their
     # updated values since we only care about the return values.
@@ -1184,7 +1175,7 @@ def _convert_block_spec_to_block_mapping(
     debug: bool = False,
 ) -> BlockMapping:
   if block_spec is no_block_spec:
-    block_spec = BlockSpec(None, None)
+    block_spec = BlockSpec(memory_space=MemorySpace.ANY)
   return block_spec.to_block_mapping(
       origin,
       array_aval,
@@ -1329,7 +1320,7 @@ def get_grid_mapping(
 
   def _with_default_memory_space(bs: BlockSpec):
     if bs is no_block_spec:
-      return BlockSpec(memory_space=MemorySpace.DEFAULT)
+      return BlockSpec(memory_space=MemorySpace.ANY)
     elif bs.memory_space is None:
       return bs.replace(memory_space=MemorySpace.DEFAULT)
     else:
@@ -1616,31 +1607,6 @@ class Mesh(Protocol):
   def tracing_context(self) -> Generator[None]:
     raise NotImplementedError()
     yield
-
-
-with_memory_space_constraint_p = jax_core.Primitive(
-    'with_memory_space_constraint')
-
-@with_memory_space_constraint_p.def_impl
-def with_memory_space_constraint_impl(x, *, memory_space):
-  del x, memory_space
-  raise ValueError("Cannot eagerly run with_memory_space_constraint.")
-
-
-@with_memory_space_constraint_p.def_abstract_eval
-def with_memory_space_constraint_abstract_eval(x, *, memory_space):
-  if not isinstance(x, jax_core.ShapedArray):
-    raise NotImplementedError("with_memory_space_constraint only supports "
-                              "arrays.")
-  return x.update(memory_space=memory_space)
-
-def with_memory_space_constraint_lowering_rule(ctx, x, *, memory_space):
-  del ctx, memory_space
-  return [x]
-mlir.register_lowering(
-    with_memory_space_constraint_p, with_memory_space_constraint_lowering_rule
-)
-
 
 def lower_as_mlir(
     f,

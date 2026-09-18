@@ -4,9 +4,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING, cast
 
-import claripy
-
-from angr import ailment
+from angr import ailment, claripy
 from angr.ailment.constant import UNDETERMINED_SIZE
 from angr.ailment.expression import Array, FunctionLikeMacro, Let, RustEnum, StringLiteral, Struct
 from angr.analyses.typehoon import typeconsts, typevars
@@ -140,6 +138,15 @@ class SimEngineVRAIL(
         self._expr(stmt.expd_lo)
         if stmt.expd_hi is not None:
             self._expr(stmt.expd_hi)
+
+        for old in (stmt.old_lo, stmt.old_hi):
+            if isinstance(old, ailment.Expr.VirtualVariable):
+                self._assign_to_vvar(
+                    old,
+                    RichR(self.state.top(old.bits)),
+                    dst=old,
+                    vvar_id=self._mapped_vvarid(old.varid),
+                )
 
     def _handle_stmt_Store(self, stmt: ailment.Stmt.Store):
         addr_r = self._expr_bv(stmt.addr)
@@ -418,7 +425,17 @@ class SimEngineVRAIL(
                         if self.state.typevars.has_type_variable_for(stack_var):
                             tv = self.state.typevars.get_type_variable(stack_var)
                             self.state.add_type_constraint(typevars.Subtype(tv, arg_ty.basetype))
-                self.state.add_type_constraint(typevars.Subtype(arg.typevar, arg_ty))
+                if (
+                    isinstance(arg_ty, typeconsts.Pointer)
+                    and isinstance(arg_ty.basetype, typeconsts.Struct)
+                    and arg_ty.basetype.is_cppclass
+                ):
+                    # a pointer to a known C++ class: the class layout is fixed. A Subtype constraint would
+                    # let the solver rebuild an anonymous struct from field accesses and lose the class
+                    # identity
+                    self.state.add_type_constraint(typevars.Equivalence(arg.typevar, arg_ty))
+                else:
+                    self.state.add_type_constraint(typevars.Subtype(arg.typevar, arg_ty))
 
     def _get_format_string_arg_types(self, func_name: str, call_args) -> list | None:
         """
@@ -635,6 +652,8 @@ class SimEngineVRAIL(
 
     def _handle_expr_Convert(self, expr: ailment.Expr.Convert):
         r = self._expr(expr.operand)
+        if expr.vector_count is not None:
+            return RichR(self.state.top(expr.to_bits))
         typevar = None
         if r.typevar is not None:
             if isinstance(r.typevar, typevars.DerivedTypeVariable) and isinstance(
@@ -796,7 +815,7 @@ class SimEngineVRAIL(
             # addition with constants. create a derived type variable
             if isinstance(r0_typevar, typevars.TypeVariable):
                 typevar = self.tv_manager.new_dtv_with_merged_labels(
-                    r0_typevar, label=typevars.AddN(r1.data.concrete_value)
+                    r0_typevar, label=typevars.add_label(r1.data.concrete_value, r1.data.size())
                 )
         elif r1.typevar is not None:
             typevar = self.tv_manager.new_tv()
@@ -809,13 +828,13 @@ class SimEngineVRAIL(
     def _handle_binop_Sub(self, expr):
         arg0, arg1 = expr.operands
         r0, r1 = self._expr_pair(arg0, arg1)
-        compute = r0.data - r1.data  # type: ignore
+        compute = r0.data - r1.data if r0.data.size() == r1.data.size() else self.state.top(expr.bits)  # type: ignore
 
         type_constraints = set()
         typevar = None
         if r0.typevar is not None and r1.data.concrete and isinstance(r0.typevar, typevars.TypeVariable):
             typevar = self.tv_manager.new_dtv_with_merged_labels(
-                r0.typevar, label=typevars.SubN(r1.data.concrete_value)
+                r0.typevar, label=typevars.sub_label(r1.data.concrete_value, r1.data.size())
             )
         else:
             typevar = self.tv_manager.new_tv()
@@ -833,7 +852,7 @@ class SimEngineVRAIL(
         r0, r1 = self._expr_pair(arg0, arg1)
 
         result_size = arg0.bits
-        if r0.data.concrete or r1.data.concrete:
+        if (r0.data.concrete or r1.data.concrete) and r0.data.size() == r1.data.size():
             # constants
             result_size = arg0.bits
             compute = r0.data * r1.data  # type: ignore
@@ -901,7 +920,7 @@ class SimEngineVRAIL(
                 tc = typevars.Subtype(r1.typevar, int_type_func(arg1.bits))
                 self.state.add_type_constraint(tc)
 
-        if expr.floating_point:
+        if expr.floating_point or to_size > from_size:
             quotient = self.state.top(to_size)
         else:
             if (r1.data == 0).is_true():
@@ -1000,8 +1019,9 @@ class SimEngineVRAIL(
         r1 = self._expr_bv(arg1)
         result_size = arg0.bits
 
-        # logical right shift implies unsigned operand
-        if isinstance(r0.typevar, typevars.TypeVariable):
+        # logical right shift implies unsigned operand, unless it extracts the sign bit (x >> (bits - 1))
+        is_sign_bit_extraction = r1.data.concrete and r1.data.concrete_value == result_size - 1
+        if isinstance(r0.typevar, typevars.TypeVariable) and not is_sign_bit_extraction:
             tc = typevars.Subtype(r0.typevar, typeconsts.unsigned_int_type(result_size))
             self.state.add_type_constraint(tc)
 

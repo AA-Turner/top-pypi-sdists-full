@@ -32,15 +32,18 @@ from click import Command, Option, unstyle
 from pygments.styles import get_style_by_name
 from pygments.token import Token
 
-from click_extra.cli import capture_options, screenshot_cmd, snippet_cmd
+from click_extra.cli_capture import capture_options, screenshot_cmd, snippet_cmd
 from click_extra.screenshot import (
     AUTO_COLUMNS,
-    CAPTURE_PALETTES,
     DEFAULT_COLUMNS,
-    CaptureBackground,
     CaptureFormat,
+    Chrome,
 )
-from click_extra.screenshot_presets import PRESETS
+from click_extra.screenshot_presets import (
+    CAPTURE_PALETTES,
+    PRESETS,
+    CaptureBackground,
+)
 from click_extra.snippet import (
     DEFAULT_SYNTAX_STYLES,
     TAB_WIDTH,
@@ -145,14 +148,16 @@ def test_highlight_expands_tabs():
 
 def test_snippet_draws_the_lines_it_was_given():
     """The code comes back out of the picture, character for character."""
-    svg = render_snippet(SAMPLE, language="python", watermark="")
+    svg = render_snippet(SAMPLE, language="python", chrome=Chrome(watermark=""))
     assert svg_to_lines(svg) == SAMPLE.rstrip("\n").split("\n")
 
 
 def test_snippet_numbers_its_lines():
     """A numbered snippet counts from one, in a gutter of its own."""
     lines = svg_to_lines(
-        render_snippet(SAMPLE, language="python", line_numbers=True, watermark=""),
+        render_snippet(
+            SAMPLE, language="python", line_numbers=True, chrome=Chrome(watermark="")
+        ),
     )
     assert lines[0].startswith("1 │ ")
     assert lines[-1].startswith("3 │ ")
@@ -236,7 +241,7 @@ def test_snippet_renders_html():
 
 
 def shared_option_names() -> tuple[str, ...]:
-    """Every option name {func}`~click_extra.cli.capture_options` attaches.
+    """Every option name {func}`~click_extra.cli_capture.capture_options` attaches.
 
     Read off a bare function the decorator is applied to, rather than restated
     here: a list written out by hand is one more place for the two commands to

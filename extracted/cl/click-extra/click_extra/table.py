@@ -21,7 +21,7 @@ import csv
 import os
 import re
 import shutil
-from dataclasses import dataclass
+from contextvars import ContextVar
 from enum import Enum
 from functools import cache, partial
 from gettext import gettext as _
@@ -34,7 +34,9 @@ from click import echo
 from wcwidth import wcswidth, wcwidth as char_width
 
 from . import context
+from ._deprecated import warn_deprecated_usage
 from ._utils import missing_extra_message
+from .columns import ColumnSpec
 from .config.formats import ConfigFormat, serialize_content
 from .layout import cell_width, wrap_ansi
 from .parameters import ExtraOption
@@ -48,14 +50,27 @@ from .types import EnumChoice, MultiChoice
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterable, Mapping, Sequence
-    from typing import Any, Final, Literal
+    from collections.abc import Callable, Sequence
+    from typing import Any, Final, TypeAlias
 
-    ColumnWidth = int | Literal["auto"] | None
-    """Width limit of a single column: a character count, `auto`, or no limit."""
+    from .columns import ColumnWidth
 
     MaxColumnWidths = Sequence[ColumnWidth] | ColumnWidth
     """Width limits of a table: one entry per column, or a scalar for all of them."""
+
+    THeader: TypeAlias = "str | ColumnSpec | tuple[str, str | None] | None"
+    """One entry of a table's `headers`: a plain label, or a
+    {class}`~click_extra.columns.ColumnSpec`.
+
+    The `(label, column_id)` tuple is deprecated.
+    """
+
+    TColumnDef: TypeAlias = "ColumnSpec | str | tuple[str, str | None]"
+    """One column definition of {class}`SortByOption` or {func}`column_sort_key`.
+
+    A {class}`~click_extra.columns.ColumnSpec`, or a bare column ID. The `(label,
+    column_id)` tuple is deprecated.
+    """
 
 
 @cache
@@ -83,7 +98,8 @@ def _setup_tabulate() -> None:
     # tabulate pads cells with its own import of wcwidth. Point it at the
     # measure Click Extra uses everywhere else, so a table's padding and its
     # wrapping cannot disagree on an emoji-presentation sequence: see
-    # _paints_wider_than_it_advances().
+    # _paints_wider_than_it_advances(), and _LAID_OUT_FOR_TERMINAL for the
+    # markup renderings the terminal never sees.
     # Only the string entry point changes: the emoji-presentation rule is one
     # about a sequence, which a single character cannot carry.
     tabulate.wcwidth = SimpleNamespace(  # type: ignore[attr-defined]
@@ -183,8 +199,8 @@ class TableFormat(Enum):
     YAML = "yaml"
     YOUTRACK = "youtrack"
 
-    def __str__(self):
-        return self.name.lower().replace("_", "-")
+    def __str__(self) -> str:
+        return self.value
 
     @property
     def is_markup(self) -> bool:
@@ -335,8 +351,8 @@ AUTO_WIDTH: Final = "auto"
 """Sentinel asking for a column width derived from the space left on the terminal.
 
 Annotated `Final` so it narrows to `Literal["auto"]` instead of `str`, which is
-what lets it stand in for the raw string anywhere a {data}`ColumnWidth` is
-expected.
+what lets it stand in for the raw string anywhere a
+{data}`~click_extra.columns.ColumnWidth` is expected.
 """
 
 MIN_COLUMN_WIDTH = 8
@@ -455,29 +471,20 @@ def _rows_as_dicts(
     return [list(row) for row in table_data]
 
 
-def _render_json(
+def _render_records(
+    fmt: ConfigFormat,
     table_data: Sequence[Sequence[str | None]],
     headers: Sequence[str | None] | None = None,
     **kwargs,
 ) -> str:
-    """Render a table as JSON."""
-    return serialize_content(
-        ConfigFormat.JSON, _rows_as_dicts(table_data, headers), **kwargs
-    )
+    """Render a table as a list of records serialized in `fmt`.
 
-
-def _render_yaml(
-    table_data: Sequence[Sequence[str | None]],
-    headers: Sequence[str | None] | None = None,
-    **kwargs,
-) -> str:
-    """Render a table as YAML.
-
-    Requires the `pyyaml` package (installable via the `[yaml]` extra).
+    Serves JSON, YAML and HJSON, which all take the {func}`_rows_as_dicts`
+    shape as is. A format shipped by an extra (`[yaml]`, `[hjson]`) raises
+    `ImportError` when that extra is missing, like
+    {func}`~click_extra.config.formats.serialize_content` does.
     """
-    return serialize_content(
-        ConfigFormat.YAML, _rows_as_dicts(table_data, headers), **kwargs
-    )
+    return serialize_content(fmt, _rows_as_dicts(table_data, headers), **kwargs)
 
 
 def _render_toml(
@@ -506,20 +513,6 @@ def _render_toml(
         aot.append(t)
 
     return serialize_content(ConfigFormat.TOML, {RECORD_KEY: aot}, **kwargs)
-
-
-def _render_hjson(
-    table_data: Sequence[Sequence[str | None]],
-    headers: Sequence[str | None] | None = None,
-    **kwargs,
-) -> str:
-    """Render a table as HJSON.
-
-    Requires the `hjson` package (installable via the `[hjson]` extra).
-    """
-    return serialize_content(
-        ConfigFormat.HJSON, _rows_as_dicts(table_data, headers), **kwargs
-    )
 
 
 def _render_xml(
@@ -566,6 +559,26 @@ EMOJI_PRESENTATION_RE = re.compile(f".{EMOJI_PRESENTATION_SELECTOR}")
 """Matches one emoji-presentation sequence: a character and the selector."""
 
 
+_LAID_OUT_FOR_TERMINAL: ContextVar[bool] = ContextVar(
+    "laid_out_for_terminal", default=True
+)
+"""Whether the table being rendered is laid out for the running terminal.
+
+Set by {func}`render_table` for the duration of one rendering, and read by
+{func}`_terminal_wcswidth`, the measure {func}`_setup_tabulate` hands `tabulate`
+once for the whole process. `True` outside any rendering, so a direct `tabulate`
+call keeps measuring for the screen.
+
+A markup format renders under `False`. It carries the table to a reader who
+never sees this terminal, and to a formatter padding it with the Unicode widths
+alone: `mdformat` re-padded every row holding an emoji-presentation sequence of
+a `github` table rendered from Apple Terminal, one column each, on each pass.
+
+A context variable rather than a module global, so two threads rendering at
+once, one for the screen and one for a file, cannot swap each other's measure.
+"""
+
+
 def _term_program() -> str:
     """`$TERM_PROGRAM`, naming the terminal a table is laid out for.
 
@@ -603,17 +616,19 @@ def _paints_wider_than_it_advances(text: str) -> bool:
 
 
 def _terminal_wcswidth(text: str) -> int:
-    """Columns the running terminal advances the cursor by for `text`.
+    """Columns `text` takes in the layout being rendered.
 
-    {func}`wcwidth.width`, corrected for the terminal named in `$TERM_PROGRAM`:
-    see {func}`_paints_wider_than_it_advances`.
+    For the running terminal, {func}`wcwidth.width` corrected for the one named
+    in `$TERM_PROGRAM`: see {func}`_paints_wider_than_it_advances`. For a markup
+    rendering, the Unicode widths alone: see {data}`_LAID_OUT_FOR_TERMINAL`.
 
     Keeps `wcswidth`'s own convention of returning `-1` for a string carrying a
     non-printable character, since `tabulate` measures with this too and reads
     that value.
     """
-    if wcswidth(text) < 0:
-        return -1
+    width = wcswidth(text)
+    if width < 0 or not _LAID_OUT_FOR_TERMINAL.get():
+        return width
     return cell_width(text, term_program=_term_program())
 
 
@@ -848,9 +863,10 @@ def _available_width() -> int:
 
 
 def _declared_max_widths(
-    headers: Sequence[str | ColumnSpec | tuple[str, str | None] | None] | None,
+    headers: Sequence[THeader] | None,
 ) -> list[ColumnWidth] | None:
-    """Per-column width declared by the {class}`ColumnSpec` entries of `headers`.
+    """Per-column width declared by the {class}`~click_extra.columns.ColumnSpec` entries
+    of `headers`.
 
     Returns `None` when no header carries a `max_width`, which keeps an
     explicit `max_column_widths` argument as the only source in that case.
@@ -947,7 +963,7 @@ def _resolve_auto_widths(
 
 def _resolve_column_widths(
     table_data: Sequence[Sequence[str | None]],
-    headers: Sequence[str | ColumnSpec | tuple[str, str | None] | None] | None,
+    headers: Sequence[THeader] | None,
     labels: Sequence[str | None] | None,
     table_format: TableFormat | None,
     max_column_widths: MaxColumnWidths,
@@ -955,8 +971,8 @@ def _resolve_column_widths(
     """Resolve the width limits a render should apply, or `None` for no limit.
 
     An explicit `max_column_widths` wins over the `max_width` declared by
-    {class}`ColumnSpec` headers. Widths tied to a `ColumnSpec` follow their
-    column through a `--columns` projection, where a positional list would
+    {class}`~click_extra.columns.ColumnSpec` headers. Widths tied to a `ColumnSpec`
+    follow their column through a `--columns` projection, where a positional list would
     silently shift onto the wrong columns.
 
     Formats unable to lay a wrapped cell over several lines (everything outside
@@ -1012,15 +1028,15 @@ def _select_table_funcs(
         ):
             return partial(_render_csv, table_format=table_format), print_func
         case TableFormat.HJSON:
-            return _render_hjson, print_func
+            return partial(_render_records, ConfigFormat.HJSON), print_func
         case TableFormat.JSON | TableFormat.JSON5 | TableFormat.JSONC:
-            return _render_json, print_func
+            return partial(_render_records, ConfigFormat.JSON), print_func
         case TableFormat.TOML:
             return _render_toml, print_func
         case TableFormat.XML:
             return _render_xml, print_func
         case TableFormat.YAML:
-            return _render_yaml, print_func
+            return partial(_render_records, ConfigFormat.YAML), print_func
         case TableFormat.VERTICAL:
             return _render_vertical, print_func
         case _:
@@ -1028,27 +1044,32 @@ def _select_table_funcs(
 
 
 def _split_header_defs(
-    headers: Sequence[str | ColumnSpec | tuple[str, str | None] | None] | None,
+    headers: Sequence[THeader] | None,
 ) -> tuple[
     Sequence[str | None] | None,
     tuple[tuple[str | None, str | None], ...] | None,
 ]:
     """Split header definitions into render labels and sortable column defs.
 
-    `headers` entries may be plain strings (a label carrying no column ID),
-    {class}`ColumnSpec` instances or `(label, column_id)` pairs. Returns the
-    labels to render and the `(label, column_id)` definitions, the latter
-    `None` when no entry carries a column ID (nothing to sort on).
+    `headers` entries may be plain strings (a label carrying no column ID) or
+    {class}`~click_extra.columns.ColumnSpec` instances. Returns the labels to render and
+    the `(label, column_id)` definitions, the latter `None` when no entry carries a
+    sortable column ID (nothing to sort on).
     """
     if headers is None:
         return None, None
+    if any(isinstance(header, (tuple, list)) for header in headers):
+        warn_deprecated_usage(
+            "A (label, column_id) table header",
+            "ColumnSpec(column_id, label), or the bare label for no column ID",
+        )
     labels: list[str | None] = []
     defs: list[tuple[str | None, str | None]] = []
     for header in headers:
         label: str | None
         col_id: str | None
         if isinstance(header, ColumnSpec):
-            label, col_id = header.label, header.id
+            label, col_id = header.label, header.id if header.sortable else None
         elif isinstance(header, (tuple, list)):
             label, col_id = header
         else:
@@ -1077,12 +1098,12 @@ def _context_sort_key(
     sort_columns = context.get(ctx, context.SORT_BY)
     if not sort_columns:
         return None
-    return column_sort_key(header_defs, sort_columns)
+    return _defs_sort_key(header_defs, sort_columns)
 
 
 def _resolve_table_inputs(
     table_data: Sequence[Sequence[str | None]],
-    headers: Sequence[str | ColumnSpec | tuple[str, str | None] | None] | None,
+    headers: Sequence[THeader] | None,
     sort_key: Callable[[Sequence[str | None]], Any] | None,
 ) -> tuple[Sequence[Sequence[str | None]], Sequence[str | None] | None]:
     """Split header definitions and apply the resolved row sort.
@@ -1102,7 +1123,7 @@ def _resolve_table_inputs(
 
 def render_table(
     table_data: Sequence[Sequence[str | None]],
-    headers: Sequence[str | ColumnSpec | tuple[str, str | None] | None] | None = None,
+    headers: Sequence[THeader] | None = None,
     table_format: TableFormat | None = None,
     sort_key: Callable[[Sequence[str | None]], Any] | None = None,
     max_column_widths: MaxColumnWidths = None,
@@ -1110,29 +1131,36 @@ def render_table(
 ) -> str:
     """Render a table and return it as a string.
 
-    `headers` entries carrying a column ID ({class}`ColumnSpec` instances or
-    `(label, column_id)` pairs) plug the table into the active `--sort-by`
-    selection: when no explicit `sort_key` is given, rows sort by the
-    selected columns this table carries, and keep their original order when it
-    carries none. See {func}`column_sort_key` for the exact semantics.
+    `headers` entries carrying a column ID ({class}`~click_extra.columns.ColumnSpec`
+    instances) plug the table into the active `--sort-by` selection: when no explicit
+    `sort_key` is given, rows sort by the selected columns this table carries, and keep
+    their original order when it carries none. See {func}`column_sort_key` for the exact
+    semantics.
 
     :param sort_key: Optional callable passed to :py:func:`sorted` as the `key`
         argument. When provided, rows are sorted before rendering.
     :param max_column_widths: Width limits, as one entry per column or a single
         value for all of them. Each entry is a character count, `"auto"` to
         absorb the width left on the terminal, or `None` for no limit.
-        Defaults to the `max_width` declared by {class}`ColumnSpec` headers.
-        Silently dropped by formats outside
+        Defaults to the `max_width` declared by {class}`~click_extra.columns.ColumnSpec`
+        headers. Silently dropped by formats outside
         {data}`~click_extra.table.WRAPPABLE_FORMATS`.
     """
     table_data, labels = _resolve_table_inputs(table_data, headers, sort_key)
-    widths = _resolve_column_widths(
-        table_data, headers, labels, table_format, max_column_widths
-    )
-    if widths is not None:
-        kwargs["max_column_widths"] = widths
-    render_func, _ = _select_table_funcs(table_format)
-    return render_func(table_data, labels, **kwargs)
+    # A markup rendering is measured with the Unicode widths for as long as it
+    # renders: the column widths resolved below and the padding tabulate applies
+    # must read every cell the same way.
+    token = _LAID_OUT_FOR_TERMINAL.set(not (table_format or DEFAULT_FORMAT).is_markup)
+    try:
+        widths = _resolve_column_widths(
+            table_data, headers, labels, table_format, max_column_widths
+        )
+        if widths is not None:
+            kwargs["max_column_widths"] = widths
+        render_func, _ = _select_table_funcs(table_format)
+        return render_func(table_data, labels, **kwargs)
+    finally:
+        _LAID_OUT_FOR_TERMINAL.reset(token)
 
 
 def _strip_ansi_cells(
@@ -1182,7 +1210,7 @@ def _color_forced() -> bool:
 
 def print_table(
     table_data: Sequence[Sequence[str | None]],
-    headers: Sequence[str | ColumnSpec | tuple[str, str | None] | None] | None = None,
+    headers: Sequence[THeader] | None = None,
     table_format: TableFormat | None = None,
     sort_key: Callable[[Sequence[str | None]], Any] | None = None,
     max_column_widths: MaxColumnWidths = None,
@@ -1190,11 +1218,11 @@ def print_table(
 ) -> None:
     """Render a table and print it to the console.
 
-    `headers` entries carrying a column ID ({class}`ColumnSpec` instances or
-    `(label, column_id)` pairs) plug the table into the active `--sort-by`
-    selection: when no explicit `sort_key` is given, rows sort by the
-    selected columns this table carries, and keep their original order when it
-    carries none. See {func}`column_sort_key` for the exact semantics.
+    `headers` entries carrying a column ID ({class}`~click_extra.columns.ColumnSpec`
+    instances) plug the table into the active `--sort-by` selection: when no explicit
+    `sort_key` is given, rows sort by the selected columns this table carries, and keep
+    their original order when it carries none. See {func}`column_sort_key` for the exact
+    semantics.
 
     ANSI codes carried by cell values and headers depend on the format:
 
@@ -1212,8 +1240,8 @@ def print_table(
     :param max_column_widths: Width limits, as one entry per column or a single
         value for all of them. Each entry is a character count, `"auto"` to
         absorb the width left on the terminal, or `None` for no limit.
-        Defaults to the `max_width` declared by {class}`ColumnSpec` headers.
-        Silently dropped by formats outside
+        Defaults to the `max_width` declared by {class}`~click_extra.columns.ColumnSpec`
+        headers. Silently dropped by formats outside
         {data}`~click_extra.table.WRAPPABLE_FORMATS`.
     """
     table_data, labels = _resolve_table_inputs(table_data, headers, sort_key)
@@ -1422,13 +1450,14 @@ class TableFormatOption(ExtraOption):
     def __init__(
         self,
         param_decls: Sequence[str] | None = None,
-        type=EnumChoice(TableFormat),
-        metavar="FORMAT",
-        default=DEFAULT_FORMAT,
-        expose_value=False,
-        is_eager=True,
-        help=_("Rendering style of tables."),
-        **kwargs,
+        *,
+        type: click.ParamType | Any = EnumChoice(TableFormat),
+        metavar: str = "FORMAT",
+        default: TableFormat = DEFAULT_FORMAT,
+        expose_value: bool = False,
+        is_eager: bool = True,
+        help: str = _("Rendering style of tables."),
+        **kwargs: Any,
     ) -> None:
         if not param_decls:
             param_decls = ("--table-format",)
@@ -1500,18 +1529,17 @@ def _row_sort_key(
 
 
 def column_sort_key(
-    header_defs: Sequence[ColumnSpec | tuple[str | None, str | None]],
+    header_defs: Sequence[TColumnDef],
     sort_columns: Sequence[str] | None = None,
     cell_key: Callable[[str | None], Any] | None = None,
 ) -> Callable[[Sequence[str | None]], tuple] | None:
     """Build a row sort key from the `sort_columns` a table actually carries.
 
-    `header_defs` describes the rendered columns: {class}`ColumnSpec`
-    instances or `(label, column_id)` tuples, with `column_id=None` for
-    columns that cannot be sorted on. The requested `sort_columns` the table
-    carries drive the comparison first, de-duplicated and in request order;
-    the remaining columns follow in their natural left-to-right order for
-    tie-breaking.
+    `header_defs` describes the rendered columns:
+    {class}`~click_extra.columns.ColumnSpec` instances, with `sortable=False` for
+    columns that cannot be sorted on. The requested `sort_columns` the table carries
+    drive the comparison first, de-duplicated and in request order; the remaining
+    columns follow in their natural left-to-right order for tie-breaking.
 
     Returns `None` when the table carries none of the requested columns,
     signalling that rows should keep their original order. This is what lets
@@ -1519,7 +1547,17 @@ def column_sort_key(
     heterogeneous tables: each table sorts by the requested fields it knows,
     and a table knowing none of them is left untouched.
     """
-    defs = tuple(_normalize_column_def(c) for c in header_defs)
+    return _defs_sort_key(
+        tuple(_normalize_column_def(c) for c in header_defs), sort_columns, cell_key
+    )
+
+
+def _defs_sort_key(
+    defs: Sequence[tuple[str | None, str | None]],
+    sort_columns: Sequence[str] | None = None,
+    cell_key: Callable[[str | None], Any] | None = None,
+) -> Callable[[Sequence[str | None]], tuple] | None:
+    """{func}`column_sort_key` over definitions already normalized to pairs."""
     col_index = {col_id: i for i, (_, col_id) in enumerate(defs) if col_id}
     primaries = [
         col_index[col_id]
@@ -1536,7 +1574,7 @@ def column_sort_key(
 
 
 def _column_sort_key(
-    header_defs: Sequence[tuple[str, str | None]],
+    header_defs: Sequence[tuple[str | None, str | None]],
     sort_columns: Sequence[str] | None = None,
     cell_key: Callable[[str | None], Any] | None = None,
 ) -> Callable[[Sequence[str | None]], tuple]:
@@ -1548,122 +1586,10 @@ def _column_sort_key(
     the context (`click_extra.context.TABLE_SORT_KEY`) when its column
     definitions are known at declaration time.
     """
-    key = column_sort_key(header_defs, sort_columns, cell_key)
+    key = _defs_sort_key(header_defs, sort_columns, cell_key)
     if key is None:
         key = _row_sort_key(range(len(header_defs)), cell_key)
     return key
-
-
-@dataclass(frozen=True, slots=True)
-class ColumnSpec:
-    """Rich description of a single column in a rendered table.
-
-    Three fields, all required-by-convention even though `description` defaults to
-    empty so quick prototypes do not have to write a sentence for every column:
-
-    - `id`: stable, snake_case identifier used by `--columns` to address the column,
-      to key structured-format serializations, and to thread state through
-      {data}`click_extra.context.COLUMNS`.
-    - `label`: the human-readable header shown at the top of the rendered table.
-    - `description`: a MyST/Markdown blurb describing what the column represents.
-      Used to auto-generate the column reference in the documentation.
-
-    A fourth, `max_width`, is purely optional presentation.
-
-    ```{note}
-    Frozen + slots: instances are immutable and lightweight. Tuples of
-    `ColumnSpec` are intended to be defined as module-level constants
-    (like {data}`click_extra.parameters.ShowParamsOption.TABLE_HEADERS`).
-    ```
-    """
-
-    id: str
-    """Stable, snake_case identifier addressing this column from CLI flags and code."""
-
-    label: str
-    """Human-readable header label rendered at the top of the table."""
-
-    description: str = ""
-    """MyST/Markdown description of what the column carries.
-
-    Used to auto-generate the *Available columns* section in the docs via the
-    `show_params_columns_table` MyST substitution. Plain text without inline
-    markup is fine: links and emphasis are optional sugar."""
-
-    max_width: ColumnWidth = None
-    """Width limit of this column, as a character count or {data}`AUTO_WIDTH`.
-
-    Cells longer than the limit wrap onto several lines, in the formats able to
-    render that (see {data}`~click_extra.table.WRAPPABLE_FORMATS`). `None`, the
-    default, lets the column take whatever width its widest cell needs.
-
-    Declaring the width here rather than passing a positional list to
-    {func}`render_table` keeps it attached to its column, so it survives a
-    `--columns` projection that drops or reorders columns."""
-
-    optional: bool = False
-    """Whether the column is left out of the table until `--columns` asks for it.
-
-    A column carrying long free-form prose costs every other column its width once
-    it joins the default projection, which is a poor trade for a reader who did not
-    ask for it. Marking it optional keeps it out of the unprojected table while
-    leaving it addressable by ID, so a consumer that wants it (a structured-format
-    export feeding a machine, typically) selects it explicitly."""
-
-
-def render_columns_markdown_table(columns: Iterable[ColumnSpec]) -> str:
-    """Render an iterable of {class}`ColumnSpec` as a 2-column Markdown table.
-
-    Output shape::
-
-        | Column | Description |
-        | :--- | :--- |
-        | `Label` | description |
-        ...
-
-    Suitable for inlining into MyST documents via `myst_substitutions` so the
-    *Available columns* reference can be auto-generated from a single source of
-    truth.
-    """
-    lines = ["| Column | Description |", "| :--- | :--- |"]
-    for col in columns:
-        # Pipe characters in descriptions would break the markdown row: escape them.
-        description = col.description.replace("|", "\\|")
-        lines.append(f"| `{col.label}` | {description} |")
-    return "\n".join(lines)
-
-
-def select_columns(
-    columns: Sequence[ColumnSpec],
-    selected_ids: Sequence[str] | None,
-) -> tuple[ColumnSpec, ...]:
-    """Filter and reorder `columns` according to `selected_ids`.
-
-    Returns `columns` unchanged when `selected_ids` is falsy (no projection).
-    Otherwise yields the matching {class}`ColumnSpec` in the order `selected_ids`
-    specifies, SQL-`SELECT`-style. Raises `KeyError` for an unknown ID. A
-    selection reaching here through `--columns` is already checked against the
-    registry by {class}`~click_extra.types.MultiChoice`, so that guards a caller
-    assembling `selected_ids` on its own.
-    """
-    if not selected_ids:
-        return tuple(columns)
-    by_id = {c.id: c for c in columns}
-    return tuple(by_id[col_id] for col_id in selected_ids)
-
-
-def select_row(
-    row: Mapping[str, Any],
-    selected_ids: Sequence[str] | None,
-    canonical_ids: Sequence[str],
-) -> tuple:
-    """Build a positional row by reading cells from `row` in the selection order.
-
-    Falls back to `canonical_ids` when `selected_ids` is empty / unset, so the
-    row preserves its canonical column order in the absence of any user selection.
-    """
-    ids = selected_ids or canonical_ids
-    return tuple(row[col_id] for col_id in ids)
 
 
 class ColumnsType(MultiChoice):
@@ -1712,8 +1638,9 @@ class ColumnsOption(ExtraOption):
     def __init__(
         self,
         param_decls: Sequence[str] | None = None,
+        *,
         columns: Sequence[ColumnSpec] | None = None,
-        type=None,
+        type: click.ParamType | Any | None = None,
         metavar: str = "COLUMNS",
         default: Sequence[str] | None = (),
         expose_value: bool = False,
@@ -1723,7 +1650,7 @@ class ColumnsOption(ExtraOption):
             "Comma-separated list of column IDs. Default: all columns in "
             "canonical order.",
         ),
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         if not param_decls:
             param_decls = ("--columns",)
@@ -1772,19 +1699,24 @@ class ColumnsOption(ExtraOption):
         context.set(ctx, context.COLUMNS, tuple(columns) if columns else ())
 
 
-def _normalize_column_def(column: ColumnSpec | tuple[str | None, str | None] | str):
+def _normalize_column_def(column: TColumnDef) -> tuple[str | None, str | None]:
     """Coerce a column definition to a `(label, column_id)` tuple.
 
-    Accepts a {class}`ColumnSpec` (so a registry can be shared with
-    `--columns`), a raw `(label, column_id)` tuple, or a bare column ID
-    string, which declares a sortable field untied to any table layout (its
-    label is `None`).
+    Accepts a {class}`~click_extra.columns.ColumnSpec` (so a registry can be shared with
+    `--columns`), whose column ID is dropped when it is not `sortable`, or a
+    bare column ID string, which declares a sortable field untied to any table
+    layout (its label is `None`). A `(label, column_id)` tuple is deprecated.
     """
     if isinstance(column, ColumnSpec):
-        return (column.label, column.id)
+        return (column.label, column.id if column.sortable else None)
     if isinstance(column, str):
         return (None, column)
-    return tuple(column)
+    warn_deprecated_usage(
+        "A (label, column_id) column definition",
+        "ColumnSpec(column_id, label), with sortable=False for no column ID",
+    )
+    label, column_id = column
+    return (label, column_id)
 
 
 class SortByOption(ExtraOption):
@@ -1798,11 +1730,12 @@ class SortByOption(ExtraOption):
     `multiple=True`, so users can repeat `--sort-by` to define a
     multi-column sort priority.
 
-    Column definitions may be `ColumnSpec` instances or raw
-    `(label, column_id)` tuples, passed positionally or via the `columns=`
-    keyword. Passing a `ColumnSpec` registry via `columns=` lets the same
-    tuple drive both `ColumnsOption` (`--columns`) and `--sort-by`, so
-    the two options stay in sync from a single source of truth.
+    Column definitions are `ColumnSpec` instances, passed positionally or via
+    the `columns=` keyword. A column marked `sortable=False` keeps its place in
+    the layout without being offered as a choice. Passing a `ColumnSpec`
+    registry via `columns=` lets the same tuple drive both `ColumnsOption`
+    (`--columns`) and `--sort-by`, so the two options stay in sync from a
+    single source of truth.
 
     ```{code-block} python
 
@@ -1841,33 +1774,38 @@ class SortByOption(ExtraOption):
 
     @my_cli.command
     def installed():
-        print_table(rows, [("Package ID", "package_id"), ("Manager", "manager_id")])
+        print_table(
+            rows,
+            [
+                ColumnSpec("package_id", "Package ID"),
+                ColumnSpec("manager_id", "Manager"),
+            ],
+        )
 
 
     @my_cli.command
     def managers():
-        print_table(rows, [("Manager", "manager_id"), ("Path", None)])
+        print_table(rows, [ColumnSpec("manager_id", "Manager"), "Path"])
     ```
     """
 
     def __init__(
         self,
-        *header_defs: ColumnSpec | tuple[str, str | None] | str,
+        *header_defs: TColumnDef,
         param_decls: Sequence[str] | None = None,
-        columns: Sequence[ColumnSpec | tuple[str, str | None] | str] | None = None,
+        columns: Sequence[TColumnDef] | None = None,
         default: str | Sequence[str] | None = None,
         expose_value: bool = False,
         cell_key: Callable[[str | None], Any] | None = None,
         help: str = _("Sort table by this column. Repeat to set priority."),
-        **kwargs,
+        **kwargs: Any,
     ) -> None:
         if not param_decls:
             param_decls = ("--sort-by",)
 
         # Accept a shared `columns=` registry (the same `ColumnSpec` tuple
-        # passed to `--columns`) or positional definitions. Each entry may be a
-        # `ColumnSpec`, a raw `(label, column_id)` tuple, or a bare column ID
-        # string.
+        # passed to `--columns`) or positional definitions. Each entry is a
+        # `ColumnSpec` or a bare column ID string.
         if columns is not None and header_defs:
             msg = "Pass column definitions positionally or via columns=, not both."
             raise TypeError(msg)

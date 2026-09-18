@@ -120,7 +120,7 @@ def test_decorated_function():
 
     assert describe(one_arg) == list("x")
     assert describe(many_arg) == list("xyzt")
-    assert describe(kw_only) == list("xyz")
+    assert describe(kw_only) == list("x")
 
 
 def test_ambiguous_1():
@@ -225,6 +225,24 @@ def test_with_type_hints():
     assert r == {"x": None, "a": (0, 1), "b": None}
 
 
+def test_with_type_hints_non_float_base():
+    # The base type of an Annotated hint is irrelevant for limit extraction.
+    # Bases other than float (e.g. int or np.float64) must not crash describe()
+    # (regression test for an AssertionError that broke Minuit construction).
+    def foo(
+        x: NDArray,
+        a: Annotated[int, Gt(0), Lt(1)],
+        b: Annotated[np.float64, Ge(1)],
+    ): ...
+
+    r = describe(foo, annotations=True)
+    assert r == {
+        "x": None,
+        "a": (0, 1),
+        "b": (1, np.inf),
+    }
+
+
 def test_with_pydantic_types():
     tp = pytest.importorskip("pydantic.types")
 
@@ -290,3 +308,32 @@ def test_string_annotation_3():
         pass
 
     assert describe(f, annotations=True) == {"x": None, "mu": None}
+
+
+def test_string_annotation_4():
+    # annotation that raises something other than NameError when evaluated;
+    # np.float_ was removed in numpy-2
+    def f(x, mu: "np.float_"):
+        pass
+
+    assert describe(f, annotations=True) == {"x": None, "mu": None}
+
+
+def test_annotation_with_string_metadata():
+    # a str is a Sequence, but it is not a limit
+    def f(x: Annotated[float, "units: meters"], y: Annotated[float, "ab"]):  # noqa: F821
+        pass
+
+    # no constraint found, limits are infinite
+    assert describe(f, annotations=True) == {
+        "x": (-np.inf, np.inf),
+        "y": (-np.inf, np.inf),
+    }
+
+
+def test_keyword_only():
+    def f(x, *, y=1):
+        pass
+
+    assert describe(f) == ["x"]
+    assert describe(f, annotations=True) == {"x": None}

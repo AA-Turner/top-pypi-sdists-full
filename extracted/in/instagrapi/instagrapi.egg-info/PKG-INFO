@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: instagrapi
-Version: 3.0.2
+Version: 3.0.4
 Summary: Fast and effective Instagram Private API wrapper
 Author-email: Mark Subzeroid <143403577+subzeroid@users.noreply.github.com>
 License-Expression: MIT
@@ -39,7 +39,7 @@ Requires-Dist: proglog<=1.0.0; extra == "video"
 Requires-Dist: python-dotenv>=0.10; extra == "video"
 Provides-Extra: test
 Requires-Dist: bandit==1.9.4; extra == "test"
-Requires-Dist: cryptography<47,>=46; extra == "test"
+Requires-Dist: cryptography<51,>=46; extra == "test"
 Requires-Dist: decorator<6.0,>=4.0.2; extra == "test"
 Requires-Dist: imageio<3.0,>=2.5; extra == "test"
 Requires-Dist: imageio-ffmpeg>=0.2.0; extra == "test"
@@ -55,7 +55,7 @@ Requires-Dist: proglog<=1.0.0; extra == "test"
 Requires-Dist: pytest-xdist==3.8.0; extra == "test"
 Requires-Dist: pytest==9.1.1; extra == "test"
 Requires-Dist: python-dotenv>=0.10; extra == "test"
-Requires-Dist: ruff==0.16.5; extra == "test"
+Requires-Dist: ruff==0.16.7; extra == "test"
 Dynamic: license-file
 
 # instagrapi

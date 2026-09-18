@@ -35,7 +35,8 @@ class ClusterGenerationReap(BaseModel):
     reaped: StrictInt = Field(description="Points deleted.")
     wal_seq: Optional[StrictInt] = Field(default=0, description="The write's highest store sequence, 0 when the store returned none.")
     confirmed_seq: Optional[StrictInt] = Field(default=None, description="The store's durable frontier when the run last read it; null when it could not answer.")
-    __properties: ClassVar[List[str]] = ["output_collection_id", "decision", "prior", "written", "stale", "reaped", "wal_seq", "confirmed_seq"]
+    confirmed_unavailable_reason: Optional[StrictStr] = Field(default=None, description="Why the durable frontier could not be read, when it could not. Null on every run that read it. Present because `skipped_unconfirmed` with a null `confirmed_seq` says WHAT happened and not why, and the cause is logged by the cluster driver, whose logs the job's own teardown deletes minutes after it finishes. That is the gap this record exists to close.")
+    __properties: ClassVar[List[str]] = ["output_collection_id", "decision", "prior", "written", "stale", "reaped", "wal_seq", "confirmed_seq", "confirmed_unavailable_reason"]
 
     @field_validator('decision')
     def decision_validate_enum(cls, value):
@@ -102,7 +103,8 @@ class ClusterGenerationReap(BaseModel):
             "stale": obj.get("stale"),
             "reaped": obj.get("reaped"),
             "wal_seq": obj.get("wal_seq") if obj.get("wal_seq") is not None else 0,
-            "confirmed_seq": obj.get("confirmed_seq")
+            "confirmed_seq": obj.get("confirmed_seq"),
+            "confirmed_unavailable_reason": obj.get("confirmed_unavailable_reason")
         })
         return _obj
 

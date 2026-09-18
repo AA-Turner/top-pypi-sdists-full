@@ -1,11 +1,11 @@
 # Copyright OpenSearch Contributors
 # SPDX-License-Identifier: Apache-2.0
 
+import copy
 import json
 import logging
 import os
 import re
-from .skills_tools import SKILLS_TOOLS_REGISTRY
 from .tool_params import baseToolArgs
 from .utils import (
     is_tool_compatible,
@@ -20,6 +20,71 @@ from opensearch.helper import get_opensearch_version
 # Global variable to store the resolved allow_write setting
 # This is set during server initialization and used by individual tools
 _resolved_allow_write_setting = None
+
+
+def _strip_schema_fields(schema: dict, fields) -> dict:
+    """Return a deep copy of ``schema`` with ``fields`` removed from properties and required.
+
+    Deep-copied so the static TOOL_REGISTRY schema objects are never mutated.
+    """
+    schema = copy.deepcopy(schema)
+    if 'properties' in schema:
+        for field in fields:
+            schema['properties'].pop(field, None)
+            if 'required' in schema and field in schema['required']:
+                schema['required'].remove(field)
+    return schema
+
+
+# Tools OpenSearch Serverless (AOSS) can serve. This is an allowlist because AOSS
+# supports far fewer tools than it rejects: it implements the index, document and
+# search data plane plus PPL, but not the cluster, node, monitoring, Search
+# Relevance Workbench or ml-commons memory APIs. Any tool not listed here is treated
+# as serverless-incompatible, so a newly added tool is excluded on AOSS until it is
+# explicitly verified and added. Membership was confirmed live against an AOSS
+# collection. See:
+# https://docs.aws.amazon.com/opensearch-service/latest/developerguide/serverless-genref.html
+SERVERLESS_COMPATIBLE_TOOLS: frozenset = frozenset(
+    {
+        'ListIndexTool',  # GET /_cat/indices
+        'IndexMappingTool',  # GET /<index>/_mapping
+        'GetIndexInfoTool',  # GET /<index>
+        'SearchIndexTool',  # POST /<index>/_search
+        'PPLQueryTool',  # POST /_plugins/_ppl
+        'DataDistributionTool',  # client-side analysis over _search/_count
+        'LogPatternAnalysisTool',  # client-side analysis over _search/_count
+        'MetricChangeAnalysisTool',  # client-side analysis over _search/_count
+        'GenericOpenSearchApiTool',  # passthrough; valid endpoints only
+        'ListClustersTool',  # server-side datasource listing, no backend call
+    }
+)
+
+
+def filter_serverless_incompatible(registry: dict) -> None:
+    """Remove tools that OpenSearch Serverless cannot serve from ``registry`` in place."""
+    for key in list(registry.keys()):
+        if key not in SERVERLESS_COMPATIBLE_TOOLS:
+            registry.pop(key, None)
+
+
+def _is_serverless_single_mode() -> bool:
+    """Detect a serverless connection in single mode from env/URL configuration."""
+    if os.getenv('AWS_OPENSEARCH_SERVERLESS', '').lower() == 'true':
+        return True
+    return 'aoss.amazonaws.com' in os.getenv('OPENSEARCH_URL', '').strip().lower()
+
+
+def _is_serverless_multi_mode() -> bool:
+    """True only when every configured multi-mode cluster is serverless.
+
+    Tools are advertised once for all clusters, so incompatible tools can only be
+    dropped at list time when there is no non-serverless cluster that could serve
+    them. Mixed deployments rely on the call-time guard instead.
+    """
+    from mcp_server_opensearch.clusters_information import cluster_registry
+
+    clusters = list(cluster_registry.values())
+    return bool(clusters) and all(c.is_serverless for c in clusters)
 
 
 def process_regex_patterns(regex_list, tool_names):
@@ -131,6 +196,91 @@ def process_categories(category_list, category_to_tools):
     return tools
 
 
+# Single source of truth: built-in category → registry key lists.
+# Used by build_category_map and to stamp tool_info['category'] at startup.
+#
+# 'observability' and 'skills' are fine-grained categories that existed before
+# the unified 'analytics' category was introduced.  'analytics' is a superset
+# that contains every tool from both.  All three are first-class categories —
+# enabling 'skills' gives the 3 skills tools, enabling 'observability' gives
+# PPLQueryTool, and enabling 'analytics' gives all 4.
+_SKILLS_TOOLS: list[str] = [
+    'DataDistributionTool',
+    'LogPatternAnalysisTool',
+    'MetricChangeAnalysisTool',
+]
+
+_OBSERVABILITY_TOOLS: list[str] = [
+    'PPLQueryTool',
+]
+
+BUILTIN_CATEGORY_TOOLS: dict[str, list[str]] = {
+    'core_tools': [
+        'ListIndexTool',
+        'IndexMappingTool',
+        'SearchIndexTool',
+        'GetShardsTool',
+        'ClusterHealthTool',
+        'CountTool',
+        'ExplainTool',
+        'MsearchTool',
+        'GenericOpenSearchApiTool',
+    ],
+    'memory': [
+        'SaveMemoryTool',
+        'SearchMemoryTool',
+        'DeleteMemoryTool',
+    ],
+    'search_relevance': [
+        'CreateSearchConfigurationTool',
+        'GetSearchConfigurationTool',
+        'DeleteSearchConfigurationTool',
+        'GetQuerySetTool',
+        'CreateQuerySetTool',
+        'SampleQuerySetTool',
+        'DeleteQuerySetTool',
+        'GetJudgmentListTool',
+        'CreateJudgmentListTool',
+        'CreateUBIJudgmentListTool',
+        'CreateLLMJudgmentListTool',
+        'DeleteJudgmentListTool',
+        'GetExperimentTool',
+        'CreateExperimentTool',
+        'DeleteExperimentTool',
+        'SearchQuerySetsTool',
+        'SearchSearchConfigurationsTool',
+        'SearchJudgmentsTool',
+        'SearchExperimentsTool',
+    ],
+    'agentic_memory': [
+        'CreateAgenticMemorySessionTool',
+        'AddAgenticMemoriesTool',
+        'GetAgenticMemoryTool',
+        'UpdateAgenticMemoryTool',
+        'DeleteAgenticMemoryByIDTool',
+        'DeleteAgenticMemoryByQueryTool',
+        'SearchAgenticMemoryTool',
+    ],
+    'observability': _OBSERVABILITY_TOOLS,
+    'skills': _SKILLS_TOOLS,
+    'analytics': _OBSERVABILITY_TOOLS + _SKILLS_TOOLS,
+}
+
+
+def build_category_map(tool_registry: dict) -> dict[str, list[str]]:
+    """Return a category → list-of-display-names map for the given registry.
+
+    All categories come from BUILTIN_CATEGORY_TOOLS.  User-defined categories
+    (from YAML or env vars) are merged on top by the caller.
+    """
+    return {
+        category: [
+            tool_registry[k].get('display_name', k) for k in tool_keys if k in tool_registry
+        ]
+        for category, tool_keys in BUILTIN_CATEGORY_TOOLS.items()
+    }
+
+
 def process_tool_filter(
     enabled_tools: str = None,
     disabled_tools: str = None,
@@ -143,7 +293,7 @@ def process_tool_filter(
     allow_write_categories: list = None,
     filter_path: str = None,
     tool_registry: dict = None,
-) -> None:
+) -> dict:
     """Process tool filter configuration from a YAML file and environment variables.
 
     Args:
@@ -166,124 +316,19 @@ def process_tool_filter(
         }
 
         # Initialize collections
-        category_to_tools = {}
         enabled_tool_list = []
         disabled_tool_list = []
         enabled_category_list = ['core_tools']
         disabled_category_list = []
         enabled_tools_regex_list = []
         disabled_tools_regex_list = []
-        core_tools_display_name = []
 
-        # Initialize core tool names
-        core_tools = [
-            'ListIndexTool',
-            'IndexMappingTool',
-            'SearchIndexTool',
-            'GetShardsTool',
-            'ClusterHealthTool',
-            'CountTool',
-            'ExplainTool',
-            'MsearchTool',
-            'GenericOpenSearchApiTool',
-        ]
-
-        # Build core tools list using display names
-        for tool_name in core_tools:
-            if tool_name in tool_registry:
-                tool_display_name = tool_registry[tool_name].get('display_name', tool_name)
-                core_tools_display_name.append(tool_display_name)
-
-        # Add core_tools as a built-in category using display name
-        category_to_tools['core_tools'] = core_tools_display_name
-
-        # Initialize memory tool names (opt-in via MEMORY_TOOLS_ENABLED)
-        memory_tools = [
-            'SaveMemoryTool',
-            'SearchMemoryTool',
-            'DeleteMemoryTool',
-        ]
-        memory_tools_display_names = []
-        for tool_name in memory_tools:
-            if tool_name in tool_registry:
-                tool_display_name = tool_registry[tool_name].get('display_name', tool_name)
-                memory_tools_display_names.append(tool_display_name)
-        category_to_tools['memory'] = memory_tools_display_names
+        # Build built-in category map (category → list of display names)
+        category_to_tools = build_category_map(tool_registry)
 
         # Auto-enable memory category when memory tools are registered
-        if memory_tools_display_names:
+        if category_to_tools.get('memory'):
             enabled_category_list.append('memory')
-
-        # Initialize search_relevance tool names
-        search_relevance_tools = [
-            'CreateSearchConfigurationTool',
-            'GetSearchConfigurationTool',
-            'DeleteSearchConfigurationTool',
-            'GetQuerySetTool',
-            'CreateQuerySetTool',
-            'SampleQuerySetTool',
-            'DeleteQuerySetTool',
-            'GetJudgmentListTool',
-            'CreateJudgmentListTool',
-            'CreateUBIJudgmentListTool',
-            'CreateLLMJudgmentListTool',
-            'DeleteJudgmentListTool',
-            'GetExperimentTool',
-            'CreateExperimentTool',
-            'DeleteExperimentTool',
-            'SearchQuerySetsTool',
-            'SearchSearchConfigurationsTool',
-            'SearchJudgmentsTool',
-            'SearchExperimentsTool',
-        ]
-
-        # Build search_relevance tools list using display names
-        search_relevance_display_names = []
-        for tool_name in search_relevance_tools:
-            if tool_name in tool_registry:
-                tool_display_name = tool_registry[tool_name].get('display_name', tool_name)
-                search_relevance_display_names.append(tool_display_name)
-
-        # Add search_relevance as a built-in category (not enabled by default)
-        category_to_tools['search_relevance'] = search_relevance_display_names
-
-        # Initialize agentic_memory tool names
-        agentic_memory_tools = [
-            'CreateAgenticMemorySessionTool',
-            'AddAgenticMemoriesTool',
-            'GetAgenticMemoryTool',
-            'UpdateAgenticMemoryTool',
-            'DeleteAgenticMemoryByIDTool',
-            'DeleteAgenticMemoryByQueryTool',
-            'SearchAgenticMemoryTool',
-        ]
-
-        # Build agentic_memory tools list using display names
-        agentic_memory_display_names = []
-        for tool_name in agentic_memory_tools:
-            if tool_name in tool_registry:
-                tool_display_name = tool_registry[tool_name].get('display_name', tool_name)
-                agentic_memory_display_names.append(tool_display_name)
-
-        # Add agentic_memory as a built-in category (not enabled by default)
-        category_to_tools['agentic_memory'] = agentic_memory_display_names
-
-        # Initialize observability tool names
-        observability_tools = [
-            'PPLQueryTool',
-        ]
-        observability_display_names = []
-        for tool_name in observability_tools:
-            if tool_name in tool_registry:
-                tool_display_name = tool_registry[tool_name].get('display_name', tool_name)
-                observability_display_names.append(tool_display_name)
-        category_to_tools['observability'] = observability_display_names
-
-        # Add skills as a built-in category (not enabled by default)
-        skills_display_names = [
-            info.get('display_name', name) for name, info in SKILLS_TOOLS_REGISTRY.items()
-        ]
-        category_to_tools['skills'] = skills_display_names
 
         # Process YAML config file if provided
         config = load_yaml_config(filter_path)
@@ -407,9 +452,13 @@ def process_tool_filter(
         # Log results
         source = filter_path if filter_path else 'environment variables'
         logging.info(f'Applied tool filter from {source}')
+        return category_to_tools
 
     except Exception as e:
         logging.error(f'Error processing tool filter: {str(e)}')
+        # Fall back to built-in category map so _meta.category stamping
+        # still works even when filter processing fails.
+        return build_category_map(tool_registry) if tool_registry else {}
 
 
 async def get_tools(tool_registry: dict, config_file_path: str = '') -> dict:
@@ -432,6 +481,7 @@ async def get_tools(tool_registry: dict, config_file_path: str = '') -> dict:
     from mcp_server_opensearch.server_instructions import (
         CONNECTION_OVERRIDE_FIELDS,
         is_dynamic_mode_enabled,
+        is_header_auth_enabled,
     )
 
     # Get the current mode from global state
@@ -448,16 +498,23 @@ async def get_tools(tool_registry: dict, config_file_path: str = '') -> dict:
     # Memory tools are also excluded — they require OPENSEARCH_URL and single-mode
     # connection setup, and are not supported in multi mode.
     if mode == 'multi':
-        filtered_registry = {
+        non_memory = {
             name: info for name, info in tool_registry.items() if not info.get('memory_tool')
         }
-        for name, info in filtered_registry.items():
-            schema = info['input_schema']
-            if 'properties' in schema:
-                for field in CONNECTION_OVERRIDE_FIELDS:
-                    schema['properties'].pop(field, None)
-                    if 'required' in schema and field in schema['required']:
-                        schema['required'].remove(field)
+        # Drop serverless-incompatible tools when every configured cluster is
+        # serverless. Mixed deployments keep them and rely on the call-time guard.
+        if _is_serverless_multi_mode():
+            filter_serverless_incompatible(non_memory)
+        category_to_tools = build_category_map(non_memory)
+        tool_to_category = {
+            dn.lower(): cat for cat, dns in category_to_tools.items() for dn in dns
+        }
+        filtered_registry = {}
+        for name, info in non_memory.items():
+            schema = _strip_schema_fields(info['input_schema'], CONNECTION_OVERRIDE_FIELDS)
+            entry = {**info, 'input_schema': schema}
+            entry['category'] = tool_to_category.get(info.get('display_name', name).lower(), '')
+            filtered_registry[name] = entry
         return filtered_registry
 
     enabled = {}
@@ -465,6 +522,17 @@ async def get_tools(tool_registry: dict, config_file_path: str = '') -> dict:
     # Get OpenSearch version for compatibility checking (only in single mode)
     version = await get_opensearch_version(baseToolArgs(opensearch_cluster_name=''))
     logging.info(f'Connected OpenSearch version: {version}')
+
+    # A serverless connection cannot answer the version probe (GET / is unsupported),
+    # so it returns None and version gating is skipped. Log it and filter the tools
+    # serverless cannot serve instead of silently advertising the full catalog.
+    serverless = _is_serverless_single_mode()
+    if version is None:
+        logging.warning(
+            'Could not determine OpenSearch version; version-based tool gating is '
+            'skipped for this connection.'
+            + (' Applying serverless-aware tool filtering.' if serverless else '')
+        )
 
     env_config = {
         'enabled_tools': os.getenv('OPENSEARCH_ENABLED_TOOLS', ''),
@@ -486,11 +554,12 @@ async def get_tools(tool_registry: dict, config_file_path: str = '') -> dict:
         logging.warning('Both config file and environment variables are set. Using config file.')
 
     # Apply tool filtering, update the TOOL_REGISTRY
-    process_tool_filter(
+    category_to_tools = process_tool_filter(
         tool_registry=tool_registry,
         filter_path=config_file_path if config_file_path else None,
         **{k: v for k, v in env_config.items() if not config_file_path},
     )
+    tool_to_category = {dn.lower(): cat for cat, dns in category_to_tools.items() for dn in dns}
 
     for name, info in tool_registry.items():
         # Create a copy to avoid modifying the original tool info
@@ -501,44 +570,43 @@ async def get_tools(tool_registry: dict, config_file_path: str = '') -> dict:
         if info.get('multi_only') and mode != 'multi':
             continue
 
+        # Skip tools OpenSearch Serverless cannot serve when connected to a
+        # serverless endpoint (version gating can't catch these — the probe fails).
+        if serverless and name not in SERVERLESS_COMPATIBLE_TOOLS:
+            continue
+
         # If tool is not compatible with the current OpenSearch version, skip, don't enable
         if not is_tool_compatible(version, info):
             continue
 
-        # Remove baseToolArgs fields from input schema for single mode.
-        # Always strip opensearch_cluster_name (mode-specific).
-        # Strip connection override fields when dynamic mode is off (i.e. a
-        # connection is pre-configured), since the agent doesn't need to supply
-        # them. When dynamic mode is on (zero-config / OPENSEARCH_DYNAMIC_CONNECTION=true),
-        # keep them and mark opensearch_url as required so strict MCP clients
-        # know it must be provided.
-        schema = tool_info['input_schema'].copy()
-        if 'properties' in schema:
-            dynamic = is_dynamic_mode_enabled()
-            _always_hidden = {'opensearch_cluster_name'}
-            fields_to_strip = _always_hidden | (set() if dynamic else CONNECTION_OVERRIDE_FIELDS)
-            for field in fields_to_strip:
-                schema['properties'].pop(field, None)
-                if 'required' in schema and field in schema['required']:
-                    schema['required'].remove(field)
+        # Remove baseToolArgs fields from the schema for single mode. opensearch_cluster_name
+        # is always hidden (multi-mode only). Connection overrides are hidden unless dynamic
+        # mode is on; header auth hides everything since URL/creds come from headers.
+        dynamic = is_dynamic_mode_enabled()
+        use_header_auth = is_header_auth_enabled()
+        if use_header_auth:
+            fields_to_strip = set(CONNECTION_OVERRIDE_FIELDS) | {'opensearch_cluster_name'}
+        else:
+            fields_to_strip = {'opensearch_cluster_name'} | (
+                set() if dynamic else CONNECTION_OVERRIDE_FIELDS
+            )
+        schema = _strip_schema_fields(tool_info['input_schema'], fields_to_strip)
 
-            # In dynamic mode, opensearch_url is functionally required at runtime
-            # even though baseToolArgs declares it Optional. Mark it required in
-            # the schema so strict MCP clients enforce it — but only when:
-            # 1. No OPENSEARCH_URL env var is set (no server-side fallback), AND
-            # 2. Header auth is not enabled (URL comes from headers, not tool args).
-            use_header_auth = os.getenv('OPENSEARCH_HEADER_AUTH', '').lower() == 'true'
-            has_url_fallback = bool(os.getenv('OPENSEARCH_URL', '').strip())
-            if (
-                dynamic
-                and not use_header_auth
-                and not has_url_fallback
-                and 'opensearch_url' in schema['properties']
-            ):
-                schema.setdefault('required', [])
-                if 'opensearch_url' not in schema['required']:
-                    schema['required'].append('opensearch_url')
+        # In dynamic mode opensearch_url is functionally required at runtime, so mark it
+        # required for strict MCP clients — but only when there is no OPENSEARCH_URL fallback
+        # and header auth is off (otherwise the URL comes from env or headers, not tool args).
+        has_url_fallback = bool(os.getenv('OPENSEARCH_URL', '').strip())
+        if (
+            dynamic
+            and not use_header_auth
+            and not has_url_fallback
+            and 'opensearch_url' in schema.get('properties', {})
+        ):
+            schema.setdefault('required', [])
+            if 'opensearch_url' not in schema['required']:
+                schema['required'].append('opensearch_url')
         tool_info['input_schema'] = schema
+        tool_info['category'] = tool_to_category.get(tool_name.lower(), '')
 
         enabled[tool_name] = tool_info
 
