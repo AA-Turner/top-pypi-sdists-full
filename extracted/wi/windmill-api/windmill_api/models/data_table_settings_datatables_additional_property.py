@@ -12,6 +12,9 @@ if TYPE_CHECKING:
     from ..models.data_table_settings_datatables_additional_property_forked_from import (
         DataTableSettingsDatatablesAdditionalPropertyForkedFrom,
     )
+    from ..models.data_table_settings_datatables_additional_property_reference import (
+        DataTableSettingsDatatablesAdditionalPropertyReference,
+    )
 
 
 T = TypeVar("T", bound="DataTableSettingsDatatablesAdditionalProperty")
@@ -21,19 +24,30 @@ T = TypeVar("T", bound="DataTableSettingsDatatablesAdditionalProperty")
 class DataTableSettingsDatatablesAdditionalProperty:
     """
     Attributes:
-        database (DataTableSettingsDatatablesAdditionalPropertyDatabase):
+        database (Union[Unset, DataTableSettingsDatatablesAdditionalPropertyDatabase]): Set on an entry that owns its
+            database. Absent on a fork's entry, which points at another workspace's data table instead.
+        reference (Union[Unset, DataTableSettingsDatatablesAdditionalPropertyReference]): The workspace and data table
+            that govern this one. Server-owned: written by fork creation, and carried across a settings save whatever the
+            request says.
         migrations_enabled (Union[Unset, bool]): Whether the SQL migrations feature is opted in for this data table
         forked_from (Union[Unset, DataTableSettingsDatatablesAdditionalPropertyForkedFrom]): Fork origin info with
             schema snapshot
     """
 
-    database: "DataTableSettingsDatatablesAdditionalPropertyDatabase"
+    database: Union[Unset, "DataTableSettingsDatatablesAdditionalPropertyDatabase"] = UNSET
+    reference: Union[Unset, "DataTableSettingsDatatablesAdditionalPropertyReference"] = UNSET
     migrations_enabled: Union[Unset, bool] = UNSET
     forked_from: Union[Unset, "DataTableSettingsDatatablesAdditionalPropertyForkedFrom"] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
-        database = self.database.to_dict()
+        database: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.database, Unset):
+            database = self.database.to_dict()
+
+        reference: Union[Unset, Dict[str, Any]] = UNSET
+        if not isinstance(self.reference, Unset):
+            reference = self.reference.to_dict()
 
         migrations_enabled = self.migrations_enabled
         forked_from: Union[Unset, Dict[str, Any]] = UNSET
@@ -42,11 +56,11 @@ class DataTableSettingsDatatablesAdditionalProperty:
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
-        field_dict.update(
-            {
-                "database": database,
-            }
-        )
+        field_dict.update({})
+        if database is not UNSET:
+            field_dict["database"] = database
+        if reference is not UNSET:
+            field_dict["reference"] = reference
         if migrations_enabled is not UNSET:
             field_dict["migrations_enabled"] = migrations_enabled
         if forked_from is not UNSET:
@@ -62,9 +76,24 @@ class DataTableSettingsDatatablesAdditionalProperty:
         from ..models.data_table_settings_datatables_additional_property_forked_from import (
             DataTableSettingsDatatablesAdditionalPropertyForkedFrom,
         )
+        from ..models.data_table_settings_datatables_additional_property_reference import (
+            DataTableSettingsDatatablesAdditionalPropertyReference,
+        )
 
         d = src_dict.copy()
-        database = DataTableSettingsDatatablesAdditionalPropertyDatabase.from_dict(d.pop("database"))
+        _database = d.pop("database", UNSET)
+        database: Union[Unset, DataTableSettingsDatatablesAdditionalPropertyDatabase]
+        if isinstance(_database, Unset):
+            database = UNSET
+        else:
+            database = DataTableSettingsDatatablesAdditionalPropertyDatabase.from_dict(_database)
+
+        _reference = d.pop("reference", UNSET)
+        reference: Union[Unset, DataTableSettingsDatatablesAdditionalPropertyReference]
+        if isinstance(_reference, Unset):
+            reference = UNSET
+        else:
+            reference = DataTableSettingsDatatablesAdditionalPropertyReference.from_dict(_reference)
 
         migrations_enabled = d.pop("migrations_enabled", UNSET)
 
@@ -77,6 +106,7 @@ class DataTableSettingsDatatablesAdditionalProperty:
 
         data_table_settings_datatables_additional_property = cls(
             database=database,
+            reference=reference,
             migrations_enabled=migrations_enabled,
             forked_from=forked_from,
         )

@@ -14,6 +14,7 @@ use rumdl_lib::utils::code_block_utils::CodeBlockUtils;
 // Re-export check/lint functions from the library crate
 pub use rumdl_lib::embedded_lint::check_embedded_markdown_blocks;
 pub(super) use rumdl_lib::embedded_lint::has_fenced_code_blocks;
+pub(super) use rumdl_lib::embedded_lint::should_format_embedded_markdown;
 pub(super) use rumdl_lib::embedded_lint::should_lint_embedded_markdown;
 
 /// Maximum recursion depth for formatting nested markdown blocks.
@@ -30,7 +31,7 @@ pub fn format_embedded_markdown_blocks(
     rules: &[Box<dyn Rule>],
     config: &rumdl_config::Config,
 ) -> usize {
-    if rumdl_lib::merge_conflict::detect(content).is_some() {
+    if rumdl_lib::merge_conflict::detect_for_rules(content, rules, config, None).is_some() {
         return 0;
     }
     format_embedded_markdown_blocks_recursive(content, rules, config, 0)

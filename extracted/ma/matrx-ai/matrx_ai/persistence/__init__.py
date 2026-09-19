@@ -35,6 +35,10 @@ See ``docs/persistence/SESSION_ARCHITECTURE.md`` for the canonical
 reference.
 """
 
+from matrx_ai.persistence.conversation_org import (
+    conversation_organization,
+    remember_conversation_organization,
+)
 from matrx_ai.persistence.coordinator import (
     Coordinator,
     CoordinatorPhase,
@@ -45,6 +49,7 @@ from matrx_ai.persistence.coordinator import (
     WriteCoordinator,  # back-compat alias for Coordinator
 )
 from matrx_ai.persistence.queue_helpers import (
+    OrganizationlessInsertError,
     get_coordinator,
     queue_agent_memory_create,
     queue_agent_memory_delete,
@@ -93,6 +98,7 @@ __all__ = [
     "FlushReport",
     "OpType",
     "PERMANENT_FAILURE_SIGNATURES",
+    "OrganizationlessInsertError",
     "PersistenceBarrierError",
     "RECOVERABLE_RETRY_ERRORS",
     "ReplayReport",
@@ -108,6 +114,8 @@ __all__ = [
     "is_registered",
     "queue_conversation_create",
     "queue_conversation_update",
+    "conversation_organization",
+    "remember_conversation_organization",
     "queue_message_create",
     "queue_message_update",
     "queue_om_memory_create",

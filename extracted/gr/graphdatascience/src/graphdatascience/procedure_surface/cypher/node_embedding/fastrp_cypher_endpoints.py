@@ -3,7 +3,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.node_embedding.fastrp_endpoints import (
@@ -28,7 +28,7 @@ class FastRPCypherEndpoints(FastRPEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         embedding_dimension: int,
         iteration_weights: list[float] = [0.0, 1.0, 1.0],
@@ -71,13 +71,13 @@ class FastRPCypherEndpoints(FastRPEndpoints):
 
         result = self._query_runner.call_procedure(
             endpoint="gds.fastRP.mutate", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return FastRPMutateResult(**result.to_dict())
+        return FastRPMutateResult(**result)
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         embedding_dimension: int,
         iteration_weights: list[float] = [0.0, 1.0, 1.0],
         normalization_strength: float = 0.0,
@@ -118,13 +118,13 @@ class FastRPCypherEndpoints(FastRPEndpoints):
 
         result = self._query_runner.call_procedure(
             endpoint="gds.fastRP.stats", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return FastRPStatsResult(**result.to_dict())
+        return FastRPStatsResult(**result)
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         embedding_dimension: int,
         iteration_weights: list[float] = [0.0, 1.0, 1.0],
         normalization_strength: float = 0.0,
@@ -169,7 +169,7 @@ class FastRPCypherEndpoints(FastRPEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         embedding_dimension: int,
         iteration_weights: list[float] = [0.0, 1.0, 1.0],
@@ -214,13 +214,13 @@ class FastRPCypherEndpoints(FastRPEndpoints):
 
         result = self._query_runner.call_procedure(
             endpoint="gds.fastRP.write", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return FastRPWriteResult(**result.to_dict())
+        return FastRPWriteResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         embedding_dimension: int,
         iteration_weights: list[float] = [0.0, 1.0, 1.0],
         normalization_strength: float = 0.0,

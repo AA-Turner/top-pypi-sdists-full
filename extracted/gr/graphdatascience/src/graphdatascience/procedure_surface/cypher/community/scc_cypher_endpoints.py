@@ -2,7 +2,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.community.scc_endpoints import (
     SccEndpoints,
     SccMutateResult,
@@ -29,7 +29,7 @@ class SccCypherEndpoints(SccEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         *,
         concurrency: int | None = None,
@@ -58,13 +58,13 @@ class SccCypherEndpoints(SccEndpoints):
 
         cypher_result = self._query_runner.call_procedure(
             endpoint="gds.scc.mutate", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return SccMutateResult(**cypher_result.to_dict())
+        return SccMutateResult(**cypher_result)
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         consecutive_ids: bool = False,
@@ -91,13 +91,13 @@ class SccCypherEndpoints(SccEndpoints):
 
         cypher_result = self._query_runner.call_procedure(
             endpoint="gds.scc.stats", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return SccStatsResult(**cypher_result.to_dict())
+        return SccStatsResult(**cypher_result)
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         consecutive_ids: bool = False,
@@ -126,7 +126,7 @@ class SccCypherEndpoints(SccEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         *,
         concurrency: int | None = None,
@@ -155,15 +155,15 @@ class SccCypherEndpoints(SccEndpoints):
         params = CallParameters(graph_name=G.name(), config=config)
         params.ensure_job_id_in_config()
 
-        result = self._query_runner.call_procedure(
-            endpoint="gds.scc.write", params=params, logging=log_progress
-        ).squeeze()
+        result = self._query_runner.call_procedure(endpoint="gds.scc.write", params=params, logging=log_progress).iloc[
+            0
+        ]
 
-        return SccWriteResult(**result.to_dict())
+        return SccWriteResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         *,
         concurrency: int | None = None,
         consecutive_ids: bool = False,

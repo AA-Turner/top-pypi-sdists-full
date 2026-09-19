@@ -72,6 +72,7 @@ from .paginator import (
     ListRoutingProfilesPaginator,
     ListRulesPaginator,
     ListSecurityKeysPaginator,
+    ListSecurityProfileAIAgentsPaginator,
     ListSecurityProfileApplicationsPaginator,
     ListSecurityProfileFlowModulesPaginator,
     ListSecurityProfilePermissionsPaginator,
@@ -517,6 +518,8 @@ from .type_defs import (
     ListRulesResponseTypeDef,
     ListSecurityKeysRequestTypeDef,
     ListSecurityKeysResponseTypeDef,
+    ListSecurityProfileAIAgentsRequestTypeDef,
+    ListSecurityProfileAIAgentsResponseTypeDef,
     ListSecurityProfileApplicationsRequestTypeDef,
     ListSecurityProfileApplicationsResponseTypeDef,
     ListSecurityProfileFlowModulesRequestTypeDef,
@@ -3263,6 +3266,16 @@ class ConnectClient(BaseClient):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#list_security_keys)
         """
 
+    def list_security_profile_ai_agents(
+        self, **kwargs: Unpack[ListSecurityProfileAIAgentsRequestTypeDef]
+    ) -> ListSecurityProfileAIAgentsResponseTypeDef:
+        """
+        Returns a list of the allowed AI agents in a specific security profile.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/list_security_profile_ai_agents.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#list_security_profile_ai_agents)
+        """
+
     def list_security_profile_applications(
         self, **kwargs: Unpack[ListSecurityProfileApplicationsRequestTypeDef]
     ) -> ListSecurityProfileApplicationsResponseTypeDef:
@@ -5366,6 +5379,17 @@ class ConnectClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_security_keys"]
     ) -> ListSecurityKeysPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/client/get_paginator.html)
+        [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_connect/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_security_profile_ai_agents"]
+    ) -> ListSecurityProfileAIAgentsPaginator:
         """
         Create a paginator for an operation.
 

@@ -18,6 +18,7 @@ from collections.abc import Callable, Iterable, Sequence
 
 import structlog
 
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.agents.install import runtime_signatures
 from runlayer_cli.scan.device import DiscoveredWSLDistro
 from runlayer_cli.scan.processes.classify import (
@@ -33,10 +34,13 @@ from runlayer_cli.scan.processes.enumerate import (
 )
 from runlayer_cli.scan.processes.models import (
     DiscoveredProcess,
+    ExtensionRootRef,
+    OverrideConfigRef,
     ProcessCandidate,
     ProcessDiscoveryResult,
 )
 from runlayer_cli.scan.processes.probes import probe_agent_runtime
+from runlayer_cli.scan.processes.windows_owner import windows_process_owner_sid
 
 __all__ = [
     "ClassifierContext",
@@ -51,6 +55,12 @@ __all__ = [
 logger = structlog.get_logger(__name__)
 
 
+def _has_profile_attribution(
+    item: DiscoveredProcess | OverrideConfigRef | ExtensionRootRef,
+) -> bool:
+    return item.owner_sid is not None or item.wsl_distro is not None
+
+
 def discover_processes(
     *,
     configurations,
@@ -59,6 +69,7 @@ def discover_processes(
     detect_agents: bool = True,
     usernames: Sequence[str] = (),
     wsl_distros: Iterable[DiscoveredWSLDistro] = (),
+    windows_user_sid: str | None = None,
     timeout: int = SUBPROCESS_TIMEOUT_S,
     checkpoint: Callable[[], None] | None = None,
 ) -> ProcessDiscoveryResult:
@@ -69,8 +80,9 @@ def discover_processes(
     runtime processes back to known identities. Best-effort: any failure is
     logged rather than aborting the scan.
     """
+    completion = ScanCompletionStatus()
     try:
-        candidates = enumerate_candidates(timeout=timeout)
+        candidates = enumerate_candidates(timeout=timeout, scan_status=completion)
     except Exception as exc:  # never raise into the scan
         logger.warning(
             "process_enumeration_failed",
@@ -78,6 +90,7 @@ def discover_processes(
             error_type=type(exc).__name__,
         )
         candidates = []
+        completion.mark_incomplete("process_enumeration_failed")
 
     if detect_agents:
         try:
@@ -85,6 +98,7 @@ def discover_processes(
                 candidates,
                 runtime_signatures(),
                 timeout=timeout,
+                scan_status=completion,
             )
         except Exception as exc:  # preserve primary enumeration on probe failure
             logger.warning(
@@ -92,12 +106,36 @@ def discover_processes(
                 error=str(exc),
                 error_type=type(exc).__name__,
             )
+            completion.mark_incomplete("agent_runtime_probe_failed")
+
+    if windows_user_sid is not None:
+        profile_candidates: list[ProcessCandidate] = []
+        for candidate in candidates:
+            if candidate.pid <= 0:
+                profile_candidates.append(candidate)
+                continue
+            if checkpoint is not None:
+                checkpoint()
+            try:
+                owner_sid = windows_process_owner_sid(candidate.pid)
+            except Exception as exc:
+                logger.debug(
+                    "process_owner_lookup_failed",
+                    pid=candidate.pid,
+                    error=str(exc),
+                )
+                owner_sid = None
+            candidate.owner_sid = owner_sid
+            if owner_sid is None or owner_sid.casefold() == windows_user_sid.casefold():
+                profile_candidates.append(candidate)
+        candidates = profile_candidates
 
     candidates.extend(
         enumerate_wsl_process_tables(
             wsl_distros,
             timeout=timeout,
             checkpoint=checkpoint,
+            scan_status=completion,
         )
     )
 
@@ -108,15 +146,50 @@ def discover_processes(
             agents,
             detect_agents=detect_agents,
         )
-        return classify_processes_with_overrides(
+        result = classify_processes_with_overrides(
             candidates,
             context,
             usernames=usernames,
         )
+        if not result.complete:
+            completion.mark_incomplete("process_classification_capped")
+        if windows_user_sid is not None:
+            # Unattributable host candidates intentionally reach classification
+            # only to detect whether they would surface. If so, revoke absence
+            # authority, then drop them from every output. See
+            # docs-internal/decision-records/
+            # 2026-09-03-ai-watch-evasion-launcher-inspection.md.
+            reportable_owner_gap = any(
+                not _has_profile_attribution(process) for process in result.processes
+            )
+            if reportable_owner_gap:
+                completion.mark_incomplete("process_owner_lookup_failed")
+            result.processes = [
+                process
+                for process in result.processes
+                if _has_profile_attribution(process)
+            ]
+            result.override_config_refs = [
+                ref
+                for ref in result.override_config_refs
+                if _has_profile_attribution(ref)
+            ]
+            result.extension_root_refs = [
+                ref
+                for ref in result.extension_root_refs
+                if _has_profile_attribution(ref)
+            ]
+        result.complete = completion.complete
+        result.incomplete_reasons = completion.reasons
     except Exception as exc:  # never raise into the scan
         logger.warning(
             "process_classification_failed",
             error=str(exc),
             error_type=type(exc).__name__,
         )
-        return ProcessDiscoveryResult()
+        completion.mark_incomplete("process_classification_failed")
+        result = ProcessDiscoveryResult(
+            complete=False,
+            incomplete_reasons=list(completion.reasons),
+        )
+    return result

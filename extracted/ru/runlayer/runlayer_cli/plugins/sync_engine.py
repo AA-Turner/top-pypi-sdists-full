@@ -75,8 +75,15 @@ def _remote_plugin_skill_paths(
     for skill in remote.skills:
         path = remote_skill_paths_by_id.get(skill.id)
         if path is None:
-            detail = client.get_skill(skill.id)
-            path = detail.path
+            try:
+                path = client.get_skill(skill.id).path
+            except httpx.HTTPStatusError as exc:
+                if exc.response.status_code not in (403, 404):
+                    raise
+                # A remote skill this caller cannot read can't match any
+                # local path; report membership as changed — the same
+                # verdict a real push reaches by detaching it.
+                path = f"__inaccessible__/{skill.id}"
         if path:
             paths.add(path)
     return paths
@@ -410,11 +417,33 @@ async def sync_discovered_plugins(
     remote_plugins_by_path = {
         plugin.path: plugin for plugin in remote_plugins if plugin.path
     }
+    # Shared (CAN_EDIT, not owned) plugins are invisible to the owned-only
+    # listing but must be found before connector resolution: live
+    # /proxy/{id}/tools discovery requires the caller's own OAuth grant,
+    # while a shared plugin's saved tool selections don't. Prune and stale
+    # skill handling stay on the owned-only listing above.
+    missing_local_paths = local_plugin_paths - set(remote_plugins_by_path)
+    shared_plugins_by_path: dict[str, PluginDetail] = {}
+    if missing_local_paths:
+        shared_plugins_by_path = {
+            plugin.path: plugin
+            for plugin in client.list_plugins_detailed(namespace, filter="all")
+            if plugin.path in missing_local_paths
+        }
     remote_skills = client.list_skills(namespace)
     remote_skills_by_id = {skill.id: skill for skill in remote_skills}
     remote_skill_paths_by_id = {
         skill.id: skill.path for skill in remote_skills if skill.path
     }
+    # Same visibility rule as the plugin lookup above: a shared plugin's
+    # skills are invisible to the owned-only listing, and resolving them
+    # through per-skill live GETs would make a dry run depend on skill
+    # grants. Widen only these lookup maps; skill sync keeps the owned list.
+    if shared_plugins_by_path:
+        for skill in client.list_skills(namespace, filter="all"):
+            remote_skills_by_id.setdefault(skill.id, skill)
+            if skill.path:
+                remote_skill_paths_by_id.setdefault(skill.id, skill.path)
     stale_local_skills_by_plugin_path: dict[str, list[SkillDetail]] = {}
     for plugin in plugins:
         existing = remote_plugins_by_path.get(plugin.path)
@@ -480,7 +509,9 @@ async def sync_discovered_plugins(
             continue
 
         try:
-            existing = remote_plugins_by_path.get(plugin.path)
+            existing = remote_plugins_by_path.get(
+                plugin.path
+            ) or shared_plugins_by_path.get(plugin.path)
             servers = _build_plugin_servers(
                 client,
                 plugin.server_connectors,

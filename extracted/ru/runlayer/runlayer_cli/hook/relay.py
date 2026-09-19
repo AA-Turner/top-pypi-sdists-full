@@ -12,6 +12,7 @@ import sys
 import tempfile
 import threading
 import time
+import urllib.parse
 import uuid
 from collections.abc import Callable, Iterator
 from datetime import datetime, timezone
@@ -30,7 +31,12 @@ from runlayer_sdk.hook_transport import (
 
 from runlayer_cli import flow_spool, flow_trace
 from runlayer_cli.api import USER_AGENT
-from runlayer_cli.config import load_config, normalize_url, persist_credentials
+from runlayer_cli.config import (
+    _get_mdm_managed_enrollment_key,
+    _get_mdm_managed_org_api_key,
+    load_config,
+    persist_credentials,
+)
 from runlayer_cli.hook.failure import (
     FailureContext,
     _classify_network_failure,
@@ -41,7 +47,12 @@ from runlayer_cli.enrollment import (
     exchange_enrollment_key,
     write_enrollment_marker,
 )
-from runlayer_cli.hook import TRANSCRIPT_STREAM_WORKER_SENTINEL, hook_io
+from runlayer_cli.hook import (
+    TRANSCRIPT_STREAM_WORKER_SENTINEL,
+    credential_state,
+    hook_io,
+    host_override,
+)
 from runlayer_cli.hook.transcript_stream import (
     _buffer_is_complete_json_line,
     _first_string,
@@ -391,35 +402,65 @@ def _relay_http_client_factory() -> HookHTTPClientFactory:
     return shared_http_client
 
 
+def _target_hostname(host: str) -> str | None:
+    """Normalized hostname of a relay host URL (IDNA ASCII, lowercased, no
+    trailing dot), or ``None`` if unparsable. The single normalization site:
+    flow summaries and the spool drain compare its output verbatim."""
+    try:
+        hostname = urllib.parse.urlsplit(host).hostname
+    except ValueError:
+        return None
+    if not hostname:
+        return None
+    try:
+        hostname = hostname.encode("idna").decode("ascii")
+    except UnicodeError:
+        pass
+    return hostname.lower().rstrip(".") or None
+
+
 def _load_credentials() -> tuple[str, str]:
-    """Return (host, secret) or raise ``RelayError(1)`` (fail-closed)."""
+    """Return (host, secret) or raise ``RelayError(1)`` (fail-closed).
+
+    Also stamps the active flow's ``target_host`` — the single stamping site,
+    reached by every relay call and by dispatch's credential fingerprint, so
+    flows that never POST (negative-cache path) are stamped too.
+    """
     # Keychain/MDM reads can be slow; timed as a blocking local step (records
     # status="error" if credential loading raises).
     with flow_trace.step("credentials", kind="local", blocking=True):
         try:
             cache = _credential_cache
             if cache is not None:
-                return cache.get(_load_credentials_uncached)
-            return _load_credentials_uncached()
+                host, secret = cache.get(_load_credentials_uncached)
+            else:
+                host, secret = _load_credentials_uncached()
         except RelayError:
             raise
         except Exception as e:
             raise RelayError(1, f"credential load failed: {e}") from e
+    flow_trace.set_target_host(_target_hostname(host))
+    return host, secret
 
 
 def _load_credentials_uncached() -> tuple[str, str]:
     config = load_config()
     managed = read_managed_config()
-    raw_host = config.default_host or managed.get("host")
-    if not raw_host:
-        raise RelayError(1, "no default_host")
-    # MDM ``Host`` skips ``set_host_credentials`` normalization; strip trailing
-    # slash so ``_post`` doesn't build double-slash URLs.
-    host = normalize_url(raw_host)
+    # Managed host first: a user ``default_host`` (``runlayer login`` against
+    # staging, a sandbox, an old tenant) only steers interactive commands and
+    # must never redirect hook payloads off the host the admin provisioned.
+    # Unmanaged devices (no MDM host) keep the user host as the only host.
+    resolved = host_override.resolve_hook_host(config, managed)
+    host_override.record(resolved)
+    host = resolved["host"]
+    if not host:
+        raise RelayError(1, "no host")
     # Org-key hook mode: authenticate hooks with the managed key and let the
     # backend resolve identity from device context. Per-user enrollment remains
-    # the fallback when no org key is present.
-    org_api_key = managed.get("org_api_key")
+    # the fallback when no org key is present. The canonical helper refuses the
+    # key unless ``host`` is the managed host, so it can never be posted to a
+    # user-chosen host.
+    org_api_key = _get_mdm_managed_org_api_key(host, managed=managed)
     if org_api_key:
         return host, org_api_key
     secret = config.get_secret_for_host(host)
@@ -444,7 +485,11 @@ def _try_lazy_enrollment(host: str, managed: ManagedConfig) -> str | None:
 
 
 def _try_lazy_enrollment_inner(host: str, managed: ManagedConfig) -> str | None:
-    enrollment_key = managed.get("enrollment_key")
+    # Host-match gated like the org key: a managed EnrollmentKey without a
+    # managed Host (malformed profile) must not be exchanged at the user's
+    # login host — that would mint a per-user key on a tenant the admin
+    # never provisioned.
+    enrollment_key = _get_mdm_managed_enrollment_key(host, managed=managed)
     if not enrollment_key:
         return None
     if _enrollment_attempt_recently():
@@ -508,16 +553,27 @@ def _touch_enrollment_attempt() -> None:
         pass
 
 
+def _org_key_mode(managed: ManagedConfig) -> bool:
+    """Whether ``_load_credentials_uncached`` would send the MDM org key.
+
+    The key is released only alongside a managed ``Host`` (the resolved hook
+    host is always that host when one exists), so an ``OrgApiKey`` with no
+    ``Host`` runs in per-user mode and the org-key copy/device block must not
+    be applied.
+    """
+    return bool(managed.get("org_api_key")) and bool(managed.get("host"))
+
+
 def _maybe_attach_device(payload: str) -> str:
     """In org-key hook mode, add a top-level ``device`` block to the request.
 
-    Org-key mode is active whenever MDM ships an ``OrgApiKey`` (the single AI
-    Watch key). Backend resolves identity from ``device_id`` + username
-    server-side. No-op (returns the payload unchanged) when there's no org key,
-    so the legacy per-user path is byte-for-byte unchanged.
+    Org-key mode is active when MDM ships an ``OrgApiKey`` alongside its
+    ``Host`` (the single AI Watch key). Backend resolves identity from
+    ``device_id`` + username server-side. No-op (returns the payload unchanged)
+    when there's no org key, so the legacy per-user path is byte-for-byte
+    unchanged.
     """
-    managed = read_managed_config()
-    if not managed.get("org_api_key"):
+    if not _org_key_mode(read_managed_config()):
         return payload
     try:
         obj = json.loads(payload)
@@ -576,15 +632,20 @@ def _silence_device_output() -> Iterator[None]:
             yield
 
 
-def _maybe_attach_client_flows(payload: str, target: str) -> str:
+def _maybe_attach_client_flows(payload: str, target: str, host: str) -> str:
     """Piggyback spooled flow summaries on ``event`` POSTs (lag-one delivery).
 
     Only the fire-and-forget ``event`` target carries them — the
     latency-critical ``enforce`` / ``tool-pre`` bodies stay untouched. Returns
     the payload unchanged when tracing is disabled, the spool is empty/locked,
-    or the payload isn't a JSON object.
+    or the payload isn't a JSON object. ``host`` is the POST destination; the
+    spool drains per host (``flow_spool.spool_drain``), and an unparsable host
+    attaches nothing rather than draining every host's summaries.
     """
     if target != "event" or not flow_trace.is_enabled():
+        return payload
+    target_host = _target_hostname(host)
+    if target_host is None:
         return payload
     try:
         obj = json.loads(payload)
@@ -592,13 +653,43 @@ def _maybe_attach_client_flows(payload: str, target: str) -> str:
             return payload
         # Drain only once we know the payload can carry the envelope (a drain
         # is destructive; spooled flows would be lost on a non-dict payload).
-        envelope = flow_spool.spool_drain()
+        envelope = flow_spool.spool_drain(target_host=target_host)
         if envelope is None:
             return payload
         obj["client_flows"] = envelope
         return json.dumps(obj)
     except Exception:
         return payload
+
+
+def device_hostname() -> str | None:
+    """Hostname as Shadow → Devices shows it (MDM ``DeviceName`` first), or
+    ``None`` on any failure; never spawns the full device-metadata probes."""
+    try:
+        from runlayer_cli.scan.device import detect_hostname  # noqa: PLC0415
+
+        return read_managed_config().get("device_name") or detect_hostname()
+    except Exception:
+        return None
+
+
+def uses_managed_credential() -> bool:
+    """Whether hook calls authenticate with the MDM org key (it wins over a
+    per-user secret in ``_load_credentials_uncached``)."""
+    try:
+        return _org_key_mode(read_managed_config())
+    except Exception:
+        return False
+
+
+def current_credential_fingerprint() -> str | None:
+    """Fingerprint of the credential a relay call would send now, or ``None``
+    when none can be loaded."""
+    try:
+        host, secret = _load_credentials()
+    except Exception:
+        return None
+    return credential_state.credential_fingerprint(host, secret)
 
 
 def _build_device_context() -> dict[str, Any] | None:
@@ -651,11 +742,12 @@ def _build_device_context() -> dict[str, Any] | None:
         return None
 
 
-def _finalize_payload(payload: str, target: str) -> str:
+def _finalize_payload(payload: str, target: str, host: str) -> str:
     """Apply the schedule-time payload mutators (device context, client-time
     stamp, client_flows drain). Runs on the hook path even for deferred sends
     so the stamped timestamp keeps the behavior scanner's ordering key and the
-    spool drain keeps its lag-one delivery semantics.
+    spool drain keeps its lag-one delivery semantics. ``host`` is the POST
+    destination (per-host spool drain).
 
     ``mcp-usage`` is metadata-only: ``forward_mcp_usage_metadata`` builds its
     own closed device block (``device_id``/``username``), and the full device
@@ -667,7 +759,7 @@ def _finalize_payload(payload: str, target: str) -> str:
     if target != "mcp-usage":
         payload = _maybe_attach_device(payload)
     payload = _maybe_stamp_client_time(payload, target)
-    payload = _maybe_attach_client_flows(payload, target)
+    payload = _maybe_attach_client_flows(payload, target, host)
     return payload
 
 
@@ -687,7 +779,7 @@ def _post(
     spec = HOOK_RELAY_TARGETS[target]
     url = f"{host}{spec.endpoint}"
     if not prepared:
-        payload = _finalize_payload(payload, target)
+        payload = _finalize_payload(payload, target, host)
     # Encode the wire body once, here — encode_wire_body is the single
     # compression entry point: telemetry below must record the size actually
     # sent (compressed when compression fires), and re-compressing to measure
@@ -832,6 +924,8 @@ def _post(
         if not resp.is_success:
             if resp.status_code == 401 and _credential_cache is not None:
                 _credential_cache.invalidate()
+            if resp.status_code == credential_state.CREDENTIAL_REJECTED_STATUS:
+                _note_credential_rejection(host, secret)
             remaining_budget = deadline - time.monotonic()
             if (
                 sent_compressed
@@ -921,6 +1015,18 @@ def _post(
                 attempts=attempt,
             ),
         )
+
+
+def _note_credential_rejection(host: str, secret: str) -> None:
+    """Persist the 401 for Monitor's negative cache and stamp ``http_401`` on
+    the active flow; dispatch names the outcome per mode (its override keeps
+    this category). Lives here, not in dispatch, so the daemon's deferred
+    sends are covered too."""
+    status = credential_state.CREDENTIAL_REJECTED_STATUS
+    credential_state.record_rejection(
+        status, credential_state.credential_fingerprint(host, secret)
+    )
+    flow_trace.mark_error(None, category=f"http_{status}", http_status=status)
 
 
 def _maybe_debug(debug: bool, target: str, url: str, payload: str, resp: Any) -> None:
@@ -1063,7 +1169,7 @@ def _defer_best_effort_post(
     if sender is None:
         return False
     host, secret = _load_credentials()
-    payload = _finalize_payload(wrapper, target)
+    payload = _finalize_payload(wrapper, target, host)
     # Resolve the gzip decision here, on the request thread, while the
     # request-scoped ``hook_io`` env (and its ``RUNLAYER_HOOK_GZIP`` kill
     # switch) is still in scope. The send runs on the queue worker thread where

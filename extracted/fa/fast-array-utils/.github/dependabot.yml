@@ -2,7 +2,13 @@ version: 2
 updates:
   - package-ecosystem: github-actions
     directory: /
+    labels:
+      - run-gpu-ci
     schedule:
       interval: weekly
     cooldown:
       default-days: 7
+    groups:
+      actions-deps:
+        patterns:
+          - "*"

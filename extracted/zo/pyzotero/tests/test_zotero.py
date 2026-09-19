@@ -63,10 +63,10 @@ class ZoteroTests(unittest.TestCase):
 
     def testBuildUrlCorrectHandleEndpoint(self):
         """Url should be concat correctly by build_url"""
-        url = z.build_url("http://localhost:23119/api", "/users/0")
-        self.assertEqual(url, "http://localhost:23119/api/users/0")
-        url = z.build_url("http://localhost:23119/api/", "/users/0")
-        self.assertEqual(url, "http://localhost:23119/api/users/0")
+        url = z.build_url("http://127.0.0.1:23119/api", "/users/0")
+        self.assertEqual(url, "http://127.0.0.1:23119/api/users/0")
+        url = z.build_url("http://127.0.0.1:23119/api/", "/users/0")
+        self.assertEqual(url, "http://127.0.0.1:23119/api/users/0")
 
     def testFailWithoutCredentials(self):
         """Instance creation should fail, because we're leaving out a
@@ -871,6 +871,42 @@ class ZoteroTests(unittest.TestCase):
         self.assertEqual(resp, True)
         request = mock.last_request()
         self.assertEqual(request.headers["If-Unmodified-Since-Version"], "5")
+
+    def testCheckItemsAcceptsDeleted(self):
+        """A trashed item is returned carrying deleted, so it must validate"""
+        mock = MockClient()
+        zot = z.Zotero("myuserID", "user", "myuserkey", client=mock.client)
+        mock.register(
+            "GET",
+            "https://api.zotero.org/itemFields",
+            body=self.item_fields,
+            content_type="application/json",
+        )
+        trashed = json.loads(self.item_doc)
+        trashed["data"]["deleted"] = 1
+        checked = zot.check_items([trashed])
+        self.assertEqual(checked[0]["deleted"], 1)
+
+    def testItemUpdateTrashesItem(self):
+        """An item is moved to the trash by updating it with deleted set"""
+        mock = MockClient()
+        zot = z.Zotero("myuserID", "user", "myuserkey", client=mock.client)
+        mock.register(
+            "GET",
+            "https://api.zotero.org/itemFields",
+            body=self.item_fields,
+            content_type="application/json",
+        )
+        mock.register(
+            "PATCH",
+            "https://api.zotero.org/users/myuserID/items/ABC123",
+            body="",
+            content_type="application/json",
+            status=204,
+        )
+        update = {"key": "ABC123", "version": 3, "itemType": "book", "deleted": 1}
+        self.assertEqual(zot.update_item(update), True)
+        self.assertEqual(mock.last_request().json()["deleted"], 1)
 
     def testTooManyItems(self):
         """Should fail because we're passing too many items"""
@@ -2126,15 +2162,15 @@ class ZoteroTests(unittest.TestCase):
         zot = z.Zotero("myuserID", "user", "myuserkey", local=True, client=mock.client)
 
         # Test stripping local API path
-        url = "http://localhost:23119/api/users/myuserID/items"
+        url = "http://127.0.0.1:23119/api/users/myuserID/items"
         result = zot._striplocal(url)
-        self.assertEqual(result, "http://localhost:23119/users/myuserID/items")
+        self.assertEqual(result, "http://127.0.0.1:23119/users/myuserID/items")
 
         # Test with more complex path
-        url = "http://localhost:23119/api/users/myuserID/collections/ABC123/items"
+        url = "http://127.0.0.1:23119/api/users/myuserID/collections/ABC123/items"
         result = zot._striplocal(url)
         self.assertEqual(
-            result, "http://localhost:23119/users/myuserID/collections/ABC123/items"
+            result, "http://127.0.0.1:23119/users/myuserID/collections/ABC123/items"
         )
 
     def test_striplocal_remote_mode(self):
@@ -2146,6 +2182,71 @@ class ZoteroTests(unittest.TestCase):
         url = "https://api.zotero.org/users/myuserID/items"
         result = zot._striplocal(url)
         self.assertEqual(result, url)
+
+    def test_local_mode_ignores_environment_proxies(self):
+        """The default client in local mode sends requests directly"""
+        zot = z.Zotero("0", "user", local=True)
+        self.assertFalse(zot.client.trust_env)
+
+    def test_remote_mode_uses_environment_proxies(self):
+        """The default client in remote mode keeps the environment settings"""
+        zot = z.Zotero("myuserID", "user", "myuserkey")
+        self.assertTrue(zot.client.trust_env)
+
+    def test_supplied_client_sends_default_headers(self):
+        """A client that the caller supplies sends the default headers"""
+        mock = MockClient()
+        mock.register("GET", "https://api.zotero.org/users/myuserID/items", body="[]")
+        zot = z.Zotero("myuserID", "user", "myuserkey", client=mock.client)
+        zot.items()
+        headers = mock.requests[0].headers
+        self.assertEqual(headers["Authorization"], "Bearer myuserkey")
+        self.assertEqual(headers["Zotero-API-Version"], "3")
+        self.assertTrue(headers["User-Agent"].startswith("Pyzotero/"))
+
+    def test_supplied_client_sends_default_headers_on_writes(self):
+        """Request headers and default headers go together on a write"""
+        mock = MockClient()
+        mock.register(
+            "POST",
+            "https://api.zotero.org/users/myuserID/collections",
+            body=json.dumps({"success": {"0": "COLLKEY"}}),
+        )
+        zot = z.Zotero("myuserID", "user", "myuserkey", client=mock.client)
+        zot.create_collections([{"name": "Test"}])
+        headers = mock.requests[0].headers
+        self.assertEqual(headers["Authorization"], "Bearer myuserkey")
+        self.assertEqual(headers["Content-Type"], "application/json")
+        self.assertIn("Zotero-Write-Token", headers)
+
+    def test_supplied_client_is_not_changed(self):
+        """The client keeps its own headers and gets none of the defaults"""
+        mock = MockClient()
+        mock.client.headers["X-Custom"] = "kept"
+        mock.register("GET", "https://api.zotero.org/users/myuserID/items", body="[]")
+        zot = z.Zotero("myuserID", "user", "myuserkey", client=mock.client)
+        zot.items()
+        self.assertEqual(mock.requests[0].headers["X-Custom"], "kept")
+        self.assertNotIn("Authorization", mock.client.headers)
+        self.assertNotIn("Zotero-API-Version", mock.client.headers)
+
+    def test_default_headers_replace_client_headers(self):
+        """A default header replaces a client header of the same name"""
+        mock = MockClient()
+        mock.client.headers["User-Agent"] = "custom"
+        mock.register("GET", "https://api.zotero.org/users/myuserID/items", body="[]")
+        zot = z.Zotero("myuserID", "user", "myuserkey", client=mock.client)
+        zot.items()
+        self.assertTrue(mock.requests[0].headers["User-Agent"].startswith("Pyzotero/"))
+
+    def test_client_authorization_kept_without_api_key(self):
+        """Without an API key, the Authorization header of the client is sent"""
+        mock = MockClient()
+        mock.client.headers["Authorization"] = "Bearer fromclient"
+        mock.register("GET", "https://api.zotero.org/users/myuserID/items", body="[]")
+        zot = z.Zotero("myuserID", "user", client=mock.client)
+        zot.items()
+        self.assertEqual(mock.requests[0].headers["Authorization"], "Bearer fromclient")
 
     def test_set_fulltext(self):
         """Test set_fulltext method for setting full-text data"""

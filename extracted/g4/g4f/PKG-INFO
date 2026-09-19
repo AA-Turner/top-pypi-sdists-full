@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: g4f
-Version: 8.5.1
+Version: 8.5.2
 Summary: The official gpt4free repository | various collection of powerful language models
 Home-page: https://github.com/xtekky/gpt4free
 Author: Tekky
@@ -35,17 +35,14 @@ Requires-Dist: werkzeug; extra == "all"
 Requires-Dist: flask[async]; extra == "all"
 Requires-Dist: fastapi; extra == "all"
 Requires-Dist: uvicorn; extra == "all"
-Requires-Dist: zendriver; extra == "all"
 Requires-Dist: python-multipart; extra == "all"
 Requires-Dist: a2wsgi; extra == "all"
 Requires-Dist: setuptools; extra == "all"
 Requires-Dist: markitdown[all]; extra == "all"
 Requires-Dist: python-dotenv; extra == "all"
-Requires-Dist: aiofile; extra == "all"
 Requires-Dist: wasmtime; extra == "all"
 Requires-Dist: numpy; extra == "all"
 Requires-Dist: PyYAML; extra == "all"
-Requires-Dist: websocket-client; extra == "all"
 Requires-Dist: pystray; extra == "all"
 Requires-Dist: cryptography; extra == "all"
 Provides-Extra: slim
@@ -60,26 +57,18 @@ Requires-Dist: werkzeug; extra == "slim"
 Requires-Dist: flask[async]; extra == "slim"
 Requires-Dist: fastapi; extra == "slim"
 Requires-Dist: uvicorn; extra == "slim"
-Requires-Dist: zendriver; extra == "slim"
 Requires-Dist: python-multipart; extra == "slim"
 Requires-Dist: a2wsgi; extra == "slim"
 Requires-Dist: pypdf2; extra == "slim"
 Requires-Dist: python-docx; extra == "slim"
 Requires-Dist: python-dotenv; extra == "slim"
-Requires-Dist: aiofile; extra == "slim"
 Requires-Dist: PyYAML; extra == "slim"
-Requires-Dist: websocket-client; extra == "slim"
 Requires-Dist: pystray; extra == "slim"
 Requires-Dist: cryptography; extra == "slim"
 Provides-Extra: image
 Requires-Dist: pillow; extra == "image"
 Requires-Dist: cairosvg; extra == "image"
 Requires-Dist: beautifulsoup4; extra == "image"
-Provides-Extra: webview
-Requires-Dist: pywebview; extra == "webview"
-Requires-Dist: platformdirs; extra == "webview"
-Requires-Dist: plyer; extra == "webview"
-Requires-Dist: cryptography; extra == "webview"
 Provides-Extra: api
 Requires-Dist: loguru; extra == "api"
 Requires-Dist: fastapi; extra == "api"

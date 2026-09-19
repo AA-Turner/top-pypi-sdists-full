@@ -470,6 +470,92 @@ def _is_release_build(version: str) -> bool:
     return _RELEASE_VERSION_RE.fullmatch(version) is not None
 
 
+class _NoActiveTestConnectionSentinel:
+    """Installed as the ``_conn`` singleton whenever pytest is running but no
+    test's ``coord_db`` fixture currently holds an active override (#3385).
+
+    ``tests/conftest.py``'s autouse ``coord_db`` fixture is function-scoped:
+    it only guarantees an isolated in-memory connection while ONE test's
+    setup/call/teardown phases are running. Before this sentinel existed,
+    that fixture's teardown called :func:`close`, which resets the module
+    singleton to plain ``None`` -- reopening the exact gap #1960's guard was
+    built to close, just one layer up: ANY caller of :func:`get_connection`
+    during that gap (between one test's teardown finishing and the next
+    test's setup starting, or before the very first test's setup has run at
+    all) fell through :func:`get_connection` into :func:`_open`, which
+    resolves the REAL ``~/.coord/coord.db`` (#1960, #3385). #1960's own guard
+    inside :func:`_open` only fires while ``PYTEST_CURRENT_TEST`` happens to
+    be set, which is not guaranteed across that specific gap -- exactly the
+    seam #3385 was filed to close after #3380's daemon-lifespan-shutdown fix
+    left the reported failure count unchanged.
+
+    Installed once at ``pytest_configure`` (before collection even starts,
+    closing the pre-first-test window) and reinstalled by ``coord_db``'s own
+    teardown after every test (closing the inter-test window), so ``_conn``
+    is never plain ``None`` for the life of a pytest process:
+    :func:`get_connection` always hands back either a real per-test override
+    or this sentinel -- it can no longer fall through to :func:`_open` while
+    pytest is running, regardless of what races ahead of the next test's
+    setup or what runs before the first one.
+
+    Any attempt to use it -- ``.execute()``, ``.cursor()``, ``.commit()``,
+    even the ``.closed`` probe :func:`_connection_is_closed` runs on every
+    cached connection -- raises :class:`ProductionDatabaseGuardError`
+    immediately via ``__getattr__``, so a caller that reaches this gets a
+    clear, correctly-attributed error instead of a real database file
+    quietly being opened (or silently reused) underneath it.
+
+    **Scope, stated plainly (#3385 review).** This closes exactly one seam:
+    the ``coord.db._conn`` singleton that :func:`get_connection` reads. It
+    is a real, previously-unguarded gap, but it is not asserted here to be
+    the sole or even primary source of the ~3700
+    ``ProductionDatabaseGuardError`` failures the issue reports on ``main``
+    -- that would require the actual CI failure log, which this fix was not
+    verified against (see the commit message for what evidence is, and is
+    not, available). One other unguarded route was found by inspection
+    while investigating this and is flagged rather than silently left for
+    someone else to rediscover: ``coord.dao.SqliteStore._connect()``'s
+    SQLite branch opens ``self._path`` (``DB_PATH`` by default,
+    resolved once at ``__init__``) with no pytest/non-release guard at all
+    -- unlike its Postgres branch, which calls
+    ``refuse_postgres_under_pytest`` first. ``SqliteStore()`` with no
+    explicit ``db_path`` (e.g. ``coord/reports.py``'s
+    ``_default_usage_rows``) would reach that unguarded path. Left
+    unmodified here: it is outside this fix's file scope
+    (``tests/conftest.py`` / ``coord/db.py``) and there is no confirmed
+    evidence it contributes to the reported count -- but if a post-merge
+    ``main`` ``Tests`` run still shows a nonzero
+    ``ProductionDatabaseGuardError`` count after this change, that is the
+    next place to look.
+    """
+
+    def __getattr__(self, name: str) -> Any:
+        raise ProductionDatabaseGuardError(
+            "coord.db.get_connection() was reached while no test's `coord_db` "
+            "fixture held an active override (#3385) -- this is the gap "
+            "between one test's teardown and the next test's setup, or "
+            "before the very first test's setup has run at all. A caller "
+            f"tried to access {name!r} on the connection singleton in that "
+            "gap. Likely causes: a background thread a prior test spawned "
+            "and never joined, or a fixture that reaches coord.db before "
+            "the autouse `coord_db` fixture has installed its override. See "
+            "#1960 (the guard this generalizes) and #3385 (this sentinel)."
+        )
+
+
+def _pytest_gap_sentinel() -> Any:
+    """Factory for :class:`_NoActiveTestConnectionSentinel` (#3385).
+
+    A function rather than a bare module-level instance so every install
+    site (``tests/conftest.py``'s ``pytest_configure`` and ``coord_db``
+    teardown) gets its own object -- cheap, and it means a traceback's
+    ``id()`` never accidentally suggests two installs shared state they
+    don't (the sentinel is stateless, but nothing here should rely on that
+    by sharing one instance).
+    """
+    return _NoActiveTestConnectionSentinel()
+
+
 def override_connection(conn: Any) -> None:
     """Replace the singleton connection.  Used in tests to inject :memory: DBs.
 
@@ -576,6 +662,129 @@ def rollback_after_driver_error(conn: Any | None, exc: BaseException) -> None:
         return  # not a Postgres driver error — nothing was aborted
     try:
         conn.rollback()
+    except Exception:  # noqa: BLE001 — never mask the caught driver error
+        pass
+
+
+def undo_pending_write(conn: Any | None, exc: BaseException, *, undo: Callable[[], Any]) -> None:
+    """Run *undo* — a compensating statement touching only THIS write's own
+    row — after *exc*, the #3382 sibling of
+    :func:`rollback_after_driver_error` for a writer whose own
+    ``conn.commit()`` call, not just the statement before it, can raise.
+
+    :func:`rollback_after_driver_error` deliberately no-ops for a plain
+    SQLite error (see its docstring): that is correct when the failure is a
+    STATEMENT that never got to write anything — SQLite's ``SQLITE_BUSY``,
+    hit while acquiring the lock a write needs, leaves nothing applied, so
+    simply re-running the whole write closure from scratch (what
+    :func:`retry_on_locked` does) is exactly as good as a rollback.
+
+    That reasoning does not hold when it is ``conn.commit()`` itself that
+    raises. WAL-checkpoint contention can make ``COMMIT`` hit
+    ``SQLITE_BUSY`` *after* the statement(s) before it already applied
+    inside the still-open transaction — the write is neither committed nor
+    undone, so it sits there, genuinely pending, on ``coord.db``'s shared
+    process-wide connection, ready for a completely unrelated handler's next
+    unrelated ``commit()`` to durably persist it later. #3382: this is
+    exactly how a ``review_claims`` row survived two callers who each saw
+    their own ``/review-claim`` POST fail with a 503 — neither call's own
+    retry-free write had anything guarding its ``commit()``, so the pending
+    insert outlived both failed calls and was swept up by a later,
+    completely unrelated write on the same shared connection.
+
+    A bare retry of the closure does not fix this the way it fixes a failed
+    statement, either: an ``INSERT OR IGNORE`` re-run against its own
+    still-pending prior insert reads back as a conflict (``rowcount == 0``),
+    so the retry silently misreports "someone else already holds this
+    claim" about a claim only this process's own earlier, abandoned attempt
+    took.
+
+    **Why a compensating statement, and not a transaction-level undo of any
+    kind (#3382 review rounds 1 and 2).** Two earlier shapes of this
+    function were both rejected, for the same underlying reason:
+
+    * ``conn.rollback()`` (round 1). On ``coord.db``'s shared, process-wide
+      SQLite singleton (see this module's own docstring), that discards
+      *every* other thread's not-yet-committed statement too — this process
+      dispatches other ``_*_local`` writers through ``run_in_threadpool`` on
+      real OS worker threads (the daemon's periodic tick, the ``/board``
+      build, ``/assignment/*`` handlers), and Python's ``sqlite3`` joins ANY
+      thread's statement issued on this one connection between commits into
+      the SAME open transaction. An unrelated writer that already got
+      ``sql.execute``/``sql.insert_ignore``'s success back (nothing in this
+      tree commits internally — see ``coord/sql.py``) then silently loses it
+      when its own later ``conn.commit()`` no-ops or raises ``cannot commit
+      - no transaction is active`` — this issue's own second logged symptom.
+
+    * ``SAVEPOINT`` + ``ROLLBACK TO SAVEPOINT`` (round 2), whether the
+      savepoint name is a shared literal or made unique per call. Unique
+      names fix only the narrower half of the problem (two concurrent calls
+      resolving each other's marker, since SQLite binds a name to the most
+      recently established savepoint of that name). They do **not** fix the
+      half that matters: ``ROLLBACK TO SAVEPOINT`` reverts the database to
+      its state *just after that savepoint was established*, so it undoes
+      every statement issued since — including another thread's, which this
+      writer has no business undoing — and destroys that thread's own
+      savepoints along the way. Verified against a real ``sqlite3``
+      connection (Python 3.12, SQLite 3.45): with two distinctly-named
+      savepoints opened back to back and one row inserted after each,
+      ``ROLLBACK TO`` the OUTER (uniquely-named) savepoint removes BOTH
+      rows. A transaction-scoped undo simply cannot express "mine only" on a
+      connection several threads write through.
+
+    So the undo is row-scoped instead: *undo* issues one statement that
+    names this write's own row and nothing else (delete the row this call
+    inserted, identified by its own ``claimed_at`` stamp; re-insert the row
+    this call deleted, with the ``claimed_at`` it read back first). It is
+    exact regardless of how other threads' statements interleave with this
+    one — before the failure or after it — because it never refers to their
+    rows.
+
+    It also degrades better than a transaction-level undo when an unrelated
+    thread's ``commit()`` lands *between* this write's statement and this
+    recovery: a savepoint would already have been destroyed by that commit
+    (``COMMIT`` releases all savepoints), leaving ``ROLLBACK TO`` to fail
+    and this write's row durably committed and leaked — precisely the
+    incident. The compensating statement instead stays pending and is
+    flushed by whichever ``commit()`` reaches it next (this closure's own
+    retry, or another writer's), so the net effect on this row is still
+    nothing.
+
+    Call this from the ``except sql.driver_errors():`` block of a write
+    closure that both executes a statement *and* calls ``conn.commit()``
+    itself, and **only when that closure's own statement actually applied**
+    (``cursor.rowcount``) — a statement that failed applied nothing, so
+    there is nothing to compensate, the same "a failed STATEMENT applies
+    nothing" reasoning :func:`rollback_after_driver_error` already
+    documents. Today's callers are the ``review_claims``/``smoke_claims``
+    claim and release writes in ``coord/state.py`` (#3113/#3333), the two
+    sites where "did this claim land" is an exclusive-ownership decision the
+    rest of the system relies on, unlike most of this module's writers where
+    a duplicate-on-retry UPDATE/DELETE is harmless.
+
+    Unlike :func:`rollback_after_driver_error`, this does not inspect *exc*
+    for a SQLSTATE: the plain-SQLite case above is exactly what it exists to
+    cover. On Postgres it is a harmless no-op in practice — a failed
+    ``COMMIT`` there aborts the whole transaction (so *undo* raises
+    ``InFailedSqlTransaction``, suppressed below) and
+    :func:`retry_on_locked`'s own :func:`rollback_after_driver_error` call
+    has already undone this write for real; ``get_connection()`` also hands
+    each THREAD its own connection there (see this module's docstring), so
+    no other thread's statement was ever at risk.
+
+    Same suppression rule as :func:`rollback_after_driver_error`: a ``None``
+    *conn* is a no-op, and a failure of *undo* itself is swallowed so it
+    never masks *exc*, the exception actually worth seeing. If the
+    compensating statement cannot run either (sustained contention
+    outlasting even this), this write's own row is left pending for the next
+    writer's eventual commit/rollback to resolve — the same residual,
+    already-accepted risk :func:`rollback_after_driver_error`'s own
+    suppressed-failure path carries today, not a new one.
+    """
+    if conn is None:
+        return
+    try:
+        undo()
     except Exception:  # noqa: BLE001 — never mask the caught driver error
         pass
 
@@ -840,7 +1049,16 @@ def retry_on_locked(
 # ("confirmed"/"unconfirmed"/"refuted"/"baseline_red") for a `test_state`
 # write, alongside `coord.state._record_test_verdict_local`. See
 # coord.models.Assignment.test_confirmation.
-_DB_SCHEMA_VERSION = 18
+#
+# #3384: bumped 18 -> 19 for the new `issues.state_reason` column appended
+# to `_migrate_add_columns` below — carries GitHub's own `stateReason`
+# (`"reopened"` when a human explicitly reopened a closed issue) so
+# `coord.drive_queue.IssueFacts.reopened`/`.landed` can tell "this issue was
+# reopened for incomplete work" apart from "this issue never closed in the
+# first place" (a quadraui-style merge into a non-default branch) — both
+# read identically as `merged=True, issue_state="open"` otherwise. See
+# `coord.drive_queue.IssueFacts.landed`'s docstring.
+_DB_SCHEMA_VERSION = 19
 
 
 def _read_schema_version(conn: sqlite3.Connection) -> int:
@@ -2281,6 +2499,17 @@ _MIGRATE_ADD_COLUMNS: list[str] = [
     # See coord.models.Assignment.test_confirmation and
     # coord.confirm_test.TEST_CONFIRMATION_VALUES for the exhaustive set.
     "ALTER TABLE assignments ADD COLUMN test_confirmation TEXT",
+    # #3384: GitHub's own `stateReason` for this issue — `''`/NULL for every
+    # row predating this migration and for an issue that has never closed,
+    # `"reopened"` (lowercased on write — see
+    # `coord.state._upsert_open_issues_local`) when a human explicitly
+    # reopened a previously-closed issue via `gh issue reopen`. This is the
+    # ONLY witness that lets `coord.drive_queue.IssueFacts.landed` tell a
+    # genuine reopen (the work is NOT done, no matter what an earlier PR
+    # merge recorded) apart from a quadraui-style repo whose merged PRs never
+    # auto-close the linked issue at all — both look identical as
+    # `merged=True, issue_state="open"` without it.
+    "ALTER TABLE issues ADD COLUMN state_reason TEXT NOT NULL DEFAULT ''",
 ]
 
 

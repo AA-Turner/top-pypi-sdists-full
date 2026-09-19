@@ -20,6 +20,7 @@ import structlog
 
 from runlayer_cli import regex_safe
 from runlayer_cli.scan.agents.install import AgentRuntimeSignature
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.processes.models import ProcessCandidate
 
 logger = structlog.get_logger(__name__)
@@ -31,7 +32,13 @@ _LAUNCHCTL_RUNNING_RE = regex_safe.compile(
 )
 
 
-def _run_success(command: list[str], *, timeout: int) -> str | None:
+def _run_success(
+    command: list[str],
+    *,
+    timeout: int,
+    scan_status: ScanCompletionStatus | None = None,
+    nonzero_reason: str | None = None,
+) -> str | None:
     """Return stdout for a successful bounded subprocess."""
     try:
         result = subprocess.run(
@@ -42,8 +49,14 @@ def _run_success(command: list[str], *, timeout: int) -> str | None:
             check=False,
         )
     except (OSError, subprocess.SubprocessError):
+        if scan_status is not None:
+            scan_status.mark_incomplete("agent_runtime_probe_command_failed")
         return None
-    return result.stdout if result.returncode == 0 else None
+    if result.returncode != 0:
+        if scan_status is not None and nonzero_reason is not None:
+            scan_status.mark_incomplete(nonzero_reason)
+        return None
+    return result.stdout
 
 
 def parse_launchctl_pid(output: str) -> int | None:
@@ -68,6 +81,7 @@ def _service_sightings(
     signatures: Sequence[AgentRuntimeSignature],
     *,
     timeout: int,
+    scan_status: ScanCompletionStatus | None = None,
 ) -> list[tuple[str, str, int | None]]:
     """Return ``(framework_id, signal, pid)`` for active registered services."""
     system = platform.system()
@@ -81,6 +95,7 @@ def _service_sightings(
                 output = _run_success(
                     ["launchctl", "print", target],
                     timeout=timeout,
+                    scan_status=scan_status,
                 )
                 if output is not None and _LAUNCHCTL_RUNNING_RE.search(output):
                     sightings.append(
@@ -96,6 +111,7 @@ def _service_sightings(
                 active = _run_success(
                     ["systemctl", "--user", "is-active", unit],
                     timeout=timeout,
+                    scan_status=scan_status,
                 )
                 if active is None or active.strip() != "active":
                     continue
@@ -110,6 +126,7 @@ def _service_sightings(
                         "--value",
                     ],
                     timeout=timeout,
+                    scan_status=scan_status,
                 )
                 sightings.append(
                     (
@@ -126,6 +143,7 @@ def _docker_sightings(
     signatures: Sequence[AgentRuntimeSignature],
     *,
     timeout: int,
+    scan_status: ScanCompletionStatus | None = None,
 ) -> list[tuple[str, str, int | None]]:
     """Run one ``docker ps`` pass and match every registered signature."""
     if not any(signature.docker_markers for signature in signatures):
@@ -136,6 +154,8 @@ def _docker_sightings(
     output = _run_success(
         ["docker", "ps", "--format", "{{.ID}}\t{{.Names}}\t{{.Image}}"],
         timeout=timeout,
+        scan_status=scan_status,
+        nonzero_reason="agent_docker_probe_failed",
     )
     if output is None:
         return []
@@ -200,17 +220,32 @@ def probe_agent_runtime(
     signatures: Sequence[AgentRuntimeSignature],
     *,
     timeout: int,
+    scan_status: ScanCompletionStatus | None = None,
 ) -> list[ProcessCandidate]:
     """Annotate the enumerated stream with service/container runtime signals."""
     enriched = list(candidates)
     try:
-        sightings = _service_sightings(signatures, timeout=timeout)
+        sightings = _service_sightings(
+            signatures,
+            timeout=timeout,
+            scan_status=scan_status,
+        )
     except Exception as exc:
+        if scan_status is not None:
+            scan_status.mark_incomplete("agent_service_probe_failed")
         logger.debug("agent_service_probe_failed", error=str(exc))
         sightings = []
     try:
-        sightings.extend(_docker_sightings(signatures, timeout=timeout))
+        sightings.extend(
+            _docker_sightings(
+                signatures,
+                timeout=timeout,
+                scan_status=scan_status,
+            )
+        )
     except Exception as exc:
+        if scan_status is not None:
+            scan_status.mark_incomplete("agent_docker_probe_failed")
         logger.debug("agent_docker_probe_failed", error=str(exc))
 
     for framework_id, signal, pid in sightings:

@@ -33,12 +33,14 @@ from runlayer_cli.commands.setup import (
     build_server_proxy_url,
     normalize_server_name,
 )
+from runlayer_cli.plugins.constants import RUNLAYER_PLUGIN_ID
 from runlayer_cli.skills.installer import _sanitize_name
 from runlayer_cli.skills.installer_core import _links_and_junctions
 
 CANONICAL_BASE = ".agents/plugins"
 CODEX_NATIVE_INSTALL_MODE = "native_codex_marketplace"
 CURSOR_NATIVE_INSTALL_MODE = "native_copy"
+CLAUDE_CODE_NATIVE_INSTALL_MODE = "native_claude_marketplace"
 _CURSOR_USER_LOCAL_DIR = "local"
 CLAUDE_CODE_MARKETPLACE = "runlayer"
 CLAUDE_CODE_PLUGIN_VERSION = "1.0.0"
@@ -101,6 +103,34 @@ def build_plugin_proxy_servers(
         servers[key] = entry
 
     return servers
+
+
+def codex_plugin_mcp_config_is_current(
+    plugin: PluginDetail,
+    canonical_dir: Path,
+    *,
+    install_name: str | None,
+    client_name: str,
+    install_mode: str,
+    host: str,
+    secret: str | None = None,
+) -> bool:
+    if (
+        client_name != "codex"
+        or not (plugin.id == RUNLAYER_PLUGIN_ID or plugin.use_dynamic_tools)
+        or install_mode != CODEX_NATIVE_INSTALL_MODE
+    ):
+        return True
+    plugin_dir = canonical_dir / (
+        install_name
+        or plugin.install_name
+        or native_layout("codex").install_name(plugin.name)
+    )
+    actual = _json_object_or_empty(plugin_dir / ".mcp.json")
+    expected = {
+        "mcpServers": build_plugin_proxy_servers(plugin, host, "codex", secret=secret)
+    }
+    return actual == expected
 
 
 def _build_codex_plugin_manifest(
@@ -449,16 +479,9 @@ def _upsert_claude_code_plugin_registration(
     cache_dir.parent.mkdir(parents=True, exist_ok=True)
     shutil.copytree(plugin_dir, cache_dir, symlinks=True)
 
-    marketplace_plugin_dir = _claude_code_marketplace_dir() / "plugins" / plugin_name
-    marketplace_plugin_dir.parent.mkdir(parents=True, exist_ok=True)
-    if marketplace_plugin_dir.is_symlink() or marketplace_plugin_dir.exists():
-        if marketplace_plugin_dir.is_dir() and not marketplace_plugin_dir.is_symlink():
-            shutil.rmtree(marketplace_plugin_dir)
-        else:
-            marketplace_plugin_dir.unlink()
-    marketplace_plugin_dir.symlink_to(
-        os.path.relpath(plugin_dir, marketplace_plugin_dir.parent)
-    )
+    # Claude Code (>= 2.1.257) refuses a marketplace entry whose real path
+    # leaves the marketplace directory, so the entry must be a real copy.
+    _copy_plugin(canonical_dir, _claude_code_marketplace_dir() / "plugins", plugin_name)
 
     description = plugin.description or f"Runlayer plugin for {plugin.name}"
     _upsert_claude_code_marketplace(plugin_name, description)
@@ -735,7 +758,10 @@ _CODEX_DISPLAY_NAME = "Codex"
 NATIVE_LAYOUTS: dict[str, NativeLayout] = {
     "claude_code": NativeLayout(
         display_name=_CLAUDE_CODE_DISPLAY_NAME,
-        install_mode="native",
+        # Entries recorded as plain `native` symlinked the marketplace plugin
+        # dir outward, which Claude Code >= 2.1.257 refuses to load, so they
+        # read as stale and `add`/`update` reinstall them as a real copy.
+        install_mode=CLAUDE_CODE_NATIVE_INSTALL_MODE,
         manifest_dir=".claude-plugin",
         project_rel=".claude/plugins",
         global_rel=".claude/plugins",

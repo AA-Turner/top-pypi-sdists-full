@@ -14,6 +14,7 @@ from zipfile import BadZipFile, ZipFile
 
 import structlog
 
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.plugin_scanner import DiscoveredPluginArtifact
 from runlayer_cli.scan.scanner_primitives import (
     SymlinkFollowPolicy,
@@ -450,9 +451,19 @@ def _iter_product_dirs(
     *,
     current_home: Path,
     checkpoint: Callable[[], None] | None,
+    scan_status: ScanCompletionStatus | None,
 ) -> Generator[Path, None, None]:
     # A generator can be closed explicitly when the bounded collection ends.
-    product_dir_iterator = iter_directory_entries(resolved_data_root)
+    product_dir_iterator = iter_directory_entries(
+        resolved_data_root,
+        on_error=(
+            lambda _exc: (
+                scan_status.mark_incomplete("jetbrains_plugin_directory_read_failed")
+                if scan_status is not None
+                else None
+            )
+        ),
+    )
     product_dirs: list[Path] = []
     try:
         for product_dir in islice(
@@ -466,6 +477,8 @@ def _iter_product_dirs(
         product_dir_iterator.close()
     yield from sorted(product_dirs[:MAX_PRODUCT_DIRS_PER_ROOT])
     if len(product_dirs) > MAX_PRODUCT_DIRS_PER_ROOT:
+        if scan_status is not None:
+            scan_status.mark_incomplete("jetbrains_plugin_product_dirs_capped")
         logger.warning(
             "jetbrains_plugin_scan_capped",
             home=str(current_home),
@@ -535,6 +548,7 @@ def scan_jetbrains_plugins(
     home: Path | None = None,
     extra_home_roots: Sequence[Path] = (),
     checkpoint: Callable[[], None] | None = None,
+    scan_status: ScanCompletionStatus | None = None,
 ) -> list[DiscoveredPluginArtifact]:
     """Enumerate JetBrains plugins fairly within one scan-wide entry budget."""
     native_home = home or Path.home()
@@ -586,6 +600,7 @@ def scan_jetbrains_plugins(
             resolved_data_root,
             current_home=current_home,
             checkpoint=checkpoint,
+            scan_status=scan_status,
         ):
             product_name = product_entry.name
             plugin_root = _resolve_plugin_root(
@@ -603,7 +618,23 @@ def scan_jetbrains_plugins(
                 continue
             scheduled_plugin_roots.add(root_key)
             client = _product_client(product_name)
-            root_iterators.append((client, iter_directory_entries(plugin_root)))
+            root_iterators.append(
+                (
+                    client,
+                    iter_directory_entries(
+                        plugin_root,
+                        on_error=(
+                            lambda _exc: (
+                                scan_status.mark_incomplete(
+                                    "jetbrains_plugin_directory_read_failed"
+                                )
+                                if scan_status is not None
+                                else None
+                            )
+                        ),
+                    ),
+                )
+            )
 
     def _visit(client: str, plugin_path: Path) -> None:
         try:
@@ -634,21 +665,27 @@ def scan_jetbrains_plugins(
                 resolver=resolver,
             )
         except (OSError, RuntimeError):
+            if scan_status is not None:
+                scan_status.mark_incomplete("jetbrains_plugin_read_failed")
             return
         if artifact is not None:
             artifacts.append(artifact)
 
-    entries_consumed = drain_round_robin(
+    drain_result = drain_round_robin(
         root_iterators,
         visit=_visit,
         max_entries=MAX_PLUGINS_PER_SCAN,
         checkpoint=checkpoint,
     )
 
-    if entries_consumed == MAX_PLUGINS_PER_SCAN:
+    if drain_result["max_entries_exceeded"]:
+        if scan_status is not None:
+            scan_status.mark_incomplete("jetbrains_plugin_scan_capped")
         logger.warning(
             "jetbrains_plugin_scan_capped",
             cap=MAX_PLUGINS_PER_SCAN,
         )
+    if symlink_policy.follow_budget_exhausted and scan_status is not None:
+        scan_status.mark_incomplete("jetbrains_plugin_symlink_follow_capped")
 
     return artifacts

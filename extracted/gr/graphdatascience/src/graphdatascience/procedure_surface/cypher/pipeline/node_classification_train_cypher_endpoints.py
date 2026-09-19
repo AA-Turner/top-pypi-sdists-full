@@ -3,10 +3,10 @@ from __future__ import annotations
 from typing import Any
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
-from graphdatascience.procedure_surface.api.model.node_classification_model import NodeClassificationModelV2
+from graphdatascience.procedure_surface.api.pipeline.node_classification_model import NodeClassificationModel
 from graphdatascience.procedure_surface.api.pipeline.node_classification_pipeline_results import (
     NodeClassificationPipelineTrainResult,
 )
@@ -16,7 +16,7 @@ from graphdatascience.procedure_surface.api.pipeline.node_classification_predict
 from graphdatascience.procedure_surface.api.pipeline.node_classification_train_endpoints import (
     NodeClassificationPipelineTrainEndpoints,
 )
-from graphdatascience.procedure_surface.cypher.model_api_cypher import ModelApiCypher
+from graphdatascience.procedure_surface.cypher.model.model_catalog_cypher_endpoints import ModelCatalogCypherEndpoints
 from graphdatascience.procedure_surface.utils.config_converter import ConfigConverter
 from graphdatascience.query_runner.query_runner import QueryRunner
 
@@ -28,7 +28,7 @@ class NodeClassificationTrainCypherEndpoints(NodeClassificationPipelineTrainEndp
 
     def __call__(
         self,
-        G: GraphV2,
+        G: Graph,
         pipeline_name: str,
         *,
         metrics: list[str],
@@ -43,7 +43,7 @@ class NodeClassificationTrainCypherEndpoints(NodeClassificationPipelineTrainEndp
         sudo: bool = False,
         concurrency: int | None = None,
         job_id: str | None = None,
-    ) -> tuple[NodeClassificationModelV2, NodeClassificationPipelineTrainResult]:
+    ) -> tuple[NodeClassificationModel, NodeClassificationPipelineTrainResult]:
         gds_config = ConfigConverter.convert_to_gds_config(
             metrics=metrics,
             model_name=model_name,
@@ -63,19 +63,19 @@ class NodeClassificationTrainCypherEndpoints(NodeClassificationPipelineTrainEndp
         params.ensure_job_id_in_config()
         result = self._query_runner.call_procedure(
             endpoint="gds.beta.pipeline.nodeClassification.train", params=params, logging=True
-        ).squeeze()
+        ).iloc[0]
         return (
-            NodeClassificationModelV2(
+            NodeClassificationModel(
                 name=model_name,
-                model_api=ModelApiCypher(self._query_runner),
+                catalog=ModelCatalogCypherEndpoints(self._query_runner),
                 predict_endpoints=self._predict_endpoints,
             ),
-            NodeClassificationPipelineTrainResult(**result.to_dict()),
+            NodeClassificationPipelineTrainResult(**result),
         )
 
     def estimate(
         self,
-        G: GraphV2,
+        G: Graph,
         pipeline_name: str,
         *,
         metrics: list[str],
@@ -111,5 +111,5 @@ class NodeClassificationTrainCypherEndpoints(NodeClassificationPipelineTrainEndp
         result = self._query_runner.call_procedure(
             endpoint="gds.beta.pipeline.nodeClassification.train.estimate",
             params=params,
-        ).squeeze()
+        ).iloc[0]
         return EstimationResult.from_cypher(result.to_dict())

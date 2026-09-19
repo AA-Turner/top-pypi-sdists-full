@@ -31,6 +31,7 @@ from __future__ import annotations
 
 import os
 import uuid
+from types import SimpleNamespace
 from pathlib import Path
 
 import pytest
@@ -55,6 +56,9 @@ class _MessageMeta:
     foreign_keys: dict = {}
     table_name = "message"
     db_schema = "chat"
+
+
+_AMBIENT_ORG = "66666666-6666-4666-8666-666666666666"
 
 
 class _PackageMessage:
@@ -87,13 +91,28 @@ def _bind_host_message_model() -> type:
     return Message
 
 
-async def test_the_door_declares_an_author_per_row() -> None:
+async def test_the_door_declares_an_author_per_row(monkeypatch) -> None:
+    from matrx_ai.persistence import queue_helpers
     from matrx_ai.persistence.coordinator import Coordinator
     from matrx_ai.persistence.queue_helpers import (
         _coordinator_cv,
         queue_message_create,
         queue_message_update,
     )
+
+    # An org-scoped INSERT is refused without an organization (2026-09-17), and
+    # a real turn always carries one — pin the ambient request the door reads.
+    monkeypatch.setattr(
+        queue_helpers,
+        "_resolve_app_context",
+        lambda: SimpleNamespace(
+            organization_id=_AMBIENT_ORG,
+            request_id=str(uuid.uuid4()),
+            user_id=str(uuid.uuid4()),
+            conversation_id=None,
+        ),
+    )
+
     coord = Coordinator(request_id=str(uuid.uuid4()))
     token = _coordinator_cv.set(coord)
     stand_in = _bind_package_message_model()

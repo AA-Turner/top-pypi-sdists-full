@@ -10,27 +10,32 @@ import neo4j
 from pandas import DataFrame
 from tenacity import retry, retry_if_exception, stop_after_delay, wait_fixed
 
+from graphdatascience.call_parameters import CallParameters
+from graphdatascience.error.gds_not_installed import GdsNotFound
+from graphdatascience.error.unable_to_connect import UnableToConnectError
+from graphdatascience.progress.query_progress_logger import QueryProgressLogger
+from graphdatascience.query_runner.db_environment_resolver import DbEnvironmentResolver
 from graphdatascience.query_runner.query_mode import QueryMode
 from graphdatascience.query_runner.query_runner import QueryRunner
 from graphdatascience.query_runner.query_type import QueryType
 from graphdatascience.retry_utils.neo4j_retry_helper import is_retryable_neo4j_exception
+from graphdatascience.version import __version__
+from graphdatascience.versions import SemanticVersion, ServerVersion
 
-from ..call_parameters import CallParameters
-from ..error.endpoint_suggester import generate_suggestive_error_message
-from ..error.gds_not_installed import GdsNotFound
-from ..error.unable_to_connect import UnableToConnectError
-from ..semantic_version.semantic_version import SemanticVersion
-from ..server_version.server_version import ServerVersion
-from ..version import __version__
-from .cypher_graph_constructor import CypherGraphConstructor
-from .graph_constructor import GraphConstructor
-from .progress.query_progress_logger import QueryProgressLogger
+
+def _skip_gds_deprecated_field(record: logging.LogRecord) -> bool:
+    return not ("The query used a deprecated field from a procedure" in record.msg and "by 'gds." in record.msg)
+
+
+def _skip_gds_deprecated_procedure(record: logging.LogRecord) -> bool:
+    return not ("The procedure has a deprecated field" in record.msg and "gds." in record.msg)
 
 
 class Neo4jQueryRunner(QueryRunner):
     _AURA_DS_PROTOCOL = "neo4j+s"
     _LOG_POLLING_INTERVAL = 0.5
     _NEO4J_DRIVER_VERSION = SemanticVersion.from_string(neo4j.__version__)
+    _warnings_filters_configured = False
 
     @staticmethod
     def create_for_db(
@@ -38,7 +43,7 @@ class Neo4jQueryRunner(QueryRunner):
         auth: tuple[str, str] | neo4j.Auth | None = None,
         aura_ds: bool = False,
         database: str | None = None,
-        bookmarks: Any | None = None,
+        bookmarks: neo4j.Bookmarks | None = None,
         show_progress: bool = True,
         config: dict[str, Any] | None = None,
     ) -> Neo4jQueryRunner:
@@ -113,9 +118,7 @@ class Neo4jQueryRunner(QueryRunner):
         config.setdefault("max_connection_lifetime", 60 * 50)  # 50 minutes
         config.setdefault("keep_alive", True)
         config.setdefault("max_connection_pool_size", 50)
-
-        if Neo4jQueryRunner._NEO4J_DRIVER_VERSION >= SemanticVersion(5, 16, 0):
-            config.setdefault("liveness_check_timeout", 60 * 5)  # 5 minutes
+        config.setdefault("liveness_check_timeout", 60 * 5)  # 5 minutes
 
     @staticmethod
     def parse_protocol(endpoint: str) -> str:
@@ -132,7 +135,7 @@ class Neo4jQueryRunner(QueryRunner):
         config: dict[str, Any] = {},
         database: str | None = neo4j.DEFAULT_DATABASE,
         auto_close: bool = False,
-        bookmarks: Any | None = None,
+        bookmarks: neo4j.Bookmarks | None = None,
         show_progress: bool = True,
         instance_description: str = "Neo4j DBMS",
     ):
@@ -144,12 +147,10 @@ class Neo4jQueryRunner(QueryRunner):
         self._database = database
         self._logger = logging.getLogger()
         self._bookmarks = bookmarks
-        self._last_bookmarks: Any | None = None
+        self._last_bookmarks: neo4j.Bookmarks | None = None
         self._server_version: ServerVersion | None = None
         self._show_progress = show_progress
-        self._progress_logger = QueryProgressLogger(
-            self.__run_cypher_simplified_for_query_progress_logger, self.server_version
-        )
+        self._progress_logger = QueryProgressLogger(self.__run_cypher_simplified_for_query_progress_logger)
         self._instance_description = instance_description
 
     def __run_cypher_simplified_for_query_progress_logger(self, query: str, database: str | None) -> DataFrame:
@@ -169,7 +170,11 @@ class Neo4jQueryRunner(QueryRunner):
         else:
             return self._auth
 
-    # only use for user defined queries
+    def resolve_hosted_in_aura(self) -> bool:
+        self.hosted_in_aura = DbEnvironmentResolver.hosted_in_aura(self)
+        return self.hosted_in_aura
+
+    # only use for user defined queries, and queries changing the GDS in-memory state
     def run_cypher(
         self,
         query: str,
@@ -201,19 +206,13 @@ class Neo4jQueryRunner(QueryRunner):
             try:
                 result = session.run(self._wrap_query(query, query_type), params)
             except Exception as e:
-                if custom_error:
-                    self.handle_driver_exception(session, e)
-                else:
-                    raise e
+                raise e
 
             self.__configure_warnings_filter()
 
             df = result.to_df()
 
-            if self._NEO4J_DRIVER_VERSION < SemanticVersion(5, 0, 0):
-                self._last_bookmarks = [session.last_bookmark()]  # type: ignore
-            else:
-                self._last_bookmarks = session.last_bookmarks()
+            self._last_bookmarks = session.last_bookmarks()
 
             result_summary = result.consume()
             self._handle_notifications(result_summary)
@@ -233,9 +232,6 @@ class Neo4jQueryRunner(QueryRunner):
     ) -> DataFrame:
         if not database:
             database = self._database
-
-        if self._NEO4J_DRIVER_VERSION < SemanticVersion(5, 5, 0):
-            return self.run_cypher(query, query_type, params, database, mode, custom_error, connectivity_retry_config)
 
         if not mode:
             routing = neo4j.RoutingControl.WRITE
@@ -258,11 +254,7 @@ class Neo4jQueryRunner(QueryRunner):
 
             return result
         except Exception as e:
-            if custom_error:
-                Neo4jQueryRunner.handle_driver_exception(self._driver, e)
-                raise e
-            else:
-                raise e
+            raise e
 
     def call_function(
         self,
@@ -397,11 +389,6 @@ class Neo4jQueryRunner(QueryRunner):
         if self._auto_close:
             self._driver.close()
 
-    def create_graph_constructor(
-        self, graph_name: str, concurrency: int, undirected_relationship_types: list[str] | None
-    ) -> GraphConstructor:
-        return CypherGraphConstructor(self, graph_name, concurrency, undirected_relationship_types)
-
     def set_show_progress(self, show_progress: bool) -> None:
         self._show_progress = show_progress
 
@@ -416,35 +403,11 @@ class Neo4jQueryRunner(QueryRunner):
             auth=self._auth,
             config=self._config,
             database=self._database,
-            auto_close=self._auto_close,
+            auto_close=True,
             bookmarks=self._bookmarks,
             show_progress=self._show_progress,
             instance_description=self._instance_description,
         )
-
-    @staticmethod
-    def handle_driver_exception(cypher_executor: neo4j.Session | neo4j.Driver, e: Exception) -> None:
-        reg_gds_hit = re.search(
-            r"There is no procedure with the name `(gds(?:\.\w+)+)` registered for this database instance",
-            str(e),
-        )
-        if not reg_gds_hit:
-            raise e
-
-        requested_endpoint = reg_gds_hit.group(1)
-
-        if isinstance(cypher_executor, neo4j.Session):
-            list_result = cypher_executor.run("CALL gds.list() YIELD name")
-            all_endpoints = list_result.to_df()["name"].tolist()
-        elif isinstance(cypher_executor, neo4j.Driver):
-            result = cypher_executor.execute_query("CALL gds.list() YIELD name", result_transformer_=neo4j.Result.to_df)
-            all_endpoints = result["name"].tolist()
-        else:
-            raise TypeError(
-                f"Expected cypher_executor to be a neo4j.Session or neo4j.Driver, got {type(cypher_executor)}"
-            )
-
-        raise SyntaxError(generate_suggestive_error_message(requested_endpoint, all_endpoints)) from e
 
     @retry(retry=retry_if_exception(is_retryable_neo4j_exception), stop=stop_after_delay(60), wait=wait_fixed(2))
     def verify_connectivity(self) -> None:
@@ -465,13 +428,7 @@ class Neo4jQueryRunner(QueryRunner):
         retrys = 0
         while retrys < retry_config.max_retries:
             try:
-                if self._NEO4J_DRIVER_VERSION < SemanticVersion(5, 0, 0):
-                    warnings.filterwarnings(
-                        "ignore",
-                        category=neo4j.ExperimentalWarning,
-                        message=r"^The configuration may change in the future.$",
-                    )
-                elif self._NEO4J_DRIVER_VERSION < SemanticVersion(6, 0, 0):
+                if self._NEO4J_DRIVER_VERSION < SemanticVersion(6, 0, 0):
                     warnings.filterwarnings(
                         "ignore",
                         category=neo4j.ExperimentalWarning,
@@ -503,28 +460,25 @@ class Neo4jQueryRunner(QueryRunner):
             raise UnableToConnectError(f"Unable to connect to the {self._instance_description}") from exception
 
     def __configure_warnings_filter(self) -> None:
-        if Neo4jQueryRunner._NEO4J_DRIVER_VERSION >= SemanticVersion(5, 21, 0):
-            notifications_logger = logging.getLogger("neo4j.notifications")
-            # the client does not expose YIELD fields so we just skip these warnings for now
-            notifications_logger.addFilter(
-                lambda record: (
-                    "The query used a deprecated field from a procedure" in record.msg and "by 'gds." in record.msg
-                )
-            )
-            notifications_logger.addFilter(
-                lambda record: "The procedure has a deprecated field" in record.msg and "gds." in record.msg
-            )
+        notifications_logger = logging.getLogger("neo4j.notifications")
+        # the client does not expose YIELD fields so we just skip these warnings for now
+        if _skip_gds_deprecated_field not in notifications_logger.filters:
+            notifications_logger.addFilter(_skip_gds_deprecated_field)
+        if _skip_gds_deprecated_procedure not in notifications_logger.filters:
+            notifications_logger.addFilter(_skip_gds_deprecated_procedure)
+
+        if Neo4jQueryRunner._warnings_filters_configured:
+            return
         warnings.filterwarnings(
             "ignore",
             message=r"^pandas support is experimental and might be changed or removed in future versions$",
         )
         # neo4j 2025.04
         warnings.filterwarnings("ignore", message=r".*The procedure has a deprecated field.*by 'gds.*")
-        # neo4j driver 4.4
-        warnings.filterwarnings("ignore", message=r".*The query used a deprecated field from a procedure.*by 'gds.*")
         # neo4j driver 6.0
         warnings.filterwarnings("ignore", message=r".*returned by the procedure.* is deprecated.*")
         warnings.filterwarnings("ignore", message=r".*procedure field deprecated..*")
+        Neo4jQueryRunner._warnings_filters_configured = True
 
     def _wrap_query(self, query: str, query_type: QueryType) -> neo4j.Query:
         return neo4j.Query(

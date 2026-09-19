@@ -1,6 +1,6 @@
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
 from graphdatascience.arrow_client.v2.job_client import JobClient
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.catalog.node_label_endpoints import (
     NodeLabelEndpoints,
     NodeLabelMutateResult,
@@ -8,7 +8,7 @@ from graphdatascience.procedure_surface.api.catalog.node_label_endpoints import 
 )
 from graphdatascience.procedure_surface.arrow.node_property_endpoints import NodePropertyEndpointsHelper
 from graphdatascience.procedure_surface.utils.config_converter import ConfigConverter
-from graphdatascience.query_runner.protocol.write_protocols import WriteProtocol
+from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
 class NodeLabelArrowEndpoints(NodeLabelEndpoints):
@@ -27,7 +27,7 @@ class NodeLabelArrowEndpoints(NodeLabelEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         node_label: str,
         *,
         node_filter: str,
@@ -35,8 +35,6 @@ class NodeLabelArrowEndpoints(NodeLabelEndpoints):
         log_progress: bool = True,
         username: str | None = None,
         concurrency: int | None = None,
-        write_concurrency: int | None = None,
-        job_id: str | None = None,
     ) -> NodeLabelMutateResult:
         config = ConfigConverter.convert_to_gds_config(
             graph_name=G.name(),
@@ -46,8 +44,6 @@ class NodeLabelArrowEndpoints(NodeLabelEndpoints):
             log_progress=log_progress,
             username=username,
             concurrency=concurrency,
-            write_concurrency=write_concurrency,
-            job_id=job_id,
         )
 
         show_progress = self._show_progress and log_progress
@@ -58,7 +54,7 @@ class NodeLabelArrowEndpoints(NodeLabelEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         node_label: str,
         *,
         node_filter: str,

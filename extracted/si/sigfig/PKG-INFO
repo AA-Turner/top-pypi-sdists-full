@@ -1,10 +1,10 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: sigfig
-Version: 1.3.19
+Version: 1.4.0
 Summary: Python library for rounding numbers (with expected results)
 Author-email: Michael Busuttil <mike.busuttil@gmail.com>, Travis Valdez <valdezt@gmail.com>
 Maintainer-email: Michael Busuttil <mike.busuttil@gmail.com>
-License: MIT License
+License-Expression: MIT
 Project-URL: Homepage, https://sigfig.readthedocs.io/
 Project-URL: Documentation, https://sigfig.readthedocs.io/
 Project-URL: Repository, https://github.com/drakegroup/sigfig.git
@@ -18,12 +18,14 @@ Classifier: Intended Audience :: Healthcare Industry
 Classifier: Intended Audience :: Other Audience
 Classifier: Intended Audience :: Manufacturing
 Classifier: Intended Audience :: Science/Research
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Operating System :: OS Independent
 Classifier: Topic :: Education
 Classifier: Topic :: Education :: Computer Aided Instruction (CAI)
@@ -39,7 +41,7 @@ Classifier: Topic :: Utilities
 Requires-Python: <4.0,>=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: sortedcontainers<3.0.0,>=2.4.0
+Dynamic: license-file
 
 ﻿sigfig
 =======
@@ -82,7 +84,6 @@ Key Features:
 * round numbers by decimal places
 * round numbers by uncertainty/error
 * format numbers in a variety of common styles & notations
-* read in numbers of any type
 
 In-depth documentation can be found here:
 

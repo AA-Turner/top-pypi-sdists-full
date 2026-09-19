@@ -4,7 +4,7 @@ from pandas import DataFrame
 from pydantic import BaseModel
 
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.catalog.scale_properties_endpoints import (
     ScalePropertiesEndpoints,
     ScalePropertiesMutateResult,
@@ -15,7 +15,7 @@ from graphdatascience.procedure_surface.api.catalog.scaler_config import ScalerC
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.arrow.node_property_endpoints import NodePropertyEndpointsHelper
-from graphdatascience.query_runner.protocol.write_protocols import WriteProtocol
+from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
 class ScalePropertiesArrowEndpoints(ScalePropertiesEndpoints):
@@ -31,7 +31,7 @@ class ScalePropertiesArrowEndpoints(ScalePropertiesEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         node_properties: list[str],
         scaler: str | dict[str, str | int | float] | ScalerConfig,
@@ -64,7 +64,7 @@ class ScalePropertiesArrowEndpoints(ScalePropertiesEndpoints):
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         node_properties: list[str],
         scaler: str | dict[str, str | int | float] | ScalerConfig,
         node_labels: list[str] = ALL_LABELS,
@@ -96,7 +96,7 @@ class ScalePropertiesArrowEndpoints(ScalePropertiesEndpoints):
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         node_properties: list[str],
         scaler: str | dict[str, str | int | float] | ScalerConfig,
         node_labels: list[str] = ALL_LABELS,
@@ -120,14 +120,11 @@ class ScalePropertiesArrowEndpoints(ScalePropertiesEndpoints):
             scaler=scaler_value,
         )
 
-        result = self._node_property_endpoints.run_job_and_stream("v2/graph.nodeProperties.scale", G, config)
-        result.rename(columns={"scaledProperties": "scaledProperty"}, inplace=True)
-
-        return result
+        return self._node_property_endpoints.run_job_and_stream("v2/graph.nodeProperties.scale", G, config)
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         node_properties: list[str],
         scaler: str | dict[str, str | int | float] | ScalerConfig,
@@ -166,7 +163,7 @@ class ScalePropertiesArrowEndpoints(ScalePropertiesEndpoints):
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         node_properties: list[str],
         scaler: str | dict[str, str | int | float] | ScalerConfig,
         node_labels: list[str] = ALL_LABELS,

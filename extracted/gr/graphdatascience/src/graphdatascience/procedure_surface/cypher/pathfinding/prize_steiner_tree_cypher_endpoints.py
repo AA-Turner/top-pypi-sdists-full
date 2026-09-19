@@ -5,7 +5,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.pathfinding.prize_steiner_tree_endpoints import (
@@ -25,7 +25,7 @@ class PrizeSteinerTreeCypherEndpoints(PrizeSteinerTreeEndpoints):
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         prize_property: str,
         relationship_weight_property: str | None = None,
         relationship_types: list[str] = ALL_TYPES,
@@ -58,7 +58,7 @@ class PrizeSteinerTreeCypherEndpoints(PrizeSteinerTreeEndpoints):
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         prize_property: str,
         relationship_weight_property: str | None = None,
         relationship_types: list[str] = ALL_TYPES,
@@ -85,13 +85,13 @@ class PrizeSteinerTreeCypherEndpoints(PrizeSteinerTreeEndpoints):
 
         result = self._query_runner.call_procedure(
             "gds.prizeSteinerTree.stats", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
         return PrizeSteinerTreeStatsResult(**result)
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_relationship_type: str,
         mutate_property: str,
         prize_property: str,
@@ -122,13 +122,13 @@ class PrizeSteinerTreeCypherEndpoints(PrizeSteinerTreeEndpoints):
 
         result = self._query_runner.call_procedure(
             "gds.prizeSteinerTree.mutate", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
         return PrizeSteinerTreeMutateResult(**result)
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_relationship_type: str,
         write_property: str,
         prize_property: str,
@@ -161,13 +161,13 @@ class PrizeSteinerTreeCypherEndpoints(PrizeSteinerTreeEndpoints):
 
         result = self._query_runner.call_procedure(
             "gds.prizeSteinerTree.write", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
         return PrizeSteinerTreeWriteResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         prize_property: str,
         relationship_weight_property: str | None = None,
         relationship_types: list[str] = ALL_TYPES,

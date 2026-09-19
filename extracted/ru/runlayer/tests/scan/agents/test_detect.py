@@ -484,15 +484,43 @@ def test_collect_agents_deadline_stops_scoring_between_units(monkeypatch, tmp_pa
         SimpleNamespace(monotonic=lambda: clock["now"]),
     )
 
+    deadline_exhausted: list[None] = []
     results = collect_agents(
         [tmp_path],
         detector=CountingDetector(),
         include_unknown=True,
         deadline=1.0,
+        on_deadline_exhausted=lambda: deadline_exhausted.append(None),
     )
 
     assert len(scored) == 3
     assert len(results) == 3
+    assert deadline_exhausted == [None]
+
+
+def test_collect_agents_deadline_reports_skipped_root(monkeypatch, tmp_path):
+    monkeypatch.setattr(
+        detect_module,
+        "discover",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(
+            AssertionError("expired root must not be discovered")
+        ),
+    )
+    monkeypatch.setattr(
+        detect_module,
+        "time",
+        SimpleNamespace(monotonic=lambda: 2.0),
+    )
+    deadline_exhausted: list[None] = []
+
+    results = collect_agents(
+        [tmp_path],
+        deadline=1.0,
+        on_deadline_exhausted=lambda: deadline_exhausted.append(None),
+    )
+
+    assert results == []
+    assert deadline_exhausted == [None]
 
 
 def test_collect_agents_dedupes_by_location_in_discovery_order(monkeypatch, tmp_path):
@@ -651,3 +679,12 @@ class TestDiscoveredAgentApiPayload:
         # ones -- documents why the caller threads the device username.
         agent = self._agent(location="/opt/work/alice/proj")
         assert agent.to_api_payload()["root_path"] == "/opt/work/alice/proj"
+
+
+def test_compute_fingerprint_tolerates_surrogateescape_markers():
+    """os.walk hands back surrogateescape names; hashing them must not raise (ISS-16)."""
+    digest = compute_fingerprint("langchain", "python", ["agent\udcff.py", "chain.py"])
+    assert len(digest) == 64
+    assert digest == compute_fingerprint(
+        "langchain", "python", ["chain.py", "agent\udcff.py"]
+    )

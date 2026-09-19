@@ -22,6 +22,7 @@ from runlayer_cli.scan.clients import (
     _wsl_homes,
     get_all_clients,
 )
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.config_parser import MCPClientConfig, parse_config_content
 from runlayer_cli.scan.file_collector import MAX_SINGLE_FILE_BYTES, MAX_TOTAL_BYTES
 from runlayer_cli.scan.project_tree_match import (
@@ -40,6 +41,7 @@ from runlayer_cli.scan.scanner_primitives import (
     SymlinkFollowPolicy,
     has_link_or_reparse_component,
     link_or_reparse_status,
+    link_or_reparse_status_or_raise,
     read_bounded,
 )
 from runlayer_cli.scan.skip_dirs import find_excluded_directories
@@ -50,10 +52,10 @@ from runlayer_cli.scan.skill_scanner import (
     build_skill_artifact_from_files,
 )
 from runlayer_cli.scan.windows_users import is_windows_system_context
+from runlayer_cli.scan.wsl_limits import WSL_SCAN_MAX_TIME_BUDGET_S
 
 WSL_SCAN_BASE_TIME_BUDGET_S = 30
 WSL_SCAN_PER_HOME_TIME_BUDGET_S = 10
-WSL_SCAN_MAX_TIME_BUDGET_S = 300
 MAX_WSL_PROJECT_MATCHED_FILES = 128
 MAX_FOLLOWED_WSL_PROJECT_TARGETS = 64
 
@@ -100,6 +102,8 @@ class WSLProjectScanResult:
     configurations: list[MCPClientConfig] = field(default_factory=list)
     skills: list[DiscoveredSkillArtifact] = field(default_factory=list)
     agent_definitions: list[DiscoveredAgentDefinition] = field(default_factory=list)
+    complete: bool = True
+    incomplete_reasons: list[str] = field(default_factory=list)
 
 
 # Path matching, the classification type, and the drift-prone grouping/iteration
@@ -128,6 +132,7 @@ class _CollectedWSLProjectArtifacts:
 class _HomeWalkResult:
     artifacts: _CollectedWSLProjectArtifacts
     budget_exhausted: bool = False
+    incomplete_reasons: list[str] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -335,10 +340,17 @@ def _classify_wsl_entry(
     walk_areas: list[tuple[Path, tuple[str, ...]]],
     project_specs: list[_ProjectConfigSpec],
     symlink_policy: SymlinkFollowPolicy,
+    incomplete_reasons: list[str],
 ) -> _ClassifiedWslEntry | None:
     entry_path = Path(entry.path)
-    link_status = link_or_reparse_status(entry_path)
-    if link_status is None:
+    try:
+        link_status = link_or_reparse_status_or_raise(entry_path)
+    except FileNotFoundError:
+        # Entry vanished between the directory listing and lstat: clean absence.
+        return None
+    except OSError:
+        if "wsl_project_entry_classification_failed" not in incomplete_reasons:
+            incomplete_reasons.append("wsl_project_entry_classification_failed")
         return None
     followed = link_status
     if not followed:
@@ -350,6 +362,8 @@ def _classify_wsl_entry(
                 followed=False,
             )
         except OSError:
+            if "wsl_project_entry_classification_failed" not in incomplete_reasons:
+                incomplete_reasons.append("wsl_project_entry_classification_failed")
             return None
     if classification is None and not can_descend:
         return None
@@ -358,7 +372,12 @@ def _classify_wsl_entry(
         return None
     try:
         target_hint_mode = target_hint.stat().st_mode
+    except FileNotFoundError:
+        # Dangling link target: nothing to scan, not a failure.
+        return None
     except OSError:
+        if "wsl_project_entry_classification_failed" not in incomplete_reasons:
+            incomplete_reasons.append("wsl_project_entry_classification_failed")
         return None
     target_is_file = stat.S_ISREG(target_hint_mode)
     target_is_directory = stat.S_ISDIR(target_hint_mode)
@@ -382,6 +401,17 @@ def _classify_wsl_entry(
         is_file=target_is_file,
         followed=True,
     )
+
+
+def _path_vanished(path: Path) -> bool:
+    """True when *path* no longer exists; other metadata errors are not absence."""
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        return True
+    except OSError:
+        return False
+    return False
 
 
 def _read_bounded_file(
@@ -482,8 +512,10 @@ def _walk_wsl_home(
     pending: list[tuple[Path, tuple[str, ...]]] = [(actual_home, ())]
     walk_areas: list[tuple[Path, tuple[str, ...]]] = [(actual_home, ())]
     budget_exhausted = False
+    matched_file_cap_reached = False
+    incomplete_reasons: list[str] = []
     try:
-        while pending and matched_file_count < MAX_WSL_PROJECT_MATCHED_FILES:
+        while pending and not matched_file_cap_reached:
             if time.monotonic() >= deadline:
                 raise _CollectionBudgetExhausted
             directory, directory_parts = pending.pop()
@@ -499,6 +531,8 @@ def _walk_wsl_home(
                         key=lambda entry: (entry.name.casefold(), entry.name),
                     )
             except OSError:
+                if "wsl_project_directory_read_failed" not in incomplete_reasons:
+                    incomplete_reasons.append("wsl_project_directory_read_failed")
                 continue
 
             child_directories: list[tuple[Path, tuple[str, ...]]] = []
@@ -519,6 +553,7 @@ def _walk_wsl_home(
                     walk_areas=walk_areas,
                     project_specs=project_specs,
                     symlink_policy=symlink_policy,
+                    incomplete_reasons=incomplete_reasons,
                 )
                 if classified_entry is None:
                     continue
@@ -534,9 +569,17 @@ def _walk_wsl_home(
                 if not classified_entry.is_file or classification is None:
                     continue
                 if matched_file_count >= MAX_WSL_PROJECT_MATCHED_FILES:
+                    if "wsl_project_matched_file_capped" not in incomplete_reasons:
+                        incomplete_reasons.append("wsl_project_matched_file_capped")
+                    matched_file_cap_reached = True
+                    pending.clear()
                     break
                 content = _read_bounded_file(candidate, byte_budget=byte_budget)
                 if content is None:
+                    if _path_vanished(candidate):
+                        continue
+                    if "wsl_project_marker_read_failed" not in incomplete_reasons:
+                        incomplete_reasons.append("wsl_project_marker_read_failed")
                     continue
                 if classified_entry.followed and not symlink_policy.claim(candidate):
                     continue
@@ -544,9 +587,11 @@ def _walk_wsl_home(
                 classifications[logical_path] = classification
                 files[logical_path] = content
 
-            pending.extend(reversed(child_directories))
+            if not matched_file_cap_reached:
+                pending.extend(reversed(child_directories))
     except _CollectionBudgetExhausted:
         budget_exhausted = True
+        incomplete_reasons.append("wsl_project_scan_timed_out_or_byte_capped")
 
     artifacts = _CollectedWSLProjectArtifacts()
     for logical_path, content in files.items():
@@ -575,6 +620,7 @@ def _walk_wsl_home(
     return _HomeWalkResult(
         artifacts=artifacts,
         budget_exhausted=budget_exhausted,
+        incomplete_reasons=incomplete_reasons,
     )
 
 
@@ -594,18 +640,23 @@ def _scan_wsl_projects(
     byte_budget = _ArtifactByteBudget()
     project_specs = _project_config_specs(clients)
     artifacts = _CollectedWSLProjectArtifacts()
+    incomplete_reasons: list[str] = []
     windows_system_context = is_windows_system_context()
     admissible_homes = [
         home
         for home in unique_homes
         if not (windows_system_context and has_link_or_reparse_component(home))
     ]
+    if len(admissible_homes) != len(unique_homes):
+        incomplete_reasons.append("wsl_project_profile_safety_skip")
     direct_homes = []
     for home in admissible_homes:
         try:
             if link_or_reparse_status(home) is False and home.is_dir():
                 direct_homes.append(home)
         except OSError:
+            if "wsl_project_root_enumeration_failed" not in incomplete_reasons:
+                incomplete_reasons.append("wsl_project_root_enumeration_failed")
             continue
     symlink_policy = SymlinkFollowPolicy(
         scan_areas=[(home, 0) for home in direct_homes],
@@ -617,6 +668,8 @@ def _scan_wsl_projects(
         try:
             link_status = link_or_reparse_status(home)
             if link_status is None:
+                if "wsl_project_root_enumeration_failed" not in incomplete_reasons:
+                    incomplete_reasons.append("wsl_project_root_enumeration_failed")
                 continue
             if link_status:
                 target_hint = symlink_policy.inspect(home)
@@ -635,6 +688,8 @@ def _scan_wsl_projects(
             elif not home.is_dir():
                 continue
         except OSError:
+            if "wsl_project_root_enumeration_failed" not in incomplete_reasons:
+                incomplete_reasons.append("wsl_project_root_enumeration_failed")
             continue
         walk_result = _walk_wsl_home(
             home=home,
@@ -647,8 +702,14 @@ def _scan_wsl_projects(
         artifacts.configurations.extend(walk_result.artifacts.configurations)
         artifacts.skills.extend(walk_result.artifacts.skills)
         artifacts.agent_definitions.extend(walk_result.artifacts.agent_definitions)
+        for reason in walk_result.incomplete_reasons:
+            if reason not in incomplete_reasons:
+                incomplete_reasons.append(reason)
         if walk_result.budget_exhausted:
+            incomplete_reasons.append("wsl_project_scan_truncated")
             break
+    if symlink_policy.follow_budget_exhausted:
+        incomplete_reasons.append("wsl_project_symlink_follow_capped")
 
     logger.info(
         "WSL project scan complete",
@@ -661,6 +722,8 @@ def _scan_wsl_projects(
         configurations=artifacts.configurations,
         skills=artifacts.skills,
         agent_definitions=dedupe_agent_definitions(artifacts.agent_definitions),
+        complete=not incomplete_reasons,
+        incomplete_reasons=incomplete_reasons,
     )
 
 
@@ -671,10 +734,15 @@ def scan_wsl_projects(
     time_budget: float | None = None,
 ) -> WSLProjectScanResult:
     """Discover project configs, skills, and agent definitions in WSL homes."""
+    home_discovery_status = ScanCompletionStatus()
     try:
-        return _scan_wsl_projects(
+        result = _scan_wsl_projects(
             clients=clients if clients is not None else get_all_clients(),
-            wsl_homes=wsl_homes if wsl_homes is not None else _wsl_homes(),
+            wsl_homes=(
+                wsl_homes
+                if wsl_homes is not None
+                else _wsl_homes(home_discovery_status)
+            ),
             time_budget=time_budget,
         )
     except Exception as exc:
@@ -683,4 +751,13 @@ def scan_wsl_projects(
             error_type=type(exc).__name__,
             exc_info=True,
         )
-        return WSLProjectScanResult()
+        result = WSLProjectScanResult(
+            complete=False,
+            incomplete_reasons=["wsl_project_scan_failed"],
+        )
+    if not home_discovery_status.complete:
+        result.complete = False
+        for reason in home_discovery_status.reasons:
+            if reason not in result.incomplete_reasons:
+                result.incomplete_reasons.append(reason)
+    return result

@@ -24,10 +24,11 @@ import json
 import os
 import sys
 import time
-from typing import Any
+from typing import Any, TypedDict
 
 from runlayer_cli.flow_contract import MAX_FLOWS_PER_ENVELOPE, build_envelope
 from runlayer_cli.paths import get_runlayer_dir
+from runlayer_cli.safe_parse import parse_json
 
 if sys.platform == "win32":
     import msvcrt
@@ -43,6 +44,10 @@ _MAX_SPOOL_BYTES = 256 * 1024
 _MAX_LINE_BYTES = 4096
 # Entries older than this are operationally stale; prune at drain.
 _MAX_AGE_SECONDS = 24 * 60 * 60
+# Byte budget for other hosts' lines a per-host drain writes back (newest
+# kept). A host that is never posted to again must not fill the spool and
+# starve appends for the host that is.
+_MAX_FOREIGN_BYTES = _MAX_SPOOL_BYTES // 4
 
 
 def _spool_path() -> str:
@@ -102,7 +107,62 @@ def _unlock(fd: int) -> None:
         pass
 
 
-def spool_drain() -> dict[str, Any] | None:
+class _Partition(TypedDict):
+    flows: list[dict[str, Any]]  # ship in this envelope
+    foreign: list[bytes]  # other hosts' raw lines, written back
+    dropped: int  # lines lost from this envelope (malformed / stale)
+    foreign_trimmed: bool  # foreign lines fell off the byte cap
+
+
+def _partition(raw: bytes, target_host: str | None) -> _Partition:
+    """Split raw spool bytes by destination (rules in ``spool_drain``)."""
+    now = time.time()
+    flows: list[dict[str, Any]] = []
+    foreign: list[bytes] = []
+    dropped = 0
+    for line in raw.split(b"\n"):
+        if not line.strip():
+            continue
+        # Per-row exception-complete decode: one poisoned row (deep nesting
+        # raises RecursionError, not JSONDecodeError) must count as dropped
+        # and leave its siblings shippable, not escape to the outer
+        # ``except`` and wedge the whole spool.
+        outcome = parse_json(line)
+        if outcome["error"] is not None:
+            dropped += 1
+            continue
+        summary = outcome["value"]
+        if not isinstance(summary, dict):
+            dropped += 1
+            continue
+        ts = summary.get("ts")
+        if isinstance(ts, (int, float)) and (now - ts) > _MAX_AGE_SECONDS:
+            dropped += 1
+            continue
+        host = summary.get("target_host")
+        if target_host is not None and isinstance(host, str) and host != target_host:
+            foreign.append(line + b"\n")
+            continue
+        flows.append(summary)
+    # Keep the newest foreign lines that fit the byte budget, oldest trimmed
+    # first. Not counted in ``dropped``: that is another host's loss, not
+    # this envelope's.
+    kept: list[bytes] = []
+    budget = _MAX_FOREIGN_BYTES
+    foreign_trimmed = False
+    for line in reversed(foreign):
+        if len(line) > budget:
+            foreign_trimmed = True
+            break
+        kept.append(line)
+        budget -= len(line)
+    kept.reverse()
+    return _Partition(
+        flows=flows, foreign=kept, dropped=dropped, foreign_trimmed=foreign_trimmed
+    )
+
+
+def spool_drain(*, target_host: str | None = None) -> dict[str, Any] | None:
     """Drain spooled flows into a ``client_flows`` envelope, or ``None``.
 
     Returns ``None`` when the spool is empty, the lock is contended (another
@@ -111,11 +171,20 @@ def spool_drain() -> dict[str, Any] | None:
     (crash during append) and entries older than 24 h are discarded; beyond
     ``MAX_FLOWS_PER_ENVELOPE`` the newest flows win and the rest count as
     ``dropped``.
+
+    ``target_host`` (hostname the carrier POST goes to, compared lowercased)
+    restricts the drain to summaries stamped with that host plus legacy lines
+    with no ``target_host``. Other hosts' lines are written back under the
+    same lock — byte-capped (``_MAX_FOREIGN_BYTES``, oldest trimmed first),
+    still 24 h-pruned — for a later POST to their own host, so a device with
+    a stale ``default_host`` cannot make one deployment ingest another's hook
+    failures. ``None`` drains everything.
     """
     try:
         path = _spool_path()
         if not os.path.exists(path):
             return None
+        wanted = target_host.lower() if target_host else None
         lock_fd = os.open(_lock_path(), os.O_CREAT | os.O_RDWR, 0o600)
         try:
             if not _try_lock(lock_fd):
@@ -123,37 +192,28 @@ def spool_drain() -> dict[str, Any] | None:
             try:
                 with open(path, "rb") as f:
                     raw = f.read()
-                # Truncate under the lock: appends racing the drain may slip a
-                # line in after the read; acceptable loss (they O_APPEND whole
-                # lines, so truncation never corrupts a future line).
-                with open(path, "wb"):
-                    pass
+                part = _partition(raw, wanted)
+                flows = part["flows"]
+                dropped = part["dropped"]
+                # Skip the rewrite when nothing shipped and nothing was
+                # pruned (an all-foreign spool is not churned on every hook).
+                if flows or dropped or part["foreign_trimmed"]:
+                    # Truncate then write with O_APPEND: a hook that appends a
+                    # line between the truncate and this write lands after
+                    # our bytes instead of being overwritten mid-record. A
+                    # line appended between the read and the truncate is
+                    # still lost (as before) — a line is never torn.
+                    fd = os.open(path, os.O_WRONLY | os.O_TRUNC | os.O_APPEND, 0o600)
+                    try:
+                        if part["foreign"]:
+                            os.write(fd, b"".join(part["foreign"]))
+                    finally:
+                        os.close(fd)
             finally:
                 _unlock(lock_fd)
         finally:
             os.close(lock_fd)
 
-        if not raw:
-            return None
-        now = time.time()
-        flows: list[dict[str, Any]] = []
-        dropped = 0
-        for line in raw.split(b"\n"):
-            if not line.strip():
-                continue
-            try:
-                summary = json.loads(line)
-            except (json.JSONDecodeError, UnicodeDecodeError):
-                dropped += 1
-                continue
-            if not isinstance(summary, dict):
-                dropped += 1
-                continue
-            ts = summary.get("ts")
-            if isinstance(ts, (int, float)) and (now - ts) > _MAX_AGE_SECONDS:
-                dropped += 1
-                continue
-            flows.append(summary)
         if len(flows) > MAX_FLOWS_PER_ENVELOPE:
             dropped += len(flows) - MAX_FLOWS_PER_ENVELOPE
             flows = flows[-MAX_FLOWS_PER_ENVELOPE:]

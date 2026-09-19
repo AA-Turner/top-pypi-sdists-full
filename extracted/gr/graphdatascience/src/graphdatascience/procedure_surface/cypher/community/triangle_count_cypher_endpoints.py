@@ -3,7 +3,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.community.triangle_count_endpoints import (
     TriangleCountEndpoints,
     TriangleCountMutateResult,
@@ -23,7 +23,7 @@ class TriangleCountCypherEndpoints(TriangleCountEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         *,
         concurrency: int | None = None,
@@ -52,13 +52,13 @@ class TriangleCountCypherEndpoints(TriangleCountEndpoints):
         params = CallParameters(graph_name=G.name(), config=config)
         params.ensure_job_id_in_config()
 
-        result = self._query_runner.call_procedure(endpoint="gds.triangleCount.mutate", params=params).squeeze()
+        result = self._query_runner.call_procedure(endpoint="gds.triangleCount.mutate", params=params).iloc[0]
 
-        return TriangleCountMutateResult(**result.to_dict())
+        return TriangleCountMutateResult(**result)
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         job_id: str | None = None,
@@ -85,13 +85,13 @@ class TriangleCountCypherEndpoints(TriangleCountEndpoints):
         params = CallParameters(graph_name=G.name(), config=config)
         params.ensure_job_id_in_config()
 
-        result = self._query_runner.call_procedure(endpoint="gds.triangleCount.stats", params=params).squeeze()
+        result = self._query_runner.call_procedure(endpoint="gds.triangleCount.stats", params=params).iloc[0]
 
-        return TriangleCountStatsResult(**result.to_dict())
+        return TriangleCountStatsResult(**result)
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         job_id: str | None = None,
@@ -124,7 +124,7 @@ class TriangleCountCypherEndpoints(TriangleCountEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         *,
         concurrency: int | None = None,
@@ -155,13 +155,13 @@ class TriangleCountCypherEndpoints(TriangleCountEndpoints):
         params = CallParameters(graph_name=G.name(), config=config)
         params.ensure_job_id_in_config()
 
-        result = self._query_runner.call_procedure(endpoint="gds.triangleCount.write", params=params).squeeze()
+        result = self._query_runner.call_procedure(endpoint="gds.triangleCount.write", params=params).iloc[0]
 
-        return TriangleCountWriteResult(**result.to_dict())
+        return TriangleCountWriteResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         *,
         concurrency: int | None = None,
         label_filter: list[str] | None = None,

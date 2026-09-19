@@ -16,6 +16,8 @@ from runlayer_cli import regex_safe
 from runlayer_cli.config import Config
 from runlayer_cli.main import _oauth_for_server, app
 from runlayer_cli.models import ServerDetails
+from runlayer_cli.scan.config_parser import MCPClientConfig, MCPServerConfig
+from runlayer_cli.scan.plugin_scanner import DiscoveredPluginArtifact
 from runlayer_cli.scan.resource_governor import (
     DEFAULT_CPU_PERCENT,
     DEFAULT_MEMORY_LIMIT_MB,
@@ -25,6 +27,11 @@ from runlayer_cli.scan.resource_governor import (
     MIN_CPU_PERCENT,
     MIN_MEMORY_LIMIT_MB,
     default_cpu_cores,
+)
+from runlayer_cli.scan.service import ScanResult
+from runlayer_cli.scan.skill_scanner import (
+    ARTIFACT_SKILL_MD,
+    DiscoveredSkillArtifact,
 )
 from runlayer_cli.tls import async_http_client
 
@@ -855,19 +862,7 @@ def test_deploy_bare_command_still_executes_callback():
 
 def test_scan_bare_command_still_executes_callback(tmp_path: Path):
     """Bare scan should keep executing its callback, not show help."""
-    scan_result = SimpleNamespace(
-        total_servers=0,
-        total_detected_clients=0,
-        detected_clients=[],
-        total_skills=0,
-        total_plugins=0,
-        agents=[],
-        processes=[],
-        containers=[],
-        containers_scanned=False,
-        wsl_distros=[],
-        wsl_scanned=False,
-    )
+    scan_result = _scan_result(servers=0)
 
     with (
         patch(
@@ -913,19 +908,7 @@ def _scan_capturing_project_bounds(
     }
     if env:
         base_env.update(env)
-    scan_result = SimpleNamespace(
-        total_servers=0,
-        total_detected_clients=0,
-        detected_clients=[],
-        total_skills=0,
-        total_plugins=0,
-        agents=[],
-        processes=[],
-        containers=[],
-        containers_scanned=False,
-        wsl_distros=[],
-        wsl_scanned=False,
-    )
+    scan_result = _scan_result(servers=0)
     with (
         patch(
             "runlayer_cli.commands.scan.resolve_credentials",
@@ -1100,19 +1083,7 @@ def _scan_capturing_resource_caps(
     }
     if env:
         base_env.update(env)
-    scan_result = SimpleNamespace(
-        total_servers=0,
-        total_detected_clients=0,
-        detected_clients=[],
-        total_skills=0,
-        total_plugins=0,
-        agents=[],
-        processes=[],
-        containers=[],
-        containers_scanned=False,
-        wsl_distros=[],
-        wsl_scanned=False,
-    )
+    scan_result = _scan_result(servers=0)
     with (
         patch(
             "runlayer_cli.commands.scan.resolve_credentials",
@@ -1214,58 +1185,74 @@ def _scan_result(
     servers: int,
     skills: int = 0,
     plugins: int = 0,
-) -> SimpleNamespace:
-    server_items = [SimpleNamespace(name=f"server-{idx}") for idx in range(servers)]
-    config = SimpleNamespace(servers=server_items)
-    return SimpleNamespace(
-        total_servers=servers,
-        total_detected_clients=0,
-        detected_clients=[],
-        total_skills=skills,
-        total_plugins=plugins,
-        total_agents=0,
-        total_agent_definitions=0,
-        total_processes=0,
-        total_containers=0,
-        total_wsl_distros=0,
+) -> ScanResult:
+    server_items = [
+        MCPServerConfig(name=f"server-{idx}", type="stdio", command="server")
+        for idx in range(servers)
+    ]
+    config = MCPClientConfig(client="cursor", servers=server_items)
+    return ScanResult(
         device_id="device-1",
         hostname="host-1",
         os="darwin",
         os_version="15.0",
         username="user-1",
         org_device_id=None,
-        serial_number=None,
-        tools=[],
-        skills=[SimpleNamespace(name=f"skill-{idx}") for idx in range(skills)],
-        plugins=[SimpleNamespace(name=f"plugin-{idx}") for idx in range(plugins)],
+        scan_duration_ms=1,
+        collector_version="test",
         configurations=[config] if servers else [],
-        global_configs=[config] if servers else [],
-        project_configs=[],
-        wsl_configs=[],
-        agents=[],
-        agent_definitions=[],
-        processes=[],
-        containers=[],
-        containers_scanned=False,
-        stopped_containers=[],
-        stopped_containers_scanned=False,
-        container_images=[],
-        container_images_scanned=False,
-        wsl_distros=[],
-        wsl_scanned=False,
-        to_api_payload=lambda: {"device_id": "device-1"},
+        skills=[
+            DiscoveredSkillArtifact(
+                name=f"skill-{idx}",
+                path=f"/skills/{idx}",
+                artifact_type=ARTIFACT_SKILL_MD,
+                scope="global",
+                tool="test",
+                identifier=f"skill-{idx}",
+            )
+            for idx in range(skills)
+        ],
+        plugins=[
+            DiscoveredPluginArtifact(
+                name=f"plugin-{idx}",
+                plugin_type="cursor_plugin",
+                client="cursor",
+                install_path=f"/plugins/{idx}",
+                identifier=f"plugin-{idx}",
+            )
+            for idx in range(plugins)
+        ],
     )
 
 
-def test_scan_with_servers_lets_scan_submission_own_detect_checkin(tmp_path: Path):
+def _scan_submission_client(**methods):
+    return SimpleNamespace(
+        submit_scan_manifest=Mock(return_value={"reconciled": 0}),
+        **methods,
+    )
+
+
+def test_scan_with_servers_finishes_with_container_health_detect_checkin(
+    tmp_path: Path,
+):
     scan_result = _scan_result(servers=1)
-    client = SimpleNamespace(
-        submit_mcp_watch_scan=lambda payload: {
-            "servers_processed": 1,
-            "shadow_servers_found": 0,
-            "managed_servers_matched": 0,
-        }
-    )
+    scan_result.container_scan_requested = True
+    scan_result.container_scan_error = "Container runtime unavailable"
+    calls: list[str] = []
+    client = _scan_submission_client()
+
+    def submit_scan(*_args, **_kwargs):
+        calls.append("mcp")
+        return SimpleNamespace(
+            response={
+                "servers_processed": 1,
+                "shadow_servers_found": 0,
+                "managed_servers_matched": 0,
+            },
+            unsupported=[],
+            failed_submissions=[],
+            exit_code=0,
+        )
 
     with (
         patch(
@@ -1278,7 +1265,13 @@ def test_scan_with_servers_lets_scan_submission_own_detect_checkin(tmp_path: Pat
         ),
         patch("runlayer_cli.commands.scan.scan_all_clients", return_value=scan_result),
         patch("runlayer_cli.commands.scan.RunlayerClient", return_value=client),
-        patch("runlayer_cli.aiwatch_checkin.submit_detect_checkin") as mock_detect,
+        patch(
+            "runlayer_cli.commands.scan.submit_scan_results", side_effect=submit_scan
+        ),
+        patch(
+            "runlayer_cli.aiwatch_checkin.submit_detect_checkin",
+            side_effect=lambda *_args: calls.append("detect"),
+        ) as mock_detect,
         patch("runlayer_cli.aiwatch_checkin.submit_enforce_validation_checkin"),
         patch("runlayer_cli.aiwatch_checkin.submit_sessions_validation_checkin"),
     ):
@@ -1286,12 +1279,13 @@ def test_scan_with_servers_lets_scan_submission_own_detect_checkin(tmp_path: Pat
 
     assert result.exit_code == 0, result.output
     assert "Scan complete" in strip_ansi(result.output)
-    mock_detect.assert_not_called()
+    mock_detect.assert_called_once_with(client, scan_result)
+    assert calls == ["mcp", "detect"]
 
 
 def test_scan_empty_submission_uses_detect_checkin_for_liveness(tmp_path: Path):
     scan_result = _scan_result(servers=0)
-    client = SimpleNamespace()
+    client = _scan_submission_client()
 
     with (
         patch(
@@ -1320,7 +1314,7 @@ def test_scan_empty_submission_uses_detect_checkin_for_liveness(tmp_path: Path):
 
 def test_scan_artifact_only_submission_uses_detect_checkin_fallback(tmp_path: Path):
     scan_result = _scan_result(servers=0, skills=1)
-    client = SimpleNamespace()
+    client = _scan_submission_client()
 
     with (
         patch(
@@ -1350,7 +1344,7 @@ def test_scan_artifact_only_submission_uses_detect_checkin_fallback(tmp_path: Pa
 
 def test_scan_continues_when_enforce_validation_checkin_fails(tmp_path: Path):
     scan_result = _scan_result(servers=1, skills=1, plugins=1)
-    client = SimpleNamespace(
+    client = _scan_submission_client(
         submit_mcp_watch_scan=Mock(
             return_value={
                 "servers_processed": 1,
@@ -1389,18 +1383,21 @@ def test_scan_continues_when_enforce_validation_checkin_fails(tmp_path: Path):
 
     assert result.exit_code == 0, result.output
     assert "Scan complete" in strip_ansi(result.output)
-    client.submit_mcp_watch_scan.assert_called_once_with({"device_id": "device-1"})
+    client.submit_mcp_watch_scan.assert_called_once()
+    assert client.submit_mcp_watch_scan.call_args.args[0]["device_id"] == "device-1"
     mock_submit_skills.assert_called_once_with(
         client,
         scan_result.skills,
         scan_result,
         artifact_cache=None,
+        failed_surfaces=ANY,
     )
     mock_submit_plugins.assert_called_once_with(
         client,
         scan_result.plugins,
         scan_result,
         artifact_cache=None,
+        failed_surfaces=ANY,
     )
 
 
@@ -1409,7 +1406,7 @@ def test_scan_continues_when_detect_checkin_fails(tmp_path: Path):
     # exception not caught by its internal handler, the best-effort check-in must
     # not abort the scan or block skill/plugin submission (data loss).
     scan_result = _scan_result(servers=0, skills=1, plugins=1)
-    client = SimpleNamespace()
+    client = _scan_submission_client()
 
     with (
         patch(
@@ -1446,12 +1443,14 @@ def test_scan_continues_when_detect_checkin_fails(tmp_path: Path):
         scan_result.skills,
         scan_result,
         artifact_cache=None,
+        failed_surfaces=ANY,
     )
     mock_submit_plugins.assert_called_once_with(
         client,
         scan_result.plugins,
         scan_result,
         artifact_cache=None,
+        failed_surfaces=ANY,
     )
 
 

@@ -25,6 +25,10 @@ from runlayer_cli.api import (
 from runlayer_cli.metrics import InstallationAnalyticsEvent
 from runlayer_cli.plugins import installer as plugin_installer
 from runlayer_cli.plugins import layouts as plugin_layouts
+from runlayer_cli.plugins.constants import (
+    CODEX_TOOL_EXPOSURE_HEADER,
+    RUNLAYER_PLUGIN_ID,
+)
 from runlayer_cli.plugins.installer import (
     PluginLockEntry,
     _rewrite_plugin_skill_content,
@@ -67,8 +71,10 @@ def test_plugin_mcp_fallback_carries_dynamic_mode_to_codex(
     with config_path.open("rb") as config_file:
         config = tomllib.load(config_file)
     entry = config["mcp_servers"]["my-plugin"]
-    expected = ["deferred"] if use_dynamic_tools else None
-    assert entry.get("omit_tools_from") == expected
+    assert "omit_tools_from" not in entry
+    assert entry.get("http_headers", {}).get(CODEX_TOOL_EXPOSURE_HEADER) == (
+        "client-default" if use_dynamic_tools else None
+    )
 
 
 # -- Lockfile tests --
@@ -452,7 +458,7 @@ def test_write_plugin_mcp_json_rehardens_existing_file(tmp_path: Path):
             "mcpServers",
             {
                 "url": "https://example.com/api/v1/proxy/plugins/p1/mcp",
-                "omit_tools_from": ["deferred"],
+                "http_headers": {CODEX_TOOL_EXPOSURE_HEADER: "client-default"},
             },
         ),
     ],
@@ -776,6 +782,15 @@ class _FakeClientUpdateSameDynamic(FakeClientSinglePlugin):
         raise AssertionError(f"dynamic plugin skill fetched: {skill_id}")
 
 
+class _FakeClientUpdateSameRunlayerPlugin(FakeClientSinglePlugin):
+    def get_plugin(self, plugin_id: str) -> PluginDetail:
+        return plugin(
+            id=RUNLAYER_PLUGIN_ID,
+            use_dynamic_tools=True,
+            updated_at=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+        )
+
+
 # -- Install tests --
 
 
@@ -823,7 +838,7 @@ async def test_install_native_creates_file_structure(tmp_path: Path):
     entries = read_plugin_lockfile(lockfile)
     assert len(entries) == 1
     assert entries[0].name == "my-plugin"
-    assert entries[0].install_mode == "native"
+    assert entries[0].install_mode == plugin_layouts.CLAUDE_CODE_NATIVE_INSTALL_MODE
 
 
 @pytest.mark.asyncio
@@ -921,7 +936,7 @@ async def test_install_dynamic_plugin_keeps_skills_live(tmp_path: Path):
         "mcpServers": {
             "my-plugin": {
                 "url": "https://example.com/api/v1/proxy/plugins/p1/mcp",
-                "omit_tools_from": ["deferred"],
+                "http_headers": {CODEX_TOOL_EXPOSURE_HEADER: "client-default"},
             }
         }
     }
@@ -1137,6 +1152,106 @@ async def test_install_claude_code_global_registers_marketplace_and_cache(
             "source": "./plugins/my-plugin-name",
             "category": "productivity",
         }
+    ]
+
+    marketplace_plugin = (
+        home / ".claude/plugins/marketplaces/runlayer/plugins/my-plugin-name"
+    )
+    assert marketplace_plugin.is_dir() and not marketplace_plugin.is_symlink()
+    assert marketplace_plugin.resolve() == marketplace_plugin
+    assert (marketplace_plugin / ".claude-plugin" / "plugin.json").exists()
+    assert (
+        marketplace_plugin / "skills" / "skill-name-with-spaces" / "SKILL.md"
+    ).exists()
+
+
+def _seed_legacy_claude_code_marketplace_install(
+    home: Path,
+) -> tuple[Path, Path, Path, Path]:
+    """A pre-copy Claude Code global install: `native` lock entry plus the
+    outward marketplace symlink Claude Code >= 2.1.257 refuses to load."""
+    canonical = home / ".agents" / "plugins"
+    editor = home / ".claude" / "plugins"
+    lockfile = home / ".runlayer" / "plugin-lock.yml"
+    (canonical / "my-plugin" / ".claude-plugin").mkdir(parents=True)
+    marketplace_plugin = editor / "marketplaces/runlayer/plugins/my-plugin"
+    marketplace_plugin.parent.mkdir(parents=True)
+    marketplace_plugin.symlink_to("../../../../../.agents/plugins/my-plugin")
+    _write_plugin_lockfile(
+        lockfile,
+        [lock_entry(client="claude_code", install_mode="native")],
+    )
+    return canonical, editor, lockfile, marketplace_plugin
+
+
+@pytest.mark.asyncio
+async def test_install_claude_code_global_replaces_legacy_marketplace_symlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """`plugins add` must not skip a locked plugin whose layout is the old symlink."""
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: home))
+    canonical, editor, lockfile, marketplace_plugin = (
+        _seed_legacy_claude_code_marketplace_install(home)
+    )
+
+    result = await install_plugins(
+        client=FakeClientSinglePlugin(),  # type: ignore
+        source="org/repo",
+        install_all=False,
+        plugin_name=None,
+        canonical_dir=canonical,
+        editor_dir=editor,
+        lockfile_path=lockfile,
+        client_name="claude_code",
+        host="https://example.com",
+        install_scope="global",
+    )
+
+    assert result.errors == []
+    assert result.skipped == []
+    assert result.installed == ["my-plugin"]
+    assert marketplace_plugin.is_dir() and not marketplace_plugin.is_symlink()
+    assert (marketplace_plugin / ".claude-plugin" / "plugin.json").exists()
+    entries = read_plugin_lockfile(lockfile)
+    assert [e.install_mode for e in entries] == [
+        plugin_layouts.CLAUDE_CODE_NATIVE_INSTALL_MODE
+    ]
+
+
+@pytest.mark.asyncio
+async def test_update_claude_code_global_replaces_legacy_marketplace_symlink(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """`plugins update` reinstalls the old symlink layout even when the remote
+    plugin is unchanged."""
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setattr(Path, "home", staticmethod(lambda: home))
+    canonical, editor, lockfile, marketplace_plugin = (
+        _seed_legacy_claude_code_marketplace_install(home)
+    )
+
+    result = await update_plugins(
+        client=FakeClientSinglePlugin(),  # type: ignore
+        plugin_name=None,
+        canonical_dir=canonical,
+        editor_dir=editor,
+        lockfile_path=lockfile,
+        client_name="claude_code",
+        host="https://example.com",
+        install_scope="global",
+    )
+
+    assert result.errors == []
+    assert result.up_to_date == []
+    assert result.updated == ["my-plugin"]
+    assert marketplace_plugin.is_dir() and not marketplace_plugin.is_symlink()
+    assert (marketplace_plugin / ".claude-plugin" / "plugin.json").exists()
+    entries = read_plugin_lockfile(lockfile)
+    assert [e.install_mode for e in entries] == [
+        plugin_layouts.CLAUDE_CODE_NATIVE_INSTALL_MODE
     ]
 
 
@@ -1431,7 +1546,10 @@ async def test_install_skips_already_locked(tmp_path: Path):
     canonical = tmp_path / "canonical"
     editor = tmp_path / "editor"
     lockfile = tmp_path / "lock" / "plugin-lock.yml"
-    _write_plugin_lockfile(lockfile, [lock_entry()])
+    _write_plugin_lockfile(
+        lockfile,
+        [lock_entry(install_mode=plugin_layouts.CLAUDE_CODE_NATIVE_INSTALL_MODE)],
+    )
 
     result = await install_plugins(
         client=FakeClientSinglePlugin(),  # type: ignore
@@ -2262,7 +2380,7 @@ async def test_update_up_to_date(tmp_path: Path):
                 namespace="org/repo",
                 updated_at=datetime.datetime(2024, 3, 1, tzinfo=datetime.timezone.utc),
                 client="claude_code",
-                install_mode="native",
+                install_mode=plugin_layouts.CLAUDE_CODE_NATIVE_INSTALL_MODE,
             )
         ],
     )
@@ -2324,6 +2442,86 @@ async def test_update_migrates_legacy_dynamic_install_with_same_timestamp(
         editor_dir=editor,
         lockfile_path=lockfile,
         client_name="claude_code",
+        host="https://example.com",
+        install_scope="project",
+    )
+
+    assert second_result.updated == []
+    assert second_result.up_to_date == ["my-plugin"]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("plugin_id", [RUNLAYER_PLUGIN_ID, "p1"])
+async def test_update_repairs_legacy_dynamic_plugin_codex_config(
+    tmp_path: Path,
+    plugin_id: str,
+):
+    canonical = tmp_path / "canonical"
+    plugin_dir = canonical / "my-plugin"
+    plugin_dir.mkdir(parents=True)
+    (plugin_dir / ".installed").write_text("", encoding="utf-8")
+    (plugin_dir / ".mcp.json").write_text(
+        json.dumps(
+            {
+                "mcpServers": {
+                    "my-plugin": {
+                        "url": (
+                            f"https://example.com/api/v1/proxy/plugins/{plugin_id}/mcp"
+                        ),
+                        "omit_tools_from": ["deferred"],
+                    }
+                }
+            }
+        ),
+        encoding="utf-8",
+    )
+    lockfile = tmp_path / "lock" / "plugin-lock.yml"
+    _write_plugin_lockfile(
+        lockfile,
+        [
+            PluginLockEntry(
+                name="my-plugin",
+                id=plugin_id,
+                install_name="my-plugin",
+                updated_at=datetime.datetime(2024, 1, 1, tzinfo=datetime.timezone.utc),
+                use_dynamic_tools=True,
+                client="codex",
+                install_mode=CODEX_NATIVE_INSTALL_MODE,
+            )
+        ],
+    )
+
+    result = await update_plugins(
+        client=_FakeClientUpdateSameDynamic(),  # type: ignore
+        plugin_name=None,
+        canonical_dir=canonical,
+        editor_dir=canonical,
+        lockfile_path=lockfile,
+        client_name="codex",
+        host="https://example.com",
+        install_scope="project",
+    )
+
+    assert result.updated == ["my-plugin"]
+    assert result.up_to_date == []
+    assert json.loads((plugin_dir / ".mcp.json").read_text()) == {
+        "mcpServers": {
+            "my-plugin": {
+                "url": (f"https://example.com/api/v1/proxy/plugins/{plugin_id}/mcp"),
+                "http_headers": {
+                    CODEX_TOOL_EXPOSURE_HEADER: "client-default",
+                },
+            }
+        }
+    }
+
+    second_result = await update_plugins(
+        client=_FakeClientUpdateSameDynamic(),  # type: ignore
+        plugin_name=None,
+        canonical_dir=canonical,
+        editor_dir=canonical,
+        lockfile_path=lockfile,
+        client_name="codex",
         host="https://example.com",
         install_scope="project",
     )

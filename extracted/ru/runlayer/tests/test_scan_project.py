@@ -1,6 +1,7 @@
 """Tests for project-level config scanning using find command."""
 
 import os
+import threading
 import time
 from pathlib import Path
 from unittest import mock
@@ -15,6 +16,7 @@ from runlayer_cli.scan.clients import (
     ProjectConfigPattern,
     get_client_by_name,
 )
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.project_scanner import (
     EXCLUDED_DIRECTORIES,
     MAX_DISCOVERED_NODE_MODULES,
@@ -478,15 +480,50 @@ class TestSearchUnix:
         ]
 
     @mock.patch("runlayer_cli.scan.project_scanner.subprocess.run")
+    def test_find_exit_one_keeps_results_and_stays_complete(
+        self,
+        mock_run,
+        tmp_path,
+    ):
+        # macOS TCC / Linux ACLs make `find ~` exit 1 on nearly every real host
+        # while still printing every readable match. That is the normal terminal
+        # state, not a truncated crawl.
+        config = tmp_path / ".mcp.json"
+        config.write_text("{}")
+        mock_run.return_value = mock.Mock(
+            stdout=f"{config}\n",
+            returncode=1,
+        )
+        completion = ScanCompletionStatus()
+
+        results = _search_unix(
+            [".mcp.json"],
+            timeout=30,
+            max_depth=5,
+            roots=[tmp_path],
+            completion=completion,
+        )
+
+        assert results == [config]
+        assert completion.complete is True
+
+    @mock.patch("runlayer_cli.scan.project_scanner.subprocess.run")
     def test_handles_timeout(self, mock_run):
         """Handles subprocess timeout gracefully."""
         import subprocess
 
         mock_run.side_effect = subprocess.TimeoutExpired(cmd="find", timeout=30)
+        status = ScanCompletionStatus()
 
         # Should not raise, just return empty list
-        results = _search_unix([".mcp.json"], timeout=30, max_depth=5)
+        results = _search_unix(
+            [".mcp.json"],
+            timeout=30,
+            max_depth=5,
+            completion=status,
+        )
         assert results == []
+        assert status.complete is False
 
 
 class TestClampScanBound:
@@ -509,6 +546,41 @@ class TestClampScanBound:
     def test_bool_falls_back_to_default(self):
         # isinstance(True, int) is True, so bool must be rejected explicitly.
         assert _clamp_scan_bound(True, default=5, maximum=MAX_PROJECT_DEPTH) == 5
+
+
+@pytest.mark.parametrize(
+    ("returncode", "command", "expected"),
+    [
+        (None, "find", None),
+        (0, "powershell", None),
+        (1, "find", None),
+        (1, "powershell", "project_crawl_command_failed"),
+        (2, "find", "project_crawl_command_failed"),
+        (-9, "find", "project_crawl_command_failed"),
+        (2, "powershell", "project_crawl_command_failed"),
+    ],
+)
+def test_classify_crawl_returncode_is_command_aware(
+    returncode,
+    command,
+    expected,
+):
+    assert project_scanner._classify_crawl_returncode(returncode, command) == expected
+
+
+@pytest.mark.parametrize(
+    ("exc", "expected"),
+    [
+        (
+            project_scanner.subprocess.TimeoutExpired("crawl", 1),
+            "project_crawl_timed_out",
+        ),
+        (FileNotFoundError(), "project_crawl_command_missing"),
+        (RuntimeError("failed"), "project_crawl_command_failed"),
+    ],
+)
+def test_classify_crawl_exception_uses_shared_taxonomy(exc, expected):
+    assert project_scanner._classify_crawl_exception(exc) == expected
 
 
 @pytest.mark.parametrize(
@@ -570,6 +642,34 @@ def test_failed_path_reservation_does_not_consume_follow_capacity(tmp_path):
     assert searched_roots == [directory_target.resolve()]
 
 
+@pytest.mark.skipif(os.name == "nt", reason="Unix symlink behavior")
+def test_followed_symlink_cap_marks_crawl_incomplete(tmp_path):
+    targets = [tmp_path / "target-a", tmp_path / "target-b"]
+    links = [tmp_path / "link-a", tmp_path / "link-b"]
+    for target, link in zip(targets, links, strict=True):
+        target.mkdir()
+        link.symlink_to(target, target_is_directory=True)
+    policy = SymlinkFollowPolicy(scan_areas=(), max_followed=1)
+
+    _crawl_followed_symlink_targets(
+        ["SKILL.md"],
+        links,
+        deadline=time.monotonic() + 10,
+        policy=policy,
+        system="Darwin",
+        governor=None,
+        path_budget=_PathBudget(10),
+        discover_node_modules=False,
+        max_workers=1,
+        follow_depth=2,
+        search_unix=lambda *_args, **_kwargs: [],
+        search_windows=lambda *_args, **_kwargs: [],
+    )
+
+    # The parent crawl reads this flag to mark ``*_symlink_follow_capped``.
+    assert policy.follow_budget_exhausted is True
+
+
 class TestFindFilesUnderHomeClamp:
     """find_files_under_home clamps depth/timeout into the supported range
     before crawling — backstop for non-typer programmatic callers."""
@@ -618,6 +718,141 @@ class TestFindFilesUnderHomeClamp:
 
 
 class TestFindFilesUnderProjectRoots:
+    def test_timeout_keeps_partial_paths_and_marks_incomplete(
+        self, monkeypatch, tmp_path
+    ):
+        import subprocess
+
+        project = tmp_path / "project"
+        project.mkdir()
+        partial = project / "SKILL.md"
+        partial.write_text("# partial", encoding="utf-8")
+        status = ScanCompletionStatus()
+        timeout = subprocess.TimeoutExpired(
+            cmd="find",
+            timeout=1,
+            output=f"{partial}\n",
+        )
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(project_scanner.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(
+            project_scanner.subprocess, "run", mock.Mock(side_effect=timeout)
+        )
+
+        results = project_scanner.find_files_under_project_roots(
+            ["SKILL.md"],
+            [project],
+            completion=status,
+        )
+
+        assert results == [partial]
+        assert status.complete is False
+
+    def test_path_budget_keeps_partial_paths_and_marks_incomplete(
+        self, monkeypatch, tmp_path
+    ):
+        project = tmp_path / "project"
+        project.mkdir()
+        first = project / "first" / "SKILL.md"
+        first.parent.mkdir()
+        first.write_text("# first", encoding="utf-8")
+        second = project / "second" / "SKILL.md"
+        second.parent.mkdir()
+        second.write_text("# second", encoding="utf-8")
+        status = ScanCompletionStatus()
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(project_scanner.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(
+            project_scanner.subprocess,
+            "run",
+            mock.Mock(
+                return_value=mock.Mock(
+                    stdout=f"{first}\n{second}\n",
+                    returncode=0,
+                )
+            ),
+        )
+
+        results = project_scanner.find_files_under_project_roots(
+            ["SKILL.md"],
+            [project],
+            max_paths=1,
+            completion=status,
+        )
+
+        assert results == [first]
+        assert status.complete is False
+
+    def test_root_cap_marks_crawl_incomplete(self, monkeypatch, tmp_path):
+        home = tmp_path / "home"
+        roots = [home / "project-a", home / "project-b"]
+        for root in roots:
+            root.mkdir(parents=True)
+        status = ScanCompletionStatus()
+
+        monkeypatch.setattr(Path, "home", lambda: home)
+        monkeypatch.setattr(project_scanner.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(project_scanner, "NESTED_PROJECT_SCAN_MAX_ROOTS", 1)
+        monkeypatch.setattr(project_scanner, "_search_unix", lambda *_a, **_k: [])
+
+        project_scanner.find_files_under_project_roots(
+            ["SKILL.md"],
+            roots,
+            completion=status,
+        )
+
+        assert status.complete is False
+
+    def test_uninspectable_root_marks_crawl_incomplete(self, monkeypatch, tmp_path):
+        home = tmp_path / "home"
+        readable = home / "project-a"
+        blocked = home / "project-b"
+        for root in (readable, blocked):
+            root.mkdir(parents=True)
+        status = ScanCompletionStatus()
+        real_is_dir = Path.is_dir
+
+        def flaky_is_dir(self):
+            if self == blocked:
+                raise PermissionError(13, "Permission denied", str(self))
+            return real_is_dir(self)
+
+        search = mock.Mock(return_value=[])
+        monkeypatch.setattr(Path, "home", lambda: home)
+        monkeypatch.setattr(Path, "is_dir", flaky_is_dir)
+        monkeypatch.setattr(project_scanner.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(project_scanner, "_search_unix", search)
+
+        project_scanner.find_files_under_project_roots(
+            ["SKILL.md"],
+            [readable, blocked],
+            completion=status,
+        )
+
+        assert search.call_args.kwargs["roots"] == [readable]
+        assert status.complete is False
+
+    def test_vanished_root_is_skipped_and_stays_complete(self, monkeypatch, tmp_path):
+        home = tmp_path / "home"
+        readable = home / "project-a"
+        readable.mkdir(parents=True)
+        gone = home / "project-gone"
+        status = ScanCompletionStatus()
+
+        search = mock.Mock(return_value=[])
+        monkeypatch.setattr(Path, "home", lambda: home)
+        monkeypatch.setattr(project_scanner.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(project_scanner, "_search_unix", search)
+
+        project_scanner.find_files_under_project_roots(
+            ["SKILL.md"],
+            [readable, gone],
+            completion=status,
+        )
+
+        assert search.call_args.kwargs["roots"] == [readable]
+        assert status.complete is True
+
     def test_dedupes_nested_roots_and_applies_bounds(self, monkeypatch, tmp_path):
         project = tmp_path / "code" / "project"
         nested_project = project / "packages" / "nested"
@@ -653,6 +888,185 @@ class TestFindFilesUnderProjectRoots:
         assert calls[0]["roots"] == [project]
         assert calls[0]["max_depth"] == 8
         assert 0 < calls[0]["timeout"] <= 12
+
+    def test_finished_nested_crawl_is_complete_after_deadline(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+        project = tmp_path / "project"
+        project.mkdir()
+        clock = 0.0
+        completion = ScanCompletionStatus()
+
+        def complete_search(*_args, **_kwargs):
+            nonlocal clock
+            clock = 2.0
+            return []
+
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(project_scanner.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(project_scanner.time, "monotonic", lambda: clock)
+        monkeypatch.setattr(project_scanner, "_search_unix", complete_search)
+
+        results = project_scanner.find_files_under_project_roots(
+            ["SKILL.md"],
+            [project],
+            timeout=1,
+            completion=completion,
+        )
+
+        assert results == []
+        assert completion.reasons == []
+
+    def test_skipped_nested_shard_marks_incomplete(self, monkeypatch, tmp_path):
+        project = tmp_path / "project"
+        project.mkdir()
+        clock = 0.0
+        completion = ScanCompletionStatus()
+
+        def expire_before_shard(_governor):
+            nonlocal clock
+            clock = 2.0
+            return 1
+
+        def unexpected_search(*_args, **_kwargs):
+            raise AssertionError("expired shard must not run")
+
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(project_scanner.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(project_scanner.time, "monotonic", lambda: clock)
+        monkeypatch.setattr(project_scanner, "scan_worker_count", expire_before_shard)
+        monkeypatch.setattr(project_scanner, "_search_unix", unexpected_search)
+
+        results = project_scanner.find_files_under_project_roots(
+            ["SKILL.md"],
+            [project],
+            timeout=1,
+            completion=completion,
+        )
+
+        assert results == []
+        assert completion.reasons == ["nested_project_crawl_timed_out"]
+
+    def test_nested_find_timeout_marks_nested_taxonomy_not_home(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+        home = tmp_path / "home"
+        project = home / "project"
+        project.mkdir(parents=True)
+        completion = ScanCompletionStatus()
+
+        def time_out(*_args, **_kwargs):
+            raise project_scanner.subprocess.TimeoutExpired("find", 10)
+
+        monkeypatch.setattr(Path, "home", lambda: home)
+        monkeypatch.setattr(project_scanner.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(project_scanner.subprocess, "run", time_out)
+
+        results = project_scanner.find_files_under_project_roots(
+            ["SKILL.md"],
+            [project],
+            timeout=10,
+            completion=completion,
+        )
+
+        assert results == []
+        assert completion.reasons == ["nested_project_crawl_timed_out"]
+        assert "project_crawl_timed_out" not in completion.reasons
+
+    def test_nested_find_failure_marks_nested_taxonomy_not_home(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+        home = tmp_path / "home"
+        project = home / "project"
+        project.mkdir(parents=True)
+        completion = ScanCompletionStatus()
+
+        monkeypatch.setattr(Path, "home", lambda: home)
+        monkeypatch.setattr(project_scanner.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(
+            project_scanner.subprocess,
+            "run",
+            lambda *_args, **_kwargs: mock.Mock(stdout="", returncode=2),
+        )
+
+        results = project_scanner.find_files_under_project_roots(
+            ["SKILL.md"],
+            [project],
+            timeout=10,
+            completion=completion,
+        )
+
+        assert results == []
+        assert completion.reasons == ["nested_project_crawl_command_failed"]
+        assert "project_crawl_command_failed" not in completion.reasons
+
+    @pytest.mark.skipif(os.name == "nt", reason="Unix symlink behavior")
+    def test_skipped_symlink_frontier_marks_nested_crawl_incomplete(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+        project = tmp_path / "project"
+        project.mkdir()
+        target = tmp_path / "target"
+        target.mkdir()
+        link = project / "linked"
+        link.symlink_to(target, target_is_directory=True)
+        clock = 0.0
+        completion = ScanCompletionStatus()
+        searched_roots: list[list[Path]] = []
+
+        def complete_initial_search(*_args, **kwargs):
+            nonlocal clock
+            searched_roots.append(kwargs["roots"])
+            kwargs["symlink_paths"].append(link)
+            clock = 2.0
+            return []
+
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(project_scanner.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(project_scanner.time, "monotonic", lambda: clock)
+        monkeypatch.setattr(project_scanner, "_search_unix", complete_initial_search)
+
+        results = project_scanner.find_files_under_project_roots(
+            ["SKILL.md"],
+            [project],
+            timeout=1,
+            completion=completion,
+        )
+
+        assert searched_roots == [[project]]
+        assert results == []
+        assert completion.reasons == ["nested_project_crawl_timed_out"]
+
+    def test_result_cap_marks_incomplete(self, monkeypatch, tmp_path):
+        project = tmp_path / "project"
+        project.mkdir()
+        found = [project / f"skill-{index}.md" for index in range(3)]
+        completion = ScanCompletionStatus()
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(project_scanner.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(
+            project_scanner,
+            "_search_unix",
+            lambda *_args, **_kwargs: found,
+        )
+
+        results = project_scanner.find_files_under_project_roots(
+            ["*.md"],
+            [project],
+            max_paths=2,
+            completion=completion,
+        )
+
+        assert results == found[:2]
+        assert completion.reasons == ["nested_project_path_capped"]
 
     def test_scans_roots_outside_home(self, monkeypatch, tmp_path):
         home = tmp_path / "home"
@@ -735,6 +1149,39 @@ class TestFindFilesUnderProjectRoots:
             external_project.resolve(),
         }
         assert len({id(call["path_budget"]) for call in calls}) == 1
+
+    def test_root_cap_applies_after_scope_filtering(
+        self,
+        monkeypatch,
+        tmp_path,
+    ):
+        home = tmp_path / "home"
+        roots = [
+            home / "one",
+            home / "two",
+            tmp_path / "external-one",
+            tmp_path / "external-two",
+        ]
+        for root in roots:
+            root.mkdir(parents=True)
+        completion = ScanCompletionStatus()
+        monkeypatch.setattr(project_scanner, "NESTED_PROJECT_SCAN_MAX_ROOTS", 2)
+        monkeypatch.setattr(Path, "home", lambda: home)
+        monkeypatch.setattr(project_scanner.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(project_scanner, "scan_worker_count", lambda _governor: 1)
+        monkeypatch.setattr(
+            project_scanner,
+            "_search_unix",
+            lambda *_args, **_kwargs: [],
+        )
+
+        project_scanner.find_files_under_project_roots(
+            ["SKILL.md"],
+            roots,
+            completion=completion,
+        )
+
+        assert "nested_project_root_capped" not in completion.reasons
 
     @pytest.mark.skipif(os.name == "nt", reason="Unix find and symlink behavior")
     def test_in_home_helper_iteratively_follows_symlinks(
@@ -839,6 +1286,12 @@ class TestFindFilesUnderProjectRoots:
 
 
 class TestFindFilesUnderHomeUnixSharding:
+    def test_empty_filename_set_is_complete(self):
+        result = find_files_and_node_modules_under_home([])
+
+        assert result.found_paths == []
+        assert result.complete is True
+
     @pytest.mark.parametrize("configured_depth", [3, 12])
     @pytest.mark.skipif(os.name == "nt", reason="Unix symlink behavior")
     def test_followed_roots_use_configured_home_depth(
@@ -926,6 +1379,56 @@ class TestFindFilesUnderHomeUnixSharding:
             )
 
         assert results == [config.resolve()]
+
+    @pytest.mark.skipif(os.name == "nt", reason="Unix find and symlink behavior")
+    def test_followed_crawl_timeout_keeps_paths_and_marks_incomplete(self, tmp_path):
+        import subprocess
+
+        home = tmp_path / "home"
+        home.mkdir()
+        top_hit = home / ".mcp.json"
+        top_hit.write_text("{}")
+        external = tmp_path / "external"
+        external.mkdir()
+        followed_hit = external / ".mcp.json"
+        followed_hit.write_text("{}")
+        link = home / "project"
+        link.symlink_to(external, target_is_directory=True)
+
+        def run_find(command, **kwargs):
+            root = Path(command[1])
+            if root == external.resolve():
+                raise subprocess.TimeoutExpired(
+                    command,
+                    timeout=kwargs["timeout"],
+                    output=f"{followed_hit}\n",
+                )
+            return mock.Mock(
+                stdout=f"{top_hit}\n{link}\n",
+                returncode=0,
+            )
+
+        with (
+            mock.patch.object(Path, "home", return_value=home),
+            mock.patch.object(
+                project_scanner.platform,
+                "system",
+                return_value="Darwin",
+            ),
+            mock.patch.object(
+                project_scanner.subprocess,
+                "run",
+                side_effect=run_find,
+            ),
+        ):
+            result = find_files_and_node_modules_under_home(
+                [".mcp.json"],
+                timeout=30,
+                max_depth=1,
+            )
+
+        assert result.found_paths == sorted([top_hit, followed_hit])
+        assert result.complete is False
 
     @pytest.mark.skipif(os.name == "nt", reason="Unix find and symlink behavior")
     def test_skips_link_to_excluded_target_directory(self, tmp_path):
@@ -1167,6 +1670,7 @@ class TestFindFilesUnderHomeUnixSharding:
             result.node_modules_paths
             == sorted(node_modules)[:MAX_DISCOVERED_NODE_MODULES]
         )
+        assert result.complete is True
 
     def test_shards_consume_one_aggregate_deadline(self, tmp_path):
         home = tmp_path / "home"
@@ -1188,12 +1692,138 @@ class TestFindFilesUnderHomeUnixSharding:
             mock.patch.object(project_scanner, "_search_unix", side_effect=fake_search),
             mock.patch(
                 "runlayer_cli.scan.project_scanner.time.monotonic",
-                side_effect=[100.0, 100.0, 110.0],
+                side_effect=[100.0, 100.0, 110.0, 110.0],
             ),
         ):
             find_files_under_home([".mcp.json"], timeout=30, max_depth=7)
 
         assert budgets == [(1, 30.0), (6, 20.0)]
+
+    def test_finished_home_crawl_is_complete_after_deadline(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        home = tmp_path / "home"
+        home.mkdir()
+        clock = 0.0
+
+        def complete_search(*_args, **_kwargs):
+            nonlocal clock
+            clock = 2.0
+            return []
+
+        monkeypatch.setattr(Path, "home", lambda: home)
+        monkeypatch.setattr(project_scanner.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(project_scanner.time, "monotonic", lambda: clock)
+        monkeypatch.setattr(project_scanner, "_search_unix", complete_search)
+
+        result = find_files_and_node_modules_under_home(
+            [".mcp.json"],
+            timeout=1,
+            max_depth=1,
+        )
+
+        assert result.complete is True
+        assert result.incomplete_reasons == []
+
+    def test_skipped_home_shard_marks_incomplete(self, tmp_path, monkeypatch):
+        home = tmp_path / "home"
+        home.mkdir()
+        clock = 0.0
+
+        def expire_before_shard(_governor):
+            nonlocal clock
+            clock = 2.0
+            return 1
+
+        def unexpected_search(*_args, **_kwargs):
+            raise AssertionError("expired shard must not run")
+
+        monkeypatch.setattr(Path, "home", lambda: home)
+        monkeypatch.setattr(project_scanner.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(project_scanner.time, "monotonic", lambda: clock)
+        monkeypatch.setattr(project_scanner, "scan_worker_count", expire_before_shard)
+        monkeypatch.setattr(project_scanner, "_search_unix", unexpected_search)
+
+        result = find_files_and_node_modules_under_home(
+            [".mcp.json"],
+            timeout=1,
+            max_depth=1,
+        )
+
+        assert result.complete is False
+        assert result.incomplete_reasons == ["project_crawl_timed_out"]
+
+    def test_skipped_later_shard_preserves_partial_results(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        home = tmp_path / "home"
+        project = home / "project"
+        project.mkdir(parents=True)
+        top_hit = home / ".mcp.json"
+        clock = 0.0
+
+        def complete_top_level(*_args, **kwargs):
+            nonlocal clock
+            assert kwargs["roots"] == [home]
+            clock = 2.0
+            return [top_hit]
+
+        monkeypatch.setattr(Path, "home", lambda: home)
+        monkeypatch.setattr(project_scanner.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(project_scanner.time, "monotonic", lambda: clock)
+        monkeypatch.setattr(project_scanner, "scan_worker_count", lambda _governor: 1)
+        monkeypatch.setattr(project_scanner, "_search_unix", complete_top_level)
+
+        result = find_files_and_node_modules_under_home(
+            [".mcp.json"],
+            timeout=1,
+            max_depth=2,
+        )
+
+        assert result.found_paths == [top_hit]
+        assert result.complete is False
+        assert result.incomplete_reasons == ["project_crawl_timed_out"]
+
+    @pytest.mark.skipif(os.name == "nt", reason="Unix symlink behavior")
+    def test_skipped_symlink_frontier_marks_home_crawl_incomplete(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        home = tmp_path / "home"
+        home.mkdir()
+        target = tmp_path / "target"
+        target.mkdir()
+        link = home / "project"
+        link.symlink_to(target, target_is_directory=True)
+        clock = 0.0
+        searched_roots: list[list[Path]] = []
+
+        def complete_initial_search(*_args, **kwargs):
+            nonlocal clock
+            searched_roots.append(kwargs["roots"])
+            kwargs["symlink_paths"].append(link)
+            clock = 2.0
+            return []
+
+        monkeypatch.setattr(Path, "home", lambda: home)
+        monkeypatch.setattr(project_scanner.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(project_scanner.time, "monotonic", lambda: clock)
+        monkeypatch.setattr(project_scanner, "_search_unix", complete_initial_search)
+
+        result = find_files_and_node_modules_under_home(
+            [".mcp.json"],
+            timeout=1,
+            max_depth=1,
+        )
+
+        assert searched_roots == [[home]]
+        assert result.complete is False
+        assert result.incomplete_reasons == ["project_crawl_timed_out"]
 
     def test_parallel_shards_collect_symlinks_in_local_lists(self, tmp_path):
         home = tmp_path / "home"
@@ -1247,7 +1877,7 @@ class TestFindFilesUnderHomeUnixSharding:
             mock.patch.object(project_scanner, "_search_unix", side_effect=fake_search),
             mock.patch(
                 "runlayer_cli.scan.project_scanner.time.monotonic",
-                side_effect=[100.0, 100.0, 105.0, 110.0],
+                side_effect=[100.0, 100.0, 105.0, 110.0, 110.0],
             ),
         ):
             results = find_files_under_home(
@@ -1283,17 +1913,18 @@ class TestFindFilesUnderHomeUnixSharding:
             ) as mock_search,
             mock.patch(
                 "runlayer_cli.scan.project_scanner.time.monotonic",
-                side_effect=[100.0, 100.0, 131.0],
+                side_effect=[100.0, 100.0, 131.0, 131.0],
             ),
             structlog.testing.capture_logs() as logs,
         ):
-            results = find_files_under_home(
+            result = find_files_and_node_modules_under_home(
                 [".mcp.json"],
                 timeout=30,
                 max_depth=7,
             )
 
-        assert results == [top_hit]
+        assert result.found_paths == [top_hit]
+        assert result.complete is False
         mock_search.assert_called_once()
         skipped = [
             log for log in logs if log["event"] == "crawl_shard_skipped_deadline"
@@ -1413,13 +2044,14 @@ class TestFindFilesUnderHomeUnixSharding:
 
         mock_run.side_effect = run_find
         with mock.patch.object(Path, "home", return_value=home):
-            results = find_files_under_home(
+            result = find_files_and_node_modules_under_home(
                 [".mcp.json"],
                 timeout=30,
                 max_depth=7,
             )
 
-        assert results == [fast_hit]
+        assert result.found_paths == [fast_hit]
+        assert result.complete is False
 
     @mock.patch(
         "runlayer_cli.scan.project_scanner.platform.system",
@@ -1529,7 +2161,7 @@ class TestFindFilesUnderHomeWindowsSharding:
             ),
             mock.patch(
                 "runlayer_cli.scan.project_scanner.time.monotonic",
-                side_effect=[100.0, 100.0, 110.0],
+                side_effect=[100.0, 100.0, 110.0, 110.0],
             ),
         ):
             find_files_under_home([".mcp.json"], timeout=30, max_depth=7)
@@ -1632,6 +2264,25 @@ class TestSearchWindows:
     """Tests for the Windows PowerShell search."""
 
     @mock.patch("runlayer_cli.scan.project_scanner.subprocess.run")
+    def test_exit_one_marks_results_command_failed(self, mock_run, tmp_path):
+        config = tmp_path / ".mcp.json"
+        config.write_text("{}")
+        mock_run.return_value = mock.Mock(stdout=f"{config}\n", returncode=1)
+        completion = ScanCompletionStatus()
+
+        results = _search_windows(
+            [".mcp.json"],
+            timeout=30,
+            max_depth=5,
+            roots=[tmp_path],
+            containment_root=tmp_path,
+            completion=completion,
+        )
+
+        assert results == [config]
+        assert completion.reasons == ["project_crawl_command_failed"]
+
+    @mock.patch("runlayer_cli.scan.project_scanner.subprocess.run")
     def test_surfaces_reparse_paths_in_user_context(self, mock_run, tmp_path):
         reparse = Path("C:/Users/alex/project-link")
         prefix = project_scanner._WINDOWS_REPARSE_PREFIX
@@ -1717,6 +2368,19 @@ class TestSearchWindows:
         cmd = mock_run.call_args[0][0][-1]
         # Should use single quotes, not double quotes
         assert f"Get-ChildItem -Path '{tmp_path / 'normal_home'}'" in cmd
+
+    @mock.patch("runlayer_cli.scan.project_scanner.subprocess.run")
+    def test_script_exits_zero_after_enumeration_so_nonzero_means_failure(
+        self, mock_run
+    ):
+        mock_run.return_value = mock.Mock(stdout="", returncode=0)
+
+        _search_windows(["SKILL.md"], timeout=30, max_depth=5)
+
+        command = mock_run.call_args[0][0][-1]
+        assert command.rstrip().endswith("exit 0")
+        assert "crawlErrors" not in command
+        assert command.count("-ErrorAction SilentlyContinue") == 2
 
     @mock.patch("runlayer_cli.scan.project_scanner.subprocess.run")
     def test_accepts_grouped_path_array(self, mock_run, tmp_path):
@@ -1815,10 +2479,57 @@ class TestSearchWindows:
         import subprocess
 
         mock_run.side_effect = subprocess.TimeoutExpired(cmd="powershell", timeout=30)
+        status = ScanCompletionStatus()
 
         # Should not raise, just return empty list
-        results = _search_windows([".mcp.json"], timeout=30, max_depth=5)
+        results = _search_windows(
+            [".mcp.json"],
+            timeout=30,
+            max_depth=5,
+            completion=status,
+        )
         assert results == []
+        assert status.complete is False
+
+    @mock.patch("runlayer_cli.scan.project_scanner.subprocess.run")
+    def test_nonzero_exit_marks_incomplete(self, mock_run):
+        mock_run.return_value = mock.Mock(stdout="", returncode=1)
+        status = ScanCompletionStatus()
+
+        _search_windows([".mcp.json"], timeout=30, max_depth=5, completion=status)
+
+        assert status.complete is False
+
+
+class TestSearchUnixExitCodes:
+    """Blocking `find` path: exit 1 is routine ACL noise, anything else aborts."""
+
+    def _run(self, monkeypatch, returncode: int, tmp_path) -> ScanCompletionStatus:
+        hit = tmp_path / "repo" / ".mcp.json"
+        hit.parent.mkdir()
+        hit.write_text("{}")
+        monkeypatch.setattr(
+            project_scanner.subprocess,
+            "run",
+            mock.Mock(return_value=mock.Mock(stdout=f"{hit}\n", returncode=returncode)),
+        )
+        status = ScanCompletionStatus()
+        results = project_scanner._search_unix(
+            [".mcp.json"],
+            timeout=30,
+            max_depth=5,
+            roots=[tmp_path],
+            completion=status,
+        )
+        assert results == [hit]
+        return status
+
+    def test_exit_one_unreadable_dirs_stays_complete(self, monkeypatch, tmp_path):
+        assert self._run(monkeypatch, 1, tmp_path).complete is True
+
+    @pytest.mark.parametrize("returncode", [2, -9])
+    def test_abnormal_exit_marks_incomplete(self, monkeypatch, returncode, tmp_path):
+        assert self._run(monkeypatch, returncode, tmp_path).complete is False
 
 
 class TestIsWithinRoot:
@@ -2011,22 +2722,30 @@ class _FakeStdout:
 class FakePopen:
     """subprocess.Popen stand-in whose stdout yields canned crawl lines."""
 
-    def __init__(self, lines: list[str], pid: int = 424242) -> None:
+    def __init__(
+        self,
+        lines: list[str],
+        pid: int = 424242,
+        returncode: int = 0,
+    ) -> None:
         self.stdout = _FakeStdout(lines)
         self.pid = pid
+        self.returncode = returncode
         self.killed = False
         self._waited = False
 
     def poll(self):
         # Model a child that exits once its stdout is drained; still "running"
         # if we bailed early (max-paths break / abort) so the finally kills it.
-        if self.killed or self._waited or self.stdout.exhausted:
-            return 0
+        if self.killed:
+            return -15
+        if self._waited or self.stdout.exhausted:
+            return self.returncode
         return None
 
     def wait(self, timeout=None):
         self._waited = True
-        return 0
+        return -15 if self.killed else self.returncode
 
     def kill(self) -> None:
         self.killed = True
@@ -2111,17 +2830,44 @@ class TestStreamCrawl:
         assert popen_kwargs["creationflags"] == priority_flag
         assert "preexec_fn" not in popen_kwargs
 
+    @pytest.mark.skipif(os.name == "nt", reason="find is the POSIX crawler")
+    def test_undecodable_path_bytes_do_not_abort_the_crawl(self):
+        """One non-UTF-8 filename must not raise UnicodeDecodeError out of the
+        streaming reader and lose every project path (ISS-16 class).
+
+        Real child process: strict text decoding failed inside ``for raw in
+        stream`` before the fix. surrogateescape keeps the path openable.
+        """
+        import sys
+
+        script = (
+            "import sys; "
+            "sys.stdout.buffer.write(b'/p/ok/.mcp.json\\n/p/bad\\xff/.mcp.json\\n')"
+        )
+        result = _stream_crawl(
+            [sys.executable, "-c", script],
+            30,
+            lambda line: Path(line),
+            FakeGovernor(),
+            label="find",
+        )
+
+        assert result[0] == Path("/p/ok/.mcp.json")
+        assert len(result) == 2
+        assert os.fsencode(result[1]) == b"/p/bad\xff/.mcp.json"
+
     def test_streams_and_accepts_lines(self, monkeypatch):
         fake = FakePopen(["/a/.mcp.json\n", "\n", "/b/.mcp.json\n"])
         monkeypatch.setattr(project_scanner.subprocess, "Popen", lambda *a, **k: fake)
         gov = FakeGovernor()
 
-        results = _stream_crawl(
-            ["find"], 30, lambda line: Path(line), gov, label="find"
-        )
+        result = _stream_crawl(["find"], 30, lambda line: Path(line), gov, label="find")
 
         # Blank line is skipped; the two real lines are accepted in order.
-        assert results == [Path("/a/.mcp.json"), Path("/b/.mcp.json")]
+        assert result == [
+            Path("/a/.mcp.json"),
+            Path("/b/.mcp.json"),
+        ]
 
     def test_registers_and_unregisters_child(self, monkeypatch):
         fake = FakePopen(["/a/.mcp.json\n"])
@@ -2138,19 +2884,239 @@ class TestStreamCrawl:
         fake = FakePopen(lines)
         monkeypatch.setattr(project_scanner.subprocess, "Popen", lambda *a, **k: fake)
         killed: list[object] = []
+
+        def terminate(proc):
+            killed.append(proc)
+            proc.kill()
+
         monkeypatch.setattr(
             project_scanner,
             "terminate_process",
-            lambda proc: killed.append(proc),
+            terminate,
         )
         gov = FakeGovernor(max_paths=3)
+        completion = ScanCompletionStatus()
 
         results = _stream_crawl(
-            ["find"], 30, lambda line: Path(line), gov, label="find"
+            ["find"],
+            30,
+            lambda line: Path(line),
+            gov,
+            label="find",
+            completion=completion,
         )
 
         assert len(results) == 3  # stops at the budget
         assert killed == [fake]  # child killed since it was still running
+        assert completion.complete is False
+        assert completion.reasons == ["project_crawl_path_capped"]
+
+    def test_find_exit_one_means_unreadable_dirs_and_stays_complete(self, monkeypatch):
+        # macOS TCC / Linux ACLs make `find ~` exit 1 on nearly every real host
+        # while still printing every readable match. That is the normal terminal
+        # state, not a truncated crawl.
+        fake = FakePopen(["/readable/.mcp.json\n"], returncode=1)
+        monkeypatch.setattr(project_scanner.subprocess, "Popen", lambda *a, **k: fake)
+        completion = ScanCompletionStatus()
+
+        results = _stream_crawl(
+            ["find"],
+            30,
+            lambda line: Path(line),
+            FakeGovernor(),
+            label="find",
+            completion=completion,
+        )
+
+        assert results == [Path("/readable/.mcp.json")]
+        assert completion.complete is True
+
+    @pytest.mark.parametrize("returncode", [2, -9])
+    def test_abnormal_exit_keeps_partial_paths_and_marks_incomplete(
+        self, monkeypatch, returncode
+    ):
+        fake = FakePopen(["/partial/.mcp.json\n"], returncode=returncode)
+        monkeypatch.setattr(project_scanner.subprocess, "Popen", lambda *a, **k: fake)
+        completion = ScanCompletionStatus()
+
+        results = _stream_crawl(
+            ["find"],
+            30,
+            lambda line: Path(line),
+            FakeGovernor(),
+            label="find",
+            completion=completion,
+        )
+
+        assert results == [Path("/partial/.mcp.json")]
+        assert completion.reasons == ["project_crawl_command_failed"]
+
+    def test_timeout_keeps_partial_paths_and_marks_incomplete(self, monkeypatch):
+        terminated = threading.Event()
+
+        class BlockingStdout(_FakeStdout):
+            def __init__(self) -> None:
+                super().__init__(["/partial/.mcp.json\n"])
+
+            def __next__(self) -> str:
+                try:
+                    return super().__next__()
+                except StopIteration:
+                    assert terminated.wait(timeout=1)
+                    raise
+
+        fake = FakePopen([])
+        fake.stdout = BlockingStdout()
+        monkeypatch.setattr(project_scanner.subprocess, "Popen", lambda *a, **k: fake)
+
+        def terminate(proc) -> None:
+            proc.kill()
+            terminated.set()
+
+        monkeypatch.setattr(project_scanner, "terminate_process", terminate)
+        completion = ScanCompletionStatus()
+
+        results = _stream_crawl(
+            ["find"],
+            0.01,
+            lambda line: Path(line),
+            FakeGovernor(),
+            label="find",
+            completion=completion,
+        )
+
+        assert results == [Path("/partial/.mcp.json")]
+        assert completion.reasons == ["project_crawl_timed_out"]
+
+    def test_start_failure_marks_command_failed(self, monkeypatch):
+        def _raise(*a, **k):
+            raise OSError("cannot start")
+
+        monkeypatch.setattr(project_scanner.subprocess, "Popen", _raise)
+        completion = ScanCompletionStatus()
+
+        results = _stream_crawl(
+            ["find"],
+            30,
+            lambda line: Path(line),
+            FakeGovernor(),
+            label="find",
+            completion=completion,
+        )
+
+        assert results == []
+        assert completion.reasons == ["project_crawl_command_failed"]
+
+    def test_waits_for_exit_code_after_stdout_eof(self, monkeypatch):
+        class DelayedExitPopen(FakePopen):
+            def poll(self):
+                if self.killed:
+                    return -15
+                if self._waited:
+                    return self.returncode
+                return None
+
+        fake = DelayedExitPopen(["/a/.mcp.json\n"], returncode=0)
+        monkeypatch.setattr(project_scanner.subprocess, "Popen", lambda *a, **k: fake)
+        monkeypatch.setattr(
+            project_scanner,
+            "terminate_process",
+            lambda proc: proc.kill(),
+        )
+        completion = ScanCompletionStatus()
+
+        results = _stream_crawl(
+            ["find"],
+            30,
+            lambda line: Path(line),
+            FakeGovernor(),
+            label="find",
+            completion=completion,
+        )
+
+        assert results == [Path("/a/.mcp.json")]
+        assert fake._waited is True
+        assert fake.killed is False
+        assert completion.complete is True
+
+    def test_watchdog_does_not_timeout_after_stdout_eof(self, monkeypatch):
+        class SlowExitPopen(FakePopen):
+            def wait(self, timeout=None):
+                self._waited = True
+                time.sleep(0.05)
+                return -15 if self.killed else self.returncode
+
+        fake = SlowExitPopen(["/a/.mcp.json\n"])
+        monkeypatch.setattr(project_scanner.subprocess, "Popen", lambda *a, **k: fake)
+        monkeypatch.setattr(
+            project_scanner,
+            "terminate_process",
+            lambda proc: proc.kill(),
+        )
+        completion = ScanCompletionStatus()
+
+        results = _stream_crawl(
+            ["find"],
+            0.01,
+            lambda line: Path(line),
+            FakeGovernor(),
+            label="find",
+            completion=completion,
+        )
+
+        assert results == [Path("/a/.mcp.json")]
+        assert fake.killed is False
+        assert completion.complete is True
+
+    def test_eof_exit_timeout_is_not_classified_from_cleanup_kill(self, monkeypatch):
+        class ExitTimeoutPopen(FakePopen):
+            def poll(self):
+                return -15 if self.killed else None
+
+            def wait(self, timeout=None):
+                self._waited = True
+                if not self.killed:
+                    raise project_scanner.subprocess.TimeoutExpired(["find"], timeout)
+                return -15
+
+        fake = ExitTimeoutPopen(["/a/.mcp.json\n"])
+        monkeypatch.setattr(project_scanner.subprocess, "Popen", lambda *a, **k: fake)
+        monkeypatch.setattr(
+            project_scanner,
+            "terminate_process",
+            lambda proc: proc.kill(),
+        )
+        completion = ScanCompletionStatus()
+
+        results = _stream_crawl(
+            ["find"],
+            30,
+            lambda line: Path(line),
+            FakeGovernor(),
+            label="find",
+            completion=completion,
+        )
+
+        assert results == [Path("/a/.mcp.json")]
+        assert fake.killed is True
+        assert completion.reasons == ["project_crawl_timed_out"]
+
+    def test_powershell_exit_one_marks_stream_command_failed(self, monkeypatch):
+        fake = FakePopen([r"C:\Users\alex\.mcp.json" + "\n"], returncode=1)
+        monkeypatch.setattr(project_scanner.subprocess, "Popen", lambda *a, **k: fake)
+        completion = ScanCompletionStatus()
+
+        results = _stream_crawl(
+            ["powershell"],
+            30,
+            lambda line: Path(line),
+            FakeGovernor(),
+            label="powershell",
+            completion=completion,
+        )
+
+        assert results == [Path(r"C:\Users\alex\.mcp.json")]
+        assert completion.reasons == ["project_crawl_command_failed"]
 
     def test_abort_midstream_raises_and_kills_child(self, monkeypatch):
         # 300 lines forces a checkpoint at line 256 before stdout is drained;
@@ -2178,16 +3144,44 @@ class TestStreamCrawl:
 
         monkeypatch.setattr(project_scanner.subprocess, "Popen", _raise)
         gov = FakeGovernor()
+        completion = ScanCompletionStatus()
 
         results = _stream_crawl(
-            ["find"], 30, lambda line: Path(line), gov, label="find"
+            ["find"],
+            30,
+            lambda line: Path(line),
+            gov,
+            label="find",
+            completion=completion,
         )
         assert results == []
+        assert completion.reasons == ["project_crawl_command_missing"]
 
 
 class TestFindFilesUnderHomeGovernor:
     """find_files_under_home routes to the streaming crawl when a governor is
     supplied, and yields the same results as the blocking path."""
+
+    def test_path_budget_marks_home_crawl_incomplete(self, monkeypatch, tmp_path):
+        first = tmp_path / "first" / ".mcp.json"
+        first.parent.mkdir()
+        first.write_text("{}")
+        second = tmp_path / "second" / ".mcp.json"
+        second.parent.mkdir()
+        second.write_text("{}")
+        fake = FakePopen([f"{first}\n", f"{second}\n"])
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(project_scanner.platform, "system", lambda: "Darwin")
+        monkeypatch.setattr(project_scanner.subprocess, "Popen", lambda *a, **k: fake)
+
+        result = find_files_and_node_modules_under_home(
+            [".mcp.json"],
+            max_depth=1,
+            governor=build_governor(max_paths=1, memory_limit_mb=8192),
+        )
+
+        assert result.found_paths == [first]
+        assert result.complete is False
 
     def test_streams_real_files_with_governor(self, monkeypatch, tmp_path):
         f1 = tmp_path / "a" / ".mcp.json"

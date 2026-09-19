@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -15,7 +15,7 @@ class KMeansEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         node_property: str,
         mutate_property: str,
         *,
@@ -42,11 +42,11 @@ class KMeansEndpoints(ABC):
         ----------
         G
            Graph object to use
-        node_property : str
+        node_property
             The node property to use for clustering
         mutate_property
             Name of the node property to store the results in.
-        compute_silhouette : bool | None, default=False
+        compute_silhouette
             Whether to compute silhouette coefficient
         concurrency
             Number of concurrent threads to use.
@@ -64,13 +64,13 @@ class KMeansEndpoints(ABC):
             Maximum number of iterations to run.
         node_labels
             Filter the graph using the given node labels. Nodes with any of the given labels will be included.
-        number_of_restarts : int | None, default=1
+        number_of_restarts
             The number of times the algorithm should be restarted with different initial centers
         random_seed
             Seed for random number generation to ensure reproducible results.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
-        seed_centroids : Optional[list[list[float]]], default=None
+        seed_centroids
             Initial centroids for the algorithm
         sudo
             Disable the memory guard.
@@ -87,7 +87,7 @@ class KMeansEndpoints(ABC):
     @abstractmethod
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         node_property: str,
         *,
         compute_silhouette: bool = False,
@@ -113,9 +113,9 @@ class KMeansEndpoints(ABC):
         ----------
         G
            Graph object to use
-        node_property : str
+        node_property
             The node property to use for clustering
-        compute_silhouette : bool | None, default=False
+        compute_silhouette
             Whether to compute silhouette coefficient
         concurrency
             Number of concurrent threads to use.
@@ -133,13 +133,13 @@ class KMeansEndpoints(ABC):
             Maximum number of iterations to run.
         node_labels
             Filter the graph using the given node labels. Nodes with any of the given labels will be included.
-        number_of_restarts : int | None, default=1
+        number_of_restarts
             The number of times the algorithm should be restarted with different initial centers
         random_seed
             Seed for random number generation to ensure reproducible results.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
-        seed_centroids : Optional[list[list[float]]], default=None
+        seed_centroids
             Initial centroids for the algorithm
         sudo
             Disable the memory guard.
@@ -156,7 +156,7 @@ class KMeansEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         node_property: str,
         *,
         compute_silhouette: bool = False,
@@ -182,9 +182,9 @@ class KMeansEndpoints(ABC):
         ----------
         G
            Graph object to use
-        node_property : str
+        node_property
             The node property to use for clustering
-        compute_silhouette : bool | None, default=False
+        compute_silhouette
             Whether to compute silhouette coefficient
         concurrency
             Number of concurrent threads to use.
@@ -202,13 +202,13 @@ class KMeansEndpoints(ABC):
             Maximum number of iterations to run.
         node_labels
             Filter the graph using the given node labels. Nodes with any of the given labels will be included.
-        number_of_restarts : int | None, default=1
+        number_of_restarts
             The number of times the algorithm should be restarted with different initial centers
         random_seed
             Seed for random number generation to ensure reproducible results.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
-        seed_centroids : Optional[list[list[float]]], default=None
+        seed_centroids
             Initial centroids for the algorithm
         sudo
             Disable the memory guard.
@@ -217,7 +217,7 @@ class KMeansEndpoints(ABC):
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             DataFrame with the algorithm results containing nodeId, communityId, distanceFromCentroid, and silhouette
         """
         pass
@@ -225,7 +225,7 @@ class KMeansEndpoints(ABC):
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         node_property: str,
         write_property: str,
         *,
@@ -253,11 +253,11 @@ class KMeansEndpoints(ABC):
         ----------
         G
            Graph object to use
-        node_property : str
+        node_property
             The node property to use for clustering
         write_property
             Name of the node property to store the results in.
-        compute_silhouette : bool | None, default=False
+        compute_silhouette
             Whether to compute silhouette coefficient
         concurrency
             Number of concurrent threads to use.
@@ -275,13 +275,13 @@ class KMeansEndpoints(ABC):
             Maximum number of iterations to run.
         node_labels
             Filter the graph using the given node labels. Nodes with any of the given labels will be included.
-        number_of_restarts : int | None, default=1
+        number_of_restarts
             The number of times the algorithm should be restarted with different initial centers
         random_seed
             Seed for random number generation to ensure reproducible results.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
-        seed_centroids : Optional[list[list[float]]], default=None
+        seed_centroids
             Initial centroids for the algorithm
         sudo
             Disable the memory guard.
@@ -298,7 +298,7 @@ class KMeansEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         node_property: str,
         *,
         compute_silhouette: bool = False,
@@ -320,9 +320,9 @@ class KMeansEndpoints(ABC):
         ----------
         G
            Graph object to use or a dictionary representing the graph dimensions.
-        node_property : str
+        node_property
             The node property to use for clustering
-        compute_silhouette : bool | None, default=False
+        compute_silhouette
             Whether to compute silhouette coefficient
         concurrency
             Number of concurrent threads to use.
@@ -336,13 +336,13 @@ class KMeansEndpoints(ABC):
             Maximum number of iterations to run.
         node_labels
             Filter the graph using the given node labels. Nodes with any of the given labels will be included.
-        number_of_restarts : int | None, default=1
+        number_of_restarts
             The number of times the algorithm should be restarted with different initial centers
         random_seed
             Seed for random number generation to ensure reproducible results.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
-        seed_centroids : Optional[list[list[float]]], default=None
+        seed_centroids
             Initial centroids for the algorithm
 
         Returns

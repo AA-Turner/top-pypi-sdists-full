@@ -5,6 +5,7 @@ import jwt
 import responses
 
 from social_core.exceptions import AuthTokenError
+from social_core.utils import get_querystring
 
 from .oauth import BaseAuthUrlTestMixin, OAuth2Test
 
@@ -75,6 +76,48 @@ class Auth0OAuth2Test(OAuth2Test, BaseAuthUrlTestMixin):
 
     def test_login(self) -> None:
         self.do_login()
+
+    def test_login_with_configured_token_claim_id(self) -> None:
+        self.strategy.set_settings({"SOCIAL_AUTH_AUTH0_ID_KEY": "sub"})
+
+        user = self.do_login()
+
+        self.assertEqual(user.social[0].uid, "123456")
+
+    def test_missing_configured_token_claim_raises_token_error(self) -> None:
+        self.strategy.set_settings({"SOCIAL_AUTH_AUTH0_ID_KEY": "missing_claim"})
+
+        with self.assertRaisesRegex(
+            AuthTokenError,
+            "Missing configured user ID claim missing_claim",
+        ):
+            self.do_login()
+
+    def test_default_scope(self) -> None:
+        self.assertEqual(
+            get_querystring(self.backend.auth_url())["scope"],
+            "openid profile email",
+        )
+
+    def test_custom_scope_is_combined_with_default_scope(self) -> None:
+        self.strategy.set_settings({"SOCIAL_AUTH_AUTH0_SCOPE": ["custom"]})
+
+        self.assertEqual(
+            get_querystring(self.backend.auth_url())["scope"],
+            "custom openid profile email",
+        )
+
+    def test_missing_id_token_raises_auth_token_error(self) -> None:
+        with (
+            patch.object(self.backend, "get_json") as get_json,
+            self.assertRaisesRegex(
+                AuthTokenError,
+                "Token error: Missing id_token in Auth0 token response",
+            ),
+        ):
+            self.backend.get_user_details({})
+
+        get_json.assert_not_called()
 
     def test_invalid_signature_raises_auth_token_error(self) -> None:
         assert self.access_token_body is not None

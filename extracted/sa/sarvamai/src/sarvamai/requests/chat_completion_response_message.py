@@ -10,13 +10,13 @@ from .chat_completion_message_tool_call import ChatCompletionMessageToolCallPara
 class ChatCompletionResponseMessageParams(typing_extensions.TypedDict):
     content: typing_extensions.NotRequired[str]
     """
-    The contents of the message.
+    Assistant message text. May be `null` when `tool_calls` is present.
     """
 
     refusal: typing_extensions.NotRequired[str]
     reasoning_content: typing_extensions.NotRequired[str]
     """
-    The contents of the reasoning message.
+    Visible reasoning trace from the model, when supported. Billed as completion tokens.
     """
 
     role: Role

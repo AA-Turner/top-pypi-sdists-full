@@ -14,6 +14,7 @@ from pathlib import Path
 
 import structlog
 
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.file_collector import MAX_SINGLE_FILE_BYTES, MAX_TOTAL_BYTES
 from runlayer_cli.scan.hidden_space_sweep import scan_hidden_spaces
 from runlayer_cli.scan.scanner_primitives import (
@@ -162,6 +163,10 @@ class _ProbeBudget:
     bytes_read: int = 0
     deadline: float | None = None
     truncated: bool = False
+    # Kept separate from `truncated`: `_deadline_expired`/`should_stop` return
+    # `truncated`, so merging this in would abort the round-robin walk early and
+    # skip smaller candidates that still fit in the remaining budget.
+    byte_budget_truncated: bool = False
 
 
 def _deadline_expired(budget: _ProbeBudget) -> bool:
@@ -772,6 +777,8 @@ def _artifact_from_candidate(
             or remaining_budget <= 0
             or size > remaining_budget
         ):
+            if remaining_budget <= 0 or size > remaining_budget:
+                budget.byte_budget_truncated = True
             return None
 
         with os.fdopen(descriptor, "rb") as handle:
@@ -814,6 +821,8 @@ def _artifact_from_candidate(
             remaining_budget = MAX_TOTAL_CANDIDATE_BYTES - budget.bytes_read
             remaining_size = size - len(prefix)
             if remaining_size < 0 or remaining_size > remaining_budget:
+                if remaining_size > remaining_budget:
+                    budget.byte_budget_truncated = True
                 return None
             content_tail = handle.read(remaining_size)
             budget.bytes_read += len(content_tail)
@@ -863,6 +872,7 @@ def scan_disguised_skills(
     normal_skill_paths: Sequence[Path] = (),
     time_budget_s: float | None = None,
     checkpoint: Callable[[], None] | None = None,
+    scan_status: ScanCompletionStatus | None = None,
 ) -> list[DiscoveredSkillArtifact]:
     """Probe bounded omitted filesystem spaces for structurally valid skills.
 
@@ -993,6 +1003,11 @@ def scan_disguised_skills(
         candidates=budget.candidates,
         bytes_read=budget.bytes_read,
         truncated=budget.truncated,
+        byte_budget_truncated=budget.byte_budget_truncated,
         elapsed_ms=round((time.monotonic() - started_at) * 1000),
     )
+    if (budget.truncated or budget.byte_budget_truncated) and scan_status is not None:
+        scan_status.mark_incomplete("disguised_skill_scan_truncated")
+    if symlink_policy.follow_budget_exhausted and scan_status is not None:
+        scan_status.mark_incomplete("disguised_skill_symlink_follow_capped")
     return artifacts

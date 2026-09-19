@@ -84,7 +84,7 @@ class Zotero:
             self.endpoint = "https://api.zotero.org"
             self.local = False
         else:
-            self.endpoint = "http://localhost:23119/api"
+            self.endpoint = "http://127.0.0.1:23119/api"
             self.local = True
         self._server_id: str | None = server_id
         self.local_api_key: str | None = local_api_key
@@ -114,9 +114,11 @@ class Zotero:
         self.snapshot = False
         self.upload_timeout = upload_timeout
         self.client = client or httpx2.Client(
-            headers=self.default_headers(),
             follow_redirects=True,
             timeout=DEFAULT_TIMEOUT,
+            # The local API is on the loopback interface. Do not send its
+            # requests through a proxy from the environment.
+            trust_env=not local,
         )
         # these aren't valid item fields, so never send them to the server
         self.temp_keys = {"key", "etag", "group_id", "updated"}
@@ -251,7 +253,7 @@ class Zotero:
         if self._server_id:
             return self._server_id
         self._check_backoff()
-        resp = self.client.get(f"{self.endpoint.removesuffix('/')}/")
+        resp = self._send("GET", f"{self.endpoint.removesuffix('/')}/")
         self._post_check(resp)
         if not self._server_id:
             msg = (
@@ -280,6 +282,21 @@ class Zotero:
             headers["Zotero-API-Key"] = self.local_api_key
         return headers
 
+    def _send(self, method: str, url: str, **kwargs: Any) -> httpx2.Response:
+        """Send a request with the client. Add the default headers.
+
+        Pyzotero adds the default headers to each request, not to the client.
+        As a result, a client that the caller supplies also sends them, and
+        the client does not change. A default header replaces a client header
+        of the same name. A header in ``kwargs`` replaces a default header of
+        the same name.
+        """
+        kwargs["headers"] = {
+            **self.default_headers(),
+            **(kwargs.pop("headers", None) or {}),
+        }
+        return self.client.request(method, url, **kwargs)
+
     def _write(self, method: str, url: str, **kwargs: Any) -> httpx2.Response:
         """Send a write request. Add the headers that a local write must have.
 
@@ -294,7 +311,7 @@ class Zotero:
                 **(kwargs.pop("headers", None) or {}),
                 **self._local_write_headers(),
             }
-        return self.client.request(method, url, **kwargs)
+        return self._send(method, url, **kwargs)
 
     def authorize_local(self, app_name: str) -> dict[str, Any]:
         """Get a local API key. Zotero asks the user for permission.
@@ -338,7 +355,8 @@ class Zotero:
             "Zotero-Server-ID": self._ensure_server_id(),
         }
         self._check_backoff()
-        req = self.client.post(
+        req = self._send(
+            "POST",
             url=build_url(self.endpoint, "/local/authorize"),
             headers=headers,
             json={"appName": app_name.strip()},
@@ -480,7 +498,8 @@ class Zotero:
             self._check_backoff()
             # file URI errors are raised immediately so we have to try here
             try:
-                self.request = self.client.get(
+                self.request = self._send(
+                    "GET",
                     url=final_url,
                     params=final_params,
                     headers=self._local_headers(),
@@ -570,7 +589,7 @@ class Zotero:
             }
             # perform the request, and check whether the response returns 304
             self._check_backoff()
-            req = self.client.get(query, headers=headers)
+            req = self._send("GET", query, headers=headers)
             self._post_check(req)
             return req.status_code == httpx2.codes.NOT_MODIFIED
         # Still plenty of life left in't
@@ -711,7 +730,8 @@ class Zotero:
         headers: dict[str, str] = self._local_headers()
         params: dict[str, Any] = {"since": since}
         self._check_backoff()
-        resp = self.client.get(
+        resp = self._send(
+            "GET",
             build_url(self.endpoint, query_string),
             params=params,
             headers=headers,
@@ -1185,6 +1205,8 @@ class Zotero:
             "collections",
             "dateModified",
             "relations",
+            # trashed objects are returned carrying this, and setting it trashes
+            "deleted",
             #  attachment items
             "parentItem",
             "mtime",

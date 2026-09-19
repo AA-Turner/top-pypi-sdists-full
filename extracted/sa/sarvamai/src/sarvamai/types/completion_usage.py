@@ -4,6 +4,8 @@ import typing
 
 import pydantic
 from ..core.pydantic_utilities import IS_PYDANTIC_V2, UniversalBaseModel
+from .completion_tokens_details import CompletionTokensDetails
+from .completion_usage_prompt_tokens_details import CompletionUsagePromptTokensDetails
 
 
 class CompletionUsage(UniversalBaseModel):
@@ -22,8 +24,11 @@ class CompletionUsage(UniversalBaseModel):
     Total number of tokens used in the request (prompt + completion).
     """
 
-    completion_tokens_details: typing.Optional[typing.Dict[str, typing.Any]] = None
-    prompt_tokens_details: typing.Optional[typing.Dict[str, typing.Any]] = None
+    completion_tokens_details: typing.Optional[CompletionTokensDetails] = None
+    prompt_tokens_details: typing.Optional[CompletionUsagePromptTokensDetails] = pydantic.Field(default=None)
+    """
+    `null` on a cache miss. On a hit, includes `cached_tokens`. Treat a missing object and `cached_tokens: 0` as different when computing cache-hit rates.
+    """
 
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2

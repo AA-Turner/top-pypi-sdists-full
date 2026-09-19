@@ -17,6 +17,7 @@ if typing.TYPE_CHECKING:
     from .chat_completion_named_tool_choice import ChatCompletionNamedToolChoiceParams
     from .chat_completion_named_tool_choice_function import ChatCompletionNamedToolChoiceFunctionParams
     from .chat_completion_request_assistant_message import ChatCompletionRequestAssistantMessageParams
+    from .chat_completion_request_developer_message import ChatCompletionRequestDeveloperMessageParams
     from .chat_completion_request_generic_message import ChatCompletionRequestGenericMessageParams
     from .chat_completion_request_message import ChatCompletionRequestMessageParams
     from .chat_completion_request_system_message import ChatCompletionRequestSystemMessageParams
@@ -24,8 +25,11 @@ if typing.TYPE_CHECKING:
     from .chat_completion_request_user_message import ChatCompletionRequestUserMessageParams
     from .chat_completion_response_message import ChatCompletionResponseMessageParams
     from .chat_completion_tool import ChatCompletionToolParams
+    from .chat_stream_options import ChatStreamOptionsParams
     from .choice import ChoiceParams
+    from .completion_tokens_details import CompletionTokensDetailsParams
     from .completion_usage import CompletionUsageParams
+    from .completion_usage_prompt_tokens_details import CompletionUsagePromptTokensDetailsParams
     from .config_message import ConfigMessageParams
     from .configure_connection import ConfigureConnectionParams
     from .configure_connection_data import ConfigureConnectionDataParams
@@ -36,6 +40,10 @@ if typing.TYPE_CHECKING:
     from .create_document_job_response import CreateDocumentJobResponseParams
     from .create_dubbing_job_data import CreateDubbingJobDataParams
     from .create_dubbing_job_response import CreateDubbingJobResponseParams
+    from .create_response_v2request import CreateResponseV2RequestParams
+    from .create_response_v2request_tool_choice import CreateResponseV2RequestToolChoiceParams
+    from .create_response_v2response import CreateResponseV2ResponseParams
+    from .create_response_v2response_tool_choice import CreateResponseV2ResponseToolChoiceParams
     from .diarized_entry import DiarizedEntryParams
     from .diarized_transcript import DiarizedTranscriptParams
     from .doc_ai_digitise_results import DocAiDigitiseResultsParams
@@ -116,6 +124,7 @@ if typing.TYPE_CHECKING:
     from .realtime_transcript_partial import RealtimeTranscriptPartialParams
     from .realtime_vad_speech_end import RealtimeVadSpeechEndParams
     from .realtime_vad_speech_start import RealtimeVadSpeechStartParams
+    from .response_conversation import ResponseConversationParams
     from .response_format import (
         ResponseFormatParams,
         ResponseFormat_JsonObjectParams,
@@ -125,6 +134,25 @@ if typing.TYPE_CHECKING:
     from .response_format_json_object import ResponseFormatJsonObjectParams
     from .response_format_json_schema import ResponseFormatJsonSchemaParams
     from .response_format_text import ResponseFormatTextParams
+    from .response_function_tool import ResponseFunctionToolParams
+    from .response_incomplete_details import ResponseIncompleteDetailsParams
+    from .response_input import ResponseInputParams
+    from .response_input_content_part import ResponseInputContentPartParams
+    from .response_input_image_part import ResponseInputImagePartParams
+    from .response_input_item import ResponseInputItemParams
+    from .response_input_message import ResponseInputMessageParams
+    from .response_input_text_part import ResponseInputTextPartParams
+    from .response_output_item import ResponseOutputItemParams
+    from .response_output_message import ResponseOutputMessageParams
+    from .response_output_text_part import ResponseOutputTextPartParams
+    from .response_pass_through_item import ResponsePassThroughItemParams
+    from .response_reasoning import ResponseReasoningParams
+    from .response_stream_event import ResponseStreamEventParams
+    from .response_text_config import ResponseTextConfigParams
+    from .response_text_format import ResponseTextFormatParams
+    from .response_usage import ResponseUsageParams
+    from .response_usage_input_tokens_details import ResponseUsageInputTokensDetailsParams
+    from .response_usage_output_tokens_details import ResponseUsageOutputTokensDetailsParams
     from .send_text import SendTextParams
     from .send_text_data import SendTextDataParams
     from .speech_to_text_job_parameters import SpeechToTextJobParametersParams
@@ -151,6 +179,8 @@ if typing.TYPE_CHECKING:
     from .translation_response import TranslationResponseParams
     from .translation_status_item import TranslationStatusItemParams
     from .transliteration_response import TransliterationResponseParams
+    from .v2error_object import V2ErrorObjectParams
+    from .v2error_response import V2ErrorResponseParams
 _dynamic_imports: typing.Dict[str, str] = {
     "AudioDataParams": ".audio_data",
     "AudioMessageParams": ".audio_message",
@@ -163,6 +193,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChatCompletionNamedToolChoiceFunctionParams": ".chat_completion_named_tool_choice_function",
     "ChatCompletionNamedToolChoiceParams": ".chat_completion_named_tool_choice",
     "ChatCompletionRequestAssistantMessageParams": ".chat_completion_request_assistant_message",
+    "ChatCompletionRequestDeveloperMessageParams": ".chat_completion_request_developer_message",
     "ChatCompletionRequestGenericMessageParams": ".chat_completion_request_generic_message",
     "ChatCompletionRequestMessageParams": ".chat_completion_request_message",
     "ChatCompletionRequestSystemMessageParams": ".chat_completion_request_system_message",
@@ -170,8 +201,11 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChatCompletionRequestUserMessageParams": ".chat_completion_request_user_message",
     "ChatCompletionResponseMessageParams": ".chat_completion_response_message",
     "ChatCompletionToolParams": ".chat_completion_tool",
+    "ChatStreamOptionsParams": ".chat_stream_options",
     "ChoiceParams": ".choice",
+    "CompletionTokensDetailsParams": ".completion_tokens_details",
     "CompletionUsageParams": ".completion_usage",
+    "CompletionUsagePromptTokensDetailsParams": ".completion_usage_prompt_tokens_details",
     "ConfigMessageParams": ".config_message",
     "ConfigureConnectionDataParams": ".configure_connection_data",
     "ConfigureConnectionParams": ".configure_connection",
@@ -184,6 +218,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateDocumentJobResponseParams": ".create_document_job_response",
     "CreateDubbingJobDataParams": ".create_dubbing_job_data",
     "CreateDubbingJobResponseParams": ".create_dubbing_job_response",
+    "CreateResponseV2RequestParams": ".create_response_v2request",
+    "CreateResponseV2RequestToolChoiceParams": ".create_response_v2request_tool_choice",
+    "CreateResponseV2ResponseParams": ".create_response_v2response",
+    "CreateResponseV2ResponseToolChoiceParams": ".create_response_v2response_tool_choice",
     "DiarizedEntryParams": ".diarized_entry",
     "DiarizedTranscriptParams": ".diarized_transcript",
     "DocAiDigitiseResultsDocumentsItemPagesItemParams": ".doc_ai_digitise_results_documents_item_pages_item",
@@ -264,6 +302,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "RealtimeTranscriptPartialParams": ".realtime_transcript_partial",
     "RealtimeVadSpeechEndParams": ".realtime_vad_speech_end",
     "RealtimeVadSpeechStartParams": ".realtime_vad_speech_start",
+    "ResponseConversationParams": ".response_conversation",
     "ResponseFormatJsonObjectParams": ".response_format_json_object",
     "ResponseFormatJsonSchemaParams": ".response_format_json_schema",
     "ResponseFormatParams": ".response_format",
@@ -271,6 +310,25 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ResponseFormat_JsonObjectParams": ".response_format",
     "ResponseFormat_JsonSchemaParams": ".response_format",
     "ResponseFormat_TextParams": ".response_format",
+    "ResponseFunctionToolParams": ".response_function_tool",
+    "ResponseIncompleteDetailsParams": ".response_incomplete_details",
+    "ResponseInputContentPartParams": ".response_input_content_part",
+    "ResponseInputImagePartParams": ".response_input_image_part",
+    "ResponseInputItemParams": ".response_input_item",
+    "ResponseInputMessageParams": ".response_input_message",
+    "ResponseInputParams": ".response_input",
+    "ResponseInputTextPartParams": ".response_input_text_part",
+    "ResponseOutputItemParams": ".response_output_item",
+    "ResponseOutputMessageParams": ".response_output_message",
+    "ResponseOutputTextPartParams": ".response_output_text_part",
+    "ResponsePassThroughItemParams": ".response_pass_through_item",
+    "ResponseReasoningParams": ".response_reasoning",
+    "ResponseStreamEventParams": ".response_stream_event",
+    "ResponseTextConfigParams": ".response_text_config",
+    "ResponseTextFormatParams": ".response_text_format",
+    "ResponseUsageInputTokensDetailsParams": ".response_usage_input_tokens_details",
+    "ResponseUsageOutputTokensDetailsParams": ".response_usage_output_tokens_details",
+    "ResponseUsageParams": ".response_usage",
     "SendTextDataParams": ".send_text_data",
     "SendTextParams": ".send_text",
     "SpeechToTextJobParametersParams": ".speech_to_text_job_parameters",
@@ -297,6 +355,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TranslationResponseParams": ".translation_response",
     "TranslationStatusItemParams": ".translation_status_item",
     "TransliterationResponseParams": ".transliteration_response",
+    "V2ErrorObjectParams": ".v2error_object",
+    "V2ErrorResponseParams": ".v2error_response",
 }
 
 
@@ -333,6 +393,7 @@ __all__ = [
     "ChatCompletionNamedToolChoiceFunctionParams",
     "ChatCompletionNamedToolChoiceParams",
     "ChatCompletionRequestAssistantMessageParams",
+    "ChatCompletionRequestDeveloperMessageParams",
     "ChatCompletionRequestGenericMessageParams",
     "ChatCompletionRequestMessageParams",
     "ChatCompletionRequestSystemMessageParams",
@@ -340,8 +401,11 @@ __all__ = [
     "ChatCompletionRequestUserMessageParams",
     "ChatCompletionResponseMessageParams",
     "ChatCompletionToolParams",
+    "ChatStreamOptionsParams",
     "ChoiceParams",
+    "CompletionTokensDetailsParams",
     "CompletionUsageParams",
+    "CompletionUsagePromptTokensDetailsParams",
     "ConfigMessageParams",
     "ConfigureConnectionDataParams",
     "ConfigureConnectionParams",
@@ -354,6 +418,10 @@ __all__ = [
     "CreateDocumentJobResponseParams",
     "CreateDubbingJobDataParams",
     "CreateDubbingJobResponseParams",
+    "CreateResponseV2RequestParams",
+    "CreateResponseV2RequestToolChoiceParams",
+    "CreateResponseV2ResponseParams",
+    "CreateResponseV2ResponseToolChoiceParams",
     "DiarizedEntryParams",
     "DiarizedTranscriptParams",
     "DocAiDigitiseResultsDocumentsItemPagesItemParams",
@@ -434,6 +502,7 @@ __all__ = [
     "RealtimeTranscriptPartialParams",
     "RealtimeVadSpeechEndParams",
     "RealtimeVadSpeechStartParams",
+    "ResponseConversationParams",
     "ResponseFormatJsonObjectParams",
     "ResponseFormatJsonSchemaParams",
     "ResponseFormatParams",
@@ -441,6 +510,25 @@ __all__ = [
     "ResponseFormat_JsonObjectParams",
     "ResponseFormat_JsonSchemaParams",
     "ResponseFormat_TextParams",
+    "ResponseFunctionToolParams",
+    "ResponseIncompleteDetailsParams",
+    "ResponseInputContentPartParams",
+    "ResponseInputImagePartParams",
+    "ResponseInputItemParams",
+    "ResponseInputMessageParams",
+    "ResponseInputParams",
+    "ResponseInputTextPartParams",
+    "ResponseOutputItemParams",
+    "ResponseOutputMessageParams",
+    "ResponseOutputTextPartParams",
+    "ResponsePassThroughItemParams",
+    "ResponseReasoningParams",
+    "ResponseStreamEventParams",
+    "ResponseTextConfigParams",
+    "ResponseTextFormatParams",
+    "ResponseUsageInputTokensDetailsParams",
+    "ResponseUsageOutputTokensDetailsParams",
+    "ResponseUsageParams",
     "SendTextDataParams",
     "SendTextParams",
     "SpeechToTextJobParametersParams",
@@ -467,4 +555,6 @@ __all__ = [
     "TranslationResponseParams",
     "TranslationStatusItemParams",
     "TransliterationResponseParams",
+    "V2ErrorObjectParams",
+    "V2ErrorResponseParams",
 ]

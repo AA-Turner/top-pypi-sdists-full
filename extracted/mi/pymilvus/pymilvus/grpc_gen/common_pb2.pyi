@@ -260,6 +260,7 @@ class MsgType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     RefreshExternalCollection: _ClassVar[MsgType]
     GetRefreshExternalCollectionProgress: _ClassVar[MsgType]
     ListRefreshExternalCollectionJobs: _ClassVar[MsgType]
+    GetExportSnapshotState: _ClassVar[MsgType]
 
 class DslType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -271,6 +272,35 @@ class CompactionState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     UndefiedState: _ClassVar[CompactionState]
     Executing: _ClassVar[CompactionState]
     Completed: _ClassVar[CompactionState]
+
+class CompactionTaskState(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    CompactionTaskStateUnknown: _ClassVar[CompactionTaskState]
+    CompactionTaskStateExecuting: _ClassVar[CompactionTaskState]
+    CompactionTaskStatePipelining: _ClassVar[CompactionTaskState]
+    CompactionTaskStateCompleted: _ClassVar[CompactionTaskState]
+    CompactionTaskStateFailed: _ClassVar[CompactionTaskState]
+    CompactionTaskStateTimeout: _ClassVar[CompactionTaskState]
+    CompactionTaskStateAnalyzing: _ClassVar[CompactionTaskState]
+    CompactionTaskStateIndexing: _ClassVar[CompactionTaskState]
+    CompactionTaskStateCleaned: _ClassVar[CompactionTaskState]
+    CompactionTaskStateMetaSaved: _ClassVar[CompactionTaskState]
+    CompactionTaskStateStatistic: _ClassVar[CompactionTaskState]
+
+class CompactionType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    CompactionTypeUndefined: _ClassVar[CompactionType]
+    CompactionTypeMerge: _ClassVar[CompactionType]
+    CompactionTypeMix: _ClassVar[CompactionType]
+    CompactionTypeSingle: _ClassVar[CompactionType]
+    CompactionTypeMinor: _ClassVar[CompactionType]
+    CompactionTypeMajor: _ClassVar[CompactionType]
+    CompactionTypeLevel0Delete: _ClassVar[CompactionType]
+    CompactionTypeClustering: _ClassVar[CompactionType]
+    CompactionTypeSort: _ClassVar[CompactionType]
+    CompactionTypePartitionKeySort: _ClassVar[CompactionType]
+    CompactionTypeClusteringPartitionKeySort: _ClassVar[CompactionType]
+    CompactionTypeBumpSchemaVersion: _ClassVar[CompactionType]
 
 class ConsistencyLevel(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -656,11 +686,35 @@ AlterCollectionSchema: MsgType
 RefreshExternalCollection: MsgType
 GetRefreshExternalCollectionProgress: MsgType
 ListRefreshExternalCollectionJobs: MsgType
+GetExportSnapshotState: MsgType
 Dsl: DslType
 BoolExprV1: DslType
 UndefiedState: CompactionState
 Executing: CompactionState
 Completed: CompactionState
+CompactionTaskStateUnknown: CompactionTaskState
+CompactionTaskStateExecuting: CompactionTaskState
+CompactionTaskStatePipelining: CompactionTaskState
+CompactionTaskStateCompleted: CompactionTaskState
+CompactionTaskStateFailed: CompactionTaskState
+CompactionTaskStateTimeout: CompactionTaskState
+CompactionTaskStateAnalyzing: CompactionTaskState
+CompactionTaskStateIndexing: CompactionTaskState
+CompactionTaskStateCleaned: CompactionTaskState
+CompactionTaskStateMetaSaved: CompactionTaskState
+CompactionTaskStateStatistic: CompactionTaskState
+CompactionTypeUndefined: CompactionType
+CompactionTypeMerge: CompactionType
+CompactionTypeMix: CompactionType
+CompactionTypeSingle: CompactionType
+CompactionTypeMinor: CompactionType
+CompactionTypeMajor: CompactionType
+CompactionTypeLevel0Delete: CompactionType
+CompactionTypeClustering: CompactionType
+CompactionTypeSort: CompactionType
+CompactionTypePartitionKeySort: CompactionType
+CompactionTypeClusteringPartitionKeySort: CompactionType
+CompactionTypeBumpSchemaVersion: CompactionType
 Strong: ConsistencyLevel
 Session: ConsistencyLevel
 Bounded: ConsistencyLevel
@@ -1197,3 +1251,11 @@ class SearchAggregationSpec(_message.Message):
     sub_aggregation: SearchAggregationSpec
     search_size: int
     def __init__(self, fields: _Optional[_Iterable[str]] = ..., size: _Optional[int] = ..., metrics: _Optional[_Mapping[str, MetricAggSpec]] = ..., order: _Optional[_Iterable[_Union[OrderSpec, _Mapping]]] = ..., top_hits: _Optional[_Union[TopHitsSpec, _Mapping]] = ..., sub_aggregation: _Optional[_Union[SearchAggregationSpec, _Mapping]] = ..., search_size: _Optional[int] = ...) -> None: ...
+
+class IDRange(_message.Message):
+    __slots__ = ("begin", "end")
+    BEGIN_FIELD_NUMBER: _ClassVar[int]
+    END_FIELD_NUMBER: _ClassVar[int]
+    begin: int
+    end: int
+    def __init__(self, begin: _Optional[int] = ..., end: _Optional[int] = ...) -> None: ...

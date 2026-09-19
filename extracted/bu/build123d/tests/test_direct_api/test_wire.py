@@ -43,6 +43,10 @@ from build123d.objects_sketch import Circle, Rectangle, RectangleRounded, Regula
 from build123d.operations_generic import fillet
 from build123d.topology import Edge, Face, Vertex, Wire
 from OCP.BRepAdaptor import BRepAdaptor_CompCurve
+from OCP.BRepBuilderAPI import (
+    BRepBuilderAPI_EmptyWire,
+    BRepBuilderAPI_NonManifoldWire,
+)
 from OCP.gp import gp_Pnt
 
 
@@ -381,7 +385,9 @@ class TestWireFilletHelpers(unittest.TestCase):
 
     def test_wire_fillet_corner_is_not_tangent_continuous_on_rounded_cut_tips(self):
         sketch = RectangleRounded(20, 10, 2)
-        sketch -= [Location(e.arc_center) for e in sketch.edges().filter_by(GeomType.CIRCLE)] * Circle(2)
+        sketch -= [
+            Location(e.arc_center) for e in sketch.edges().filter_by(GeomType.CIRCLE)
+        ] * Circle(2)
         wire = sketch.wire()
 
         skipped_vertices = [(-10, -3, 0), (-10, 3, 0), (-8, 5, 0)]
@@ -394,24 +400,39 @@ class TestWireFilletHelpers(unittest.TestCase):
                     one_d._wire_fillet_corner_is_tangent_continuous(corner)
                 )
 
-    def test_fillet_wire_corner_failure_when_all_solvers_fail(self):
+    def test_fillet_wire_corner_failure_when_solver_fails(self):
         wire = Wire.make_rect(1, 1)
         vertex = wire.vertices()[0]
 
-        with (
-            patch(
-                "build123d.topology.one_d._solve_wire_fillet_corner_chfi2d",
-                return_value=None,
-            ),
-            patch(
-                "build123d.topology.one_d._solve_wire_fillet_corner_geom2dgcc_circ2d2tanrad",
-                return_value=None,
-            ),
+        with patch(
+            "build123d.topology.one_d._solve_wire_fillet_corner_geom2dgcc_circ2d2tanrad",
+            return_value=None,
         ):
             with self.assertRaises(ValueError) as ctx:
                 one_d._fillet_wire_corner(wire, vertex, 0.1)
 
         self.assertIn("Fillet algorithm failed", str(ctx.exception))
+
+    def test_fillet_wire_corner_failure_when_closed_wire_becomes_open(self):
+        wire = Wire.make_rect(1, 1)
+        vertex = wire.vertices()[0]
+        # Create an open wire to simulate a failed splice
+        open_wire = Wire(wire.edges().sort_by(Axis.X)[:-1])
+
+        with (
+            patch(
+                "build123d.topology.one_d._solve_wire_fillet_corner_geom2dgcc_circ2d2tanrad",
+                return_value=MagicMock(),  # Return a dummy solution
+            ),
+            patch(
+                "build123d.topology.one_d._splice_wire_fillet_corner",
+                return_value=open_wire,
+            ),
+        ):
+            with self.assertRaises(ValueError) as ctx:
+                one_d._fillet_wire_corner(wire, vertex, 0.1)
+
+        self.assertIn("Filleting failed to create a closed wire", str(ctx.exception))
 
 
 class TestWireToBSpline(unittest.TestCase):
@@ -556,6 +577,98 @@ class TestWireParamAtExceptions(unittest.TestCase):
             with self.assertRaises(RuntimeError) as ctx:
                 wire.param_at(0.5)
             self.assertIn("Failed to find point on curve", str(ctx.exception))
+
+
+class TestWireValidation(unittest.TestCase):
+    """Guards on Wire operations that reject unusable input."""
+
+    def setUp(self):
+        self.wire = Wire(
+            [
+                Edge.make_line((0, 0), (10, 0)),
+                Edge.make_line((10, 0), (10, 10)),
+                Edge.make_line((10, 10), (0, 10)),
+                Edge.make_line((0, 10), (0, 0)),
+            ]
+        )
+
+    def test_make_wire_empty(self):
+        builder = MagicMock()
+        builder.IsDone.return_value = False
+        builder.Error.return_value = BRepBuilderAPI_EmptyWire
+        with patch(
+            "build123d.topology.one_d.BRepBuilderAPI_MakeWire", return_value=builder
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Wire is empty"):
+                Wire([Edge.make_line((0, 0), (1, 0))])
+
+    def test_make_wire_non_manifold(self):
+        builder = MagicMock()
+        builder.IsDone.return_value = False
+        builder.Error.return_value = BRepBuilderAPI_NonManifoldWire
+        with patch(
+            "build123d.topology.one_d.BRepBuilderAPI_MakeWire", return_value=builder
+        ):
+            with self.assertWarnsRegex(UserWarning, "non manifold"):
+                # _make_wire directly: the mocked builder's Wire() is not a
+                # TopoDS_Wire so it can't be fed to the Wire constructor
+                Wire._make_wire([Edge.make_line((0, 0), (1, 0))])
+
+    def test_extrude_is_invalid(self):
+        with self.assertRaisesRegex(ValueError, "can't be created by extrusion"):
+            Wire.extrude(Edge.make_line((0, 0), (1, 0)), (0, 0, 1))
+
+    def test_chamfer_2d_internal_error(self):
+        """The chamfered shape isn't a face - simulated by a failing shape fix."""
+        shape_fix = MagicMock()
+        shape_fix.Shape.return_value = Edge.make_line((0, 0), (1, 0)).wrapped
+        with patch("build123d.topology.one_d.ShapeFix_Shape", return_value=shape_fix):
+            with self.assertRaisesRegex(RuntimeError, "internal error"):
+                self.wire.chamfer_2d(
+                    1, 1, [self.wire.vertices()[0]], self.wire.edges()[0]
+                )
+
+    def test_fillet_2d_vertex_not_on_wire(self):
+        with self.assertRaisesRegex(ValueError, "Could not find fillet vertex"):
+            self.wire.fillet_2d(1, [Vertex(100, 100, 0)])
+
+    def test_param_at_point_no_extrema(self):
+        extrema = MagicMock()
+        extrema.IsDone.return_value = False
+        extrema.NbSolution.return_value = 0
+        with patch(
+            "build123d.topology.one_d.BRepExtrema_DistShapeShape", return_value=extrema
+        ):
+            with self.assertRaisesRegex(ValueError, "point is not on Wire"):
+                self.wire.param_at_point((5, 0, 0))
+
+    def test_project_to_shape_empty_target(self):
+        with self.assertRaisesRegex(ValueError, "Can't project empty Wires"):
+            self.wire.project_to_shape([], direction=(0, 0, -1))
+
+    def test_stitch_empty_wire(self):
+        with self.assertRaisesRegex(ValueError, "Can't stitch empty wires"):
+            self.wire.stitch(Wire())
+
+    def test_to_bspline_add_failure(self):
+        builder = MagicMock()
+        builder.Add.return_value = False
+        with patch(
+            "build123d.topology.one_d.GeomConvert_CompCurveToBSplineCurve",
+            return_value=builder,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Failed to build bspline"):
+                self.wire._to_bspline()
+
+    def test_to_bspline_edge_failure(self):
+        edge_builder = MagicMock()
+        edge_builder.IsDone.return_value = False
+        with patch(
+            "build123d.topology.one_d.BRepBuilderAPI_MakeEdge",
+            return_value=edge_builder,
+        ):
+            with self.assertRaisesRegex(RuntimeError, "Failed to build bspline"):
+                self.wire._to_bspline()
 
 
 if __name__ == "__main__":

@@ -195,10 +195,6 @@ class WpmSystemState(Component):
     source_pump_4 = integer(2563, signed=False, nan=UNAVAILABLE)
     source_pump_5 = integer(2564, signed=False, nan=UNAVAILABLE)
     source_pump_6 = integer(2565, signed=False, nan=UNAVAILABLE)
-    extension_version = integer(2569, signed=False, nan=UNAVAILABLE)
-    major_version = integer(2570, signed=False, nan=UNAVAILABLE)
-    minor_version = integer(2571, signed=False, nan=UNAVAILABLE)
-    revision = integer(2572, signed=False, nan=UNAVAILABLE)
 
 
 class WpmEnergyData(Component):
@@ -365,114 +361,170 @@ class WpmEnergyData(Component):
 
     @property
     def vd_heating_day_and_total(self) -> int | None:
+        if self.vd_heating_day is None or self.vd_heating_total is None:
+            return None
         return self._running_totals.get("vd_heating_day_and_total")
 
     @property
     def vd_dhw_day_and_total(self) -> int | None:
+        if self.vd_dhw_day is None or self.vd_dhw_total is None:
+            return None
         return self._running_totals.get("vd_dhw_day_and_total")
 
     @property
     def vd_heating_day_and_total_consumed(self) -> int | None:
+        if self.vd_heating_day_consumed is None or self.vd_heating_total_consumed is None:
+            return None
         return self._running_totals.get("vd_heating_day_and_total_consumed")
 
     @property
     def vd_dhw_day_and_total_consumed(self) -> int | None:
+        if self.vd_dhw_day_consumed is None or self.vd_dhw_total_consumed is None:
+            return None
         return self._running_totals.get("vd_dhw_day_and_total_consumed")
 
     @property
     def vd_heating_day_and_total_hp_1(self) -> int | None:
+        if self.vd_heating_day_hp_1 is None or self.vd_heating_total_hp_1 is None:
+            return None
         return self._running_totals.get("vd_heating_day_and_total_hp_1")
 
     @property
     def vd_dhw_day_and_total_hp_1(self) -> int | None:
+        if self.vd_dhw_day_hp_1 is None or self.vd_dhw_total_hp_1 is None:
+            return None
         return self._running_totals.get("vd_dhw_day_and_total_hp_1")
 
     @property
     def vd_heating_day_and_total_consumed_hp_1(self) -> int | None:
+        if self.vd_heating_day_consumed_hp_1 is None or self.vd_heating_total_consumed_hp_1 is None:
+            return None
         return self._running_totals.get("vd_heating_day_and_total_consumed_hp_1")
 
     @property
     def vd_dhw_day_and_total_consumedhp_1(self) -> int | None:
+        if self.vd_dhw_day_consumedhp_1 is None or self.vd_dhw_total_consumed_hp_1 is None:
+            return None
         return self._running_totals.get("vd_dhw_day_and_total_consumedhp_1")
 
     @property
     def vd_heating_day_and_total_hp_2(self) -> int | None:
+        if self.vd_heating_day_hp_2 is None or self.vd_heating_total_hp_2 is None:
+            return None
         return self._running_totals.get("vd_heating_day_and_total_hp_2")
 
     @property
     def vd_dhw_day_and_total_hp_2(self) -> int | None:
+        if self.vd_dhw_day_hp_2 is None or self.vd_dhw_total_hp_2 is None:
+            return None
         return self._running_totals.get("vd_dhw_day_and_total_hp_2")
 
     @property
     def vd_heating_day_and_total_consumed_hp_2(self) -> int | None:
+        if self.vd_heating_day_consumed_hp_2 is None or self.vd_heating_total_consumed_hp_2 is None:
+            return None
         return self._running_totals.get("vd_heating_day_and_total_consumed_hp_2")
 
     @property
     def vd_dhw_day_and_total_consumed_hp_2(self) -> int | None:
+        if self.vd_dhw_day_consumed_hp_2 is None or self.vd_dhw_total_consumed_hp_2 is None:
+            return None
         return self._running_totals.get("vd_dhw_day_and_total_consumed_hp_2")
 
     @property
     def vd_heating_day_and_total_hp_3(self) -> int | None:
+        if self.vd_heating_day_hp_3 is None or self.vd_heating_total_hp_3 is None:
+            return None
         return self._running_totals.get("vd_heating_day_and_total_hp_3")
 
     @property
     def vd_dhw_day_and_total_hp_3(self) -> int | None:
+        if self.vd_dhw_day_hp_3 is None or self.vd_dhw_total_hp_3 is None:
+            return None
         return self._running_totals.get("vd_dhw_day_and_total_hp_3")
 
     @property
     def vd_heating_day_and_total_consumed_hp_3(self) -> int | None:
+        if self.vd_heating_day_consumed_hp_3 is None or self.vd_heating_total_consumed_hp_3 is None:
+            return None
         return self._running_totals.get("vd_heating_day_and_total_consumed_hp_3")
 
     @property
     def vd_dhw_day_and_total_consumed_hp_3(self) -> int | None:
+        if self.vd_dhw_day_consumed_hp_3 is None or self.vd_dhw_total_consumed_hp_3 is None:
+            return None
         return self._running_totals.get("vd_dhw_day_and_total_consumed_hp_3")
 
     @property
     def vd_heating_day_and_total_hp_4(self) -> int | None:
+        if self.vd_heating_day_hp_4 is None or self.vd_heating_total_hp_4 is None:
+            return None
         return self._running_totals.get("vd_heating_day_and_total_hp_4")
 
     @property
     def vd_dhw_day_and_total_hp_4(self) -> int | None:
+        if self.vd_dhw_day_hp_4 is None or self.vd_dhw_total_hp_4 is None:
+            return None
         return self._running_totals.get("vd_dhw_day_and_total_hp_4")
 
     @property
     def vd_heating_day_and_total_consumed_hp_4(self) -> int | None:
+        if self.vd_heating_day_consumed_hp_4 is None or self.vd_heating_total_consumed_hp_4 is None:
+            return None
         return self._running_totals.get("vd_heating_day_and_total_consumed_hp_4")
 
     @property
     def vd_dhw_day_and_total_consumed_hp_4(self) -> int | None:
+        if self.vd_dhw_day_consumed_hp_4 is None or self.vd_dhw_total_consumed_hp_4 is None:
+            return None
         return self._running_totals.get("vd_dhw_day_and_total_consumed_hp_4")
 
     @property
     def vd_heating_day_and_total_hp_5(self) -> int | None:
+        if self.vd_heating_day_hp_5 is None or self.vd_heating_total_hp_5 is None:
+            return None
         return self._running_totals.get("vd_heating_day_and_total_hp_5")
 
     @property
     def vd_dhw_day_and_total_hp_5(self) -> int | None:
+        if self.vd_dhw_day_hp_5 is None or self.vd_dhw_total_hp_5 is None:
+            return None
         return self._running_totals.get("vd_dhw_day_and_total_hp_5")
 
     @property
     def vd_heating_day_and_total_consumed_hp_5(self) -> int | None:
+        if self.vd_heating_day_consumed_hp_5 is None or self.vd_heating_total_consumed_hp_5 is None:
+            return None
         return self._running_totals.get("vd_heating_day_and_total_consumed_hp_5")
 
     @property
     def vd_dhw_day_and_total_consumed_hp_5(self) -> int | None:
+        if self.vd_dhw_day_consumed_hp_5 is None or self.vd_dhw_total_consumed_hp_5 is None:
+            return None
         return self._running_totals.get("vd_dhw_day_and_total_consumed_hp_5")
 
     @property
     def vd_heating_day_and_total_hp_6(self) -> int | None:
+        if self.vd_heating_day_hp_6 is None or self.vd_heating_total_hp_6 is None:
+            return None
         return self._running_totals.get("vd_heating_day_and_total_hp_6")
 
     @property
     def vd_dhw_day_and_total_hp_6(self) -> int | None:
+        if self.vd_dhw_day_hp_6 is None or self.vd_dhw_total_hp_6 is None:
+            return None
         return self._running_totals.get("vd_dhw_day_and_total_hp_6")
 
     @property
     def vd_heating_day_and_total_consumed_hp_6(self) -> int | None:
+        if self.vd_heating_day_consumed_hp_6 is None or self.vd_heating_total_consumed_hp_6 is None:
+            return None
         return self._running_totals.get("vd_heating_day_and_total_consumed_hp_6")
 
     @property
     def vd_dhw_day_and_total_consumed_hp_6(self) -> int | None:
+        if self.vd_dhw_day_consumed_hp_6 is None or self.vd_dhw_total_consumed_hp_6 is None:
+            return None
         return self._running_totals.get("vd_dhw_day_and_total_consumed_hp_6")
 
 
@@ -491,6 +543,24 @@ class WpmEnergySystemInformation(Component):
 
     sg_ready_operating_state = integer(5000, signed=False, nan=UNAVAILABLE)
     controller_identification = integer(5001, signed=False, nan=UNAVAILABLE)
+
+
+class WpmExtendedSystemState(Component):
+    """Registers not every machine serves, read on their own.
+
+    A controller without them answers the block with illegal data address, which
+    would fail a pooled read for everything else too, so
+    :class:`~pystiebeleltron._components.ControllerComponents` reads this block
+    separately and drops it once the controller has refused it.
+    """
+
+    register_space = "input"
+    register_ranges = WPM_INPUT_RANGES
+
+    extension_version = integer(2569, signed=False, nan=UNAVAILABLE)
+    major_version = integer(2570, signed=False, nan=UNAVAILABLE)
+    minor_version = integer(2571, signed=False, nan=UNAVAILABLE)
+    revision = integer(2572, signed=False, nan=UNAVAILABLE)
 
 
 class WpmExtendedSystemParameters(Component):
@@ -633,6 +703,7 @@ class WpmStiebelEltronAPI:
         self.energy_data = WpmEnergyData(unit)
         self.energy_management_settings = WpmEnergyManagementSettings(unit)
         self.energy_system_information = WpmEnergySystemInformation(unit)
+        self.extended_system_state = WpmExtendedSystemState(unit)
         self.extended_system_parameters = WpmExtendedSystemParameters(unit)
         self.extended_energy_data = WpmExtendedEnergyData(unit)
         self.extended_energy_management_settings = WpmExtendedEnergyManagementSettings(unit)
@@ -648,6 +719,7 @@ class WpmStiebelEltronAPI:
                 self.energy_system_information,
             ],
             optional=[
+                self.extended_system_state,
                 self.extended_system_parameters,
                 self.extended_energy_data,
                 self.extended_energy_management_settings,

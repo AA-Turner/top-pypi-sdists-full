@@ -5,17 +5,26 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
+from graphdatascience.procedure_surface.api.centrality.closeness_harmonic_endpoints import ClosenessHarmonicEndpoints
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 
 
 class ClosenessEndpoints(ABC):
+    @property
+    @abstractmethod
+    def harmonic(self) -> ClosenessHarmonicEndpoints:
+        """
+        Return endpoints for the harmonic centrality algorithm, a variant of closeness centrality.
+        """
+        pass
+
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         use_wasserman_faust: bool = False,
         relationship_types: list[str] = ALL_TYPES,
@@ -39,7 +48,7 @@ class ClosenessEndpoints(ABC):
            Graph object to use
         mutate_property
             Name of the node property to store the results in.
-        use_wasserman_faust : bool
+        use_wasserman_faust
             Use the improved Wasserman-Faust formula for closeness computation.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -66,7 +75,7 @@ class ClosenessEndpoints(ABC):
     @abstractmethod
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         use_wasserman_faust: bool = False,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -87,7 +96,7 @@ class ClosenessEndpoints(ABC):
         ----------
         G
            Graph object to use
-        use_wasserman_faust : bool
+        use_wasserman_faust
             Use the improved Wasserman-Faust formula for closeness computation.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -114,7 +123,7 @@ class ClosenessEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         use_wasserman_faust: bool = False,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -131,7 +140,7 @@ class ClosenessEndpoints(ABC):
         ----------
         G
            Graph object to use
-        use_wasserman_faust : bool
+        use_wasserman_faust
             Use the improved Wasserman-Faust formula for closeness computation.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -150,7 +159,7 @@ class ClosenessEndpoints(ABC):
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             DataFrame with nodeId and score columns containing closeness centrality results.
             Each row represents a node with its corresponding closeness centrality score.
         """
@@ -159,7 +168,7 @@ class ClosenessEndpoints(ABC):
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         use_wasserman_faust: bool = False,
         relationship_types: list[str] = ALL_TYPES,
@@ -184,7 +193,7 @@ class ClosenessEndpoints(ABC):
            Graph object to use
         write_property
             Name of the node property to store the results in.
-        use_wasserman_faust : bool | None, default=None
+        use_wasserman_faust
             Use the improved Wasserman-Faust formula for closeness computation.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -211,7 +220,7 @@ class ClosenessEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         use_wasserman_faust: bool = False,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -224,7 +233,7 @@ class ClosenessEndpoints(ABC):
         ----------
         G
            Graph object to use or a dictionary representing the graph dimensions.
-        use_wasserman_faust : bool | None, default=None
+        use_wasserman_faust
             Use the improved Wasserman-Faust formula for closeness computation.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.

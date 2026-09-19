@@ -6,6 +6,7 @@ import _bpy_types
 import bpy.types
 
 class SCENE_MT_add_compositor_effect(_bpy_types.Menu):
+    bl_description: typing.Any
     bl_label: typing.Any
     bl_options: typing.Any
     bl_rna: typing.Any

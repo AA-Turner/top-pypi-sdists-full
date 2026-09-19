@@ -1,9 +1,12 @@
 """Guard session policy — headless mode plus LLM-judged tool gating.
 
 Subclasses :class:`HeadlessSessionPolicy` so the inherited
-``is_autonomous=True``, ``max_steps`` budget, and per-turn step counter
-all carry over via MRO. Adds a ``ToolStart`` gate backed by a
-:class:`ProcessJudge` that consults an LLM before each tool call.
+``is_autonomous=True``, ``max_steps`` enforcement, and per-turn step counter
+all carry over via MRO. Unlike the budget-neutral parent, guard defaults
+``max_steps`` to :data:`~dreadnode.app.config.DEFAULT_AUTONOMOUS_MAX_STEPS`,
+because a guarded session is by definition unattended. Adds a ``ToolStart``
+gate backed by a :class:`ProcessJudge` that consults an LLM before each tool
+call.
 
 Composition: holds the judge in a private attribute, builds the
 gating hook via :func:`process_judge_hook`, and merges it with the
@@ -24,6 +27,7 @@ from dreadnode.agents.hooks import (
     process_judge_hook,
 )
 from dreadnode.agents.process_judge import ProcessJudge
+from dreadnode.app.config import DEFAULT_AUTONOMOUS_MAX_STEPS
 from dreadnode.core.hook import Hook
 from dreadnode.policies import HeadlessSessionPolicy
 from dreadnode.policies.scope import Policy, ScopeConfig
@@ -36,9 +40,9 @@ class GuardSessionPolicy(HeadlessSessionPolicy):
     """Headless mode + LLM-judged tool-call gating.
 
     The runtime auto-denies ``ask_user()`` (inherited
-    ``is_autonomous=True``), enforces a per-turn step budget (inherited
-    ``max_steps``), and runs every tool call past a
-    :class:`ProcessJudge` for allow/deny.
+    ``is_autonomous=True``), applies a per-turn step budget that defaults to
+    :data:`~dreadnode.app.config.DEFAULT_AUTONOMOUS_MAX_STEPS`, and runs every
+    tool call past a :class:`ProcessJudge` for allow/deny.
 
     Scope can be configured two ways:
 
@@ -95,6 +99,11 @@ class GuardSessionPolicy(HeadlessSessionPolicy):
     name: t.ClassVar[str] = "guard"
     display_label: t.ClassVar[str] = "guard"
 
+    max_steps: int | None = Field(
+        default=DEFAULT_AUTONOMOUS_MAX_STEPS,
+        gt=0,
+        description="Model turns allowed per turn; None disables the guard policy step ceiling.",
+    )
     judge_model: str = Field(min_length=1, description="Model identifier for the process judge.")
     rubric: str | Path | None = Field(
         default=None,

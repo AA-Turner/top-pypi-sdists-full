@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-mergify
-Version: 2026.9.11.2
+Version: 2026.9.18.1
 Requires-Dist: pytest>=6.0.0
 Requires-Dist: pytest-timeout>=2.4.0
 License-File: LICENSE
@@ -94,6 +94,13 @@ answer from a newer Mergify this plugin does not understand — runs the full
 suite, so the feature never costs coverage. It is also enabled per organization
 on Mergify's side, so a job that opts in stays inactive until your organization
 is opted in too.
+
+An opted-in job also tells Mergify what it concluded when its session ends —
+which tests failed, how many ran — in one small request sent before the test
+results are uploaded. That is what the next rerun of the job is answered from,
+seconds after this one finished, without waiting for the results to be
+processed. If that request fails, the run's own result is untouched: the
+terminal says so, and the next rerun simply runs the full suite.
 
 ## Development
 

@@ -42,11 +42,12 @@ class DiscoverySourceConfig(BaseModel):
     schedule_timezone: StrictStr = Field(description="IANA timezone the cron expression is evaluated in.")
     lookback_window_seconds: StrictInt = Field(description="How far back each run looks, in seconds. Should comfortably exceed the gap between two scheduled runs.")
     engine_ids: List[StrictStr] = Field(description="IDs of the engines (data planes) this config runs on. One config can run on several engines across different workspaces.")
+    is_enabled: StrictBool = Field(description="Whether this config is scheduled. Disabling one config stops that query alone: the other configs on the same source keep running, which is the difference between this switch and the source's. Disabling the source pauses every config it backs regardless of this flag.")
     output_column_check_result: Optional[OutputColumnCheckResult] = None
     is_deleted: StrictBool = Field(description="Whether the config has been deleted. Deleted configs are retained.")
     deleted_at: Optional[datetime] = None
     last_updated_by_user: Optional[User] = None
-    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "organization_id", "discovery_source_id", "name", "query", "query_language", "schedule_cron", "schedule_timezone", "lookback_window_seconds", "engine_ids", "output_column_check_result", "is_deleted", "deleted_at", "last_updated_by_user"]
+    __properties: ClassVar[List[str]] = ["created_at", "updated_at", "id", "organization_id", "discovery_source_id", "name", "query", "query_language", "schedule_cron", "schedule_timezone", "lookback_window_seconds", "engine_ids", "is_enabled", "output_column_check_result", "is_deleted", "deleted_at", "last_updated_by_user"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -132,6 +133,7 @@ class DiscoverySourceConfig(BaseModel):
             "schedule_timezone": obj.get("schedule_timezone"),
             "lookback_window_seconds": obj.get("lookback_window_seconds"),
             "engine_ids": obj.get("engine_ids"),
+            "is_enabled": obj.get("is_enabled"),
             "output_column_check_result": OutputColumnCheckResult.from_dict(obj["output_column_check_result"]) if obj.get("output_column_check_result") is not None else None,
             "is_deleted": obj.get("is_deleted"),
             "deleted_at": obj.get("deleted_at"),

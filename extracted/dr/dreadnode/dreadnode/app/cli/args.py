@@ -244,7 +244,7 @@ class TuiArgs(PlatformScopeArgs):
         int | None,
         cyclopts.Parameter(
             group=TUI_GROUP,
-            help="Step budget for autonomous mode (defaults to 30)",
+            help="Step budget for autonomous mode (defaults to 100)",
         ),
     ] = None
     policy: t.Annotated[

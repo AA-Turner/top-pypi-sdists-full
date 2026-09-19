@@ -1,6 +1,6 @@
 [project]
 name = "py-key-value-aio"
-version = "0.4.5"
+version = "0.4.6"
 description = "Async Key-Value Store - A pluggable interface for KV Stores"
 readme = "README.md"
 requires-python = ">=3.10"
@@ -20,6 +20,71 @@ dependencies = [
     "typing-extensions>=4.15.0",
 ]
 
+[project.optional-dependencies]
+memory = ["cachetools>=5.0.0"]
+disk = [
+    "diskcache>=5.0.0",
+    "pathvalidate>=3.3.1",
+]
+filetree = [
+    "aiofile>=3.5.0,!=3.9.0,<3.10 ; python_version < '3.11'",
+    "aiofile>=3.12.3 ; python_version >= '3.11'",
+    "anyio>=4.4.0",
+]
+redis = ["redis>=4.3.0"]
+mongodb = ["pymongo>=4.9.0"]
+valkey = ["valkey-glide>=2.1.0"]
+vault = [
+    "hvac>=2.3.0",
+    "types-hvac>=2.3.0",
+]
+memcached = ["aiomcache>=0.8.0"]
+elasticsearch = [
+    "elasticsearch>=8.0.0",
+    "aiohttp>=3.12",
+]
+opensearch = ["opensearch-py[async]>=2.0.0"]
+dynamodb = [
+    "aioboto3>=13.3.0",
+    "types-aiobotocore-dynamodb>=2.16.0",
+]
+s3 = [
+    "aioboto3>=13.3.0",
+    "types-aiobotocore-s3>=2.16.0",
+]
+azure-tables = [
+    "azure-data-tables>=12.4.0",
+    "azure-core>=1.29.0",
+]
+keyring = ["keyring>=25.6.0"]
+keyring-linux = [
+    "keyring>=25.6.0",
+    "dbus-python>=1.4.0",
+]
+pydantic = ["pydantic>=2.11.9"]
+aerospike = ["aerospike>=16.0.0"]
+rocksdb = [
+    "rocksdict>=0.3.24 ; python_version >= '3.12'",
+    "rocksdict>=0.3.2 ; python_version < '3.12'",
+]
+duckdb = [
+    "duckdb>=1.1.1",
+    "pytz>=2025.2",
+]
+chdb = ["chdb>=4.1.1"]
+postgresql = ["asyncpg>=0.30.0"]
+firestore = [
+    "google-cloud-firestore>=2.13.0",
+    "google-auth>=2.24.0",
+]
+wrappers-encryption = ["cryptography>=45.0.0"]
+docs = [
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.5.0",
+    "mkdocstrings[python]>=0.30.0",
+    "mkdocstrings-python>=1.10.0",
+]
+
 [build-system]
 requires = ["uv_build>=0.11.4,<0.12"]
 build-backend = "uv_build"
@@ -27,76 +92,15 @@ build-backend = "uv_build"
 [tool.uv.build-backend]
 module-name = "key_value"
 
-[project.optional-dependencies]
-memory = ["cachetools>=5.0.0"]
-disk = ["diskcache>=5.0.0", "pathvalidate>=3.3.1"]
-filetree = ["aiofile>=3.5.0", "anyio>=4.4.0"]
-redis = ["redis>=4.3.0"]
-mongodb = ["pymongo>=4.9.0"]
-valkey = ["valkey-glide>=2.1.0"]
-vault = ["hvac>=2.3.0", "types-hvac>=2.3.0"]
-memcached = ["aiomcache>=0.8.0"]
-elasticsearch = ["elasticsearch>=8.0.0", "aiohttp>=3.12"]
-opensearch = ["opensearch-py[async]>=2.0.0"]
-dynamodb = ["aioboto3>=13.3.0", "types-aiobotocore-dynamodb>=2.16.0"]
-s3 = ["aioboto3>=13.3.0", "types-aiobotocore-s3>=2.16.0"]
-azure-tables = ["azure-data-tables>=12.4.0", "azure-core>=1.29.0"]
-keyring = ["keyring>=25.6.0"]
-keyring-linux = ["keyring>=25.6.0", "dbus-python>=1.4.0"]
-pydantic = ["pydantic>=2.11.9"]
-aerospike = ["aerospike>=16.0.0"]
-rocksdb = [
-    "rocksdict>=0.3.24 ; python_version >= '3.12'",
-    "rocksdict>=0.3.2 ; python_version < '3.12'"
-]
-duckdb = ["duckdb>=1.1.1", "pytz>=2025.2"]
-chdb = ["chdb>=4.1.1"]
-postgresql = ["asyncpg>=0.30.0"]
-firestore = ["google-cloud-firestore>=2.13.0", "google-auth>=2.24.0"]
-wrappers-encryption = ["cryptography>=45.0.0"]
-docs = [
-    "mkdocs>=1.6.0",
-    "mkdocs-material>=9.5.0",
-    "mkdocstrings[python]>=0.30.0",
-    "mkdocstrings-python>=1.10.0"
-]
-
-[dependency-groups]
-dev = [
-    "py-key-value-aio[memory,disk,filetree,redis,elasticsearch,opensearch,memcached,mongodb,vault,dynamodb,s3,azure-tables,rocksdb,duckdb,firestore,postgresql]",
-    "py-key-value-aio[chdb]; platform_system != 'Windows'",
-    "py-key-value-aio[valkey]; platform_system != 'Windows'",
-    "py-key-value-aio[aerospike]; platform_system != 'Windows'",
-    "py-key-value-aio[keyring]",
-    "py-key-value-aio[pydantic]",
-    "py-key-value-aio[wrappers-encryption]",
-    "ast-comments>=1.2.3",
-    "basedpyright>=1.32.1",
-    "dirty-equals>=0.10.0",
-    "diskcache-stubs>=5.6.3.6.20240818",
-    "docker>=7.1.0",
-    "inline-snapshot>=0.30.1",
-    "testcontainers[redis,mongodb,elasticsearch,memcached,vault,generic]>=4.10.0",
-    "pytest-asyncio>=1.2.0",
-    "pytest-dotenv>=0.5.2",
-    "pytest-mock>=3.15.1",
-    "pytest-timeout>=2.4.0",
-    "pytest-xdist>=3.8.0",
-    "pytest>=8.4.2",
-    "ruff>=0.14.2"
-]
-
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 addopts = [
     "--inline-snapshot=disable",
     "-n=auto",
     "--dist=loadfile",
-    "--maxfail=5"
+    "--maxfail=5",
 ]
-markers = [
-    "skip_on_ci: Skip running the test when running on CI",
-]
+markers = ["skip_on_ci: Skip running the test when running on CI"]
 filterwarnings = [
     "ignore:The @wait_container_is_ready decorator is deprecated.*:DeprecationWarning",
     "ignore:enable_cleanup_closed ignored because.*:DeprecationWarning:aiohttp.connector",
@@ -107,12 +111,15 @@ env_files = [".env"]
 
 [tool.ruff]
 target-version = "py310"
-lint.fixable = ["ALL"]
-lint.ignore = [
+line-length = 140
+
+[tool.ruff.lint]
+fixable = ["ALL"]
+ignore = [
     "COM812",
     "PLR0913",
 ]
-lint.extend-select = [
+extend-select = [
     "A",
     "ARG",
     "B",
@@ -144,7 +151,6 @@ lint.extend-select = [
     "UP",
     "W",
 ]
-line-length = 140
 
 [tool.ruff.lint.extend-per-file-ignores]
 "**/tests/*.py" = [
@@ -167,7 +173,7 @@ reportPrivateUsage = false
 reportUnnecessaryTypeIgnoreComment = true
 include = [
     "src",
-    "tests"
+    "tests",
 ]
 exclude = [
     "**/playground/**",
@@ -176,4 +182,29 @@ exclude = [
     "**/references/**",
     "**/docs/**",
     "**/.venv/**",
+]
+
+[dependency-groups]
+dev = [
+    "py-key-value-aio[memory,disk,filetree,redis,elasticsearch,opensearch,memcached,mongodb,vault,dynamodb,s3,azure-tables,rocksdb,duckdb,firestore,postgresql]",
+    "py-key-value-aio[chdb]; platform_system != 'Windows'",
+    "py-key-value-aio[valkey]; platform_system != 'Windows'",
+    "py-key-value-aio[aerospike]; platform_system != 'Windows'",
+    "py-key-value-aio[keyring]",
+    "py-key-value-aio[pydantic]",
+    "py-key-value-aio[wrappers-encryption]",
+    "ast-comments>=1.2.3",
+    "basedpyright>=1.32.1",
+    "dirty-equals>=0.10.0",
+    "diskcache-stubs>=5.6.3.6.20240818",
+    "docker>=7.1.0",
+    "inline-snapshot>=0.30.1",
+    "testcontainers[redis,mongodb,elasticsearch,memcached,vault,generic]>=4.10.0",
+    "pytest-asyncio>=1.2.0",
+    "pytest-dotenv>=0.5.2",
+    "pytest-mock>=3.15.1",
+    "pytest-timeout>=2.4.0",
+    "pytest-xdist>=3.8.0",
+    "pytest>=8.4.2",
+    "ruff>=0.14.2",
 ]

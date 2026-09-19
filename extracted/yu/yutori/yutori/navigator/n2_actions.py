@@ -252,6 +252,28 @@ def is_optional_non_negative_int(value: Any) -> bool:
     return value is None or (is_strict_int(value) and value >= 0)
 
 
+def require_positive_read_offset(offset: int) -> None:
+    """Validate the n2 ``read`` handler contract's 1-based ``offset``.
+
+    Shared by ``MacOSComputer.read_file`` and ``ShellFileToolsMixin.read_file``,
+    which otherwise duplicated this exact check and message.
+    """
+    if offset < 1:
+        raise ValueError("read.offset must be a positive 1-based line number")
+
+
+def truncate_with_marker(text: str, max_chars: int) -> str:
+    """Cut ``text`` to ``max_chars`` and note how many characters were dropped.
+
+    Shared by ``ShellFileToolsMixin``'s ``truncate_tool_output`` and n2's
+    result-text backstop, which otherwise duplicated this exact truncation
+    format at two different thresholds.
+    """
+    if len(text) <= max_chars:
+        return text
+    return f"{text[:max_chars]}\n\n[... output truncated, {len(text) - max_chars} more chars ...]"
+
+
 def _tool_arguments(args: Any, tool_name: str, allowed_fields: set[str]) -> dict[str, Any]:
     """Validate a tool-object envelope before checking its individual fields."""
     if not isinstance(args, dict):

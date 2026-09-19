@@ -11,7 +11,7 @@ from decimal import Decimal
 from functools import partial
 
 
-__version__ = "1.22.1"
+__version__ = "1.22.2"
 __all__ = ["parse", "search", "findall", "with_pattern"]
 
 log = logging.getLogger(__name__)
@@ -345,7 +345,7 @@ class RepeatedNameError(ValueError):
 REGEX_SAFETY = re.compile(r"([?\\.[\]()*+^$!|])")
 
 # allowed field types
-ALLOWED_TYPES = set(list("nbox%fFegwWdDsSl") + ["t" + c for c in "ieahgcts"])
+ALLOWED_TYPES = set(list("nboxX%fFeEgGwWdDsSl") + ["t" + c for c in "ieahgcts"])
 
 
 def extract_format(format, extra_types):
@@ -696,7 +696,7 @@ class Parser(object):
 
         # figure type conversions, if any
         type = format["type"]
-        is_numeric = type and type in "n%fegdobx"
+        is_numeric = type and type in "n%fFegdobxEGX"
         conv = self._type_conversions
         if type in self._extra_types:
             type_converter = self._extra_types[type]
@@ -718,7 +718,7 @@ class Parser(object):
             s = r"(0[oO])?[0-7]+"
             conv[group] = int_convert(8)
             self._group_index += 1
-        elif type == "x":
+        elif type in ("x", "X"):
             s = r"(0[xX])?[0-9a-fA-F]+"
             conv[group] = int_convert(16)
             self._group_index += 1
@@ -726,17 +726,21 @@ class Parser(object):
             s = r"\d+(\.\d+)?%"
             self._group_index += 1
             conv[group] = percentage
-        elif type == "f":
+        elif type in ("f", "F"):
             # precision 0 formats without a decimal point (e.g. format(20.0, ".0f") == "20")
-            s = r"\d+" if format.get("precision") == "0" else r"\d*\.\d+"
-            conv[group] = convert_first(float)
-        elif type == "F":
-            s = r"\d+" if format.get("precision") == "0" else r"\d*\.\d+"
-            conv[group] = convert_first(Decimal)
-        elif type == "e":
+            # Non-capturing group so the shared "[-+ ]?" sign prefix (added below
+            # for numeric types) stays in front of the whole alternation. Without
+            # it, "[-+ ]?\d*\.\d+|nan|..." would bind the sign to the first branch
+            # only, breaking negative parsing. nan/inf match the e/g types too.
+            if format.get("precision") == "0":
+                s = r"(?:\d+|nan|NAN|inf|INF)"
+            else:
+                s = r"(?:\d*\.\d+|nan|NAN|inf|INF)"
+            conv[group] = convert_first(float if type == "f" else Decimal)
+        elif type in ("e", "E"):
             s = r"\d*\.\d+[eE][-+]?\d+|nan|NAN|[-+]?inf|[-+]?INF"
             conv[group] = convert_first(float)
-        elif type == "g":
+        elif type in ("g", "G"):
             s = r"\d+(\.\d+)?([eE][-+]?\d+)?|nan|NAN|[-+]?inf|[-+]?INF"
             self._group_index += 2
             conv[group] = convert_first(float)

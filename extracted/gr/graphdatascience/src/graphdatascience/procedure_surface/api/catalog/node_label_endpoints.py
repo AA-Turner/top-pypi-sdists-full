@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 
 
@@ -10,7 +10,7 @@ class NodeLabelEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         node_label: str,
         *,
         node_filter: str,
@@ -18,8 +18,6 @@ class NodeLabelEndpoints(ABC):
         log_progress: bool = True,
         username: str | None = None,
         concurrency: int | None = None,
-        write_concurrency: int | None = None,
-        job_id: str | None = None,
     ) -> NodeLabelMutateResult:
         """
         Attaches the specified node label to the filtered nodes in the graph.
@@ -28,9 +26,9 @@ class NodeLabelEndpoints(ABC):
         ----------
         G
            Graph object to use
-        node_label : str
+        node_label
             The node label to write back.
-        node_filter : str
+        node_filter
             A Cypher predicate for filtering nodes in the input graph.
         sudo
             Disable the memory guard.
@@ -40,10 +38,6 @@ class NodeLabelEndpoints(ABC):
             As an administrator, impersonate a different user for accessing their graphs.
         concurrency
             Number of concurrent threads to use.
-        write_concurrency
-            Number of concurrent threads to use for writing.
-        job_id
-            Identifier for the computation.
         Returns
         -------
         NodeLabelMutateResult
@@ -54,7 +48,7 @@ class NodeLabelEndpoints(ABC):
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         node_label: str,
         *,
         node_filter: str,
@@ -72,9 +66,9 @@ class NodeLabelEndpoints(ABC):
         ----------
         G
            Graph object to use
-        node_label : str
+        node_label
             The node label to write back.
-        node_filter : str
+        node_filter
             A Cypher predicate for filtering nodes in the input graph.
         sudo
             Disable the memory guard.

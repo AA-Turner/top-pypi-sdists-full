@@ -20,12 +20,15 @@ from numpyro.distributions.flows import (
 from numpyro.distributions.transforms import (
     AbsTransform,
     AffineTransform,
+    CatTransform,
     CholeskyTransform,
     ComplexTransform,
     ComposeTransform,
     CorrCholeskyTransform,
     CorrMatrixCholeskyTransform,
+    DiscreteCosineTransform,
     ExpTransform,
+    HaarTransform,
     IdentityTransform,
     IndependentTransform,
     L1BallTransform,
@@ -46,6 +49,7 @@ from numpyro.distributions.transforms import (
     StickBreakingTransform,
     UnpackTransform,
     ZeroSumTransform,
+    _haar_forward,
     biject_to,
 )
 
@@ -73,6 +77,11 @@ TRANSFORMS = {
             ],
         ),
         dict(),
+    ),
+    "cat": T(
+        CatTransform,
+        ([AffineTransform(np.array(1.0), np.array(2.0)), ExpTransform()],),
+        dict(dim=-1, lengths=(2, 1)),
     ),
     "independent": T(
         IndependentTransform,
@@ -116,7 +125,13 @@ TRANSFORMS = {
     "complex": T(ComplexTransform, (), dict()),
     "corr_chol": T(CorrCholeskyTransform, (), dict()),
     "corr_matrix_chol": T(CorrMatrixCholeskyTransform, (), dict()),
+    "dct": T(DiscreteCosineTransform, (), dict()),
+    "dct_smooth": T(DiscreteCosineTransform, (), dict(smooth=1.0)),
+    "dct_dim": T(DiscreteCosineTransform, (), dict(dim=-2)),
     "exp": T(ExpTransform, (), dict()),
+    "haar": T(HaarTransform, (), dict()),
+    "haar_flip": T(HaarTransform, (), dict(flip=True)),
+    "haar_dim": T(HaarTransform, (), dict(dim=-2)),
     "identity": T(IdentityTransform, (), dict()),
     "l1_ball": T(L1BallTransform, (), dict()),
     "lower_cholesky": T(LowerCholeskyTransform, (), dict()),
@@ -252,6 +267,55 @@ def test_reshape_transform_invalid():
         ReshapeTransform((2, 3), (6,))(jnp.arange(2))
 
 
+def test_cat_transform():
+    transform = CatTransform(
+        [AffineTransform(1.0, 2.0), ExpTransform()], dim=-1, lengths=[2, 1]
+    )
+    x = jnp.array([[0.0, 1.0, 2.0], [-1.0, 3.0, 0.5]])
+    expected = jnp.concatenate([1.0 + 2.0 * x[..., :2], jnp.exp(x[..., 2:])], -1)
+
+    y, intermediates = jax.jit(transform.call_with_intermediates)(x)
+    assert jnp.allclose(y, expected)
+    assert jnp.allclose(jax.jit(lambda value: transform.inv(value))(y), x)
+    assert jnp.allclose(
+        jax.jit(transform.log_abs_det_jacobian)(x, y),
+        jnp.concatenate([jnp.full_like(x[..., :2], jnp.log(2.0)), x[..., 2:]], axis=-1),
+    )
+    assert jnp.allclose(
+        transform.log_abs_det_jacobian(x, y, intermediates),
+        transform.log_abs_det_jacobian(x, y),
+    )
+
+
+def test_biject_to_cat_constraint():
+    constraint = constraints.cat(
+        [constraints.interval(-2.0, 3.0), constraints.positive],
+        dim=-1,
+        lengths=[2, 1],
+    )
+    transform = biject_to(constraint)
+    x = jnp.array([[0.0, -1.0, 2.0], [1.0, 0.5, -2.0]])
+    y = jax.jit(lambda value: transform(value))(x)
+
+    assert transform.codomain.dim == constraint.dim
+    assert transform.codomain.lengths == constraint.lengths
+    assert jnp.array_equal(constraint(y), jnp.ones_like(y, dtype=bool))
+    assert jnp.allclose(jax.jit(lambda value: transform.inv(value))(y), x)
+
+
+def test_cat_transform_invalid_shape():
+    transform = CatTransform([ExpTransform(), ExpTransform()], lengths=[1, 2])
+    with pytest.raises(ValueError, match="must equal the sum of lengths 3"):
+        transform(jnp.ones(2))
+
+    with pytest.raises(AssertionError, match="tseq cannot be empty"):
+        CatTransform([])
+    with pytest.raises(AssertionError, match="dim must be an integer"):
+        CatTransform([ExpTransform()], dim=0.5)
+    with pytest.raises(AssertionError, match="nonnegative integers"):
+        CatTransform([ExpTransform()], lengths=[-1])
+
+
 @pytest.mark.parametrize(
     "input_shape, shape, ndims",
     [
@@ -282,7 +346,16 @@ def test_real_fast_fourier_transform(input_shape, shape, ndims):
         (ComposeTransform([SoftplusTransform(), SigmoidTransform()]), ()),
         (CorrCholeskyTransform(), (15,)),
         (CorrMatrixCholeskyTransform(), (15,)),
+        (DiscreteCosineTransform(), (8,)),
+        (DiscreteCosineTransform(), (5,)),
+        (DiscreteCosineTransform(smooth=1.0), (8,)),
+        (DiscreteCosineTransform(smooth=2.0), (6,)),
+        (DiscreteCosineTransform(dim=-2), (4, 5)),
         (ExpTransform(), ()),
+        (HaarTransform(), (8,)),
+        (HaarTransform(), (5,)),
+        (HaarTransform(flip=True), (8,)),
+        (HaarTransform(dim=-2), (4, 5)),
         (IdentityTransform(), ()),
         (IndependentTransform(ExpTransform(), 2), (3, 4)),
         (L1BallTransform(), (9,)),
@@ -447,3 +520,195 @@ def test_compose_sequence_domain_codomain():
         assert y.ndim == event_dim
         assert composed.codomain.event_dim == event_dim
         assert composed.domain.event_dim == 1
+
+
+@pytest.mark.parametrize("T", [1, 2, 3, 4, 5, 8, 10, 16, 17])
+@pytest.mark.parametrize("flip", [False, True])
+def test_haar_transform_roundtrip_and_energy(T, flip):
+    transform = HaarTransform(flip=flip)
+    x = random.normal(random.key(0), (3, T))
+    y = transform(x)
+    # Round-trip.
+    assert jnp.allclose(transform.inv(y), x, atol=1e-5)
+    # Orthonormal transforms preserve energy.
+    assert jnp.allclose(jnp.sum(y**2, -1), jnp.sum(x**2, -1), atol=1e-4)
+    # Unit Jacobian.
+    assert jnp.allclose(transform.log_abs_det_jacobian(x, y), 0.0, atol=1e-6)
+
+
+@pytest.mark.parametrize("T", [1, 2, 3, 4, 5, 8, 10, 16, 17])
+@pytest.mark.parametrize("smooth", [0.0, 1.0, 2.0, -1.0])
+def test_discrete_cosine_transform_roundtrip(T, smooth):
+    transform = DiscreteCosineTransform(smooth=smooth)
+    x = random.normal(random.key(0), (3, T))
+    y = transform(x)
+    assert jnp.allclose(transform.inv(y), x, atol=1e-5)
+    # Unit Jacobian holds even with smoothing (geometric-mean normalized weights).
+    assert jnp.allclose(transform.log_abs_det_jacobian(x, y), 0.0, atol=1e-6)
+    if smooth == 0.0:
+        # Matches the orthonormal DCT-II directly.
+        expected = jax.scipy.fft.dct(x, type=2, norm="ortho", axis=-1)
+        assert jnp.allclose(y, expected, atol=1e-6)
+
+
+@pytest.mark.parametrize(
+    "transform_cls, kwargs",
+    [
+        (HaarTransform, dict()),
+        (HaarTransform, dict(flip=True)),
+        (DiscreteCosineTransform, dict()),
+        (DiscreteCosineTransform, dict(smooth=1.0)),
+    ],
+)
+def test_time_transform_dim(transform_cls, kwargs):
+    # Transforming along dim=-2 matches transforming along dim=-1 of the
+    # axis-swapped input.
+    x = random.normal(random.key(0), (6, 5))
+    y_dim = transform_cls(dim=-2, **kwargs)(x)
+    y_ref = jnp.swapaxes(
+        transform_cls(dim=-1, **kwargs)(jnp.swapaxes(x, -2, -1)), -2, -1
+    )
+    assert jnp.allclose(y_dim, y_ref, atol=1e-5)
+
+
+@pytest.mark.parametrize("transform_cls", [HaarTransform, DiscreteCosineTransform])
+def test_time_transform_requires_negative_dim(transform_cls):
+    with pytest.raises(AssertionError):
+        transform_cls(dim=0)
+    with pytest.raises(AssertionError):
+        transform_cls(dim=1)
+
+
+@pytest.mark.parametrize("T", [2, 4, 5, 7, 8, 16])
+@pytest.mark.parametrize(
+    "transform", [HaarTransform(), DiscreteCosineTransform()], ids=["haar", "dct"]
+)
+def test_time_transform_orthonormal(transform, T):
+    # Building the transform matrix by applying it to the identity basis should
+    # give an orthonormal matrix (H @ H.T == I), i.e. the transform is a
+    # volume-preserving rotation/reflection.
+    matrix = vmap(transform)(jnp.eye(T))
+    assert jnp.allclose(matrix @ matrix.T, jnp.eye(T), atol=1e-5)
+
+
+def test_haar_transform_ground_truth():
+    # Locks the orthonormal Haar convention and the output ordering
+    # [dc, hi_coarsest, ..., hi_finest].
+    x = jnp.array([1.0, 2.0, 3.0, 4.0])
+    expected = jnp.array([5.0, -2.0, -1.0 / np.sqrt(2.0), -1.0 / np.sqrt(2.0)])
+    assert jnp.allclose(_haar_forward(x), expected, atol=1e-6)
+
+
+def test_haar_transform_autodiff():
+    # Haar is orthonormal, so d/dx ||Haar(x)||^2 == 2x.
+    x = jnp.arange(8.0)
+    grad_energy = jax.grad(lambda x: jnp.sum(HaarTransform()(x) ** 2))(x)
+    assert jnp.allclose(grad_energy, 2 * x, atol=1e-5)
+
+
+@pytest.mark.parametrize("smooth", [0.0, 1.0, 2.0])
+def test_discrete_cosine_transform_autodiff(smooth):
+    x = jnp.arange(8.0)
+    grad_energy = jax.grad(
+        lambda x: jnp.sum(DiscreteCosineTransform(smooth=smooth)(x) ** 2)
+    )(x)
+    assert jnp.all(jnp.isfinite(grad_energy))
+
+
+@pytest.mark.parametrize(
+    "transform",
+    [HaarTransform(), DiscreteCosineTransform(smooth=1.5)],
+    ids=["haar", "dct"],
+)
+def test_time_transform_dtype(transform):
+    # The transform preserves the input floating dtype.
+    x = random.normal(random.key(0), (13,))
+    y = transform(x)
+    assert y.dtype == x.dtype
+    assert transform.inv(y).dtype == x.dtype
+    if jax.config.read("jax_enable_x64"):
+        x64 = x.astype(jnp.float64)
+        y64 = transform(x64)
+        assert y64.dtype == jnp.float64
+        assert jnp.allclose(transform.inv(y64), x64, atol=1e-12)
+
+
+def _assert_lower_cholesky_affine_roundtrip(transform, x):
+    y = transform(x)
+    assert y.shape == transform.forward_shape(x.shape)
+    x_inv = transform.inv(y)
+    assert x_inv.shape == transform.inverse_shape(y.shape)
+    assert jnp.allclose(x_inv, x, atol=1e-5)
+    log_det = transform.log_abs_det_jacobian(x, y)
+    assert log_det.shape == x.shape[:-1]
+    expected_log_det = jnp.broadcast_to(
+        jnp.log(jnp.diagonal(transform.scale_tril, axis1=-2, axis2=-1)).sum(-1),
+        x.shape[:-1],
+    )
+    assert jnp.allclose(log_det, expected_log_det, atol=1e-5)
+
+
+def test_lower_cholesky_affine_2d():
+    loc = jnp.array([1.0, -0.5])
+    scale_tril = jnp.array([[0.6, 0.0], [1.5, 0.4]])
+    transform = LowerCholeskyAffine(loc, scale_tril)
+    x = random.normal(random.key(0), (5, 2))
+    _assert_lower_cholesky_affine_roundtrip(transform, x)
+    y = transform(jnp.ones(2))
+    assert jnp.allclose(y, loc + scale_tril @ jnp.ones(2), atol=1e-5)
+
+
+def test_lower_cholesky_affine_batched_loc_shared_scale_tril():
+    loc = jnp.array([[1.0, 0.0], [-1.0, 2.0], [0.5, -0.5]])
+    scale_tril = jnp.array([[0.6, 0.0], [1.5, 0.4]])
+    transform = LowerCholeskyAffine(loc, scale_tril)
+    x = random.normal(random.key(1), (3, 2))
+    _assert_lower_cholesky_affine_roundtrip(transform, x)
+    y = transform(x)
+    expected = loc + jnp.einsum("ij,bj->bi", scale_tril, x)
+    assert jnp.allclose(y, expected, atol=1e-5)
+
+
+def test_lower_cholesky_affine_batched_scale_tril():
+    loc = jnp.array([[1.0, 0.0], [-1.0, 2.0], [0.5, -0.5]])
+    scale_tril = jnp.array(
+        [
+            [[0.6, 0.0], [1.5, 0.4]],
+            [[1.0, 0.0], [0.0, 2.0]],
+            [[0.3, 0.0], [-0.2, 0.5]],
+        ]
+    )
+    transform = LowerCholeskyAffine(loc, scale_tril)
+    x = random.normal(random.key(2), (3, 2))
+    _assert_lower_cholesky_affine_roundtrip(transform, x)
+    y = transform(x)
+    expected = loc + jnp.einsum("bij,bj->bi", scale_tril, x)
+    assert jnp.allclose(y, expected, atol=1e-5)
+
+
+def test_lower_cholesky_affine_batched_scale_tril_extra_sample_dims():
+    scale_tril = jnp.array(
+        [
+            [[0.6, 0.0], [1.5, 0.4]],
+            [[1.0, 0.0], [0.0, 2.0]],
+        ]
+    )
+    loc = jnp.zeros(2)
+    transform = LowerCholeskyAffine(loc, scale_tril)
+    x = random.normal(random.key(3), (4, 2, 2))
+    _assert_lower_cholesky_affine_roundtrip(transform, x)
+
+
+@pytest.mark.parametrize(
+    "scale_tril",
+    [
+        np.array([1.0, 2.0]),
+        np.ones((2, 3)),
+        np.ones((2, 2, 3)),
+    ],
+    ids=["1d", "nonsquare_2d", "nonsquare_batched"],
+)
+def test_lower_cholesky_affine_invalid_scale_tril(scale_tril):
+    loc = np.zeros(scale_tril.shape[-1])
+    with pytest.raises(ValueError, match="scale_tril"):
+        LowerCholeskyAffine(loc, scale_tril)

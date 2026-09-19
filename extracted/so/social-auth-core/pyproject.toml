@@ -4,43 +4,48 @@ requires = ["setuptools>=78.0.2"]
 
 [dependency-groups]
 dev = [
-  "coverage==7.15.3",
+  "coverage==7.16.1",
   "flake8==7.3.0",
   "google-auth-stubs==0.3.0",
-  "mypy==2.3.0",
-  "pyright==1.1.411",
   "pytest-cov==7.1.0",
   "pytest-github-actions-annotate-failures==0.4.2",
   "pytest-profiling==1.8.1",
   "pytest-xdist==3.8.0",
   "pytest==9.1.1",
-  "responses==0.26.2",
-  "ty==0.0.69",
-  "types-defusedxml==0.7.0.20260504",
-  "types-oauthlib==3.3.0.20260724",
-  "types-requests-oauthlib==2.0.0.20260610",
-  {include-group = "pylint"}
+  "responses==0.26.3",
+  { include-group = "pylint" },
+  { include-group = "types" }
 ]
 pylint = [
-  "pylint==4.0.6"
+  "pylint==4.0.8"
+]
+types = [
+  "mypy==2.3.1",
+  "pyright==1.1.414",
+  "ty==0.0.82",
+  "types-defusedxml==0.7.0.20260504",
+  "types-lxml==2026.2.16",
+  "types-oauthlib==3.3.0.20260724",
+  "types-requests-oauthlib==2.0.0.20260907",
+  "types-requests==2.33.0.20260906"
 ]
 
 [project]
 authors = [
-  {email = "matiasaguirre@gmail.com", name = "Matias Aguirre"},
-  {email = "michal@weblate.org", name = "Michal Čihař"}
+  { email = "matiasaguirre@gmail.com", name = "Matias Aguirre" },
+  { email = "michal@weblate.org", name = "Michal Čihař" }
 ]
 classifiers = [
   "Development Status :: 5 - Production/Stable",
   "Environment :: Web Environment",
   "Intended Audience :: Developers",
+  "Programming Language :: Python",
   "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
   "Programming Language :: Python :: 3.13",
   "Programming Language :: Python :: 3.14",
-  "Programming Language :: Python",
   "Topic :: Internet"
 ]
 dependencies = [
@@ -59,7 +64,7 @@ license-files = ["LICENSE"]
 name = "social-auth-core"
 readme = "README.md"
 requires-python = ">=3.10"
-version = "5.1.0"
+version = "5.1.1"
 
 [project.optional-dependencies]
 all = [
@@ -74,25 +79,26 @@ allpy3 = [
 # This is present until pip implements supports for PEP 735
 # see https://github.com/pypa/pip/issues/12963
 dev = [
-  "coverage==7.15.3",
+  "coverage==7.16.1",
   "flake8==7.3.0",
   "google-auth-stubs==0.3.0",
-  "mypy==2.3.0",
-  "pyright==1.1.411",
+  "mypy==2.3.1",
+  "pyright==1.1.414",
   "pytest-cov==7.1.0",
   "pytest-github-actions-annotate-failures==0.4.2",
   "pytest-profiling==1.8.1",
   "pytest-xdist==3.8.0",
   "pytest==9.1.1",
-  "responses==0.26.2",
-  "ty==0.0.69",
+  "responses==0.26.3",
+  "ty==0.0.82",
   "types-defusedxml==0.7.0.20260504",
+  "types-lxml==2026.2.16",
   "types-oauthlib==3.3.0.20260724",
-  "types-requests-oauthlib==2.0.0.20260610",
-  "types-requests==2.33.0.20260712"
+  "types-requests-oauthlib==2.0.0.20260907",
+  "types-requests==2.33.0.20260906"
 ]
 google-onetap = [
-  "google-auth>=2.40.0,<2.57"
+  "google-auth>=2.40.0,<2.59"
 ]
 saml = [
   "python3-saml>=1.16.0"
@@ -192,6 +198,7 @@ ignore = [
   "ERA001",  # TODO: Found commented-out code
   "FBT",  # TODO: Boolean in function definition
   "FIX002",  # CONFIG: we use TODO
+  'ISC001',  # CONFIG: formatter
   "ISC003",  # TODO: Explicitly concatenated string should be implicitly concatenated
   "N",  # TODO: Naming issues
   "PERF203",  # WONTFIX: This rule is only enforced for Python versions prior to 3.11
@@ -204,8 +211,7 @@ ignore = [
   "S301",  # TODO: `pickle` and modules that wrap it can be unsafe when used to deserialize untrusted data, possible security issue
   "TD002",  # CONFIG: no detailed TODO documentation is required
   "TD003",  # CONFIG: no detailed TODO documentation is required
-  "TRY003",  # TODO: Avoid specifying long messages outside the exception class
-  'ISC001'  # CONFIG: formatter
+  "TRY003"  # TODO: Avoid specifying long messages outside the exception class
 ]
 select = ["ALL"]
 
@@ -219,6 +225,14 @@ max-complexity = 11  # TODO: should be lower
 # TODO: all these should be lower (or use defaults)
 max-args = 7
 max-branches = 15
+
+[tool.rumdl]
+disable = [
+  # We do not enforce heading
+  "first-line-heading",
+  # Avoid length limit checks
+  "line-length"
+]
 
 [tool.setuptools]
 packages = ["social_core"]

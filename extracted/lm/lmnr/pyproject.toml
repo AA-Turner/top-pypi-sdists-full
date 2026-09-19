@@ -1,6 +1,6 @@
 [project]
 name = "lmnr"
-version = "0.7.62"
+version = "0.7.63"
 description = "Python SDK for Laminar"
 readme = "README.md"
 requires-python = ">=3.10,<4"
@@ -111,6 +111,7 @@ dev = [
     "litellm==1.85.2",
     "openai==2.30.0",
     "openai-agents==0.14.1",
+    "openrouter==1.1.156",
     "patchright==1.58.2",
     "playwright==1.58.0",
     "pydantic-ai-slim==2.5.1",

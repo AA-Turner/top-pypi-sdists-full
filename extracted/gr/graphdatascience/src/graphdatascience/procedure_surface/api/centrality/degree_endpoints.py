@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -15,7 +15,7 @@ class DegreeEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         orientation: str = "NATURAL",
         relationship_types: list[str] = ALL_TYPES,
@@ -41,7 +41,7 @@ class DegreeEndpoints(ABC):
            Graph object to use
         mutate_property
             Name of the node property to store the results in.
-        orientation : str | None
+        orientation
             The orientation of relationships to consider. Can be 'NATURAL', 'REVERSE', or 'UNDIRECTED'.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -70,7 +70,7 @@ class DegreeEndpoints(ABC):
     @abstractmethod
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         orientation: str = "NATURAL",
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -93,7 +93,7 @@ class DegreeEndpoints(ABC):
         ----------
         G
            Graph object to use
-        orientation : str | None
+        orientation
             The orientation of relationships to consider. Can be 'NATURAL', 'REVERSE', or 'UNDIRECTED'.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -122,7 +122,7 @@ class DegreeEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         orientation: str = "NATURAL",
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -140,7 +140,7 @@ class DegreeEndpoints(ABC):
         ----------
         G
            Graph object to use
-        orientation : str | None
+        orientation
             The orientation of relationships to consider. Can be 'NATURAL', 'REVERSE', or 'UNDIRECTED'.
             'NATURAL' (default) respects the direction of relationships as they are stored in the graph.
             'REVERSE' treats each relationship as if it were directed in the opposite direction.
@@ -164,7 +164,7 @@ class DegreeEndpoints(ABC):
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             DataFrame with nodeId and score columns containing degree centrality results.
             Each row represents a node with its corresponding degree centrality score.
         """
@@ -173,7 +173,7 @@ class DegreeEndpoints(ABC):
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         orientation: str = "NATURAL",
         relationship_types: list[str] = ALL_TYPES,
@@ -200,7 +200,7 @@ class DegreeEndpoints(ABC):
            Graph object to use
         write_property
             Name of the node property to store the results in.
-        orientation : str | None
+        orientation
             The orientation of relationships to consider. Can be 'NATURAL', 'REVERSE', or 'UNDIRECTED'.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -229,7 +229,7 @@ class DegreeEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         orientation: str = "NATURAL",
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -243,7 +243,7 @@ class DegreeEndpoints(ABC):
         ----------
         G
            Graph object to use or a dictionary representing the graph dimensions.
-        orientation : str | None
+        orientation
             The orientation of relationships to consider. Can be 'NATURAL', 'REVERSE', or 'UNDIRECTED'.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.

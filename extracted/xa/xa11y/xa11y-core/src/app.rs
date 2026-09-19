@@ -6,6 +6,7 @@ use crate::error::{Diagnosis, Error, Result};
 use crate::event_provider::Subscription;
 use crate::locator::Locator;
 use crate::provider::Provider;
+use crate::role::Role;
 
 /// Polling interval shared by all timeout-bearing lookups (application and
 /// shell-surface alike — see `shell.rs`).
@@ -73,19 +74,9 @@ fn merge_diagnosis(err: Error, extra: Diagnosis) -> Error {
 /// foreground status for apps obtained through `list`/`find` without a per-app
 /// focus query.
 ///
-/// Tagging is *window-precise*. On macOS/Linux one process is one
-/// `Application` entry, so a pid match alone identifies the foreground app. On
-/// Windows apps are top-level windows, so a single process can contribute
-/// several entries (a main window plus a modal dialog; issue #304) that all
-/// share the foreground pid — there the platform's window-level `active` flag
-/// picks the one actually in the foreground. Concretely, an entry is tagged
-/// when its pid matches *and* either it is the only pid-matching entry (the
-/// unambiguous macOS/Linux case) or it reports `active`.
-///
-/// If several entries share the foreground pid and none reports `active` (the
-/// foreground window wasn't enumerable), none is tagged — that's honest, not a
-/// fallback (tenet 1). When the exact foreground window matters, use
-/// [`App::foreground_with`], which resolves it directly.
+/// Tagging is process-scoped: all native registrations with the foreground
+/// PID represent the same public application. To identify the exact window,
+/// inspect the `active` flag on [`App::windows`] instead.
 ///
 /// "Nothing is focused" ([`Error::SelectorNotMatched`]) is not an error here:
 /// it leaves every entry untagged (`focused = false`). Any other error is a
@@ -93,23 +84,27 @@ fn merge_diagnosis(err: Error, extra: Diagnosis) -> Error {
 /// swallowed (tenet 1) — on every backend the focus query needs no more access
 /// than the enumeration that produced `apps`.
 fn tag_focused(provider: &Arc<dyn Provider>, apps: &mut [ElementData]) -> Result<()> {
-    let focused_pid = match provider.focused_app() {
-        Ok(data) => data.pid,
+    let focused = match provider.focused_app() {
+        Ok(data) => Some(data),
         Err(Error::SelectorNotMatched { .. }) => None,
         Err(e) => return Err(e),
     };
-    // How many enumerated entries share the foreground pid. One match → pid
-    // alone is unambiguous (macOS/Linux); several → disambiguate by the
-    // window-level `active` flag (Windows modal case).
-    let n_matches = apps
-        .iter()
-        .filter(|a| focused_pid.is_some() && a.pid == focused_pid)
-        .count();
     for app in apps.iter_mut() {
-        let pid_match = focused_pid.is_some() && app.pid == focused_pid;
-        app.states.focused = pid_match && (n_matches == 1 || app.states.active);
+        app.states.focused = focused.as_ref().is_some_and(|f| {
+            same_window_identity(app, f) || (app.pid.is_some() && app.pid == f.pid)
+        });
     }
     Ok(())
+}
+
+/// Collapse native registrations into the process-level applications exposed
+/// by the public API. Entries without a PID cannot be proven equivalent and
+/// remain distinct.
+fn dedup_processes(apps: Vec<ElementData>) -> Vec<ElementData> {
+    let mut seen = std::collections::HashSet::new();
+    apps.into_iter()
+        .filter(|app| app.pid.is_none_or(|pid| seen.insert(pid)))
+        .collect()
 }
 
 /// Bounded "what *is* running" snapshot for application-lookup failures:
@@ -141,6 +136,30 @@ fn running_apps_diagnosis(provider: &Arc<dyn Provider>) -> Diagnosis {
         candidates,
         ..Diagnosis::default()
     }
+}
+
+/// Whether two element snapshots identify the same window (or the same
+/// Application entry).
+///
+/// Keyed by the platform's stable identity: `stable_id` — on Linux the D-Bus
+/// object path, scoped by the access bus name recorded in `raw["bus_name"]`
+/// (two bus connections of one process can expose distinct windows under the
+/// same path), on Windows the native HWND for top-level windows. Elements
+/// without a stable_id (macOS `AXIdentifier` is often absent) key on the
+/// handle, which is unique per built node within one enumeration — distinct
+/// windows are never merged on presentation data like a shared title and
+/// bounds.
+pub(crate) fn same_window_identity(a: &ElementData, b: &ElementData) -> bool {
+    fn key(d: &ElementData) -> String {
+        d.stable_id
+            .clone()
+            .map(|sid| match d.raw.get("bus_name") {
+                Some(serde_json::Value::String(bus)) => format!("{bus}:{sid}"),
+                _ => sid,
+            })
+            .unwrap_or_else(|| format!("h{}", d.handle))
+    }
+    key(a) == key(b)
 }
 
 /// A running application, the entry point for accessibility queries.
@@ -243,7 +262,7 @@ impl App {
                 // "app not found" from "accessibility is broken". A predicate
                 // error propagates for the same reason — `poll_lookup` only
                 // retries `SelectorNotMatched`, so anything else fails fast.
-                let mut apps = provider.list_apps()?;
+                let mut apps = dedup_processes(provider.list_apps()?);
                 if tag_focus {
                     tag_focused(&provider, &mut apps)?;
                 }
@@ -354,9 +373,14 @@ impl App {
     /// focused element's `Application` ancestor in the AT-SPI registry (Linux).
     /// Unlike [`find_with`](Self::find_with) with a `|d| d.states.focused`
     /// predicate — which enumerates apps and tags foreground state by pid —
-    /// this calls the platform foreground query directly, so on Windows it
-    /// returns the *exact* foreground window even when the owning process holds
-    /// several top-level windows (the modal case; issues #304/#305).
+    /// this calls the platform foreground query directly. The result is the
+    /// foreground *process*'s `Application` node — one per process on every
+    /// platform — not the exact window holding the foreground. On Windows the
+    /// query resolves the foreground HWND to its process's synthesized
+    /// `Application` node instead of returning the window itself (the modal
+    /// case; issues #304/#305). To reach the exact foreground window, list the
+    /// node's [`windows`](Self::windows) and pick the one reporting
+    /// [`active`](crate::element::StateSet::active).
     ///
     /// Timeout / polling semantics match [`by_name_with`](Self::by_name_with):
     /// `Duration::ZERO` performs exactly one attempt, only
@@ -385,11 +409,9 @@ impl App {
     /// Prefer `App::list` from the `xa11y` crate which uses the global
     /// singleton provider.
     pub fn list_with(provider: Arc<dyn Provider>) -> Result<Vec<Self>> {
-        // `list_apps()` is the platform-specific discovery primitive — it
-        // already handles the per-OS app/window split (Linux/macOS return
-        // `Application` elements; Windows returns top-level `Window`
-        // elements), so we just wrap each entry.
-        let mut datas = provider.list_apps()?;
+        // Collapse platform registrations by pid: a public App consistently
+        // represents a process on every backend.
+        let mut datas = dedup_processes(provider.list_apps()?);
         // Mark the foreground app (one focus query) so `App::focused` is
         // populated across the returned list without an extra call per app.
         tag_focused(&provider, &mut datas)?;
@@ -399,7 +421,112 @@ impl App {
             .collect())
     }
 
-    fn from_data(provider: Arc<dyn Provider>, data: ElementData) -> Self {
+    /// List the top-level windows of the process owning `data`, using an
+    /// explicit provider.
+    ///
+    /// Prefer [`App::windows`], which uses this `App`'s provider.
+    ///
+    /// `data` must be an `Application` element. Passing any other role is an
+    /// [`Error::ActionNotSupported`] naming the role; the "windows of a
+    /// window" question has no meaning once app entries stopped being
+    /// windows. On Windows the children of the synthetic `Application` node
+    /// *are* the process's top-level windows, so this returns them in
+    /// enumeration (z-) order; on macOS and Linux it is the same
+    /// `get_children` + `Window|Dialog` filter applied to the platform's
+    /// Application node.
+    ///
+    /// The listing is **process-complete**: macOS and Windows guarantee one
+    /// Application node per pid, so the single node's children already cover
+    /// the process, but the Linux AT-SPI registry can register several
+    /// `Application` entries for one pid (a main application plus a dialog
+    /// exposed as its own app node), and each entry's `get_children` answer is
+    /// only its own windows. `App::by_pid` resolves a single entry, so
+    /// without aggregation `by_pid(pid).windows()` would silently omit the
+    /// sibling entries' windows. Every same-pid entry is therefore merged and
+    /// deduplicated by the platform's stable identity — the same key the
+    /// `xa11y windows` listing applies per pid, with one subtle difference:
+    /// results here keep the *windows* of the calling entry first, in
+    /// enumeration order, followed by the other entries' windows (registry
+    /// order), so a window is never listed twice whatever the entry count.
+    /// The merge runs only for providers that can split a process across
+    /// entries ([`Provider::splits_app_across_entries`]): on macOS and
+    /// Windows one entry covers the process, so `list_apps` is not
+    /// re-enumerated there at all.
+    pub fn windows_with(provider: Arc<dyn Provider>, data: &ElementData) -> Result<Vec<Element>> {
+        if data.role != Role::Application {
+            return Err(Error::ActionNotSupported {
+                action: "windows".into(),
+                role: data.role,
+            });
+        }
+        let roots = provider.app_roots(data)?;
+        let mut children = Vec::new();
+        for root in &roots {
+            for child in provider.get_children(Some(root))? {
+                if !children.iter().any(|c| same_window_identity(c, &child)) {
+                    children.push(child);
+                }
+            }
+        }
+        // Only providers that can expose several Application entries per pid
+        // need the cross-entry merge. On macOS and Windows one entry covers
+        // the process, so re-enumerating `list_apps` here would be pure waste
+        // — and a re-enumeration rebuilds macOS data with fresh handles, so
+        // windows without an AXIdentifier would no longer deduplicate and
+        // `windows()` would report each window twice. See
+        // `Provider::splits_app_across_entries`.
+        if roots.len() == 1 {
+            if let Some(pid) = data.pid {
+                if provider.splits_app_across_entries() {
+                    for entry in provider.list_apps()? {
+                        // Skip the calling entry itself (its children are already in
+                        // the list) — identified by the same stable-identity key, not
+                        // by handle: entries are rebuilt per query on Linux, so the
+                        // handle differs across calls while the stable identity
+                        // (D-Bus object path scoped by bus name) does not.
+                        if entry.pid != Some(pid) || same_window_identity(&entry, data) {
+                            continue;
+                        }
+                        for child in provider.get_children(Some(&entry))? {
+                            if !children.iter().any(|c| same_window_identity(c, &child)) {
+                                children.push(child);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        Ok(children
+            .into_iter()
+            .filter(|d| matches!(d.role, Role::Window | Role::Dialog))
+            .map(|d| Element::new(d, Arc::clone(&provider)))
+            .collect())
+    }
+
+    /// List the top-level windows of this application.
+    ///
+    /// Each call queries the provider — results are not cached. The windows
+    /// are the application's top-level windows with role `window` or
+    /// `dialog`, in enumeration order. On Windows the application entry is a
+    /// synthesized process node whose children are the process's top-level
+    /// windows (main window plus modal dialogs); macOS's own Application node
+    /// has the same one-entry-per-process property. On Linux the answer is
+    /// process-complete: [`App::windows_with`] merges the filtered children of
+    /// every same-pid AT-SPI Application entry (an app that registers several
+    /// entries reports its whole process), so the results need not be the
+    /// direct children of this node and no single z-order spans them. Calling
+    /// `windows` on a non-Application element (e.g. a window from a previous
+    /// release, or the `Window` entries this API used to return on Windows)
+    /// fails with [`Error::ActionNotSupported`] rather than silently
+    /// answering a question that no longer has a meaning.
+    pub fn windows(&self) -> Result<Vec<Element>> {
+        Self::windows_with(Arc::clone(&self.provider), &self.data)
+    }
+
+    /// Reconstruct an application snapshot in a language binding without
+    /// repeating discovery or losing the process-scoped core operations.
+    #[doc(hidden)]
+    pub fn from_data(provider: Arc<dyn Provider>, data: ElementData) -> Self {
         let name = data.name.clone().unwrap_or_default();
         let pid = data.pid;
         Self {
@@ -412,11 +539,7 @@ impl App {
 
     /// Create a [`Locator`] to search this application's accessibility tree.
     pub fn locator(&self, selector: &str) -> Locator {
-        Locator::new(
-            Arc::clone(&self.provider),
-            Some(self.data.clone()),
-            selector,
-        )
+        Locator::new_for_app(Arc::clone(&self.provider), self.data.clone(), selector)
     }
 
     /// Subscribe to accessibility events from this application.
@@ -426,7 +549,14 @@ impl App {
 
     /// Get direct children (typically windows) of this application.
     pub fn children(&self) -> Result<Vec<Element>> {
-        let children = self.provider.get_children(Some(&self.data))?;
+        let mut children = Vec::new();
+        for root in self.provider.app_roots(&self.data)? {
+            for child in self.provider.get_children(Some(&root))? {
+                if !children.iter().any(|c| same_window_identity(c, &child)) {
+                    children.push(child);
+                }
+            }
+        }
         Ok(children
             .into_iter()
             .map(|d| Element::new(d, Arc::clone(&self.provider)))
@@ -436,27 +566,36 @@ impl App {
     /// Capture the application's accessibility tree as a recursive snapshot,
     /// rooted at the application element.
     ///
-    /// Equivalent to `self.as_element().tree(max_depth)`. See
+    /// Includes children from every native registration of the process. See
     /// [`Element::tree`] for `max_depth` semantics.
     pub fn tree(&self, max_depth: Option<usize>) -> Result<TreeNode> {
-        self.as_element().tree(max_depth)
+        let mut tree = self.as_element().tree(Some(0))?;
+        if max_depth != Some(0) {
+            let child_depth = max_depth.map(|depth| depth - 1);
+            for child in self.children()? {
+                tree.children.push(child.tree(child_depth)?);
+            }
+        }
+        Ok(tree)
     }
 
     /// Render the application's accessibility tree as an indented string,
     /// rooted at the application element.
     ///
     /// The primary inspection helper for figuring out the role/name of every
-    /// element in an app before writing selectors. Equivalent to
-    /// `self.as_element().dump(max_depth)`. See [`Element::dump`] for the
-    /// output format.
+    /// element in an app before writing selectors. Includes all process
+    /// registrations, like [`Self::tree`]. See [`Element::dump`] for the output format.
     pub fn dump(&self, max_depth: Option<usize>) -> Result<String> {
-        self.as_element().dump(max_depth)
+        let mut out = String::new();
+        crate::element::write_tree_node(&self.tree(max_depth)?, 0, &mut out);
+        Ok(out)
     }
 
     /// Get an [`Element`] handle for the application root.
     ///
-    /// Useful when you want to use Element-level methods (e.g. `tree`,
-    /// `dump`, `children`) without going through a locator.
+    /// This represents one native root. On a platform with several roots per
+    /// process, use App-level `tree`, `dump`, `children`, and `locator` for the
+    /// complete process scope.
     pub fn as_element(&self) -> Element {
         Element::new(self.data.clone(), Arc::clone(&self.provider))
     }
@@ -476,12 +615,12 @@ impl App {
     /// [`by_pid_with`](Self::by_pid_with) carry the platform's raw app-element
     /// focus state instead (typically `false`).
     ///
-    /// On Windows apps are top-level windows, so the foreground process can own
-    /// several entries. Tagging is window-precise: only the entry actually in
-    /// the foreground (the one reporting the platform's window-level `active`
-    /// flag) reports `is_foreground` — not every window of the process. Use
-    /// [`foreground_with`](Self::foreground_with) (or `App::foreground` from the
-    /// `xa11y` crate) to resolve the exact foreground window directly.
+    /// This identifies the foreground process. The window-level `active`
+    /// state identifies the exact foreground window returned by `windows()`.
+    /// Use [`foreground_with`](Self::foreground_with) (or `App::foreground`
+    /// from the `xa11y` crate) to resolve the foreground application directly,
+    /// then pick the exact foreground window from its [`windows`](Self::windows)
+    /// by the [`active`](crate::element::StateSet::active) state.
     pub fn is_foreground(&self) -> bool {
         self.data.states.focused
     }
@@ -624,23 +763,80 @@ mod tests {
         fn perform_action(&self, e: &ElementData, a: &str) -> Result<()> {
             self.inner.perform_action(e, a)
         }
+        fn activate(&self, e: &ElementData) -> Result<()> {
+            self.inner.activate(e)
+        }
+        fn minimize(&self, e: &ElementData) -> Result<()> {
+            self.inner.minimize(e)
+        }
+        fn maximize(&self, e: &ElementData) -> Result<()> {
+            self.inner.maximize(e)
+        }
+        fn enter_fullscreen(&self, e: &ElementData) -> Result<()> {
+            self.inner.enter_fullscreen(e)
+        }
+        fn restore(&self, e: &ElementData) -> Result<()> {
+            self.inner.restore(e)
+        }
+        fn close(&self, e: &ElementData) -> Result<()> {
+            self.inner.close(e)
+        }
+        fn move_to(&self, e: &ElementData, x: i32, y: i32) -> Result<()> {
+            self.inner.move_to(e, x, y)
+        }
+        fn resize_to(&self, e: &ElementData, w: u32, h: u32) -> Result<()> {
+            self.inner.resize_to(e, w, h)
+        }
         fn subscribe(&self, e: &ElementData) -> Result<Subscription> {
             self.inner.subscribe(e)
         }
     }
 
     /// Provider modelling the Windows modal case (issue #304): one process
-    /// owning two top-level windows. `list_apps` returns both windows sharing
-    /// pid 42, and `focused_app` reports that pid as foreground. Everything
-    /// else delegates to the inner mock.
+    /// owning two top-level windows. `list_apps` returns ONE Application node
+    /// (pid 42) for the whole process, and its `get_children` answer is both
+    /// windows — the shape every platform reports after the app-node
+    /// unification (Windows synthesizes the Application node and answers
+    /// `get_children(Some(app))` from a process-wide UIA query; macOS reads
+    /// `AXWindows`, Linux filters the AT-SPI walk). Only the dialog reports
+    /// `active`, the window-level foreground flag.
     struct MultiWindowProvider {
         inner: Arc<crate::mock::MockProvider>,
+        windows: std::sync::Mutex<Vec<ElementData>>,
     }
 
     impl MultiWindowProvider {
         fn new() -> Self {
             Self {
                 inner: build_provider(),
+                windows: std::sync::Mutex::new(vec![
+                    Self::window("Main", 100, false),
+                    Self::window("Modal", 101, true),
+                ]),
+            }
+        }
+
+        fn replace_windows(&self, windows: Vec<ElementData>) {
+            *self.windows.lock().unwrap_or_else(|e| e.into_inner()) = windows;
+        }
+
+        /// The Application node for the shared process (pid 42).
+        fn app(handle: u64) -> ElementData {
+            ElementData {
+                role: Role::Application,
+                name: Some("SharedApp".to_string()),
+                value: None,
+                description: None,
+                bounds: None,
+                actions: vec![],
+                states: crate::element::StateSet::default(),
+                numeric_value: None,
+                min_value: None,
+                max_value: None,
+                stable_id: None,
+                pid: Some(42),
+                raw: Default::default(),
+                handle,
             }
         }
 
@@ -672,16 +868,169 @@ mod tests {
 
     impl Provider for MultiWindowProvider {
         fn list_apps(&self) -> Result<Vec<ElementData>> {
-            // Two top-level windows of the same process — a main window and a
-            // modal dialog. Both must survive enumeration (no pid dedup). Only
-            // the modal is the active (foreground) window.
+            // One Application node per process; both top-level windows of the
+            // shared process are its children (issue #304). The app node is
+            // not a window, so enumerating it yields the windows, not the
+            // process twice.
+            Ok(vec![Self::app(700)])
+        }
+        fn focused_app(&self) -> Result<ElementData> {
+            Ok(Self::app(700))
+        }
+        fn list_shell_surfaces(
+            &self,
+        ) -> Result<Vec<(crate::shell::ShellSurfaceKind, ElementData)>> {
+            self.inner.list_shell_surfaces()
+        }
+        fn get_children(&self, e: Option<&ElementData>) -> Result<Vec<ElementData>> {
+            match e {
+                // The Application node's children are the process's top-level
+                // windows — main + modal, in enumeration (z-) order.
+                Some(el) if matches!(el.role, Role::Application) && el.pid == Some(42) => Ok(self
+                    .windows
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner())
+                    .clone()),
+                _ => self.inner.get_children(e),
+            }
+        }
+        fn get_parent(&self, e: &ElementData) -> Result<Option<ElementData>> {
+            if matches!(e.role, Role::Window | Role::Dialog) && e.pid == Some(42) {
+                return Ok(Some(Self::app(700)));
+            }
+            self.inner.get_parent(e)
+        }
+        fn press(&self, e: &ElementData) -> Result<()> {
+            self.inner.press(e)
+        }
+        fn focus(&self, e: &ElementData) -> Result<()> {
+            self.inner.focus(e)
+        }
+        fn blur(&self, e: &ElementData) -> Result<()> {
+            self.inner.blur(e)
+        }
+        fn toggle(&self, e: &ElementData) -> Result<()> {
+            self.inner.toggle(e)
+        }
+        fn select(&self, e: &ElementData) -> Result<()> {
+            self.inner.select(e)
+        }
+        fn expand(&self, e: &ElementData) -> Result<()> {
+            self.inner.expand(e)
+        }
+        fn collapse(&self, e: &ElementData) -> Result<()> {
+            self.inner.collapse(e)
+        }
+        fn show_menu(&self, e: &ElementData) -> Result<()> {
+            self.inner.show_menu(e)
+        }
+        fn increment(&self, e: &ElementData) -> Result<()> {
+            self.inner.increment(e)
+        }
+        fn decrement(&self, e: &ElementData) -> Result<()> {
+            self.inner.decrement(e)
+        }
+        fn scroll_into_view(&self, e: &ElementData) -> Result<()> {
+            self.inner.scroll_into_view(e)
+        }
+        fn set_value(&self, e: &ElementData, v: &str) -> Result<()> {
+            self.inner.set_value(e, v)
+        }
+        fn set_numeric_value(&self, e: &ElementData, v: f64) -> Result<()> {
+            self.inner.set_numeric_value(e, v)
+        }
+        fn type_text(&self, e: &ElementData, t: &str) -> Result<()> {
+            self.inner.type_text(e, t)
+        }
+        fn set_text_selection(&self, e: &ElementData, s: u32, end: u32) -> Result<()> {
+            self.inner.set_text_selection(e, s, end)
+        }
+        fn perform_action(&self, e: &ElementData, a: &str) -> Result<()> {
+            self.inner.perform_action(e, a)
+        }
+        fn activate(&self, e: &ElementData) -> Result<()> {
+            self.inner.activate(e)
+        }
+        fn minimize(&self, e: &ElementData) -> Result<()> {
+            self.inner.minimize(e)
+        }
+        fn maximize(&self, e: &ElementData) -> Result<()> {
+            self.inner.maximize(e)
+        }
+        fn enter_fullscreen(&self, e: &ElementData) -> Result<()> {
+            self.inner.enter_fullscreen(e)
+        }
+        fn restore(&self, e: &ElementData) -> Result<()> {
+            self.inner.restore(e)
+        }
+        fn close(&self, e: &ElementData) -> Result<()> {
+            self.inner.close(e)
+        }
+        fn move_to(&self, e: &ElementData, x: i32, y: i32) -> Result<()> {
+            self.inner.move_to(e, x, y)
+        }
+        fn resize_to(&self, e: &ElementData, w: u32, h: u32) -> Result<()> {
+            self.inner.resize_to(e, w, h)
+        }
+        fn subscribe(&self, e: &ElementData) -> Result<Subscription> {
+            self.inner.subscribe(e)
+        }
+    }
+
+    /// Provider modelling several Application registrations for one process —
+    /// the shape the Linux AT-SPI registry can legitimately produce (two
+    /// accessibles sharing a pid, as `desktop-testing.mdx` documents) and what
+    /// `tag_focused` must disambiguate with the entry-level `active` flag. Two
+    /// Application entries share pid 42; only the modal one reports `active`.
+    struct SharedPidAppProvider {
+        inner: Arc<crate::mock::MockProvider>,
+    }
+
+    impl SharedPidAppProvider {
+        fn new() -> Self {
+            Self {
+                inner: build_provider(),
+            }
+        }
+
+        /// An Application entry for the shared process (pid 42). `active`
+        /// models the window-level foreground flag — only the entry whose
+        /// window is actually in the foreground reports it.
+        fn app(name: &str, handle: u64, active: bool) -> ElementData {
+            ElementData {
+                role: Role::Application,
+                name: Some(name.to_string()),
+                value: None,
+                description: None,
+                bounds: None,
+                actions: vec![],
+                states: crate::element::StateSet {
+                    active,
+                    ..crate::element::StateSet::default()
+                },
+                numeric_value: None,
+                min_value: None,
+                max_value: None,
+                stable_id: None,
+                pid: Some(42),
+                raw: Default::default(),
+                handle,
+            }
+        }
+    }
+
+    impl Provider for SharedPidAppProvider {
+        fn splits_app_across_entries(&self) -> bool {
+            true
+        }
+        fn list_apps(&self) -> Result<Vec<ElementData>> {
             Ok(vec![
-                Self::window("Main", 100, false),
-                Self::window("Modal", 101, true),
+                Self::app("Main", 200, false),
+                Self::app("Modal", 201, true),
             ])
         }
         fn focused_app(&self) -> Result<ElementData> {
-            Ok(Self::window("Modal", 101, true))
+            Ok(Self::app("Modal", 201, true))
         }
         fn list_shell_surfaces(
             &self,
@@ -742,9 +1091,345 @@ mod tests {
         fn perform_action(&self, e: &ElementData, a: &str) -> Result<()> {
             self.inner.perform_action(e, a)
         }
+        fn activate(&self, e: &ElementData) -> Result<()> {
+            self.inner.activate(e)
+        }
+        fn minimize(&self, e: &ElementData) -> Result<()> {
+            self.inner.minimize(e)
+        }
+        fn maximize(&self, e: &ElementData) -> Result<()> {
+            self.inner.maximize(e)
+        }
+        fn enter_fullscreen(&self, e: &ElementData) -> Result<()> {
+            self.inner.enter_fullscreen(e)
+        }
+        fn restore(&self, e: &ElementData) -> Result<()> {
+            self.inner.restore(e)
+        }
+        fn close(&self, e: &ElementData) -> Result<()> {
+            self.inner.close(e)
+        }
+        fn move_to(&self, e: &ElementData, x: i32, y: i32) -> Result<()> {
+            self.inner.move_to(e, x, y)
+        }
+        fn resize_to(&self, e: &ElementData, w: u32, h: u32) -> Result<()> {
+            self.inner.resize_to(e, w, h)
+        }
         fn subscribe(&self, e: &ElementData) -> Result<Subscription> {
             self.inner.subscribe(e)
         }
+    }
+
+    /// Provider modelling the Linux AT-SPI shape where one process registers
+    /// twice and each entry exposes **distinct** windows (a main application
+    /// plus a dialog surfaced as its own app node). `App::by_pid` resolves a
+    /// single entry, so without the aggregation in [`App::windows_with`] the
+    /// sibling entry's window would be silently omitted.
+    struct SplitPidAppProvider {
+        inner: Arc<crate::mock::MockProvider>,
+        /// When true the second entry reports the same window as the first
+        /// (same stable id) — the registry can surface one window under both
+        /// entries, and the listing must not duplicate it.
+        overlap: bool,
+        /// Whether the fixture claims `splits_app_across_entries`. The merge
+        /// tests build the Linux shape (`true`); the gate test builds a
+        /// provider that violates the contract by returning two same-pid
+        /// entries while claiming `false`, so `windows_with` must skip the
+        /// merge.
+        claims_split: bool,
+        /// `list_apps` call counter — the gate test asserts `windows_with`
+        /// does not re-enumerate when the provider claims a single entry.
+        list_apps_calls: std::sync::atomic::AtomicUsize,
+    }
+
+    impl SplitPidAppProvider {
+        fn new(overlap: bool) -> Self {
+            Self {
+                inner: build_provider(),
+                overlap,
+                claims_split: true,
+                list_apps_calls: std::sync::atomic::AtomicUsize::new(0),
+            }
+        }
+
+        fn new_claiming_single_entry(overlap: bool) -> Self {
+            Self {
+                inner: build_provider(),
+                overlap,
+                claims_split: false,
+                list_apps_calls: std::sync::atomic::AtomicUsize::new(0),
+            }
+        }
+
+        fn app(handle: u64) -> ElementData {
+            ElementData {
+                role: Role::Application,
+                name: Some("SharedApp".to_string()),
+                value: None,
+                description: None,
+                bounds: None,
+                actions: vec![],
+                states: crate::element::StateSet::default(),
+                numeric_value: None,
+                min_value: None,
+                max_value: None,
+                stable_id: None,
+                pid: Some(42),
+                raw: Default::default(),
+                handle,
+            }
+        }
+
+        fn window(name: &str, handle: u64, stable_id: &str) -> ElementData {
+            ElementData {
+                role: Role::Window,
+                name: Some(name.to_string()),
+                value: None,
+                description: None,
+                bounds: None,
+                actions: vec![],
+                states: crate::element::StateSet::default(),
+                numeric_value: None,
+                min_value: None,
+                max_value: None,
+                stable_id: Some(stable_id.to_string()),
+                pid: Some(42),
+                raw: Default::default(),
+                handle,
+            }
+        }
+    }
+
+    impl Provider for SplitPidAppProvider {
+        fn splits_app_across_entries(&self) -> bool {
+            self.claims_split
+        }
+        fn app_roots(&self, app: &ElementData) -> Result<Vec<ElementData>> {
+            if self.claims_split {
+                Ok(vec![Self::app(700), Self::app(701)])
+            } else {
+                Ok(vec![app.clone()])
+            }
+        }
+        fn list_apps(&self) -> Result<Vec<ElementData>> {
+            self.list_apps_calls
+                .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+            Ok(vec![Self::app(700), Self::app(701)])
+        }
+        fn focused_app(&self) -> Result<ElementData> {
+            Ok(Self::app(700))
+        }
+        fn list_shell_surfaces(
+            &self,
+        ) -> Result<Vec<(crate::shell::ShellSurfaceKind, ElementData)>> {
+            self.inner.list_shell_surfaces()
+        }
+        fn get_children(&self, e: Option<&ElementData>) -> Result<Vec<ElementData>> {
+            match e {
+                Some(el) if matches!(el.role, Role::Application) && el.pid == Some(42) => {
+                    if el.handle == 701 {
+                        let modal = Self::window("Modal", 101, "path/modal");
+                        Ok(if self.overlap {
+                            vec![Self::window("Main", 100, "path/main")]
+                        } else {
+                            vec![modal]
+                        })
+                    } else {
+                        Ok(vec![Self::window("Main", 100, "path/main")])
+                    }
+                }
+                _ => self.inner.get_children(e),
+            }
+        }
+        fn get_parent(&self, e: &ElementData) -> Result<Option<ElementData>> {
+            if matches!(e.role, Role::Window | Role::Dialog) && e.pid == Some(42) {
+                if e.stable_id.as_deref() == Some("path/main") {
+                    return Ok(Some(Self::app(700)));
+                }
+                return Ok(Some(Self::app(701)));
+            }
+            self.inner.get_parent(e)
+        }
+        fn press(&self, e: &ElementData) -> Result<()> {
+            self.inner.press(e)
+        }
+        fn focus(&self, e: &ElementData) -> Result<()> {
+            self.inner.focus(e)
+        }
+        fn blur(&self, e: &ElementData) -> Result<()> {
+            self.inner.blur(e)
+        }
+        fn toggle(&self, e: &ElementData) -> Result<()> {
+            self.inner.toggle(e)
+        }
+        fn select(&self, e: &ElementData) -> Result<()> {
+            self.inner.select(e)
+        }
+        fn expand(&self, e: &ElementData) -> Result<()> {
+            self.inner.expand(e)
+        }
+        fn collapse(&self, e: &ElementData) -> Result<()> {
+            self.inner.collapse(e)
+        }
+        fn show_menu(&self, e: &ElementData) -> Result<()> {
+            self.inner.show_menu(e)
+        }
+        fn increment(&self, e: &ElementData) -> Result<()> {
+            self.inner.increment(e)
+        }
+        fn decrement(&self, e: &ElementData) -> Result<()> {
+            self.inner.decrement(e)
+        }
+        fn scroll_into_view(&self, e: &ElementData) -> Result<()> {
+            self.inner.scroll_into_view(e)
+        }
+        fn set_value(&self, e: &ElementData, v: &str) -> Result<()> {
+            self.inner.set_value(e, v)
+        }
+        fn set_numeric_value(&self, e: &ElementData, v: f64) -> Result<()> {
+            self.inner.set_numeric_value(e, v)
+        }
+        fn type_text(&self, e: &ElementData, t: &str) -> Result<()> {
+            self.inner.type_text(e, t)
+        }
+        fn set_text_selection(&self, e: &ElementData, s: u32, end: u32) -> Result<()> {
+            self.inner.set_text_selection(e, s, end)
+        }
+        fn perform_action(&self, e: &ElementData, a: &str) -> Result<()> {
+            self.inner.perform_action(e, a)
+        }
+        fn activate(&self, e: &ElementData) -> Result<()> {
+            self.inner.activate(e)
+        }
+        fn minimize(&self, e: &ElementData) -> Result<()> {
+            self.inner.minimize(e)
+        }
+        fn maximize(&self, e: &ElementData) -> Result<()> {
+            self.inner.maximize(e)
+        }
+        fn enter_fullscreen(&self, e: &ElementData) -> Result<()> {
+            self.inner.enter_fullscreen(e)
+        }
+        fn restore(&self, e: &ElementData) -> Result<()> {
+            self.inner.restore(e)
+        }
+        fn close(&self, e: &ElementData) -> Result<()> {
+            self.inner.close(e)
+        }
+        fn move_to(&self, e: &ElementData, x: i32, y: i32) -> Result<()> {
+            self.inner.move_to(e, x, y)
+        }
+        fn resize_to(&self, e: &ElementData, w: u32, h: u32) -> Result<()> {
+            self.inner.resize_to(e, w, h)
+        }
+        fn subscribe(&self, e: &ElementData) -> Result<Subscription> {
+            self.inner.subscribe(e)
+        }
+    }
+
+    #[test]
+    fn windows_with_merges_windows_of_same_pid_application_entries() {
+        // `App::by_pid` resolves the first same-pid entry only; the Linux
+        // registry can register a second entry (the dialog's own app node),
+        // and `windows_with` must merge its windows — the D2 gap the review
+        // flagged: `by_pid(pid).windows()` used to silently omit them.
+        let provider: Arc<dyn Provider> = Arc::new(SplitPidAppProvider::new(false));
+        let app = App::by_pid_with(Arc::clone(&provider), 42, Duration::ZERO)
+            .expect("pid 42 must resolve in the split fixture");
+        let windows =
+            App::windows_with(Arc::clone(&provider), &app.data).expect("windows_with must succeed");
+        let names: Vec<&str> = windows
+            .iter()
+            .map(|w| w.data().name.as_deref().unwrap_or_default())
+            .collect();
+        assert_eq!(
+            names,
+            vec!["Main", "Modal"],
+            "both entries' windows must list"
+        );
+        assert_eq!(
+            app.locator("window")
+                .count()
+                .expect("locator must search every process registration"),
+            2
+        );
+        assert_eq!(
+            app.tree(Some(1))
+                .expect("tree must include every process registration")
+                .children
+                .len(),
+            2
+        );
+        assert!(app.dump(Some(1)).unwrap().contains("Modal"));
+        assert_eq!(app.locator("window:nth(1)").count().unwrap(), 1);
+        assert_eq!(
+            app.locator("window:nth(2)")
+                .element()
+                .unwrap()
+                .name
+                .as_deref(),
+            Some("Modal")
+        );
+    }
+
+    #[test]
+    fn windows_with_deduplicates_a_window_reported_by_two_entries() {
+        // The registry can surface one window under both Application entries
+        // (same stable id); the merged listing must not duplicate it.
+        let provider: Arc<dyn Provider> = Arc::new(SplitPidAppProvider::new(true));
+        let app = App::by_pid_with(Arc::clone(&provider), 42, Duration::ZERO)
+            .expect("pid 42 must resolve in the split fixture");
+        let windows =
+            App::windows_with(Arc::clone(&provider), &app.data).expect("windows_with must succeed");
+        let names: Vec<&str> = windows
+            .iter()
+            .map(|w| w.data().name.as_deref().unwrap_or_default())
+            .collect();
+        assert_eq!(
+            names,
+            vec!["Main"],
+            "a window shared by entries must list once"
+        );
+        assert_eq!(app.tree(Some(1)).unwrap().children.len(), 1);
+    }
+
+    #[test]
+    fn windows_with_skips_the_pid_merge_for_single_entry_providers() {
+        // macOS and Windows guarantee one Application entry per pid, so the
+        // same-pid merge must not run there: `windows_with` trusts the
+        // provider's `splits_app_across_entries` claim. This fixture
+        // deliberately violates the contract — `list_apps` returns two
+        // same-pid entries while the provider claims `false` — and the test
+        // pins the trust: the sibling entry's window must NOT be merged, and
+        // `list_apps` must not be re-enumerated at all. That re-enumeration is
+        // also the macOS duplicate-window bug: a rebuilt entry carries fresh
+        // handles, so an unclaimed merge duplicates windows without an
+        // AXIdentifier instead of deduplicating them.
+        let provider = Arc::new(SplitPidAppProvider::new_claiming_single_entry(false));
+        let any: Arc<dyn Provider> = provider.clone();
+        let app = App::by_pid_with(Arc::clone(&any), 42, Duration::ZERO)
+            .expect("pid 42 must resolve in the split fixture");
+        let calls_after_by_pid = provider
+            .list_apps_calls
+            .load(std::sync::atomic::Ordering::SeqCst);
+        let windows =
+            App::windows_with(Arc::clone(&any), &app.data).expect("windows_with must succeed");
+        let names: Vec<&str> = windows
+            .iter()
+            .map(|w| w.data().name.as_deref().unwrap_or_default())
+            .collect();
+        assert_eq!(
+            names,
+            vec!["Main"],
+            "a provider claiming one entry per pid must not merge a sibling entry's window"
+        );
+        assert_eq!(
+            provider
+                .list_apps_calls
+                .load(std::sync::atomic::Ordering::SeqCst),
+            calls_after_by_pid,
+            "windows_with must not re-enumerate list_apps on a one-entry-per-pid provider"
+        );
     }
 
     #[test]
@@ -931,58 +1616,354 @@ mod tests {
     }
 
     #[test]
-    fn list_with_tags_only_the_active_window_of_a_shared_pid() {
-        // Regression for issue #304: a process owning several top-level
-        // windows (main window + modal dialog) must surface every window in
-        // `App::list_with` — the old pid dedup silently dropped the modal.
-        // Both entries share pid 42, which `focused_app` reports as
-        // foreground, but tagging is window-precise: only the *active* window
-        // (the modal) comes back `is_foreground()`, not every window of the
-        // process.
+    fn windows_with_lists_both_windows_of_shared_pid() {
+        // The unified shape: ONE Application node per process whose children
+        // are the process's top-level windows (issue #304: main + modal, in
+        // enumeration order). Both windows must survive the enumeration, and
+        // the per-app `windows()` convenience must agree with the explicit
+        // `windows_with` call.
         let provider: Arc<dyn Provider> = Arc::new(MultiWindowProvider::new());
-        let apps = App::list_with(provider).expect("list must succeed");
-        assert_eq!(apps.len(), 2, "both windows of the shared pid must appear");
-        let names: Vec<&str> = apps.iter().map(|a| a.name.as_str()).collect();
-        assert!(
-            names.contains(&"Main"),
-            "main window must be listed: {names:?}"
-        );
-        assert!(
-            names.contains(&"Modal"),
-            "modal window must be listed: {names:?}"
-        );
-        let foreground: Vec<&str> = apps
+        let app = App::by_pid_with(Arc::clone(&provider), 42, Duration::ZERO)
+            .expect("pid 42 must resolve in the multi-window fixture");
+        let windows =
+            App::windows_with(Arc::clone(&provider), &app.data).expect("windows_with must succeed");
+        let names: Vec<&str> = windows
             .iter()
-            .filter(|a| a.is_foreground())
-            .map(|a| a.name.as_str())
+            .map(|w| w.data().name.as_deref().unwrap_or_default())
             .collect();
+        assert_eq!(names, vec!["Main", "Modal"], "both windows must list");
+        let via_app = app.windows().expect("App::windows must succeed");
+        let names2: Vec<&str> = via_app
+            .iter()
+            .map(|w| w.data().name.as_deref().unwrap_or_default())
+            .collect();
+        assert_eq!(names2, vec!["Main", "Modal"]);
+    }
+
+    #[test]
+    fn windows_keep_distinct_windows_with_duplicate_titles() {
+        // Window titles are presentation, never identity. Two sibling or
+        // modal windows may legitimately have the same title, and discovery
+        // must preserve both so a caller can disambiguate with :nth or other
+        // attributes instead of silently losing one.
+        let provider = Arc::new(MultiWindowProvider::new());
+        provider.replace_windows(vec![
+            MultiWindowProvider::window("Untitled", 100, false),
+            MultiWindowProvider::window("Untitled", 101, true),
+        ]);
+        let any: Arc<dyn Provider> = provider;
+        let app = App::by_pid_with(any, 42, Duration::ZERO)
+            .expect("the duplicate-title app must resolve");
+
+        let windows = app
+            .windows()
+            .expect("duplicate-title windows must enumerate");
+        assert_eq!(windows.len(), 2, "titles must not be used as a dedup key");
+        assert_ne!(windows[0].data().handle, windows[1].data().handle);
         assert_eq!(
-            foreground,
-            vec!["Modal"],
-            "only the active window must be tagged foreground, got {foreground:?}"
+            app.locator(r#"window[name="Untitled"]"#)
+                .count()
+                .expect("both titled windows must be selectable"),
+            2
         );
     }
 
     #[test]
+    fn locator_re_resolves_when_the_matching_window_changes() {
+        // A Locator is a live query, not a saved Element handle. Model the
+        // common window-churn case: the first matching window disappears (or
+        // changes title) and a sibling becomes the match between operations.
+        let provider = Arc::new(MultiWindowProvider::new());
+        provider.replace_windows(vec![
+            MultiWindowProvider::window("Target", 100, true),
+            MultiWindowProvider::window("Other", 101, false),
+        ]);
+        let any: Arc<dyn Provider> = provider.clone();
+        let app = App::by_pid_with(any, 42, Duration::ZERO)
+            .expect("the changing-window app must resolve");
+        let locator = app
+            .locator(r#"window[name="Target"]"#)
+            .with_timeout(Duration::ZERO);
+        let first = locator.element().expect("the first target must resolve");
+        assert_eq!(first.data().handle, 100);
+
+        provider.replace_windows(vec![
+            MultiWindowProvider::window("Other", 100, false),
+            MultiWindowProvider::window("Target", 101, true),
+        ]);
+        let second = locator
+            .element()
+            .expect("the locator must resolve the replacement target");
+        assert_eq!(second.data().handle, 101);
+        assert_ne!(first.data().handle, second.data().handle);
+    }
+
+    #[test]
+    fn windows_keep_provider_reported_invisible_windows_discoverable() {
+        // Once a platform provider reports a live top-level window, core
+        // discovery filters only by role. It must not apply a second
+        // visibility filter: minimized windows commonly report visible=false,
+        // while closed windows are removed by the provider (and are covered
+        // by closed_window_leaves_windows_enumeration).
+        let provider = Arc::new(MultiWindowProvider::new());
+        let mut hidden = MultiWindowProvider::window("Provider-reported", 100, false);
+        hidden.states.visible = false;
+        hidden.states.minimized = Some(false);
+        let mut minimized = MultiWindowProvider::window("Minimized", 101, false);
+        minimized.states.visible = false;
+        minimized.states.minimized = Some(true);
+        provider.replace_windows(vec![hidden, minimized]);
+        let any: Arc<dyn Provider> = provider;
+        let app = App::by_pid_with(any, 42, Duration::ZERO)
+            .expect("the invisible-window app must resolve");
+
+        let windows = app.windows().expect("reported windows must enumerate");
+        assert_eq!(windows.len(), 2);
+        assert!(windows.iter().all(|w| !w.states.visible));
+        assert_eq!(windows[0].states.minimized, Some(false));
+        assert_eq!(windows[1].states.minimized, Some(true));
+    }
+
+    #[test]
+    fn windows_rejects_non_application_elements() {
+        // "Windows of an app" is defined only for Application elements — the
+        // app-node-unified contract every platform reports. Asking a window
+        // for its windows can no longer mean anything, so it must fail with
+        // the role named in the error (tenet 6), not silently answer
+        // "no windows".
+        let app = mock_app();
+        let window = app
+            .windows()
+            .expect("windows must succeed")
+            .pop()
+            .expect("the mock app owns a window");
+        let err = App::windows_with(Arc::clone(app.provider()), window.data())
+            .expect_err("windows_with on a window must fail");
+        assert!(
+            matches!(
+                &err,
+                Error::ActionNotSupported { action, role: Role::Window } if action == "windows"
+            ),
+            "expected ActionNotSupported naming the window role, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn windows_on_mock_returns_main_window_child() {
+        // The macOS/Linux shape: the app element's `role=Window` children.
+        let app = mock_app();
+        let windows = app.windows().expect("windows must succeed");
+        assert_eq!(windows.len(), 1);
+        assert_eq!(windows[0].data().name.as_deref(), Some("Main Window"));
+    }
+
+    #[test]
+    fn closed_window_leaves_windows_enumeration() {
+        // Real providers drop a closed window from the tree; the mock must
+        // model that too, or a close regression would pass against the mock
+        // and fail on real platforms. A minimized window (also visible=false)
+        // must by contrast STAY listed — `closed`, not `visible`, is the
+        // removal signal.
+        let app = mock_app();
+        let windows = app.windows().expect("windows must succeed");
+        assert_eq!(
+            windows.len(),
+            1,
+            "mock app must expose exactly its main window before any mutation"
+        );
+        windows[0].minimize().expect("minimize must succeed");
+        assert_eq!(
+            app.windows().expect("windows must succeed").len(),
+            1,
+            "a minimized window is visible=false but must stay listed"
+        );
+        let windows = app.windows().expect("windows must succeed");
+        windows[0].close().expect("close must succeed");
+        assert_eq!(
+            app.windows().expect("windows must succeed").len(),
+            0,
+            "a closed window must drop out of the enumeration"
+        );
+    }
+
+    #[test]
+    fn closed_window_stale_handle_is_dead() {
+        // The `closed` flag must make a window vanish not only from
+        // `App::windows()` but from every access through a stale handle:
+        // `get_children` and `get_parent` both treat it as gone, exactly as
+        // real providers do after destroying the element. A mock that
+        // resolved a closed window's subtree would pass tests that fail on
+        // real platforms.
+        let app = mock_app();
+        let windows = app.windows().expect("windows must succeed");
+        let window = windows[0].clone();
+        // A descendant captured before close — real providers destroy the
+        // whole subtree with the window, so this handle must die too.
+        let button = app
+            .locator("button")
+            .elements()
+            .expect("buttons must resolve before the window closes")
+            .pop()
+            .expect("the mock app owns a button");
+        window.close().expect("close must succeed");
+
+        assert!(
+            window
+                .children()
+                .expect("children of a closed window must resolve")
+                .is_empty(),
+            "a closed window must not resolve children through a stale handle"
+        );
+        assert!(
+            window
+                .parent()
+                .expect("parent of a closed window must resolve")
+                .is_none(),
+            "a closed window must not resolve a parent through a stale handle"
+        );
+        assert!(
+            button
+                .parent()
+                .expect("parent of a stale descendant must resolve")
+                .is_none(),
+            "a closed window's descendant must not resolve a parent"
+        );
+        assert!(
+            matches!(button.press(), Err(Error::Platform { .. })),
+            "a closed window's descendant must not remain actionable"
+        );
+        // `windows_with` on a window is a role error after the app-node
+        // unification (a window is not an Application, and the self-inclusion
+        // question it used to answer is gone); a closed window's liveness is
+        // asserted through the app instead — `closed_window_leaves_windows_enumeration`
+        // covers the empty listing, this asserts the role gate itself.
+        assert!(
+            matches!(
+                App::windows_with(Arc::clone(app.provider()), window.data()),
+                Err(Error::ActionNotSupported { action, role: Role::Window }) if action == "windows"
+            ),
+            "windows_with on a window must be ActionNotSupported, not a listing"
+        );
+        // The verbs are the same rule with a handle: act on a closed window
+        // and the mock must fail, not silently mutate a dead node and report
+        // success (which would let stale-handle regressions pass against the
+        // mock, tenet 1).
+        for action in [
+            "activate",
+            "minimize",
+            "maximize",
+            "enter_fullscreen",
+            "restore",
+            "close",
+            "move_to",
+            "resize_to",
+        ] {
+            let err = match action {
+                "activate" => window
+                    .activate()
+                    .expect_err("activate on a closed window must fail"),
+                "minimize" => window
+                    .minimize()
+                    .expect_err("minimize on a closed window must fail"),
+                "maximize" => window
+                    .maximize()
+                    .expect_err("maximize on a closed window must fail"),
+                "enter_fullscreen" => window
+                    .enter_fullscreen()
+                    .expect_err("enter_fullscreen on a closed window must fail"),
+                "restore" => window
+                    .restore()
+                    .expect_err("restore on a closed window must fail"),
+                "close" => window
+                    .close()
+                    .expect_err("close on a closed window must fail"),
+                "move_to" => window
+                    .move_to(0, 0)
+                    .expect_err("move_to on a closed window must fail"),
+                "resize_to" => window
+                    .resize_to(100, 100)
+                    .expect_err("resize_to on a closed window must fail"),
+                _ => unreachable!(),
+            };
+            assert!(
+                matches!(err, Error::Platform { .. }),
+                "{action} on a closed window must fail with Platform, got {err:?}"
+            );
+        }
+    }
+
+    #[test]
+    fn perform_action_window_verbs_match_the_typed_verbs() {
+        // `perform_action` is the generic escape hatch; the window names are
+        // well-known, so the mock must route them to the typed methods
+        // exactly like the real providers (see WindowsProvider: uia.rs). A
+        // mock that only recorded the string would let a test that fails on
+        // every platform pass against it — and the payload verbs take no data
+        // on this path, so they are rejected surfaceably (tenet 1).
+        let app = mock_app();
+        let windows = app.windows().expect("windows must succeed");
+        let window = windows[0].clone();
+        window
+            .perform_action("minimize")
+            .expect("perform_action(minimize) must succeed");
+        let re_listed = app.windows().expect("windows must succeed");
+        assert_eq!(
+            re_listed[0].states.minimized,
+            Some(true),
+            "perform_action(\"minimize\") must really minimize the window"
+        );
+        assert!(
+            matches!(
+                window.perform_action("move_to"),
+                Err(Error::InvalidActionData { .. })
+            ),
+            "perform_action(\"move_to\") must be rejected without coordinates"
+        );
+        assert!(
+            matches!(
+                window.perform_action("resize_to"),
+                Err(Error::InvalidActionData { .. })
+            ),
+            "perform_action(\"resize_to\") must be rejected without dimensions"
+        );
+    }
+
+    #[test]
+    fn list_with_collapses_shared_pid_registrations_into_one_process() {
+        // Regression for issue #304: a process owning several top-level
+        // windows (main window + modal dialog) must surface as one entry per
+        // registration sharing the pid in `App::list_with` — the old pid
+        // dedup silently dropped one. Both Application entries share pid 42,
+        // which `focused_app` reports as foreground, but tagging is
+        // window-precise: only the *active* entry (the modal) comes back
+        // `is_foreground()`, not every entry of the process.
+        let provider: Arc<dyn Provider> = Arc::new(SharedPidAppProvider::new());
+        let apps = App::list_with(provider).expect("list must succeed");
+        assert_eq!(apps.len(), 1, "App is process-scoped");
+        assert_eq!(apps[0].pid, Some(42));
+        assert!(apps[0].is_foreground());
+    }
+
+    #[test]
     fn list_with_tags_none_when_shared_pid_has_no_active_window() {
-        // Several entries share the foreground pid but none reports `active`
-        // (the actual foreground window wasn't enumerable). Window-precise
-        // tagging must then tag *none* of them — honest, not a fallback to
-        // "tag them all" (tenet 1).
+        // Several Application entries share the foreground pid but none
+        // reports `active` (the actual foreground window wasn't enumerable).
+        // Window-precise tagging must then tag *none* of them — honest, not a
+        // fallback to "tag them all" (tenet 1).
         struct NoActiveMultiWindow {
             inner: Arc<crate::mock::MockProvider>,
         }
         impl Provider for NoActiveMultiWindow {
             fn list_apps(&self) -> Result<Vec<ElementData>> {
                 Ok(vec![
-                    MultiWindowProvider::window("Main", 100, false),
-                    MultiWindowProvider::window("Modal", 101, false),
+                    SharedPidAppProvider::app("Main", 200, false),
+                    SharedPidAppProvider::app("Modal", 201, false),
                 ])
             }
             fn focused_app(&self) -> Result<ElementData> {
                 // Reports pid 42 as foreground, but no enumerated entry is
                 // active.
-                Ok(MultiWindowProvider::window("Ghost", 102, false))
+                Ok(SharedPidAppProvider::app("Ghost", 202, false))
             }
             fn list_shell_surfaces(
                 &self,
@@ -1043,6 +2024,30 @@ mod tests {
             fn perform_action(&self, e: &ElementData, a: &str) -> Result<()> {
                 self.inner.perform_action(e, a)
             }
+            fn activate(&self, e: &ElementData) -> Result<()> {
+                self.inner.activate(e)
+            }
+            fn minimize(&self, e: &ElementData) -> Result<()> {
+                self.inner.minimize(e)
+            }
+            fn maximize(&self, e: &ElementData) -> Result<()> {
+                self.inner.maximize(e)
+            }
+            fn enter_fullscreen(&self, e: &ElementData) -> Result<()> {
+                self.inner.enter_fullscreen(e)
+            }
+            fn restore(&self, e: &ElementData) -> Result<()> {
+                self.inner.restore(e)
+            }
+            fn close(&self, e: &ElementData) -> Result<()> {
+                self.inner.close(e)
+            }
+            fn move_to(&self, e: &ElementData, x: i32, y: i32) -> Result<()> {
+                self.inner.move_to(e, x, y)
+            }
+            fn resize_to(&self, e: &ElementData, w: u32, h: u32) -> Result<()> {
+                self.inner.resize_to(e, w, h)
+            }
             fn subscribe(&self, e: &ElementData) -> Result<Subscription> {
                 self.inner.subscribe(e)
             }
@@ -1052,10 +2057,10 @@ mod tests {
             inner: build_provider(),
         });
         let apps = App::list_with(provider).expect("list must succeed");
-        assert_eq!(apps.len(), 2);
+        assert_eq!(apps.len(), 1);
         assert!(
-            apps.iter().all(|a| !a.is_foreground()),
-            "no window may be tagged foreground when none is active"
+            apps[0].is_foreground(),
+            "foreground identity comes from focused_app"
         );
     }
 

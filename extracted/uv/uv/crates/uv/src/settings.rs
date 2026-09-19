@@ -33,6 +33,7 @@ use uv_cli::{
     },
 };
 use uv_client::{Certificates, Connectivity, MetadataRangeRequest};
+use uv_configuration::RequirementsInput;
 use uv_configuration::{
     ActiveEnvironment, BuildIsolation, BuildOptions, Concurrency, DependencyGroups, DevMode,
     DryRun, EditableMode, EnvFile, ExcludeDependency, ExportFormat, ExtrasSpecification,
@@ -43,7 +44,7 @@ use uv_configuration::{
 };
 use uv_distribution_types::{
     ConfigSettings, DependencyMetadata, ExtraBuildVariables, Index, IndexLocations, IndexUrl,
-    NameRequirementSpecification, PackageConfigSettings, Requirement,
+    MinimumLibcVersion, NameRequirementSpecification, PackageConfigSettings, Requirement,
 };
 use uv_install_wheel::LinkMode;
 use uv_normalize::{ExtraName, PackageName, PipGroupName};
@@ -768,7 +769,7 @@ pub(crate) struct RunSettings {
     pub(crate) modifications: Modifications,
     pub(crate) with: Vec<String>,
     pub(crate) with_editable: Vec<String>,
-    pub(crate) with_requirements: Vec<PathBuf>,
+    pub(crate) with_requirements: Vec<RequirementsInput>,
     pub(crate) isolated: bool,
     pub(crate) show_resolution: bool,
     pub(crate) all_packages: bool,
@@ -965,11 +966,11 @@ pub(crate) struct ToolRunSettings {
     pub(crate) command: Option<ExternalCommand>,
     pub(crate) from: Option<String>,
     pub(crate) with: Vec<String>,
-    pub(crate) with_requirements: Vec<PathBuf>,
+    pub(crate) with_requirements: Vec<RequirementsInput>,
     pub(crate) with_editable: Vec<String>,
-    pub(crate) constraints: Vec<PathBuf>,
-    pub(crate) overrides: Vec<PathBuf>,
-    pub(crate) build_constraints: Vec<PathBuf>,
+    pub(crate) constraints: Vec<RequirementsInput>,
+    pub(crate) overrides: Vec<RequirementsInput>,
+    pub(crate) build_constraints: Vec<RequirementsInput>,
     pub(crate) isolated: bool,
     pub(crate) show_resolution: bool,
     pub(crate) lfs: GitLfsSetting,
@@ -1125,13 +1126,13 @@ pub(crate) struct ToolInstallSettings {
     pub(crate) package: String,
     pub(crate) from: Option<String>,
     pub(crate) with: Vec<String>,
-    pub(crate) with_requirements: Vec<PathBuf>,
+    pub(crate) with_requirements: Vec<RequirementsInput>,
     pub(crate) with_executables_from: Vec<String>,
     pub(crate) with_editable: Vec<String>,
-    pub(crate) constraints: Vec<PathBuf>,
-    pub(crate) overrides: Vec<PathBuf>,
-    pub(crate) excludes: Vec<PathBuf>,
-    pub(crate) build_constraints: Vec<PathBuf>,
+    pub(crate) constraints: Vec<RequirementsInput>,
+    pub(crate) overrides: Vec<RequirementsInput>,
+    pub(crate) excludes: Vec<RequirementsInput>,
+    pub(crate) build_constraints: Vec<RequirementsInput>,
     pub(crate) lfs: GitLfsSetting,
     pub(crate) python: Option<String>,
     pub(crate) python_platform: Option<TargetTriple>,
@@ -2276,7 +2277,6 @@ pub(crate) struct MetadataSettings {
     script: Option<PathBuf>,
     pub(crate) lock_check: LockCheck,
     pub(crate) frozen: Option<FrozenSource>,
-    pub(crate) dry_run: DryRun,
     pub(crate) sync: Option<Modifications>,
     pub(crate) active: ActiveEnvironment,
     pub(crate) python: Option<String>,
@@ -2299,7 +2299,6 @@ impl MetadataSettings {
             no_locked,
             frozen,
             no_frozen,
-            dry_run,
             resolver,
             build,
             refresh,
@@ -2326,7 +2325,6 @@ impl MetadataSettings {
             script,
             lock_check: locked,
             frozen,
-            dry_run: DryRun::from_args(dry_run),
             sync: sync.then_some(if exact {
                 Modifications::Exact
             } else {
@@ -2353,8 +2351,8 @@ pub(crate) struct AddSettings {
     pub(crate) active: ActiveEnvironment,
     pub(crate) no_sync: bool,
     pub(crate) packages: Vec<String>,
-    pub(crate) requirements: Vec<PathBuf>,
-    pub(crate) constraints: Vec<PathBuf>,
+    pub(crate) requirements: Vec<RequirementsInput>,
+    pub(crate) constraints: Vec<RequirementsInput>,
     pub(crate) marker: Option<MarkerTree>,
     pub(crate) dependency_type: DependencyType,
     pub(crate) editable: Option<EditableMode>,
@@ -3469,17 +3467,18 @@ fn workspace_overrides(filesystem: Option<&FilesystemOptions>) -> Vec<Override<R
 #[derive(Debug, Clone)]
 pub(crate) struct PipCompileSettings {
     pub(crate) format: Option<PipCompileFormat>,
-    pub(crate) src_file: Vec<PathBuf>,
-    pub(crate) constraints: Vec<PathBuf>,
-    pub(crate) overrides: Vec<PathBuf>,
-    pub(crate) excludes: Vec<PathBuf>,
-    pub(crate) build_constraints: Vec<PathBuf>,
+    pub(crate) src_file: Vec<RequirementsInput>,
+    pub(crate) constraints: Vec<RequirementsInput>,
+    pub(crate) overrides: Vec<RequirementsInput>,
+    pub(crate) excludes: Vec<RequirementsInput>,
+    pub(crate) build_constraints: Vec<RequirementsInput>,
     pub(crate) constraints_from_workspace: Vec<Requirement>,
     pub(crate) overrides_from_workspace: Vec<Override<Requirement>>,
     pub(crate) excludes_from_workspace: Vec<ExcludeDependency>,
     pub(crate) build_constraints_from_workspace: Vec<NameRequirementSpecification>,
     pub(crate) environments: SupportedEnvironments,
     pub(crate) required_environments: SupportedEnvironments,
+    pub(crate) minimum_libc_version: Option<MinimumLibcVersion>,
     pub(crate) refresh: Refresh,
     pub(crate) settings: PipSettings,
 }
@@ -3605,6 +3604,10 @@ impl PipCompileSettings {
             SupportedEnvironments::default()
         };
 
+        let minimum_libc_version = filesystem
+            .as_ref()
+            .and_then(|configuration| configuration.minimum_libc_version);
+
         Ok(Self {
             format,
             src_file,
@@ -3630,6 +3633,7 @@ impl PipCompileSettings {
             build_constraints_from_workspace,
             environments,
             required_environments,
+            minimum_libc_version,
             refresh: Refresh::try_from(refresh)?,
             settings: PipSettings::combine(
                 PipOptions {
@@ -3684,9 +3688,9 @@ impl PipCompileSettings {
 /// The resolved settings to use for a `pip sync` invocation.
 #[derive(Debug, Clone)]
 pub(crate) struct PipSyncSettings {
-    pub(crate) src_file: Vec<PathBuf>,
-    pub(crate) constraints: Vec<PathBuf>,
-    pub(crate) build_constraints: Vec<PathBuf>,
+    pub(crate) src_file: Vec<RequirementsInput>,
+    pub(crate) constraints: Vec<RequirementsInput>,
+    pub(crate) build_constraints: Vec<RequirementsInput>,
     pub(crate) dry_run: DryRun,
     pub(crate) refresh: Refresh,
     pub(crate) settings: PipSettings,
@@ -3791,13 +3795,13 @@ impl PipSyncSettings {
 #[derive(Debug, Clone)]
 pub(crate) struct PipInstallSettings {
     pub(crate) package: Vec<String>,
-    pub(crate) requirements: Vec<PathBuf>,
+    pub(crate) requirements: Vec<RequirementsInput>,
     pub(crate) editables: Vec<String>,
     pub(crate) editable: Option<EditableMode>,
-    pub(crate) constraints: Vec<PathBuf>,
-    pub(crate) overrides: Vec<PathBuf>,
-    pub(crate) excludes: Vec<PathBuf>,
-    pub(crate) build_constraints: Vec<PathBuf>,
+    pub(crate) constraints: Vec<RequirementsInput>,
+    pub(crate) overrides: Vec<RequirementsInput>,
+    pub(crate) excludes: Vec<RequirementsInput>,
+    pub(crate) build_constraints: Vec<RequirementsInput>,
     pub(crate) dry_run: DryRun,
     pub(crate) constraints_from_workspace: Vec<Requirement>,
     pub(crate) overrides_from_workspace: Vec<Override<Requirement>>,
@@ -3983,7 +3987,7 @@ impl PipInstallSettings {
 #[derive(Debug, Clone)]
 pub(crate) struct PipUninstallSettings {
     pub(crate) package: Vec<String>,
-    pub(crate) requirements: Vec<PathBuf>,
+    pub(crate) requirements: Vec<RequirementsInput>,
     pub(crate) dry_run: DryRun,
     pub(crate) settings: PipSettings,
 }
@@ -4293,7 +4297,7 @@ pub(crate) struct BuildSettings {
     pub(crate) gitignore: bool,
     pub(crate) force_pep517: bool,
     pub(crate) clear: bool,
-    pub(crate) build_constraints: Vec<PathBuf>,
+    pub(crate) build_constraints: Vec<RequirementsInput>,
     pub(crate) build_constraints_from_workspace: Vec<NameRequirementSpecification>,
     pub(crate) hash_checking: Option<HashCheckingMode>,
     pub(crate) python: Option<String>,

@@ -11,8 +11,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from ..git.worktree_paths import resolve_worktree_path
 from .base import _safe_print
-from .worktree_setup import _parse_non_negative_timeout
+from .worktree_setup import _parse_non_negative_timeout, _quote_recovery_argument
 
 _WORKFLOW_AUTO_EXECUTE_TIMEOUTS: dict[str, int] = {
     "pull-request-review": 1800,
@@ -89,6 +90,28 @@ def get_git_repo_root() -> str | None:
         )
         if result.returncode == 0:
             return result.stdout.strip()
+        return None
+    except (FileNotFoundError, OSError):  # pragma: no cover
+        return None
+
+
+def get_git_main_repo_root() -> str | None:
+    """
+    Get the main checkout root for the current repository, including from a worktree.
+
+    Returns:
+        The absolute path to the main checkout root, or None if it cannot be determined.
+    """
+    try:
+        result = subprocess.run(
+            ["git", "rev-parse", "--path-format=absolute", "--git-common-dir"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode == 0:
+            common_dir = Path(result.stdout.strip()).resolve()
+            return str(common_dir.parent) if common_dir.name == ".git" else str(common_dir)
         return None
     except (FileNotFoundError, OSError):  # pragma: no cover
         return None
@@ -181,8 +204,16 @@ def generate_setup_instructions(issue_key: str, preflight_result: PreflightResul
         lines.append(f"- {reason}")
     lines.append("")
 
-    # Generate worktree command if folder is wrong
+    worktree_path = (
+        preflight_result.repo_root
+        if preflight_result.folder_valid and preflight_result.repo_root
+        else f"../{issue_key}"
+    )
     if not preflight_result.folder_valid:
+        if preflight_result.repo_root:
+            main_repo_root = get_git_main_repo_root()
+            if main_repo_root:
+                worktree_path = resolve_worktree_path(main_repo_root, issue_key).worktree_path
         lines.extend(
             [
                 "## Create Worktree",
@@ -191,7 +222,9 @@ def generate_setup_instructions(issue_key: str, preflight_result: PreflightResul
                 "",
                 "```bash",
                 "# From your main repo directory:",
-                f"git worktree add ../{issue_key} -b feature/{issue_key}/implementation",
+                "git worktree add "
+                f"{_quote_recovery_argument(worktree_path)} "
+                f"-b {_quote_recovery_argument(f'feature/{issue_key}/implementation')}",
                 "```",
                 "",
             ]
@@ -220,7 +253,7 @@ def generate_setup_instructions(issue_key: str, preflight_result: PreflightResul
             "After creating the worktree/branch, open VS Code in the new directory:",
             "",
             "```bash",
-            f"code ../{issue_key}/agdt-platform-management.code-workspace",
+            f"code {_quote_recovery_argument(worktree_path + '/agdt-platform-management.code-workspace')}",
             "```",
             "",
         ]

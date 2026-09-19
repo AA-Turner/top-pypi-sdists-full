@@ -19,6 +19,7 @@ import json
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
+from arthur_client.api_bindings.models.discovery_source_config_spec import DiscoverySourceConfigSpec
 from typing import Optional, Set
 from typing_extensions import Self
 
@@ -31,7 +32,10 @@ class DiscoverAgentsJobSpec(BaseModel):
     data_plane_id: StrictStr = Field(description="The ID of the data plane to scan for agents.")
     project_id: Optional[StrictStr] = None
     lookback_hours: Optional[StrictInt] = Field(default=720, description="Number of hours to look back in trace history (default: 720 hours = 30 days).")
-    __properties: ClassVar[List[str]] = ["job_type", "workspace_id", "data_plane_id", "project_id", "lookback_hours"]
+    discovery_source_config_id: Optional[StrictStr] = None
+    discovery_source_config: Optional[DiscoverySourceConfigSpec] = None
+    scan_id: Optional[StrictStr] = None
+    __properties: ClassVar[List[str]] = ["job_type", "workspace_id", "data_plane_id", "project_id", "lookback_hours", "discovery_source_config_id", "discovery_source_config", "scan_id"]
 
     @field_validator('job_type')
     def job_type_validate_enum(cls, value):
@@ -82,10 +86,28 @@ class DiscoverAgentsJobSpec(BaseModel):
             exclude=excluded_fields,
             exclude_none=True,
         )
+        # override the default output from pydantic by calling `to_dict()` of discovery_source_config
+        if self.discovery_source_config:
+            _dict['discovery_source_config'] = self.discovery_source_config.to_dict()
         # set to None if project_id (nullable) is None
         # and model_fields_set contains the field
         if self.project_id is None and "project_id" in self.model_fields_set:
             _dict['project_id'] = None
+
+        # set to None if discovery_source_config_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.discovery_source_config_id is None and "discovery_source_config_id" in self.model_fields_set:
+            _dict['discovery_source_config_id'] = None
+
+        # set to None if discovery_source_config (nullable) is None
+        # and model_fields_set contains the field
+        if self.discovery_source_config is None and "discovery_source_config" in self.model_fields_set:
+            _dict['discovery_source_config'] = None
+
+        # set to None if scan_id (nullable) is None
+        # and model_fields_set contains the field
+        if self.scan_id is None and "scan_id" in self.model_fields_set:
+            _dict['scan_id'] = None
 
         return _dict
 
@@ -103,7 +125,10 @@ class DiscoverAgentsJobSpec(BaseModel):
             "workspace_id": obj.get("workspace_id"),
             "data_plane_id": obj.get("data_plane_id"),
             "project_id": obj.get("project_id"),
-            "lookback_hours": obj.get("lookback_hours") if obj.get("lookback_hours") is not None else 720
+            "lookback_hours": obj.get("lookback_hours") if obj.get("lookback_hours") is not None else 720,
+            "discovery_source_config_id": obj.get("discovery_source_config_id"),
+            "discovery_source_config": DiscoverySourceConfigSpec.from_dict(obj["discovery_source_config"]) if obj.get("discovery_source_config") is not None else None,
+            "scan_id": obj.get("scan_id")
         })
         return _obj
 

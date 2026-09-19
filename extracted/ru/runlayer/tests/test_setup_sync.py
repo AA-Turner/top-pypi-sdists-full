@@ -14,6 +14,10 @@ except ModuleNotFoundError:  # pragma: no cover - Python 3.10
 
 from runlayer_cli.api import PluginDetail, PluginListFilter, ServerListItem
 from runlayer_cli.commands import setup
+from runlayer_cli.plugins.constants import (
+    CODEX_TOOL_EXPOSURE_HEADER,
+    RUNLAYER_PLUGIN_ID,
+)
 
 
 class _FakeApiClient:
@@ -60,6 +64,7 @@ def _sync_with_fake_api(
     fake_api: _FakeApiClient,
     *,
     client: setup.InstallClient | None,
+    header: list[str] | None = None,
 ) -> None:
     monkeypatch.setattr(
         setup, "set_credentials_in_context", lambda *args, **kwargs: None
@@ -73,7 +78,7 @@ def _sync_with_fake_api(
     setup.sync(
         ctx=cast(Any, object()),
         client=client,
-        header=None,
+        header=header,
         secret=None,
         host=None,
         yes=True,
@@ -137,12 +142,18 @@ def test_setup_sync_fetches_auto_synced_servers_and_plugins(
     assert installed[0][1][1].is_dynamic_plugin is True
 
 
-def test_setup_sync_codex_omits_deferred_for_dynamic_plugin(
+def test_setup_sync_codex_reconciles_dynamic_plugin_exposure(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     fake_api = _FakeApiClient()
     config_path = tmp_path / ".codex" / "config.toml"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(
+        '[mcp_servers.onelayer]\nurl = "https://example.com/api/v1/proxy/plugins/plugin-auto-sync/mcp"\n'
+        'omit_tools_from = ["deferred"]\n',
+        encoding="utf-8",
+    )
     monkeypatch.setattr(
         setup,
         "_get_install_client_config_paths",
@@ -158,7 +169,7 @@ def test_setup_sync_codex_omits_deferred_for_dynamic_plugin(
         },
         "onelayer": {
             "url": "https://example.com/api/v1/proxy/plugins/plugin-auto-sync/mcp",
-            "omit_tools_from": ["deferred"],
+            "http_headers": {"X-Runlayer-Tool-Exposure": "client-default"},
         },
     }
 
@@ -188,6 +199,58 @@ def test_setup_sync_codex_leaves_non_dynamic_plugin_deferred(
         config = tomllib.load(config_file)
     assert config["mcp_servers"]["static-plugin"] == {
         "url": "https://example.com/api/v1/proxy/plugins/plugin-static/mcp"
+    }
+
+
+def test_setup_sync_codex_uses_client_default_for_runlayer_plugin(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_api = _FakeApiClient(
+        plugins=[
+            PluginDetail(
+                id=RUNLAYER_PLUGIN_ID,
+                name="Runlayer Plugin",
+                use_dynamic_tools=True,
+            )
+        ]
+    )
+    config_path = tmp_path / ".codex" / "config.toml"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(
+        f"""
+[mcp_servers.runlayer-plugin]
+url = "https://example.com/api/v1/proxy/plugins/{RUNLAYER_PLUGIN_ID}/mcp"
+omit_tools_from = ["deferred"]
+
+[mcp_servers.runlayer-plugin.http_headers]
+{CODEX_TOOL_EXPOSURE_HEADER} = "force-initial"
+""".lstrip()
+    )
+    monkeypatch.setattr(
+        setup,
+        "_get_install_client_config_paths",
+        lambda _: [config_path],
+    )
+
+    _sync_with_fake_api(
+        monkeypatch,
+        fake_api,
+        client=setup.InstallClient.CODEX,
+        header=[
+            "x-runlayer-tool-exposure: force-initial",
+            "X-Custom: retained",
+        ],
+    )
+
+    with config_path.open("rb") as config_file:
+        config = tomllib.load(config_file)
+    assert config["mcp_servers"]["runlayer-plugin"] == {
+        "url": (f"https://example.com/api/v1/proxy/plugins/{RUNLAYER_PLUGIN_ID}/mcp"),
+        "http_headers": {
+            "X-Custom": "retained",
+            CODEX_TOOL_EXPOSURE_HEADER: "client-default",
+        },
     }
 
 

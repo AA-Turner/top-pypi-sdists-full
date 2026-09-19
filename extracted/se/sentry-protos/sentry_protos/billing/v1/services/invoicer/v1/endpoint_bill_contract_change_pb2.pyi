@@ -9,6 +9,7 @@ import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
 import sentry_protos.billing.v1.common.v1.pending_change_pb2
+import sentry_protos.billing.v1.common.v1.stripe_verification_pb2
 import sentry_protos.billing.v1.services.contract.v1.invoice_pb2
 import typing
 
@@ -66,13 +67,20 @@ class BillContractChangeResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     INVOICE_ID_FIELD_NUMBER: builtins.int
+    VERIFICATION_FIELD_NUMBER: builtins.int
     invoice_id: builtins.int
     """The invoice that settles the change (and closes the previous contract)."""
+    @property
+    def verification(self) -> sentry_protos.billing.v1.common.v1.stripe_verification_pb2.StripeVerification:
+        """Set when the bank wants the customer to verify the payment."""
+
     def __init__(
         self,
         *,
         invoice_id: builtins.int = ...,
+        verification: sentry_protos.billing.v1.common.v1.stripe_verification_pb2.StripeVerification | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["invoice_id", b"invoice_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["verification", b"verification"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["invoice_id", b"invoice_id", "verification", b"verification"]) -> None: ...
 
 global___BillContractChangeResponse = BillContractChangeResponse

@@ -2,6 +2,6 @@
 
 import typing
 
-from .content_one_item import ContentOneItemParams
+from .response_input_content_part import ResponseInputContentPartParams
 
-ContentParams = typing.Union[str, typing.Sequence[ContentOneItemParams]]
+ContentParams = typing.Union[str, typing.Sequence[ResponseInputContentPartParams]]

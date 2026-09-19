@@ -18,7 +18,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr, field_validator
 from typing import Any, ClassVar, Dict, List, Optional
 from typing import Optional, Set
 from typing_extensions import Self
@@ -35,7 +35,18 @@ class TierAuditInfo(BaseModel):
     lost: Optional[StrictInt] = Field(default=0, description="max(0, submitted - processed - failed - skipped), and 0 when the tier balances. Above 0 means objects were submitted and are absent from BOTH processed and failed, which is the case worth escalating.")
     balanced: Optional[StrictBool] = Field(default=False, description="True only when submitted is known AND equals processed + failed + skipped.")
     notes: Optional[List[StrictStr]] = Field(default=None, description="Human-readable notes recorded while auditing the tier.")
-    __properties: ClassVar[List[str]] = ["tier_num", "submitted", "processed", "failed", "skipped", "lost", "balanced", "notes"]
+    durability: Optional[StrictStr] = Field(default=None, description="Write-durability verdict for this tier. 'confirmed' means the namespace's durable frontier had caught up to the highest write this batch recorded. 'lagging' means it had not, and that is the only value that downgrades the tier to COMPLETED_WITH_ERRORS, so it is how you tell a durability lag apart from lost rows. 'untracked' means the batch recorded no durably-tracked write to confirm. 'frontier_unknown' means the frontier could not be read, and a tier is never downgraded on that. Null means no verdict was recorded, which includes the single-tier finalize path that can downgrade without writing an audit at all. Null is not a statement that the writes are durable.")
+    __properties: ClassVar[List[str]] = ["tier_num", "submitted", "processed", "failed", "skipped", "lost", "balanced", "notes", "durability"]
+
+    @field_validator('durability')
+    def durability_validate_enum(cls, value):
+        """Validates the enum"""
+        if value is None:
+            return value
+
+        if value not in set(['confirmed', 'lagging', 'untracked', 'frontier_unknown']):
+            raise ValueError("must be one of enum values ('confirmed', 'lagging', 'untracked', 'frontier_unknown')")
+        return value
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -95,7 +106,8 @@ class TierAuditInfo(BaseModel):
             "skipped": obj.get("skipped") if obj.get("skipped") is not None else 0,
             "lost": obj.get("lost") if obj.get("lost") is not None else 0,
             "balanced": obj.get("balanced") if obj.get("balanced") is not None else False,
-            "notes": obj.get("notes")
+            "notes": obj.get("notes"),
+            "durability": obj.get("durability")
         })
         return _obj
 

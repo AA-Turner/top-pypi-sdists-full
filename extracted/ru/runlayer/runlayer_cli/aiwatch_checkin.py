@@ -11,6 +11,7 @@ import structlog
 
 from runlayer_cli import __version__
 from runlayer_cli.api import RunlayerClient
+from runlayer_cli.hook import host_override
 from runlayer_cli.hook_install import ClientStatus, InstallScope, check_all
 from runlayer_cli.mdm_config import (
     AIWatchMode,
@@ -72,22 +73,31 @@ def _resolve_checkin_username(metadata: Mapping[str, object]) -> str | None:
     return console_home.name if console_home is not None else None
 
 
-def _make_device_context() -> DeviceContext:
+def _make_device_context(
+    *,
+    username: str | None = None,
+    windows_user_sid: str | None = None,
+) -> DeviceContext:
     """Build a device context from local machine metadata.
 
     For call paths without a scan result (e.g. enroll) so every check-in caller
     supplies a concrete ``DeviceContext``.
     """
     metadata = get_device_metadata()
-    return {
-        "device_id": get_or_create_device_id(),
-        "hostname": metadata.get("hostname"),
-        "os": metadata.get("os"),
-        "os_version": metadata.get("os_version"),
-        "username": _resolve_checkin_username(metadata),
-        "org_device_id": None,
-        "serial_number": metadata.get("serial_number"),
-    }
+    context = DeviceContext(
+        device_id=get_or_create_device_id(),
+        hostname=metadata.get("hostname"),
+        os=metadata.get("os"),
+        os_version=metadata.get("os_version"),
+        username=(
+            username if username is not None else _resolve_checkin_username(metadata)
+        ),
+        org_device_id=None,
+        serial_number=metadata.get("serial_number"),
+    )
+    if windows_user_sid is not None:
+        context["windows_user_sid"] = windows_user_sid
+    return context
 
 
 def _base_payload(
@@ -232,7 +242,46 @@ def submit_detect_checkin(client: RunlayerClient, result: ScanResult) -> None:
         tools=result.tools,
         agent_version=result.collector_version,
     )
+    payload["container_detail"] = {
+        "enabled": result.container_scan_requested,
+        "host_containers_scanned": result.containers_scanned,
+        "failure_reason": (
+            result.container_scan_failure_reason()
+            if result.container_scan_requested and not result.containers_scanned
+            else None
+        ),
+    }
+    # Detect fires every scan on every platform, so it is the carrier for the
+    # full-CLI hook host deviation: ``None`` (no fresh marker) clears the
+    # tenant-side record, so a fixed ``default_host`` self-heals within a scan.
+    payload["hook_host_detail"] = _hook_host_detail(client)
     _submit_payload(client, payload, log_event="aiwatch_detect_checkin_failed")
+
+
+def _hook_host_detail(client: RunlayerClient) -> host_override.HostOverride | None:
+    """Fresh ``hook_host_override`` marker for the user this scan reports on.
+
+    Hooks write it under the user's ``~/.runlayer/state``, and every scan path
+    already runs with that user's home: the macOS scan is a per-user
+    LaunchAgent, the Windows ``--all-users`` fan-out drops to the logged-on
+    user's token or points ``USERPROFILE`` at the logged-off profile, and
+    Linux uses ``runuser``. No console-user fallback: on Windows it would pin
+    the console user's marker onto another user's check-in.
+
+    Only the managed tenant gets the marker. ``runlayer scan`` follows the
+    MDM host by default, but an explicit ``--host`` / ``RUNLAYER_HOST`` can
+    still point this check-in elsewhere; the marker describes hooks bound
+    for ``managed_host``, so any other destination must not receive it.
+    """
+    marker = host_override.read_marker()
+    if marker is None:
+        return None
+    destination = getattr(client, "base_url", None)
+    if not isinstance(destination, str):
+        return None
+    if destination.rstrip("/") != marker["managed_host"].rstrip("/"):
+        return None
+    return marker
 
 
 def _submit_hook_validation_checkin(
@@ -286,15 +335,19 @@ def submit_detect_error_checkin(
     Detect otherwise only reports on success (``submit_detect_checkin``); this
     is the failure counterpart, fired best-effort from the scan-failure path.
     """
-    _submit_simple_checkin(
-        client,
+    payload = _base_payload(
+        ctx,
         feature="detect",
         status="error",
-        ctx=ctx,
         tools=tools or [],
-        log_event="aiwatch_detect_error_checkin_failed",
+        agent_version=__version__,
         error_message=error_message,
     )
+    # The hook host marker is independent of scan outcome; every Detect
+    # check-in rewrites the tenant-side record, so omitting it here would
+    # clear the badge on any scan failure.
+    payload["hook_host_detail"] = _hook_host_detail(client)
+    _submit_payload(client, payload, log_event="aiwatch_detect_error_checkin_failed")
 
 
 def submit_enforce_validation_checkin(
@@ -617,9 +670,9 @@ def submit_all_scan_checkins(client: RunlayerClient, result: ScanResult) -> None
     """Submit every best-effort AI Watch check-in for a completed scan.
 
     Owns all scan check-in policy: the enforce + sessions hook-validation
-    check-ins, the daemon fleet-health check-in, plus a detect check-in when the
-    scan found no MCP servers (so the
-    device still records liveness). Each is independently guarded so a transient
+    check-ins, the daemon fleet-health check-in, plus the final detect check-in.
+    Detect runs last so its current container health wins over MCP ingestion,
+    including when the scan found servers. Each is independently guarded so a transient
     failure — corrupt MDM config, a network blip — never interrupts the scan.
     Callers just hand over the client + scan result.
     """
@@ -629,5 +682,4 @@ def submit_all_scan_checkins(client: RunlayerClient, result: ScanResult) -> None
         "daemon",
         lambda: submit_daemon_checkin(client, ctx=ctx, tools=result.tools),
     )
-    if result.total_servers == 0:
-        _run_isolated("detect", lambda: submit_detect_checkin(client, result))
+    _run_isolated("detect", lambda: submit_detect_checkin(client, result))

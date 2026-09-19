@@ -61,6 +61,13 @@ class TestDiscoverySourcesV1Api(unittest.TestCase):
         """
         pass
 
+    def test_get_discovery_scan(self) -> None:
+        """Test case for get_discovery_scan
+
+        Get Discovery Scan
+        """
+        pass
+
     def test_get_discovery_source(self) -> None:
         """Test case for get_discovery_source
 
@@ -107,6 +114,20 @@ class TestDiscoverySourcesV1Api(unittest.TestCase):
         """Test case for remove_discovery_source_config_engine
 
         Unassign Discovery Source Config From An Engine
+        """
+        pass
+
+    def test_retrieve_discovery_source_credentials(self) -> None:
+        """Test case for retrieve_discovery_source_credentials
+
+        Retrieve Source Credentials
+        """
+        pass
+
+    def test_trigger_discovery_scan(self) -> None:
+        """Test case for trigger_discovery_scan
+
+        Scan Now
         """
         pass
 

@@ -3,10 +3,25 @@
 import json
 
 from runlayer_cli.scan import copilot_plugins as copilot_plugins_module
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.copilot_plugins import scan_copilot_plugins
+from runlayer_cli.scan.plugin_scanner import reset_plugin_scan_state
 
 
 class TestScanCopilotPlugins:
+    def test_marks_missing_windows_home_incomplete(self, monkeypatch):
+        status = ScanCompletionStatus()
+        reset_plugin_scan_state(scan_status=status)
+        monkeypatch.setattr(
+            copilot_plugins_module.platform, "system", lambda: "Windows"
+        )
+        monkeypatch.delenv("COPILOT_HOME", raising=False)
+        monkeypatch.delenv("USERPROFILE", raising=False)
+
+        assert scan_copilot_plugins() == ([], [])
+        assert status.reasons == ["copilot_plugin_home_resolution_failed"]
+        reset_plugin_scan_state()
+
     def test_home_override_rebases_installed_plugins(self, tmp_path, monkeypatch):
         wsl_home = tmp_path / "wsl-home"
         plugin_dir = (

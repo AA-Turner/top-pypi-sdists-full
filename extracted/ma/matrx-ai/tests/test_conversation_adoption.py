@@ -423,3 +423,131 @@ async def test_state_a_new_conversation_cannot_have_refuses_adoption(
 
     assert column in str(exc.value)
     assert conversation.update_calls == []
+
+
+@pytest.mark.asyncio
+async def test_adoption_keeps_the_box_the_person_picked_before_typing(monkeypatch):
+    """A choice made before the first turn is NOT a dead attempt's leftovers.
+
+    Arman's flow on ``/chat/new`` is pick-then-talk: choose a sandbox, then send
+    the first message. ``PUT /conversations/{id}/sandbox`` persists that pick on
+    the client-minted id, and the very next thing that happens to the row is
+    THIS — adoption by the first ``is_new: true`` turn. Adoption used to list
+    ``sandbox_instance_id`` in ``_ADOPTION_RESET_TO_DEFAULT``, so it wrote the
+    pick back to ``NULL`` with nothing said anywhere; the flow only appeared to
+    work because the web client repeated the binding in the request body, and a
+    reload between picking and sending lost the box. Ruling, 2026-09-18: a
+    binding persisted on a minted id before the first turn is AUTHORITATIVE.
+
+    RED: put any of these columns back into ``_ADOPTION_RESET_TO_DEFAULT`` and
+    this fails — the write carries the column, which is the erasure.
+    """
+    conversation_id, user_id = str(uuid4()), str(uuid4())
+    conversation = _ConversationManager(_shell(user_id))
+    _wire(monkeypatch, conversation, _MessageManager())
+
+    await _adopt(conversation_id, user_id, {"title": "first message"}, _shell(user_id))
+
+    _f, updates, _v = conversation.update_calls[0]
+    for chosen in gate._ADOPTION_PRESERVED_USER_CHOICE:
+        # Not written at all — the compare-and-swap leaves the person's value.
+        assert chosen not in updates, f"adoption erased the user's {chosen}"
+    # The two the ruling is about, named explicitly so a rename cannot hollow
+    # this guard out into asserting things about an empty tuple.
+    assert "sandbox_instance_id" in gate._ADOPTION_PRESERVED_USER_CHOICE
+    assert "app_instance_id" in gate._ADOPTION_PRESERVED_USER_CHOICE
+    # ...while machine state from the dead attempt is still cleared.
+    assert updates["last_model_id"] is None
+    assert updates["cache_state"] == {}
+
+
+# --------------------------------------------------------------------------- #
+# Adoption moves the organization — so the CHILD-ROW REGISTRY must move with it
+# --------------------------------------------------------------------------- #
+
+
+ADOPTED_ORG = "bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb"
+DEAD_ATTEMPT_ORG = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+
+
+@pytest.mark.asyncio
+async def test_adoption_updates_the_child_row_organization_registry(monkeypatch):
+    """The second half of "adoption may move the organization".
+
+    ``mark_conversation_known`` makes ``ensure_conversation_exists`` take its
+    memo fast-path FOREVER, so nothing re-reads the row after adoption. Until
+    2026-09-17 adoption re-stamped ``organization_id`` and marked the row known
+    without telling ``matrx_ai.persistence.conversation_org`` — so the registry
+    kept the DEAD first attempt's organization and the queue door filed every
+    message and tool call of the LIVE conversation under it, while the bleed
+    capture blamed the correct value as the interloper.
+    """
+    from matrx_ai.persistence.conversation_org import (
+        conversation_organization,
+        remember_conversation_organization,
+        reset_conversation_organizations,
+    )
+
+    reset_conversation_organizations()
+    conversation_id, user_id = str(uuid4()), str(uuid4())
+    # The first attempt created the shell in one organization and died.
+    remember_conversation_organization(conversation_id, DEAD_ATTEMPT_ORG)
+
+    conversation = _ConversationManager(_shell(user_id))
+    _wire(monkeypatch, conversation, _MessageManager())
+
+    await _adopt(
+        conversation_id,
+        user_id,
+        {"organization_id": ADOPTED_ORG},
+        _shell(user_id),
+    )
+
+    _filters, updates, _v = conversation.update_calls[0]
+    assert updates["organization_id"] == ADOPTED_ORG
+    assert conversation_organization(conversation_id) == ADOPTED_ORG
+    reset_conversation_organizations()
+
+
+@pytest.mark.asyncio
+async def test_a_child_row_written_after_adoption_lands_in_the_adopted_org(monkeypatch):
+    """End to end through the REAL queue door — the shape the defect was found in."""
+    from matrx_ai.persistence.conversation_org import reset_conversation_organizations
+    from matrx_ai.persistence.coordinator import Coordinator
+    from matrx_ai.persistence.queue_helpers import (
+        _coordinator_cv,
+        queue_message_create,
+        remember_conversation_organization,
+    )
+
+    reset_conversation_organizations()
+    conversation_id, user_id = str(uuid4()), str(uuid4())
+    remember_conversation_organization(conversation_id, DEAD_ATTEMPT_ORG)
+
+    conversation = _ConversationManager(_shell(user_id))
+    _wire(monkeypatch, conversation, _MessageManager())
+    await _adopt(conversation_id, user_id, {"organization_id": ADOPTED_ORG}, _shell(user_id))
+
+    captured: list[tuple[str, dict]] = []
+    original_queue = Coordinator.queue
+
+    def _capture(self, table, payload, *, op_type="insert", **_kwargs):
+        captured.append((table, dict(payload)))
+        return ""
+
+    Coordinator.queue = _capture  # type: ignore[assignment]
+    token = _coordinator_cv.set(Coordinator(request_id=str(uuid4()), conversation_id=None))
+    try:
+        queue_message_create(
+            id=str(uuid4()),
+            conversation_id=conversation_id,
+            role="user",
+            content=[{"type": "text", "text": "the live turn's first message"}],
+        )
+    finally:
+        _coordinator_cv.reset(token)
+        Coordinator.queue = original_queue  # type: ignore[assignment]
+        reset_conversation_organizations()
+
+    assert captured, "the message never reached the queue door"
+    assert captured[0][1]["organization_id"] == ADOPTED_ORG

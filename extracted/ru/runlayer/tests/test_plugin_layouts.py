@@ -11,6 +11,7 @@ from runlayer_cli.api import PluginDetail
 from runlayer_cli.plugins import layouts as plugin_layouts
 from runlayer_cli.plugins.installer import _plugin_install_name, resolve_plugin_dirs
 from runlayer_cli.plugins.layouts import (
+    CLAUDE_CODE_NATIVE_INSTALL_MODE,
     CODEX_NATIVE_INSTALL_MODE,
     CURSOR_NATIVE_INSTALL_MODE,
     NATIVE_INSTALL_MODES,
@@ -28,7 +29,7 @@ NON_CODEX_MODES = sorted(NATIVE_INSTALL_MODES - {CODEX_NATIVE_INSTALL_MODE})
 @pytest.mark.parametrize(
     ("client", "install_mode"),
     [
-        ("claude_code", "native"),
+        ("claude_code", CLAUDE_CODE_NATIVE_INSTALL_MODE),
         ("vscode", "native"),
         ("codex", CODEX_NATIVE_INSTALL_MODE),
         ("cursor", CURSOR_NATIVE_INSTALL_MODE),
@@ -43,7 +44,12 @@ def test_native_install_modes_includes_plain_native():
     """A pre-`local/` Cursor entry is recorded as plain `native`."""
     assert "native" in NATIVE_INSTALL_MODES
     assert NATIVE_INSTALL_MODES == frozenset(
-        {"native", CODEX_NATIVE_INSTALL_MODE, CURSOR_NATIVE_INSTALL_MODE}
+        {
+            "native",
+            CLAUDE_CODE_NATIVE_INSTALL_MODE,
+            CODEX_NATIVE_INSTALL_MODE,
+            CURSOR_NATIVE_INSTALL_MODE,
+        }
     )
 
 

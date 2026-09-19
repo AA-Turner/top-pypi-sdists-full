@@ -86,10 +86,6 @@ impl RumdlLanguageServer {
             return Ok(Vec::new());
         }
 
-        if let Some(conflict) = crate::merge_conflict::detect(text) {
-            return Ok(warnings_to_diagnostics(&[conflict], text));
-        }
-
         // Resolve configuration for this specific file
         let file_path = super::resolve_uri(uri);
         let file_config = if let Some(ref path) = file_path {
@@ -108,6 +104,12 @@ impl RumdlLanguageServer {
 
         // Apply LSP config overrides (select_rules, ignore_rules from VSCode settings)
         filtered_rules = self.apply_lsp_config_overrides(filtered_rules, &lsp_config);
+
+        if let Some(conflict) =
+            crate::merge_conflict::detect_for_rules(text, &filtered_rules, &rumdl_config, file_path.as_deref())
+        {
+            return Ok(warnings_to_diagnostics(&[conflict], text));
+        }
 
         // The rule set configuration left enabled, which together with
         // per-file-ignores below decides whether an inline enable can take
@@ -252,6 +254,25 @@ impl RumdlLanguageServer {
         }
     }
 
+    /// FormattingOptions can edit text even when the fix engine returns no edits.
+    pub(super) async fn has_unsuppressed_conflict(&self, uri: &Url, text: &str) -> bool {
+        if crate::merge_conflict::detect(text).is_none() {
+            return false;
+        }
+        let lsp_config = self.config.read().await.clone();
+        let file_path = super::resolve_uri(uri);
+        let file_config = if let Some(path) = &file_path {
+            self.resolve_config_for_file(path).await
+        } else {
+            (*self.rumdl_config.read().await).clone()
+        };
+        let config = self.merge_lsp_settings(file_config, &lsp_config);
+        let all_rules = rules::all_rules(&config);
+        let selected = rules::filter_rules(&all_rules, &config.global);
+        let selected = self.apply_lsp_config_overrides(selected, &lsp_config);
+        crate::merge_conflict::detect_for_rules(text, &selected, &config, file_path.as_deref()).is_some()
+    }
+
     /// Apply all available fixes to a document
     pub(super) async fn apply_all_fixes(&self, uri: &Url, text: &str) -> Result<Option<String>> {
         // Check if file should be excluded based on exclude patterns
@@ -283,6 +304,11 @@ impl RumdlLanguageServer {
         // Apply LSP config overrides (select_rules, ignore_rules from VSCode settings)
         filtered_rules = self.apply_lsp_config_overrides(filtered_rules, &lsp_config);
 
+        if crate::merge_conflict::detect_for_rules(text, &filtered_rules, &rumdl_config, file_path.as_deref()).is_some()
+        {
+            return Ok(None);
+        }
+
         // Apply per-file-ignores filtering
         if let Some(ref path) = file_path {
             let ignored = rumdl_config.get_ignored_rules_for_file(path);
@@ -294,8 +320,8 @@ impl RumdlLanguageServer {
         // Apply fixes through the FixCoordinator, the same engine `rumdl fmt`
         // uses: rules run in dependency order, fixes iterate to a fixpoint
         // with oscillation detection, inline disable comments and the
-        // fixable/unfixable config lists are honored. Editor fix-all and the
-        // CLI therefore produce identical output.
+        // fixable/unfixable config lists are honored. Formatting a document
+        // therefore writes what `rumdl fmt` writes.
         let run = crate::document_run::DocumentRun::new(text, &filtered_rules, &rumdl_config);
         let run = match file_path.as_deref() {
             Some(path) => run.file_path(path),
@@ -381,10 +407,6 @@ impl RumdlLanguageServer {
 
     /// Get code actions for diagnostics at a position
     pub(super) async fn get_code_actions(&self, uri: &Url, text: &str, range: Range) -> Result<Vec<CodeAction>> {
-        // Even ignore actions insert comments, so offer no edits during a conflict.
-        if crate::merge_conflict::detect(text).is_some() {
-            return Ok(Vec::new());
-        }
         let config_guard = self.config.read().await;
         let lsp_config = config_guard.clone();
         drop(config_guard);
@@ -407,6 +429,11 @@ impl RumdlLanguageServer {
 
         // Apply LSP config overrides (select_rules, ignore_rules from VSCode settings)
         filtered_rules = self.apply_lsp_config_overrides(filtered_rules, &lsp_config);
+
+        if crate::merge_conflict::detect_for_rules(text, &filtered_rules, &rumdl_config, file_path.as_deref()).is_some()
+        {
+            return Ok(Vec::new());
+        }
 
         // Apply per-file-ignores filtering
         if let Some(ref path) = file_path {
@@ -449,24 +476,26 @@ impl RumdlLanguageServer {
                 let fixable_count = warnings.iter().filter(|w| w.fix.is_some()).count();
 
                 if fixable_count > 0 {
-                    // Only apply fixes from fixable rules during "Fix all"
-                    // Unfixable rules provide warning-level fixes for individual Quick Fix actions
+                    // "Fix all" applies the fixes `rumdl fmt` applies: a rule's fixes
+                    // count when configuration lets it fix (`unfixable`, `fixable`) and
+                    // the rule, as this document configures it, is not Unfixable. The
+                    // quick fixes above stay available for every warning.
+                    let document_rules = rules::rules_reconfigured_by_document(&filtered_rules, &rumdl_config, text);
                     let fixable_warnings: Vec<_> = warnings
                         .iter()
                         .filter(|w| {
-                            if let Some(rule_name) = &w.rule_name {
-                                filtered_rules
-                                    .iter()
-                                    .find(|r| r.name() == rule_name)
-                                    .is_some_and(|r| r.fix_capability() != FixCapability::Unfixable)
-                            } else {
-                                false
-                            }
+                            w.rule_name.as_deref().is_some_and(|name| {
+                                crate::fix_coordinator::config_allows_fix(&rumdl_config, name)
+                                    && document_rules
+                                        .iter()
+                                        .chain(&filtered_rules)
+                                        .find(|r| r.name() == name)
+                                        .is_some_and(|r| r.fix_capability() != FixCapability::Unfixable)
+                            })
                         })
                         .cloned()
                         .collect();
 
-                    // Count total fixable issues (excluding Unfixable rules)
                     let total_fixable = fixable_warnings.len();
 
                     if let Ok(fixed_content) = crate::utils::fix_utils::apply_warning_fixes(text, &fixable_warnings)

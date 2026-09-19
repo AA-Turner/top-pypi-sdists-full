@@ -13,7 +13,9 @@ use tokio::sync::{RwLock, mpsc};
 use tower_lsp::Client;
 use tower_lsp::lsp_types::*;
 
-use crate::config::{Config, MarkdownFlavor};
+use crate::config::Config;
+#[cfg(test)]
+use crate::config::MarkdownFlavor;
 use crate::discovery::{ExcludeMatchers, MarkdownWalkOptions, MarkdownWorkspaceScan};
 use crate::lsp::server::{ConfigResolver, DocumentEntry};
 use crate::lsp::types::{IndexState, IndexUpdate, RelintRequest};
@@ -69,7 +71,13 @@ impl IndexConfiguration {
     }
 
     fn build_file_index(&self, content: &str, path: &Path) -> FileIndex {
-        IndexWorker::build_file_index(content, &self.rules, self.config.get_flavor_for_file(path), Some(path))
+        crate::build_file_index_only_with_config(
+            content,
+            &self.rules,
+            self.config.get_flavor_for_file(path),
+            Some(path.to_path_buf()),
+            &self.config,
+        )
     }
 }
 
@@ -311,6 +319,7 @@ impl IndexWorker {
     /// held in the editor while the CLI honored it.
     ///
     /// Build `rules` with [`cross_file_rules`].
+    #[cfg(test)]
     pub(super) fn build_file_index(
         content: &str,
         rules: &[Box<dyn Rule>],
@@ -579,7 +588,7 @@ fn collect_markdown_files(
 ///
 /// Determines ignore status by walking from the containing workspace root down
 /// the chain of directories leading to `path`, using the shared
-/// [`index_walk_builder`] configuration. Descent is pruned to that single chain,
+/// [`index_walk_options`] configuration. Descent is pruned to that single chain,
 /// so the walk applies the same ignore rules the full scan would (including an
 /// ignored ancestor directory or a hidden entry) without traversing the tree. If
 /// the walk does not yield `path`, the file must not enter the index.

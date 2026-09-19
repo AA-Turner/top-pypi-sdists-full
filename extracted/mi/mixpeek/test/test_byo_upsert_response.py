@@ -46,6 +46,9 @@ class TestBYOUpsertResponse(unittest.TestCase):
                         ''
                         ]
                     },
+                unsearchable_document_ids = [
+                    ''
+                    ],
                 consistency = mixpeek.models.write_consistency.WriteConsistency(
                     retriever_visible = '', 
                     recommended_header = '', 

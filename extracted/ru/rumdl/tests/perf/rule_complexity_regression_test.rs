@@ -29,7 +29,10 @@ use rumdl_lib::lint_context::LintContext;
 use rumdl_lib::rule::Rule;
 use rumdl_lib::rules::CodeBlockStyle;
 use rumdl_lib::rules::code_fence_utils::CodeFenceStyle;
+use rumdl_lib::rules::md013_line_length::md013_config::{MD013Config, ReflowMode};
 use rumdl_lib::rules::*;
+use rumdl_lib::types::LineLength;
+use std::path::{Path, PathBuf};
 use std::time::{Duration, Instant};
 
 // =============================================================================
@@ -621,6 +624,180 @@ fn test_md013_linear_complexity() {
     assert_linear_complexity("MD013", &durations, 6.0);
 }
 
+/// `num_items` quoted list items, each long enough to be rewrapped, under an
+/// intro holding a code span and a display math pair so the scan for code
+/// spans crossing a line boundary runs for the document.
+fn generate_quoted_list_under_code_span(num_items: usize) -> String {
+    let item = "> - This quoted list item runs on far past the configured width so that the reflow has to rewrap it into shorter lines.\n";
+    let mut content = String::with_capacity(48 + num_items * item.len());
+    content.push_str("Intro with `code` and a math pair.\n\n$$ x $$\n\n");
+    for _ in 0..num_items {
+        content.push_str(item);
+    }
+    content
+}
+
+/// Whether a `$$...$$` line inside a quoted list item is a display block is
+/// read off one pass over the document that every item shares. A pass per
+/// item would read the whole document again for each item, so a quoted list
+/// grows about linearly only while the flags are computed once.
+#[test]
+fn test_md013_quoted_list_code_span_flags_linear_complexity() {
+    let sizes = [100, 200, 400];
+    let iterations = 3;
+    let rule = MD013LineLength::from_config_struct(MD013Config {
+        line_length: LineLength::new(40),
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        ..Default::default()
+    });
+
+    let durations: Vec<_> = sizes
+        .iter()
+        .map(|&size| {
+            let content = generate_quoted_list_under_code_span(size);
+            measure_rule_time(&rule, &content, iterations)
+        })
+        .collect();
+
+    // A pass per item costs four times as much per doubling; one shared pass
+    // costs about twice, and three separates the two with room for noise.
+    assert_linear_complexity("MD013 quoted list code span flags", &durations, 3.0);
+}
+
+/// One line of `num_sentences` strong sentences, the shape a sentence per line
+/// reflow cuts once per sentence with a delimiter run against every cut.
+fn generate_strong_sentence_line(num_sentences: usize) -> String {
+    let mut content = String::with_capacity(num_sentences * 20);
+    for _ in 0..num_sentences {
+        content.push_str("**Sentence ends.** ");
+    }
+    content.push('\n');
+    content
+}
+
+/// The sentence per line reflow reads a whole paragraph once and decides each
+/// cut from that reading. A cut touching a delimiter run asks whether the break
+/// changes what the run does, and a paragraph of strong sentences puts a run
+/// against every cut, so the check grows about linearly only when that question
+/// is answered without reading the paragraph again per cut.
+#[test]
+fn test_md013_sentence_per_line_linear_complexity() {
+    let sizes = [500, 1000, 2000];
+    let iterations = 5;
+    let rule = MD013LineLength::from_config_struct(MD013Config {
+        line_length: LineLength::new(0),
+        reflow: true,
+        reflow_mode: ReflowMode::SentencePerLine,
+        ..Default::default()
+    });
+
+    let durations: Vec<_> = sizes
+        .iter()
+        .map(|&size| {
+            let content = generate_strong_sentence_line(size);
+            measure_rule_time(&rule, &content, iterations)
+        })
+        .collect();
+
+    // A reading of the paragraph per cut costs four times as much per
+    // doubling, which the shared threshold lets through; the linear path
+    // costs about twice, and three separates the two with room for noise.
+    assert_linear_complexity("MD013 sentence per line", &durations, 3.0);
+}
+
+/// One line of `num_sentences` strong CJK sentences written with nothing between
+/// them, the shape a sentence per line reflow cuts once per sentence where a
+/// delimiter run touches every cut and a fullwidth bracket sits in front of it,
+/// which the flanking rules alone cannot settle.
+fn generate_strong_cjk_sentence_line(num_sentences: usize) -> String {
+    let mut content = String::with_capacity(num_sentences * 20);
+    for _ in 0..num_sentences {
+        content.push_str("**（完成。）**");
+    }
+    content.push('\n');
+    content
+}
+
+/// A cut the flanking rules cannot settle is confirmed by a parse of the text
+/// carrying the break. A paragraph of strong CJK sentences puts such a cut
+/// after every sentence, so the check grows about in step with the input only
+/// when those cuts are confirmed together rather than by a parse each.
+#[test]
+fn test_md013_sentence_per_line_cjk_strong_linear_complexity() {
+    let sizes = [500, 1000, 2000];
+    let iterations = 5;
+    let rule = MD013LineLength::from_config_struct(MD013Config {
+        line_length: LineLength::new(0),
+        reflow: true,
+        reflow_mode: ReflowMode::SentencePerLine,
+        ..Default::default()
+    });
+
+    let durations: Vec<_> = sizes
+        .iter()
+        .map(|&size| {
+            let content = generate_strong_cjk_sentence_line(size);
+            measure_rule_time(&rule, &content, iterations)
+        })
+        .collect();
+
+    // A parse per cut costs four times as much per doubling; one parse for all
+    // of them costs about twice, and three separates the two with room for
+    // noise.
+    assert_linear_complexity("MD013 sentence per line, strong CJK", &durations, 3.0);
+}
+
+/// One paragraph of `num_lines` lines of about a hundred bytes each ending in
+/// one trailing space, the soft break a renderer shows as one space. The join
+/// that replaces each break trims that space, so the paragraph puts a trim in
+/// front of every join. The second line opens a definition, so the check joins
+/// the lines and then leaves the paragraph alone: the join is where the check
+/// spends its time, where the reflow of an ordinary paragraph costs about a
+/// microsecond a byte in a test build and buries the join's growth at any size
+/// a test can afford.
+fn generate_soft_break_definition_paragraph(num_lines: usize) -> String {
+    let line = "Lorem ipsum dolor sit amet, consectetur adipiscing elit, sed do eiusmod tempor incididunt ut labore \n";
+    let mut content = String::with_capacity(num_lines * (line.len() + 2));
+    for idx in 0..num_lines {
+        if idx == 1 {
+            content.push_str(": ");
+        }
+        content.push_str(line);
+    }
+    content
+}
+
+/// The join that replaces a paragraph's soft breaks trims the spaces before
+/// each break outside a code span. A paragraph whose every line ends in one
+/// space puts a trim in front of every join, so the check grows about linearly
+/// only when the trimmed text is written in one pass rather than shifted once
+/// per join.
+#[test]
+fn test_md013_soft_break_join_linear_complexity() {
+    let sizes = [10000, 20000, 40000];
+    let iterations = 5;
+    let rule = MD013LineLength::from_config_struct(MD013Config {
+        line_length: LineLength::new(0),
+        reflow: true,
+        reflow_mode: ReflowMode::SentencePerLine,
+        ..Default::default()
+    });
+
+    let durations: Vec<_> = sizes
+        .iter()
+        .map(|&size| {
+            let content = generate_soft_break_definition_paragraph(size);
+            measure_rule_time(&rule, &content, iterations)
+        })
+        .collect();
+
+    // A shift of the text per join costs four times as much per doubling; one
+    // pass over the text costs about twice, and three separates the two with
+    // room for noise.
+    assert_linear_complexity("MD013 soft break join", &durations, 3.0);
+}
+
 #[test]
 fn test_md036_linear_complexity() {
     let sizes = [500, 1000, 2000];
@@ -1035,4 +1212,84 @@ fn test_backslash_run_link_linear_complexity() {
         .map(|&size| measure_rule_time(&rule, &generate_backslash_run_link(size), iterations))
         .collect();
     assert_linear_complexity("MD062 (backslash run)", &rule_durations, 3.0);
+}
+
+/// Fill `directory` with `count` markdown documents, each linking to two
+/// existing siblings, and return their paths. This is the adversarial shape for
+/// MD057's directory listings: every document's links land in the one directory
+/// that holds all of them, so a listing read per document is a read of `count`
+/// entries per document.
+fn write_flat_link_directory(directory: &Path, count: usize) -> Vec<PathBuf> {
+    (0..count)
+        .map(|i| {
+            let path = directory.join(format!("doc{i}.md"));
+            let first = (i + 1) % count;
+            let second = (i + 2) % count;
+            std::fs::write(
+                &path,
+                format!("# Doc {i}\n\nSee [first](doc{first}.md) and [second](doc{second}.md).\n"),
+            )
+            .unwrap();
+            path
+        })
+        .collect()
+}
+
+/// Time one pass of MD057 over every document in a flat directory, taking the
+/// median of `iterations` passes after a discarded warm-up.
+fn measure_flat_directory_time(count: usize, iterations: usize) -> Duration {
+    let directory = tempfile::tempdir().unwrap();
+    let paths = write_flat_link_directory(directory.path(), count);
+    let contents: Vec<String> = paths
+        .iter()
+        .map(|path| std::fs::read_to_string(path).unwrap())
+        .collect();
+    let contexts: Vec<LintContext> = contents
+        .iter()
+        .zip(&paths)
+        .map(|(content, path)| LintContext::new(content, MarkdownFlavor::Standard, Some(path.clone())))
+        .collect();
+    let rule = MD057ExistingRelativeLinks::new().with_path(directory.path());
+
+    let run = || {
+        for ctx in &contexts {
+            let _ = rule.check(ctx);
+        }
+    };
+
+    run();
+
+    let mut times: Vec<Duration> = (0..iterations)
+        .map(|_| {
+            let start = Instant::now();
+            run();
+            start.elapsed()
+        })
+        .collect();
+
+    times.sort();
+    times[iterations / 2]
+}
+
+#[test]
+fn test_md057_flat_directory_linear_complexity() {
+    // The document count doubles each step. Reading the directory once per
+    // document costs one listing of N entries N times, which is quadratic and
+    // shows about 4x per doubling; a listing that outlives the document costs
+    // one stat per document and roughly doubles. The threshold is tighter than
+    // the 6x most rules here use, because 4x sits under 6x and this guard has
+    // to separate the two.
+    let sizes = [500, 1000, 2000];
+    let iterations = 3;
+
+    let durations: Vec<_> = sizes
+        .iter()
+        .map(|&size| measure_flat_directory_time(size, iterations))
+        .collect();
+
+    for (size, duration) in sizes.iter().zip(&durations) {
+        println!("MD057 flat directory of {size} documents: {duration:?}");
+    }
+
+    assert_linear_complexity("MD057 (flat directory)", &durations, 3.0);
 }

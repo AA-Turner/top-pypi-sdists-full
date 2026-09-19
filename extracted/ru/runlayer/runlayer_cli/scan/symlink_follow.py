@@ -42,6 +42,7 @@ class _PathShardResult:
 
     found_paths: list[Path]
     symlink_paths: list[Path]
+    deadline_exhausted: bool = False
 
 
 @dataclass
@@ -56,6 +57,7 @@ class FollowedSymlinkCrawlResult:
     found_paths: list[Path]
     node_modules_paths: list[Path]
     logical_paths: dict[Path, tuple[Path, ...]]
+    deadline_exhausted: bool = False
 
 
 def _partition_roots(roots: list[Path], group_count: int) -> list[list[Path]]:
@@ -96,6 +98,7 @@ def _run_path_link_shards(
         symlink_paths=sorted(
             {path for result in shard_results for path in result.symlink_paths}
         ),
+        deadline_exhausted=any(result.deadline_exhausted for result in shard_results),
     )
 
 
@@ -125,7 +128,11 @@ def _unix_shard(
     """Run one Unix shard with its own surfaced-link buffer."""
     remaining_timeout = _remaining_shard_timeout(deadline, roots)
     if remaining_timeout is None:
-        return _PathShardResult(found_paths=[], symlink_paths=[])
+        return _PathShardResult(
+            found_paths=[],
+            symlink_paths=[],
+            deadline_exhausted=True,
+        )
     shard_links: list[Path] = []
     return _PathShardResult(
         found_paths=search(
@@ -159,7 +166,11 @@ def _windows_shard(
     """Run one Windows shard with its own surfaced-link buffer."""
     remaining_timeout = _remaining_shard_timeout(deadline, roots)
     if remaining_timeout is None:
-        return _PathShardResult(found_paths=[], symlink_paths=[])
+        return _PathShardResult(
+            found_paths=[],
+            symlink_paths=[],
+            deadline_exhausted=True,
+        )
     if containment_root is None:
         if len(roots) != 1:
             raise ValueError("per-root containment requires exactly one root")
@@ -278,6 +289,7 @@ def _crawl_followed_symlink_targets(
     logical_paths: dict[Path, list[Path]] = {}
     frontier = sorted(set(symlink_paths))
     windows = system == "Windows"
+    deadline_exhausted = False
 
     while frontier:
         approved_roots: list[Path] = []
@@ -290,6 +302,7 @@ def _crawl_followed_symlink_targets(
         )
         for link_path in ordered_frontier:
             if time.monotonic() >= deadline:
+                deadline_exhausted = True
                 break
             if governor is not None:
                 governor.checkpoint()
@@ -299,7 +312,7 @@ def _crawl_followed_symlink_targets(
                 discover_node_modules=discover_node_modules,
             ):
                 continue
-            target = policy.inspect(link_path)
+            target = policy.inspect_candidate(link_path)
             target_is_covered = target is None
             if target_is_covered:
                 target = policy.inspect_covered_link(link_path)
@@ -330,7 +343,11 @@ def _crawl_followed_symlink_targets(
                     accepted = target_is_found or (
                         _reserve_followed_path(path_budget)
                         if target_is_covered
-                        else _claim_followed_path(policy, target, path_budget)
+                        else _claim_followed_path(
+                            policy,
+                            target,
+                            path_budget,
+                        )
                     )
                     if accepted:
                         if not target_is_found:
@@ -342,7 +359,9 @@ def _crawl_followed_symlink_targets(
                 continue
             if is_node_modules:
                 if discover_node_modules and _claim_followed_path(
-                    policy, target, path_budget
+                    policy,
+                    target,
+                    path_budget,
                 ):
                     node_modules_paths.append(target)
                 continue
@@ -390,6 +409,7 @@ def _crawl_followed_symlink_targets(
             work = []
 
         crawled = _run_path_link_shards(work, max_workers=max_workers)
+        deadline_exhausted = deadline_exhausted or crawled.deadline_exhausted
         for path in crawled.found_paths:
             physically_found.add(path)
             if path in found_path_set:
@@ -417,4 +437,5 @@ def _crawl_followed_symlink_targets(
             )
             for target, aliases in logical_paths.items()
         },
+        deadline_exhausted=deadline_exhausted,
     )

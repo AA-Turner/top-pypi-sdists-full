@@ -1221,6 +1221,7 @@ __all__ = (
     "HubAccessConfigTypeDef",
     "HubContentDependencyTypeDef",
     "HubContentInfoTypeDef",
+    "HubContentTypeDef",
     "HubInfoTypeDef",
     "HubS3StorageConfigTypeDef",
     "HumanLoopActivationConditionsConfigTypeDef",
@@ -10501,6 +10502,30 @@ class DescribeHubContentResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
+class HubContentTypeDef(TypedDict):
+    HubContentName: str
+    HubContentArn: str
+    HubContentVersion: str
+    HubContentType: HubContentTypeType
+    DocumentSchemaVersion: str
+    HubName: str
+    HubArn: str
+    HubContentStatus: HubContentStatusType
+    CreationTime: datetime
+    HubContentDisplayName: NotRequired[str]
+    HubContentDescription: NotRequired[str]
+    HubContentMarkdown: NotRequired[str]
+    HubContentDocument: NotRequired[str]
+    SageMakerPublicHubContentArn: NotRequired[str]
+    ReferenceMinVersion: NotRequired[str]
+    SupportStatus: NotRequired[HubContentSupportStatusType]
+    HubContentSearchKeywords: NotRequired[list[str]]
+    HubContentDependencies: NotRequired[list[HubContentDependencyTypeDef]]
+    FailureReason: NotRequired[str]
+    LastModifiedTime: NotRequired[datetime]
+    Tags: NotRequired[list[TagTypeDef]]
+
+
 class DescribeHumanTaskUiResponseTypeDef(TypedDict):
     HumanTaskUiArn: str
     HumanTaskUiName: str
@@ -16091,6 +16116,7 @@ class SearchRecordTypeDef(TypedDict):
     ModelCard: NotRequired[ModelCardTypeDef]
     Model: NotRequired[ModelDashboardModelTypeDef]
     Job: NotRequired[JobTypeDef]
+    HubContent: NotRequired[HubContentTypeDef]
 
 
 class CreateHyperParameterTuningJobRequestTypeDef(TypedDict):

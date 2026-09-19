@@ -24,7 +24,8 @@ from pydantic.alias_generators import to_camel
 from application_sdk.contracts.base import SerializableEnum
 from application_sdk.credentials.spec import AgentCredentialSpec
 from application_sdk.credentials.utils import parse_credentials_extra
-from application_sdk.errors.base import AppError
+from application_sdk.errors.base import AppError, sanitize_cause_repr
+from application_sdk.errors.leaves import InternalError
 from application_sdk.errors.wire import FailureDetails
 
 
@@ -339,15 +340,47 @@ class PreflightStatus(SerializableEnum):
     ``NOT_READY`` blocks the run only when the app has opted into hard mode
     (``preflight_gate_mode = "hard"``); the default posture is soft, where a
     ``NOT_READY`` verdict is reported (``outcome="would_block"``) but the run
-    proceeds. ``READY`` and ``PARTIAL`` always proceed. ``PARTIAL`` is
-    display-only (some advisory check failed but the run may continue). Also
-    surfaced to the Sage UI, the connector-pulse dashboard, and the Automation
-    Engine event.
+    proceeds. ``READY`` proceeds. ``PARTIAL`` is deprecated: the gate treats
+    it exactly like ``READY``, so it can conceal a blocking source failure
+    behind a degraded label. Return ``READY`` when extraction can proceed
+    (advisory failed checks stay visible as typed rows) or ``NOT_READY`` when
+    it cannot. The gate emits a ``DeprecationWarning`` when a handler returns
+    ``PARTIAL``. The member is removed in the first minor release after the
+    reference apps stop returning it; v3.40.0 is the planning anchor, and B003
+    flags the notice if that release arrives first. Also surfaced to the Sage
+    UI, the connector-pulse dashboard, and the Automation Engine event.
     """
+
+    __deprecated_members__ = {
+        "PARTIAL": (
+            "PreflightStatus.PARTIAL is deprecated; use PreflightStatus.READY when "
+            "extraction can proceed or PreflightStatus.NOT_READY when it cannot "
+            "instead — will be removed in v3.40.0, the first minor release after "
+            "the reference apps stop returning it."
+        ),
+    }
 
     READY = "ready"
     NOT_READY = "not_ready"
     PARTIAL = "partial"
+
+
+class PreflightGateMode(SerializableEnum):
+    """The gate's posture for one app: what it does with a source it cannot certify.
+
+    ``SOFT`` (default) reports and proceeds; ``HARD`` blocks the run. Declared on
+    the App class as :attr:`~application_sdk.app.base.App.preflight_gate_mode`,
+    where a bare ``"hard"`` string is still accepted and coerced once by
+    :func:`~application_sdk.execution._temporal.preflight_gate.coerce_gate_mode`.
+    The values are the ``gate_mode`` wire strings on every preflight row.
+    """
+
+    SOFT = "soft"
+    HARD = "hard"
+
+    @property
+    def enforces(self) -> bool:
+        return self is PreflightGateMode.HARD
 
 
 class PreflightCheck(BaseModel):
@@ -480,11 +513,12 @@ class PreflightInput(BaseModel):
     timeout_seconds: int = 60
     """Maximum seconds the handler has to run all checks.
 
-    On the injected gate path this carries the *enforced* per-attempt budget
-    (the gate activity's ``start_to_close``), so a handler that sizes its checks
-    to this value stays inside the real deadline — design them to finish within
-    it, with headroom. Advisory on the HTTP ``/check`` and SDR paths, which are
-    not bounded by the gate activity timeout."""
+    On the injected gate path this is what remains of the app's gate budget
+    after credential resolution, and the gate cancels the handler when it
+    elapses. A handler that bounds every probe to this value returns its own
+    typed verdict before the cancel; one that does not is ended by the gate with
+    no check evidence. Advisory on the HTTP ``/check`` and SDR paths, which are
+    not bounded by the gate."""
 
     agent_json: AgentCredentialSpec | None = Field(
         default=None,
@@ -508,7 +542,9 @@ class PreflightOutput(BaseModel):
     status: PreflightStatus
     """Overall verdict — decides the gate. ``NOT_READY`` blocks the run only in
     hard mode (per-app opt-in); the default soft posture reports it and
-    proceeds. ``READY``/``PARTIAL`` proceed. The handler computes this itself."""
+    proceeds. ``READY`` proceeds. ``PARTIAL`` is deprecated (removal anchored
+    at v3.40.0) and proceeds like ``READY`` until then. The handler computes
+    this itself."""
 
     checks: list[PreflightCheck] = []
     """Individual check results (display + failure attribution)."""
@@ -553,6 +589,65 @@ class PreflightOutput(BaseModel):
         if self.error is not None:
             return self.error.message
         return self.message
+
+
+UNVERIFIABLE_CHECK_NAME = "preflightVerdict"
+"""Name of the one check an unverifiable source's verdict carries."""
+
+
+def unverifiable_preflight_result(
+    exc: BaseException, app_name: str, *, include_cause: bool = True
+) -> PreflightOutput:
+    """The ``NOT_READY`` verdict for a source that raised instead of answering.
+
+    Shaped as a normal handler verdict with one failed check so every surface
+    that renders a verdict renders this one the same way. A typed
+    :class:`~application_sdk.errors.base.AppError` keeps its own leaf. Anything
+    else is an app fault the taxonomy has no leaf for yet: ``INTERNAL`` with
+    ``classification_pending``, never a timeout, so an ``AttributeError`` does
+    not reach the Automation Engine as a slow source.
+
+    ``include_cause=False`` drops ``cause_repr``, which is the raw exception text
+    after secret redaction and still names hosts, ports and accounts. An HTTP
+    caller must not receive it; Temporal history and the store may.
+
+    Never raises: a typed leaf whose own details cannot be built degrades to
+    the untyped branch rather than escaping, because every caller sits on a
+    path where an escape fails the gate open or the HTTP route with a 500.
+    """
+    details = _leaf_details(exc)
+    if details is None:
+        details = InternalError(
+            message=f"Preflight could not be verified: {sanitize_cause_repr(exc)}",
+            app_name=app_name,
+            cause=exc,
+            retryable=False,
+            component="preflight_handler",
+            classification_pending=True,
+        ).to_failure_details()
+    updates: dict[str, Any] = {}
+    if details.app_name is None:
+        updates["app_name"] = app_name
+    if not include_cause:
+        updates["cause_repr"] = None
+    if updates:
+        details = details.model_copy(update=updates)
+    return PreflightOutput(
+        status=PreflightStatus.NOT_READY,
+        message=details.message,
+        checks=[
+            PreflightCheck(name=UNVERIFIABLE_CHECK_NAME, passed=False, error=details)
+        ],
+    )
+
+
+def _leaf_details(exc: BaseException) -> FailureDetails | None:
+    if not isinstance(exc, AppError):
+        return None
+    try:
+        return exc.to_failure_details()
+    except Exception:
+        return None
 
 
 # ---------------------------------------------------------------------------

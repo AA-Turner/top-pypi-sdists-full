@@ -134,6 +134,9 @@ pub struct Locator {
     provider: Arc<dyn Provider>,
     /// Root element for scoped searches. `None` = system root (all apps).
     root: Option<ElementData>,
+    /// Additional native roots in the same application process.
+    additional_roots: Vec<ElementData>,
+    process_scope: bool,
     selector: String,
     /// Which match to select (0-based). `None` means first match.
     nth: Option<usize>,
@@ -152,10 +155,40 @@ impl Locator {
         Self {
             provider,
             root,
+            additional_roots: Vec::new(),
+            process_scope: false,
             selector: selector.to_string(),
             nth: None,
             timeout: None,
         }
+    }
+
+    /// Create a locator scoped to a process represented by several native
+    /// application roots.
+    #[doc(hidden)]
+    pub fn new_for_roots(
+        provider: Arc<dyn Provider>,
+        roots: Vec<ElementData>,
+        selector: &str,
+    ) -> Self {
+        let root = roots.first().cloned();
+        Self {
+            provider,
+            root,
+            additional_roots: roots,
+            process_scope: false,
+            selector: selector.to_string(),
+            nth: None,
+            timeout: None,
+        }
+    }
+
+    /// Create a locator whose scope is the whole process owning `root`.
+    #[doc(hidden)]
+    pub fn new_for_app(provider: Arc<dyn Provider>, root: ElementData, selector: &str) -> Self {
+        let mut locator = Self::new(provider, Some(root), selector);
+        locator.process_scope = true;
+        locator
     }
 
     /// Return a new Locator with a custom auto-wait timeout for action
@@ -262,7 +295,50 @@ impl Locator {
         limit: Option<usize>,
     ) -> Result<Vec<ElementData>> {
         if let Some(root) = self.root.as_ref() {
-            return self.provider.find_elements_group(root, group, limit, None);
+            let process_roots;
+            let roots: &[ElementData] = if self.process_scope {
+                process_roots = self.provider.app_roots(root)?;
+                &process_roots
+            } else {
+                &self.additional_roots
+            };
+            if roots.is_empty() {
+                return self.provider.find_elements_group(root, group, limit, None);
+            }
+            if roots.len() == 1 {
+                // Preserve the native backend's limit pushdown for the common
+                // single-root case (including first-match auto-wait actions).
+                return self
+                    .provider
+                    .find_elements_group(&roots[0], group, limit, None);
+            }
+            // Evaluate selectors once over the process's combined children.
+            // Applying :nth independently to each registration returns the
+            // wrong match set, e.g. two first windows and no second window.
+            let mut children = Vec::new();
+            for native_root in roots {
+                for child in self.provider.get_children(Some(native_root))? {
+                    if !children
+                        .iter()
+                        .any(|existing| crate::app::same_window_identity(existing, &child))
+                    {
+                        children.push(child);
+                    }
+                }
+            }
+            return crate::selector::find_elements_in_tree_group(
+                |element| {
+                    if element.is_some_and(|element| element.handle == root.handle) {
+                        Ok(children.clone())
+                    } else {
+                        self.provider.get_children(element)
+                    }
+                },
+                Some(root),
+                group,
+                limit,
+                None,
+            );
         }
 
         // Rootless: search across all apps. We can't push the outer `limit`
@@ -745,8 +821,106 @@ impl Locator {
     /// This is the escape hatch for platform-specific actions not covered
     /// by the named methods above. Also works for well-known action names.
     pub fn perform_action(&self, action: &str) -> Result<()> {
+        // The nullary window verbs route through their typed methods so the
+        // enabled-only gate applies on this path too: a minimized window is
+        // legitimately invisible, and `perform_action("restore")` must reach
+        // it exactly as `restore()` does (the generic gate below would wait
+        // for visible AND enabled and time out on the very window that needs
+        // restoring). Mirrors `Element::perform_action`, which routes the
+        // same names before consulting the provider. `move_to` / `resize_to`
+        // carry payloads the generic path cannot hand them, so they stay
+        // here — the providers reject them surfaceably before any OS call.
+        match action {
+            "activate" => return self.activate(),
+            "minimize" => return self.minimize(),
+            "maximize" => return self.maximize(),
+            "enter_fullscreen" => return self.enter_fullscreen(),
+            "restore" => return self.restore(),
+            "close" => return self.close(),
+            _ => {}
+        }
         self.auto_wait("perform_action", Actionability::VISIBLE_AND_ENABLED)?
             .perform_action(action)
+    }
+
+    // ── Window management ─────────────────────────────────────────
+    //
+    // Window verbs wait only on `enabled`, not `visible` (we reuse
+    // [`Actionability::ENABLED`]): a minimized window is legitimately
+    // not visible, and gate the very verbs that must act on it —
+    // `minimize`, `restore`, and `activate` all need to reach an invisible
+    // window. The same argument that relaxed `scroll_into_view` (issue
+    // #350) applies here, so the gate is documented once on
+    // [`Actionability::ENABLED`].
+
+    /// Activate the matched window: bring it to the foreground and give it
+    /// focus.
+    pub fn activate(&self) -> Result<()> {
+        self.auto_wait("activate", Actionability::ENABLED)?
+            .activate()
+    }
+
+    /// Minimize the matched window.
+    pub fn minimize(&self) -> Result<()> {
+        self.auto_wait("minimize", Actionability::ENABLED)?
+            .minimize()
+    }
+
+    /// Maximize the matched window.
+    ///
+    /// Distinct from [`Self::enter_fullscreen`]: this drives the platform's
+    /// maximized state, not native fullscreen.
+    pub fn maximize(&self) -> Result<()> {
+        self.auto_wait("maximize", Actionability::ENABLED)?
+            .maximize()
+    }
+
+    /// Put the matched window in native fullscreen.
+    ///
+    /// Distinct from [`Self::maximize`]: fullscreen is the platform's native
+    /// fullscreen state (macOS `AXFullScreen`); [`Self::restore`] leaves it.
+    pub fn enter_fullscreen(&self) -> Result<()> {
+        self.auto_wait("enter_fullscreen", Actionability::ENABLED)?
+            .enter_fullscreen()
+    }
+
+    /// Restore the matched window to its normal state (from minimized,
+    /// maximized, or fullscreen).
+    ///
+    /// This is the inverse of [`Self::minimize`], [`Self::maximize`], and
+    /// [`Self::enter_fullscreen`]: it clears every special state the platform
+    /// can clear. There is deliberately no separate "exit fullscreen" verb —
+    /// leaving fullscreen is the same absolute state write this performs, not
+    /// a distinct operation.
+    pub fn restore(&self) -> Result<()> {
+        self.auto_wait("restore", Actionability::ENABLED)?.restore()
+    }
+
+    /// Close the matched window.
+    pub fn close(&self) -> Result<()> {
+        self.auto_wait("close", Actionability::ENABLED)?.close()
+    }
+
+    /// Move the matched window to the given **logical** screen coordinates.
+    pub fn move_to(&self, x: i32, y: i32) -> Result<()> {
+        self.auto_wait("move_to", Actionability::ENABLED)?
+            .move_to(x, y)
+    }
+
+    /// Resize the matched window to the given **logical** dimensions.
+    ///
+    /// Returns [`Error::InvalidActionData`] if either dimension is 0,
+    /// before any auto-wait polling begins.
+    pub fn resize_to(&self, width: u32, height: u32) -> Result<()> {
+        if width == 0 || height == 0 {
+            return Err(Error::InvalidActionData {
+                message: format!(
+                    "resize_to requires positive width and height, got {width}x{height}"
+                ),
+            });
+        }
+        self.auto_wait("resize_to", Actionability::ENABLED)?
+            .resize_to(width, height)
     }
 
     // ── Wait operations ─────────────────────────────────────────────
@@ -1099,6 +1273,124 @@ mod tests {
         );
     }
 
+    // ── Window management gate (enabled-only) ───────────────────────
+
+    #[test]
+    fn window_verbs_act_on_minimized_invisible_window() {
+        // Window verbs use the enabled-only gate, not visible&&enabled: a
+        // minimized window is visible=false, and minimizing it is the thing
+        // `restore` must then reverse. If the gate required `visible`, this
+        // zero-timeout restore would fail with a Timeout.
+        let provider = build_provider();
+        let handle = Arc::clone(&provider);
+        let provider_dyn: Arc<dyn Provider> = provider;
+        let min = Locator::new(provider_dyn.clone(), None, "window").with_timeout(Duration::ZERO);
+        min.minimize()
+            .expect("minimize must act on the (initially visible) window");
+        // The window is now minimized (visible=false); restore still acts.
+        let restore = Locator::new(provider_dyn, None, "window").with_timeout(Duration::ZERO);
+        restore
+            .restore()
+            .expect("restore must act on a minimized window");
+        assert!(
+            handle
+                .actions()
+                .iter()
+                .any(|(_, action, _)| action == "restore"),
+            "restore must delegate to the provider"
+        );
+    }
+
+    #[test]
+    fn perform_action_routes_window_verbs_through_the_enabled_only_gate() {
+        // `Locator::perform_action("restore")` must behave like `restore()`:
+        // the generic name-based path auto-waits for visible&&enabled, which
+        // times out on the minimized window it was asked to restore — the
+        // bindings expose this generic path. Same routing rule as
+        // `Element::perform_action`: window verbs take the typed route.
+        let provider = build_provider();
+        let handle = Arc::clone(&provider);
+        let provider_dyn: Arc<dyn Provider> = provider;
+        let min = Locator::new(provider_dyn.clone(), None, "window").with_timeout(Duration::ZERO);
+        min.minimize()
+            .expect("minimize must act on the (initially visible) window");
+        let restore = Locator::new(provider_dyn, None, "window").with_timeout(Duration::ZERO);
+        restore
+            .perform_action("restore")
+            .expect("perform_action(\"restore\") must reach a minimized window");
+        assert!(
+            handle
+                .actions()
+                .iter()
+                .any(|(_, action, _)| action == "restore"),
+            "restore must delegate to the provider"
+        );
+    }
+
+    #[test]
+    fn locator_fullscreen_minimize_sequence_uses_the_enabled_only_gate() {
+        // The `max, min, max, min` sequence the integration suites drive:
+        // every step must act directly on the window the previous step left
+        // behind (fullscreen is not visible-gated either), and the name-based
+        // path must route `enter_fullscreen` exactly like the typed method.
+        let provider = build_provider();
+        let handle = Arc::clone(&provider);
+        let provider_dyn: Arc<dyn Provider> = provider;
+        let loc = Locator::new(provider_dyn.clone(), None, "window").with_timeout(Duration::ZERO);
+        loc.perform_action("enter_fullscreen")
+            .expect("perform_action(\"enter_fullscreen\") must route to the typed method");
+        assert!(
+            handle
+                .actions()
+                .iter()
+                .any(|(_, action, _)| action == "enter_fullscreen"),
+            "enter_fullscreen must delegate to the provider"
+        );
+        // A fullscreen window is visible, but the next step must not depend on
+        // that: minimize acts via the enabled-only gate and exits fullscreen
+        // first (the mock mirrors the macOS hand-off).
+        let loc = Locator::new(provider_dyn.clone(), None, "window").with_timeout(Duration::ZERO);
+        loc.minimize()
+            .expect("minimize must act on a fullscreen window");
+        let loc = Locator::new(provider_dyn, None, "window").with_timeout(Duration::ZERO);
+        loc.restore()
+            .expect("restore must act on the minimized window it left");
+    }
+
+    #[test]
+    fn perform_action_keeps_the_visible_gate_for_non_window_names() {
+        // The routing above is scoped to the nullary window verbs: a name the
+        // generic path still handles keeps its visible&&enabled gate, so an
+        // invisible window is not silently actionable through it.
+        let provider = build_provider();
+        let provider_dyn: Arc<dyn Provider> = provider;
+        let min = Locator::new(provider_dyn.clone(), None, "window").with_timeout(Duration::ZERO);
+        min.minimize()
+            .expect("minimize must act on the (initially visible) window");
+        let focus = Locator::new(provider_dyn, None, "window").with_timeout(Duration::ZERO);
+        let err = focus
+            .perform_action("focus")
+            .expect_err("the generic path must still require visibility");
+        assert!(matches!(err, Error::Timeout { .. }), "got {err:?}");
+    }
+
+    #[test]
+    fn locator_resize_to_rejects_zero_before_auto_wait() {
+        // Locator validates payloads before entering its 5s auto-wait poll;
+        // the zero-size rejection must produce InvalidActionData immediately,
+        // not a Timeout after polling a never-matching selector.
+        let provider = build_provider();
+        let provider_dyn: Arc<dyn Provider> = provider;
+        let locator = Locator::new(provider_dyn, None, r#"window[name="never-matches"]"#);
+        let started = std::time::Instant::now();
+        let err = locator.resize_to(0, 100).unwrap_err();
+        assert!(matches!(err, Error::InvalidActionData { .. }));
+        assert!(
+            started.elapsed() < std::time::Duration::from_secs(1),
+            "validation must short-circuit auto-wait",
+        );
+    }
+
     // ── Rootless search across apps ─────────────────────────────────
 
     #[test]
@@ -1359,6 +1651,30 @@ mod tests {
         }
         fn perform_action(&self, e: &crate::element::ElementData, action: &str) -> Result<()> {
             self.inner.perform_action(e, action)
+        }
+        fn activate(&self, e: &crate::element::ElementData) -> Result<()> {
+            self.inner.activate(e)
+        }
+        fn minimize(&self, e: &crate::element::ElementData) -> Result<()> {
+            self.inner.minimize(e)
+        }
+        fn maximize(&self, e: &crate::element::ElementData) -> Result<()> {
+            self.inner.maximize(e)
+        }
+        fn enter_fullscreen(&self, e: &crate::element::ElementData) -> Result<()> {
+            self.inner.enter_fullscreen(e)
+        }
+        fn restore(&self, e: &crate::element::ElementData) -> Result<()> {
+            self.inner.restore(e)
+        }
+        fn close(&self, e: &crate::element::ElementData) -> Result<()> {
+            self.inner.close(e)
+        }
+        fn move_to(&self, e: &crate::element::ElementData, x: i32, y: i32) -> Result<()> {
+            self.inner.move_to(e, x, y)
+        }
+        fn resize_to(&self, e: &crate::element::ElementData, w: u32, h: u32) -> Result<()> {
+            self.inner.resize_to(e, w, h)
         }
         fn subscribe(
             &self,

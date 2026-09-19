@@ -10,6 +10,7 @@ from hypothesis import HealthCheck, Phase, find, given, settings
 from hypothesis import strategies as st
 
 import schemathesis
+from schemathesis.core import NOT_SET
 from schemathesis.core.parameters import ParameterLocation
 from schemathesis.generation.hypothesis import examples
 from schemathesis.generation.hypothesis._response_matching import find_matching_in_responses
@@ -3214,7 +3215,7 @@ def test_get_pool_combos_filters_swagger_2_path_value_violating_schemathesis_min
     assert _get_pool_combos(operation, extra_data_source) == []
 
 
-def _extract_json_body_examples(ctx, body_schema):
+def _extract_json_body_examples(ctx, body_schema, version="3.0.2"):
     schema = ctx.openapi.load_schema(
         {
             "/test": {
@@ -3226,7 +3227,8 @@ def _extract_json_body_examples(ctx, body_schema):
                     "responses": {"default": {"description": "OK"}},
                 }
             }
-        }
+        },
+        version=version,
     )
     return [example_to_dict(e) for e in extract_from_schemas(schema["/test"]["POST"])]
 
@@ -3300,6 +3302,141 @@ def test_gate_preserved_when_no_explicit_examples(ctx, body_schema):
     assert _extract_json_body_examples(ctx, body_schema) == []
 
 
+@pytest.mark.parametrize(
+    ("age", "expected"),
+    [({"type": "integer", "default": 30}, 30), ({"type": "integer", "minimum": 10, "default": 5}, 10)],
+    ids=["valid-default", "invalid-default"],
+)
+def test_property_without_example_uses_valid_default(ctx, age, expected):
+    assert _extract_json_body_examples(
+        ctx,
+        {
+            "type": "object",
+            "properties": {"name": {"type": "string", "example": "Alice"}, "age": age},
+            "required": ["name", "age"],
+        },
+    ) == [{"media_type": "application/json", "value": {"name": "Alice", "age": expected}}]
+
+
+def _example_cases(ctx, operation_definition, *, fill_missing, version="3.0.2"):
+    schema = ctx.openapi.load_schema(
+        {"/items": {"post": {**operation_definition, "responses": {"200": {"description": "OK"}}}}}, version=version
+    )
+    operation = schema["/items"]["POST"]
+    return [
+        (case.query, case.body)
+        for case in generate_example_cases(test=lambda: None, operation=operation, fill_missing=fill_missing)
+    ]
+
+
+@pytest.mark.parametrize(
+    ("version", "parameters"),
+    [
+        (
+            "2.0",
+            [
+                {"name": "q", "in": "query", "type": "string", "x-example": "x"},
+                {"name": "limit", "in": "query", "type": "integer", "default": 25},
+            ],
+        ),
+        (
+            "3.0.2",
+            [
+                {"name": "q", "in": "query", "schema": {"type": "string"}, "example": "x"},
+                {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 25}},
+            ],
+        ),
+        (
+            "3.1.0",
+            [
+                {"name": "q", "in": "query", "schema": {"type": "string"}, "example": "x"},
+                {"name": "limit", "in": "query", "schema": {"type": "integer", "default": 25}},
+            ],
+        ),
+    ],
+    ids=["swagger-2.0", "openapi-3.0", "openapi-3.1"],
+)
+def test_parameter_without_example_uses_default(ctx, version, parameters):
+    assert _example_cases(ctx, {"parameters": parameters}, fill_missing=False, version=version) == [
+        ({"q": "x", "limit": 25}, NOT_SET)
+    ]
+
+
+def test_parameter_default_violating_schema_is_generated(ctx):
+    parameters = [
+        {"name": "q", "in": "query", "schema": {"type": "string"}, "example": "x"},
+        {"name": "limit", "in": "query", "required": True, "schema": {"type": "integer", "minimum": 10, "default": 5}},
+    ]
+    assert _example_cases(ctx, {"parameters": parameters}, fill_missing=False) == [({"q": "x", "limit": 10}, NOT_SET)]
+
+
+def test_body_without_examples_uses_property_defaults_next_to_parameter_examples(ctx):
+    operation_definition = {
+        "parameters": [{"name": "q", "in": "query", "schema": {"type": "string"}, "example": "x"}],
+        "requestBody": {
+            "required": True,
+            "content": {
+                "application/json": {
+                    "schema": {
+                        "type": "object",
+                        "properties": {"name": {"type": "string", "default": "dflt"}},
+                        "required": ["name"],
+                    }
+                }
+            },
+        },
+    }
+    assert _example_cases(ctx, operation_definition, fill_missing=False) == [({"q": "x"}, {"name": "dflt"})]
+
+
+REQUIRED_QUERY_DEFAULT = {
+    "parameters": [{"name": "q", "in": "query", "required": True, "schema": {"type": "string", "default": "dflt"}}]
+}
+OPTIONAL_QUERY_DEFAULT = {
+    "parameters": [{"name": "limit", "in": "query", "schema": {"type": "integer", "default": 25}}]
+}
+BODY_PROPERTY_DEFAULT = {
+    "requestBody": {
+        "required": True,
+        "content": {
+            "application/json": {
+                "schema": {
+                    "type": "object",
+                    "properties": {"name": {"type": "string", "default": "dflt"}},
+                    "required": ["name"],
+                }
+            }
+        },
+    }
+}
+
+
+@pytest.mark.parametrize(
+    ("operation_definition", "expected"),
+    [
+        (REQUIRED_QUERY_DEFAULT, [({"q": "dflt"}, NOT_SET)]),
+        (OPTIONAL_QUERY_DEFAULT, []),
+        (BODY_PROPERTY_DEFAULT, []),
+    ],
+    ids=["required-parameter", "optional-parameter", "body-property"],
+)
+def test_only_required_parameter_default_counts_as_example(ctx, operation_definition, expected):
+    assert _example_cases(ctx, operation_definition, fill_missing=False) == expected
+
+
+@pytest.mark.parametrize(
+    ("operation_definition", "expected"),
+    [
+        (REQUIRED_QUERY_DEFAULT, [({"q": "dflt"}, NOT_SET)]),
+        (OPTIONAL_QUERY_DEFAULT, [({"limit": 25}, NOT_SET)]),
+        (BODY_PROPERTY_DEFAULT, [({}, {"name": "dflt"})]),
+    ],
+    ids=["required-parameter", "optional-parameter", "body-property"],
+)
+def test_fill_missing_uses_defaults(ctx, operation_definition, expected):
+    assert _example_cases(ctx, operation_definition, fill_missing=True) == expected
+
+
 @pytest.mark.parametrize("keyword", ["oneOf", "anyOf"])
 def test_branch_required_yields_disjoint_sets(ctx, keyword):
     # oneOf and anyOf are treated identically — one disjoint set per branch
@@ -3363,6 +3500,191 @@ def test_oneof_branch_isolation(ctx, body_schema, expected):
     assert _extract_json_body_examples(ctx, body_schema) == expected
 
 
+@pytest.mark.parametrize(
+    ("body_schema", "expected"),
+    [
+        (
+            {
+                "allOf": [
+                    {"required": ["name"], "properties": {"name": {"type": "string", "example": "base"}}},
+                    {"properties": {"extra": {"type": "string", "example": "extra"}}},
+                ]
+            },
+            [{"media_type": "application/json", "value": {"name": "base", "extra": "extra"}}],
+        ),
+        (
+            {
+                "oneOf": [
+                    {"required": ["cat"], "properties": {"cat": {"type": "string", "example": "meow"}}},
+                    {"required": ["dog"], "properties": {"dog": {"type": "string", "example": "woof"}}},
+                ]
+            },
+            [
+                {"media_type": "application/json", "value": {"cat": "meow"}},
+                {"media_type": "application/json", "value": {"dog": "woof"}},
+            ],
+        ),
+        (
+            {
+                "anyOf": [
+                    {"required": ["cat"], "properties": {"cat": {"type": "string", "example": "meow"}}},
+                    {"required": ["dog"], "properties": {"dog": {"type": "string", "example": "woof"}}},
+                ]
+            },
+            [
+                {"media_type": "application/json", "value": {"cat": "meow"}},
+                {"media_type": "application/json", "value": {"dog": "woof"}},
+            ],
+        ),
+        (
+            {
+                "allOf": [{"properties": {"kind": {"type": "string", "example": "pet"}}}],
+                "oneOf": [
+                    {"required": ["cat"], "properties": {"cat": {"type": "string", "example": "meow"}}},
+                    {"required": ["dog"], "properties": {"dog": {"type": "string", "example": "woof"}}},
+                ],
+            },
+            [
+                {"media_type": "application/json", "value": {"kind": "pet", "cat": "meow"}},
+                {"media_type": "application/json", "value": {"kind": "pet", "dog": "woof"}},
+            ],
+        ),
+        (
+            {"anyOf": [True, {"required": ["cat"], "properties": {"cat": {"type": "string", "example": "meow"}}}]},
+            [{"media_type": "application/json", "value": {"cat": "meow"}}],
+        ),
+        (
+            {
+                "properties": {
+                    "pet": {
+                        "oneOf": [
+                            {"required": ["cat"], "properties": {"cat": {"type": "string", "example": "meow"}}},
+                            {"required": ["dog"], "properties": {"dog": {"type": "string", "example": "woof"}}},
+                        ]
+                    }
+                }
+            },
+            [
+                {"media_type": "application/json", "value": {"pet": {"cat": "meow"}}},
+                {"media_type": "application/json", "value": {"pet": {"dog": "woof"}}},
+            ],
+        ),
+    ],
+    ids=["allOf", "oneOf", "anyOf", "allOf-and-oneOf", "boolean-branch", "nested-oneOf"],
+)
+def test_property_examples_under_composition(ctx, body_schema, expected):
+    assert _extract_json_body_examples(ctx, body_schema) == expected
+
+
+NESTED_BRANCHES = [{"type": "string", "example": "s"}, {"type": "integer", "example": 7}]
+
+
+@pytest.mark.parametrize(
+    ("body_schema", "expected"),
+    [
+        (
+            {"properties": {"v": {"anyOf": [{"oneOf": NESTED_BRANCHES}, {"nullable": True}]}}},
+            [
+                {"media_type": "application/json", "value": {"v": "s"}},
+                {"media_type": "application/json", "value": {"v": 7}},
+            ],
+        ),
+        (
+            {"properties": {"v": {"allOf": [{"oneOf": NESTED_BRANCHES}]}}},
+            [
+                {"media_type": "application/json", "value": {"v": "s"}},
+                {"media_type": "application/json", "value": {"v": 7}},
+            ],
+        ),
+        (
+            {"properties": {"v": {"oneOf": [{"oneOf": NESTED_BRANCHES}]}}},
+            [
+                {"media_type": "application/json", "value": {"v": "s"}},
+                {"media_type": "application/json", "value": {"v": 7}},
+            ],
+        ),
+        (
+            {
+                "properties": {
+                    "stop": {
+                        "nullable": True,
+                        "oneOf": [
+                            {"type": "string", "example": "stop-word"},
+                            {"type": "array", "items": {"type": "string", "example": "array-word"}},
+                        ],
+                    }
+                }
+            },
+            [
+                {"media_type": "application/json", "value": {"stop": ["array-word"]}},
+                {"media_type": "application/json", "value": {"stop": "stop-word"}},
+            ],
+        ),
+    ],
+    ids=["anyOf-oneOf", "allOf-oneOf", "oneOf-oneOf", "nullable-oneOf"],
+)
+def test_property_examples_under_nested_composition(ctx, body_schema, expected):
+    assert _extract_json_body_examples(ctx, body_schema) == expected
+
+
+def test_discriminated_branches_with_all_of_inheritance(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/test": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "oneOf": [
+                                        {"$ref": "#/components/schemas/Allow"},
+                                        {"$ref": "#/components/schemas/Deny"},
+                                    ],
+                                    "discriminator": {
+                                        "propertyName": "type",
+                                        "mapping": {
+                                            "allow": "#/components/schemas/Allow",
+                                            "deny": "#/components/schemas/Deny",
+                                        },
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"default": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Allow": {"allOf": [{"$ref": "#/components/schemas/PartialAllow"}]},
+                "PartialAllow": {
+                    "type": "object",
+                    "required": ["type", "host"],
+                    "properties": {
+                        "type": {"type": "string", "example": "allow"},
+                        "host": {"type": "string", "example": "allowed.com"},
+                    },
+                },
+                "Deny": {"allOf": [{"$ref": "#/components/schemas/PartialDeny"}]},
+                "PartialDeny": {
+                    "type": "object",
+                    "required": ["type", "host"],
+                    "properties": {
+                        "type": {"type": "string", "example": "deny"},
+                        "host": {"type": "string", "example": "denied.com"},
+                    },
+                },
+            }
+        },
+    )
+    assert [example_to_dict(e) for e in extract_from_schemas(schema["/test"]["POST"])] == [
+        {"media_type": "application/json", "value": {"type": "allow", "host": "allowed.com"}},
+        {"media_type": "application/json", "value": {"type": "deny", "host": "denied.com"}},
+    ]
+
+
 def test_oas31_ref_sibling_example_in_body_properties(ctx):
     # In OAS 3.1, $ref siblings are valid and must be applied
     # a sibling `example` on a property should be used as the example value
@@ -3398,6 +3720,66 @@ def test_oas31_ref_sibling_example_in_body_properties(ctx):
     )
     extracted = [example_to_dict(e) for e in extract_from_schemas(schema["/test"]["POST"])]
     assert extracted == [{"value": {"foo": "world", "bar": "ex"}, "media_type": "application/json"}]
+
+
+@pytest.mark.parametrize(
+    ("body_schema", "version", "expected"),
+    [
+        (
+            {"type": "array", "items": {"type": "string", "example": "item"}},
+            "3.0.2",
+            [{"value": ["item"], "media_type": "application/json"}],
+        ),
+        (
+            {"type": "array", "items": {"type": "string", "example": "item"}, "minItems": 2},
+            "3.0.2",
+            [{"value": ["item", "item"], "media_type": "application/json"}],
+        ),
+        (
+            {
+                "type": "object",
+                "properties": {"tags": {"type": "array", "items": {"type": "string", "example": "tag"}}},
+            },
+            "3.0.2",
+            [{"value": {"tags": ["tag"]}, "media_type": "application/json"}],
+        ),
+        (
+            {"type": "array", "items": {"type": "string", "examples": ["item"]}},
+            "3.1.0",
+            [{"value": ["item"], "media_type": "application/json"}],
+        ),
+        (
+            {"type": "array", "items": {"type": "string", "example": 42}},
+            "3.0.2",
+            [],
+        ),
+    ],
+    ids=["body", "min-items", "body-property", "examples-3.1", "invalid-example"],
+)
+def test_array_item_examples_in_body(ctx, body_schema, version, expected):
+    assert _extract_json_body_examples(ctx, body_schema, version=version) == expected
+
+
+def test_array_item_example_in_query_parameter(ctx):
+    schema = ctx.openapi.load_schema(
+        {
+            "/test": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "q",
+                            "in": "query",
+                            "schema": {"type": "array", "items": {"type": "integer", "example": 7}},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )
+    assert list(extract_from_schemas(schema["/test"]["GET"])) == [
+        ParameterExample(container="query", name="q", value=[7])
+    ]
 
 
 def test_array_body_property_with_min_items_generates_correct_length():
@@ -4242,3 +4624,605 @@ def test_generated_property_with_recursive_ref(ctx):
     assert len(extracted) == 1
     assert extracted[0]["Fulfilment"] == {"Method": "Delivery"}
     assert isinstance(extracted[0]["Items"], list)
+
+
+def test_self_referencing_optional_property(ctx):
+    # A cut cycle carries no example, so the property is left out rather than filled with `null`.
+    schema = ctx.openapi.load_schema(
+        {
+            "/nodes": {
+                "post": {
+                    "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/Node"}}}},
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Node": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "example": "n"},
+                        "child": {"$ref": "#/components/schemas/Node"},
+                    },
+                }
+            }
+        },
+    )
+
+    assert [example.value for example in extract_from_schemas(schema["/nodes"]["POST"])] == [{"name": "n"}]
+
+
+def test_required_property_closing_a_cycle(ctx):
+    # The cut cycle is required, so it is generated from the schema it points at, not from an empty one.
+    schema = ctx.openapi.load_schema(
+        {
+            "/nodes": {
+                "post": {
+                    "requestBody": {"content": {"application/json": {"schema": {"$ref": "#/components/schemas/Node"}}}},
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Node": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "example": "n"},
+                        "link": {"$ref": "#/components/schemas/Link"},
+                    },
+                },
+                "Link": {
+                    "type": "object",
+                    "required": ["target"],
+                    "properties": {
+                        "tag": {"type": "string", "example": "t"},
+                        "target": {"$ref": "#/components/schemas/Node"},
+                    },
+                },
+            }
+        },
+    )
+
+    extracted = [example.value for example in extract_from_schemas(schema["/nodes"]["POST"])]
+
+    assert len(extracted) == 1
+    assert extracted[0]["name"] == "n"
+    assert extracted[0]["link"]["tag"] == "t"
+    assert isinstance(extracted[0]["link"]["target"], dict)
+
+
+def test_mutually_recursive_allof_refs(ctx):
+    # A cycle that runs through `allOf` members only, so no single schema repeats a `$ref` directly.
+    schema = ctx.openapi.load_schema(
+        {
+            "/test": {
+                "post": {
+                    "requestBody": {
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Statement"}}}
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Statement": {"allOf": [{"$ref": "#/components/schemas/StatementBody"}]},
+                "StatementBody": {
+                    "type": "object",
+                    "properties": {
+                        "Name": {"type": "string", "example": "rate-limit"},
+                        "Scope": {"allOf": [{"$ref": "#/components/schemas/NestedBody"}]},
+                    },
+                },
+                "NestedBody": {
+                    "type": "object",
+                    "properties": {"Inner": {"allOf": [{"$ref": "#/components/schemas/StatementBody"}]}},
+                },
+            }
+        },
+    )
+
+    assert [example.value for example in extract_from_schemas(schema["/test"]["POST"])] == [
+        {"Name": "rate-limit", "Scope": {}}
+    ]
+
+
+def test_boolean_property_subschema_alongside_a_cycle(ctx):
+    # The cycle keeps the body bundled, and a boolean subschema has to survive that.
+    schema = ctx.openapi.load_schema(
+        {
+            "/test": {
+                "post": {
+                    "requestBody": {
+                        "content": {"application/json": {"schema": {"$ref": "#/components/schemas/Payload"}}}
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Payload": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "example": "n"},
+                        "anything": True,
+                        "child": {"$ref": "#/components/schemas/Payload"},
+                    },
+                }
+            }
+        },
+    )
+
+    assert [example.value for example in extract_from_schemas(schema["/test"]["POST"])] == [
+        {"name": "n", "anything": None}
+    ]
+
+
+def test_both_example_keywords_yield_in_a_stable_order(ctx):
+    # The spec-native keyword comes first, and the order holds across processes.
+    schema = ctx.openapi.load_schema(
+        {
+            "/test": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "key",
+                            "in": "query",
+                            "type": "string",
+                            "x-example": "from-x-example",
+                            "example": "from-example",
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="2.0",
+    )
+
+    assert [example.value for example in extract_top_level(schema["/test"]["GET"])] == [
+        "from-x-example",
+        "from-example",
+    ]
+
+
+def test_branches_from_both_oneof_and_anyof(ctx):
+    # Every alternative of both keywords contributes a branch.
+    schema = ctx.openapi.load_schema(
+        {
+            "/test": {
+                "post": {
+                    "requestBody": {
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "type": "object",
+                                    "properties": {"common": {"type": "string", "example": "c"}},
+                                    "oneOf": [{"properties": {"a": {"type": "string", "example": "A"}}}],
+                                    "anyOf": [{"properties": {"b": {"type": "string", "example": "B"}}}],
+                                }
+                            }
+                        }
+                    },
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+    )
+
+    assert [example.value for example in extract_from_schemas(schema["/test"]["POST"])] == [
+        {"common": "c", "a": "A"},
+        {"common": "c", "b": "B"},
+    ]
+
+
+@pytest.mark.parametrize(
+    "components",
+    [
+        pytest.param(
+            {
+                "schemas": {
+                    "Base": {
+                        "type": "object",
+                        "required": ["type"],
+                        "properties": {"type": {"type": "string", "enum": ["attach", "resize"]}},
+                    },
+                    "Attach": {
+                        "allOf": [
+                            {"$ref": "#/components/schemas/Base"},
+                            {
+                                "properties": {"droplet_id": {"type": "integer", "example": 11111}},
+                                "required": ["droplet_id"],
+                            },
+                        ]
+                    },
+                    "Resize": {
+                        "allOf": [
+                            {"$ref": "#/components/schemas/Base"},
+                            {
+                                "properties": {"size": {"type": "string", "example": "s-1vcpu-1gb"}},
+                                "required": ["size"],
+                            },
+                        ]
+                    },
+                }
+            },
+            id="tag-through-allof",
+        ),
+        pytest.param(
+            {
+                "schemas": {
+                    "Attach": {
+                        "type": "object",
+                        "required": ["type", "droplet_id"],
+                        "properties": {
+                            "type": {"type": "string", "enum": ["attach", "resize"]},
+                            "droplet_id": {"type": "integer", "example": 11111},
+                        },
+                    },
+                    "Resize": {
+                        "type": "object",
+                        "required": ["type", "size"],
+                        "properties": {
+                            "type": {"type": "string", "enum": ["attach", "resize"]},
+                            "size": {"type": "string", "example": "s-1vcpu-1gb"},
+                        },
+                    },
+                }
+            },
+            id="tag-declared-inline",
+        ),
+        pytest.param(
+            {
+                "schemas": {
+                    "Base": {
+                        "type": "object",
+                        "required": ["type"],
+                        "properties": {"type": {"type": "string", "enum": ["attach", "resize"]}},
+                    },
+                    "Attach": {
+                        "allOf": [
+                            {"$ref": "#/components/schemas/Attach"},
+                            {"$ref": "#/components/schemas/Base"},
+                            {
+                                "properties": {"droplet_id": {"type": "integer", "example": 11111}},
+                                "required": ["droplet_id"],
+                            },
+                        ]
+                    },
+                    "Resize": {
+                        "allOf": [
+                            {"$ref": "#/components/schemas/Resize"},
+                            {"$ref": "#/components/schemas/Base"},
+                            {
+                                "properties": {"size": {"type": "string", "example": "s-1vcpu-1gb"}},
+                                "required": ["size"],
+                            },
+                        ]
+                    },
+                }
+            },
+            id="tag-through-recursive-allof",
+        ),
+    ],
+)
+def test_discriminated_branches_with_shared_multi_value_tag(ctx, components):
+    # The schema name is not one of the values the shared tag allows, so pinning it to the name
+    # would make both branches impossible and drop their examples.
+    schema = ctx.openapi.load_schema(
+        {
+            "/test": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "oneOf": [
+                                        {"$ref": "#/components/schemas/Attach"},
+                                        {"$ref": "#/components/schemas/Resize"},
+                                    ],
+                                    "discriminator": {"propertyName": "type"},
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"default": {"description": "OK"}},
+                }
+            }
+        },
+        components=components,
+    )
+    assert [example.value for example in extract_from_schemas(schema["/test"]["POST"])] == [
+        {"type": "attach", "droplet_id": 11111},
+        {"type": "attach", "size": "s-1vcpu-1gb"},
+    ]
+
+
+@pytest.mark.parametrize(
+    "components",
+    [
+        pytest.param(
+            {
+                "schemas": {
+                    "Anything": True,
+                    "Attach": {
+                        "allOf": [
+                            {"$ref": "#/components/schemas/Anything"},
+                            {
+                                "type": "object",
+                                "required": ["type", "droplet_id"],
+                                "properties": {
+                                    "type": {"type": "string", "enum": ["attach", "resize"]},
+                                    "droplet_id": {"type": "integer", "example": 11111},
+                                },
+                            },
+                        ]
+                    },
+                    "Resize": {
+                        "allOf": [
+                            {"$ref": "#/components/schemas/Anything"},
+                            {
+                                "type": "object",
+                                "required": ["type", "size"],
+                                "properties": {
+                                    "type": {"type": "string", "enum": ["attach", "resize"]},
+                                    "size": {"type": "string", "example": "s-1vcpu-1gb"},
+                                },
+                            },
+                        ]
+                    },
+                }
+            },
+            id="referenced-boolean-subschema",
+        ),
+        pytest.param(
+            {
+                "schemas": {
+                    "Base": {
+                        "type": "object",
+                        "required": ["type"],
+                        "properties": {"type": {"type": "string", "enum": ["attach", "resize"]}},
+                    },
+                    "Attach": {
+                        "allOf": [
+                            True,
+                            {"$ref": "#/components/schemas/Base"},
+                            {
+                                "properties": {"droplet_id": {"type": "integer", "example": 11111}},
+                                "required": ["droplet_id"],
+                            },
+                        ]
+                    },
+                    "Resize": {
+                        "allOf": [
+                            True,
+                            {"$ref": "#/components/schemas/Base"},
+                            {
+                                "properties": {"size": {"type": "string", "example": "s-1vcpu-1gb"}},
+                                "required": ["size"],
+                            },
+                        ]
+                    },
+                }
+            },
+            id="inline-boolean-subschema",
+        ),
+    ],
+)
+def test_discriminated_branches_with_boolean_subschemas(ctx, components):
+    # A branch that composes `true` still has its tag read from the members that constrain it.
+    schema = ctx.openapi.load_schema(
+        {
+            "/test": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "oneOf": [
+                                        {"$ref": "#/components/schemas/Attach"},
+                                        {"$ref": "#/components/schemas/Resize"},
+                                    ],
+                                    "discriminator": {"propertyName": "type"},
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"default": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.1.0",
+        components=components,
+    )
+    assert [example.value for example in extract_from_schemas(schema["/test"]["POST"])] == [
+        {"type": "attach", "droplet_id": 11111},
+        {"type": "attach", "size": "s-1vcpu-1gb"},
+    ]
+
+
+def test_discriminated_branches_with_nullable_tag_without_enum(ctx):
+    # A nullable tag that names no literals takes any string, so the schema name still disambiguates.
+    schema = ctx.openapi.load_schema(
+        {
+            "/test": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "oneOf": [
+                                        {"$ref": "#/components/schemas/Attach"},
+                                        {"$ref": "#/components/schemas/Resize"},
+                                    ],
+                                    "discriminator": {"propertyName": "type"},
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"default": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.1.0",
+        components={
+            "schemas": {
+                "Base": {
+                    "type": "object",
+                    "required": ["type"],
+                    "properties": {"type": {"anyOf": [{"type": "string"}, {"type": "null"}]}},
+                },
+                "Attach": {
+                    "allOf": [
+                        {"$ref": "#/components/schemas/Base"},
+                        {
+                            "properties": {"droplet_id": {"type": "integer", "example": 11111}},
+                            "required": ["droplet_id"],
+                        },
+                    ]
+                },
+                "Resize": {
+                    "allOf": [
+                        {"$ref": "#/components/schemas/Base"},
+                        {
+                            "properties": {"size": {"type": "string", "example": "s-1vcpu-1gb"}},
+                            "required": ["size"],
+                        },
+                    ]
+                },
+            }
+        },
+    )
+    assert [example.value for example in extract_from_schemas(schema["/test"]["POST"])] == [
+        {"type": "Attach", "droplet_id": 11111},
+        {"type": "Resize", "size": "s-1vcpu-1gb"},
+    ]
+
+
+def test_discriminated_branch_with_empty_mapping_value(ctx):
+    # An empty tag carries no information, so that branch keeps the examples it declares.
+    schema = ctx.openapi.load_schema(
+        {
+            "/test": {
+                "post": {
+                    "requestBody": {
+                        "required": True,
+                        "content": {
+                            "application/json": {
+                                "schema": {
+                                    "oneOf": [
+                                        {"$ref": "#/components/schemas/Cat"},
+                                        {"$ref": "#/components/schemas/Dog"},
+                                    ],
+                                    "discriminator": {
+                                        "propertyName": "petType",
+                                        "mapping": {
+                                            "": "#/components/schemas/Cat",
+                                            "dog": "#/components/schemas/Dog",
+                                        },
+                                    },
+                                }
+                            }
+                        },
+                    },
+                    "responses": {"default": {"description": "OK"}},
+                }
+            }
+        },
+        components={
+            "schemas": {
+                "Cat": {
+                    "type": "object",
+                    "required": ["petType", "meows"],
+                    "properties": {
+                        "petType": {"type": "string", "example": "cat"},
+                        "meows": {"type": "boolean", "example": True},
+                    },
+                },
+                "Dog": {
+                    "type": "object",
+                    "required": ["petType", "barks"],
+                    "properties": {
+                        "petType": {"type": "string", "example": "dog"},
+                        "barks": {"type": "boolean", "example": True},
+                    },
+                },
+            }
+        },
+    )
+    assert [example.value for example in extract_from_schemas(schema["/test"]["POST"])] == [
+        {"petType": "cat", "meows": True},
+        {"petType": "dog", "barks": True},
+    ]
+
+
+def test_x_example_in_openapi_3_parameter_schema(ctx):
+    # `x-example` works on body properties in every version, so it must work on parameters too.
+    schema = ctx.openapi.load_schema(
+        {
+            "/test/{id}": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string", "x-example": "abc"},
+                        },
+                        {"name": "q", "in": "query", "schema": {"type": "string", "x-example": "qq"}},
+                        {
+                            "name": "filter",
+                            "in": "query",
+                            "schema": {"type": "object", "properties": {"name": {"type": "string", "x-example": "nn"}}},
+                        },
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+    )
+    operation = schema["/test/{id}"]["GET"]
+
+    assert [
+        (case.path_parameters, case.query)
+        for case in generate_example_cases(test=lambda: None, operation=operation, fill_missing=False)
+    ] == [({"id": "abc"}, {"q": "qq", "name": "nn"})]
+
+
+def test_x_examples_in_openapi_3_parameters(ctx):
+    # Real-world 3.0 specs carry `x-examples` on parameters, same as the accepted `x-example`.
+    schema = ctx.openapi.load_schema(
+        {
+            "/test/{id}": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "id",
+                            "in": "path",
+                            "required": True,
+                            "schema": {"type": "string", "x-examples": ["abc"]},
+                        },
+                        {
+                            "name": "q",
+                            "in": "query",
+                            "x-examples": {"first": {"value": "qq"}},
+                            "schema": {"type": "string"},
+                        },
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+    )
+    operation = schema["/test/{id}"]["GET"]
+
+    assert [
+        (case.path_parameters, case.query)
+        for case in generate_example_cases(test=lambda: None, operation=operation, fill_missing=False)
+    ] == [({"id": "abc"}, {"q": "qq"})]

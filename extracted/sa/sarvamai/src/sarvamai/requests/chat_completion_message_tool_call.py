@@ -9,7 +9,7 @@ from .function_call import FunctionCallParams
 class ChatCompletionMessageToolCallParams(typing_extensions.TypedDict):
     id: str
     """
-    The ID of the tool call.
+    Tool call id (for example `call-<uuid>`).
     """
 
     type: typing.Literal["function"]

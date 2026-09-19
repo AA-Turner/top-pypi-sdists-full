@@ -175,8 +175,10 @@ def _run_uv_tool_cleanup(managed: ManagedConfig) -> None:
     if not host or not secret or uv_tool_cleanup_completed():
         return
 
+    from runlayer_cli.scan.device import get_or_create_device_id  # noqa: PLC0415
+
     client = RunlayerClient(hostname=normalize_url(host), secret=secret)
-    config = client.get_aiwatch_config()
+    config = client.get_aiwatch_config(device_id=get_or_create_device_id())
     if config is None or config["remove_uv_tool"] is not True:
         return
 

@@ -1,8 +1,7 @@
-from pandas import DataFrame
-
 from graphdatascience.arrow_client.v1.gds_arrow_client import GdsArrowClient
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
+from graphdatascience.procedure_surface.api.catalog.relationships_data_frame import RelationshipsDataFrame
 from graphdatascience.procedure_surface.api.catalog.relationships_endpoints import (
     Aggregation,
     CollapsePathResult,
@@ -16,6 +15,8 @@ from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, AL
 from graphdatascience.procedure_surface.cypher.catalog.utils import require_database
 from graphdatascience.procedure_surface.cypher.collapse_path_cypher_endpoints import CollapsePathCypherEndpoints
 from graphdatascience.procedure_surface.utils.config_converter import ConfigConverter
+from graphdatascience.procedure_surface.utils.result_utils import transpose_relationship_property_columns
+from graphdatascience.query_runner.query_mode import QueryMode
 from graphdatascience.query_runner.query_runner import QueryRunner
 
 
@@ -27,7 +28,7 @@ class RelationshipCypherEndpoints(RelationshipsEndpoints):
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         relationship_types: list[str] = ALL_TYPES,
         relationship_properties: list[str] | None = None,
         *,
@@ -35,28 +36,34 @@ class RelationshipCypherEndpoints(RelationshipsEndpoints):
         sudo: bool = False,
         log_progress: bool = True,
         username: str | None = None,
-    ) -> DataFrame:
+        job_id: str | None = None,
+    ) -> RelationshipsDataFrame:
         effective_rel_types = relationship_types if relationship_types is not None else ["*"]
 
         if self._gds_arrow_client is not None:
             database = require_database(self._query_runner)
 
             if relationship_properties:
-                return self._gds_arrow_client.get_relationship_properties(
-                    G.name(),
-                    database,
-                    relationship_properties,
-                    effective_rel_types,
-                    concurrency,
+                return RelationshipsDataFrame(
+                    self._gds_arrow_client.get_relationship_properties(
+                        G.name(),
+                        database,
+                        relationship_properties,
+                        effective_rel_types,
+                        concurrency,
+                    )
                 )
             else:
-                return self._gds_arrow_client.get_relationships(G.name(), database, effective_rel_types, concurrency)
+                return RelationshipsDataFrame(
+                    self._gds_arrow_client.get_relationships(G.name(), database, effective_rel_types, concurrency)
+                )
         else:
             config = ConfigConverter.convert_to_gds_config(
                 concurrency=concurrency,
                 sudo=sudo,
                 log_progress=log_progress,
                 username=username,
+                job_id=job_id,
             )
 
             if not relationship_properties:
@@ -85,14 +92,14 @@ class RelationshipCypherEndpoints(RelationshipsEndpoints):
 
             result = self._query_runner.call_procedure(endpoint=endpoint, params=params)
 
-            if relationship_properties and len(relationship_properties) == 1:
-                result = result.rename(columns={"propertyValue": relationship_properties[0]})
+            if relationship_properties:
+                result = transpose_relationship_property_columns(result, relationship_properties)
 
-            return result
+            return RelationshipsDataFrame(result)
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         relationship_type: str,
         relationship_properties: list[str] | None = None,
         *,
@@ -130,13 +137,13 @@ class RelationshipCypherEndpoints(RelationshipsEndpoints):
 
         params.ensure_job_id_in_config()
 
-        result = self._query_runner.call_procedure(endpoint=endpoint, params=params, logging=log_progress).squeeze()
+        result = self._query_runner.call_procedure(endpoint=endpoint, params=params, logging=log_progress).iloc[0]
 
-        return RelationshipsWriteResult(**result.to_dict())
+        return RelationshipsWriteResult(**result)
 
     def drop(
         self,
-        G: GraphV2,
+        G: Graph,
         relationship_type: str,
         *,
         fail_if_missing: bool = True,
@@ -149,13 +156,19 @@ class RelationshipCypherEndpoints(RelationshipsEndpoints):
             relationship_type=relationship_type,
         )
 
-        result = self._query_runner.call_procedure(endpoint="gds.graph.relationships.drop", params=params).squeeze()
+        result = self._query_runner.call_procedure(
+            endpoint="gds.graph.relationships.drop",
+            params=params,
+            # dropping is idempotent as long as a missing relationship type is not an error
+            retryable=not fail_if_missing,
+            mode=QueryMode.WRITE,
+        ).iloc[0]
 
-        return RelationshipsDropResult(**result.to_dict())
+        return RelationshipsDropResult(**result)
 
     def index_inverse(
         self,
-        G: GraphV2,
+        G: Graph,
         relationship_types: list[str],
         *,
         concurrency: int | None = None,
@@ -181,13 +194,13 @@ class RelationshipCypherEndpoints(RelationshipsEndpoints):
 
         result = self._query_runner.call_procedure(
             endpoint="gds.graph.relationships.indexInverse", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return RelationshipsInverseIndexResult(**result.to_dict())
+        return RelationshipsInverseIndexResult(**result)
 
     def to_undirected(
         self,
-        G: GraphV2,
+        G: Graph,
         relationship_type: str,
         mutate_relationship_type: str,
         *,
@@ -223,13 +236,13 @@ class RelationshipCypherEndpoints(RelationshipsEndpoints):
 
         result = self._query_runner.call_procedure(
             endpoint="gds.graph.relationships.toUndirected", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return RelationshipsToUndirectedResult(**result.to_dict())
+        return RelationshipsToUndirectedResult(**result)
 
     def collapse_path(
         self,
-        G: GraphV2,
+        G: Graph,
         path_templates: list[list[str]],
         mutate_relationship_type: str,
         *,

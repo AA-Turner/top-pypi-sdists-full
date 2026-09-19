@@ -15,8 +15,11 @@ Lifecycle is identical to the in-process `BrowserSessionManager`:
 Sessions auto-evict after SESSION_TTL_SECONDS of idle (5 min) so abandoned
 clients can't leak Chromium memory.
 
-Auth is enforced one layer up — this router is mounted under
-`Depends(require_authenticated)` in matrx_scraper.server.app.
+Auth is enforced one layer up — this router is mounted in
+matrx_scraper.server.app under the service-or-login dependency, which admits a
+real user JWT or an approved server and requires `X-Organization-Id` on every
+call: a pooled browser session is driven on a tenant's behalf, so the
+organization is on the wire or the call is refused.
 
 The SSRF gate is NOT here — it lives in `ai_browser/url_guard.py` and is
 applied inside `ai_browser/actions.py`, so the MCP server, matrx-ai's

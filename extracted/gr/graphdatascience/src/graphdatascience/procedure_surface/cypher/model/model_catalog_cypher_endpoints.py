@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import Hashable
 from typing import Any
 
 import neo4j
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.model.v2.model_details import ModelDetails
+from graphdatascience.model.model_details import ModelDetails
 from graphdatascience.procedure_surface.api.model.model_catalog_endpoints import (
     ModelCatalogEndpoints,
     ModelDeleteResult,
@@ -13,6 +14,7 @@ from graphdatascience.procedure_surface.api.model.model_catalog_endpoints import
     ModelLoadResult,
     ModelStoreResult,
 )
+from graphdatascience.query_runner.query_mode import QueryMode
 from graphdatascience.query_runner.query_runner import QueryRunner
 
 
@@ -46,7 +48,14 @@ class ModelCatalogCypherEndpoints(ModelCatalogEndpoints):
 
     def drop(self, model_name: str, *, fail_if_missing: bool = True) -> ModelDetails | None:
         params = CallParameters(model_name=model_name, fail_if_missing=fail_if_missing)
-        df = self._query_runner.call_procedure("gds.model.drop", params=params, custom_error=False)
+        df = self._query_runner.call_procedure(
+            "gds.model.drop",
+            params=params,
+            custom_error=False,
+            # dropping is idempotent as long as a missing model is not an error
+            retryable=not fail_if_missing,
+            mode=QueryMode.WRITE,
+        )
         if df.empty and fail_if_missing:
             raise ValueError(f"Model with name `{model_name}` does not exist")
         if df.empty:
@@ -57,7 +66,14 @@ class ModelCatalogCypherEndpoints(ModelCatalogEndpoints):
         params = CallParameters(model_name=model_name)
 
         try:
-            df = self._query_runner.call_procedure("gds.model.delete", params=params, custom_error=False)
+            df = self._query_runner.call_procedure(
+                "gds.model.delete",
+                params=params,
+                custom_error=False,
+                # deleting is idempotent as long as a missing model is not an error
+                retryable=not fail_if_missing,
+                mode=QueryMode.WRITE,
+            )
         except neo4j.exceptions.ClientError as e:
             if "Model with name" not in str(e) or fail_if_missing:
                 raise e
@@ -68,14 +84,14 @@ class ModelCatalogCypherEndpoints(ModelCatalogEndpoints):
             raise ValueError(f"Model with name `{model_name}` does not exist")
         if df.empty:
             return None
-        return ModelDeleteResult(**df.iloc[0].to_dict())
+        return ModelDeleteResult(**df.iloc[0])
 
     def load(self, model_name: str) -> ModelLoadResult:
         params = CallParameters(model_name=model_name)
         df = self._query_runner.call_procedure("gds.model.load", params=params, custom_error=False)
         if df.empty:
             raise ValueError(f"Model with name `{model_name}` does not exist")
-        return ModelLoadResult(**df.iloc[0].to_dict())
+        return ModelLoadResult(**df.iloc[0])
 
     def store(self, model_name: str, *, fail_if_unsupported: bool = False) -> ModelStoreResult:
         # Historical parameter name is 'fail_flag' in some versions
@@ -83,7 +99,7 @@ class ModelCatalogCypherEndpoints(ModelCatalogEndpoints):
         df = self._query_runner.call_procedure("gds.model.store", params=params, custom_error=False)
         if df.empty:
             raise ValueError(f"Model with name `{model_name}` does not exist")
-        return ModelStoreResult(**df.iloc[0].to_dict())
+        return ModelStoreResult(**df.iloc[0])
 
     def publish(self, model_name: str) -> ModelDetails:
         params = CallParameters(model_name=model_name)
@@ -92,8 +108,8 @@ class ModelCatalogCypherEndpoints(ModelCatalogEndpoints):
             raise ValueError(f"Model with name `{model_name}` does not exist")
         return self._to_model_details(df.iloc[0].to_dict())
 
-    def _to_model_details(self, result: dict[str, Any]) -> ModelDetails:
+    def _to_model_details(self, result: dict[Hashable, Any]) -> ModelDetails:
         creation_time = result.get("creationTime", None)
         if creation_time and isinstance(creation_time, neo4j.time.DateTime):
             result["creationTime"] = creation_time.to_native()
-        return ModelDetails(**result)
+        return ModelDetails.model_validate(result)

@@ -142,8 +142,8 @@ class TestDetectExistingWorktree:
         """A conventional directory with a .git entry that git validates resumes with branch None."""
         repo_root = tmp_path / "main"
         repo_root.mkdir()
-        conventional = tmp_path / "1900"
-        conventional.mkdir()
+        conventional = tmp_path / "wt" / "1900"
+        conventional.mkdir(parents=True)
         (conventional / ".git").write_text("gitdir: ../.git/worktrees/1900", encoding="utf-8")
         monkeypatch.setattr(worktree, "run_git_safe", lambda args, cwd=None: SimpleNamespace(stdout=""))
 
@@ -171,8 +171,8 @@ class TestDetectExistingWorktree:
         """A valid conventional fallback is rejected when explicit registration is required."""
         repo_root = tmp_path / "main"
         repo_root.mkdir()
-        conventional = tmp_path / "1900"
-        conventional.mkdir()
+        conventional = tmp_path / "wt" / "1900"
+        conventional.mkdir(parents=True)
         (conventional / ".git").write_text("gitdir: ../.git/worktrees/1900", encoding="utf-8")
         monkeypatch.setattr(worktree, "run_git_safe", lambda args, cwd=None: SimpleNamespace(stdout=""))
 
@@ -185,8 +185,8 @@ class TestDetectExistingWorktree:
         """A conventional directory with a .git file that git rejects is reported as corrupt (FR-010)."""
         repo_root = tmp_path / "main"
         repo_root.mkdir()
-        conventional = tmp_path / "1900"
-        conventional.mkdir()
+        conventional = tmp_path / "wt" / "1900"
+        conventional.mkdir(parents=True)
         (conventional / ".git").write_text("gitdir: ../.git/worktrees/1900", encoding="utf-8")
         monkeypatch.setattr(worktree, "run_git_safe", lambda args, cwd=None: SimpleNamespace(stdout=""))
         # Simulate a stale/broken gitdir: rev-parse --git-dir fails.
@@ -203,8 +203,8 @@ class TestDetectExistingWorktree:
         """A conventional directory without .git is reported as corrupt."""
         repo_root = tmp_path / "main"
         repo_root.mkdir()
-        conventional = tmp_path / "PROJECT-1234"
-        conventional.mkdir()
+        conventional = tmp_path / "wt" / "PROJECT-1234"
+        conventional.mkdir(parents=True)
         monkeypatch.setattr(worktree, "run_git_safe", lambda args, cwd=None: SimpleNamespace(stdout=""))
 
         result = worktree.detect_existing_worktree("PROJECT-1234", str(repo_root))
@@ -293,6 +293,10 @@ class TestDetectExistingWorktree:
         monkeypatch.setattr(
             worktree, "run_git_capture", lambda args, cwd=None: SimpleNamespace(returncode=0, stdout=".git")
         )
+        monkeypatch.setattr(
+            "agentic_devtools.cli.git.worktree_paths.get_effective_project_config_raw_value",
+            lambda *args, **kwargs: None,
+        )
 
         result = worktree.detect_existing_worktree("#1900", str(repo_root))
 
@@ -303,8 +307,8 @@ class TestDetectExistingWorktree:
         """A conventional path that is a valid git repo but from a different origin is corrupt."""
         repo_root = tmp_path / "main"
         repo_root.mkdir()
-        conventional = tmp_path / "1900"
-        conventional.mkdir()
+        conventional = tmp_path / "wt" / "1900"
+        conventional.mkdir(parents=True)
         (conventional / ".git").write_text("gitdir: /other/repo/.git/worktrees/1900", encoding="utf-8")
         monkeypatch.setattr(worktree, "run_git_safe", lambda args, cwd=None: SimpleNamespace(stdout=""))
 
@@ -332,8 +336,8 @@ class TestDetectExistingWorktree:
         """A conventional path is corrupt when git-common-dir command fails for the candidate."""
         repo_root = tmp_path / "main"
         repo_root.mkdir()
-        conventional = tmp_path / "1900"
-        conventional.mkdir()
+        conventional = tmp_path / "wt" / "1900"
+        conventional.mkdir(parents=True)
         (conventional / ".git").write_text("gitdir: ../.git/worktrees/1900", encoding="utf-8")
         monkeypatch.setattr(worktree, "run_git_safe", lambda args, cwd=None: SimpleNamespace(stdout=""))
 

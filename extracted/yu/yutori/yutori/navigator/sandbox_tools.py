@@ -35,6 +35,8 @@ from typing import Any, NamedTuple
 
 from PIL import Image
 
+from .n2_actions import require_positive_read_offset, truncate_with_marker
+
 BASH_RESULT_MAX_CHARS = 30_000
 
 FILE_TOOL_SCRIPT = r"""
@@ -325,9 +327,7 @@ def join_output_streams(result: Any) -> str:
 
 
 def truncate_tool_output(text: str, max_chars: int = BASH_RESULT_MAX_CHARS) -> str:
-    if len(text) <= max_chars:
-        return text
-    return f"{text[:max_chars]}\n\n[... output truncated, {len(text) - max_chars} more chars ...]"
+    return truncate_with_marker(text, max_chars)
 
 
 def format_shell_output(output: str, exit_code: int) -> str:
@@ -557,7 +557,10 @@ class PointerKeyLifecycleMixin:
 
     Mix into a computer adapter that already implements ``key_down``, ``key_up``,
     and ``left_mouse_up``, and tracks a ``_left_mouse_down`` bool set by its own
-    ``left_mouse_down``/``left_mouse_up``.
+    ``left_mouse_down``/``left_mouse_up``. A subclass may override ``hold_key``
+    and ``wait`` (e.g. to route through its own cancellation-aware sleep, as
+    ``MacOSComputer`` does) while still picking up ``release_held_mouse_button``
+    from here.
     """
 
     async def key_down(self, key: str) -> None:
@@ -607,8 +610,7 @@ class ShellFileToolsMixin:
         raise NotImplementedError
 
     async def read_file(self, file_path: str, offset: int = 1, limit: int = 2_000) -> "str | dict[str, str]":
-        if offset < 1:
-            raise ValueError("read.offset must be a positive 1-based line number")
+        require_positive_read_offset(offset)
         output = await self._run_file_tool("read", file_path=file_path, offset=offset, limit=limit)
         if output.startswith("__YUTORI_IMAGE__"):
             _, _, encoded = output.partition("\n")

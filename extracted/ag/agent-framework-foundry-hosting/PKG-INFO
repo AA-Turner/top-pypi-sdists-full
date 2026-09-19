@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-foundry-hosting
-Version: 1.0.0b260910
+Version: 1.0.0b260918
 Summary: Foundry Hosting integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core>=1.17.0,<2
+Requires-Dist: agent-framework-core>=1.19.0,<2
 Requires-Dist: azure-ai-agentserver-core>=2.1.0,<3
 Requires-Dist: azure-ai-agentserver-responses>=2.2.0b1,<3
 Requires-Dist: azure-ai-agentserver-invocations>=1.1.0,<2
@@ -114,6 +114,12 @@ for an example that uses an in-memory session store locally and Azure Cosmos DB 
 Native Responses refusal parts are stored as text carrying
 `additional_properties["model_output_kind"] == "refusal"` and emitted as
 `response.refusal.*` events when streamed back to clients.
+
+`InvocationsHostServer` keeps sessions in memory. When hosted, `AgentSession.session_id` is an
+opaque composite identifier that preserves the boundaries between the platform session ID
+and user ID. Consumers must use it as a whole and must not parse it or depend on its internal
+representation. Repeated requests for the same identifier pair reuse the session. Locally,
+the platform session ID is used unchanged.
 
 ### Workflow checkpoints
 

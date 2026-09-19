@@ -24,7 +24,10 @@ from runlayer_cli.plugins.installer import (
     resolve_plugin_dirs,
     update_plugins,
 )
-from runlayer_cli.plugins.layouts import CODEX_NATIVE_INSTALL_MODE
+from runlayer_cli.plugins.layouts import (
+    CLAUDE_CODE_NATIVE_INSTALL_MODE,
+    CODEX_NATIVE_INSTALL_MODE,
+)
 from tests.plugin_installer_helpers import (
     FakeClientSinglePlugin,
     lock_entry,
@@ -236,7 +239,9 @@ def test_legacy_cleanup_is_scoped_to_the_local_editor_dir(tmp_path: Path):
         ("cursor", "native", True),
         ("cursor", "native_copy", False),
         ("cursor", "mcp_fallback", False),
-        ("claude_code", "native", False),
+        # Plain `native` Claude Code entries symlinked the marketplace dir outward.
+        ("claude_code", "native", True),
+        ("claude_code", CLAUDE_CODE_NATIVE_INSTALL_MODE, False),
         ("vscode", "native", False),
         # Plain `native` is a declared legacy mode for Codex, served as-is.
         ("codex", "native", False),

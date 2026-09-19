@@ -2,9 +2,11 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
+from graphdatascience.model.model_catalog_protocol import ModelCatalogProtocol
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
+from graphdatascience.procedure_surface.api.node_embedding.graphsage_model import GraphSageModel
 from graphdatascience.procedure_surface.api.node_embedding.graphsage_predict_endpoints import (
     GraphSageMutateResult,
     GraphSagePredictEndpoints,
@@ -24,9 +26,14 @@ class GraphSageEndpoints(GraphSagePredictEndpoints):
         self,
         train_endpoints: GraphSageTrainEndpoints,
         predict_endpoints: GraphSagePredictEndpoints,
+        catalog_endpoints: ModelCatalogProtocol,
     ) -> None:
         self._train_endpoints = train_endpoints
         self._predict_endpoints = predict_endpoints
+        self._catalog = catalog_endpoints
+
+    def get(self, name: str) -> GraphSageModel:
+        return GraphSageModel(name, self._catalog, self._predict_endpoints)
 
     @property
     def train(self) -> GraphSageTrainEndpoints:
@@ -37,37 +44,37 @@ class GraphSageEndpoints(GraphSagePredictEndpoints):
         ----------
         G
            Graph object to use
-        model_name : str
+        model_name
             Name of the trained model.
-        feature_properties : list[str]
-            The names of the node properties to use as input features
-        activation_function : str | None
+        feature_properties
+            Names of the node properties to use as input features
+        activation_function
             The activation function to apply after each layer
-        negative_sample_weight : int | None, default=None
+        negative_sample_weight
             Weight of negative samples in the loss function
-        embedding_dimension : int | None, default=None
-            The dimension of the generated embeddings
+        embedding_dimension
+            Output dimensionality of the embeddings
         tolerance
             Minimum change in loss between iterations for early stopping an epoch.
-        learning_rate : float | None, default=None
+        learning_rate
             Learning rate for the training optimization
         max_iterations
             Maximum number of iterations to run.
-        sample_sizes : list[int] | None, default=None
+        sample_sizes
             Number of neighbors to sample at each layer
-        aggregator : str | None
+        aggregator
             The aggregator function for neighborhood aggregation
-        penalty_l2 : float | None, default=None
+        penalty_l2
             L2 regularization penalty
-        search_depth : int | None, default=None
+        search_depth
             Maximum search depth for neighbor sampling
-        epochs : int | None, default=None
+        epochs
             Number of training epochs
-        projected_feature_dimension : int | None, default=None
+        projected_feature_dimension
             Dimension to project input features to before training
-        batch_sampling_ratio : float | None, default=None
+        batch_sampling_ratio
             Ratio of nodes to sample for each training batch
-        store_model_to_disk : bool | None, default=None
+        store_model_to_disk
             Whether to persist the model to disk
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -92,14 +99,14 @@ class GraphSageEndpoints(GraphSagePredictEndpoints):
 
         Returns
         -------
-        GraphSageModelV2
+        GraphSageTrainEndpoints
             Trained model
         """
         return self._train_endpoints
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         model_name: str,
         *,
         relationship_types: list[str] = ALL_TYPES,
@@ -126,7 +133,7 @@ class GraphSageEndpoints(GraphSagePredictEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         model_name: str,
         write_property: str,
         *,
@@ -157,7 +164,7 @@ class GraphSageEndpoints(GraphSagePredictEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         model_name: str,
         mutate_property: str,
         relationship_types: list[str] = ALL_TYPES,
@@ -185,7 +192,7 @@ class GraphSageEndpoints(GraphSagePredictEndpoints):
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         model_name: str,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,

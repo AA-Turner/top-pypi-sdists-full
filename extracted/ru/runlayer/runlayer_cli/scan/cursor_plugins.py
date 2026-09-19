@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-import json5
+
 import structlog
 
 from runlayer_cli.scan.clients import MCPClientDefinition
@@ -22,7 +22,11 @@ from runlayer_cli.scan.config_parser import (
     MCPServerConfig,
     parse_plugin_mcp_file,
 )
-from runlayer_cli.scan.plugin_scanner import compute_plugin_identifier
+from runlayer_cli.safe_parse import parse_json5
+from runlayer_cli.scan.plugin_scanner import (
+    compute_plugin_identifier,
+    mark_plugin_scan_incomplete,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -115,6 +119,7 @@ def discover_plugins(client_def: MCPClientDefinition) -> list[DiscoveredPlugin]:
                     break  # only use first hash dir with an mcp config
 
         except OSError as e:
+            mark_plugin_scan_incomplete("cursor_plugin_cache_enumeration_failed")
             logger.warning(
                 "Failed to scan plugin cache",
                 path=str(base),
@@ -138,10 +143,10 @@ def read_project_plugin_refs(project_paths: list[Path]) -> dict[Path, set[str]]:
             continue
 
         try:
-            data = json5.loads(settings_path.read_text(encoding="utf-8"))
+            text = settings_path.read_text(encoding="utf-8")
         except (ValueError, OSError):
             continue
-
+        data = parse_json5(text)["value"]
         if not isinstance(data, dict):
             continue
 

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 import platform
 import posixpath
@@ -25,6 +24,7 @@ from runlayer_cli.scan.containers.inspect_parse import (
     _container_home,
     _mounts_host_home,
 )
+from runlayer_cli.safe_parse import parse_json
 
 K3S_CONTAINERD_ENDPOINT = "unix:///run/k3s/containerd/containerd.sock"
 K3S_CONFIG_DIR = Path("/etc/rancher/k3s")
@@ -95,11 +95,9 @@ def _parse_crictl_ps_inventory(
     include_kube_system: bool | None = None,
 ) -> DockerPSInventory:
     """Parse the stable CRI ``ListContainersResponse`` fields."""
-    try:
-        payload = json.loads(text)
-    except (TypeError, ValueError):
-        payload = None
-    if not isinstance(payload, dict):
+    outcome = parse_json(text)
+    payload = outcome["value"]
+    if outcome["error"] is not None or not isinstance(payload, dict):
         return {
             "container_ids": [],
             "truncated": False,
@@ -287,10 +285,10 @@ def _parse_crictl_inspect(
     host_home: Path,
 ) -> DiscoveredContainer | None:
     """Normalize one verbose CRI container status response."""
-    try:
-        payload = json.loads(text)
-    except (TypeError, ValueError):
+    outcome = parse_json(text)
+    if outcome["error"] is not None:
         return None
+    payload = outcome["value"]
     if not isinstance(payload, dict):
         return None
 
@@ -396,10 +394,10 @@ def _inspect_containers(
 
 
 def _parse_crictl_image_digest(text: str) -> str | None:
-    try:
-        payload = json.loads(text)
-    except (TypeError, ValueError):
+    outcome = parse_json(text)
+    if outcome["error"] is not None:
         return None
+    payload = outcome["value"]
     if not isinstance(payload, dict):
         return None
     status = _mapping(payload.get("status"))

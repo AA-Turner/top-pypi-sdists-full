@@ -215,6 +215,8 @@ class FlowTrace:
     error_http_status: int | None = None
     # Server UUID this process is running (``runlayer run`` path; None for hooks).
     server_id: str | None = None
+    # Hostname the flow's relay calls target (hook path; see set_target_host).
+    target_host: str | None = None
     steps: list[StepRecord] = field(default_factory=list)
     _lock: threading.Lock = field(default_factory=threading.Lock, repr=False)
     _next_id: int = 0
@@ -288,6 +290,18 @@ def set_session_id(session_id: str | None) -> None:
     if trace is None:
         return
     trace.session_id = _coerce_identifier(session_id)
+
+
+def set_target_host(host: str | None) -> None:
+    """Stamp the already-normalized target hostname (``relay._target_hostname``)
+    on the active flow; last value wins, no-op without an active flow."""
+    trace = _flow_var.get()
+    if trace is None:
+        return
+    # Stored verbatim, not via _coerce_identifier: that helper truncates at
+    # 128 characters, but the spool drain compares against the full hostname
+    # (DNS allows 253), so a truncated stamp would never match its own host.
+    trace.target_host = (host.strip() if isinstance(host, str) else "") or None
 
 
 def set_startup_ms(startup_ms: float) -> None:

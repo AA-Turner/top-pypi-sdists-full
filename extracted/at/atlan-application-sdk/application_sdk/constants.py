@@ -220,12 +220,12 @@ WORKFLOW_OUTPUT_PATH_TEMPLATE = (
 # Temporary Path (used to store intermediate files)
 TEMPORARY_PATH = os.getenv("ATLAN_TEMPORARY_PATH", "./local/tmp/")
 
-# Preflight gate posture override (deploy-time ops lever). Read at worker build;
-# only the literal "hard" enforces, any other set value falls back to soft. An
-# empty or unset value is not an override — resolution falls through to the
-# declared App.preflight_gate_mode attribute. See
-# application_sdk.execution._temporal.worker._resolve_gate_enforcement.
 PREFLIGHT_GATE_MODE_ENV = "ATLAN_PREFLIGHT_GATE_MODE"
+"""Removed lever, kept one release as an import shim.
+
+The gate posture is read from ``App.preflight_gate_mode`` only. A deployment
+that still sets this variable gets a startup warning from the removed-env-var
+registry (``application_sdk.common.env_warnings``); nothing reads it."""
 
 # Artifact-validation posture override (deploy-time ops lever). Read at worker
 # build; only the literal "hard" enforces, any other set value falls back to
@@ -623,9 +623,23 @@ SECRET_STORE_NAME = os.getenv("SECRET_STORE_NAME", "secretstore")
 #: Name of the deployment object store component in DAPR
 DEPLOYMENT_OBJECT_STORE_NAME = os.getenv("DEPLOYMENT_OBJECT_STORE_NAME", "objectstore")
 #: Name of the upstream object store component in DAPR.
-#: Default differs from DEPLOYMENT_OBJECT_STORE_NAME so that non-SDR deployments
-#: — which only ship the deployment binding — cause create_store_from_binding_optional
-#: to return None, leaving upstream_storage unset and routing to fall back to storage.
+#: Three wirings reach this value:
+#:
+#: * **SDR** — a distinct component (default ``atlan-objectstore``) pointing at
+#:   Atlan's bucket; ``upstream_storage`` is a second store and ``App.upload``
+#:   hands artifacts off to it.
+#: * **In-cluster** — the deployment charts set this *and*
+#:   ``DEPLOYMENT_OBJECT_STORE_NAME`` to the app's single object-store
+#:   component.  Same name means one store: startup *aliases* ``upstream_storage``
+#:   to the deployment store rather than building a second store object over the
+#:   same bucket.
+#: * **Absent** — local dev / CI ship only the deployment binding; the optional
+#:   factory returns ``None`` and routing falls back to ``storage``.
+#:
+#: Comparing this name with ``DEPLOYMENT_OBJECT_STORE_NAME`` is startup's private
+#: decision about *what to build* — see ``_create_infrastructure``.  Code asking
+#: "is this deployment one store or two?" reads ``context.single_store``, which
+#: compares the handles that were actually built.
 UPSTREAM_OBJECT_STORE_NAME = os.getenv(
     "UPSTREAM_OBJECT_STORE_NAME", "atlan-objectstore"
 )

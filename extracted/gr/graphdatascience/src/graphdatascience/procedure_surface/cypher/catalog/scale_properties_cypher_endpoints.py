@@ -4,7 +4,7 @@ from pandas import DataFrame
 from pydantic import BaseModel
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.catalog.scale_properties_endpoints import (
     ScalePropertiesEndpoints,
     ScalePropertiesMutateResult,
@@ -25,7 +25,7 @@ class ScalePropertiesCypherEndpoints(ScalePropertiesEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         node_properties: list[str],
         scaler: str | dict[str, str | int | float] | ScalerConfig,
@@ -59,12 +59,12 @@ class ScalePropertiesCypherEndpoints(ScalePropertiesEndpoints):
 
         result = self._query_runner.call_procedure(
             endpoint="gds.scaleProperties.mutate", params=params, logging=log_progress
-        ).squeeze()
-        return ScalePropertiesMutateResult(**result.to_dict())
+        ).iloc[0]
+        return ScalePropertiesMutateResult(**result)
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         node_properties: list[str],
         scaler: str | dict[str, str | int | float] | ScalerConfig,
         node_labels: list[str] = ALL_LABELS,
@@ -96,12 +96,12 @@ class ScalePropertiesCypherEndpoints(ScalePropertiesEndpoints):
 
         result = self._query_runner.call_procedure(
             endpoint="gds.scaleProperties.stats", params=params, logging=log_progress
-        ).squeeze()
-        return ScalePropertiesStatsResult(**result.to_dict())
+        ).iloc[0]
+        return ScalePropertiesStatsResult(**result)
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         node_properties: list[str],
         scaler: str | dict[str, str | int | float] | ScalerConfig,
         node_labels: list[str] = ALL_LABELS,
@@ -137,7 +137,7 @@ class ScalePropertiesCypherEndpoints(ScalePropertiesEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         node_properties: list[str],
         scaler: str | dict[str, str | int | float] | ScalerConfig,
@@ -172,12 +172,12 @@ class ScalePropertiesCypherEndpoints(ScalePropertiesEndpoints):
 
         result = self._query_runner.call_procedure(
             endpoint="gds.scaleProperties.write", params=params, logging=log_progress
-        ).squeeze()
-        return ScalePropertiesWriteResult(**result.to_dict())
+        ).iloc[0]
+        return ScalePropertiesWriteResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         node_properties: list[str],
         scaler: str | dict[str, str | int | float] | ScalerConfig,
         node_labels: list[str] = ALL_LABELS,

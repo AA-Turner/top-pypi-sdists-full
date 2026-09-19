@@ -521,10 +521,34 @@ def enterprise_claude_code_managed_dir() -> Path:
 
 
 def enterprise_codex_dir() -> Path:
-    # Codex on Windows has no enterprise location; fall back to per-user.
+    """Codex System config layer — a real root/SYSTEM-owned dir on every OS.
+
+    Codex loads ``hooks.json`` next to each config layer that has a folder and
+    treats the System layer (``/etc/codex``, ``%ProgramData%\\OpenAI\\Codex``)
+    as managed: trusted by policy, no ``/hooks`` review prompt, not disableable
+    by the user. A ``hooks.json`` in a user home is *unmanaged* and stays
+    dormant until the user trusts it, so the MDM path must never target
+    ``~/.codex`` — under the SYSTEM ``AIWatchHooks`` task that would be the
+    systemprofile anyway, which no console user ever reads.
+    """
     if platform.system() == "Windows":
-        return user_codex_dir()
+        return Path("C:/ProgramData/OpenAI/Codex")
     return Path("/etc/codex")
+
+
+def codex_toml_file_name(*, mdm: bool) -> str:
+    """TOML layer that carries ``[features] hooks`` and LLM-routing tables.
+
+    Unix MDM writes ``managed_config.toml`` (the legacy managed layer, which
+    shares ``/etc/codex`` with the System layer's ``hooks.json``). Windows'
+    System layer only reads ``%ProgramData%\\OpenAI\\Codex\\config.toml``;
+    ``managed_config.toml`` is a ``~/.codex`` file there, so a ProgramData copy
+    would be dead weight. Single source for the operator (``commands/setup``)
+    and AI Watch (``hook_install/clients``) writers so they cannot diverge.
+    """
+    if mdm and platform.system() != "Windows":
+        return "managed_config.toml"
+    return "config.toml"
 
 
 def enterprise_hermes_dir() -> Path:

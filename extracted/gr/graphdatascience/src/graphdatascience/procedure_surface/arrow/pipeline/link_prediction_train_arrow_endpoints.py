@@ -4,9 +4,10 @@ from typing import Any
 
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
 from graphdatascience.arrow_client.v2.job_client import JobClient
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
+from graphdatascience.model.model_catalog_protocol import ModelCatalogProtocol
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
-from graphdatascience.procedure_surface.api.model.link_prediction_model import LinkPredictionModelV2
+from graphdatascience.procedure_surface.api.pipeline.link_prediction_model import LinkPredictionModel
 from graphdatascience.procedure_surface.api.pipeline.link_prediction_pipeline_results import (
     LinkPredictionPipelineTrainResult,
 )
@@ -16,7 +17,6 @@ from graphdatascience.procedure_surface.api.pipeline.link_prediction_predict_end
 from graphdatascience.procedure_surface.api.pipeline.link_prediction_train_endpoints import (
     LinkPredictionPipelineTrainEndpoints,
 )
-from graphdatascience.procedure_surface.arrow.model_api_arrow import ModelApiArrow
 from graphdatascience.procedure_surface.arrow.node_property_endpoints import NodePropertyEndpointsHelper
 from graphdatascience.procedure_surface.utils.config_converter import ConfigConverter
 
@@ -25,12 +25,12 @@ class LinkPredictionTrainArrowEndpoints(LinkPredictionPipelineTrainEndpoints):
     def __init__(
         self,
         arrow_client: AuthenticatedArrowClient,
-        model_api: ModelApiArrow,
+        catalog: ModelCatalogProtocol,
         predict_endpoints: LinkPredictionPipelinePredictEndpoints,
         show_progress: bool = True,
     ) -> None:
         self._arrow_client = arrow_client
-        self._model_api = model_api
+        self._model_catalog = catalog
         self._predict_endpoints = predict_endpoints
         self._show_progress = show_progress
         self._node_property_endpoints = NodePropertyEndpointsHelper(
@@ -41,7 +41,7 @@ class LinkPredictionTrainArrowEndpoints(LinkPredictionPipelineTrainEndpoints):
 
     def __call__(
         self,
-        G: GraphV2,
+        G: Graph,
         pipeline_name: str,
         *,
         model_name: str,
@@ -57,7 +57,7 @@ class LinkPredictionTrainArrowEndpoints(LinkPredictionPipelineTrainEndpoints):
         sudo: bool = False,
         concurrency: int | None = None,
         job_id: str | None = None,
-    ) -> tuple[LinkPredictionModelV2, LinkPredictionPipelineTrainResult]:
+    ) -> tuple[LinkPredictionModel, LinkPredictionPipelineTrainResult]:
         config = ConfigConverter.convert_to_gds_config(
             graph_name=G.name(),
             model_name=model_name,
@@ -84,9 +84,9 @@ class LinkPredictionTrainArrowEndpoints(LinkPredictionPipelineTrainEndpoints):
         )
         result = JobClient.get_summary(self._arrow_client, result_job_id)
         return (
-            LinkPredictionModelV2(
+            LinkPredictionModel(
                 model_name,
-                self._model_api,
+                self._model_catalog,
                 predict_endpoints=self._predict_endpoints,
             ),
             LinkPredictionPipelineTrainResult(**result),
@@ -94,7 +94,7 @@ class LinkPredictionTrainArrowEndpoints(LinkPredictionPipelineTrainEndpoints):
 
     def estimate(
         self,
-        G: GraphV2,
+        G: Graph,
         pipeline_name: str,
         *,
         model_name: str,

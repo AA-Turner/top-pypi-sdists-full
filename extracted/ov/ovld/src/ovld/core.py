@@ -2,6 +2,7 @@
 
 import inspect
 import itertools
+import numbers
 import sys
 import textwrap
 import threading
@@ -17,6 +18,7 @@ from .recode import (
 )
 from .signatures import ArgumentAnalyzer, LazySignature, Signature
 from .typemap import MultiTypeMap
+from .types import normalize_type
 from .utils import (
     MISSING,
     ResolutionError,
@@ -42,6 +44,7 @@ inspect.getdoc = _getdoc
 
 
 _current_id = itertools.count()
+_numtower_map = {int: numbers.Integral, float: numbers.Real, complex: numbers.Complex}
 
 
 def locked(fn):
@@ -96,14 +99,20 @@ class Ovld:
             dispatch.
         linkback: Whether to keep a pointer in the parent mixins to this
             ovld so that updates can be propagated. (default: False)
+        numtower: Whether to treat int, float and complex annotations as
+            numbers.Integral, numbers.Real and numbers.Complex, so that e.g.
+            an int is accepted by a method annotated as taking a float.
+            (default: False)
     """
 
     def __init__(
         self,
         *,
-        mixins=[],
+        mixins=(),
         name=None,
         linkback=False,
+        numtower=False,
+        normalizer=normalize_type,
     ):
         """Initialize an Ovld."""
         self.id = next(_current_id)
@@ -112,6 +121,7 @@ class Ovld:
         self._signatures = None
         self._argument_analysis = None
         self.linkback = linkback
+        self.normalizer = normalizer.with_remappings(_numtower_map) if numtower else normalizer
         self.children = []
         self.name = name
         self.shortname = name or f"__OVLD{self.id}"
@@ -151,7 +161,7 @@ class Ovld:
                         fdoc += "\n"
                     fdoc = textwrap.indent(fdoc, " " * 4)
                     doc += f"{self.__name__}{fndef}\n{fdoc}\n"
-        except Exception as exc:  # pragma: no cover
+        except Exception as exc:  # pragma: no cover # noqa
             doc = f"An exception occurred when calculating the docstring: {exc}"
         return doc
 
@@ -169,7 +179,7 @@ class Ovld:
 
     def _attempt_modify(self):
         if self._locked:
-            raise Exception(f"ovld {self} is locked for modifications")
+            raise UsageError(f"ovld {self} is locked for modifications")
 
     def add_mixins(self, *mixins):
         self._attempt_modify()
@@ -194,7 +204,7 @@ class Ovld:
                     filename = inspect.getsourcefile(c.handler)
                     lineno = inspect.getsourcelines(c.handler)[1]
                     hlp += f"    @ {filename}:{lineno}\n"
-                except Exception:  # pragma: no cover
+                except Exception:  # pragma: no cover # noqa
                     pass
             return ResolutionError(
                 f"Ambiguous resolution in {self} for"
@@ -226,7 +236,10 @@ class Ovld:
                 ss = self.specialization_self
                 cgf = getattr(ss, "_ovld_codegen_fields", ())
                 lcl = {f: getattr(ss, f) for f in cgf}
-                sig = replace(Signature.extract(fn, lcl), priority=priority)
+                sig = replace(
+                    Signature.extract(fn, lcl, normalize_type=self.normalizer),
+                    priority=priority,
+                )
 
                 def _set(sig, fn):
                     if sig in regs:
@@ -356,13 +369,13 @@ class Ovld:
         if hasattr(self, "dispatch"):
             self.dispatch.__calculate_doc__ = self.mkdoc
 
-    def copy(self, mixins=[], linkback=False):
+    def copy(self, mixins=(), linkback=False):
         """Create a copy of this Ovld.
 
         New functions can be registered to the copy without affecting the
         original.
         """
-        return Ovld(mixins=[self, *mixins], linkback=linkback)
+        return Ovld(mixins=[self, *mixins], linkback=linkback, normalizer=self.normalizer)
 
     def variant(self, fn=None, priority=0, **kwargs):
         """Decorator to create a variant of this Ovld.
@@ -480,7 +493,7 @@ class OvldMC(type):
         return type(cls)(name, bases, cls.__prepare__(name, bases))
 
     @classmethod
-    def __prepare__(metacls, name, bases):
+    def __prepare__(metacls, _, bases):
         d = ovld_cls_dict(bases)
 
         names = set()
@@ -560,6 +573,8 @@ def ovld(fn, priority=0, fresh=False, **kwargs):
             dispatch.
         linkback: Whether to keep a pointer in the parent mixins to this
             ovld so that updates can be propagated. (default: False)
+        numtower: Treat int, float and complex annotations as their
+            numbers ABCs (see Ovld). (default: False)
     """
     if fresh:
         dispatch = Ovld(**kwargs)

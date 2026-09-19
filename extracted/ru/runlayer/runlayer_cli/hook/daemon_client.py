@@ -336,6 +336,10 @@ def _connect_windows_pipe(kernel32: Any, endpoint: str) -> object:
     open_existing = 3
     pipe_readmode_byte = 0
     file_flag_overlapped = 0x40000000
+    # WinBase.h SQOS values: the daemon may identify the client for
+    # authorization, but it never needs an impersonation-capable token.
+    security_identification = 0x00010000
+    security_sqos_present = 0x00100000
     invalid_handle_value = ctypes.c_void_p(-1).value
 
     if not kernel32.WaitNamedPipeW(endpoint, int(CONNECT_TIMEOUT_SECONDS * 1000)):
@@ -346,7 +350,7 @@ def _connect_windows_pipe(kernel32: Any, endpoint: str) -> object:
         0,
         None,
         open_existing,
-        file_flag_overlapped,
+        file_flag_overlapped | security_sqos_present | security_identification,
         None,
     )
     if handle == invalid_handle_value:

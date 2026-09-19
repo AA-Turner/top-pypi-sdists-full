@@ -9,6 +9,76 @@ from runlayer_cli.hook_install.browser_extension import BrowserExtensionResult
 from runlayer_cli.hook_install.firefox_extension import FirefoxExtensionResult
 
 
+@pytest.fixture(autouse=True)
+def isolate_edge(monkeypatch):
+    monkeypatch.setattr(
+        extensions,
+        "install_edge_extension",
+        lambda _managed: BrowserExtensionResult(written=False),
+    )
+    monkeypatch.setattr(
+        extensions, "check_edge_extension", lambda _managed: (True, None)
+    )
+
+
+def test_edge_receives_resolved_target_after_firefox_and_chrome(monkeypatch):
+    calls = []
+    for name in ("firefox", "chrome", "edge"):
+        monkeypatch.setattr(
+            extensions,
+            f"install_{name}_extension",
+            lambda managed, name=name: (
+                calls.append((name, managed)) or BrowserExtensionResult(written=True)
+            ),
+        )
+    target = "https://tenant.example/selected-update.xml"
+    extensions.install_browser_extension(
+        {"browser_extension_enabled": True, "browser_extension_update_url": target}
+    )
+    assert [name for name, _ in calls] == ["firefox", "chrome", "edge"]
+    assert calls[-1][1]["browser_extension_update_url"] == target
+    assert calls[-1][1]["browser_extension_enabled"] is True
+
+
+@pytest.mark.parametrize("failing", ["firefox", "chrome", "edge"])
+def test_every_browser_reconciles_despite_another_write_failure(monkeypatch, failing):
+    calls = []
+
+    def install(managed, name):
+        calls.append(name)
+        if name == failing:
+            raise OSError("write failed")
+        return BrowserExtensionResult(written=False)
+
+    for name in ("firefox", "chrome", "edge"):
+        monkeypatch.setattr(
+            extensions,
+            f"install_{name}_extension",
+            lambda managed, name=name: install(managed, name),
+        )
+    with pytest.raises(OSError, match=f"{failing.capitalize()}: write failed"):
+        extensions.install_browser_extension({"browser_extension_enabled": True})
+    assert calls == ["firefox", "chrome", "edge"]
+
+
+def test_edge_drift_is_labeled(monkeypatch):
+    monkeypatch.setattr(
+        extensions, "check_chrome_extension", lambda _managed: (True, None)
+    )
+    monkeypatch.setattr(
+        extensions, "check_firefox_extension", lambda _managed: (True, None)
+    )
+    monkeypatch.setattr(
+        extensions,
+        "check_edge_extension",
+        lambda _managed: (False, "missing native host"),
+    )
+    assert extensions.check_browser_extension({}) == (
+        False,
+        "Edge: missing native host",
+    )
+
+
 def test_backend_enablement_uses_canonical_targets_without_profile_metadata(
     monkeypatch,
 ) -> None:

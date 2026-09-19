@@ -979,6 +979,14 @@ Describe "full profile and enterprise sweep" {
             $codexToml,
             "[features]`nhooks = true`n"
         )
+        $codexSystemToml = Join-RunlayerPath -Root $programData `
+            -Parts @("OpenAI", "Codex", "config.toml")
+        New-Item -ItemType Directory -Path (Split-Path -Parent $codexSystemToml) `
+            -Force | Out-Null
+        [System.IO.File]::WriteAllText(
+            $codexSystemToml,
+            "[features]`nhooks = true`n"
+        )
 
         $enterpriseJson = @(
             @{
@@ -994,6 +1002,11 @@ Describe "full profile and enterprise sweep" {
             @{
                 Root = $programData
                 Parts = @("Windsurf", "hooks.json")
+                OwnedName = $true
+            },
+            @{
+                Root = $programData
+                Parts = @("OpenAI", "Codex", "hooks.json")
                 OwnedName = $true
             },
             @{
@@ -1070,6 +1083,8 @@ Describe "full profile and enterprise sweep" {
         Test-Path -LiteralPath $cline | Should -BeFalse
         Test-Path -LiteralPath $legacyShim | Should -BeFalse
         [System.IO.File]::ReadAllText($codexToml) |
+            Should -BeExactly "[features]`nhooks = true`n"
+        [System.IO.File]::ReadAllText($codexSystemToml) |
             Should -BeExactly "[features]`nhooks = true`n"
 
         $locations = (Read-TestJson -Path $vscodeSettings)."chat.hookFilesLocations"

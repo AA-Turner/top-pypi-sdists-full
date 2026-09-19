@@ -6,4 +6,8 @@ from ..types.detail import Detail
 
 class ImageUrlParams(typing_extensions.TypedDict):
     url: str
+    """
+    Inline `data:image/…;base64,…` URL. Remote HTTP(S) URLs are rejected.
+    """
+
     detail: typing_extensions.NotRequired[Detail]

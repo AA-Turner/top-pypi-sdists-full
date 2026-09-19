@@ -1152,3 +1152,53 @@ class view_curve_in_graph_editor(bpy.ops._BPyOpsSubModOp):
         :param isolate: Isolate, Hides all F-Curves other than the ones being framed (optional)
         :return: Result of the operator call.
         """
+
+class world_space_copy(bpy.ops._BPyOpsSubModOp):
+    def __new__(
+        cls,
+        execution_context: int | str | None = None,
+        undo: bool | None = None,
+        /,
+        *,
+        range_mode: typing.Literal["CUSTOM", "PLAYBACK"] | None = "PLAYBACK",
+        start: int | None = 0,
+        end: int | None = 250,
+    ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+        """Copy animation from selected elements to the clipboard
+
+                :param execution_context:
+                :param undo:
+                :param range_mode: Range Mode, Determines which range should be copied (optional)
+
+        CUSTOM
+        Custom -- Use the range provided in the operator properties.
+
+        PLAYBACK
+        Playback Range -- Use the playback range of the scene.
+                :param start: Start, Start frame to copy from (in [-inf, inf], optional)
+                :param end: End, End frame to copy from (in [-inf, inf], optional)
+                :return: Result of the operator call.
+        """
+
+class world_space_paste(bpy.ops._BPyOpsSubModOp):
+    def __new__(
+        cls,
+        execution_context: int | str | None = None,
+        undo: bool | None = None,
+        /,
+        *,
+        offset: typing.Literal["NONE", "START"] | None = "NONE",
+    ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+        """Paste the animation from the clipboard to selected elements
+
+                :param execution_context:
+                :param undo:
+                :param offset: Frame Offset, Paste time offset of keys (optional)
+
+        NONE
+        No Offset -- Paste data to the same frames they were copied from.
+
+        START
+        Start at Current Frame -- Paste data starting at current frame.
+                :return: Result of the operator call.
+        """

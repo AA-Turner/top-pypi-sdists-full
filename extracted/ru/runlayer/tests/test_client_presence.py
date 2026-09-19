@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import errno
 import plistlib
 from pathlib import Path
 import sys
@@ -12,6 +13,7 @@ import pytest
 
 from runlayer_cli.scan import client_presence as presence_module
 from runlayer_cli.scan.client_presence import (
+    ClientEvidenceOrigin,
     DetectedClient,
     _windows_uninstall_entries,
     detect_client_presence,
@@ -26,7 +28,9 @@ from runlayer_cli.scan.clients import (
     PlatformPath,
     get_client_by_name,
 )
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.hidden_space_sweep import HiddenSpaceScanResult
+from runlayer_cli.scan.launcher_inspection import LauncherInspectionResult
 from runlayer_cli.scan.wsl_limits import (
     MAX_WSL_CLIENT_CONTEXTS,
     MAX_WSL_HOMES,
@@ -76,17 +80,28 @@ def test_wsl_binary_finding_is_attributed_to_detected_client(
     context = WSLClientContext(distro="Ubuntu", user="alice")
     distro = SimpleNamespace(name="Ubuntu", is_running=True)
     monkeypatch.setattr(presence_module, "_wsl_homes", lambda: [])
-    monkeypatch.setattr(
-        presence_module,
-        "scan_wsl_cli_binaries",
-        lambda *_args, **_kwargs: [
+
+    def scan_wsl_cli_binaries(
+        _clients,
+        _distros,
+        *,
+        checkpoint=None,
+        scan_status=None,
+    ):
+        del checkpoint, scan_status
+        return [
             WSLBinaryFinding(
                 client="test",
                 binary="claude",
                 path=binary_path,
                 context=context,
             )
-        ],
+        ]
+
+    monkeypatch.setattr(
+        presence_module,
+        "scan_wsl_cli_binaries",
+        scan_wsl_cli_binaries,
     )
 
     detected = detect_client_presence(
@@ -101,6 +116,82 @@ def test_wsl_binary_finding_is_attributed_to_detected_client(
     assert detected[0].detected_via == ["cli"]
     assert detected[0].config_paths == [str(binary_path)]
     assert detected[0].wsl_contexts == [context]
+
+
+def test_wsl_binary_scan_receives_presence_completion_status(
+    tmp_path,
+    monkeypatch,
+):
+    status = ScanCompletionStatus()
+    received_status = None
+    monkeypatch.setattr(
+        presence_module,
+        "_wsl_homes",
+        lambda _scan_status=None: [],
+    )
+
+    def scan_wsl_cli_binaries(
+        _clients,
+        _distros,
+        *,
+        checkpoint=None,
+        scan_status=None,
+    ):
+        del checkpoint
+        nonlocal received_status
+        received_status = scan_status
+        if scan_status is not None:
+            scan_status.mark_incomplete("wsl_home_discovery_capped")
+        return []
+
+    monkeypatch.setattr(
+        presence_module,
+        "scan_wsl_cli_binaries",
+        scan_wsl_cli_binaries,
+    )
+
+    detect_client_presence(
+        [_client(probe=InstallProbe(cli_binaries=["claude"]))],
+        home=tmp_path,
+        system="Windows",
+        environment={},
+        wsl_distros=[],
+        scan_status=status,
+    )
+
+    assert received_status is status
+    assert "wsl_home_discovery_capped" in status.reasons
+
+
+def test_wsl_home_discovery_failure_marks_presence_incomplete(
+    tmp_path,
+    monkeypatch,
+):
+    status = ScanCompletionStatus()
+
+    def incomplete_homes(scan_status=None):
+        if scan_status is not None:
+            scan_status.mark_incomplete("wsl_distro_inventory_failed")
+        return []
+
+    monkeypatch.setattr(presence_module, "_wsl_homes", incomplete_homes)
+    monkeypatch.setattr(
+        presence_module,
+        "_windows_uninstall_entries",
+        lambda **_kwargs: [],
+    )
+
+    detect_client_presence(
+        [],
+        home=tmp_path,
+        system="Windows",
+        environment={},
+        wsl_distros=[],
+        scan_status=status,
+    )
+
+    assert status.complete is False
+    assert "wsl_distro_inventory_failed" in status.reasons
 
 
 def test_macos_app_bundle_reads_info_plist_version(tmp_path, monkeypatch):
@@ -157,6 +248,33 @@ def test_renamed_shim_detected_by_resolved_target_identity(tmp_path):
     [client] = detected
     assert client.detected_via == ["cli"]
     assert client.config_paths == [str(tool.resolve())]
+
+
+@pytest.mark.skipif(sys.platform == "win32", reason="requires POSIX symlinks")
+def test_aider_netcheck_shim_regression_is_detected(tmp_path):
+    tool = tmp_path / "vendor" / "aider"
+    tool.parent.mkdir()
+    tool.write_text("#!/bin/sh\n")
+    tool.chmod(0o755)
+    shim = tmp_path / ".local" / "bin" / "netcheck"
+    shim.parent.mkdir(parents=True)
+    shim.symlink_to(tool)
+    client = get_client_by_name("aider")
+
+    assert client is not None
+    assert detect_client_presence(
+        [client],
+        home=tmp_path,
+        system="Linux",
+        environment={},
+    ) == [
+        DetectedClient(
+            client="aider",
+            display_name="Aider",
+            detected_via=["cli"],
+            config_paths=[str(tool.resolve())],
+        )
+    ]
 
 
 def test_renamed_npm_shim_detected_with_package_version(tmp_path):
@@ -395,6 +513,32 @@ def test_wsl_hidden_npm_identity_found_on_standalone_fallback_path(
     assert detected[0].config_paths == [str(manifest)]
 
 
+def test_standalone_hidden_sweep_failure_marks_incomplete_and_continues(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    def fail_hidden_sweep(**_kwargs):
+        raise RuntimeError("hidden sweep failed")
+
+    monkeypatch.setattr(
+        presence_module,
+        "scan_hidden_spaces",
+        fail_hidden_sweep,
+    )
+    status = ScanCompletionStatus()
+
+    detected = detect_client_presence(
+        [_client(probe=InstallProbe(cli_binaries=["missing-test-client"]))],
+        home=tmp_path,
+        system="Linux",
+        environment={},
+        scan_status=status,
+    )
+
+    assert isinstance(detected, list)
+    assert "client_hidden_space_scan_failed" in status.reasons
+
+
 def test_package_fallback_caps_wsl_homes_before_hidden_sweep(
     tmp_path,
     monkeypatch,
@@ -407,7 +551,11 @@ def test_package_fallback_caps_wsl_homes_before_hidden_sweep(
         captured_roots.extend(kwargs["extra_home_roots"])
         return HiddenSpaceScanResult()
 
-    monkeypatch.setattr(presence_module, "_wsl_homes", lambda: homes)
+    monkeypatch.setattr(
+        presence_module,
+        "_wsl_homes",
+        lambda _scan_status=None: homes,
+    )
     monkeypatch.setattr(
         presence_module,
         "scan_hidden_spaces",
@@ -423,6 +571,7 @@ def test_package_fallback_caps_wsl_homes_before_hidden_sweep(
         "scan_wsl_cli_binaries",
         lambda *_args, **_kwargs: [],
     )
+    status = ScanCompletionStatus()
 
     detect_client_presence(
         [_client(probe=InstallProbe(npm_packages=[package]))],
@@ -430,9 +579,11 @@ def test_package_fallback_caps_wsl_homes_before_hidden_sweep(
         system="Windows",
         environment={},
         wsl_distros=[],
+        scan_status=status,
     )
 
     assert captured_roots == homes[:MAX_WSL_HOMES_TOTAL]
+    assert "client_wsl_homes_capped" in status.reasons
 
 
 def test_package_fallback_includes_homes_from_each_wsl_distro(
@@ -792,7 +943,20 @@ def test_linux_desktop_file_detects_gui_app(tmp_path, monkeypatch):
 
 @pytest.mark.parametrize(
     "host_dir",
-    [".vscode", ".cursor", ".windsurf", ".vscode-oss", ".vscode-server"],
+    [
+        ".vscode",
+        ".cursor",
+        ".windsurf",
+        ".devin",
+        ".vscode-oss",
+        ".vscode-server",
+        ".devin-server",
+        ".local/share/code-server",
+        ".openvscode-server",
+        ".var/app/com.visualstudio.code/data/vscode",
+        ".var/app/com.visualstudio.code-oss/data/vscode",
+        ".var/app/com.vscodium.codium/data/codium",
+    ],
 )
 def test_claude_code_extension_is_app_presence(tmp_path, monkeypatch, host_dir):
     extension = (
@@ -845,6 +1009,22 @@ def test_claude_code_vscode_insiders_extension_is_app_presence_on_macos(
             detected_via=["app"],
         )
     ]
+
+
+def test_missing_vscode_extension_roots_remain_complete(tmp_path):
+    status = ScanCompletionStatus()
+    detected = DetectedClient(client="claude_code", display_name="Claude Code")
+
+    presence_module._detect_vscode_extension_presence(
+        detected,
+        system="Darwin",
+        home=tmp_path,
+        extension_ids=["anthropic.claude-code"],
+        scan_status=status,
+    )
+
+    assert detected.detected_via == []
+    assert status.complete is True
 
 
 def test_vscode_extension_probe_ignores_other_extensions_and_files(tmp_path):
@@ -1190,6 +1370,115 @@ def test_windows_codex_mdm_artifacts_alone_are_ignored(tmp_path):
     assert detected == []
 
 
+def _windows_codex_probe(monkeypatch, console_home: Path) -> dict[str, str]:
+    """Isolate the real Codex definition from PATH, the registry, and WSL."""
+    monkeypatch.setattr(
+        "runlayer_cli.scan.client_presence.locate_cli_binary",
+        lambda *_args, **_kwargs: None,
+    )
+    monkeypatch.setattr(
+        "runlayer_cli.scan.client_presence._windows_uninstall_entries",
+        lambda **_: [],
+    )
+    return {
+        "USERPROFILE": str(console_home),
+        "APPDATA": str(console_home / "AppData" / "Roaming"),
+        "LOCALAPPDATA": str(console_home / "AppData" / "Local"),
+    }
+
+
+def _detect_windows_codex(environment: dict[str, str], console_home: Path):
+    client = get_client_by_name("codex")
+    assert client is not None
+    return detect_client_presence(
+        [client],
+        home=console_home,
+        system="Windows",
+        environment=environment,
+        wsl_distros=[],
+        include_current_user_registry=False,
+    )
+
+
+def test_windows_codex_config_toml_alone_is_not_installed(tmp_path, monkeypatch):
+    """Field case (ENG-6617): ``~/.codex/config.toml`` exists but no executable."""
+    console_home = tmp_path / "Users" / "alice"
+    (console_home / ".codex").mkdir(parents=True)
+    (console_home / ".codex" / "config.toml").write_text('model = "gpt-5"\n')
+    environment = _windows_codex_probe(monkeypatch, console_home)
+
+    detected = _detect_windows_codex(environment, console_home)
+
+    assert all(
+        method not in {"app", "cli", "registry", "npm_global"}
+        for result in detected
+        for method in result.detected_via
+    )
+
+
+def test_windows_codex_msix_runtime_is_executable_evidence(tmp_path, monkeypatch):
+    """MSIX/winget Codex has no Uninstall key; its runtime lands under
+    ``%LOCALAPPDATA%\\OpenAI\\Codex\\bin``."""
+    console_home = tmp_path / "Users" / "alice"
+    exe = console_home / "AppData" / "Local" / "OpenAI" / "Codex" / "bin" / "codex.exe"
+    exe.parent.mkdir(parents=True)
+    exe.write_bytes(b"")
+    environment = _windows_codex_probe(monkeypatch, console_home)
+
+    detected = _detect_windows_codex(environment, console_home)
+
+    assert detected and "app" in detected[0].detected_via
+
+
+def test_windows_codex_standalone_payload_is_executable_evidence(tmp_path, monkeypatch):
+    """``install.ps1`` payload lives in ``~/.codex/packages/standalone``; the
+    junction it creates is on the user's PATH only, never SYSTEM's."""
+    console_home = tmp_path / "Users" / "alice"
+    exe = (
+        console_home
+        / ".codex"
+        / "packages"
+        / "standalone"
+        / "current"
+        / "bin"
+        / "codex.exe"
+    )
+    exe.parent.mkdir(parents=True)
+    exe.write_bytes(b"")
+    environment = _windows_codex_probe(monkeypatch, console_home)
+
+    detected = _detect_windows_codex(environment, console_home)
+
+    assert detected and "app" in detected[0].detected_via
+
+
+def test_windows_codex_home_override_standalone_payload(tmp_path, monkeypatch):
+    console_home = tmp_path / "Users" / "alice"
+    codex_home = tmp_path / "codex-home"
+    exe = codex_home / "packages" / "standalone" / "current" / "bin" / "codex.exe"
+    exe.parent.mkdir(parents=True)
+    exe.write_bytes(b"")
+    environment = _windows_codex_probe(monkeypatch, console_home)
+    environment["CODEX_HOME"] = str(codex_home)
+
+    detected = _detect_windows_codex(environment, console_home)
+
+    assert detected and "app" in detected[0].detected_via
+
+
+def test_windows_codex_vscode_extension_is_executable_evidence(tmp_path, monkeypatch):
+    console_home = tmp_path / "Users" / "alice"
+    extension = (
+        console_home / ".vscode" / "extensions" / "openai.chatgpt-0.4.20-win32-x64"
+    )
+    extension.mkdir(parents=True)
+    environment = _windows_codex_probe(monkeypatch, console_home)
+
+    detected = _detect_windows_codex(environment, console_home)
+
+    assert detected and "app" in detected[0].detected_via
+
+
 @pytest.mark.parametrize(
     ("system", "config_template", "settings_path", "environment"),
     [
@@ -1245,7 +1534,7 @@ def test_windows_registry_and_program_exe_are_detected(tmp_path, monkeypatch):
     monkeypatch.setenv("LOCALAPPDATA", str(tmp_path))
     monkeypatch.setattr(
         "runlayer_cli.scan.client_presence._windows_uninstall_entries",
-        lambda: [("Test Client (User)", "5.2.0")],
+        lambda **_: [("Test Client (User)", "5.2.0")],
     )
 
     detected = detect_client_presence(
@@ -1277,7 +1566,8 @@ def test_windows_probe_accepts_console_user_environment_and_registry_sid(
 
     seen: dict[str, str | None] = {}
 
-    def registry_entries(user_sid=None):
+    def registry_entries(user_sid=None, scan_status=None):
+        del scan_status
         seen["user_sid"] = user_sid
         return [("Test Client (User)", "5.2.0")]
 
@@ -1285,11 +1575,14 @@ def test_windows_probe_accepts_console_user_environment_and_registry_sid(
         "runlayer_cli.scan.client_presence._windows_uninstall_entries",
         registry_entries,
     )
+    status = ScanCompletionStatus()
 
     detected = detect_client_presence(
         [
             _client(
                 probe=InstallProbe(
+                    cli_binaries=["never-installed-runlayer-test-client"],
+                    probe_cli_version=False,
                     windows_display_name_prefixes=["Test Client"],
                     windows_install_dirs=["%LOCALAPPDATA%/Programs/Test"],
                 )
@@ -1303,11 +1596,77 @@ def test_windows_probe_accepts_console_user_environment_and_registry_sid(
             "LOCALAPPDATA": str(local_appdata),
         },
         windows_user_sid="S-1-5-21-1-2-3-1001",
+        wsl_distros=[],
+        scan_status=status,
     )
 
     assert seen == {"user_sid": "S-1-5-21-1-2-3-1001"}
     assert detected[0].client_version == "5.2.0"
     assert detected[0].detected_via == ["app", "registry"]
+    assert status.complete
+
+
+def test_windows_system_context_skips_launcher_inspection(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    launcher_inspection = mock.Mock(
+        return_value=SimpleNamespace(findings=[], truncated=False)
+    )
+    monkeypatch.setattr(
+        presence_module,
+        "inspect_launcher_identities",
+        launcher_inspection,
+    )
+    monkeypatch.setattr(
+        presence_module,
+        "is_windows_system_context",
+        lambda: True,
+    )
+    status = ScanCompletionStatus()
+
+    detect_client_presence(
+        [
+            _client(
+                probe=InstallProbe(
+                    cli_binaries=["never-installed-runlayer-test-client"],
+                )
+            )
+        ],
+        home=tmp_path,
+        system="Windows",
+        environment={},
+        hidden_space_result=HiddenSpaceScanResult(),
+        include_current_user_registry=False,
+        wsl_distros=[],
+        scan_status=status,
+    )
+
+    launcher_inspection.assert_not_called()
+    assert "client_launcher_profile_safety_skip" in status.reasons
+
+
+def test_skipped_hidden_launcher_directories_mark_presence_incomplete(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        presence_module,
+        "inspect_launcher_identities",
+        lambda **_kwargs: LauncherInspectionResult(hidden_directories_skipped=1),
+    )
+    status = ScanCompletionStatus()
+
+    detect_client_presence(
+        [_client(probe=InstallProbe(cli_binaries=["missing-test-client"]))],
+        home=tmp_path,
+        system="Linux",
+        environment={},
+        hidden_space_result=HiddenSpaceScanResult(),
+        scan_status=status,
+    )
+
+    assert "client_launcher_hidden_dirs_skipped" in status.reasons
 
 
 def test_windows_dollar_environment_expansion_is_case_insensitive(tmp_path):
@@ -1325,6 +1684,78 @@ def test_windows_dollar_environment_expansion_is_case_insensitive(tmp_path):
     )
 
     assert detected[0].config_paths == [str(config_path)]
+
+
+def test_windows_registry_permission_failure_marks_incomplete(monkeypatch):
+    fake_winreg = SimpleNamespace(
+        HKEY_LOCAL_MACHINE=object(),
+        HKEY_CURRENT_USER=object(),
+        HKEY_USERS=object(),
+        OpenKey=mock.Mock(side_effect=PermissionError("denied")),
+    )
+    monkeypatch.setattr(
+        presence_module.importlib,
+        "import_module",
+        lambda _name: fake_winreg,
+    )
+    status = ScanCompletionStatus()
+
+    assert _windows_uninstall_entries(scan_status=status) == []
+    assert status.reasons == ["client_registry_access_failed"]
+
+
+@pytest.mark.parametrize("predicate", ["_safe_is_file", "_safe_is_dir"])
+def test_filesystem_predicate_permission_failure_marks_incomplete(
+    monkeypatch,
+    predicate,
+):
+    status = ScanCompletionStatus()
+    monkeypatch.setattr(
+        Path,
+        "stat",
+        lambda _self: (_ for _ in ()).throw(PermissionError("denied")),
+    )
+
+    assert getattr(presence_module, predicate)(Path("/denied"), status) is False
+    assert status.reasons == ["client_filesystem_stat_failed"]
+
+
+@pytest.mark.parametrize("predicate", ["_safe_is_file", "_safe_is_dir"])
+def test_filesystem_predicate_permission_failure_via_stat_marks_incomplete(
+    predicate,
+):
+    status = ScanCompletionStatus()
+    path_method = "is_file" if predicate.endswith("file") else "is_dir"
+    path = mock.MagicMock(spec=Path)
+    getattr(path, path_method).return_value = False
+    path.stat.side_effect = PermissionError(errno.EACCES, "denied")
+
+    assert getattr(presence_module, predicate)(path, status) is False
+    assert status.reasons == ["client_filesystem_stat_failed"]
+
+
+@pytest.mark.parametrize("predicate", ["_safe_is_file", "_safe_is_dir"])
+@pytest.mark.parametrize(
+    "error_number",
+    [errno.ENOENT, errno.ENOTDIR, errno.EBADF, errno.ELOOP],
+)
+def test_filesystem_predicate_definite_absence_errno_remains_complete(
+    predicate,
+    error_number,
+):
+    status = ScanCompletionStatus()
+    path = mock.MagicMock(spec=Path)
+    path.stat.side_effect = OSError(error_number, "absent")
+
+    assert getattr(presence_module, predicate)(path, status) is False
+    assert status.complete is True
+
+
+def test_filesystem_predicate_definite_absence_remains_complete(tmp_path):
+    status = ScanCompletionStatus()
+
+    assert presence_module._safe_is_file(tmp_path / "missing", status) is False
+    assert status.complete is True
 
 
 def test_windows_registry_reader_checks_all_uninstall_hives(monkeypatch):
@@ -1680,6 +2111,32 @@ def test_merge_container_skill_marks_client_present():
             client="goose",
             display_name="Goose",
             detected_via=["container", "skill"],
+            evidence_origin="container",
+        )
+    ]
+
+
+def test_merge_wsl_skill_is_wsl_evidence():
+    client = _client(name="goose", display_name="Goose")
+
+    detected = merge_client_presence(
+        [],
+        clients=[client],
+        skills=[
+            SimpleNamespace(
+                tool="goose",
+                container_id=None,
+                wsl_distro="Ubuntu",
+            )
+        ],
+    )
+
+    assert detected == [
+        DetectedClient(
+            client="goose",
+            display_name="Goose",
+            detected_via=["skill"],
+            evidence_origin="wsl",
         )
     ]
 
@@ -1698,6 +2155,32 @@ def test_merge_container_agent_definition_marks_client_present():
             client="codex",
             display_name="Codex",
             detected_via=["container", "config"],
+            evidence_origin="container",
+        )
+    ]
+
+
+def test_merge_wsl_agent_definition_is_wsl_evidence():
+    client = _client(name="codex", display_name="Codex")
+
+    detected = merge_client_presence(
+        [],
+        clients=[client],
+        agent_definitions=[
+            SimpleNamespace(
+                client="codex",
+                container_id=None,
+                wsl_distro="Ubuntu",
+            )
+        ],
+    )
+
+    assert detected == [
+        DetectedClient(
+            client="codex",
+            display_name="Codex",
+            detected_via=["config"],
+            evidence_origin="wsl",
         )
     ]
 
@@ -1785,6 +2268,8 @@ def test_merge_wsl_config_uses_normalized_config_path():
         client_version=None,
         config_path="/home/alice/.cursor/mcp.json",
         config_scope="wsl",
+        wsl_distro="Ubuntu",
+        wsl_user="alice",
         servers=[object()],
     )
 
@@ -1799,6 +2284,169 @@ def test_merge_wsl_config_uses_normalized_config_path():
             client="cursor",
             display_name="Cursor",
             detected_via=["config", "server"],
+            evidence_origin="wsl",
             config_paths=["/home/alice/.cursor/mcp.json"],
+            wsl_contexts=[WSLClientContext(distro="Ubuntu", user="alice")],
         )
     ]
+
+
+def test_native_static_client_evidence_wins_over_wsl_config():
+    client = _client(name="cursor", display_name="Cursor")
+    probed = DetectedClient(
+        client="cursor",
+        display_name="Cursor",
+        detected_via=["app"],
+    )
+    config = SimpleNamespace(
+        client="cursor",
+        client_version=None,
+        config_path="/home/alice/.cursor/mcp.json",
+        config_scope="wsl",
+        wsl_distro="Ubuntu",
+        wsl_user="alice",
+        servers=[object()],
+    )
+
+    detected = merge_client_presence(
+        [probed],
+        clients=[client],
+        configurations=[config],
+    )
+
+    assert detected[0].evidence_origin == "static"
+    assert detected[0].wsl_contexts == [WSLClientContext(distro="Ubuntu", user="alice")]
+
+
+@pytest.mark.parametrize(
+    ("wsl_distro", "expected_origin"),
+    [
+        (None, "runtime"),
+        ("Ubuntu", "wsl_runtime"),
+    ],
+)
+def test_merge_process_override_only_client_is_runtime_evidence(
+    wsl_distro: str | None,
+    expected_origin: ClientEvidenceOrigin,
+):
+    client = _client(name="cursor", display_name="Cursor")
+    process_config = SimpleNamespace(
+        client="cursor",
+        client_version=None,
+        config_path=None,
+        config_scope="process_override",
+        servers=[object()],
+        wsl_distro=wsl_distro,
+    )
+
+    detected = merge_client_presence(
+        [],
+        clients=[client],
+        configurations=[process_config],
+    )
+
+    assert detected[0].evidence_origin == expected_origin
+
+
+@pytest.mark.parametrize(
+    ("wsl_distro", "expected_origin"),
+    [
+        (None, "runtime"),
+        ("Ubuntu", "wsl_runtime"),
+    ],
+)
+def test_merge_process_extension_plugin_uses_wsl_runtime_evidence(
+    wsl_distro: str | None,
+    expected_origin: ClientEvidenceOrigin,
+) -> None:
+    client = _client(name="cursor", display_name="Cursor")
+    plugin = SimpleNamespace(
+        client="cursor",
+        container_id=None,
+        scope="process_override",
+        wsl_distro=wsl_distro,
+        plugin_type="vscode_extension",
+    )
+
+    detected = merge_client_presence(
+        [],
+        clients=[client],
+        plugins=[plugin],
+    )
+
+    assert detected[0].evidence_origin == expected_origin
+
+
+@pytest.mark.parametrize(
+    ("origins", "expected_origin"),
+    [
+        (["runtime", "container"], "container"),
+        (["container", "wsl_runtime"], "wsl_runtime"),
+        (["wsl_runtime", "wsl"], "wsl"),
+        (["wsl", "static"], "static"),
+    ],
+)
+def test_strongest_client_evidence_origin_order(
+    origins: list[ClientEvidenceOrigin],
+    expected_origin: ClientEvidenceOrigin,
+):
+    assert presence_module._strongest_evidence_origin(origins) == expected_origin
+
+
+def test_merge_static_client_evidence_wins_over_container_and_runtime():
+    client = _client(name="cursor", display_name="Cursor")
+    probed = DetectedClient(
+        client="cursor",
+        display_name="Cursor",
+        detected_via=["app"],
+    )
+    configurations = [
+        SimpleNamespace(
+            client="cursor",
+            client_version=None,
+            config_path=None,
+            config_scope="process_override",
+            servers=[object()],
+        ),
+        SimpleNamespace(
+            client="cursor",
+            client_version=None,
+            config_path="/container/.cursor/mcp.json",
+            config_scope="container",
+            servers=[object()],
+        ),
+    ]
+
+    detected = merge_client_presence(
+        [probed],
+        clients=[client],
+        configurations=configurations,
+    )
+
+    assert detected[0].evidence_origin == "static"
+
+
+@pytest.mark.parametrize(
+    ("scope", "container_id", "expected_origin"),
+    [
+        ("global", None, "static"),
+        ("process_override", None, "runtime"),
+        ("process_override", "container-1", "container"),
+    ],
+)
+def test_merge_plugin_artifact_classifies_client_evidence_origin(
+    scope: str,
+    container_id: str | None,
+    expected_origin: str,
+):
+    client = _client(name="cursor", display_name="Cursor")
+    plugin = SimpleNamespace(
+        client="cursor",
+        plugin_type="vscode_extension",
+        scope=scope,
+        container_id=container_id,
+    )
+
+    detected = merge_client_presence([], clients=[client], plugins=[plugin])
+
+    assert detected[0].evidence_origin == expected_origin

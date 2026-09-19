@@ -20,6 +20,7 @@ from plato.cli.sandbox import sandbox_app
 from plato.cli.segmentation import segmentation_app
 from plato.cli.session import app as session_app
 from plato.cli.utils import console, get_http_client, require_api_key
+from plato.cli.vault import vault_app
 from plato.cli.workflow import workflow_app
 from plato.cli.world import world_app
 
@@ -106,6 +107,7 @@ app.add_typer(chronos_app, name="chronos")
 app.add_typer(hillclimb_app, name="hillclimb")
 app.add_typer(segmentation_app, name="segmentation")
 app.add_typer(workflow_app, name="workflow")
+app.add_typer(vault_app, name="vault")
 
 
 # =============================================================================

@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -15,7 +15,7 @@ class CelfEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         seed_set_size: int,
         mutate_property: str,
         relationship_types: list[str] = ALL_TYPES,
@@ -38,13 +38,13 @@ class CelfEndpoints(ABC):
         ----------
         G
            Graph object to use
-        seed_set_size : int
+        seed_set_size
             The number of nodes to select as the seed set for influence maximization
         mutate_property
             Name of the node property to store the results in.
-        propagation_probability : float | None, default=None
+        propagation_probability
             Probability of a node being activated by an active neighbour node.
-        monte_carlo_simulations : int | None, default=None
+        monte_carlo_simulations
             Number of Monte-Carlo simulations.
         random_seed
             Seed for random number generation to ensure reproducible results.
@@ -73,7 +73,7 @@ class CelfEndpoints(ABC):
     @abstractmethod
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         seed_set_size: int,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -95,11 +95,11 @@ class CelfEndpoints(ABC):
         ----------
         G
            Graph object to use
-        seed_set_size : int
+        seed_set_size
             The number of nodes to select as the seed set for influence maximization
-        propagation_probability : float | None, default=None
+        propagation_probability
             Probability of a node being activated by an active neighbour node.
-        monte_carlo_simulations : int | None, default=None
+        monte_carlo_simulations
             Number of Monte-Carlo simulations.
         random_seed
             Seed for random number generation to ensure reproducible results.
@@ -128,7 +128,7 @@ class CelfEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         seed_set_size: int,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -148,11 +148,11 @@ class CelfEndpoints(ABC):
         ----------
         G
            Graph object to use
-        seed_set_size : int
+        seed_set_size
             The number of nodes to select as the seed set for influence maximization
-        propagation_probability : float | None, default=None
+        propagation_probability
             The probability that influence spreads from one node to another.
-        monte_carlo_simulations : int | None, default=None
+        monte_carlo_simulations
             The number of Monte-Carlo simulations.
         random_seed
             Seed for random number generation to ensure reproducible results.
@@ -173,7 +173,7 @@ class CelfEndpoints(ABC):
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             DataFrame with nodeId and spread columns containing CELF results.
             Each row represents a selected node with its corresponding influence spread value.
         """
@@ -182,7 +182,7 @@ class CelfEndpoints(ABC):
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         seed_set_size: int,
         write_property: str,
         propagation_probability: float = 0.1,
@@ -206,13 +206,13 @@ class CelfEndpoints(ABC):
         ----------
         G
            Graph object to use
-        seed_set_size : int
+        seed_set_size
             The number of nodes to select as the seed set for influence maximization
         write_property
             Name of the node property to store the results in.
-        propagation_probability : float | None, default=None
+        propagation_probability
             Probability of a node being activated by an active neighbour node.
-        monte_carlo_simulations : int | None, default=None
+        monte_carlo_simulations
             Number of Monte-Carlo simulations.
         random_seed
             Seed for random number generation to ensure reproducible results.
@@ -241,7 +241,7 @@ class CelfEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         seed_set_size: int,
         propagation_probability: float = 0.1,
         monte_carlo_simulations: int = 100,
@@ -257,11 +257,11 @@ class CelfEndpoints(ABC):
         ----------
         G
            Graph object to use or a dictionary representing the graph dimensions.
-        seed_set_size : int
+        seed_set_size
             The number of nodes to select as the seed set for influence maximization.
-        propagation_probability : float
+        propagation_probability
             The probability that influence spreads from one node to another.
-        monte_carlo_simulations : int
+        monte_carlo_simulations
             The number of Monte-Carlo simulations.
         random_seed
             Seed for random number generation to ensure reproducible results.

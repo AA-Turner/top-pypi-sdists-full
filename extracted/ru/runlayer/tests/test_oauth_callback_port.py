@@ -8,7 +8,12 @@ from unittest.mock import MagicMock
 import anyio
 import pytest
 
-from runlayer_cli.oauth import OAuth, _callback_listener
+from runlayer_cli.oauth import (
+    OAuth,
+    OAuthCallbackListenerError,
+    OAuthCallbackPortInUseError,
+    _callback_listener,
+)
 
 
 def _redirect_uris(oauth: OAuth) -> list[str]:
@@ -102,6 +107,8 @@ async def test_callback_handler_raises_actionable_error_when_port_busy(
             await oauth.callback_handler()
 
     message = str(exc_info.value)
+    assert isinstance(exc_info.value, OAuthCallbackPortInUseError)
+    assert exc_info.value.port == port
     assert f"OAuth callback port {port} is already in use" in message
     assert "--oauth-callback-port" in message
     assert "http://localhost:<port>/callback" in message
@@ -150,6 +157,8 @@ async def test_callback_socket_failure_preserves_safe_diagnostics(
             await oauth.callback_handler()
 
     message = str(exc_info.value)
+    assert isinstance(exc_info.value, OAuthCallbackListenerError)
+    assert not isinstance(exc_info.value, OAuthCallbackPortInUseError)
     assert exc_info.value.__cause__ is original_error
     assert errno.errorcode[error_number] in message
     assert ("socket" if operation == "setsockopt" else operation) in message

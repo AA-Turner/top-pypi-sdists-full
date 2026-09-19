@@ -23,7 +23,10 @@ from runlayer_cli.hook_install import (
 import runlayer_cli.hook_install.clients as clients_module
 import runlayer_cli.hook_install.check as check_module
 import runlayer_cli.hook_install.paths as paths_module
+import runlayer_cli.hook_install.presence as presence_module
 from runlayer_cli.hook_install.clients import (
+    CONSOLE_HOME_CLIENTS,
+    ENTERPRISE_DIR_CLIENTS,
     _is_runlayer_command,
     _merge_claude_hooks,
     _merge_cursor_hooks,
@@ -33,6 +36,7 @@ from runlayer_cli.hook_install.clients import (
     expected_event_names,
     hook_command_for_client,
     iter_supported_clients,
+    presence_gates_install,
 )
 from runlayer_cli.hook_install.presence import client_is_installed
 from runlayer_cli.tolerant_json import loads, read_dict
@@ -102,9 +106,38 @@ class TestClientPresenceGate:
 
         assert client_is_installed(Client.GROK_CLI, scope=InstallScope.USER)
 
-    def test_mdm_skips_every_supported_client_when_none_are_installed(
+    def test_hidden_sweep_failure_does_not_abort_install_detection(
+        self,
+        tmp_path,
+        monkeypatch,
+    ) -> None:
+        from runlayer_cli.scan import client_presence
+
+        def fail_hidden_sweep(**_kwargs):
+            raise RuntimeError("hidden sweep failed")
+
+        _disable_host_client_probes(monkeypatch)
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        monkeypatch.setattr(
+            client_presence,
+            "scan_hidden_spaces",
+            fail_hidden_sweep,
+        )
+
+        assert not client_is_installed(
+            Client.CLAUDE_CODE,
+            scope=InstallScope.USER,
+        )
+
+    def test_mdm_gates_only_console_home_clients_when_none_are_installed(
         self, tmp_path, monkeypatch
     ):
+        """MDM presence gate: console-home clients skip, enterprise-dir clients write.
+
+        Enterprise-dir targets are root-owned and harmless for an absent
+        client; gating them made hooks.json order-dependent on client install
+        (ENG-6643).
+        """
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         monkeypatch.setattr(clients_module.platform, "system", lambda: "Unknown")
         monkeypatch.setattr(
@@ -122,21 +155,108 @@ class TestClientPresenceGate:
                 lambda client=client: managed_root / client.value,
             )
 
-        results = [
-            install_client(
+        results = {
+            client: install_client(
                 client,
                 scope=InstallScope.MDM,
                 hook_command="/usr/local/bin/aiwatch-hook",
                 skip_when_missing=True,
             )
             for client in iter_supported_clients()
-        ]
+        }
 
-        assert all(
-            not result.written and result.skipped_reason == "client not installed"
-            for result in results
+        for client in CONSOLE_HOME_CLIENTS:
+            result = results[client]
+            assert not result.written, client.value
+            assert result.skipped_reason == "client not installed", client.value
+            assert not (managed_root / client.value).exists(), client.value
+        for client in ENTERPRISE_DIR_CLIENTS:
+            result = results[client]
+            assert result.written, client.value
+            assert result.skipped_reason is None, client.value
+            assert result.config_path.is_relative_to(managed_root), client.value
+            assert result.config_path.is_file(), client.value
+
+    def test_presence_gate_client_sets_partition_supported_clients(self):
+        """Every client must be classified so a new one can't silently default."""
+        supported = set(iter_supported_clients())
+        assert ENTERPRISE_DIR_CLIENTS | CONSOLE_HOME_CLIENTS == supported
+        assert not (ENTERPRISE_DIR_CLIENTS & CONSOLE_HOME_CLIENTS)
+
+    @pytest.mark.parametrize("client", sorted(ENTERPRISE_DIR_CLIENTS, key=str))
+    def test_mdm_enterprise_dir_client_writes_when_probe_fails(
+        self, tmp_path, monkeypatch, client
+    ):
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        monkeypatch.setattr(clients_module.platform, "system", lambda: "Unknown")
+        monkeypatch.setattr(
+            presence_module, "client_is_installed", lambda *_a, **_kw: False
         )
+        managed_root = tmp_path / "managed"
+        monkeypatch.setattr(
+            clients_module,
+            f"enterprise_{client.value.replace('-', '_')}_dir",
+            lambda: managed_root / client.value,
+        )
+
+        result = install_client(
+            client,
+            scope=InstallScope.MDM,
+            hook_command="/usr/local/bin/aiwatch-hook",
+            skip_when_missing=True,
+        )
+
+        assert result.written
+        assert result.config_path == config_path_for(client, InstallScope.MDM)
+        assert result.config_path.is_file()
+        assert presence_gates_install(client, InstallScope.MDM) is False
+
+    @pytest.mark.parametrize("client", [Client.CLAUDE_CODE, Client.VSCODE])
+    def test_mdm_console_home_client_still_skips_when_probe_fails(
+        self, tmp_path, monkeypatch, client
+    ):
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        monkeypatch.setattr(clients_module.platform, "system", lambda: "Unknown")
+        monkeypatch.setattr(
+            presence_module, "client_is_installed", lambda *_a, **_kw: False
+        )
+        managed_root = tmp_path / "managed"
+        monkeypatch.setattr(
+            clients_module,
+            f"enterprise_{client.value.replace('-', '_')}_dir",
+            lambda: managed_root / client.value,
+        )
+
+        result = install_client(
+            client,
+            scope=InstallScope.MDM,
+            hook_command="/usr/local/bin/aiwatch-hook",
+            skip_when_missing=True,
+        )
+
+        assert not result.written
+        assert result.skipped_reason == "client not installed"
         assert not managed_root.exists()
+        assert presence_gates_install(client, InstallScope.MDM) is True
+
+    def test_user_scope_enterprise_dir_client_still_gated(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        monkeypatch.setattr(clients_module.platform, "system", lambda: "Unknown")
+        monkeypatch.setattr(
+            presence_module, "client_is_installed", lambda *_a, **_kw: False
+        )
+
+        result = install_client(
+            Client.CURSOR,
+            scope=InstallScope.USER,
+            hook_command="/usr/local/bin/aiwatch-hook",
+            skip_when_missing=True,
+        )
+
+        assert not result.written
+        assert result.skipped_reason == "client not installed"
+        assert not (tmp_path / ".cursor").exists()
+        assert presence_gates_install(Client.CURSOR, InstallScope.USER) is True
 
     def test_claude_code_state_file_without_executable_is_not_installed(
         self, tmp_path, monkeypatch
@@ -354,6 +474,44 @@ class TestClientPresenceGate:
             lambda: console_home,
         )
         monkeypatch.setattr(cli_binaries.shutil, "which", lambda _binary: None)
+
+        assert client_is_installed(Client.CODEX, scope=InstallScope.MDM)
+
+    def test_windows_mdm_detects_codex_standalone_payload(self, tmp_path, monkeypatch):
+        """The standalone ``install.ps1`` payload is only on the console user's
+        PATH; SYSTEM has to find it under the console home (ENG-6617)."""
+        from runlayer_cli.hook_install import console_user
+        from runlayer_cli.hook_install import presence
+        from runlayer_cli.scan import cli_binaries
+
+        console_home = tmp_path / "Users" / "alice"
+        codex_exe = (
+            console_home
+            / ".codex"
+            / "packages"
+            / "standalone"
+            / "current"
+            / "bin"
+            / "codex.exe"
+        )
+        codex_exe.parent.mkdir(parents=True)
+        codex_exe.write_bytes(b"")
+        (console_home / ".codex" / "config.toml").write_text('model = "gpt-5"\n')
+        monkeypatch.setattr(presence.platform, "system", lambda: "Windows")
+        monkeypatch.setattr(
+            console_user,
+            "find_console_user_home",
+            lambda: console_home,
+        )
+        monkeypatch.setattr(cli_binaries.shutil, "which", lambda _binary: None)
+        monkeypatch.setattr(
+            "runlayer_cli.scan.client_presence._windows_uninstall_entries",
+            lambda **_: [],
+        )
+        monkeypatch.setenv(
+            "LOCALAPPDATA",
+            str(tmp_path / "Windows" / "System32" / "config" / "systemprofile"),
+        )
 
         assert client_is_installed(Client.CODEX, scope=InstallScope.MDM)
 
@@ -3808,11 +3966,36 @@ class TestCheck:
         result = check_client(Client.CURSOR, scope=InstallScope.USER)
         assert result.status == ClientStatus.CLIENT_NOT_INSTALLED
 
-    def test_mdm_reports_client_not_installed(self, tmp_path, monkeypatch):
+    def test_mdm_enterprise_dir_client_reports_missing_when_probe_fails(
+        self, tmp_path, monkeypatch
+    ):
+        """MDM check evaluates the enterprise file even when Cursor isn't detected,
+        so a never-written hooks.json surfaces as MISSING instead of hiding
+        behind CLIENT_NOT_INSTALLED (ENG-6643)."""
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
         _disable_host_client_probes(monkeypatch)
+        monkeypatch.setattr(
+            check_module, "client_is_installed", lambda *_a, **_kw: False
+        )
+        monkeypatch.setattr(
+            clients_module, "enterprise_cursor_dir", lambda: tmp_path / "Cursor"
+        )
 
         result = check_client(Client.CURSOR, scope=InstallScope.MDM)
+
+        assert result.status == ClientStatus.MISSING
+        assert result.detail == "no hooks.json"
+
+    def test_mdm_console_home_client_reports_client_not_installed(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        _disable_host_client_probes(monkeypatch)
+        monkeypatch.setattr(
+            check_module, "client_is_installed", lambda *_a, **_kw: False
+        )
+
+        result = check_client(Client.CLAUDE_CODE, scope=InstallScope.MDM)
 
         assert result.status == ClientStatus.CLIENT_NOT_INSTALLED
 

@@ -13,13 +13,14 @@ import subprocess
 import threading
 import time
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from functools import partial
 from pathlib import Path
-from typing import TYPE_CHECKING, TypeVar
+from typing import TYPE_CHECKING, Literal, TypeAlias, TypeVar
 
 import structlog
 
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.concurrency import scan_worker_count
 from runlayer_cli.scan.resource_governor import (
     terminate_process,
@@ -68,6 +69,51 @@ _CHECKPOINT_EVERY_LINES = 256
 _CRAWL_NICE_VALUE = 10
 _WINDOWS_BELOW_NORMAL_PRIORITY_CLASS = 0x00004000
 _WINDOWS_REPARSE_PREFIX = "__RUNLAYER_REPARSE__:"
+_CrawlCommand: TypeAlias = Literal["find", "powershell"]
+_CrawlReasonNamespace: TypeAlias = Literal["project", "nested_project"]
+
+
+# Child exit codes that still mean "enumeration finished". ``find`` exits 1 when
+# any directory was unreadable but keeps printing every readable match, which is
+# the normal outcome on macOS/Linux homes (TCC denies ``~/Music``, ``~/Pictures``
+# etc. to every non-entitled process); signal kills are negative and every other
+# code is abnormal. The PowerShell crawler ends in ``exit 0`` itself, so any
+# nonzero code there is a genuine script failure. Downstream removal
+# reconciliation trusts a complete crawl's absence of a path as evidence the
+# path is gone, so routine ACL noise must not read as incompleteness.
+_FIND_TOLERATED_RETURN_CODES = frozenset({0, 1})
+_POWERSHELL_TOLERATED_RETURN_CODES = frozenset({0})
+_TOLERATED_RETURN_CODES: dict[_CrawlCommand, frozenset[int]] = {
+    "find": _FIND_TOLERATED_RETURN_CODES,
+    "powershell": _POWERSHELL_TOLERATED_RETURN_CODES,
+}
+
+
+def _child_exit_abnormal(returncode: int | None, tolerated: frozenset[int]) -> bool:
+    return returncode is not None and returncode not in tolerated
+
+
+def _classify_crawl_returncode(
+    returncode: int | None,
+    command: _CrawlCommand,
+    reason_namespace: _CrawlReasonNamespace = "project",
+) -> str | None:
+    """Map command-specific exit semantics to one completeness reason."""
+    if not _child_exit_abnormal(returncode, _TOLERATED_RETURN_CODES[command]):
+        return None
+    return f"{reason_namespace}_crawl_command_failed"
+
+
+def _classify_crawl_exception(
+    exc: Exception,
+    reason_namespace: _CrawlReasonNamespace = "project",
+) -> str:
+    """Map crawl execution exceptions to the shared completeness taxonomy."""
+    if isinstance(exc, subprocess.TimeoutExpired):
+        return f"{reason_namespace}_crawl_timed_out"
+    if isinstance(exc, FileNotFoundError):
+        return f"{reason_namespace}_crawl_command_missing"
+    return f"{reason_namespace}_crawl_command_failed"
 
 
 def _clamp_scan_bound(value: object, *, default: int, maximum: int) -> int:
@@ -98,11 +144,13 @@ class ProjectConfig:
 
 @dataclass
 class HomeCrawlResult:
-    """Physical crawl results and their logical direct-file identities."""
+    """Physical results, logical identities, and enumeration completeness."""
 
     found_paths: list[Path]
     node_modules_paths: list[Path]
     logical_paths: dict[Path, tuple[Path, ...]]
+    complete: bool = True
+    incomplete_reasons: list[str] = field(default_factory=list)
 
 
 # Path segments excluded from the find/PowerShell crawl. Derived from the
@@ -147,11 +195,13 @@ class _PathBudget:
     def __init__(self, limit: int) -> None:
         self._limit = limit
         self._count = 0
+        self._exhausted = threading.Event()
         self._lock = threading.Lock()
 
     def reserve(self) -> bool:
         with self._lock:
             if self._count >= self._limit:
+                self._exhausted.set()
                 return False
             self._count += 1
             return True
@@ -161,6 +211,14 @@ class _PathBudget:
             if self._count <= 0:
                 raise RuntimeError("cannot release an unreserved path")
             self._count -= 1
+
+    @property
+    def exhausted(self) -> bool:
+        return self._exhausted.is_set()
+
+    @property
+    def limit(self) -> int:
+        return self._limit
 
 
 def _is_reparse_point(path: Path) -> bool:
@@ -179,6 +237,7 @@ def _crawlable_home_subdirs(
     *,
     windows: bool,
     symlink_paths: list[Path] | None = None,
+    completion: ScanCompletionStatus | None = None,
 ) -> list[Path]:
     """List real depth-one roots, surfacing links without crawling them."""
     try:
@@ -187,6 +246,8 @@ def _crawlable_home_subdirs(
             key=lambda path: (path.name.casefold(), path.name),
         )
     except OSError as exc:
+        if completion is not None:
+            completion.mark_incomplete("project_root_enumeration_failed")
         logger.warning(
             "crawl_shard_root_enumeration_failed",
             path=str(home),
@@ -219,6 +280,8 @@ def _crawlable_home_subdirs(
                 if not _is_within_root(real_home, candidate_real):
                     continue
         except OSError:
+            if completion is not None:
+                completion.mark_incomplete("project_root_enumeration_failed")
             continue
         roots.append(candidate)
     return roots
@@ -228,6 +291,7 @@ def _dispatch_platform_work(
     *,
     unix_builder: Callable[[], list[Callable[[], _SHARD_RESULT]]],
     windows_builder: Callable[[], list[Callable[[], _SHARD_RESULT]]],
+    completion: ScanCompletionStatus | None = None,
 ) -> list[Callable[[], _SHARD_RESULT]]:
     """Build path-shard work for the current supported platform."""
     system = platform.system()
@@ -235,6 +299,8 @@ def _dispatch_platform_work(
         return unix_builder()
     if system == "Windows":
         return windows_builder()
+    if completion is not None:
+        completion.mark_incomplete("project_platform_unsupported")
     logger.warning("unsupported_platform_for_file_search", platform=system)
     return []
 
@@ -302,11 +368,13 @@ def _find_files_under_home(
         Stable, de-duplicated file paths and, when requested, direct
         ``node_modules`` roots from every shard.
     """
+    completion = ScanCompletionStatus()
     if not filenames:
         return HomeCrawlResult(
             found_paths=[],
             node_modules_paths=[],
             logical_paths={},
+            complete=True,
         )
 
     # Clamp to the supported range before crawling. typer already clamps flag /
@@ -331,7 +399,11 @@ def _find_files_under_home(
     def build_unix_work() -> list[Callable[[], _PathShardResult]]:
         top_level_shard = partial(
             _unix_shard,
-            search=_search_unix,
+            search=partial(
+                _search_unix,
+                completion=completion,
+                reason_namespace="project",
+            ),
             filenames=unique,
             deadline=deadline,
             max_depth=1,
@@ -345,6 +417,7 @@ def _find_files_under_home(
                 home,
                 windows=False,
                 symlink_paths=seed_symlink_paths,
+                completion=completion,
             )
             groups = _partition_roots(roots, max_workers)
             work.extend(
@@ -352,7 +425,11 @@ def _find_files_under_home(
                     groups,
                     partial(
                         _unix_shard,
-                        search=_search_unix,
+                        search=partial(
+                            _search_unix,
+                            completion=completion,
+                            reason_namespace="project",
+                        ),
                         filenames=unique,
                         deadline=deadline,
                         max_depth=max_depth - 1,
@@ -367,7 +444,11 @@ def _find_files_under_home(
     def build_windows_work() -> list[Callable[[], _PathShardResult]]:
         top_level_shard = partial(
             _windows_shard,
-            search=_search_windows,
+            search=partial(
+                _search_windows,
+                completion=completion,
+                reason_namespace="project",
+            ),
             filenames=unique,
             deadline=deadline,
             max_depth=0,
@@ -387,6 +468,7 @@ def _find_files_under_home(
             home,
             windows=True,
             symlink_paths=seed_symlink_paths,
+            completion=completion,
         )
         groups = _partition_roots(windows_roots, max_workers)
         work.extend(
@@ -394,7 +476,11 @@ def _find_files_under_home(
                 groups,
                 partial(
                     _windows_shard,
-                    search=_search_windows,
+                    search=partial(
+                        _search_windows,
+                        completion=completion,
+                        reason_namespace="project",
+                    ),
                     filenames=unique,
                     deadline=deadline,
                     max_depth=max_depth - 1,
@@ -411,6 +497,7 @@ def _find_files_under_home(
     work = _dispatch_platform_work(
         unix_builder=build_unix_work,
         windows_builder=build_windows_work,
+        completion=completion,
     )
     initial = _run_path_link_shards(work, max_workers=max_workers)
     found = initial.found_paths
@@ -426,8 +513,16 @@ def _find_files_under_home(
         discover_node_modules=discover_node_modules,
         max_workers=max_workers,
         follow_depth=max_depth,
-        search_unix=_search_unix,
-        search_windows=_search_windows,
+        search_unix=partial(
+            _search_unix,
+            completion=completion,
+            reason_namespace="project",
+        ),
+        search_windows=partial(
+            _search_windows,
+            completion=completion,
+            reason_namespace="project",
+        ),
         initial_found_paths=initial.found_paths,
     )
     found.extend(followed.found_paths)
@@ -437,10 +532,20 @@ def _find_files_under_home(
     ]
     all_node_modules_paths.extend(followed.node_modules_paths)
     all_node_modules_paths = sorted(set(all_node_modules_paths))
+    if symlink_policy.follow_budget_exhausted:
+        completion.mark_incomplete("project_symlink_follow_capped")
+    if initial.deadline_exhausted or followed.deadline_exhausted:
+        completion.mark_incomplete("project_crawl_timed_out")
+    # The node_modules list is a bounded hint set for npm client discovery, not
+    # an inventory surface; capping it leaves MCP/skill absence authority intact.
+    if path_budget is not None and path_budget.exhausted:
+        completion.mark_incomplete("project_crawl_path_capped")
     return HomeCrawlResult(
         found_paths=[path for path in found if path.name.casefold() != "node_modules"],
         node_modules_paths=all_node_modules_paths[:MAX_DISCOVERED_NODE_MODULES],
         logical_paths=followed.logical_paths,
+        complete=completion.complete,
+        incomplete_reasons=completion.reasons,
     )
 
 
@@ -448,19 +553,20 @@ def _safe_project_roots(
     roots: list[Path],
     *,
     inside_home: bool,
+    completion: ScanCompletionStatus | None = None,
 ) -> list[Path]:
     """Keep bounded roots on one side of home and collapse descendants."""
     home_real = os.path.realpath(str(Path.home()))
     candidates: list[tuple[Path, str]] = []
     seen_real_paths: set[str] = set()
     for root in sorted(set(roots), key=lambda path: (len(path.parts), str(path))):
-        if len(candidates) >= NESTED_PROJECT_SCAN_MAX_ROOTS:
-            break
         try:
             if not root.is_dir() or _is_reparse_point(root):
                 continue
             root_real = os.path.realpath(str(root))
         except OSError:
+            if completion is not None:
+                completion.mark_incomplete("nested_project_root_enumeration_failed")
             continue
         if _is_within_root(home_real, root_real) != inside_home:
             continue
@@ -471,6 +577,10 @@ def _safe_project_roots(
             _is_within_root(parent_real, root_real) for _, parent_real in candidates
         ):
             continue
+        if len(candidates) >= NESTED_PROJECT_SCAN_MAX_ROOTS:
+            if completion is not None:
+                completion.mark_incomplete("nested_project_root_capped")
+            break
         seen_real_paths.add(root_key)
         # Outside-home inputs are policy-approved physical targets, so crawl
         # their canonical location. In-home roots retain their logical path.
@@ -487,8 +597,10 @@ def find_files_under_project_roots(
     max_depth: int = NESTED_PROJECT_SCAN_DEPTH,
     max_paths: int = NESTED_PROJECT_SCAN_MAX_PATHS,
     governor: ResourceGovernor | None = None,
+    completion: ScanCompletionStatus | None = None,
 ) -> list[Path]:
     """Crawl inside- and outside-home project roots under one shared budget."""
+    completion = completion or ScanCompletionStatus()
     if not filenames or not roots:
         return []
 
@@ -506,9 +618,19 @@ def find_files_under_project_roots(
     if not isinstance(max_paths, int) or isinstance(max_paths, bool):
         max_paths = NESTED_PROJECT_SCAN_MAX_PATHS
     max_paths = max(1, min(max_paths, NESTED_PROJECT_SCAN_MAX_PATHS))
-    nested_roots = _safe_project_roots(roots, inside_home=True)
+    nested_roots = _safe_project_roots(
+        roots,
+        inside_home=True,
+        completion=completion,
+    )
     external_roots = (
-        _safe_project_roots(roots, inside_home=False) if not windows_system else []
+        _safe_project_roots(
+            roots,
+            inside_home=False,
+            completion=completion,
+        )
+        if not windows_system
+        else []
     )
     search_roots = [*nested_roots, *external_roots]
     if not search_roots:
@@ -529,7 +651,11 @@ def find_files_under_project_roots(
     external_root_groups = [[root] for root in external_roots]
     unix_shard = partial(
         _unix_shard,
-        search=_search_unix,
+        search=partial(
+            _search_unix,
+            completion=completion,
+            reason_namespace="nested_project",
+        ),
         filenames=unique,
         deadline=deadline,
         max_depth=max_depth,
@@ -538,7 +664,11 @@ def find_files_under_project_roots(
     )
     nested_windows_shard = partial(
         _windows_shard,
-        search=_search_windows,
+        search=partial(
+            _search_windows,
+            completion=completion,
+            reason_namespace="nested_project",
+        ),
         filenames=unique,
         deadline=deadline,
         max_depth=max_depth - 1,
@@ -549,7 +679,11 @@ def find_files_under_project_roots(
     )
     external_windows_shard = partial(
         _windows_shard,
-        search=_search_windows,
+        search=partial(
+            _search_windows,
+            completion=completion,
+            reason_namespace="nested_project",
+        ),
         filenames=unique,
         deadline=deadline,
         max_depth=max_depth - 1,
@@ -564,6 +698,7 @@ def find_files_under_project_roots(
             *_group_shards(nested_root_groups, nested_windows_shard),
             *_group_shards(external_root_groups, external_windows_shard),
         ],
+        completion=completion,
     )
     initial = _run_path_link_shards(work, max_workers=max_workers)
     followed = _crawl_followed_symlink_targets(
@@ -577,11 +712,26 @@ def find_files_under_project_roots(
         discover_node_modules=False,
         max_workers=max_workers,
         follow_depth=max_depth,
-        search_unix=_search_unix,
-        search_windows=_search_windows,
+        search_unix=partial(
+            _search_unix,
+            completion=completion,
+            reason_namespace="nested_project",
+        ),
+        search_windows=partial(
+            _search_windows,
+            completion=completion,
+            reason_namespace="nested_project",
+        ),
         initial_found_paths=initial.found_paths,
     )
-    return sorted(set(initial.found_paths + followed.found_paths))[:max_paths]
+    if symlink_policy.follow_budget_exhausted:
+        completion.mark_incomplete("nested_project_symlink_follow_capped")
+    if initial.deadline_exhausted or followed.deadline_exhausted:
+        completion.mark_incomplete("nested_project_crawl_timed_out")
+    found_paths = sorted(set(initial.found_paths + followed.found_paths))
+    if path_budget.exhausted or len(found_paths) > max_paths:
+        completion.mark_incomplete("nested_project_path_capped")
+    return found_paths[:max_paths]
 
 
 def scan_for_project_configs(
@@ -740,6 +890,46 @@ def _deprioritize_crawl_process(proc: subprocess.Popen) -> None:
         )
 
 
+def _crawl_output_lines(output: str | bytes | None) -> list[str]:
+    """Normalize completed or timed-out subprocess output into lines."""
+    if isinstance(output, bytes):
+        text = output.decode(errors="replace")
+    elif isinstance(output, str):
+        text = output
+    else:
+        return []
+    return text.strip().split("\n")
+
+
+def _collect_crawl_output(
+    output: str | bytes | None,
+    *,
+    accept: Callable[[str], Path | None],
+    found_paths: list[Path],
+    path_budget: _PathBudget | None,
+    label: _CrawlCommand,
+    completion: ScanCompletionStatus | None,
+    reason_namespace: _CrawlReasonNamespace,
+) -> None:
+    """Retain accepted paths from (possibly partial) crawl output under budget."""
+    for line in _crawl_output_lines(output):
+        if not line:
+            continue
+        path = accept(line)
+        if path is None:
+            continue
+        if path_budget is not None and not path_budget.reserve():
+            if completion is not None:
+                completion.mark_incomplete(f"{reason_namespace}_crawl_path_capped")
+            logger.warning(
+                "crawl_path_budget_reached",
+                label=label,
+                max_paths=path_budget.limit,
+            )
+            break
+        found_paths.append(path)
+
+
 def _search_unix(
     filenames: list[str],
     timeout: float,
@@ -750,6 +940,8 @@ def _search_unix(
     path_budget: _PathBudget | None = None,
     discover_node_modules: bool = False,
     symlink_paths: list[Path] | None = None,
+    completion: ScanCompletionStatus | None = None,
+    reason_namespace: _CrawlReasonNamespace = "project",
 ) -> list[Path]:
     """
     Use find command to locate MCP config files on macOS/Linux.
@@ -878,31 +1070,50 @@ def _search_unix(
             governor,
             label="find",
             path_budget=path_budget,
+            completion=completion,
+            reason_namespace=reason_namespace,
         )
 
+    collect_output = partial(
+        _collect_crawl_output,
+        accept=accept,
+        found_paths=found_paths,
+        path_budget=path_budget,
+        label="find",
+        completion=completion,
+        reason_namespace=reason_namespace,
+    )
     try:
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
+            errors="surrogateescape",
             timeout=timeout,
         )
-
-        # find returns exit code 1 if some dirs are unreadable, but still outputs results
-        for line in result.stdout.strip().split("\n"):
-            if not line:
-                continue
-
-            path = accept(line)
-            if path is not None:
-                found_paths.append(path)
-
-    except subprocess.TimeoutExpired:
+        # find exits 1 when some dirs were unreadable but still prints every
+        # readable match; that stays complete (see _FIND_TOLERATED_RETURN_CODES).
+        collect_output(result.stdout)
+        reason = _classify_crawl_returncode(
+            result.returncode,
+            "find",
+            reason_namespace,
+        )
+        if reason is not None and completion is not None:
+            completion.mark_incomplete(reason)
+    except subprocess.TimeoutExpired as exc:
+        collect_output(exc.stdout)
+        if completion is not None:
+            completion.mark_incomplete(f"{reason_namespace}_crawl_timed_out")
         logger.warning(f"find command timed out after {timeout}s")
-    except FileNotFoundError:
-        logger.warning("find command not found")
     except Exception as e:
-        logger.warning(f"find command failed: {e}")
+        reason = _classify_crawl_exception(e, reason_namespace)
+        if completion is not None:
+            completion.mark_incomplete(reason)
+        if reason == f"{reason_namespace}_crawl_command_missing":
+            logger.warning("find command not found")
+        else:
+            logger.warning(f"find command failed: {e}")
 
     return found_paths
 
@@ -980,6 +1191,8 @@ def _search_windows(
     discover_node_modules: bool = False,
     symlink_paths: list[Path] | None = None,
     windows_system_context: bool | None = None,
+    completion: ScanCompletionStatus | None = None,
+    reason_namespace: _CrawlReasonNamespace = "project",
 ) -> list[Path]:
     """
     Use PowerShell to find MCP config files on Windows.
@@ -1099,6 +1312,7 @@ def _search_windows(
             $path
         }}
     }}
+    exit 0
     """
 
     logger.debug(
@@ -1130,27 +1344,48 @@ def _search_windows(
             governor,
             label="powershell",
             path_budget=path_budget,
+            completion=completion,
+            reason_namespace=reason_namespace,
         )
 
+    collect_output = partial(
+        _collect_crawl_output,
+        accept=accept,
+        found_paths=found_paths,
+        path_budget=path_budget,
+        label="powershell",
+        completion=completion,
+        reason_namespace=reason_namespace,
+    )
     try:
         result = subprocess.run(
             ps_cmd,
             capture_output=True,
             text=True,
+            errors="surrogateescape",
             timeout=timeout,
         )
-
-        for line in result.stdout.strip().split("\n"):
-            if not line:
-                continue
-            path = accept(line)
-            if path is not None:
-                found_paths.append(path)
-
-    except subprocess.TimeoutExpired:
+        collect_output(result.stdout)
+        reason = _classify_crawl_returncode(
+            result.returncode,
+            "powershell",
+            reason_namespace,
+        )
+        if reason is not None and completion is not None:
+            completion.mark_incomplete(reason)
+    except subprocess.TimeoutExpired as exc:
+        collect_output(exc.stdout)
+        if completion is not None:
+            completion.mark_incomplete(f"{reason_namespace}_crawl_timed_out")
         logger.warning(f"PowerShell search timed out after {timeout}s")
     except Exception as e:
-        logger.warning(f"PowerShell search failed: {e}")
+        reason = _classify_crawl_exception(e, reason_namespace)
+        if completion is not None:
+            completion.mark_incomplete(reason)
+        if reason == f"{reason_namespace}_crawl_command_missing":
+            logger.warning("PowerShell command not found")
+        else:
+            logger.warning(f"PowerShell search failed: {e}")
 
     return found_paths
 
@@ -1161,8 +1396,10 @@ def _stream_crawl(
     accept: Callable[[str], Path | None],
     governor: ResourceGovernor,
     *,
-    label: str,
+    label: _CrawlCommand,
     path_budget: _PathBudget | None = None,
+    completion: ScanCompletionStatus | None = None,
+    reason_namespace: _CrawlReasonNamespace = "project",
 ) -> list[Path]:
     """Run *cmd*, streaming stdout line-by-line under governor control.
 
@@ -1175,19 +1412,24 @@ def _stream_crawl(
     have no built-in timeout). On POSIX the child starts in its own session so the
     governor's ``killpg`` reaps the whole ``find`` pipeline. ``checkpoint()`` may
     raise :class:`ScanResourceLimitExceeded`, which propagates out to abort the
-    scan after the child + watchdog are cleaned up.
+    scan after the child + watchdog are cleaned up. Partial paths remain in the
+    result when timeout, budget, or child failure marks *completion* incomplete.
     """
     found_paths: list[Path] = []
     budget = path_budget or _PathBudget(governor.max_paths)
     # On POSIX, own session/group so killpg reaps find + any subshell in one
     # shot; the flag is a no-op on Windows. Explicit kwargs (not **dict) keep the
     # inferred type Popen[str] so the streamed lines type-check as str.
+    # surrogateescape: one filename with undecodable bytes must not raise out of
+    # the streaming read and lose every path; the escaped str still round-trips
+    # through Path/os calls to the original bytes.
     try:
         proc = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
             stderr=subprocess.DEVNULL,
             text=True,
+            errors="surrogateescape",
             start_new_session=(os.name == "posix"),
             creationflags=(
                 getattr(
@@ -1199,28 +1441,39 @@ def _stream_crawl(
                 else 0
             ),
         )
-    except FileNotFoundError:
-        logger.warning(f"{label} command not found")
-        return found_paths
     except Exception as e:
-        logger.warning(f"{label} command failed to start: {e}")
+        reason = _classify_crawl_exception(e, reason_namespace)
+        if completion is not None:
+            completion.mark_incomplete(reason)
+        if reason == f"{reason_namespace}_crawl_command_missing":
+            logger.warning(f"{label} command not found")
+        elif reason == f"{reason_namespace}_crawl_timed_out":
+            logger.warning(f"{label} command timed out after {timeout}s")
+        else:
+            logger.warning(f"{label} command failed to start: {e}")
         return found_paths
 
     _deprioritize_crawl_process(proc)
     governor.register_child(proc)
     done = threading.Event()
     timed_out = threading.Event()
+    eof_reached = threading.Event()
 
     def _watchdog() -> None:
-        if not done.wait(timeout):
+        if not done.wait(timeout) and not eof_reached.is_set():
             timed_out.set()
             terminate_process(proc)
 
     watchdog = threading.Thread(target=_watchdog, name=f"{label}-watchdog", daemon=True)
     watchdog.start()
 
+    wait_failed = False
     try:
         line_count = 0
+        stdout_drained = False
+        natural_exit = False
+        natural_returncode: int | None = None
+        eof_exit_timed_out = False
         stream = proc.stdout
         if stream is not None:
             for raw in stream:
@@ -1234,13 +1487,28 @@ def _stream_crawl(
                 if path is None:
                     continue
                 if not budget.reserve():
+                    if completion is not None:
+                        completion.mark_incomplete(
+                            f"{reason_namespace}_crawl_path_capped"
+                        )
                     logger.warning(
                         "crawl_path_budget_reached",
                         label=label,
-                        max_paths=governor.max_paths,
+                        max_paths=budget.limit,
                     )
                     break
                 found_paths.append(path)
+            else:
+                stdout_drained = True
+                eof_reached.set()
+        if stdout_drained:
+            try:
+                natural_returncode = proc.wait(timeout=2.0)
+                natural_exit = True
+            except subprocess.TimeoutExpired:
+                eof_exit_timed_out = True
+            except Exception:
+                pass
         # Final checkpoint so a memory abort during the last batch (or a child
         # the monitor just killed) surfaces here rather than only at the next
         # phase boundary. Only raises on a real abort; timeout never does.
@@ -1253,7 +1521,7 @@ def _stream_crawl(
         try:
             proc.wait(timeout=2.0)
         except Exception:
-            pass
+            wait_failed = True
         try:
             if proc.stdout is not None:
                 proc.stdout.close()
@@ -1261,8 +1529,23 @@ def _stream_crawl(
             pass
         watchdog.join(timeout=1.0)
 
-    if timed_out.is_set():
-        logger.warning(f"{label} search timed out after {timeout}s")
+    if timed_out.is_set() or eof_exit_timed_out:
+        if completion is not None:
+            completion.mark_incomplete(f"{reason_namespace}_crawl_timed_out")
+        if timed_out.is_set():
+            logger.warning(f"{label} search timed out after {timeout}s")
+        else:
+            logger.warning(f"{label} process did not exit after stdout EOF")
+    elif natural_exit:
+        reason = _classify_crawl_returncode(
+            natural_returncode,
+            label,
+            reason_namespace,
+        )
+        if reason is not None and completion is not None:
+            completion.mark_incomplete(reason)
+    elif wait_failed and completion is not None:
+        completion.mark_incomplete(f"{reason_namespace}_crawl_command_failed")
 
     return found_paths
 

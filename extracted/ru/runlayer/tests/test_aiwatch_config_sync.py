@@ -8,6 +8,7 @@ import httpx
 
 from runlayer_cli import aiwatch_config_sync
 from runlayer_cli.aiwatch_config_cache import SyncedAIWatchConfig
+from runlayer_cli.scan import device
 
 CONFIG: SyncedAIWatchConfig = {
     "version": 1,
@@ -34,6 +35,8 @@ def test_sync_persists_backend_config(monkeypatch):
     write_config = MagicMock(return_value=True)
     monkeypatch.setattr(aiwatch_config_sync, "RunlayerClient", client_class)
     monkeypatch.setattr(aiwatch_config_sync, "write_backend_config", write_config)
+    # Resolved lazily inside sync_backend_config, so patch the source module.
+    monkeypatch.setattr(device, "get_or_create_device_id", lambda: "dev-123")
 
     assert (
         aiwatch_config_sync.sync_backend_config(
@@ -46,6 +49,8 @@ def test_sync_persists_backend_config(monkeypatch):
         hostname="https://tenant.runlayer.com",
         secret="rl_org_secret",
     )
+    # Same device identity as check-in; no username on the fetch.
+    client.get_aiwatch_config.assert_called_once_with(device_id="dev-123")
     write_config.assert_called_once_with(CONFIG, "rl_org_secret")
 
 

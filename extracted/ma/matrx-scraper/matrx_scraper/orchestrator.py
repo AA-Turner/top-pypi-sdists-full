@@ -18,6 +18,7 @@ from matrx_scraper.escalation import (
     escalation_sentence,
 )
 from matrx_scraper.ladder import (
+    RESIDENTIAL_RUNG,
     STOP_NOT_ESCALATABLE,
     LadderPolicy,
     LadderTrail,
@@ -47,6 +48,35 @@ from matrx_scraper.scraper import (
 from matrx_scraper.utils.proxy import redact_url_secrets
 
 logger = logging.getLogger(__name__)
+
+# ── Where a fetch left from ─────────────────────────────────────────────────
+#: Our datacenter proxy pool — the default exit for everything.
+EGRESS_DATACENTER = "datacenter"
+#: This server's own address, because no proxy was used (or the pool refused).
+EGRESS_DIRECT = "direct"
+#: The person's OWN computer, used only after a site blocked our servers.
+EGRESS_RESIDENTIAL = "residential"
+
+#: The host ext that mints a residential-egress ticket for one acting user.
+#: `async (acting_user_id: str, token: str | None) -> dict | None`, returning
+#: `{"ticket", "consume_url", "device_name"}` or
+#: `{"unavailable": <reason>, "message": <sentence>}`. aidream wires it in
+#: `aidream/package_integration.py`; a host that does not wire it gets no
+#: residential retry and a trail entry that says exactly that.
+EGRESS_TICKET_EXT = "residential_egress_ticket"
+#: The host ext that reads the `residential_egress.retry_reasons` knob.
+#: `async () -> list[str]`.
+EGRESS_RETRY_REASONS_EXT = "residential_egress_retry_reasons"
+
+#: The knob's own starting value, used when the host wires a ticket ext but no
+#: reasons ext. Never a silent hardcode: the knob is the authority and this is
+#: the value the contract seeds it with.
+DEFAULT_RESIDENTIAL_RETRY_REASONS: tuple[str, ...] = (
+    "cloudflare_block",
+    "blocked",
+    "bad_status:403",
+    "bad_status:429",
+)
 
 
 @dataclass
@@ -178,6 +208,14 @@ class ScrapeResult:
     #: True when the datacenter proxy pool refused the request and the page was
     #: fetched on a direct connection instead.
     proxy_bypassed: bool = False
+    #: WHERE this page was fetched FROM — `datacenter` (our proxy pool),
+    #: `direct` (this server's own address) or `residential` (the person's own
+    #: computer, after a site blocked our servers). Never silent about it:
+    #: contract `common-docs/systems/platform/residential-egress/FEATURE.md`.
+    egress: str = EGRESS_DATACENTER
+    #: The computer the page came through, in the person's own words
+    #: ("Arman's MacBook Pro"). Set only when `egress == "residential"`.
+    egress_device_name: str | None = None
     #: Longest extracted text length the content-sanity gate measured.
     content_chars: int = 0
     #: "thin_content" / "wrong_resource" — the result is usable but suspect.
@@ -430,11 +468,18 @@ async def _fetch_and_parse(
     fast: bool,
     browser_pool: Any,
     user_agent: str | None,
+    proxy_override: str | None = None,
 ) -> ScrapeResult:
-    """One transport round-trip, fully parsed, tagged with the engine used."""
+    """One transport round-trip, fully parsed, tagged with the engine used.
+
+    `proxy_override`, when set, REPLACES the datacenter proxy pool for this one
+    round-trip — it is the loopback address of a running `EgressAdapter`, so the
+    request leaves from the person's own computer. `use_proxy` is then ignored:
+    the caller has already chosen the exit.
+    """
     if request_type == RequestType.BROWSER:
         if browser_pool is not None:
-            proxy = get_required_random_proxy() if use_proxy else None
+            proxy = proxy_override or (get_required_random_proxy() if use_proxy else None)
             # `browser_pool` is a duck-typed injected seam — a host may supply
             # its own. Send the kwarg ONLY when there is something to override,
             # so a pool built before this field existed keeps working unchanged.
@@ -461,10 +506,17 @@ async def _fetch_and_parse(
                 content=content,
             )
         else:
-            proxy = get_required_random_proxy() if use_proxy else None
+            proxy = proxy_override or (get_required_random_proxy() if use_proxy else None)
             response = await fetch(
                 url, request_type=RequestType.BROWSER, proxy=proxy, user_agent=user_agent
             )
+    elif proxy_override:
+        response = await fetch(
+            url,
+            request_type=RequestType.NORMAL,
+            proxy=proxy_override,
+            user_agent=user_agent,
+        )
     elif use_proxy:
         response = await fetch_normally_with_proxy(url, user_agent=user_agent)
     else:
@@ -476,6 +528,12 @@ async def _fetch_and_parse(
     result = await asyncio.to_thread(_build_result_from_response, response, fast)
     result.engine = ENGINE_BROWSER if request_type == RequestType.BROWSER else ENGINE_HTTP
     result.proxy_bypassed = bool(getattr(response, "proxy_bypassed", False))
+    if proxy_override is not None:
+        result.egress = EGRESS_RESIDENTIAL
+    elif use_proxy and not result.proxy_bypassed:
+        result.egress = EGRESS_DATACENTER
+    else:
+        result.egress = EGRESS_DIRECT
     if result.proxy_bypassed and result.success:
         result.escalation_note = (
             "Our proxy network refused to carry this request, so we fetched the page "
@@ -608,6 +666,247 @@ def _ladder_reason(result: ScrapeResult) -> str | None:
     return result.failure_reason or result.content_warning
 
 
+# ── Residential egress: the person's own computer as the exit ───────────────
+#
+# THE RULE (contract: `common-docs/systems/platform/residential-egress/FEATURE.md`):
+# never by default, only that user's own computer, only after a site blocked our
+# servers, only for the retry of that same page — and the result always SAYS so,
+# including when the retry could not happen and why.
+
+
+def _reason_earns_residential_retry(
+    reason: str | None, status_code: int | None, reasons: list[str]
+) -> bool:
+    """Is this failure one the knob says earns one retry from a home computer?
+
+    An entry is either a bare failure class (`cloudflare_block`) or a class with
+    a status qualifier (`bad_status:403`) — the same spelling the knob's own
+    starting value uses, so an admin reading the knob and a reader of this code
+    see one vocabulary.
+    """
+    if not reason:
+        return False
+    for entry in reasons:
+        text = str(entry).strip()
+        if not text:
+            continue
+        name, separator, qualifier = text.partition(":")
+        if name.strip() != reason:
+            continue
+        if not separator:
+            return True
+        qualifier = qualifier.strip()
+        if qualifier.isdigit() and int(qualifier) == int(status_code or 0):
+            return True
+    return False
+
+
+async def _residential_retry_reasons() -> list[str]:
+    """The knob's list, through the host ext; the contract's own start value
+    when a host wires the ticket ext but no reasons ext."""
+    if not has_ext(EGRESS_RETRY_REASONS_EXT):
+        return list(DEFAULT_RESIDENTIAL_RETRY_REASONS)
+    try:
+        value = get_ext(EGRESS_RETRY_REASONS_EXT)()
+        if hasattr(value, "__await__"):
+            value = await value
+        if value is None:
+            return list(DEFAULT_RESIDENTIAL_RETRY_REASONS)
+        return [str(item) for item in value]
+    except Exception:  # noqa: BLE001 — announced, never fatal
+        logger.warning(
+            "the residential-egress retry-reason knob could not be read; using the "
+            "platform's starting list for this scrape",
+            exc_info=True,
+        )
+        return list(DEFAULT_RESIDENTIAL_RETRY_REASONS)
+
+
+def _residential_entry(
+    *, ok: bool, reason: str | None, note: str, chars: int = 0
+) -> dict[str, Any]:
+    return ladder_trail_entry(
+        rung=RESIDENTIAL_RUNG, ok=ok, reason=reason, note=note, chars=chars
+    )
+
+
+async def _maybe_retry_through_residential_egress(
+    result: ScrapeResult,
+    *,
+    url: str,
+    acting_user_id: str | None,
+    fast: bool,
+    browser_pool: Any,
+    user_agent: str | None,
+    proxy_forbidden_by_policy: bool,
+) -> tuple[ScrapeResult, dict[str, Any] | None]:
+    """One retry of a blocked page through the acting user's own computer.
+
+    Returns the result to keep and the trail entry to record, or `(result, None)`
+    when this failure was never a candidate at all (a 404 is a 404 from any
+    address). Every OTHER outcome — no signed-in person, nothing wired, no
+    computer, the retry itself — produces an entry, because a retry that quietly
+    did not happen is exactly the silent automation this platform forbids.
+    """
+    if _usable(result):
+        return result, None
+
+    # The RAW failure class, not `_ladder_reason`: the knob's vocabulary is the
+    # scraper's own failure names (`cloudflare_block`, `bad_status:403`), while
+    # `_ladder_reason` re-reads a 401/403 as `login_wall` for the person's-own-
+    # browser rungs. Matching on that one would silently exclude every 403 the
+    # knob explicitly names.
+    reason = result.failure_reason or result.content_warning
+    reasons = await _residential_retry_reasons()
+    if not _reason_earns_residential_retry(reason, result.status_code, reasons):
+        return result, None
+
+    if proxy_forbidden_by_policy:
+        # WE chose a direct connection for this address. Sending it out of a
+        # person's home instead would be the same policy broken, louder.
+        return result, _residential_entry(
+            ok=False,
+            reason=reason,
+            note=(
+                "This address is set to be fetched on a direct connection, so we did "
+                "not try it through anyone's home computer."
+            ),
+        )
+
+    if not has_ext(EGRESS_TICKET_EXT):
+        return result, _residential_entry(
+            ok=False,
+            reason=reason,
+            note="residential egress is not wired on this host",
+        )
+
+    if not acting_user_id:
+        return result, _residential_entry(
+            ok=False,
+            reason=reason,
+            note=(
+                "Nobody was signed in for this request, so there was no home computer "
+                "of yours to ask. A scheduled or service run never uses one."
+            ),
+        )
+
+    try:
+        grant = get_ext(EGRESS_TICKET_EXT)(acting_user_id, None)
+        if hasattr(grant, "__await__"):
+            grant = await grant
+    except Exception:  # noqa: BLE001 — a rescue that fails is not fatal
+        logger.warning("residential egress ticket failed", exc_info=True)
+        return result, _residential_entry(
+            ok=False,
+            reason=reason,
+            note="We could not ask for your home connection just now, so we did not try it.",
+        )
+
+    if not grant or not isinstance(grant, dict) or grant.get("unavailable"):
+        note = ""
+        if isinstance(grant, dict):
+            note = str(grant.get("message") or "")
+        return result, _residential_entry(
+            ok=False,
+            reason=reason,
+            note=note
+            or "You have no home computer available right now, so we did not try one.",
+        )
+
+    device_name = str(grant.get("device_name") or "your computer")
+    from matrx_scraper.egress_adapter import EgressAdapter
+
+    try:
+        adapter = await EgressAdapter.start(str(grant["ticket"]), str(grant["consume_url"]))
+    except Exception:  # noqa: BLE001
+        logger.warning("residential egress adapter would not start", exc_info=True)
+        return result, _residential_entry(
+            ok=False,
+            reason=reason,
+            note=(
+                f"We could not open a connection through {device_name}, so this is our "
+                "own answer."
+            ),
+        )
+
+    try:
+        retried = await _fetch_and_parse(
+            url,
+            request_type=RequestType.NORMAL,
+            use_proxy=False,
+            fast=fast,
+            browser_pool=browser_pool,
+            user_agent=user_agent,
+            proxy_override=adapter.proxy_url,
+        )
+        _apply_content_sanity(retried)
+
+        if not _usable(retried) and can_render(retried.content_type):
+            # Still a wall from the person's own address: the page needs a real
+            # browser AND that address. Same adapter, same computer.
+            try:
+                rendered = await _fetch_and_parse(
+                    url,
+                    request_type=RequestType.BROWSER,
+                    use_proxy=False,
+                    fast=fast,
+                    browser_pool=browser_pool,
+                    user_agent=user_agent,
+                    proxy_override=adapter.proxy_url,
+                )
+                _apply_content_sanity(rendered)
+                rendered.browser_attempted = True
+                if rendered.success and rendered.content_chars > retried.content_chars:
+                    retried = rendered
+            except Exception as exc:  # noqa: BLE001 — the HTTP leg's answer stands
+                logger.warning(
+                    "residential browser leg failed for %s: %s",
+                    redact_url_secrets(url),
+                    type(exc).__name__,
+                )
+    except Exception:  # noqa: BLE001
+        logger.warning(
+            "residential egress retry failed for %s", redact_url_secrets(url), exc_info=True
+        )
+        return result, _residential_entry(
+            ok=False,
+            reason=reason,
+            note=f"We tried this page through {device_name} as well and the connection failed.",
+        )
+    finally:
+        await adapter.close()
+
+    if _usable(retried):
+        retried.egress = EGRESS_RESIDENTIAL
+        retried.egress_device_name = device_name
+        retried.escalated = True
+        retried.escalation_reason = reason
+        retried.escalation_note = (
+            f"The site blocked our servers, so we fetched it through {device_name}."
+        )
+        # The browser leg the SERVER spent still happened; the trail must not
+        # lose it because a later rung replaced the result object.
+        retried.browser_attempted = retried.browser_attempted or result.browser_attempted
+        return retried, _residential_entry(
+            ok=True,
+            reason=None,
+            note=f"Fetched through {device_name}.",
+            chars=retried.content_chars,
+        )
+
+    result.escalation_reason = reason
+    result.escalation_note = (
+        f"We also tried this page through {device_name} and the site refused that too, "
+        "so this is the site's real answer."
+    )
+    return result, _residential_entry(
+        ok=False,
+        reason=_ladder_reason(retried) or reason,
+        note=f"We tried through {device_name} and the site refused that too.",
+        chars=retried.content_chars,
+    )
+
+
 def _seal_ladder(
     result: ScrapeResult,
     *,
@@ -617,6 +916,7 @@ def _seal_ladder(
     http_chars: int,
     policy: LadderPolicy,
     organization_id: str | None = None,
+    residential_entry: dict[str, Any] | None = None,
 ) -> ScrapeResult:
     """Write the rung trail and, on an unusable result, what comes next.
 
@@ -681,6 +981,11 @@ def _seal_ladder(
                 ),
                 chars=result.content_chars,
             )
+
+    if residential_entry is not None:
+        # An optional entry: it never changes which rung may follow, and a trail
+        # without it is still complete (`matrx_scraper.ladder.OPTIONAL_RUNGS`).
+        trail.entries = [*trail.entries, residential_entry]
 
     result.rung_trail = trail.entries
 
@@ -747,11 +1052,19 @@ async def scrape(
     escalate: bool | None = None,
     ladder_policy: LadderPolicy | None = None,
     organization_id: str | None = None,
+    acting_user_id: str | None = None,
 ) -> ScrapeResult:
     """Fetch and fully parse a single URL. Always async — never blocks.
 
     `user_agent`, when set, overrides the User-Agent for whichever transport
     this call ends up using (HTTP or browser). `None` = no override.
+
+    `organization_id` is the organization this scrape ACTS IN, and it only
+    matters when a `cache` is passed: the cached page is an org-scoped row, so
+    the read is filtered by it and the write carries it. A router resolves it at
+    the boundary (`confirm_request_organization`); leaving it `None` makes the
+    cache read the carried request context, and a cache operation that finds no
+    organization at all REFUSES rather than defaulting one.
 
     `escalate` overrides the deployment's `SCRAPER_BROWSER_ESCALATION` setting
     for this one call: `True` forces the browser hand-off on a failure the
@@ -767,6 +1080,13 @@ async def scrape(
     queue in aidream and the screens in matrx-frontend / matrx-extend all read
     one answer. Contract:
     `common-docs/projects/acquisition-frontier/extension-ladder/CONTRACT.md`.
+
+    `acting_user_id` is the PERSON this scrape is running for, and it is the
+    only thing that can unlock residential egress: after the ladder ends in a
+    block, this page gets exactly one retry through a computer THAT PERSON
+    registered, and never through anyone else's. A run with no acting user (a
+    schedule, a service token) gets no retry and the trail says so. Contract:
+    `common-docs/systems/platform/residential-egress/FEATURE.md`.
     """
     ladder_policy = ladder_policy or LadderPolicy()
     user_agent = normalize_user_agent(user_agent)
@@ -809,7 +1129,9 @@ async def scrape(
         from matrx_scraper.utils.url import get_url_info
 
         url_info = get_url_info(url)
-        cached = await cache.get(url_info.unique_page_name)
+        cached = await cache.get(
+            url_info.unique_page_name, organization_id=organization_id
+        )
         if cached is not None:
             content = cached.get("content", {})
             result = ScrapeResult(
@@ -839,10 +1161,15 @@ async def scrape(
             return result
 
     proxy_type = "datacenter"
+    # WE decided this address leaves on a direct connection. That decision binds
+    # every exit, including a person's home computer — a policy that only holds
+    # until the first block is not a policy.
+    proxy_forbidden_by_policy = False
     if domain_config is not None:
         proxy_type = domain_config.get_proxy_type(url)
         if proxy_type == "none":
             use_proxy = False
+            proxy_forbidden_by_policy = True
 
     pool = _resolve_browser_pool(browser_pool)
     result = await _fetch_and_parse(
@@ -893,6 +1220,20 @@ async def scrape(
             escalate=escalate,
         )
 
+    # The last exit we own: the acting person's own computer, once, for this
+    # page only. It runs BEFORE the ladder is sealed so a page it rescues never
+    # lands a block in the ledger, and so the trail carries the attempt either
+    # way.
+    result, residential_entry = await _maybe_retry_through_residential_egress(
+        result,
+        url=url,
+        acting_user_id=acting_user_id,
+        fast=fast,
+        browser_pool=pool,
+        user_agent=user_agent,
+        proxy_forbidden_by_policy=proxy_forbidden_by_policy,
+    )
+
     result = _seal_ladder(
         result,
         request_type=request_type,
@@ -901,6 +1242,7 @@ async def scrape(
         http_chars=http_chars,
         policy=ladder_policy,
         organization_id=organization_id,
+        residential_entry=residential_entry,
     )
 
     if cache is not None and result.success:
@@ -915,6 +1257,7 @@ async def scrape(
                 content=result.to_dict(),
                 content_type=result.content_type,
                 char_count=len(result.text_data or result.ai_research_content or ""),
+                organization_id=organization_id,
             )
         except Exception:
             logger.warning("Failed to write cache for %s", redact_url_secrets(url), exc_info=True)
@@ -932,6 +1275,8 @@ async def scrape_many(
     browser_pool: Any = None,
     escalate: bool | None = None,
     ladder_policy: LadderPolicy | None = None,
+    organization_id: str | None = None,
+    acting_user_id: str | None = None,
 ) -> list[ScrapeResult]:
     """
     Scrape multiple URLs concurrently and return all results together.
@@ -954,6 +1299,8 @@ async def scrape_many(
                 browser_pool=browser_pool,
                 escalate=escalate,
                 ladder_policy=ladder_policy,
+                organization_id=organization_id,
+                acting_user_id=acting_user_id,
             )
 
     return list(await asyncio.gather(*[_bounded(u) for u in urls]))
@@ -969,6 +1316,8 @@ async def scrape_many_stream(
     browser_pool: Any = None,
     escalate: bool | None = None,
     ladder_policy: LadderPolicy | None = None,
+    organization_id: str | None = None,
+    acting_user_id: str | None = None,
 ) -> AsyncGenerator[ScrapeResult]:
     """
     Scrape multiple URLs concurrently and **yield each result the moment it
@@ -1003,6 +1352,8 @@ async def scrape_many_stream(
                 browser_pool=browser_pool,
                 escalate=escalate,
                 ladder_policy=ladder_policy,
+                organization_id=organization_id,
+                acting_user_id=acting_user_id,
             )
 
     coros = [_bounded(u) for u in urls]

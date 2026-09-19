@@ -893,6 +893,13 @@ class ListParticipantEventsResponseTypeDef(TypedDict):
 
 
 class CreateIngestConfigurationResponseTypeDef(TypedDict):
+    accessControlAllowOrigin: str
+    accessControlExposeHeaders: str
+    cacheControl: str
+    contentSecurityPolicy: str
+    strictTransportSecurity: str
+    xContentTypeOptions: str
+    xFrameOptions: str
     ingestConfiguration: IngestConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -903,6 +910,13 @@ class GetIngestConfigurationResponseTypeDef(TypedDict):
 
 
 class UpdateIngestConfigurationResponseTypeDef(TypedDict):
+    accessControlAllowOrigin: str
+    accessControlExposeHeaders: str
+    cacheControl: str
+    contentSecurityPolicy: str
+    strictTransportSecurity: str
+    xContentTypeOptions: str
+    xFrameOptions: str
     ingestConfiguration: IngestConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 

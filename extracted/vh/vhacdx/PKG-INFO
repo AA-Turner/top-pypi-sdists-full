@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vhacdx
-Version: 0.0.10
+Version: 0.1.0
 Summary: Python bindings for VHACD
 Author-email: Thomas Wolf <thomas@huggingface.co>
 Project-URL: Homepage, https://github.com/trimesh/vhacdx

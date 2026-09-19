@@ -216,9 +216,11 @@ pub struct ShellSurface {
     /// the platform vends no name for the root.
     pub name: String,
     /// Owning process where the platform reports one honestly. On macOS this
-    /// is always the true owner. On Windows it is the *host* (explorer.exe /
-    /// ShellHost.exe) because UIA carries no per-icon owner — documented as
-    /// the host, never faked. On Linux it is the panel process.
+    /// is always the true owner. On Windows it is the process that hosts the
+    /// surface: explorer.exe / ShellHost.exe for shell chrome, or the owning
+    /// application for a native popup menu. UIA carries no per-icon owner, so
+    /// taskbar and tray-icon elements still report their shell host, never a
+    /// guessed application. On Linux it is the panel process.
     pub pid: Option<u32>,
     /// The surface's root element data.
     pub data: ElementData,
@@ -449,6 +451,30 @@ mod tests {
             all.push(dup);
             Ok(all)
         }
+        fn activate(&self, e: &ElementData) -> Result<()> {
+            self.inner.activate(e)
+        }
+        fn minimize(&self, e: &ElementData) -> Result<()> {
+            self.inner.minimize(e)
+        }
+        fn maximize(&self, e: &ElementData) -> Result<()> {
+            self.inner.maximize(e)
+        }
+        fn enter_fullscreen(&self, e: &ElementData) -> Result<()> {
+            self.inner.enter_fullscreen(e)
+        }
+        fn restore(&self, e: &ElementData) -> Result<()> {
+            self.inner.restore(e)
+        }
+        fn close(&self, e: &ElementData) -> Result<()> {
+            self.inner.close(e)
+        }
+        fn move_to(&self, e: &ElementData, x: i32, y: i32) -> Result<()> {
+            self.inner.move_to(e, x, y)
+        }
+        fn resize_to(&self, e: &ElementData, w: u32, h: u32) -> Result<()> {
+            self.inner.resize_to(e, w, h)
+        }
         fn get_children(&self, e: Option<&ElementData>) -> Result<Vec<ElementData>> {
             self.inner.get_children(e)
         }
@@ -526,6 +552,30 @@ mod tests {
                 code: 55,
                 message: "shell enumeration failed".to_string(),
             })
+        }
+        fn activate(&self, e: &ElementData) -> Result<()> {
+            self.inner.activate(e)
+        }
+        fn minimize(&self, e: &ElementData) -> Result<()> {
+            self.inner.minimize(e)
+        }
+        fn maximize(&self, e: &ElementData) -> Result<()> {
+            self.inner.maximize(e)
+        }
+        fn enter_fullscreen(&self, e: &ElementData) -> Result<()> {
+            self.inner.enter_fullscreen(e)
+        }
+        fn restore(&self, e: &ElementData) -> Result<()> {
+            self.inner.restore(e)
+        }
+        fn close(&self, e: &ElementData) -> Result<()> {
+            self.inner.close(e)
+        }
+        fn move_to(&self, e: &ElementData, x: i32, y: i32) -> Result<()> {
+            self.inner.move_to(e, x, y)
+        }
+        fn resize_to(&self, e: &ElementData, w: u32, h: u32) -> Result<()> {
+            self.inner.resize_to(e, w, h)
         }
         fn get_children(&self, e: Option<&ElementData>) -> Result<Vec<ElementData>> {
             self.inner.get_children(e)
@@ -706,6 +756,30 @@ mod tests {
                     data.name = None;
                 }
                 Ok(all)
+            }
+            fn activate(&self, e: &ElementData) -> Result<()> {
+                self.inner.activate(e)
+            }
+            fn minimize(&self, e: &ElementData) -> Result<()> {
+                self.inner.minimize(e)
+            }
+            fn maximize(&self, e: &ElementData) -> Result<()> {
+                self.inner.maximize(e)
+            }
+            fn enter_fullscreen(&self, e: &ElementData) -> Result<()> {
+                self.inner.enter_fullscreen(e)
+            }
+            fn restore(&self, e: &ElementData) -> Result<()> {
+                self.inner.restore(e)
+            }
+            fn close(&self, e: &ElementData) -> Result<()> {
+                self.inner.close(e)
+            }
+            fn move_to(&self, e: &ElementData, x: i32, y: i32) -> Result<()> {
+                self.inner.move_to(e, x, y)
+            }
+            fn resize_to(&self, e: &ElementData, w: u32, h: u32) -> Result<()> {
+                self.inner.resize_to(e, w, h)
             }
             fn get_children(&self, e: Option<&ElementData>) -> Result<Vec<ElementData>> {
                 self.inner.get_children(e)

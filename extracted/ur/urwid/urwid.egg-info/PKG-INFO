@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: urwid
-Version: 4.1.4
+Version: 4.1.5
 Summary: A full-featured console (xterm et al.) user interface library
 Author-email: Ian Ward <ian@excess.org>
 License-Expression: LGPL-2.1-only
@@ -43,7 +43,7 @@ Provides-Extra: tornado
 Requires-Dist: tornado>=6.5.8; extra == "tornado"
 Provides-Extra: trio
 Requires-Dist: exceptiongroup; python_version < "3.11" and extra == "trio"
-Requires-Dist: trio>=0.24.0; extra == "trio"
+Requires-Dist: trio>=0.31.0; extra == "trio"
 Provides-Extra: twisted
 Requires-Dist: twisted>=24.7.0; extra == "twisted"
 Requires-Dist: twisted>=26.4.0; python_full_version >= "3.9.12" and extra == "twisted"

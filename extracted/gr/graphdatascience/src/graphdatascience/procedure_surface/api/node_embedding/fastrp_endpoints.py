@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -15,7 +15,7 @@ class FastRPEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         embedding_dimension: int,
         iteration_weights: list[float] = [0.0, 1.0, 1.0],
@@ -42,17 +42,17 @@ class FastRPEndpoints(ABC):
            Graph object to use
         mutate_property
             Name of the node property to store the results in.
-        embedding_dimension : int
-            The dimension of the generated embeddings
-        iteration_weights : list[float] = [0.0, 1.0, 1.0]
+        embedding_dimension
+            Output dimensionality of the embeddings
+        iteration_weights
             Weights for each iteration. Controls the influence of each iteration on the final embedding.
-        normalization_strength : float, default=0.0
+        normalization_strength
             The normalization strength parameter controls how much the embedding is normalized
-        node_self_influence : float, default=0.0
+        node_self_influence
             The influence of the node's own features on its embedding
-        property_ratio : float, default=0.0
+        property_ratio
             The ratio of node properties to use in the embedding
-        feature_properties : list[str] | None, default=None
+        feature_properties
             List of node properties to use as features in the embedding.
             Defaults to [] if not specified
         relationship_types
@@ -83,7 +83,7 @@ class FastRPEndpoints(ABC):
     @abstractmethod
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         embedding_dimension: int,
         iteration_weights: list[float] = [0.0, 1.0, 1.0],
         normalization_strength: float = 0.0,
@@ -107,17 +107,17 @@ class FastRPEndpoints(ABC):
         ----------
         G
            Graph object to use
-        embedding_dimension : int
-            The dimension of the generated embeddings
-        iteration_weights : list[float] = [0.0, 1.0, 1.0]
+        embedding_dimension
+            Output dimensionality of the embeddings
+        iteration_weights
             Weights for each iteration. Controls the influence of each iteration on the final embedding.
-        normalization_strength : float, default=0.0
+        normalization_strength
             The normalization strength parameter controls how much the embedding is normalized
-        node_self_influence : float, default=0.0
+        node_self_influence
             The influence of the node's own features on its embedding
-        property_ratio : float, default=0.0
+        property_ratio
             The ratio of node properties to use in the embedding
-        feature_properties : list[str] | None, default=None
+        feature_properties
             List of node properties to use as features in the embedding.
             Defaults to [] if not specified
         relationship_types
@@ -148,7 +148,7 @@ class FastRPEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         embedding_dimension: int,
         iteration_weights: list[float] = [0.0, 1.0, 1.0],
         normalization_strength: float = 0.0,
@@ -172,17 +172,17 @@ class FastRPEndpoints(ABC):
         ----------
         G
            Graph object to use
-        embedding_dimension : int
-            The dimension of the generated embeddings
-        iteration_weights : list[float] = [0.0, 1.0, 1.0]
+        embedding_dimension
+            Output dimensionality of the embeddings
+        iteration_weights
             Weights for each iteration. Controls the influence of each iteration on the final embedding.
-        normalization_strength : float, default=0.0
+        normalization_strength
             The normalization strength parameter controls how much the embedding is normalized
-        node_self_influence : float, default=0.0
+        node_self_influence
             The influence of the node's own features on its embedding
-        property_ratio : float, default=0.0
+        property_ratio
             The ratio of node properties to use in the embedding
-        feature_properties : list[str] | None, default=None
+        feature_properties
             List of node properties to use as features in the embedding.
             Defaults to [] if not specified
         relationship_types
@@ -206,14 +206,14 @@ class FastRPEndpoints(ABC):
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             DataFrame with node IDs and their FastRP embeddings
         """
 
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         embedding_dimension: int,
         iteration_weights: list[float] = [0.0, 1.0, 1.0],
@@ -241,17 +241,17 @@ class FastRPEndpoints(ABC):
            Graph object to use
         write_property
             Name of the node property to store the results in.
-        embedding_dimension : int
-            The dimension of the generated embeddings
-        iteration_weights : list[float] = [0.0, 1.0, 1.0]
+        embedding_dimension
+            Output dimensionality of the embeddings
+        iteration_weights
             Weights for each iteration. Controls the influence of each iteration on the final embedding.
-        normalization_strength : float, default=0.0
+        normalization_strength
             The normalization strength parameter controls how much the embedding is normalized
-        node_self_influence : float, default=0.0
+        node_self_influence
             The influence of the node's own features on its embedding
-        property_ratio : float, default=0.0
+        property_ratio
             The ratio of node properties to use in the embedding
-        feature_properties : list[str] | None, default=None
+        feature_properties
             List of node properties to use as features in the embedding.
             Defaults to [] if not specified
         relationship_types
@@ -282,7 +282,7 @@ class FastRPEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         embedding_dimension: int,
         iteration_weights: list[float] = [0.0, 1.0, 1.0],
         normalization_strength: float = 0.0,
@@ -302,17 +302,17 @@ class FastRPEndpoints(ABC):
         ----------
         G
            Graph object to use or a dictionary representing the graph dimensions.
-        embedding_dimension : int
-            The dimension of the generated embeddings
-        iteration_weights : list[float] = [0.0, 1.0, 1.0]
+        embedding_dimension
+            Output dimensionality of the embeddings
+        iteration_weights
             Weights for each iteration. Controls the influence of each iteration on the final embedding.
-        normalization_strength : float, default=0.0
+        normalization_strength
             The normalization strength parameter controls how much the embedding is normalized
-        node_self_influence : float, default=0.0
+        node_self_influence
             The influence of the node's own features on its embedding
-        property_ratio : float, default=0.0
+        property_ratio
             The ratio of node properties to use in the embedding
-        feature_properties : list[str] | None, default=None
+        feature_properties
             List of node properties to use as features in the embedding.
             Defaults to [] if not specified
         relationship_types

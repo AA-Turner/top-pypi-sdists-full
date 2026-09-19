@@ -19,6 +19,23 @@ from matrx_connect.context.events import InfoPayload
 from matrx_scraper.service import ScrapeOptions, ScrapeService
 from matrx_scraper.utils.proxy import redact_url_secrets
 
+# ``confirm_request_organization`` first ships in matrx-connect 0.1.116 (this
+# package's floor). The import is guarded because CI's dependency-floor test
+# reads PUBLISHED tags as truth and the symbol ships in the same change as its
+# first use here: a stale matrx-connect refuses every organization-scoped call
+# by name instead of failing to import the router. The sibling-floor guard
+# keeps our own deployment on the floor.
+try:
+    from matrx_connect.service_auth import confirm_request_organization
+except ImportError:  # pragma: no cover — matrx-connect < 0.1.116
+
+    def confirm_request_organization(ctx: AppContext, claimed: str | None = None) -> str:  # type: ignore[misc]
+        raise RuntimeError(
+            "the installed matrx-connect does not export confirm_request_organization; "
+            "upgrade matrx-connect to >= 0.1.117 (the floor this package declares)."
+        )
+
+
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
@@ -67,6 +84,10 @@ class PageCaptureRequest(BaseModel):
     target_url: str | None = None
     use_cache: bool = True
     capture_screenshot: bool = False
+    #: A CONFIRMING claim only. The organization this call acts in arrives on
+    #: the wire (`X-Organization-Id`, admitted by matrx_connect.service_auth);
+    #: a value here must equal it (409 otherwise) and is never a source of
+    #: scope on its own.
     organization_id: str | None = None
     site_id: str | None = None
     backlink_id: str | None = None
@@ -165,6 +186,7 @@ async def _capture_backlink_screenshot(
     request: PageCaptureRequest,
     target_url: str,
     ctx: AppContext,
+    organization_id: str,
 ) -> dict[str, object]:
     """Render, highlight, and store one human-review screenshot, best effort."""
 
@@ -179,7 +201,7 @@ async def _capture_backlink_screenshot(
 
     if not request.capture_screenshot:
         return {}
-    if not (request.organization_id and request.site_id and request.backlink_id and ctx.user_id):
+    if not (organization_id and request.site_id and request.backlink_id and ctx.user_id):
         return {
             "screenshot_failure_reason": (
                 "screenshot context is incomplete; organization, site, backlink, "
@@ -229,12 +251,12 @@ async def _capture_backlink_screenshot(
             intent="force_new_copy",
             file_path=file_path,
             owner_id=ctx.user_id,
-            organization_id=request.organization_id,
+            organization_id=organization_id,
             mime_type="image/png",
             visibility="internal",
             change_summary="Backlink source-page link evidence",
             metadata={
-                "organization_id": request.organization_id,
+                "organization_id": organization_id,
                 "system_artifact": True,
                 "system_immutable": True,
                 "artifact_domain": "seo_backlink",
@@ -281,6 +303,14 @@ async def page_capture(
     from matrx_scraper.orchestrator import scrape
     from matrx_scraper.utils.url import get_url_info, normalize_url, validate_public_http_url
 
+    # THE TENANT IS ON THE WIRE. `X-Organization-Id` is what this call was
+    # admitted for (matrx_connect.service_auth); the body's `organization_id`
+    # may confirm it and never replaces it — a disagreement is a 409, an
+    # organization-less context a 400. This route caches a durable parsed page
+    # and can store a screenshot against the organization, so it never runs
+    # without one.
+    organization_id = confirm_request_organization(ctx, request.organization_id)
+
     try:
         target_url = await validate_public_http_url(request.url)
     except Exception as exc:
@@ -292,13 +322,20 @@ async def page_capture(
 
     cache = get_ext("cache")
     cache_key = get_url_info(target_url).unique_page_name
-    from_cache = request.use_cache and await cache.get(cache_key) is not None
+    from_cache = (
+        request.use_cache
+        and await cache.get(cache_key, organization_id=organization_id) is not None
+    )
     result = await scrape(
         target_url,
         use_proxy=True,
         cache=cache if request.use_cache else None,
+        organization_id=organization_id,
         domain_config=get_ext("domain_config"),
         browser_pool=get_ext("browser_pool") if has_ext("browser_pool") else None,
+        # WHO this capture is for. A blocked page gets one retry through a home
+        # computer this person registered, and never through anyone else's.
+        acting_user_id=ctx.user_id,
     )
     final_url = result.response_url or target_url
     try:
@@ -341,6 +378,7 @@ async def page_capture(
         request=request,
         target_url=target_url,
         ctx=ctx,
+        organization_id=organization_id,
     )
 
     return PageCaptureResult(
@@ -717,9 +755,18 @@ async def browser_inspect(
     )
 
 
-async def _run_quick_scrape(emitter: Emitter, request: QuickScrapeRequest) -> None:
+async def _run_quick_scrape(
+    emitter: Emitter,
+    request: QuickScrapeRequest,
+    organization_id: str,
+    acting_user_id: str | None = None,
+) -> None:
     try:
-        service = ScrapeService(emitter=emitter)
+        service = ScrapeService(
+            emitter=emitter,
+            organization_id=organization_id,
+            acting_user_id=acting_user_id,
+        )
         service.urls = request.urls
         service.use_cache = request.use_cache
         service.options = _build_options(request)
@@ -746,18 +793,33 @@ async def quick_scrape(
     request: QuickScrapeRequest,
     ctx: AppContext = Depends(context_dep),
 ):
+    # The organization this streamed scrape acts in: the admitted one, resolved
+    # HERE at the boundary and carried into the detached task, because the page
+    # cache it fills is an organization-scoped row.
+    organization_id = confirm_request_organization(ctx)
     return create_streaming_response(
         ctx,
         _run_quick_scrape,
         request,
+        organization_id,
+        ctx.user_id,
         initial_message="Connecting to scraper...",
         debug_label="QuickScrape",
     )
 
 
-async def _run_search_keywords(emitter: Emitter, request: SearchKeywordsRequest) -> None:
+async def _run_search_keywords(
+    emitter: Emitter,
+    request: SearchKeywordsRequest,
+    organization_id: str,
+    acting_user_id: str | None = None,
+) -> None:
     try:
-        service = ScrapeService(emitter=emitter)
+        service = ScrapeService(
+            emitter=emitter,
+            organization_id=organization_id,
+            acting_user_id=acting_user_id,
+        )
         service.keywords = request.keywords
         service.country_code = request.country_code
         service.total_results_per_keyword = request.total_results_per_keyword
@@ -785,18 +847,33 @@ async def search_keywords(
     request: SearchKeywordsRequest,
     ctx: AppContext = Depends(context_dep),
 ):
+    # The organization this streamed scrape acts in: the admitted one, resolved
+    # HERE at the boundary and carried into the detached task, because the page
+    # cache it fills is an organization-scoped row.
+    organization_id = confirm_request_organization(ctx)
     return create_streaming_response(
         ctx,
         _run_search_keywords,
         request,
+        organization_id,
+        ctx.user_id,
         initial_message="Connecting to search...",
         debug_label="SearchKeywords",
     )
 
 
-async def _run_search_and_scrape(emitter: Emitter, request: SearchAndScrapeRequest) -> None:
+async def _run_search_and_scrape(
+    emitter: Emitter,
+    request: SearchAndScrapeRequest,
+    organization_id: str,
+    acting_user_id: str | None = None,
+) -> None:
     try:
-        service = ScrapeService(emitter=emitter)
+        service = ScrapeService(
+            emitter=emitter,
+            organization_id=organization_id,
+            acting_user_id=acting_user_id,
+        )
         service.keywords = request.keywords
         service.country_code = request.country_code
         service.total_results_per_keyword = request.total_results_per_keyword
@@ -825,10 +902,16 @@ async def search_and_scrape(
     request: SearchAndScrapeRequest,
     ctx: AppContext = Depends(context_dep),
 ):
+    # The organization this streamed scrape acts in: the admitted one, resolved
+    # HERE at the boundary and carried into the detached task, because the page
+    # cache it fills is an organization-scoped row.
+    organization_id = confirm_request_organization(ctx)
     return create_streaming_response(
         ctx,
         _run_search_and_scrape,
         request,
+        organization_id,
+        ctx.user_id,
         initial_message="Connecting...",
         debug_label="SearchAndScrape",
     )
@@ -837,9 +920,15 @@ async def search_and_scrape(
 async def _run_search_and_scrape_limited(
     emitter: Emitter,
     request: SearchAndScrapeLimitedRequest,
+    organization_id: str,
+    acting_user_id: str | None = None,
 ) -> None:
     try:
-        service = ScrapeService(emitter=emitter)
+        service = ScrapeService(
+            emitter=emitter,
+            organization_id=organization_id,
+            acting_user_id=acting_user_id,
+        )
         service.keyword = request.keyword
         service.country_code = request.country_code
         service.max_page_read = request.max_page_read
@@ -868,10 +957,16 @@ async def search_and_scrape_limited(
     request: SearchAndScrapeLimitedRequest,
     ctx: AppContext = Depends(context_dep),
 ):
+    # The organization this streamed scrape acts in: the admitted one, resolved
+    # HERE at the boundary and carried into the detached task, because the page
+    # cache it fills is an organization-scoped row.
+    organization_id = confirm_request_organization(ctx)
     return create_streaming_response(
         ctx,
         _run_search_and_scrape_limited,
         request,
+        organization_id,
+        ctx.user_id,
         initial_message="Connecting...",
         debug_label="SearchAndScrapeLimited",
     )

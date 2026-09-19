@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.similarity.knn_filtered_endpoints import KnnFilteredEndpoints
@@ -25,7 +25,7 @@ class KnnEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_relationship_type: str,
         mutate_property: str,
         node_properties: str | list[str] | dict[str, str],
@@ -57,21 +57,21 @@ class KnnEndpoints(ABC):
             Name of the relationship type to store the results in.
         mutate_property
             Name of the node property to store the results in.
-        node_properties : str | list[str] | dict[str, str],
+        node_properties
             Node properties to use for the similarity computation.
         top_k
             Number of most similar nodes to return for each node.
-        similarity_cutoff : float, default=0.0
+        similarity_cutoff
             The threshold for similarity scores.
         delta_threshold
             Minimum change between iterations.
         max_iterations
             Maximum number of iterations to run.
-        sample_rate : float, default=0.5
+        sample_rate
             The sampling rate for the algorithm.
-        perturbation_rate : float, default=0.0
+        perturbation_rate
             The rate at which to perturb the similarity graph.
-        random_joins : int, default=10
+        random_joins
             The number of random joins to perform.
         random_seed
             Seed for random number generation to ensure reproducible results.
@@ -101,7 +101,7 @@ class KnnEndpoints(ABC):
     @abstractmethod
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         node_properties: str | list[str] | dict[str, str],
         top_k: int = 10,
         similarity_cutoff: float = 0.0,
@@ -131,17 +131,17 @@ class KnnEndpoints(ABC):
             Node properties to use for the similarity computation.
         top_k
             Number of most similar nodes to return for each node.
-        similarity_cutoff : float, default=0.0
+        similarity_cutoff
             The threshold for similarity scores.
         delta_threshold
             Minimum change between iterations.
         max_iterations
             Maximum number of iterations to run.
-        sample_rate : float, default=0.5
+        sample_rate
             The sampling rate for the algorithm.
-        perturbation_rate : float, default=0.0
+        perturbation_rate
             The rate at which to perturb the similarity graph.
-        random_joins : int, default=10
+        random_joins
             The number of random joins to perform.
         random_seed
             Seed for random number generation to ensure reproducible results.
@@ -171,7 +171,7 @@ class KnnEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         node_properties: str | list[str] | dict[str, str],
         top_k: int = 10,
         similarity_cutoff: float = 0.0,
@@ -201,17 +201,17 @@ class KnnEndpoints(ABC):
             Node properties to use for the similarity computation.
         top_k
             Number of most similar nodes to return for each node.
-        similarity_cutoff : float, default=0.0
+        similarity_cutoff
             The threshold for similarity scores.
         delta_threshold
             Minimum change between iterations.
         max_iterations
             Maximum number of iterations to run.
-        sample_rate : float, default=0.5
+        sample_rate
             The sampling rate for the algorithm.
-        perturbation_rate : float, default=0.0
+        perturbation_rate
             The rate at which to perturb the similarity graph.
-        random_joins : int, default=10
+        random_joins
             The number of random joins to perform.
         random_seed
             Seed for random number generation to ensure reproducible results.
@@ -234,14 +234,14 @@ class KnnEndpoints(ABC):
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             The similarity results as a DataFrame with columns 'node1', 'node2', and 'similarity'.
         """
 
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_relationship_type: str,
         write_property: str,
         node_properties: str | list[str] | dict[str, str],
@@ -270,7 +270,7 @@ class KnnEndpoints(ABC):
         ----------
         G
            Graph object to use
-        write_relationship_type : str
+        write_relationship_type
             Name of the relationship type to store the results in.
         write_property
             Name of the node property to store the results in.
@@ -278,17 +278,17 @@ class KnnEndpoints(ABC):
             Node properties to use for the similarity computation.
         top_k
             Number of most similar nodes to return for each node.
-        similarity_cutoff : float, default=0.0
+        similarity_cutoff
             The threshold for similarity scores.
         delta_threshold
             Minimum change between iterations.
         max_iterations
             Maximum number of iterations to run.
-        sample_rate : float, default=0.5
+        sample_rate
             The sampling rate for the algorithm.
-        perturbation_rate : float, default=0.0
+        perturbation_rate
             The rate at which to perturb the similarity graph.
-        random_joins : int, default=10
+        random_joins
             The number of random joins to perform.
         random_seed
             Seed for random number generation to ensure reproducible results.
@@ -318,7 +318,7 @@ class KnnEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         node_properties: str | list[str] | dict[str, str],
         top_k: int = 10,
         similarity_cutoff: float = 0.0,
@@ -347,17 +347,17 @@ class KnnEndpoints(ABC):
             Node properties to use for the similarity computation.
         top_k
             Number of most similar nodes to return for each node.
-        similarity_cutoff : float, default=0.0
+        similarity_cutoff
             The threshold for similarity scores.
         delta_threshold
             Minimum change between iterations.
         max_iterations
             Maximum number of iterations to run.
-        sample_rate : float, default=0.5
+        sample_rate
             The sampling rate for the algorithm.
-        perturbation_rate : float, default=0.0
+        perturbation_rate
             The rate at which to perturb the similarity graph.
-        random_joins : int, default=10
+        random_joins
             The number of random joins to perform.
         random_seed
             Seed for random number generation to ensure reproducible results.

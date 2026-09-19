@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rollbar
-Version: 1.4.0
+Version: 1.5.0
 Summary: Easy and powerful exception tracking with Rollbar. Send messages and exceptions with arbitrary context, get back aggregates, and debug production issues quickly.
 Maintainer-email: "Rollbar, Inc." <support@rollbar.com>
 License: Copyright (c) 2014 Rollbar, Inc.
@@ -45,7 +45,7 @@ Classifier: Topic :: System :: Monitoring
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: requests>=0.12.1
+Requires-Dist: requests>=2.0.0
 Requires-Dist: typing_extensions; python_version < "3.11"
 Dynamic: license-file
 
@@ -75,7 +75,7 @@ Python notifier for reporting exceptions, errors, and log messages to [Rollbar](
 
 | PyRollbar Version | Python Version Compatibility                  | Support Level       |
 |-------------------|-----------------------------------------------|---------------------|
-| 1.4.0             | 3.10, 3.11, 3.12, 3.13, 3.14                  | Full                |
+| 1.5.0             | 3.10, 3.11, 3.12, 3.13, 3.14                  | Full                |
 | 0.16.3            | 2.7, 3.4, 3.5, 3.6, 3.7. 3.8, 3.9, 3.10, 3.11 | Security Fixes Only |
 
 #### Support Level Definitions
@@ -132,7 +132,17 @@ For bug reports, please [open an issue on GitHub](https://github.com/rollbar/pyr
 4. Push to the branch (```git push origin my-new-feature```)
 5. Create new Pull Request
 
-Tests are in `rollbar/test`. To run them:
+Tests are in `tests`. To run them:
 
-    pip install -e . --group test
-    pytest
+```
+pip install --group test .
+pytest
+```
+
+To check types:
+
+```
+pip install --group test .
+pip install --group type .
+mypy
+```

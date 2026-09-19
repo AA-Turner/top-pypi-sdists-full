@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: atlan-application-sdk-conformance
-Version: 0.32.0
+Version: 0.33.0
 Summary: Conformance suite, remediation programs, and CLI for the Atlan Application SDK
 Author-email: Atlan App Team <connect@atlan.com>
 License-Expression: Apache-2.0
@@ -51,6 +51,8 @@ uv run atlan-application-sdk-conformance programs-dir
 # Regenerate rule docs
 uv run atlan-application-sdk-conformance gen-rule-docs
 ```
+
+See [preflight conformance](conformance/docs/preflight-testing.md) for static checks, opt-in behavior scenarios, and their coverage limits, and the [F-series rule catalog](conformance/docs/rules/preflight.md) for the rules themselves.
 
 ## Suppressing a finding
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: prov
-Version: 3.2.1
+Version: 3.2.2
 Summary: A library for W3C Provenance Data Model supporting PROV-N, PROV-JSON, PROV-XML, PROV-O (RDF) and PROV-JSONLD
 Author-email: Trung Dong Huynh <trungdong@donggiang.com>
 License-Expression: MIT
@@ -9,6 +9,7 @@ Project-URL: Documentation, https://prov.readthedocs.io
 Project-URL: Repository, https://github.com/trungdong/prov
 Project-URL: Issues, https://github.com/trungdong/prov/issues
 Project-URL: Changelog, https://prov.readthedocs.io/en/latest/history.html
+Project-URL: Discussions, https://github.com/trungdong/prov/discussions
 Keywords: provenance,graph,model,PROV,PROV-DM,PROV-JSON,W3C,PROV-XML,PROV-N,PROV-O,RDF,PROV-JSONLD,JSON-LD
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -83,9 +84,11 @@ Over 7,000 public repositories on GitHub
 3.0.0 completed the modernisation programme (tooling, type hints, tests, documentation and
 standards conformance) and 3.1.0 added PROV-JSONLD.
 [What's new in 3](https://prov.readthedocs.io/en/latest/whats-new-3.html) summarises the 3.x
-line for projects still on 2.x.
+line for projects still on 2.x, and the announcement post
+[PROV Python 3.x: a major release](https://trungdong.github.io/provpy-3.html) covers what
+changed and who uses the package.
 [ROADMAP.md](https://github.com/trungdong/prov/blob/main/ROADMAP.md) lists the planned
-releases and the API-stability promise. Feedback is welcome on the
+releases and the support policy. Feedback is welcome on the
 [issue tracker](https://github.com/trungdong/prov/issues).
 
 ## Supported versions

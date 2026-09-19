@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 import uuid
 import asyncio
@@ -10,9 +11,10 @@ import secrets
 from types import MappingProxyType
 from typing import Any, Literal, Mapping, Callable, Protocol, Sequence
 from functools import partial
-from dataclasses import field, dataclass
+from dataclasses import field, replace, dataclass
 from concurrent.futures import ThreadPoolExecutor
 
+from fireworks.training.sdk.routing import RoutingReferences, freeze_routing, routing_to_wire
 from fireworks.training.sdk.sampling import (
     ServerMetrics,
     SampledCompletion,
@@ -202,6 +204,7 @@ class _LinearTrajectoryCore:
         self.max_output_tokens = max_output_tokens
         self.call_classifier = call_classifier
         defaults = dict(sampling_defaults or {})
+        self.incremental_prompt_routing = bool(defaults.pop("incremental_prompt_routing", False))
         default_temperature = defaults.pop("temperature", None)
         self.default_temperature = None if default_temperature is None else float(default_temperature)
         reserved_defaults = sorted(
@@ -321,22 +324,14 @@ class _LinearTrajectoryCore:
         arrays: Mapping[str, Sequence[Any]] | None = None,
     ) -> None:
         if self.observer is not None:
-            started = time.monotonic()
             try:
-                bytes_written = self.observer.record(event, state.trajectory_id, payload, arrays)
+                self.observer.record(event, state.trajectory_id, payload, arrays)
             except Exception as exc:
-                if getattr(exc, "storage_full", False):
-                    state.metrics.increment("debug/storage_full")
-                state.metrics.increment("debug/write_failed")
                 raise TITOError(
                     "tito_debug_storage_error",
                     507,
                     f"local TITO debug write failed: {exc}",
                 ) from exc
-            state.metrics.increment("debug/events_written")
-            state.metrics.observe("debug/write_seconds", time.monotonic() - started)
-            if bytes_written is not None:
-                state.metrics.observe("debug/bytes_written", bytes_written)
 
     async def _record_async(
         self,
@@ -348,7 +343,6 @@ class _LinearTrajectoryCore:
         observer = self.observer
         if observer is None:
             return
-        started = time.monotonic()
         cancelled: asyncio.CancelledError | None = None
         operation = asyncio.get_running_loop().run_in_executor(
             _TITO_OBSERVER_EXECUTOR,
@@ -361,23 +355,16 @@ class _LinearTrajectoryCore:
             # propagating cancellation to the caller.
             while True:
                 try:
-                    bytes_written = await asyncio.shield(operation)
+                    await asyncio.shield(operation)
                     break
                 except asyncio.CancelledError as exc:
                     cancelled = exc
         except Exception as exc:
-            if getattr(exc, "storage_full", False):
-                state.metrics.increment("debug/storage_full")
-            state.metrics.increment("debug/write_failed")
             raise TITOError(
                 "tito_debug_storage_error",
                 507,
                 f"local TITO debug write failed: {exc}",
             ) from exc
-        state.metrics.increment("debug/events_written")
-        state.metrics.observe("debug/write_seconds", time.monotonic() - started)
-        if bytes_written is not None:
-            state.metrics.observe("debug/bytes_written", bytes_written)
         if cancelled is not None:
             raise cancelled
 
@@ -492,22 +479,13 @@ class _LinearTrajectoryCore:
             # the writer-level tombstone channel therefore omit this optional
             # event instead of reopening a terminal trajectory artifact.
             return
-        started = time.monotonic()
         try:
-            bytes_written = record(event, trajectory_id, payload)
-        except Exception as exc:
-            if getattr(exc, "storage_full", False):
-                tombstone.metrics.increment("debug/storage_full")
-            tombstone.metrics.increment("debug/write_failed")
+            record(event, trajectory_id, payload)
+        except Exception:
             # The lifecycle contract wins after terminalization: a late call
             # must remain the exact non-retryable 410 and can never resurrect
-            # or replace the completed trajectory. The failed optional
-            # writer-level audit is visible in the retained debug counters.
+            # or replace the completed trajectory.
             return
-        tombstone.metrics.increment("debug/events_written")
-        tombstone.metrics.observe("debug/write_seconds", time.monotonic() - started)
-        if bytes_written is not None:
-            tombstone.metrics.observe("debug/bytes_written", bytes_written)
 
     def _require_active(
         self,
@@ -1217,7 +1195,11 @@ class _LinearTrajectoryCore:
                 if completion.sampling_logprobs is not None:
                     sampled_arrays[f"{prefix}_sampling_logprobs"] = completion.sampling_logprobs
                 if completion.routing_matrices is not None:
-                    sampled_arrays[f"{prefix}_routing_matrices"] = completion.routing_matrices
+                    sampled_arrays[f"{prefix}_routing_matrices"] = (
+                        json.dumps(routing_to_wire(completion.routing_matrices))
+                        if isinstance(completion.routing_matrices, RoutingReferences)
+                        else completion.routing_matrices
+                    )
         try:
             await self._record_async(
                 state,
@@ -1670,6 +1652,19 @@ class _LinearTrajectoryCore:
             phase = "sampling_admission"
             sampling_kwargs = self._sampling_kwargs(state, request)
             include_routing = bool(sampling_kwargs.get("include_routing_matrix", False))
+            if include_routing and self.incremental_prompt_routing:
+                retained = 0
+                if plan.segment is not None:
+                    if plan.prompt_disposition == "realign":
+                        retained = plan.realign_from_token or 0
+                    else:
+                        prior_ids = plan.segment.turns[-1].exact_checkpoint_ids
+                        retained = min(len(prior_ids), len(plan.prepared_prompt_ids))
+                        if prior_ids[:retained] != plan.prepared_prompt_ids[:retained]:
+                            retained = next(
+                                i for i, (a, b) in enumerate(zip(prior_ids, plan.prepared_prompt_ids)) if a != b
+                            )
+                sampling_kwargs["echo_last"] = len(plan.prepared_prompt_ids) - retained
             if state.sampler_calls:
                 state.metrics.increment("cache/affinity_reused")
             state.sampler_calls += 1
@@ -1711,6 +1706,31 @@ class _LinearTrajectoryCore:
                 **sampling_kwargs,
             )
             phase = "completion_validation"
+            prompt_routes = None
+            prompt_route_start = None
+            if include_routing and self.incremental_prompt_routing:
+                original = sampled.completions[0]
+                count = original.echoed_prompt_logprob_count
+                expected_count = min(sampling_kwargs["echo_last"], max(0, original.prompt_len - 1))
+                if count != expected_count or original.routing_matrices is None:
+                    raise TITOError(
+                        "tito_completion_alignment_error", 502, "incremental prompt routing length mismatch"
+                    )
+                prompt_routes = freeze_routing(original.routing_matrices[:count])
+                prompt_route_start = original.prompt_len - 1 - count
+                normalized = replace(
+                    original,
+                    inference_logprobs=(
+                        None if original.inference_logprobs is None else original.inference_logprobs[count:]
+                    ),
+                    sampling_logprobs=(
+                        None if original.sampling_logprobs is None else original.sampling_logprobs[count:]
+                    ),
+                    routing_matrices=original.routing_matrices[count:],
+                    logprobs_echoed=False,
+                    echoed_prompt_logprob_count=0,
+                )
+                sampled = replace(sampled, completions=[normalized])
             completion = self._validate_completion(plan, sampled, include_routing)
             phase = "parser"
             parsed = self._parse(request, completion)
@@ -1746,8 +1766,10 @@ class _LinearTrajectoryCore:
                 sampling_logprobs=(
                     tuple(completion.sampling_logprobs) if completion.sampling_logprobs is not None else None
                 ),
+                prompt_routing_start=prompt_route_start,
+                prompt_routing_matrices=prompt_routes,
                 routing_matrices=(
-                    tuple(completion.routing_matrices) if completion.routing_matrices is not None else None
+                    freeze_routing(completion.routing_matrices) if completion.routing_matrices is not None else None
                 ),
                 response_id=str(response["id"]),
                 finish_reason=completion.finish_reason,
@@ -1815,7 +1837,9 @@ class _LinearTrajectoryCore:
                     else {}
                 ),
                 **(
-                    {"routing_matrices": completion.routing_matrices} if completion.routing_matrices is not None else {}
+                    {"routing_matrices": routing_to_wire(completion.routing_matrices)}
+                    if completion.routing_matrices is not None
+                    else {}
                 ),
             }
 
@@ -1845,9 +1869,7 @@ class _LinearTrajectoryCore:
                 state.last_policy_commit_at = time.time()
                 state.metrics.observe("turn/prompt_tokens", len(plan.prepared_prompt_ids))
                 state.metrics.observe("turn/completion_tokens", len(output_ids))
-                state.metrics.observe("turn/model_tokens", len(plan.prepared_prompt_ids) + len(output_ids))
                 state.metrics.observe("turn/context_remaining_tokens", plan.context_remaining_tokens)
-                state.metrics.observe("turn/requested_output_tokens", plan.requested_output_tokens)
                 state.metrics.observe("turn/effective_output_tokens", plan.effective_output_tokens)
                 state.metrics.observe("turn/inter_call_gap_seconds", inter_call_gap)
                 finish_reason_label = (
@@ -2162,7 +2184,7 @@ class _LinearTrajectoryCore:
                         else {}
                     ),
                     **(
-                        {"routing_matrices": completion.routing_matrices}
+                        {"routing_matrices": routing_to_wire(completion.routing_matrices)}
                         if completion.routing_matrices is not None
                         else {}
                     ),
@@ -2366,21 +2388,6 @@ class _LinearTrajectoryCore:
             apply_emission,
         )
 
-    def observe_agent_wall(self, trajectory_id: str, seconds: float) -> None:
-        """Attach the cookbook-owned exact harness lifecycle bracket."""
-        if seconds < 0:
-            raise ValueError("agent wall time must be non-negative")
-        state = self._require_active(trajectory_id)
-        state.metrics.observe("agent/wall_seconds", seconds)
-        self._record(state, "agent_wall", {"seconds": seconds})
-
-    async def observe_agent_wall_async(self, trajectory_id: str, seconds: float) -> None:
-        if seconds < 0:
-            raise ValueError("agent wall time must be non-negative")
-        state = self._require_active(trajectory_id)
-        state.metrics.observe("agent/wall_seconds", seconds)
-        await self._record_async(state, "agent_wall", {"seconds": seconds})
-
     @staticmethod
     def _terminal_closed_reason(status: TITOTrajectoryStatus) -> str:
         return {
@@ -2452,26 +2459,18 @@ class _LinearTrajectoryCore:
     ) -> _Tombstone:
         self._ensure_no_in_flight(state)
         if write_observer and self.observer is not None:
-            started = time.monotonic()
             try:
-                bytes_written = self.observer.close_trajectory(
+                self.observer.close_trajectory(
                     state.trajectory_id,
                     status,
                     self._terminal_payload(state, status, reason),
                 )
             except Exception as exc:
-                if getattr(exc, "storage_full", False):
-                    state.metrics.increment("debug/storage_full")
-                state.metrics.increment("debug/write_failed")
                 raise TITOError(
                     "tito_debug_storage_error",
                     507,
                     f"local TITO debug close failed: {exc}",
                 ) from exc
-            state.metrics.increment("debug/trajectories_written")
-            state.metrics.observe("debug/write_seconds", time.monotonic() - started)
-            if bytes_written is not None:
-                state.metrics.observe("debug/bytes_written", bytes_written)
         return self._retire_state(state, status, reason)
 
     async def _terminalize_async(
@@ -2485,9 +2484,8 @@ class _LinearTrajectoryCore:
             self._ensure_no_in_flight(state)
             observer = self.observer
             if write_observer and observer is not None:
-                started = time.monotonic()
                 try:
-                    bytes_written = await asyncio.get_running_loop().run_in_executor(
+                    await asyncio.get_running_loop().run_in_executor(
                         _TITO_OBSERVER_EXECUTOR,
                         observer.close_trajectory,
                         state.trajectory_id,
@@ -2495,18 +2493,11 @@ class _LinearTrajectoryCore:
                         self._terminal_payload(state, status, reason),
                     )
                 except Exception as exc:
-                    if getattr(exc, "storage_full", False):
-                        state.metrics.increment("debug/storage_full")
-                    state.metrics.increment("debug/write_failed")
                     raise TITOError(
                         "tito_debug_storage_error",
                         507,
                         f"local TITO debug close failed: {exc}",
                     ) from exc
-                state.metrics.increment("debug/trajectories_written")
-                state.metrics.observe("debug/write_seconds", time.monotonic() - started)
-                if bytes_written is not None:
-                    state.metrics.observe("debug/bytes_written", bytes_written)
             return self._retire_state(state, status, reason)
 
         task = asyncio.create_task(operation())
@@ -2602,7 +2593,6 @@ class _LinearTrajectoryCore:
         sampled_output = sum(len(turn.exact_completion_ids) for segment in state.segments for turn in segment.turns)
         state.metrics.observe("trajectory/model_input_tokens", model_input)
         state.metrics.observe("trajectory/sampled_output_tokens", sampled_output)
-        state.metrics.observe("trajectory/model_tokens_processed", model_input + sampled_output)
         state.metrics.observe(
             "trajectory/pre_retention_segment_tokens",
             sum(len(segment.turns[-1].exact_checkpoint_ids) for segment in state.segments if segment.turns),
@@ -2621,7 +2611,6 @@ class _LinearTrajectoryCore:
             "trajectory/wall_seconds",
             "trajectory/model_input_tokens",
             "trajectory/sampled_output_tokens",
-            "trajectory/model_tokens_processed",
             "trajectory/pre_retention_segment_tokens",
             "trajectory/final_context_tokens",
         )
@@ -2848,12 +2837,6 @@ class TITOTrajectoryEngine:
         result = await self._core.finish_async(self.trajectory_id)
         self._terminal = True
         return result
-
-    def observe_agent_wall(self, seconds: float) -> None:
-        self._core.observe_agent_wall(self.trajectory_id, seconds)
-
-    async def observe_agent_wall_async(self, seconds: float) -> None:
-        await self._core.observe_agent_wall_async(self.trajectory_id, seconds)
 
     async def abandon(self, reason: str = "caller_abandoned") -> TITOTrajectoryArtifact | None:
         if not self._terminal:

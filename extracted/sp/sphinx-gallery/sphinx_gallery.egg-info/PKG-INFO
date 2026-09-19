@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sphinx-gallery
-Version: 0.22.0
+Version: 0.22.1
 Summary: A Sphinx extension that builds an HTML gallery of examples from any set of Python scripts.
 Author-email: Óscar Nájera <najera.oscar@gmail.com>
 License: 3-clause BSD
@@ -38,6 +38,7 @@ Requires-Dist: plotly; extra == "dev"
 Requires-Dist: pydata-sphinx-theme; extra == "dev"
 Requires-Dist: pytest; extra == "dev"
 Requires-Dist: pytest-coverage; extra == "dev"
+Requires-Dist: pytest-xdist; extra == "dev"
 Requires-Dist: seaborn; extra == "dev"
 Requires-Dist: sphinx-design; extra == "dev"
 Requires-Dist: sphinxcontrib-video; extra == "dev"

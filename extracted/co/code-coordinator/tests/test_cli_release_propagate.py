@@ -1170,6 +1170,77 @@ def test_a_host_whose_python_lane_failed_is_not_rolled_back(valid_config_path,
     assert rolled_back == []
 
 
+def test_a_red_gate_naming_one_host_spares_the_others(valid_config_path, state_dir,
+                                                       no_network, monkeypatch):
+    """#3364: `--rollback-on-red` used to revert every host this run updated
+    the instant ANY of them went red — four hosts that rolled and verified
+    clean, reverted because a fifth could not roll at all. A host that
+    rolled and verified is not part of the failure just because a sibling
+    host's roll was; partial fleet convergence beats reverting everyone and
+    re-orphaning a daemon host's serve/web for nothing."""
+    from coord import release_verify as rv
+
+    _stub_lanes(monkeypatch)
+    _stub_verify(
+        monkeypatch,
+        versions={"laptop": ["0.4.110"], "server": ["0.4.110"]},
+        findings=[
+            rv.Finding(severity="crit", host="laptop",
+                       lane="~/.coord-venv (laptop)", summary="stubbed"),
+        ],
+    )
+    rolled_back: list[str] = []
+    monkeypatch.setattr(
+        release_cmd, "_rollback_host",
+        lambda machine, **k: (rolled_back.append(machine.name), (True, "rolling back"))[1],
+    )
+    result = CliRunner().invoke(
+        main,
+        ["release", "propagate", "--config", str(valid_config_path),
+         "--target", "0.4.111", "--daemon-host", "server"],
+    )
+    assert result.exit_code == 2, result.output
+    assert rolled_back == ["laptop"], "server rolled and verified clean — it must be spared"
+    record = _records(state_dir)[0]
+    assert record["status"] == rp.STATUS_ROLLED_BACK
+    assert record["spared_rollback"] == ["server"]
+    assert "spared" in result.output
+
+
+def test_a_fleet_wide_finding_still_rolls_back_every_updated_host(
+    valid_config_path, state_dir, no_network, monkeypatch
+):
+    """A finding `blocking_hosts` cannot attribute to a real host (`(fleet)`
+    — no per-lane breakdown) must fail toward the old, safe behavior: roll
+    back every host this run touched, not toward sparing everyone because
+    nothing could be pinned down."""
+    from coord import release_verify as rv
+
+    _stub_lanes(monkeypatch)
+    _stub_verify(
+        monkeypatch,
+        versions={"laptop": ["0.4.110"], "server": ["0.4.110"]},
+        findings=[
+            rv.Finding(severity="crit", host="(fleet)", lane="(version skew)",
+                       summary="2 versions live across the fleet"),
+        ],
+    )
+    rolled_back: list[str] = []
+    monkeypatch.setattr(
+        release_cmd, "_rollback_host",
+        lambda machine, **k: (rolled_back.append(machine.name), (True, "rolling back"))[1],
+    )
+    result = CliRunner().invoke(
+        main,
+        ["release", "propagate", "--config", str(valid_config_path),
+         "--target", "0.4.111", "--daemon-host", "server"],
+    )
+    assert result.exit_code == 2, result.output
+    assert sorted(rolled_back) == ["laptop", "server"]
+    record = _records(state_dir)[0]
+    assert record["spared_rollback"] == []
+
+
 def test_a_failed_daemon_python_roll_skips_other_hosts_python_lane(
     valid_config_path, state_dir, no_network, monkeypatch
 ):
@@ -1353,15 +1424,32 @@ def test_no_verify_stops_before_the_gate(valid_config_path, state_dir, no_networ
 
 
 def test_release_rollback_hits_every_machine(valid_config_path, monkeypatch):
+    """#3365: `/health` answering with the SAME version on every poll — the
+    still-live OLD process, not yet re-execed — must never read as success.
+    Only a version CHANGE (here: the pre-rollback "0.4.110" giving way to
+    the post-rollback "0.4.109") proves the new process actually took over."""
     hit: list[str] = []
+    poll_count: dict[str, int] = {}
 
     def _fake_post(url, payload, *, timeout):
         hit.append(url)
         return 202, {}, ""
 
+    def _fake_get(url, *, timeout):
+        # First poll per host still sees the not-yet-re-execed old process;
+        # the next one sees the new, reverted generation.
+        n = poll_count.get(url, 0)
+        poll_count[url] = n + 1
+        return 200, {"version": "0.4.110" if n == 0 else "0.4.109"}
+
     monkeypatch.setattr(release_cmd, "_post", _fake_post)
-    monkeypatch.setattr(release_cmd, "_get",
-                        lambda url, *, timeout: (200, {"version": "0.4.110"}))
+    monkeypatch.setattr(release_cmd, "_get", _fake_get)
+    # #3364: the sibling-restart call this test isn't about — assert it's
+    # made in the dedicated `_rollback_host` tests below instead.
+    monkeypatch.setattr(
+        release_cmd, "_restart_sibling_services",
+        lambda *a, **k: (True, "restarted coord-serve", {}),
+    )
     result = CliRunner().invoke(
         main, ["release", "rollback", "--config", str(valid_config_path), "--yes"]
     )
@@ -1371,6 +1459,10 @@ def test_release_rollback_hits_every_machine(valid_config_path, monkeypatch):
     # #2052 fault 1: "rolling back" is a statement about the request. The
     # outcome is whether the service is serving again.
     assert "serving again" in result.output
+    # #3365: the version reported must be the one VERIFIED after the
+    # version changed, never the stale first answer.
+    assert "0.4.109" in result.output
+    assert "v0.4.110" not in result.output
 
 
 def test_a_rollback_that_leaves_the_agent_dead_says_so(valid_config_path, monkeypatch):
@@ -1413,6 +1505,10 @@ def test_a_rollback_rescued_by_the_ssh_restart_is_a_success(valid_config_path,
     monkeypatch.setattr(
         "coord.commands.agent_ops._escalate_restart",
         lambda machine: revived.__setitem__("yes", True) or True,
+    )
+    monkeypatch.setattr(
+        release_cmd, "_restart_sibling_services",
+        lambda *a, **k: (True, "restarted coord-serve", {}),
     )
     result = CliRunner().invoke(
         main, ["release", "rollback", "--config", str(valid_config_path), "--yes",
@@ -1737,7 +1833,14 @@ def test_a_stale_unit_advisory_names_the_units_remedy_not_agent_update(
 
 def test_a_crit_on_a_lane_this_run_rolled_still_reverts(valid_config_path, state_dir,
                                                         no_network, monkeypatch):
-    """Scoping the gate is not removing it."""
+    """Scoping the gate is not removing it: a crit on `laptop`'s own
+    python lane — a lane THIS run rolled — must still turn the gate red and
+    trigger a rollback, never get waved through as advisory.
+
+    #3364: which HOST that rollback then touches is a separate, narrower
+    question. The finding names only `laptop`, so only `laptop` — not
+    `server`, which rolled and verified clean — gets rolled back; see
+    `test_a_red_gate_naming_one_host_spares_the_others` for that half."""
     from coord import release_verify as rv
 
     _stub_lanes(monkeypatch)
@@ -1759,7 +1862,7 @@ def test_a_crit_on_a_lane_this_run_rolled_still_reverts(valid_config_path, state
          "--target", "0.4.111", "--daemon-host", "server"],
     )
     assert result.exit_code == 2, result.output
-    assert sorted(rolled_back) == ["laptop", "server"]
+    assert rolled_back == ["laptop"]
 
 
 def test_the_remote_tui_lane_is_recorded_as_unrollable_not_failed(
@@ -2395,6 +2498,90 @@ def test_roll_units_reload_never_attempted_is_not_a_failure(monkeypatch):
     assert "daemon-reload FAILED" not in detail
 
 
+def test_wait_agent_back_rejects_a_stuck_old_process(monkeypatch):
+    """#3365: the reported bug, reproduced directly. A rollback re-execs the
+    agent, but between the accepted `POST /rollback` and the re-exec taking,
+    the OLD process is still listening and keeps answering 200 with the
+    PRE-rollback version. If `/health` never advances past that version for
+    the whole window, this must time out False — not report the stale
+    version as "serving again", which is what actually happened on 4 hosts
+    across 2 runs in the field."""
+    monkeypatch.setattr(
+        release_cmd, "_get", lambda url, *, timeout: (200, {"version": "0.5.482"})
+    )
+    back, _version = release_cmd._wait_agent_back(_machine(), agent_port=7433, timeout=0.3)
+    assert back is False, "a version that never changes must never read as 'back'"
+
+
+def test_wait_agent_back_with_expected_version_ignores_the_old_answer(monkeypatch):
+    """The `coord release propagate` rollback path knows exactly which
+    version it's rolling back TO (the pre-roll snapshot) — passing it as
+    `expected_version` must reject the stale first answer and wait for the
+    real one, rather than accepting anything that merely answers 200."""
+    calls = {"n": 0}
+
+    def _fake_get(url, *, timeout):
+        calls["n"] += 1
+        # First couple of polls: the old, not-yet-re-execed process.
+        # Only later does the reverted generation actually answer.
+        return 200, {"version": "0.5.482" if calls["n"] <= 2 else "0.5.479"}
+
+    monkeypatch.setattr(release_cmd, "_get", _fake_get)
+    back, version = release_cmd._wait_agent_back(
+        _machine(), agent_port=7433, timeout=5.0, expected_version="0.5.479",
+    )
+    assert back is True
+    assert version == "0.5.479"
+
+
+def test_wait_agent_back_with_expected_version_times_out_if_never_reached(monkeypatch):
+    """If the fleet never actually reaches the expected version — e.g. the
+    rollback itself failed silently — `_wait_agent_back` must not be fooled
+    by a live process answering on the WRONG (old) version."""
+    monkeypatch.setattr(
+        release_cmd, "_get", lambda url, *, timeout: (200, {"version": "0.5.482"})
+    )
+    back, _version = release_cmd._wait_agent_back(
+        _machine(), agent_port=7433, timeout=0.3, expected_version="0.5.479",
+    )
+    assert back is False
+
+
+def test_wait_agent_back_accepts_a_version_change_without_an_expected_target(monkeypatch):
+    """`coord release rollback`, the manual break-glass command, has no
+    forward-roll record to read a destination version from. Lacking one,
+    a version CHANGE away from the first-seen (baseline) reading is itself
+    proof the new process took over — the same "went away, came back"
+    signal, expressed through version identity rather than a connectivity
+    gap that a same-PID `execv` restart may never actually produce."""
+    calls = {"n": 0}
+
+    def _fake_get(url, *, timeout):
+        calls["n"] += 1
+        return 200, {"version": "0.5.482" if calls["n"] == 1 else "0.5.479"}
+
+    monkeypatch.setattr(release_cmd, "_get", _fake_get)
+    back, version = release_cmd._wait_agent_back(_machine(), agent_port=7433, timeout=5.0)
+    assert back is True
+    assert version == "0.5.479"
+
+
+def test_wait_agent_back_require_change_false_trusts_the_first_answer(monkeypatch):
+    """`_rollback_host`'s retry-after-SSH-escalation call passes
+    `require_change=False`: that escalation only ever runs after a FULL
+    prior window of nothing but non-200s, so the ambiguity a still-live old
+    process would create cannot apply — a hard `systemctl --user restart`
+    genuinely revived a dead service, and the first answer is trustworthy."""
+    monkeypatch.setattr(
+        release_cmd, "_get", lambda url, *, timeout: (200, {"version": "0.5.479"})
+    )
+    back, version = release_cmd._wait_agent_back(
+        _machine(), agent_port=7433, timeout=0.3, require_change=False,
+    )
+    assert back is True
+    assert version == "0.5.479"
+
+
 def test_rollback_host_posts_the_caller_supplied_initiator(monkeypatch):
     """#2121: `_rollback_host` is the sibling of `_roll_python` above — same
     fleet-automation shape, same obligation to name itself on the target
@@ -2408,6 +2595,12 @@ def test_rollback_host_posts_the_caller_supplied_initiator(monkeypatch):
     monkeypatch.setattr(release_cmd, "_post", _fake_post)
     monkeypatch.setattr(
         release_cmd, "_wait_agent_back", lambda *a, **k: (True, "0.4.110")
+    )
+    # #3364: `_rollback_host` also restarts the daemon-host siblings once the
+    # agent is back — not this test's concern, so stub it as clean.
+    monkeypatch.setattr(
+        release_cmd, "_restart_sibling_services",
+        lambda *a, **k: (True, "restarted coord-serve", {}),
     )
 
     ok, detail = release_cmd._rollback_host(
@@ -2438,11 +2631,63 @@ def test_rollback_host_without_an_initiator_omits_the_field(monkeypatch):
     monkeypatch.setattr(
         release_cmd, "_wait_agent_back", lambda *a, **k: (True, "0.4.110")
     )
+    monkeypatch.setattr(
+        release_cmd, "_restart_sibling_services",
+        lambda *a, **k: (True, "restarted coord-serve", {}),
+    )
 
     release_cmd._rollback_host(_machine(), agent_port=7433, timeout=5.0)
 
     (_url, payload), = posts
     assert "initiator" not in payload
+
+
+def test_rollback_host_restarts_the_siblings_once_the_agent_is_back(monkeypatch):
+    """#3364's actual defect: `POST /rollback` (`agent_app.py`) flips the venv
+    symlink and re-execs only the AGENT. Left there, `coord-serve`/
+    `coord-web` keep running the slot the rollback just deactivated —
+    permanently orphaned on the slot the next `/update` must delete and
+    rebuild, the exact #2121 deadlock this issue reports. `_rollback_host`
+    must therefore restart the siblings too, the same `_restart_sibling_
+    services` call `_roll_python` makes for the forward roll."""
+    monkeypatch.setattr(release_cmd, "_post", lambda *a, **k: (202, {}, ""))
+    monkeypatch.setattr(
+        release_cmd, "_wait_agent_back", lambda *a, **k: (True, "0.4.110")
+    )
+    calls: list[str] = []
+    monkeypatch.setattr(
+        release_cmd, "_restart_sibling_services",
+        lambda machine, **k: (calls.append(machine.name), (True, "restarted coord-serve, coord-web", {}))[1],
+    )
+
+    ok, detail = release_cmd._rollback_host(_machine(), agent_port=7433, timeout=5.0)
+
+    assert ok
+    assert calls == ["server"], "the siblings must be restarted on the rolled-back host"
+    assert "restarted coord-serve, coord-web" in detail
+
+
+def test_rollback_host_fails_when_a_sibling_stays_orphaned(monkeypatch):
+    """A sibling that fails to restart onto the reverted slot leaves the
+    fleet in exactly the orphaned-slot shape #3364 describes — that is not a
+    successful rollback, whatever the agent itself did."""
+    monkeypatch.setattr(release_cmd, "_post", lambda *a, **k: (202, {}, ""))
+    monkeypatch.setattr(
+        release_cmd, "_wait_agent_back", lambda *a, **k: (True, "0.4.110")
+    )
+    monkeypatch.setattr(
+        release_cmd, "_restart_sibling_services",
+        lambda *a, **k: (
+            False,
+            "restarted coord-web; FAILED to restart: coord-serve (timed out)",
+            {"coord-serve": "timed out"},
+        ),
+    )
+
+    ok, detail = release_cmd._rollback_host(_machine(), agent_port=7433, timeout=5.0)
+
+    assert not ok, "a sibling orphaned on the reverted slot is not a success"
+    assert "coord-serve" in detail
 
 
 def test_release_propagate_red_gate_rollback_names_itself(
@@ -2458,7 +2703,7 @@ def test_release_propagate_red_gate_rollback_names_itself(
     captured: list[dict] = []
     monkeypatch.setattr(
         release_cmd, "_rollback_host",
-        lambda machine, *, agent_port, timeout, initiator=None: (
+        lambda machine, *, agent_port, timeout, initiator=None, expected_version=None: (
             captured.append({"machine": machine.name, "initiator": initiator}),
             (True, "back up"),
         )[1],
@@ -2473,6 +2718,41 @@ def test_release_propagate_red_gate_rollback_names_itself(
     for row in captured:
         assert isinstance(row["initiator"], str)
         assert row["initiator"].startswith("coord release propagate -> ")
+
+
+def test_release_propagate_red_gate_rollback_passes_the_pre_roll_version(
+    valid_config_path, state_dir, no_network, monkeypatch
+):
+    """#3365: the red-gate rollback loop knows exactly which version each
+    targeted host was on before this run's forward roll — the pre-roll
+    `before` sweep it already paid for in step 3 — and must hand that to
+    `_rollback_host` as `expected_version` so the post-rollback wait asserts
+    on the real destination rather than on mere liveness."""
+    _stub_lanes(monkeypatch)
+    _stub_verify(monkeypatch, versions={"laptop": ["0.4.110"], "server": ["0.4.110"]},
+                 severity="crit")
+    captured: list[dict] = []
+    monkeypatch.setattr(
+        release_cmd, "_rollback_host",
+        lambda machine, *, agent_port, timeout, initiator=None, expected_version=None: (
+            captured.append(
+                {"machine": machine.name, "expected_version": expected_version}
+            ),
+            (True, "back up"),
+        )[1],
+    )
+    result = CliRunner().invoke(
+        main,
+        ["release", "propagate", "--config", str(valid_config_path),
+         "--target", "0.4.111"],
+    )
+    assert result.exit_code == 2, result.output
+    assert captured, "the red gate must have rolled back at least one host"
+    for row in captured:
+        assert row["expected_version"] == "0.4.110", (
+            "must pass the pre-roll version, not the (unreachable) target "
+            "the roll never actually attained"
+        )
 
 
 def test_release_rollback_cli_names_itself(valid_config_path, monkeypatch):

@@ -23,6 +23,7 @@ from runlayer_cli.scan.plugin_scanner import (
     _collect_plugin_files,
     _read_json_safe,
     compute_plugin_identifier,
+    mark_plugin_scan_incomplete,
 )
 
 logger = structlog.get_logger(__name__)
@@ -103,6 +104,7 @@ def scan_gemini_extensions(
         try:
             extensions_base = Path.home() / _GEMINI_EXTENSIONS_RELATIVE
         except RuntimeError:
+            mark_plugin_scan_incomplete("gemini_extension_home_resolution_failed")
             return [], []
 
     if not extensions_base.is_dir():
@@ -140,6 +142,7 @@ def scan_gemini_extensions(
                 )
             )
     except OSError as e:
+        mark_plugin_scan_incomplete("gemini_extension_root_enumeration_failed")
         logger.warning(
             "Failed to scan Gemini extensions",
             path=str(extensions_base),

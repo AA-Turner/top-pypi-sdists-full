@@ -23,6 +23,7 @@ from pathlib import Path
 
 import structlog
 
+from runlayer_cli.scan.completeness import CompletionStatusResult, ScanCompletionStatus
 from runlayer_cli.scan.agents.detect import (
     METHOD_STATIC,
     DiscoveredAgent,
@@ -40,10 +41,11 @@ logger = structlog.get_logger(__name__)
 
 
 @dataclass
-class AgentScanResult:
+class AgentScanResult(CompletionStatusResult):
     """Discovered agents from every enabled detection channel."""
 
     agents: list[DiscoveredAgent] = field(default_factory=list)
+    completion: ScanCompletionStatus = field(default_factory=ScanCompletionStatus)
 
 
 def discover_install_agents() -> AgentScanResult:
@@ -55,7 +57,17 @@ def discover_install_agents() -> AgentScanResult:
     """
     result = AgentScanResult()
     for probe in INSTALL_PROBES:
-        detection = probe.detect()
+        try:
+            detection = probe.detect()
+        except Exception:
+            reason = f"agent_install_probe_failed:{probe.name}"
+            result.mark_incomplete(reason)
+            logger.warning(
+                "agent_install_probe_failed",
+                probe=probe.name,
+                exc_info=True,
+            )
+            continue
         if not detection.detected:
             logger.debug("install agent not detected", probe=probe.name)
             continue
@@ -139,6 +151,7 @@ def discover_static_agents(
     seed_manifests: Mapping[Path, ManifestInfo] | None = None,
     time_budget_s: float | None = None,
     checkpoint: Callable[[], None] | None = None,
+    scan_status: ScanCompletionStatus | None = None,
 ) -> list[DiscoveredAgent]:
     """Score agent frameworks over ``roots``; best-effort (never raises).
 
@@ -163,23 +176,34 @@ def discover_static_agents(
         time_budget_s=time_budget_s,
     )
     start = time.monotonic()
+    deadline_exhausted = False
+
+    def mark_deadline_exhausted() -> None:
+        nonlocal deadline_exhausted
+        deadline_exhausted = True
+
     try:
         agents = collect_agents(
             root_list,
             seed_manifests=seed_manifests,
             deadline=deadline,
             checkpoint=checkpoint,
+            on_deadline_exhausted=mark_deadline_exhausted,
         )
     except ScanResourceLimitExceeded:
         raise
     except Exception as exc:
+        if scan_status is not None:
+            scan_status.mark_incomplete("agent_static_scan_failed")
         logger.warning(
             "agent_detection_failed",
             error=str(exc),
             error_type=type(exc).__name__,
         )
         return []
-    truncated = deadline is not None and time.monotonic() >= deadline
+    truncated = deadline_exhausted
+    if truncated and scan_status is not None:
+        scan_status.mark_incomplete("agent_static_scan_truncated")
     logger.info(
         "Agent detection complete",
         agents_found=len(agents),
@@ -231,6 +255,7 @@ def discover_agents(
     if detect_install:
         install = discover_install_agents()
         result.agents.extend(install.agents)
+        result.completion.merge(install.completion)
 
     if detect_static:
         # Materialize once: found_paths feeds both seed parsing and root derivation.
@@ -253,6 +278,7 @@ def discover_agents(
             seed_manifests=seeds,
             time_budget_s=time_budget_s,
             checkpoint=checkpoint,
+            scan_status=result.completion,
         )
         filter_start = time.monotonic()
         kept = filter_static_skill_descendants(static_agents, skill_list)

@@ -33,11 +33,36 @@ from matrx_connect.lane import FinalizerContext, get_current_lane
 from matrx_utils import detached_task, vcprint
 
 from matrx_ai.orchestrator.execution_state import try_get_execution_state
+from matrx_ai.persistence.conversation_org import (
+    conversation_organization,
+    remember_conversation_organization,
+)
 from matrx_ai.persistence.coordinator import Coordinator
 from matrx_ai.persistence.postgres_text import sanitize_postgres_text
 from matrx_ai.persistence.registry import register_table
 
 logger = logging.getLogger("matrx_ai.persistence.queue_helpers")
+
+
+class OrganizationlessInsertError(ValueError):
+    """An org-scoped INSERT reached this door with no organization anywhere.
+
+    A TYPED refusal, not a bare ``ValueError``, so the boundary that owns the
+    request can answer with words and a remedy instead of an anonymous 500 —
+    and a ``ValueError`` subclass so every existing ``except ValueError``
+    around a queue call keeps behaving as it did.
+
+    ``table`` is the table the write was headed for; ``conversation_id`` is the
+    parent whose organization could not supply one (``None`` when the row has
+    no parent). Raising is the correct outcome: the alternative is leaving the
+    column unset for the database's stamping trigger, which files the row in
+    the creator's PERSONAL organization where nothing looks for it.
+    """
+
+    def __init__(self, message: str, *, table: str, conversation_id: str | None = None) -> None:
+        super().__init__(message)
+        self.table = table
+        self.conversation_id = conversation_id
 
 
 # cx_ tables that carry a NOT-NULL organization_id (2026-06 schema reorg). Every
@@ -507,6 +532,62 @@ def _register_lane_finalizer(coord: Coordinator, lane: Any) -> None:
         )
 
 
+def _capture_child_org_bleed(
+    *,
+    table: str,
+    payload: dict[str, Any],
+    declared: str,
+    parent_org: str,
+    from_payload: bool,
+) -> None:
+    """A child row arrived carrying an organization that is NOT its parent
+    conversation's. The row is corrected to the conversation's organization
+    (the law), and the attempt is SCREAMED + captured so the writer that did
+    it can be found instead of quietly producing cross-org rows.
+    """
+    conversation_id = payload.get("conversation_id")
+    source = "caller payload" if from_payload else "ambient request context"
+    vcprint(
+        f"[Coordinator] ORG BLEED CORRECTED on {table}: row "
+        f"{payload.get('id')} for conversation {conversation_id} arrived with "
+        f"organization_id={declared} from the {source}, but the conversation "
+        f"lives in organization {parent_org}. A child row lives in its parent "
+        f"record's organization — the row was stamped {parent_org}. Find the "
+        f"writer: it is reading the ambient organization instead of carrying "
+        f"the conversation's.",
+        color="red",
+    )
+    ctx = _resolve_app_context()
+
+    async def _capture() -> None:
+        from matrx_connect.streaming.error_capture import capture_error
+
+        await capture_error(
+            ValueError(
+                f"{table} row was stamped with organization {declared} while its "
+                f"conversation lives in organization {parent_org}"
+            ),
+            kind="child_row_org_bleed",
+            request_id=getattr(ctx, "request_id", None) if ctx else None,
+            user_id=getattr(ctx, "user_id", None) if ctx else None,
+            conversation_id=str(conversation_id) if conversation_id else None,
+            route="matrx_ai.persistence.queue_helpers",
+            error_type="ChildRowOrganizationBleed",
+            context={
+                "table": table,
+                "row_id": str(payload.get("id") or ""),
+                "declared_organization_id": declared,
+                "conversation_organization_id": parent_org,
+                "declared_source": "payload" if from_payload else "ambient_context",
+            },
+        )
+
+    try:
+        detached_task(_capture(), name="capture_child_row_org_bleed")
+    except Exception:  # noqa: BLE001 — capture must never break the write
+        pass
+
+
 def _queue_or_drop(
     table: str,
     payload: dict[str, Any],
@@ -548,18 +629,63 @@ def _queue_or_drop(
 
         detached_task(_capture_sanitization(), name="capture_persistence_payload_sanitized")
 
-    # Stamp the request's organization_id onto org-scoped cx_ INSERTs. This is the
-    # only stamp point for cx_message / cx_tool_call. Personal scope (no org on
-    # ctx) leaves it unset and the DB backstop trigger fills the creator's personal
-    # org. setdefault keeps any org the gate already stamped.
-    if (
-        op_type == "insert"
-        and table in _ORG_SCOPED_INSERT_TABLES
-        and "organization_id" not in payload
-    ):
-        ctx = _resolve_app_context()
-        org_id = getattr(ctx, "organization_id", None) if ctx else None
-        if org_id:
+    # ORGANIZATION — a child row lives in its PARENT conversation's organization,
+    # never in whatever organization the ambient request happens to carry. See
+    # ``matrx_ai.persistence.conversation_org`` for the measured failure this
+    # closes (the "ambient bleed": 211 chat.tool_call rows in 30 days landed in
+    # the user's ACTIVE organization instead of their conversation's).
+    #
+    # Order of truth for an INSERT carrying a conversation_id:
+    #   1. the conversation row's organization (authoritative, always wins);
+    #   2. an organization the caller explicitly passed;
+    #   3. the ambient request's organization (legacy fallback — only when this
+    #      process has never read the conversation row).
+    # There is no fourth rung: an org-scoped INSERT with no organization
+    # anywhere is REFUSED by name (2026-09-17). It used to be left unset so the
+    # DB backstop trigger could stamp the creator's PERSONAL organization —
+    # which is the same ambient-bleed defect one layer down, except silent: the
+    # row lands in a tenant nobody chose and every later read of the
+    # conversation it belongs to misses it.
+    if op_type == "insert":
+        parent_org = (
+            conversation_organization(payload.get("conversation_id"))
+            if table != "chat.conversation"
+            else None
+        )
+        org_scoped = table in _ORG_SCOPED_INSERT_TABLES or "organization_id" in payload
+        if parent_org and org_scoped:
+            explicit = payload.get("organization_id")
+            ctx = _resolve_app_context()
+            ambient = getattr(ctx, "organization_id", None) if ctx else None
+            declared = explicit or ambient
+            payload["organization_id"] = parent_org
+            if declared and str(declared) != parent_org:
+                _capture_child_org_bleed(
+                    table=table,
+                    payload=payload,
+                    declared=str(declared),
+                    parent_org=parent_org,
+                    from_payload=explicit is not None,
+                )
+        elif table in _ORG_SCOPED_INSERT_TABLES and "organization_id" not in payload:
+            ctx = _resolve_app_context()
+            org_id = str(getattr(ctx, "organization_id", None) or "").strip() if ctx else ""
+            if not org_id:
+                raise OrganizationlessInsertError(
+                    f"queue_insert({table}): this row is org-scoped and has no "
+                    "organization — the payload carries none, its conversation (if any) "
+                    "could not supply one, and the carried context has none either. The "
+                    "organization is READ off the context the boundary minted or off the "
+                    "parent record; it is never left for the database to guess, which "
+                    "files the row in the creator's personal organization where nothing "
+                    "looks for it.",
+                    table=table,
+                    conversation_id=(
+                        str(payload["conversation_id"])
+                        if payload.get("conversation_id")
+                        else None
+                    ),
+                )
             payload["organization_id"] = org_id
 
     coord = get_coordinator()
@@ -619,6 +745,12 @@ def queue_conversation_create(*, id: str, **fields: Any) -> str:
     # the durable operation self-contained and replay-safe across model regen.
     fields.setdefault("visibility", "personal")
 
+    # The conversation's organization is the answer every child row of this
+    # conversation needs (message, tool_call, observational memory...). Record it
+    # the moment the row is born so the synchronous child doors never have to ask
+    # the ambient request. See matrx_ai.persistence.conversation_org.
+    remember_conversation_organization(id, fields.get("organization_id"))
+
     # Ownership guard (second, loud layer). Every conversation MUST be owned by
     # its creator via ``created_by`` — the org backstop trigger derives the
     # personal org from it, and an unowned conversation violates the per-user
@@ -649,6 +781,10 @@ def queue_conversation_create(*, id: str, **fields: Any) -> str:
 
 
 def queue_conversation_update(id: str, **fields: Any) -> str:
+    # A conversation that MOVES organization moves its children with it — keep
+    # the child-row answer in step with the row.
+    if fields.get("organization_id"):
+        remember_conversation_organization(id, fields.get("organization_id"))
     return _queue_or_drop(
         "chat.conversation",
         fields,

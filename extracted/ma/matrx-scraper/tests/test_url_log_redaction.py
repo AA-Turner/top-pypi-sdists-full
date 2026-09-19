@@ -139,7 +139,20 @@ def _enable_browser_pool(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 async def _call_page_capture() -> None:
-    await scrape_router.page_capture(scrape_router.PageCaptureRequest(url=LEAKY_URL), ctx=None)
+    # `/page-capture` is admitted for an organization (it caches a durable
+    # parsed page), so the call carries the context the wire installed — the
+    # URL rejection under test is what must still happen.
+    from types import SimpleNamespace
+
+    await scrape_router.page_capture(
+        scrape_router.PageCaptureRequest(url=LEAKY_URL),
+        ctx=SimpleNamespace(
+            organization_id="7f1d7b9e-3c9a-4a6d-9c3b-2a4b6d8e0f11",
+            user_id="",
+            auth_type="token",
+            is_authenticated=True,
+        ),
+    )
 
 
 async def _call_browser_fetch() -> None:

@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import subprocess
 import sys
 import tarfile
+import threading
 import time
 from pathlib import Path
 
@@ -22,6 +24,9 @@ from runlayer_cli.scan.clients import (
     ProjectConfigPattern,
 )
 from runlayer_cli.scan.containers import (
+    CONTAINER_SCAN_INCOMPLETE_REASON,
+    CONTAINER_SCAN_UNAVAILABLE_REASON,
+    CONTAINER_SCAN_UNEXPECTED_REASON,
     MAX_SINGLE_FILE_BYTES,
     ContainerMount,
     ContainerScanResult,
@@ -39,6 +44,7 @@ from runlayer_cli.scan.containers.docker_cli import _find_docker_cli
 from runlayer_cli.scan.containers.inspect_parse import _parse_docker_ps_inventory
 from runlayer_cli.scan.containers.tar_walk import _extract_copied_file
 from runlayer_cli.scan.config_parser import MCPClientConfig, parse_config_content
+from runlayer_cli.scan.plugin_scanner import DiscoveredPluginArtifact
 from runlayer_cli.scan.skill_scanner import DiscoveredSkillArtifact
 
 
@@ -64,6 +70,7 @@ def _tar_files(files: dict[str, bytes]) -> bytes:
 class _FakeDockerCopyProcess:
     def __init__(self, archive: bytes, *, running: bool = False) -> None:
         self.stdout = io.BytesIO(archive)
+        self.stderr = io.BytesIO()
         self.returncode = None if running else 0
         self.killed = False
         self.waited = False
@@ -76,9 +83,10 @@ class _FakeDockerCopyProcess:
         self.returncode = -9
 
     def wait(self, timeout=None):
-        del timeout
         self.waited = True
         if self.returncode is None:
+            if timeout is not None:
+                raise subprocess.TimeoutExpired("docker cp", timeout)
             self.returncode = 0
         return self.returncode
 
@@ -340,7 +348,87 @@ def test_streaming_tar_walker_skips_oversized_matched_file():
     )
 
     assert result.files == {}
+    assert result.truncated is True
+
+
+def test_tree_copy_spawn_failure_is_incomplete(monkeypatch):
+    monkeypatch.setattr(
+        tar_walk_module.subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(OSError("spawn failed")),
+    )
+
+    result = tar_walk_module._copy_container_tree(
+        docker="/docker",
+        container_id="container-1",
+        root_path="/workspace",
+        wanted_file=lambda _path: True,
+        deadline=time.monotonic() + 1,
+    )
+
+    assert result.files == {}
+    assert result.failure_reason == "container_artifact_copy_spawn_failed"
+
+    artifacts = containers_module._CollectedContainerArtifacts()
+    containers_module._apply_tar_walk_outcome(artifacts, result)
+    assert artifacts.complete is False
+    assert artifacts.failure_reason == "container_artifact_copy_spawn_failed"
+
+
+def test_tree_copy_missing_root_is_absent_not_incomplete(monkeypatch):
+    process = _FakeDockerCopyProcess(b"")
+    process.returncode = 1
+
+    def fake_popen(_cmd, *, stdout, stderr, start_new_session):
+        assert stdout is tar_walk_module.subprocess.PIPE
+        assert start_new_session is (os.name != "nt")
+        if hasattr(stderr, "write"):
+            stderr.write(b"lstat /home/dev/.cursor: no such file or directory")
+        return process
+
+    monkeypatch.setattr(tar_walk_module.subprocess, "Popen", fake_popen)
+
+    result = tar_walk_module._copy_container_tree(
+        docker="/docker",
+        container_id="container-1",
+        root_path="/home/dev/.cursor",
+        wanted_file=lambda _path: True,
+        deadline=time.monotonic() + 1,
+    )
+    artifacts = containers_module._CollectedContainerArtifacts()
+    containers_module._apply_tar_walk_outcome(artifacts, result)
+
+    assert result.files == {}
     assert result.truncated is False
+    assert result.failure_reason is None
+    assert artifacts.complete is True
+
+
+def test_k3s_tree_copy_without_pid_is_incomplete():
+    collector = containers_module.K3sCrictlCollector(
+        crictl=("/k3s", "crictl"),
+        operation_timeout=1,
+    )
+    container = DiscoveredContainer(
+        container_id="container-1",
+        name=None,
+        image_ref=None,
+        image_digest=None,
+        runtime="k3s",
+        pid=None,
+    )
+
+    result = collector.copy_tree(
+        container=container,
+        root_path="/workspace",
+        wanted_file=lambda _path: True,
+        deadline=time.monotonic() + 1,
+    )
+    artifacts = containers_module._CollectedContainerArtifacts()
+    containers_module._apply_tar_walk_outcome(artifacts, result)
+
+    assert artifacts.complete is False
+    assert artifacts.failure_reason == "container_artifact_proc_pid_missing"
 
 
 def test_streaming_tar_walker_stops_at_stream_byte_budget():
@@ -514,9 +602,10 @@ def test_streaming_tree_copy_kills_and_reaps_on_budget_exhaustion(monkeypatch):
     process = _FakeDockerCopyProcess(archive, running=True)
     commands = []
 
-    def fake_popen(cmd, *, stdout, stderr):
+    def fake_popen(cmd, *, stdout, stderr, start_new_session):
         assert stdout is tar_walk_module.subprocess.PIPE
-        assert stderr is tar_walk_module.subprocess.DEVNULL
+        assert hasattr(stderr, "write")
+        assert start_new_session is (os.name != "nt")
         commands.append(cmd)
         return process
 
@@ -536,6 +625,174 @@ def test_streaming_tree_copy_kills_and_reaps_on_budget_exhaustion(monkeypatch):
     assert result.truncated is True
     assert process.killed is True
     assert process.waited is True
+
+
+def test_truncated_tree_copy_keeps_collected_files_after_broken_pipe(monkeypatch):
+    process = _FakeDockerCopyProcess(b"")
+    process.returncode = 1
+    partial = tar_walk_module._TarWalkResult(
+        files={"/workspace/.cursor/mcp.json": b"{}"},
+        truncated=True,
+        failure_reason="container_artifact_tar_walk_failed",
+    )
+    monkeypatch.setattr(
+        tar_walk_module.subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: process,
+    )
+    monkeypatch.setattr(
+        tar_walk_module,
+        "_walk_tar_stream",
+        lambda *_args, **_kwargs: partial,
+    )
+
+    result = tar_walk_module._copy_container_tree(
+        docker="/docker",
+        container_id="container-1",
+        root_path="/workspace",
+        wanted_file=lambda _path: True,
+        deadline=time.monotonic() + 1,
+    )
+
+    assert result.files == {"/workspace/.cursor/mcp.json": b"{}"}
+    assert result.truncated is True
+    assert result.failure_reason == "container_artifact_tar_walk_failed"
+
+
+def test_tree_copy_reaps_isolated_process_after_interrupt(monkeypatch) -> None:
+    class Process(_FakeDockerCopyProcess):
+        def wait(self, timeout=None):
+            del timeout
+            raise KeyboardInterrupt
+
+    process = Process(b"", running=True)
+    reaped: list[Process] = []
+    monkeypatch.setattr(
+        tar_walk_module.subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: process,
+    )
+    monkeypatch.setattr(
+        tar_walk_module,
+        "_walk_tar_stream",
+        lambda *_args, **_kwargs: tar_walk_module._TarWalkResult(),
+    )
+    monkeypatch.setattr(
+        tar_walk_module,
+        "_kill_and_reap",
+        lambda candidate: reaped.append(candidate),
+    )
+
+    with pytest.raises(KeyboardInterrupt):
+        tar_walk_module._copy_container_tree(
+            docker="/docker",
+            container_id="container-1",
+            root_path="/workspace",
+            wanted_file=lambda _path: True,
+            deadline=time.monotonic() + 1,
+        )
+
+    assert reaped == [process]
+
+
+def test_copy_wait_failure_keeps_collected_files() -> None:
+    walked = tar_walk_module._TarWalkResult(
+        files={"/workspace/.cursor/mcp.json": b"{}"},
+        stream_bytes=123,
+    )
+
+    classified = tar_walk_module._classify_copy_outcome(
+        walked,
+        tar_walk_module._CopyProcessResult(failure="wait"),
+        stderr=b"",
+    )
+
+    assert classified.files == walked.files
+    assert classified.stream_bytes == 123
+    assert classified.failure_reason == "container_artifact_copy_wait_failed"
+
+
+@pytest.mark.parametrize(
+    ("stderr", "expected_failure"),
+    [
+        (b"lstat /missing: no such file or directory", None),
+        (b"Error response from daemon: unavailable", "container_artifact_copy_nonzero"),
+    ],
+)
+def test_copy_outcome_purely_classifies_empty_nonzero_copy(
+    stderr: bytes,
+    expected_failure: str | None,
+) -> None:
+    walked = tar_walk_module._TarWalkResult(
+        truncated=True,
+        stream_bytes=123,
+        failure_reason="container_artifact_tar_walk_failed",
+        stream_aborted=True,
+    )
+
+    classified = tar_walk_module._classify_copy_outcome(
+        walked,
+        tar_walk_module._CopyProcessResult(returncode=1),
+        stderr=stderr,
+    )
+
+    assert classified == tar_walk_module._TarWalkResult(
+        stream_bytes=123,
+        failure_reason=expected_failure,
+    )
+    assert walked == tar_walk_module._TarWalkResult(
+        truncated=True,
+        stream_bytes=123,
+        failure_reason="container_artifact_tar_walk_failed",
+        stream_aborted=True,
+    )
+
+
+def test_copy_outcome_preserves_normal_tar_truncation() -> None:
+    walked = tar_walk_module._TarWalkResult(truncated=True, stream_bytes=123)
+
+    classified = tar_walk_module._classify_copy_outcome(
+        walked,
+        tar_walk_module._CopyProcessResult(returncode=1),
+        stderr=b"broken pipe",
+    )
+
+    assert classified is walked
+
+
+def test_finished_tree_copy_keeps_collected_files_after_nonzero_exit() -> None:
+    walked = tar_walk_module._TarWalkResult(
+        files={"/workspace/.cursor/mcp.json": b"{}"},
+        stream_bytes=123,
+    )
+
+    classified = tar_walk_module._classify_copy_outcome(
+        walked,
+        tar_walk_module._CopyProcessResult(returncode=1),
+        stderr=b"permission denied",
+    )
+    artifacts = containers_module._CollectedContainerArtifacts()
+    containers_module._apply_tar_walk_outcome(artifacts, classified)
+
+    assert classified.files == walked.files
+    assert classified.truncated is True
+    assert classified.failure_reason == "container_artifact_copy_nonzero"
+    assert artifacts.complete is False
+
+
+def test_finished_empty_tree_copy_marks_nonabsence_failure_incomplete() -> None:
+    classified = tar_walk_module._classify_copy_outcome(
+        tar_walk_module._TarWalkResult(stream_bytes=123),
+        tar_walk_module._CopyProcessResult(returncode=1),
+        stderr=b"permission denied",
+    )
+    artifacts = containers_module._CollectedContainerArtifacts()
+    containers_module._apply_tar_walk_outcome(artifacts, classified)
+
+    assert classified.files == {}
+    assert classified.truncated is True
+    assert classified.failure_reason == "container_artifact_copy_nonzero"
+    assert artifacts.complete is False
 
 
 def test_scan_reads_known_config_from_docker_cp(monkeypatch):
@@ -573,13 +830,16 @@ def test_scan_reads_known_config_from_docker_cp(monkeypatch):
         }
     }
 
-    def fake_run_bytes(cmd, *, timeout, max_output):
+    def fake_run_file_copy(cmd, *, timeout, max_output):
         del timeout, max_output
         assert cmd[-2:] == ["container-1:/home/vscode/.cursor/mcp.json", "-"]
-        return _tar_file(json.dumps(config).encode())
+        return containers_module.FileCopyResult(
+            status="success",
+            archive=_tar_file(json.dumps(config).encode()),
+        )
 
     monkeypatch.setattr(docker_cli_module, "_run_text", fake_run_text)
-    monkeypatch.setattr(containers_module, "_run_bytes", fake_run_bytes)
+    monkeypatch.setattr(containers_module, "_run_file_copy", fake_run_file_copy)
 
     result = scan_running_containers(
         clients=[client],
@@ -1409,9 +1669,10 @@ def test_scan_streams_nested_project_config_and_skill_once(monkeypatch):
             return ""
         return inspect_output
 
-    def fake_popen(cmd, *, stdout, stderr):
+    def fake_popen(cmd, *, stdout, stderr, start_new_session):
         assert stdout is tar_walk_module.subprocess.PIPE
-        assert stderr is tar_walk_module.subprocess.DEVNULL
+        assert hasattr(stderr, "write")
+        assert start_new_session is (os.name != "nt")
         copy_commands.append(cmd)
         if cmd[2] == "container-1:/workspace":
             process = _FakeDockerCopyProcess(archive)
@@ -1512,9 +1773,10 @@ def test_scan_discovers_project_and_user_agent_definitions_in_existing_tar_pass(
             return "[]"
         return inspect_output
 
-    def fake_popen(cmd, *, stdout, stderr):
+    def fake_popen(cmd, *, stdout, stderr, start_new_session):
         assert stdout is tar_walk_module.subprocess.PIPE
-        assert stderr is tar_walk_module.subprocess.DEVNULL
+        assert hasattr(stderr, "write")
+        assert start_new_session is (os.name != "nt")
         copy_commands.append(cmd)
         if cmd[2] == "container-1:/workspace":
             archive = workdir_archive
@@ -1621,7 +1883,8 @@ def test_scan_skips_container_user_definitions_mounted_from_host_home(monkeypatc
             return "[]"
         return inspect_output
 
-    def fake_popen(cmd, *, stdout, stderr):
+    def fake_popen(cmd, *, stdout, stderr, start_new_session):
+        assert start_new_session is (os.name != "nt")
         del stdout, stderr
         copy_commands.append(cmd)
         return _FakeDockerCopyProcess(empty_archive)
@@ -1689,9 +1952,10 @@ def test_scan_discovers_global_container_skill_and_skips_host_home_mount(monkeyp
             return "[]"
         return inspect_output
 
-    def fake_popen(cmd, *, stdout, stderr):
+    def fake_popen(cmd, *, stdout, stderr, start_new_session):
         assert stdout is tar_walk_module.subprocess.PIPE
-        assert stderr is tar_walk_module.subprocess.DEVNULL
+        assert hasattr(stderr, "write")
+        assert start_new_session is (os.name != "nt")
         copy_commands.append(cmd)
         archive = (
             claude_archive
@@ -1725,6 +1989,257 @@ def test_scan_discovers_global_container_skill_and_skips_host_home_mount(monkeyp
     assert all(
         cmd[2] != "container-1:/home/vscode/.agents/skills" for cmd in copy_commands
     )
+
+
+def test_collect_container_extensions_parses_immediate_manifests_with_context():
+    extension_root = "/home/vscode/.vscode/extensions"
+    manifest = json.dumps(
+        {
+            "publisher": "ms-python",
+            "name": "python",
+            "displayName": "Python",
+            "version": "2026.1.0",
+            "description": "Python language support",
+            "author": {"name": "Microsoft"},
+        }
+    ).encode()
+    requested_roots: list[str] = []
+    requested_stream_caps: list[int] = []
+
+    class _Collector:
+        def copy_tree(
+            self,
+            *,
+            root_path,
+            wanted_file,
+            max_stream_bytes,
+            **_kwargs,
+        ):
+            requested_roots.append(root_path)
+            requested_stream_caps.append(max_stream_bytes)
+            candidates = {
+                f"{extension_root}/ms-python.python-2026.1.0/package.json": manifest,
+                f"{extension_root}/nested/ms-python.python/package.json": manifest,
+                f"{extension_root}/ms-python.python-2026.1.0/README.md": b"ignored",
+            }
+            files = {
+                path: content
+                for path, content in candidates.items()
+                if root_path == extension_root and wanted_file(path)
+            }
+            return tar_walk_module._TarWalkResult(
+                files=files,
+                stream_bytes=123 if root_path == extension_root else 0,
+            )
+
+    artifacts = containers_module._CollectedContainerArtifacts()
+    budget = containers_module._ArtifactByteBudget()
+    ctx = containers_module._PhaseContext(
+        collector=_Collector(),
+        artifacts=artifacts,
+        budget=budget,
+        deadline=time.monotonic() + 10,
+        subprocess_timeout=1,
+        host_home=Path("/Users/alex"),
+    )
+    container = DiscoveredContainer(
+        container_id="container-1",
+        name="devbox",
+        image_ref="ghcr.io/acme/devbox:latest",
+        image_digest="sha256:abc",
+        runtime="podman",
+        is_devcontainer=True,
+        labels={"safe": "value"},
+        home="/home/vscode",
+    )
+
+    containers_module._collect_container_extensions(ctx, container)
+
+    assert extension_root in requested_roots
+    assert requested_stream_caps[0] == containers_module.MAX_DOCKER_SCAN_STREAM_BYTES
+    assert budget.total_bytes == len(manifest)
+    assert budget.stream_bytes == 123
+    assert len(artifacts.plugins) == 1
+    plugin = artifacts.plugins[0]
+    assert plugin.name == "Python"
+    assert plugin.source_identifier == "ms-python.python"
+    assert plugin.version == "2026.1.0"
+    assert plugin.client == "vscode"
+    assert plugin.scope == "global"
+    assert plugin.install_path == (
+        "/home/vscode/.vscode/extensions/ms-python.python-2026.1.0"
+    )
+    assert plugin.container_id == "container-1"
+    assert plugin.container_name == "devbox"
+    assert plugin.container_image_ref == "ghcr.io/acme/devbox:latest"
+    assert plugin.container_image_digest == "sha256:abc"
+    assert plugin.container_runtime == "podman"
+    assert plugin.container_is_devcontainer is True
+    assert plugin.container_is_running is True
+    assert plugin.container_labels == {"safe": "value"}
+
+
+def test_extension_cap_keeps_later_artifact_phases_and_containers(
+    monkeypatch,
+) -> None:
+    manifest = json.dumps(
+        {
+            "publisher": "acme",
+            "name": "extension",
+            "version": "1.0.0",
+        }
+    ).encode()
+    monkeypatch.setattr(containers_module, "MAX_EXTENSIONS_PER_SCAN", 1)
+    monkeypatch.setattr(
+        containers_module,
+        "_HOST_CLIENTS",
+        ((".vscode", "vscode"),),
+    )
+    for phase in (
+        "_collect_container_configs",
+        "_collect_container_project_tree",
+        "_collect_container_global_skills",
+        "_collect_container_hidden_artifacts",
+    ):
+        monkeypatch.setattr(
+            containers_module,
+            phase,
+            lambda *_args, **_kwargs: None,
+        )
+    user_definition_containers: list[str] = []
+    monkeypatch.setattr(
+        containers_module,
+        "_collect_container_user_definitions",
+        lambda _ctx, container, _roots: user_definition_containers.append(
+            container.container_id
+        ),
+    )
+
+    class _Collector:
+        def copy_tree(self, *, root_path, wanted_file, **_kwargs):
+            candidates = {
+                f"{root_path}/acme.first-1.0.0/package.json": manifest,
+                f"{root_path}/acme.second-1.0.0/package.json": manifest,
+            }
+            return tar_walk_module._TarWalkResult(
+                files={
+                    path: content
+                    for path, content in candidates.items()
+                    if wanted_file(path)
+                }
+            )
+
+    containers = [
+        DiscoveredContainer(
+            container_id=f"container-{index}",
+            name=None,
+            image_ref=None,
+            image_digest=None,
+            home=f"/home/user-{index}",
+        )
+        for index in range(2)
+    ]
+
+    artifacts = containers_module._collect_container_artifacts(
+        collector=_Collector(),
+        containers=containers,
+        clients=[],
+        deadline=time.monotonic() + 10,
+        subprocess_timeout=1,
+        host_home=Path("/Users/alex"),
+    )
+
+    assert len(artifacts.plugins) == 1
+    assert user_definition_containers == ["container-0", "container-1"]
+    assert artifacts.complete is False
+    assert artifacts.failure_reason == "vscode_extension_scan_capped"
+
+
+def test_collect_container_extensions_skips_host_home_mounts():
+    requested_roots: list[str] = []
+    wanted_paths: dict[str, bool] = {}
+
+    class _Collector:
+        def copy_tree(self, *, root_path, wanted_file, **_kwargs):
+            requested_roots.append(root_path)
+            if root_path == "/home/vscode/.cursor/extensions":
+                wanted_paths["container-local"] = wanted_file(
+                    f"{root_path}/acme.local/package.json"
+                )
+                wanted_paths["host-mounted"] = wanted_file(
+                    f"{root_path}/host-mounted/package.json"
+                )
+            return tar_walk_module._TarWalkResult()
+
+    ctx = containers_module._PhaseContext(
+        collector=_Collector(),
+        artifacts=containers_module._CollectedContainerArtifacts(),
+        budget=containers_module._ArtifactByteBudget(),
+        deadline=time.monotonic() + 10,
+        subprocess_timeout=1,
+        host_home=Path("/Users/alex"),
+    )
+    container = DiscoveredContainer(
+        container_id="container-1",
+        name="devbox",
+        image_ref=None,
+        image_digest=None,
+        home="/home/vscode",
+        mounts=[
+            ContainerMount(
+                mount_type="bind",
+                source="/Users/alex/.vscode",
+                destination="/home/vscode/.vscode",
+            ),
+            ContainerMount(
+                mount_type="bind",
+                source="/Users/alex/.cursor/extensions/host-mounted",
+                destination="/home/vscode/.cursor/extensions/host-mounted",
+            ),
+        ],
+    )
+
+    containers_module._collect_container_extensions(ctx, container)
+
+    assert "/home/vscode/.vscode/extensions" not in requested_roots
+    assert wanted_paths == {
+        "container-local": True,
+        "host-mounted": False,
+    }
+
+
+def test_collect_container_extensions_obeys_shared_byte_budget(monkeypatch):
+    manifest = b'{"publisher":"acme","name":"extension"}'
+    monkeypatch.setattr(containers_module, "MAX_TOTAL_BYTES", len(manifest) - 1)
+
+    class _Collector:
+        def copy_tree(self, *, root_path, wanted_file, **_kwargs):
+            path = f"{root_path}/acme.extension/package.json"
+            return tar_walk_module._TarWalkResult(
+                files={path: manifest} if wanted_file(path) else {},
+                stream_bytes=1,
+            )
+
+    ctx = containers_module._PhaseContext(
+        collector=_Collector(),
+        artifacts=containers_module._CollectedContainerArtifacts(),
+        budget=containers_module._ArtifactByteBudget(),
+        deadline=time.monotonic() + 10,
+        subprocess_timeout=1,
+        host_home=Path("/Users/alex"),
+    )
+    container = DiscoveredContainer(
+        container_id="container-1",
+        name="devbox",
+        image_ref=None,
+        image_digest=None,
+        home="/home/vscode",
+    )
+
+    with pytest.raises(containers_module._CollectionBudgetExhausted):
+        containers_module._collect_container_extensions(ctx, container)
+
+    assert ctx.artifacts.plugins == []
 
 
 def test_scan_discovers_disguised_skills_in_generically_hidden_container_paths(
@@ -1763,9 +2278,10 @@ def test_scan_discovers_disguised_skills_in_generically_hidden_container_paths(
             return "[]"
         return inspect_output
 
-    def fake_popen(cmd, *, stdout, stderr):
+    def fake_popen(cmd, *, stdout, stderr, start_new_session):
         assert stdout is tar_walk_module.subprocess.PIPE
-        assert stderr is tar_walk_module.subprocess.DEVNULL
+        assert hasattr(stderr, "write")
+        assert start_new_session is (os.name != "nt")
         if cmd[2] == "container-1:/var/tmp":
             archive = hidden_archive
         elif cmd[2] == "container-1:/workspace":
@@ -1857,15 +2373,15 @@ def test_scan_detects_npm_agent_identity_in_container_prefix(
             return "[]"
         return inspect_output
 
-    def fake_popen(cmd, *, stdout, stderr):
-        assert stdout is tar_walk_module.subprocess.PIPE
-        assert stderr is tar_walk_module.subprocess.DEVNULL
+    def fake_popen(cmd, *, stdout, stderr, start_new_session):
+        assert start_new_session is (os.name != "nt")
         if cmd[2] == "container-1:/var/tmp":
             archive = hidden_archive
         elif cmd[2].endswith("/bin/claude.js") and target_present:
             archive = target_archive
         else:
             archive = empty_archive
+        assert stdout is tar_walk_module.subprocess.PIPE
         return _FakeDockerCopyProcess(archive)
 
     monkeypatch.setattr(docker_cli_module, "_run_text", fake_run_text)
@@ -1916,7 +2432,13 @@ def test_standard_container_npm_agent_requires_manifest_and_bin_target():
     class _Collector:
         def copy_file_archive(self, *, container, path, deadline):
             del container, deadline
-            return archives.get(path)
+            archive = archives.get(path)
+            if archive is None:
+                return containers_module.FileCopyResult(status="absent")
+            return containers_module.FileCopyResult(
+                status="success",
+                archive=archive,
+            )
 
     artifacts = containers_module._CollectedContainerArtifacts()
     ctx = containers_module._PhaseContext(
@@ -1947,6 +2469,69 @@ def test_standard_container_npm_agent_requires_manifest_and_bin_target():
     ]
 
 
+def test_single_file_copy_failure_removes_artifact_authority():
+    artifacts = containers_module._CollectedContainerArtifacts()
+
+    content = containers_module._copied_file_content(
+        artifacts,
+        containers_module.FileCopyResult(
+            status="failed",
+            failure_reason="container_artifact_copy_nonzero",
+        ),
+    )
+
+    assert content is None
+    assert artifacts.complete is False
+    assert artifacts.failure_reason == "container_artifact_copy_nonzero"
+
+
+def test_single_file_copy_absence_preserves_artifact_authority():
+    artifacts = containers_module._CollectedContainerArtifacts()
+
+    content = containers_module._copied_file_content(
+        artifacts,
+        containers_module.FileCopyResult(status="absent"),
+    )
+
+    assert content is None
+    assert artifacts.complete is True
+
+
+@pytest.mark.parametrize(
+    "stderr",
+    [
+        b"Error: stat /home/dev/.cursor: No Such File Or Directory",
+        b"FATA[0000] failed to copy /home/dev/.cursor: DOES NOT EXIST",
+        b"nerdctl: Could Not Find The File /home/dev/.cursor in container devbox",
+    ],
+)
+def test_non_docker_copy_absence_preserves_artifact_authority(
+    stderr: bytes,
+) -> None:
+    result = docker_cli_module._run_file_copy(
+        [
+            sys.executable,
+            "-c",
+            f"import sys; sys.stderr.buffer.write({stderr!r}); sys.exit(1)",
+        ],
+        timeout=1,
+        max_output=1024,
+    )
+
+    assert docker_cli_module._docker_copy_path_absent(stderr) is True
+    assert result.status == "absent"
+    assert result.failure_reason is None
+
+    artifacts = containers_module._CollectedContainerArtifacts()
+    content = containers_module._copied_file_content(
+        artifacts,
+        result,
+    )
+
+    assert content is None
+    assert artifacts.complete is True
+
+
 def test_container_npm_manifest_with_nul_bin_target_does_not_abort_collection():
     package = NpmPackage("@anthropic-ai/claude-code", "claude")
     client = MCPClientDefinition(
@@ -1968,10 +2553,13 @@ def test_container_npm_manifest_with_nul_bin_target_does_not_abort_collection():
         def copy_file_archive(self, *, container, path, deadline):
             del container, deadline
             if path == manifest_path:
-                return _tar_files({"package.json": manifest})
+                return containers_module.FileCopyResult(
+                    status="success",
+                    archive=_tar_files({"package.json": manifest}),
+                )
             if "\x00" in path:
                 raise ValueError("embedded null byte")
-            return None
+            return containers_module.FileCopyResult(status="absent")
 
     artifacts = containers_module._CollectedContainerArtifacts()
     ctx = containers_module._PhaseContext(
@@ -2030,7 +2618,13 @@ def test_nested_host_home_bind_is_not_collected_as_container_npm():
         def copy_file_archive(self, *, container, path, deadline):
             del container, deadline
             requested_paths.append(path)
-            return archives.get(path)
+            archive = archives.get(path)
+            if archive is None:
+                return containers_module.FileCopyResult(status="absent")
+            return containers_module.FileCopyResult(
+                status="success",
+                archive=archive,
+            )
 
     artifacts = containers_module._CollectedContainerArtifacts()
     ctx = containers_module._PhaseContext(
@@ -2199,7 +2793,7 @@ def test_scan_wide_stream_budget_stops_noise_without_starving_later_npm(
         record_priority_npm,
     )
 
-    containers_module._collect_container_artifacts(
+    artifacts = containers_module._collect_container_artifacts(
         collector=_Collector(),
         containers=containers,
         clients=[client],
@@ -2210,6 +2804,8 @@ def test_scan_wide_stream_budget_stops_noise_without_starving_later_npm(
 
     assert priority_npm_containers == ["container-1", "container-2"]
     assert len(broad_tree_requests) == 1
+    assert artifacts.complete is False
+    assert artifacts.failure_reason == "container_artifact_budget_exhausted"
 
 
 def test_scan_collected_skill_bytes_exhaust_shared_byte_budget(monkeypatch):
@@ -2236,7 +2832,8 @@ def test_scan_collected_skill_bytes_exhaust_shared_byte_budget(monkeypatch):
             return "[]"
         return inspect_output
 
-    def fake_popen(cmd, *, stdout, stderr):
+    def fake_popen(cmd, *, stdout, stderr, start_new_session):
+        assert start_new_session is (os.name != "nt")
         del stdout, stderr
         copy_commands.append(cmd)
         archive = (
@@ -2270,14 +2867,14 @@ def test_scan_collected_skill_bytes_exhaust_shared_byte_budget(monkeypatch):
 
 def test_scan_parses_container_inspect_output_once(monkeypatch):
     inspect_output = json.dumps([_inspect_row(working_dir="")])
-    real_json_loads = json.loads
+    real_parse_json = docker_cli_module.parse_json
     inspect_parse_count = 0
 
-    def counting_json_loads(value, *args, **kwargs):
+    def counting_parse_json(value):
         nonlocal inspect_parse_count
         if value == inspect_output:
             inspect_parse_count += 1
-        return real_json_loads(value, *args, **kwargs)
+        return real_parse_json(value)
 
     def fake_run_text(cmd, **kwargs):
         del kwargs
@@ -2293,7 +2890,7 @@ def test_scan_parses_container_inspect_output_once(monkeypatch):
 
     monkeypatch.setattr(containers_module, "_find_docker_cli", lambda: "/docker")
     monkeypatch.setattr(docker_cli_module, "_run_text", fake_run_text)
-    monkeypatch.setattr(docker_cli_module.json, "loads", counting_json_loads)
+    monkeypatch.setattr(docker_cli_module, "parse_json", counting_parse_json)
 
     result = scan_running_containers(clients=[])
 
@@ -2335,7 +2932,7 @@ def test_scan_skips_project_config_shared_with_host_home(monkeypatch):
         raise AssertionError("shared config must not be copied")
 
     monkeypatch.setattr(docker_cli_module, "_run_text", fake_run_text)
-    monkeypatch.setattr(containers_module, "_run_bytes", unexpected_copy)
+    monkeypatch.setattr(containers_module, "_run_file_copy", unexpected_copy)
 
     result = scan_running_containers(
         clients=[client],
@@ -2364,6 +2961,7 @@ def test_malformed_nonempty_docker_ps_is_not_a_successful_empty_scan(monkeypatch
     result = scan_running_containers(clients=[])
 
     assert result.scan_succeeded is False
+    assert result.failure_reason == CONTAINER_SCAN_INCOMPLETE_REASON
 
 
 def test_partially_malformed_docker_ps_is_not_authoritative(monkeypatch):
@@ -2447,6 +3045,7 @@ def test_truncated_inventory_is_not_authoritative(monkeypatch):
 
     assert len(result.containers) == inspect_parse_module.MAX_CONTAINERS
     assert result.scan_succeeded is False
+    assert result.failure_reason == CONTAINER_SCAN_INCOMPLETE_REASON
 
 
 def test_missing_docker_transport_is_a_noop(monkeypatch):
@@ -2510,9 +3109,18 @@ def test_docker_scan_shares_scaled_budget_with_supplemental_inventory(monkeypatc
             }
 
         def inspect_stopped_containers(self, *, container_ids, deadline, host_home):
-            del container_ids, host_home
+            del host_home
             deadlines.append(("stopped-inspect", deadline))
-            return []
+            return [
+                DiscoveredContainer(
+                    container_id=container_id,
+                    name=container_id,
+                    image_ref=None,
+                    image_digest=None,
+                    is_running=False,
+                )
+                for container_id in container_ids
+            ]
 
         def collect_image_digests(self, *, containers, deadline):
             del deadline
@@ -2920,7 +3528,28 @@ def test_scan_returns_empty_when_cli_discovery_fails_without_socket(monkeypatch)
 
     result = scan_running_containers(clients=[])
 
-    assert result == ContainerScanResult()
+    assert result.containers == []
+    assert result.scan_succeeded is False
+    assert result.failure_reason == CONTAINER_SCAN_UNAVAILABLE_REASON
+
+
+def test_scan_reports_sanitized_reason_for_unexpected_failure(monkeypatch):
+    def raise_secret_failure(**_kwargs):
+        raise RuntimeError("secret socket path: /private/runtime.sock")
+
+    monkeypatch.setattr(
+        containers_module,
+        "_scan_running_containers",
+        raise_secret_failure,
+    )
+
+    result = scan_running_containers(clients=[])
+
+    assert result == ContainerScanResult(
+        scan_succeeded=False,
+        failure_reason=CONTAINER_SCAN_UNEXPECTED_REASON,
+    )
+    assert "private" not in result.failure_reason
 
 
 def test_merge_scan_results_prefers_first_container_and_its_artifacts():
@@ -2969,6 +3598,27 @@ def test_merge_scan_results_prefers_first_container_and_its_artifacts():
         tool="cursor",
         container_id="unique",
     )
+    preferred_plugin = DiscoveredPluginArtifact(
+        name="cli-plugin",
+        plugin_type="vscode_extension",
+        client="vscode",
+        install_path="/cli-plugin",
+        container_id="shared",
+    )
+    duplicate_plugin = DiscoveredPluginArtifact(
+        name="socket-plugin",
+        plugin_type="vscode_extension",
+        client="vscode",
+        install_path="/socket-plugin",
+        container_id="shared",
+    )
+    unique_plugin = DiscoveredPluginArtifact(
+        name="k3s-plugin",
+        plugin_type="vscode_extension",
+        client="vscode",
+        install_path="/k3s-plugin",
+        container_id="unique",
+    )
     preferred_definition = DiscoveredAgentDefinition(
         client="cli",
         name="cli-agent",
@@ -3006,6 +3656,7 @@ def test_merge_scan_results_prefers_first_container_and_its_artifacts():
                 containers=[preferred],
                 configurations=[preferred_config],
                 skills=[preferred_skill],
+                plugins=[preferred_plugin],
                 agent_definitions=[preferred_definition],
                 scan_succeeded=True,
             ),
@@ -3013,6 +3664,7 @@ def test_merge_scan_results_prefers_first_container_and_its_artifacts():
                 containers=[duplicate, unique],
                 configurations=[duplicate_config, unique_config],
                 skills=[duplicate_skill, unique_skill],
+                plugins=[duplicate_plugin, unique_plugin],
                 agent_definitions=[duplicate_definition, unique_definition],
                 scan_succeeded=False,
             ),
@@ -3022,6 +3674,7 @@ def test_merge_scan_results_prefers_first_container_and_its_artifacts():
     assert merged.containers == [preferred, unique]
     assert merged.configurations == [preferred_config, unique_config]
     assert merged.skills == [preferred_skill, unique_skill]
+    assert merged.plugins == [preferred_plugin, unique_plugin]
     assert merged.agent_definitions == [preferred_definition, unique_definition]
     assert merged.scan_succeeded is False
 
@@ -3526,3 +4179,370 @@ def test_run_with_sink_closes_stdout_on_success(
     (process,) = spawned
     assert process.stdout is not None
     assert process.stdout.closed
+
+
+def test_run_with_sink_kills_the_producer_process_group_at_output_cap(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    terminated = threading.Event()
+    group_kills: list[tuple[int, int]] = []
+
+    class Process:
+        pid = 123
+        stdout = io.BytesIO(b"over-cap")
+        stderr = None
+        returncode: int | None = None
+
+        def poll(self) -> int | None:
+            return self.returncode
+
+        def kill(self) -> None:
+            raise AssertionError("producer process must be killed as a group")
+
+        def wait(self, timeout: float | None = None) -> int:
+            if not terminated.wait(timeout):
+                raise subprocess.TimeoutExpired("docker", timeout)
+            assert self.returncode is not None
+            return self.returncode
+
+    process = Process()
+
+    def fake_popen(
+        _cmd: list[str],
+        *,
+        stdout: int,
+        stderr: int,
+        start_new_session: bool,
+    ) -> Process:
+        assert stdout is subprocess.PIPE
+        assert stderr is subprocess.DEVNULL
+        assert start_new_session is (os.name != "nt")
+        return process
+
+    def fake_killpg(pid: int, signal_number: int) -> None:
+        group_kills.append((pid, signal_number))
+        process.returncode = -signal_number
+        terminated.set()
+
+    monkeypatch.setattr(docker_cli_module.subprocess, "Popen", fake_popen)
+    monkeypatch.setattr(docker_cli_module.os, "killpg", fake_killpg)
+
+    output = docker_cli_module._run_bytes(
+        ["/docker", "image", "ls"],
+        timeout=1,
+        max_output=1,
+    )
+
+    assert output is None
+    assert group_kills == [(123, docker_cli_module.signal.SIGKILL)]
+
+
+@pytest.mark.parametrize(
+    ("stderr", "expected_status"),
+    [
+        ("Could not find the file /missing in container c", "absent"),
+        (
+            "dial unix /var/run/docker.sock: connect: no such file or directory",
+            "failed",
+        ),
+        (
+            "FATA[0000] failed to copy: dial unix /run/containerd/containerd.sock: "
+            "connect: no such file or directory",
+            "failed",
+        ),
+        ("Error response from daemon: unavailable", "failed"),
+    ],
+)
+def test_run_file_copy_classifies_nonzero_stderr(
+    stderr: str,
+    expected_status: str,
+) -> None:
+    result = docker_cli_module._run_file_copy(
+        [
+            sys.executable,
+            "-c",
+            f"import sys; sys.stderr.write({stderr!r}); sys.exit(1)",
+        ],
+        timeout=1,
+        max_output=1024,
+    )
+
+    assert result.status == expected_status
+
+
+def test_run_file_copy_distinguishes_timeout_from_size_limit() -> None:
+    result = docker_cli_module._run_file_copy(
+        [sys.executable, "-c", "import time; time.sleep(1)"],
+        timeout=0,
+        max_output=1024,
+    )
+
+    assert result.status == "failed"
+    assert result.failure_reason == "container_artifact_copy_timed_out"
+
+
+def test_run_file_copy_preserves_timeout_when_reader_does_not_drain(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    class Process:
+        stdout = io.BytesIO()
+        stderr = io.BytesIO()
+        returncode = None
+
+        def wait(self, timeout: float | None = None) -> int:
+            raise subprocess.TimeoutExpired("docker cp", timeout)
+
+    class NeverDrainsThread:
+        def __init__(self, *, target: object, daemon: bool) -> None:
+            del target, daemon
+
+        def start(self) -> None:
+            pass
+
+        def join(self, timeout: float | None = None) -> None:
+            del timeout
+
+        def is_alive(self) -> bool:
+            return True
+
+    process = Process()
+    monkeypatch.setattr(
+        docker_cli_module.subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: process,
+    )
+    monkeypatch.setattr(docker_cli_module.threading, "Thread", NeverDrainsThread)
+    monkeypatch.setattr(docker_cli_module, "_kill_and_reap", lambda _process: None)
+
+    result = docker_cli_module._run_file_copy(
+        ["/docker", "cp", "container-1:/config", "-"],
+        timeout=1,
+        max_output=1024,
+    )
+
+    assert result.status == "failed"
+    assert result.failure_reason == "container_artifact_copy_timed_out"
+
+
+def test_run_file_copy_starts_an_isolated_process_group(monkeypatch) -> None:
+    process = _FakeDockerCopyProcess(b"")
+
+    def fake_popen(_cmd, *, stdout, stderr, start_new_session):
+        assert stdout is subprocess.PIPE
+        assert stderr is subprocess.PIPE
+        assert start_new_session is (os.name != "nt")
+        return process
+
+    monkeypatch.setattr(docker_cli_module.subprocess, "Popen", fake_popen)
+
+    result = docker_cli_module._run_file_copy(
+        ["/docker", "cp", "container-1:/config", "-"],
+        timeout=1,
+        max_output=1024,
+    )
+
+    assert result.status == "success"
+
+
+def test_run_file_copy_reaps_isolated_process_after_interrupt(monkeypatch) -> None:
+    class Process(_FakeDockerCopyProcess):
+        def wait(self, timeout=None):
+            del timeout
+            raise KeyboardInterrupt
+
+    process = Process(b"", running=True)
+    reaped: list[Process] = []
+    monkeypatch.setattr(
+        docker_cli_module.subprocess,
+        "Popen",
+        lambda *_args, **_kwargs: process,
+    )
+    monkeypatch.setattr(
+        docker_cli_module,
+        "_kill_and_reap",
+        lambda candidate: reaped.append(candidate),
+    )
+
+    with pytest.raises(KeyboardInterrupt):
+        docker_cli_module._run_file_copy(
+            ["/docker", "cp", "container-1:/config", "-"],
+            timeout=1,
+            max_output=1024,
+        )
+
+    assert reaped == [process]
+
+
+def test_run_file_copy_terminates_at_stdout_limit_before_timeout() -> None:
+    result = docker_cli_module._run_file_copy(
+        [
+            sys.executable,
+            "-c",
+            (
+                "import sys,time;"
+                "sys.stdout.buffer.write(b'x' * 2048);"
+                "sys.stdout.buffer.flush();"
+                "time.sleep(1)"
+            ),
+        ],
+        timeout=0.5,
+        max_output=1024,
+    )
+
+    assert result.status == "failed"
+    assert result.failure_reason == "container_artifact_copy_limit_exceeded"
+
+
+def test_run_file_copy_bounds_stderr_capture(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: list[bytes] = []
+
+    def classify(stderr: bytes) -> bool:
+        captured.append(stderr)
+        return False
+
+    monkeypatch.setattr(docker_cli_module, "_docker_copy_path_absent", classify)
+
+    result = docker_cli_module._run_file_copy(
+        [
+            sys.executable,
+            "-c",
+            "import sys; sys.stderr.buffer.write(b'x' * 32768); sys.exit(1)",
+        ],
+        timeout=1,
+        max_output=1024,
+    )
+
+    assert result.status == "failed"
+    assert result.failure_reason == "container_artifact_copy_nonzero"
+    assert captured == [b"x" * docker_cli_module._MAX_DOCKER_COPY_STDERR_BYTES]
+
+
+# podman validates ``--filter status=`` strictly; docker-only values make the
+# whole ``ps`` fail (exit 125) and lose podman discovery entirely (ISS-13).
+_PODMAN_ACCEPTED_STATUSES = {
+    "created",
+    "running",
+    "paused",
+    "stopped",
+    "exited",
+    "unknown",
+}
+
+
+def _fake_podman_run_text(cmd, **kwargs):
+    del kwargs
+    assert cmd[0] == "/usr/bin/podman"
+    if cmd[1] == "ps":
+        statuses = {
+            arg.removeprefix("status=") for arg in cmd if arg.startswith("status=")
+        }
+        if not statuses <= _PODMAN_ACCEPTED_STATUSES:
+            return None  # podman: "Error: <x> is not a valid status", exit 125
+        if "-a" in cmd:
+            return ""
+        return _runtime_ps_row("podman-1")
+    if cmd[1:3] == ["image", "inspect"]:
+        return "[]"
+    return _runtime_inspect_output("podman-1")
+
+
+def test_podman_ps_filters_only_use_statuses_podman_accepts(monkeypatch):
+    monkeypatch.setattr(containers_module, "_find_docker_cli", lambda: None)
+    monkeypatch.setattr(containers_module, "find_docker_socket", lambda: None)
+    monkeypatch.setattr(
+        containers_module,
+        "_find_container_cli",
+        lambda binary: "/usr/bin/podman" if binary == "podman" else None,
+    )
+    monkeypatch.setattr(docker_cli_module, "_run_text", _fake_podman_run_text)
+    monkeypatch.setattr(
+        docker_cli_module,
+        "_run_bounded_utf8_lines",
+        lambda cmd, **kwargs: {"text": "", "truncation_reason": None},
+    )
+
+    result = scan_running_containers(clients=[])
+
+    assert [container.container_id for container in result.containers] == ["podman-1"]
+    assert result.scan_succeeded is True
+    assert result.stopped_containers_succeeded is True
+
+
+def test_inspect_falls_back_to_per_id_when_one_container_vanished(monkeypatch):
+    """A container removed between ``ps`` and ``inspect`` must not empty the scan.
+
+    ``docker inspect a b`` exits 1 when any ID is gone, so the batch read
+    returned None and every surviving container's artifacts were lost.
+    Inspect the survivors individually; the inventory is then reported as
+    incomplete (not authoritative) rather than empty.
+    """
+    monkeypatch.setattr(containers_module, "_find_docker_cli", lambda: "/docker")
+    monkeypatch.setattr(containers_module, "find_docker_socket", lambda: None)
+    monkeypatch.setattr(containers_module, "_find_container_cli", lambda binary: None)
+    inspect_calls: list[list[str]] = []
+
+    def fake_run_text(cmd, **kwargs):
+        del kwargs
+        if cmd[1] == "ps":
+            if "-a" in cmd:
+                return ""
+            return _runtime_ps_row("alive") + "\n" + _runtime_ps_row("vanished")
+        if cmd[1:3] == ["image", "inspect"]:
+            return "[]"
+        assert cmd[1] == "inspect"
+        ids = cmd[2:]
+        inspect_calls.append(ids)
+        if ids == ["alive"]:
+            return _runtime_inspect_output("alive")
+        return None  # batch with a vanished ID, or the vanished ID alone: exit 1
+
+    monkeypatch.setattr(docker_cli_module, "_run_text", fake_run_text)
+    monkeypatch.setattr(
+        docker_cli_module,
+        "_run_bounded_utf8_lines",
+        lambda cmd, **kwargs: {"text": "", "truncation_reason": None},
+    )
+
+    result = scan_running_containers(clients=[])
+
+    assert inspect_calls[0] == ["alive", "vanished"]
+    assert ["alive"] in inspect_calls and ["vanished"] in inspect_calls
+    assert [container.container_id for container in result.containers] == ["alive"]
+    assert result.scan_succeeded is False
+
+
+def test_stopped_inventory_not_authoritative_when_per_id_fallback_is_short(
+    monkeypatch,
+):
+    monkeypatch.setattr(containers_module, "_find_docker_cli", lambda: "/docker")
+    monkeypatch.setattr(containers_module, "find_docker_socket", lambda: None)
+    monkeypatch.setattr(containers_module, "_find_container_cli", lambda binary: None)
+
+    def fake_run_text(cmd, **kwargs):
+        del kwargs
+        if cmd[1] == "ps":
+            if "-a" in cmd:
+                return _runtime_ps_row("old") + "\n" + _runtime_ps_row("gone")
+            return ""
+        if cmd[1:3] == ["image", "inspect"]:
+            return "[]"
+        if cmd[2:] == ["old"]:
+            row = _inspect_row(working_dir="")
+            row["Id"] = "old"
+            row["State"] = {"Status": "exited", "Running": False}
+            return json.dumps([row])
+        return None
+
+    monkeypatch.setattr(docker_cli_module, "_run_text", fake_run_text)
+    monkeypatch.setattr(
+        docker_cli_module,
+        "_run_bounded_utf8_lines",
+        lambda cmd, **kwargs: {"text": "", "truncation_reason": None},
+    )
+
+    result = scan_running_containers(clients=[])
+
+    assert [c.container_id for c in result.stopped_containers] == ["old"]
+    assert result.stopped_containers_succeeded is False

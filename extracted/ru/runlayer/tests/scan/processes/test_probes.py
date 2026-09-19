@@ -12,6 +12,7 @@ from runlayer_cli.scan.processes.probes import (
     parse_systemd_main_pid,
     probe_agent_runtime,
 )
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 
 
 def _signature() -> AgentRuntimeSignature:
@@ -51,6 +52,7 @@ def test_launchd_probe_annotates_enumerated_pid(
     mock_run.assert_called_once_with(
         ["launchctl", "print", "gui/501/bot.molt.gateway"],
         timeout=5,
+        scan_status=None,
     )
 
 
@@ -164,6 +166,8 @@ def test_docker_is_enumerated_once_for_all_signatures(
     mock_run.assert_called_once_with(
         ["docker", "ps", "--format", "{{.ID}}\t{{.Names}}\t{{.Image}}"],
         timeout=7,
+        scan_status=None,
+        nonzero_reason="agent_docker_probe_failed",
     )
 
 
@@ -194,6 +198,27 @@ def test_host_service_and_docker_are_separate_installations(
         "runtime:openclaw",
         "runtime:docker:openclaw",
     }
+
+
+def test_agent_probe_spawn_failure_marks_runtime_incomplete(monkeypatch):
+    from runlayer_cli.scan.processes import probes
+
+    monkeypatch.setattr(
+        probes.subprocess,
+        "run",
+        mock.Mock(side_effect=OSError("spawn failed")),
+    )
+    status = ScanCompletionStatus()
+
+    assert (
+        probes._run_success(
+            ["docker", "ps"],
+            timeout=5,
+            scan_status=status,
+        )
+        is None
+    )
+    assert status.reasons == ["agent_runtime_probe_command_failed"]
 
 
 @mock.patch("runlayer_cli.scan.processes.probe_agent_runtime")
@@ -256,6 +281,7 @@ def test_discovery_forwards_checkpoint_to_wsl_enumeration(
         [distro],
         timeout=5,
         checkpoint=checkpoint,
+        scan_status=mock.ANY,
     )
 
 
@@ -277,7 +303,7 @@ def test_host_enumeration_failure_still_scans_wsl(
         wsl_distros=[distro],
     )
 
-    mock_enumerate.assert_called_once_with(timeout=5)
+    mock_enumerate.assert_called_once_with(timeout=5, scan_status=mock.ANY)
     mock_wsl_enumerate.assert_called_once()
     assert result.processes == []
 
@@ -302,7 +328,36 @@ def test_classification_failure_returns_empty_result(
         wsl_distros=[distro],
     )
 
-    mock_enumerate.assert_called_once_with(timeout=5)
+    mock_enumerate.assert_called_once_with(timeout=5, scan_status=mock.ANY)
     mock_wsl_enumerate.assert_called_once()
     mock_classify.assert_called_once()
     assert result.processes == []
+
+
+@mock.patch(
+    "runlayer_cli.scan.processes.classify_processes_with_overrides",
+    side_effect=RuntimeError("classification failed"),
+)
+@mock.patch("runlayer_cli.scan.processes.enumerate_wsl_process_tables", return_value=[])
+@mock.patch("runlayer_cli.scan.processes.enumerate_candidates")
+def test_classification_failure_preserves_prior_incomplete_reasons(
+    mock_enumerate,
+    mock_wsl_enumerate,
+    mock_classify,
+):
+    def enumerate_incomplete(*, timeout, scan_status):
+        scan_status.mark_incomplete("process_table_enumeration_failed")
+        return []
+
+    mock_enumerate.side_effect = enumerate_incomplete
+
+    result = discover_processes(
+        configurations=[],
+        clients=[],
+        detect_agents=False,
+    )
+
+    assert result.incomplete_reasons == [
+        "process_table_enumeration_failed",
+        "process_classification_failed",
+    ]

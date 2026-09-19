@@ -1,6 +1,7 @@
 """Tests for scan service orchestration."""
 
 from contextlib import contextmanager
+import datetime
 import getpass
 import json
 import os
@@ -8,24 +9,39 @@ from pathlib import Path
 import threading
 from types import SimpleNamespace
 from unittest import mock
+import uuid
 
 import httpx
 import pytest
 import structlog
 
 from runlayer_cli.scan import orchestrator as scan_orchestrator
+from runlayer_cli.scan import service as scan_service
+from runlayer_cli.scan.agent_scan import AgentScanResult
 from runlayer_cli.scan.client_presence import DetectedClient
-from runlayer_cli.scan.clients import get_client_by_name
+from runlayer_cli.scan.clients import get_all_clients, get_client_by_name
+from runlayer_cli.scan.completeness import ScanCompleteness, ScanCompletionStatus
 from runlayer_cli.scan.config_parser import MCPClientConfig, MCPServerConfig
 from runlayer_cli.scan.processes.models import (
     DiscoveredProcess,
+    ExtensionRootRef,
     OverrideConfigRef,
     ProcessDiscoveryResult,
 )
+from runlayer_cli.scan.skill_presence import (
+    SkillPresenceParams,
+    build_state,
+    load_state,
+    path_hash,
+    save_state,
+)
+from runlayer_cli.scan.skill_scanner import SkillPhaseScan
 from runlayer_cli.scan.timing import PhaseTimer
 from runlayer_cli.scan.service import (
+    CATEGORY_SURFACES,
     EXIT_SUBMIT_FAILED,
     EXIT_UNSUPPORTED,
+    MAX_AGENT_DEFINITIONS,
     MAX_AGENTS,
     ScanResult,
     ScanSubmissionResult,
@@ -33,7 +49,9 @@ from runlayer_cli.scan.service import (
     _attribute_wsl_artifacts,
     _dedupe_path_configurations,
     _parse_process_override_configurations,
+    _scan_manifest_payload,
     dedupe_host_container_configurations,
+    reconcile_skill_presence,
     scan_all_clients,
     submit_discovered_agent_definitions,
     submit_discovered_agents,
@@ -87,6 +105,7 @@ def test_project_phase_preserves_client_entry_format(tmp_path, monkeypatch):
             found_paths=[config_path],
             node_modules_paths=[],
             logical_paths={},
+            complete=True,
         ),
     )
     monkeypatch.setattr(
@@ -106,9 +125,165 @@ def test_project_phase_preserves_client_entry_format(tmp_path, monkeypatch):
     server = result.configurations[0].servers[0]
     assert server.command == "npx"
     assert server.args == ["-y", "server"]
+    assert result.skill_crawl_complete is True
 
 
-def test_container_config_dedupe_prefers_container_attribution():
+def test_project_phase_nested_crawl_failure_marks_skill_crawl_incomplete(
+    tmp_path, monkeypatch
+):
+    project = tmp_path / "project"
+    config_path = project / "kilo.jsonc"
+    project.mkdir()
+    config_path.write_text(
+        '{"mcp":{"filesystem":{"type":"local","command":["npx","-y","server"]}}}',
+        encoding="utf-8",
+    )
+    client = scan_orchestrator.get_client_by_name("kilo_code")
+    assert client is not None
+
+    monkeypatch.setattr(
+        scan_orchestrator, "get_clients_with_project_configs", lambda: [client]
+    )
+    monkeypatch.setattr(
+        scan_orchestrator,
+        "get_client_by_name",
+        lambda name: client if name == "kilo_code" else None,
+    )
+    monkeypatch.setattr(
+        scan_orchestrator,
+        "find_files_and_node_modules_under_home",
+        lambda *args, **kwargs: SimpleNamespace(
+            found_paths=[config_path],
+            node_modules_paths=[],
+            logical_paths={},
+            complete=True,
+        ),
+    )
+
+    def incomplete_nested_crawl(*args, **kwargs):
+        kwargs["completion"].mark_incomplete("nested_project_crawl_timed_out")
+        return []
+
+    monkeypatch.setattr(
+        scan_orchestrator,
+        "find_files_under_project_roots",
+        incomplete_nested_crawl,
+    )
+
+    result = scan_orchestrator._scan_project_phase(
+        governor=SimpleNamespace(checkpoint=lambda: None),
+        project_scan_timeout=60,
+        project_scan_depth=7,
+        run_static_agents=False,
+    )
+
+    assert result.skill_crawl_complete is False
+
+
+def test_project_phase_main_crawl_failure_marks_skill_crawl_incomplete(monkeypatch):
+    monkeypatch.setattr(
+        scan_orchestrator, "get_clients_with_project_configs", lambda: []
+    )
+    monkeypatch.setattr(
+        scan_orchestrator,
+        "find_files_and_node_modules_under_home",
+        lambda *args, **kwargs: SimpleNamespace(
+            found_paths=[],
+            node_modules_paths=[],
+            logical_paths={},
+            complete=False,
+        ),
+    )
+
+    result = scan_orchestrator._scan_project_phase(
+        governor=SimpleNamespace(checkpoint=lambda: None),
+        project_scan_timeout=60,
+        project_scan_depth=7,
+        run_static_agents=False,
+    )
+
+    assert result.skill_crawl_complete is False
+
+
+def test_project_phase_propagates_skill_candidate_paths(tmp_path, monkeypatch):
+    skill_dir = tmp_path / "project" / ".agents" / "skills" / "deploy"
+    skill_dir.mkdir(parents=True)
+    marker = skill_dir / "SKILL.md"
+    marker.write_text("---\nname: deploy\ndescription: Deploy helper\n---\n")
+    monkeypatch.setattr(
+        scan_orchestrator, "get_clients_with_project_configs", lambda: []
+    )
+    monkeypatch.setattr(
+        scan_orchestrator,
+        "find_files_and_node_modules_under_home",
+        lambda *args, **kwargs: SimpleNamespace(
+            found_paths=[marker],
+            node_modules_paths=[],
+            logical_paths={},
+            complete=True,
+        ),
+    )
+
+    result = scan_orchestrator._scan_project_phase(
+        governor=SimpleNamespace(checkpoint=lambda: None),
+        project_scan_timeout=60,
+        project_scan_depth=7,
+        run_static_agents=False,
+    )
+
+    assert result.project_skill_candidate_paths == [str(skill_dir.resolve())]
+
+
+def test_project_skill_processing_failure_does_not_poison_mcp(tmp_path, monkeypatch):
+    monkeypatch.setattr(
+        scan_orchestrator,
+        "get_clients_with_project_configs",
+        lambda: [],
+    )
+    monkeypatch.setattr(
+        scan_orchestrator,
+        "find_files_and_node_modules_under_home",
+        lambda *args, **kwargs: SimpleNamespace(
+            found_paths=[],
+            node_modules_paths=[],
+            logical_paths={},
+            complete=True,
+        ),
+    )
+
+    def capped_skills(*_args, scan_status, **_kwargs):
+        scan_status.mark_incomplete("project_skill_scan_capped")
+        return SkillPhaseScan([], [])
+
+    monkeypatch.setattr(
+        scan_orchestrator,
+        "process_skill_paths_with_candidates",
+        capped_skills,
+    )
+    monkeypatch.setattr(
+        scan_orchestrator,
+        "process_agent_definition_paths",
+        lambda *_args, **_kwargs: [],
+    )
+    monkeypatch.setattr(
+        scan_orchestrator,
+        "process_project_gemini_extensions",
+        lambda _paths: ([], []),
+    )
+
+    result = scan_orchestrator._scan_project_phase(
+        governor=SimpleNamespace(checkpoint=lambda: None),
+        project_scan_timeout=60,
+        project_scan_depth=7,
+        run_static_agents=False,
+    )
+
+    assert result.completion.complete is True
+    assert result.mcp_completion.complete is True
+    assert result.skill_completion.reasons == ["project_skill_scan_capped"]
+
+
+def test_container_config_dedupe_keeps_unverified_cross_surface_matches():
     duplicate_hash = "a" * 64
     host = MCPClientConfig(
         client="cursor",
@@ -142,7 +317,73 @@ def test_container_config_dedupe_prefers_container_attribution():
 
     deduped = dedupe_host_container_configurations([host, different, container])
 
-    assert deduped == [different, container]
+    assert deduped == [host, different, container]
+
+
+def test_container_config_dedupe_keeps_private_container_path_matching_host_file(
+    tmp_path,
+):
+    duplicate_hash = "a" * 64
+    project = tmp_path / "project"
+    config_path = project / ".cursor" / "mcp.json"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text("{}")
+    host = MCPClientConfig(
+        client="cursor",
+        config_path=str(config_path),
+        project_path=str(project),
+        config_scope="project",
+        servers=[
+            MCPServerConfig(name="github", type="stdio", config_hash=duplicate_hash)
+        ],
+    )
+    container = MCPClientConfig(
+        client="cursor",
+        config_path=str(config_path),
+        project_path=str(project),
+        config_scope="container",
+        container_id="container-1",
+        container_mounts_host_home=False,
+        servers=[
+            MCPServerConfig(name="github", type="stdio", config_hash=duplicate_hash)
+        ],
+    )
+
+    assert dedupe_host_container_configurations([host, container]) == [host, container]
+
+
+def test_container_config_dedupe_prefers_verified_same_backing_file(tmp_path):
+    duplicate_hash = "a" * 64
+    host_project = tmp_path / "host" / "orders"
+    container_project = tmp_path / "container" / "orders"
+    host_config = host_project / ".cursor" / "mcp.json"
+    container_config = container_project / ".cursor" / "mcp.json"
+    host_config.parent.mkdir(parents=True)
+    container_config.parent.mkdir(parents=True)
+    host_config.write_text("{}")
+    os.link(host_config, container_config)
+    host = MCPClientConfig(
+        client="cursor",
+        config_path=str(host_config),
+        project_path=str(host_project),
+        config_scope="project",
+        servers=[
+            MCPServerConfig(name="github", type="stdio", config_hash=duplicate_hash)
+        ],
+    )
+    container = MCPClientConfig(
+        client="cursor",
+        config_path=str(container_config),
+        project_path=str(container_project),
+        config_scope="container",
+        container_id="container-1",
+        container_mounts_host_home=True,
+        servers=[
+            MCPServerConfig(name="github", type="stdio", config_hash=duplicate_hash)
+        ],
+    )
+
+    assert dedupe_host_container_configurations([host, container]) == [container]
 
 
 def test_path_dedupe_keeps_one_path_reported_under_several_identities():
@@ -269,6 +510,304 @@ def test_process_override_parses_vscode_user_data_config(tmp_path):
     assert parsed[0].servers[0].name == "custom"
 
 
+def test_process_override_trusts_matching_sid_under_system(tmp_path):
+    vscode = get_client_by_name("vscode")
+    assert vscode is not None
+    target_sid = "S-1-5-21-1-2-3-1001"
+    user_data_dir = tmp_path / "custom-code"
+    config_path = user_data_dir / "User" / "mcp.json"
+    config_path.parent.mkdir(parents=True)
+    config_path.write_text(
+        json.dumps({"servers": {"custom": {"command": "npx"}}}),
+        encoding="utf-8",
+    )
+
+    parsed = _parse_process_override_configurations(
+        [
+            OverrideConfigRef(
+                client="vscode",
+                flag="--user-data-dir",
+                value=str(user_data_dir),
+                mcp_config="user_data_dir",
+                user="SYSTEM",
+                pid=100,
+                owner_sid=target_sid,
+            )
+        ],
+        configurations=[],
+        clients=[vscode],
+        windows_user_sid=target_sid,
+    )
+
+    assert [config.config_path for config in parsed] == [str(config_path)]
+
+
+@pytest.mark.parametrize(
+    ("owner_sid", "expected_reasons"),
+    [
+        (None, ["runtime_owner_resolution_failed"]),
+        ("S-1-5-21-9-8-7-1002", []),
+    ],
+)
+def test_process_override_rejects_missing_or_mismatched_target_sid(
+    tmp_path,
+    owner_sid,
+    expected_reasons,
+):
+    claude = get_client_by_name("claude_code")
+    assert claude is not None
+    status = ScanCompletionStatus()
+
+    parsed = _parse_process_override_configurations(
+        [
+            OverrideConfigRef(
+                client="claude_code",
+                flag="--mcp-config",
+                value=str(tmp_path / "mcp.json"),
+                mcp_config="file",
+                user="SYSTEM",
+                pid=100,
+                owner_sid=owner_sid,
+            )
+        ],
+        configurations=[],
+        clients=[claude],
+        scan_status=status,
+        windows_user_sid="S-1-5-21-1-2-3-1001",
+    )
+
+    assert parsed == []
+    assert status.reasons == expected_reasons
+
+
+def test_process_override_unresolved_path_marks_runtime_incomplete() -> None:
+    claude = get_client_by_name("claude_code")
+    assert claude is not None
+    status = ScanCompletionStatus()
+
+    parsed = _parse_process_override_configurations(
+        [
+            OverrideConfigRef(
+                client="claude_code",
+                flag="--mcp-config",
+                value="relative-mcp.json",
+                mcp_config="file",
+                user=_effective_process_owner(),
+                pid=100,
+            )
+        ],
+        configurations=[],
+        clients=[claude],
+        scan_status=status,
+    )
+
+    assert parsed == []
+    assert status.reasons == ["runtime_override_config_path_resolution_failed"]
+
+
+def test_excluded_process_override_client_does_not_mark_path_failure() -> None:
+    status = ScanCompletionStatus()
+
+    parsed = _parse_process_override_configurations(
+        [
+            OverrideConfigRef(
+                client="claude_code",
+                flag="--mcp-config",
+                value="relative-mcp.json",
+                mcp_config="file",
+                user=_effective_process_owner(),
+                pid=100,
+            )
+        ],
+        configurations=[],
+        clients=[],
+        scan_status=status,
+    )
+
+    assert parsed == []
+    assert status.complete
+    assert status.reasons == []
+
+
+def test_process_override_path_conversion_failure_marks_runtime_incomplete(
+    monkeypatch,
+) -> None:
+    from runlayer_cli.scan import service as scan_service
+
+    claude = get_client_by_name("claude_code")
+    assert claude is not None
+    status = ScanCompletionStatus()
+    monkeypatch.setattr(
+        scan_service,
+        "Path",
+        mock.Mock(side_effect=OSError("path conversion failed")),
+    )
+
+    parsed = _parse_process_override_configurations(
+        [
+            OverrideConfigRef(
+                client="claude_code",
+                flag="--mcp-config",
+                value="redacted-sensitive-path",
+                mcp_config="file",
+                user=_effective_process_owner(),
+                pid=100,
+            )
+        ],
+        configurations=[],
+        clients=[claude],
+        scan_status=status,
+    )
+
+    assert parsed == []
+    assert status.reasons == ["runtime_override_config_path_resolution_failed"]
+
+
+def test_process_extension_non_directory_marks_runtime_incomplete(tmp_path):
+    from runlayer_cli.scan import service as scan_service
+
+    extension_root = tmp_path / "extensions"
+    extension_root.write_text("not a directory")
+    status = ScanCompletionStatus()
+
+    roots = scan_service._resolve_process_extension_roots(
+        [
+            ExtensionRootRef(
+                client="vscode",
+                flag="--extensions-dir",
+                value=str(extension_root),
+                pid=42,
+                user=_effective_process_owner(),
+            )
+        ],
+        scan_status=status,
+    )
+
+    assert roots == []
+    assert status.reasons == ["runtime_extension_root_not_directory"]
+
+
+def test_wsl_process_extension_root_keeps_distro_identity(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from runlayer_cli.scan import service as scan_service
+
+    distro_root = tmp_path / "Ubuntu"
+    extension_root = distro_root / "home" / "alice" / ".vscode" / "extensions"
+    extension_root.mkdir(parents=True)
+    monkeypatch.setattr(
+        scan_service,
+        "get_wsl_distro_root",
+        lambda distro: distro_root if distro == "Ubuntu" else None,
+    )
+
+    roots = scan_service._resolve_process_extension_roots(
+        [
+            ExtensionRootRef(
+                client="vscode",
+                flag="--extensions-dir",
+                value="/home/alice/.vscode/extensions",
+                pid=42,
+                user="alice",
+                wsl_distro="Ubuntu",
+            )
+        ]
+    )
+
+    assert len(roots) == 1
+    assert roots[0].path == extension_root
+    assert roots[0].client == "vscode"
+    assert roots[0].wsl_distro == "Ubuntu"
+
+
+def test_wsl_process_extension_plugin_keeps_host_runtime_manifest_surface() -> None:
+    from runlayer_cli.scan import service as scan_service
+
+    plugin = SimpleNamespace(
+        container_id=None,
+        device_scope=False,
+        scope="process_override",
+        wsl_distro="Ubuntu",
+    )
+
+    assert scan_service._artifact_manifest_surface(plugin, kind="plugin") == (
+        "host_runtime"
+    )
+
+
+def test_wsl_plugin_maps_to_host_static_surface_the_manifest_emits() -> None:
+    from runlayer_cli.scan import service as scan_service
+
+    artifact = SimpleNamespace(
+        container_id=None,
+        device_scope=False,
+        scope="user",
+        wsl_distro="Ubuntu",
+    )
+
+    assert scan_service._artifact_manifest_surface(artifact, kind="skill") == "wsl"
+    plugin_surface = scan_service._artifact_manifest_surface(artifact, kind="plugin")
+    assert plugin_surface == "host_static"
+    assert plugin_surface in scan_service.CATEGORY_SURFACES["plugin"]
+
+
+def test_wsl_plugin_without_identifier_gates_plugin_host_static() -> None:
+    from runlayer_cli.scan.service import submit_scan_results
+
+    client = mock.MagicMock()
+    client.submit_scan_manifest.return_value = {"reconciled": 0}
+    scan_result = _submission_scan_result(os_name="windows", wsl_scanned=True)
+    scan_result.plugins = [
+        SimpleNamespace(
+            name="wsl-plugin",
+            identifier=None,
+            container_id=None,
+            device_scope=False,
+            scope="user",
+            wsl_distro="Ubuntu",
+        )
+    ]
+
+    submission = submit_scan_results(client, scan_result)
+
+    assert submission.incomplete_surfaces[("plugin", "host_static")] == (
+        "plugin_identifier_missing"
+    )
+    assert all(
+        surface in submission.surface_outcomes
+        for surface in submission.incomplete_surfaces
+    )
+    entries = {
+        (entry["category"], entry["surface"]): entry
+        for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+    }
+    assert entries[("plugin", "host_static")]["complete"] is False
+    assert entries[("plugin", "host_static")]["reason"] == "plugin_identifier_missing"
+
+
+def test_process_extension_unresolved_path_marks_runtime_incomplete() -> None:
+    from runlayer_cli.scan import service as scan_service
+
+    status = ScanCompletionStatus()
+
+    roots = scan_service._resolve_process_extension_roots(
+        [
+            ExtensionRootRef(
+                client="vscode",
+                flag="--extensions-dir",
+                value="relative-extensions",
+                pid=42,
+                user=_effective_process_owner(),
+            )
+        ],
+        scan_status=status,
+    )
+
+    assert roots == []
+    assert status.reasons == ["runtime_extension_root_path_resolution_failed"]
+
+
 def test_process_override_maps_wsl_home_path_with_distro_identity(
     tmp_path,
     monkeypatch,
@@ -387,6 +926,68 @@ def test_process_override_rejects_wsl_path_outside_process_owner_home(
     assert scan_service._resolve_override_config_path(ref) is None
 
 
+def test_process_override_missing_wsl_root_marks_runtime_incomplete(
+    monkeypatch,
+) -> None:
+    from runlayer_cli.scan import service as scan_service
+
+    claude = get_client_by_name("claude_code")
+    assert claude is not None
+    monkeypatch.setattr(scan_service, "get_wsl_distro_root", lambda _distro: None)
+    status = ScanCompletionStatus()
+
+    parsed = _parse_process_override_configurations(
+        [
+            OverrideConfigRef(
+                client="claude_code",
+                flag="--mcp-config",
+                value="/home/alice/mcp.json",
+                mcp_config="file",
+                user="alice",
+                pid=100,
+                wsl_distro="Ubuntu",
+            )
+        ],
+        configurations=[],
+        clients=[claude],
+        scan_status=status,
+    )
+
+    assert parsed == []
+    assert status.reasons == ["runtime_override_config_path_resolution_failed"]
+
+
+def test_process_extension_outside_wsl_home_marks_runtime_incomplete(
+    tmp_path,
+    monkeypatch,
+) -> None:
+    from runlayer_cli.scan import service as scan_service
+
+    monkeypatch.setattr(
+        scan_service,
+        "get_wsl_distro_root",
+        lambda _distro: tmp_path,
+    )
+    status = ScanCompletionStatus()
+
+    roots = scan_service._resolve_process_extension_roots(
+        [
+            ExtensionRootRef(
+                client="vscode",
+                flag="--extensions-dir",
+                value="/home/bob/.vscode/extensions",
+                user="alice",
+                pid=100,
+                wsl_distro="Ubuntu",
+            )
+        ],
+        scan_status=status,
+    )
+
+    assert roots == []
+    assert status.reasons == ["runtime_extension_root_path_resolution_failed"]
+
+
 def test_process_override_skips_path_already_scanned(tmp_path):
     claude = get_client_by_name("claude_code")
     assert claude is not None
@@ -421,7 +1022,11 @@ def test_process_override_skips_path_already_scanned(tmp_path):
 
 
 @pytest.mark.parametrize("process_user", [None, "definitely-not-the-scan-user"])
-def test_process_override_skips_untrusted_process_owner(tmp_path, process_user):
+def test_process_override_skips_untrusted_process_owner(
+    tmp_path, process_user, monkeypatch
+):
+    from runlayer_cli.scan import service as scan_service
+
     claude = get_client_by_name("claude_code")
     assert claude is not None
     config_path = tmp_path / "mcp.json"
@@ -438,25 +1043,23 @@ def test_process_override_skips_untrusted_process_owner(tmp_path, process_user):
         cwd=None,
         user=process_user,
     )
+    logger = mock.Mock()
+    monkeypatch.setattr(scan_service, "logger", logger)
 
-    with structlog.testing.capture_logs() as logs:
-        parsed = _parse_process_override_configurations(
-            [ref],
-            configurations=[],
-            clients=[claude],
-        )
+    parsed = _parse_process_override_configurations(
+        [ref],
+        configurations=[],
+        clients=[claude],
+    )
 
     assert parsed == []
-    [skip_log] = [
-        log
-        for log in logs
-        if log["event"] == "process_override_config_skipped_untrusted_owner"
-    ]
-    assert skip_log["log_level"] == "debug"
-    assert skip_log["owner_status"] == (
-        "unknown" if process_user is None else "mismatch"
+    logger.debug.assert_called_once_with(
+        "process_override_config_skipped_untrusted_owner",
+        client="claude_code",
+        flag="--mcp-config",
+        owner_status="unknown" if process_user is None else "mismatch",
     )
-    assert str(config_path) not in repr(skip_log)
+    assert str(config_path) not in repr(logger.mock_calls)
 
 
 def test_process_override_resolves_windows_owner_before_parsing(tmp_path, monkeypatch):
@@ -519,6 +1122,7 @@ def test_process_override_windows_owner_lookup_failure_fails_closed(
         mock.Mock(side_effect=OSError("lookup failed")),
     )
 
+    status = ScanCompletionStatus()
     parsed = _parse_process_override_configurations(
         [
             OverrideConfigRef(
@@ -532,9 +1136,11 @@ def test_process_override_windows_owner_lookup_failure_fails_closed(
         ],
         configurations=[],
         clients=[claude],
+        scan_status=status,
     )
 
     assert parsed == []
+    assert status.reasons == ["runtime_owner_resolution_failed"]
 
 
 def test_windows_process_owner_lookup_caps_unique_pids(monkeypatch):
@@ -547,11 +1153,157 @@ def test_windows_process_owner_lookup_caps_unique_pids(monkeypatch):
         for pid in range(1, scan_service.MAX_OVERRIDE_OWNER_LOOKUPS + 2)
     ]
 
-    assert scan_service._resolve_windows_process_owners(refs) == {}
+    status = ScanCompletionStatus()
+    assert scan_service._resolve_windows_process_owners(refs, status) == {}
 
     script = run.call_args.args[0][-1]
     assert f"ProcessId = {scan_service.MAX_OVERRIDE_OWNER_LOOKUPS}" in script
     assert f"ProcessId = {scan_service.MAX_OVERRIDE_OWNER_LOOKUPS + 1}" not in script
+    assert status.reasons == ["runtime_owner_resolution_capped"]
+
+
+@pytest.mark.parametrize("ref_kind", ["override", "extension"])
+@pytest.mark.parametrize(
+    (
+        "scenario",
+        "user",
+        "owner_sid",
+        "wsl_distro",
+        "windows_user_sid",
+        "expected_owner",
+        "expected_reasons",
+    ),
+    [
+        (
+            "effective_user",
+            _effective_process_owner(),
+            None,
+            None,
+            None,
+            _effective_process_owner(),
+            [],
+        ),
+        (
+            "matching_sid",
+            "SYSTEM",
+            "S-1-5-21-1-2-3-1001",
+            None,
+            "S-1-5-21-1-2-3-1001",
+            "SYSTEM",
+            [],
+        ),
+        (
+            "sid_mismatch",
+            "SYSTEM",
+            "S-1-5-21-1-2-3-1002",
+            None,
+            "S-1-5-21-1-2-3-1001",
+            None,
+            [],
+        ),
+        (
+            "lookup_trusted",
+            None,
+            None,
+            None,
+            None,
+            _effective_process_owner(),
+            [],
+        ),
+        (
+            "lookup_failure",
+            None,
+            None,
+            None,
+            None,
+            None,
+            ["runtime_owner_resolution_failed"],
+        ),
+        (
+            "wsl",
+            "alice",
+            "S-1-5-21-mismatch",
+            "Ubuntu",
+            "S-1-5-21-1-2-3-1001",
+            "alice",
+            [],
+        ),
+    ],
+)
+def test_process_path_ref_owner_trust_parity(
+    monkeypatch,
+    ref_kind,
+    scenario,
+    user,
+    owner_sid,
+    wsl_distro,
+    windows_user_sid,
+    expected_owner,
+    expected_reasons,
+):
+    from runlayer_cli.scan import service as scan_service
+
+    ref_kwargs = {
+        "client": "claude_code" if ref_kind == "override" else "vscode",
+        "flag": "--mcp-config" if ref_kind == "override" else "--extensions-dir",
+        "value": "/home/alice/path",
+        "pid": 4242,
+        "user": user,
+        "wsl_distro": wsl_distro,
+        "owner_sid": owner_sid,
+    }
+    if ref_kind == "override":
+        ref = OverrideConfigRef(mcp_config="file", **ref_kwargs)
+        log_event = "process_override_config_skipped_untrusted_owner"
+    else:
+        ref = ExtensionRootRef(**ref_kwargs)
+        log_event = "process_extension_root_skipped_untrusted_owner"
+
+    platform = (
+        "win32"
+        if scenario
+        in {
+            "matching_sid",
+            "sid_mismatch",
+            "lookup_trusted",
+            "lookup_failure",
+            "wsl",
+        }
+        else "darwin"
+    )
+    monkeypatch.setattr(scan_service.sys, "platform", platform)
+    run = mock.Mock()
+    if scenario == "lookup_trusted":
+        run.return_value = SimpleNamespace(
+            returncode=0,
+            stdout=json.dumps({"ProcessId": 4242, "User": _effective_process_owner()}),
+            stderr="",
+        )
+    elif scenario == "lookup_failure":
+        run.side_effect = OSError("lookup failed")
+    monkeypatch.setattr(scan_service.subprocess, "run", run)
+    logger = mock.Mock()
+    monkeypatch.setattr(scan_service, "logger", logger)
+    status = ScanCompletionStatus()
+
+    resolver = scan_service._TrustedOwnerResolver.for_refs(
+        [ref],
+        windows_user_sid=windows_user_sid,
+        scan_status=status,
+        untrusted_log_event=log_event,
+    )
+
+    assert resolver.resolve(ref) == expected_owner
+    assert status.reasons == expected_reasons
+    if expected_owner is None:
+        logger.debug.assert_called_once_with(
+            log_event,
+            client=ref.client,
+            flag=ref.flag,
+            owner_status="unknown" if user is None else "mismatch",
+        )
+    else:
+        logger.debug.assert_not_called()
 
 
 @pytest.mark.skipif(not hasattr(os, "mkfifo"), reason="FIFO unsupported")
@@ -564,32 +1316,33 @@ def test_process_override_skips_fifo_without_opening_it(tmp_path, monkeypatch):
     os.mkfifo(config_path)
     parse = mock.Mock()
     monkeypatch.setattr(scan_service, "parse_config_file", parse)
+    logger = mock.Mock()
+    monkeypatch.setattr(scan_service, "logger", logger)
 
-    with structlog.testing.capture_logs() as logs:
-        parsed = _parse_process_override_configurations(
-            [
-                OverrideConfigRef(
-                    client="claude_code",
-                    flag="--mcp-config",
-                    value=str(config_path),
-                    mcp_config="file",
-                    user=_effective_process_owner(),
-                    pid=4444,
-                )
-            ],
-            configurations=[],
-            clients=[claude],
-        )
+    parsed = _parse_process_override_configurations(
+        [
+            OverrideConfigRef(
+                client="claude_code",
+                flag="--mcp-config",
+                value=str(config_path),
+                mcp_config="file",
+                user=_effective_process_owner(),
+                pid=4444,
+            )
+        ],
+        configurations=[],
+        clients=[claude],
+    )
 
     assert parsed == []
     parse.assert_not_called()
-    [skip_log] = [
-        log
-        for log in logs
-        if log["event"] == "process_override_config_skipped_unsafe_file"
-    ]
-    assert skip_log["file_status"] == "not_regular"
-    assert str(config_path) not in repr(skip_log)
+    logger.debug.assert_called_once_with(
+        "process_override_config_skipped_unsafe_file",
+        client="claude_code",
+        flag="--mcp-config",
+        file_status="not_regular",
+    )
+    assert str(config_path) not in repr(logger.mock_calls)
 
 
 def test_process_override_parse_failure_keeps_raw_path_out_of_logs(tmp_path):
@@ -631,47 +1384,138 @@ def test_process_override_skips_oversized_file_without_reading_it(
         config_file.truncate(scan_service.MAX_OVERRIDE_CONFIG_BYTES + 1)
     parse = mock.Mock()
     monkeypatch.setattr(scan_service, "parse_config_file", parse)
+    logger = mock.Mock()
+    monkeypatch.setattr(scan_service, "logger", logger)
 
-    with structlog.testing.capture_logs() as logs:
-        parsed = _parse_process_override_configurations(
-            [
-                OverrideConfigRef(
-                    client="claude_code",
-                    flag="--mcp-config",
-                    value=str(config_path),
-                    mcp_config="file",
-                    user=_effective_process_owner(),
-                    pid=4545,
-                )
-            ],
-            configurations=[],
-            clients=[claude],
-        )
+    parsed = _parse_process_override_configurations(
+        [
+            OverrideConfigRef(
+                client="claude_code",
+                flag="--mcp-config",
+                value=str(config_path),
+                mcp_config="file",
+                user=_effective_process_owner(),
+                pid=4545,
+            )
+        ],
+        configurations=[],
+        clients=[claude],
+    )
 
     assert parsed == []
     parse.assert_not_called()
-    [skip_log] = [
-        log
-        for log in logs
-        if log["event"] == "process_override_config_skipped_unsafe_file"
-    ]
-    assert skip_log["file_status"] == "too_large"
-    assert str(config_path) not in repr(skip_log)
+    logger.debug.assert_called_once_with(
+        "process_override_config_skipped_unsafe_file",
+        client="claude_code",
+        flag="--mcp-config",
+        file_status="too_large",
+    )
+    assert str(config_path) not in repr(logger.mock_calls)
 
 
 class TestScanAllClients:
-    def test_forwards_crawled_node_modules_to_presence(self, monkeypatch, tmp_path):
+    def test_propagates_project_skill_crawl_completeness(self, monkeypatch):
         from runlayer_cli.scan import service as scan_service
 
-        node_modules = tmp_path / "renamed-prefix" / "node_modules"
-        seen: dict[str, object] = {}
         monkeypatch.setattr(scan_service, "get_all_clients", lambda: [])
         monkeypatch.setattr(
             scan_service,
             "run_concurrent_scan_phases",
             lambda **_kwargs: scan_orchestrator.ConcurrentScanResult(
-                node_modules_paths=[node_modules]
+                skill_crawl_complete=True
             ),
+        )
+        monkeypatch.setattr(
+            scan_service,
+            "detect_client_presence",
+            lambda _clients, **_kwargs: [],
+        )
+
+        result = scan_all_clients(
+            device_id="device",
+            scan_projects=True,
+            governor=mock.MagicMock(),
+        )
+
+        assert result.skill_crawl_complete is True
+
+    def test_propagates_skill_candidate_paths(self, monkeypatch):
+        from runlayer_cli.scan import service as scan_service
+
+        monkeypatch.setattr(scan_service, "get_all_clients", lambda: [])
+        monkeypatch.setattr(
+            scan_service,
+            "run_concurrent_scan_phases",
+            lambda **_kwargs: scan_orchestrator.ConcurrentScanResult(
+                project_skill_candidate_paths=["/repo/.agents/skills/project"],
+                global_skill_candidate_paths=["/home/u/.claude/skills/global"],
+            ),
+        )
+        monkeypatch.setattr(
+            scan_service,
+            "detect_client_presence",
+            lambda _clients, **_kwargs: [],
+        )
+
+        result = scan_all_clients(
+            device_id="device",
+            scan_projects=True,
+            governor=mock.MagicMock(),
+        )
+
+        assert result.project_skill_candidate_paths == ["/repo/.agents/skills/project"]
+        assert result.global_skill_candidate_paths == ["/home/u/.claude/skills/global"]
+
+    def test_populates_effective_presence_params(self, monkeypatch):
+        from runlayer_cli.scan import service as scan_service
+
+        monkeypatch.setattr(scan_service, "get_all_clients", lambda: [])
+        monkeypatch.setattr(
+            scan_service,
+            "run_concurrent_scan_phases",
+            lambda **_kwargs: scan_orchestrator.ConcurrentScanResult(
+                discovered_project_paths=[Path("/host/home/alice/repo")]
+            ),
+        )
+        monkeypatch.setattr(
+            scan_service,
+            "detect_client_presence",
+            lambda _clients, **_kwargs: [],
+        )
+        monkeypatch.setattr(
+            scan_service.Path,
+            "home",
+            classmethod(lambda _cls: Path("/host/home/alice")),
+        )
+        monkeypatch.setenv("RUNLAYER_STRIP_PATH_PREFIX", "/host")
+
+        result = scan_all_clients(
+            device_id="device",
+            project_scan_depth=999,
+            governor=mock.MagicMock(),
+        )
+
+        assert result.project_scan_depth == 20
+        assert result.project_scan_home == "/home/alice"
+
+    def test_forwards_crawled_node_modules_to_presence(self, monkeypatch, tmp_path):
+        from runlayer_cli.scan import service as scan_service
+
+        node_modules = tmp_path / "renamed-prefix" / "node_modules"
+        seen: dict[str, object] = {}
+        phase_kwargs: dict[str, object] = {}
+        monkeypatch.setattr(scan_service, "get_all_clients", lambda: [])
+
+        def run_phases(**kwargs):
+            phase_kwargs.update(kwargs)
+            return scan_orchestrator.ConcurrentScanResult(
+                node_modules_paths=[node_modules]
+            )
+
+        monkeypatch.setattr(
+            scan_service,
+            "run_concurrent_scan_phases",
+            run_phases,
         )
 
         def detect(clients, **kwargs):
@@ -688,6 +1532,119 @@ class TestScanAllClients:
         )
 
         assert seen["node_modules_paths"] == [node_modules]
+        assert "home" not in seen
+        assert "environment" not in seen
+        assert "windows_user_sid" not in seen
+        assert "include_current_user_registry" not in seen
+        assert phase_kwargs["machine_scope"] is True
+
+    def test_forwards_disabled_machine_scope_to_extension_phase(self, monkeypatch):
+        from runlayer_cli.scan import service as scan_service
+
+        phase_kwargs: dict[str, object] = {}
+        monkeypatch.setattr(scan_service, "get_all_clients", lambda: [])
+
+        def run_phases(**kwargs):
+            phase_kwargs.update(kwargs)
+            return scan_orchestrator.ConcurrentScanResult()
+
+        monkeypatch.setattr(scan_service, "run_concurrent_scan_phases", run_phases)
+        monkeypatch.setattr(
+            scan_service, "detect_client_presence", lambda *_a, **_k: []
+        )
+
+        scan_all_clients(
+            device_id="device",
+            scan_projects=False,
+            machine_scope=False,
+            governor=mock.MagicMock(),
+        )
+
+        assert phase_kwargs["machine_scope"] is False
+
+    def test_launcher_truncation_marks_client_discovery_incomplete(
+        self,
+        monkeypatch,
+    ):
+        from runlayer_cli.scan import service as scan_service
+
+        monkeypatch.setattr(scan_service, "get_all_clients", lambda: [])
+        monkeypatch.setattr(
+            scan_service,
+            "run_concurrent_scan_phases",
+            lambda **_kwargs: scan_orchestrator.ConcurrentScanResult(),
+        )
+
+        def detect(_clients, **kwargs):
+            kwargs["scan_status"].complete = False
+            return []
+
+        monkeypatch.setattr(scan_service, "detect_client_presence", detect)
+
+        result = scan_all_clients(
+            device_id="device",
+            scan_projects=False,
+            governor=mock.MagicMock(),
+        )
+
+        assert result.client_discovery_complete is False
+
+    @pytest.mark.parametrize(
+        ("system_profile", "include_current_user_registry"),
+        [(False, True), (True, False)],
+    )
+    def test_windows_sid_forwards_explicit_profile_context_to_presence(
+        self,
+        monkeypatch,
+        tmp_path,
+        system_profile: bool,
+        include_current_user_registry: bool,
+    ):
+        from runlayer_cli.scan import service as scan_service
+
+        profile_home = tmp_path / "Users" / "alice"
+        sid = "S-1-5-21-1-2-3-1001"
+        monkeypatch.setenv("USERPROFILE", str(profile_home))
+        monkeypatch.setenv(
+            "APPDATA",
+            str(profile_home / "AppData" / "Roaming"),
+        )
+        monkeypatch.setenv(
+            "LOCALAPPDATA",
+            str(profile_home / "AppData" / "Local"),
+        )
+        monkeypatch.setattr(
+            scan_service.Path,
+            "home",
+            classmethod(lambda cls: profile_home),
+        )
+        monkeypatch.setattr(scan_service, "get_all_clients", lambda: [])
+        monkeypatch.setattr(
+            scan_service,
+            "run_concurrent_scan_phases",
+            lambda **_kwargs: scan_orchestrator.ConcurrentScanResult(),
+        )
+        seen: dict[str, object] = {}
+
+        def detect(_clients, **kwargs):
+            seen.update(kwargs)
+            return []
+
+        monkeypatch.setattr(scan_service, "detect_client_presence", detect)
+
+        scan_all_clients(
+            device_id="device",
+            scan_projects=False,
+            windows_user_sid=sid,
+            windows_system_profile=system_profile,
+            governor=mock.MagicMock(),
+        )
+
+        assert seen["home"] == profile_home
+        assert seen["environment"] is scan_service.os.environ
+        assert seen["windows_user_sid"] == sid
+        assert seen["windows_system_profile"] is system_profile
+        assert seen["include_current_user_registry"] is include_current_user_registry
 
     def test_shared_mcp_json_not_attributed_to_copilot_without_presence(
         self, monkeypatch
@@ -719,7 +1676,9 @@ class TestScanAllClients:
                 configurations=configurations
             ),
         )
-        monkeypatch.setattr(scan_service, "detect_client_presence", lambda _clients: [])
+        monkeypatch.setattr(
+            scan_service, "detect_client_presence", lambda _clients, **_kwargs: []
+        )
 
         result = scan_all_clients(
             device_id="device",
@@ -761,7 +1720,9 @@ class TestScanAllClients:
                 configurations=configurations
             ),
         )
-        monkeypatch.setattr(scan_service, "detect_client_presence", lambda _clients: [])
+        monkeypatch.setattr(
+            scan_service, "detect_client_presence", lambda _clients, **_kwargs: []
+        )
 
         result = scan_all_clients(
             device_id="device",
@@ -827,6 +1788,8 @@ class TestScanAllClients:
 
         assert result.configurations == [configuration]
         assert result.detected_clients[0].detected_via == ["container", "server"]
+        assert result.container_scan_requested is True
+        assert result.container_scan_error is None
 
     def test_shared_mcp_json_attributed_to_copilot_when_present(self, monkeypatch):
         from runlayer_cli.scan import service as scan_service
@@ -892,7 +1855,9 @@ class TestScanAllClients:
                 configurations=[configuration]
             ),
         )
-        monkeypatch.setattr(scan_service, "detect_client_presence", lambda _clients: [])
+        monkeypatch.setattr(
+            scan_service, "detect_client_presence", lambda _clients, **_kwargs: []
+        )
 
         result = scan_all_clients(
             device_id="device",
@@ -909,6 +1874,40 @@ class TestScanAllClients:
         assert isinstance(result, ScanResult)
         assert result.device_id is not None
         assert result.configurations is not None
+        assert result.project_skill_candidate_paths == []
+        assert isinstance(result.global_skill_candidate_paths, list)
+        assert result.skill_crawl_complete is False
+
+    def test_sequential_scans_clear_in_process_callbacks_and_wsl_cache(
+        self,
+        monkeypatch,
+    ):
+        from runlayer_cli.scan import plugin_scanner
+        from runlayer_cli.scan import service as scan_service
+
+        sentinel = object()
+        seen_callbacks = []
+
+        def fake_impl(_governor, **_kwargs):
+            seen_callbacks.append(plugin_scanner._scan_checkpoint)
+            plugin_scanner._scan_checkpoint = lambda: None
+            return sentinel
+
+        cache_clear = mock.Mock()
+        monkeypatch.setattr(plugin_scanner, "_scan_checkpoint", None)
+        monkeypatch.setattr(scan_service, "_scan_all_clients_impl", fake_impl)
+        monkeypatch.setattr(
+            scan_service.get_wsl_distro_inventory,
+            "cache_clear",
+            cache_clear,
+        )
+        governor = mock.MagicMock()
+
+        assert scan_all_clients(governor=governor) is sentinel
+        assert scan_all_clients(governor=governor) is sentinel
+
+        assert seen_callbacks == [None, None]
+        assert cache_clear.call_count == 2
 
     def test_includes_device_metadata(self):
         """Result includes device metadata."""
@@ -945,6 +1944,23 @@ class TestScanAllClients:
         }.issubset(result.phase_durations_ms)
         assert "phase_11_agent_detection" not in result.phase_durations_ms
 
+    def test_scan_duration_uses_monotonic_clock(self, monkeypatch):
+        from runlayer_cli.scan import service as scan_service
+
+        monotonic_values = iter([10.0, 10.25])
+        monkeypatch.setattr(
+            scan_service,
+            "time",
+            SimpleNamespace(
+                monotonic=lambda: next(monotonic_values),
+                time=lambda: (_ for _ in ()).throw(AssertionError("wall clock used")),
+            ),
+        )
+
+        result = scan_all_clients(scan_projects=False)
+
+        assert result.scan_duration_ms == 250
+
     def test_collector_version_recorded(self):
         """Collector version is recorded."""
         result = scan_all_clients(collector_version="1.2.3", scan_projects=False)
@@ -960,6 +1976,25 @@ class TestScanAllClients:
         """Organization device ID is passed through."""
         result = scan_all_clients(org_device_id="mdm-asset-123", scan_projects=False)
         assert result.org_device_id == "mdm-asset-123"
+
+    def test_windows_user_sid_passed_through_every_payload(self):
+        sid = "S-1-5-21-1-2-3-1001"
+        result = scan_all_clients(
+            windows_user_sid=sid,
+            scan_projects=False,
+        )
+
+        assert result.windows_user_sid == sid
+        assert result.to_api_payload()["windows_user_sid"] == sid
+        assert result.to_agent_report_payload()["windows_user_sid"] == sid
+        assert result.to_agent_definition_report_payload()["windows_user_sid"] == sid
+        assert (
+            _scan_manifest_payload(
+                result,
+                ScanSubmissionResult(),
+            )["windows_user_sid"]
+            == sid
+        )
 
     def test_username_override(self):
         """Explicit username_override replaces auto-detected username."""
@@ -1051,12 +2086,20 @@ class TestScanAllClients:
                     mcp_config="file",
                     pid=999,
                     user=_effective_process_owner(),
+                    owner_sid="S-1-5-21-1-2-3-1001",
                 )
             ],
         )
-        result = scan_all_clients(detect_processes=True, scan_projects=False)
+        result = scan_all_clients(
+            detect_processes=True,
+            scan_projects=False,
+            windows_user_sid="S-1-5-21-1-2-3-1001",
+        )
         mock_discover.assert_called_once()
         assert callable(mock_discover.call_args.kwargs["checkpoint"])
+        assert (
+            mock_discover.call_args.kwargs["windows_user_sid"] == "S-1-5-21-1-2-3-1001"
+        )
         assert result.processes == [proc]
         assert result.total_processes == 1
         [override_config] = [
@@ -1066,6 +2109,46 @@ class TestScanAllClients:
         ]
         assert override_config.config_path == str(override_path)
         assert override_config.servers[0].name == "override"
+
+    @mock.patch("runlayer_cli.scan.service.discover_processes")
+    def test_detect_processes_scans_extension_dir_override(
+        self,
+        mock_discover,
+        tmp_path,
+    ):
+        extension_dir = tmp_path / "custom-extensions" / "vendor.ai-1.0.0"
+        extension_dir.mkdir(parents=True)
+        (extension_dir / "package.json").write_text(
+            json.dumps(
+                {
+                    "publisher": "Vendor",
+                    "name": "ai",
+                    "version": "1.0.0",
+                }
+            ),
+            encoding="utf-8",
+        )
+        mock_discover.return_value = ProcessDiscoveryResult(
+            extension_root_refs=[
+                ExtensionRootRef(
+                    client="vscode",
+                    flag="--extensions-dir",
+                    value=str(extension_dir.parent),
+                    pid=999,
+                    user=_effective_process_owner(),
+                )
+            ]
+        )
+
+        result = scan_all_clients(detect_processes=True, scan_projects=False)
+
+        override_plugins = [
+            plugin
+            for plugin in result.plugins
+            if plugin.install_path == str(extension_dir)
+        ]
+        assert len(override_plugins) == 1
+        assert override_plugins[0].client == "vscode"
 
     @mock.patch(
         "runlayer_cli.scan.service.discover_processes",
@@ -1086,6 +2169,30 @@ class TestScanAllClients:
         result = scan_all_clients(scan_projects=False)
         mock_scan_containers.assert_not_called()
         assert result.containers == []
+        assert result.container_scan_requested is False
+        assert result.container_scan_error is None
+
+    @mock.patch("runlayer_cli.scan.service.scan_running_containers")
+    def test_failed_container_scan_reason_reaches_scan_result(
+        self, mock_scan_containers
+    ):
+        from runlayer_cli.scan.containers import (
+            CONTAINER_SCAN_UNAVAILABLE_REASON,
+            ContainerScanResult,
+        )
+
+        mock_scan_containers.return_value = ContainerScanResult(
+            failure_reason=CONTAINER_SCAN_UNAVAILABLE_REASON,
+        )
+
+        result = scan_all_clients(
+            detect_containers=True,
+            scan_projects=False,
+        )
+
+        assert result.container_scan_requested is True
+        assert result.containers_scanned is False
+        assert result.container_scan_error == CONTAINER_SCAN_UNAVAILABLE_REASON
 
     def test_disguised_skill_switch_reaches_concurrent_orchestrator(self, monkeypatch):
         from runlayer_cli.scan import service as scan_service
@@ -1107,7 +2214,9 @@ class TestScanAllClients:
         monkeypatch.setattr(scan_service, "get_installed_tools", lambda: [])
         monkeypatch.setattr(scan_service, "get_all_clients", lambda: [])
         monkeypatch.setattr(scan_service, "run_concurrent_scan_phases", run_concurrent)
-        monkeypatch.setattr(scan_service, "detect_client_presence", lambda _clients: [])
+        monkeypatch.setattr(
+            scan_service, "detect_client_presence", lambda _clients, **_kwargs: []
+        )
 
         scan_all_clients(
             device_id="device",
@@ -1140,7 +2249,9 @@ class TestScanAllClients:
         monkeypatch.setattr(scan_service, "get_installed_tools", lambda: [])
         monkeypatch.setattr(scan_service, "get_all_clients", lambda: [])
         monkeypatch.setattr(scan_service, "run_concurrent_scan_phases", run_concurrent)
-        monkeypatch.setattr(scan_service, "detect_client_presence", lambda _clients: [])
+        monkeypatch.setattr(
+            scan_service, "detect_client_presence", lambda _clients, **_kwargs: []
+        )
 
         scan_all_clients(
             device_id="device",
@@ -1150,6 +2261,49 @@ class TestScanAllClients:
         )
 
         assert run_concurrent.call_args.kwargs["detect_renamed_plugin_caches"] is True
+
+    def test_rejected_agent_candidates_do_not_consume_wire_cap(
+        self,
+        monkeypatch,
+    ):
+        from runlayer_cli.scan import service as scan_service
+
+        rejected_agents = [
+            SimpleNamespace(is_agent=False) for _ in range(MAX_AGENTS + 1)
+        ]
+        monkeypatch.setattr(
+            scan_service,
+            "get_device_metadata",
+            lambda: {
+                "hostname": "mac",
+                "os": "macos",
+                "os_version": "15",
+                "username": "alice",
+                "serial_number": None,
+            },
+        )
+        monkeypatch.setattr(scan_service, "get_installed_tools", lambda: [])
+        monkeypatch.setattr(scan_service, "get_all_clients", lambda: [])
+        monkeypatch.setattr(
+            scan_service,
+            "run_concurrent_scan_phases",
+            lambda **_kwargs: scan_orchestrator.ConcurrentScanResult(
+                agents=rejected_agents
+            ),
+        )
+        monkeypatch.setattr(
+            scan_service,
+            "detect_client_presence",
+            lambda _clients, **_kwargs: [],
+        )
+
+        result = scan_all_clients(
+            device_id="device",
+            governor=mock.MagicMock(),
+        )
+
+        assert result.agent_discovery_complete is True
+        assert result.completeness.agent_host_static.complete is True
 
     def test_windows_inventory_runs_without_container_detection(self, monkeypatch):
         from runlayer_cli.scan import service as scan_service
@@ -1193,7 +2347,9 @@ class TestScanAllClients:
             "run_concurrent_scan_phases",
             lambda **_kwargs: scan_orchestrator.ConcurrentScanResult(),
         )
-        monkeypatch.setattr(scan_service, "detect_client_presence", lambda _clients: [])
+        monkeypatch.setattr(
+            scan_service, "detect_client_presence", lambda _clients, **_kwargs: []
+        )
         governor = mock.MagicMock()
 
         result = scan_all_clients(
@@ -1543,6 +2699,110 @@ class TestScanAllClients:
         assert result.stopped_containers == [host_stopped]
         assert result.wsl_container_scanned_distros == ["Ubuntu"]
 
+    def test_incomplete_wsl_container_inventory_blocks_container_authority(
+        self,
+        monkeypatch,
+    ):
+        from runlayer_cli.scan.containers import ContainerScanResult
+        from runlayer_cli.scan.wsl_projects import WSLProjectScanResult
+
+        reason = "wsl_container_scan_capped"
+        result = self._scan_windows_host(
+            monkeypatch,
+            inventory=_wsl_inventory(("Ubuntu", "Debian"), success=True),
+            wsl_project_result=WSLProjectScanResult(),
+            container_result=ContainerScanResult(
+                scan_succeeded=True,
+                artifact_scan_succeeded=True,
+            ),
+            wsl_container_result=SimpleNamespace(
+                containers=[],
+                scanned_distros=["Ubuntu"],
+                complete=False,
+                incomplete_reasons=[reason],
+            ),
+        )
+
+        payload = _scan_manifest_payload(result, ScanSubmissionResult())
+        container_entries = [
+            entry for entry in payload["entries"] if entry["surface"] == "container"
+        ]
+        assert {entry["category"] for entry in container_entries} == {
+            "mcp",
+            "client",
+            "skill",
+            "plugin",
+            "agent_definition",
+        }
+        assert all(entry["complete"] is False for entry in container_entries)
+        assert {entry["reason"] for entry in container_entries} == {reason}
+        assert result.completeness.client_presence.complete is True
+
+    def test_incomplete_wsl_results_without_reasons_block_authority(
+        self,
+        monkeypatch,
+    ):
+        from runlayer_cli.scan.containers import ContainerScanResult
+        from runlayer_cli.scan.wsl_projects import WSLProjectScanResult
+
+        result = self._scan_windows_host(
+            monkeypatch,
+            inventory=_wsl_inventory(("Ubuntu",), success=True),
+            wsl_project_result=WSLProjectScanResult(complete=False),
+            container_result=ContainerScanResult(
+                scan_succeeded=True,
+                artifact_scan_succeeded=True,
+            ),
+            wsl_container_result=SimpleNamespace(
+                containers=[],
+                scanned_distros=[],
+                complete=False,
+                incomplete_reasons=[],
+            ),
+        )
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in _scan_manifest_payload(result, ScanSubmissionResult())[
+                "entries"
+            ]
+        }
+        assert entries[("mcp", "container")]["reason"] == (
+            "wsl_container_inventory_incomplete"
+        )
+        assert entries[("mcp", "wsl")]["reason"] == "wsl_project_scan_failed"
+
+    def test_failed_wsl_inventory_blocks_container_authority(
+        self,
+        monkeypatch,
+    ):
+        from runlayer_cli.scan.containers import ContainerScanResult
+        from runlayer_cli.scan.wsl_projects import WSLProjectScanResult
+
+        result = self._scan_windows_host(
+            monkeypatch,
+            inventory=_wsl_inventory(("Ubuntu",), success=False),
+            wsl_project_result=WSLProjectScanResult(),
+            container_result=ContainerScanResult(
+                scan_succeeded=True,
+                artifact_scan_succeeded=True,
+            ),
+        )
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in _scan_manifest_payload(result, ScanSubmissionResult())[
+                "entries"
+            ]
+        }
+
+        assert entries[("mcp", "container")] == {
+            "category": "mcp",
+            "surface": "container",
+            "complete": False,
+            "reason": "wsl_inventory_incomplete",
+        }
+
     @mock.patch("runlayer_cli.scan.service.scan_running_containers")
     def test_detect_containers_populates_configs_and_inventory(
         self, mock_scan_containers
@@ -1558,6 +2818,7 @@ class TestScanAllClients:
             DiscoveredContainerImage,
         )
         from runlayer_cli.scan.client_presence import DetectedClient
+        from runlayer_cli.scan.plugin_scanner import DiscoveredPluginArtifact
         from runlayer_cli.scan.skill_scanner import (
             ARTIFACT_SKILL_MD,
             DiscoveredSkillArtifact,
@@ -1598,6 +2859,16 @@ class TestScanAllClients:
             files=[SkillFile(title="SKILL.md", content="# Deploy")],
             container_id="cid",
         )
+        plugin = DiscoveredPluginArtifact(
+            name="Python",
+            plugin_type="vscode_extension",
+            client="vscode",
+            install_path="/home/vscode/.vscode/extensions/ms-python.python",
+            identifier="plugin-id",
+            source_identifier="ms-python.python",
+            container_id="cid",
+            container_name="devbox",
+        )
         agent_definition = DiscoveredAgentDefinition(
             client="cursor",
             name="reviewer",
@@ -1626,6 +2897,7 @@ class TestScanAllClients:
                 )
             ],
             skills=[skill],
+            plugins=[plugin],
             agent_definitions=[agent_definition],
             scan_succeeded=True,
             stopped_containers_succeeded=True,
@@ -1638,6 +2910,7 @@ class TestScanAllClients:
         assert result.containers == [container]
         assert result.container_configs == [config]
         assert skill in result.skills
+        assert plugin in result.plugins
         assert agent_definition in result.agent_definitions
         assert result.total_agent_definitions >= 1
         assert result.total_containers == 1
@@ -1654,7 +2927,7 @@ class TestScanAllClients:
             "container:devbox:/hidden/node_modules/cursor/package.json"
             in detected_cursor.config_paths
         )
-        payload = result.to_api_payload()
+        payload = result.to_full_payload()
         assert [item["container_id"] for item in payload["containers"]] == ["cid"]
         assert [item["container_id"] for item in payload["stopped_containers"]] == [
             "stopped-cid"
@@ -1667,6 +2940,10 @@ class TestScanAllClients:
             }
         ]
         assert payload["container_images_truncated"] is False
+        plugin_payload = next(
+            item for item in payload["plugins"] if item["identifier"] == "plugin-id"
+        )
+        assert plugin_payload["container"]["container_id"] == "cid"
 
     @mock.patch("runlayer_cli.scan.service.scan_wsl_projects")
     def test_detect_containers_leaves_wsl_projects_off_by_default(
@@ -1985,7 +3262,7 @@ class TestConcurrentScanPhases:
             "scan_opencode_plugins": [],
             "scan_gemini_extensions": ([], []),
             "scan_copilot_plugins": ([], []),
-            "scan_global_skills": [],
+            "scan_global_skills_with_candidates": SkillPhaseScan([], []),
             "scan_user_agent_definitions": [],
             "_scan_plugin_artifact_phase": [],
         }
@@ -1996,7 +3273,413 @@ class TestConcurrentScanPhases:
                 lambda *args, _result=phase_result, **kwargs: _result,
             )
         monkeypatch.setattr(scan_orchestrator, "clear_git_remote_cache", lambda: None)
-        monkeypatch.setattr(scan_orchestrator, "_wsl_homes", lambda: [])
+        monkeypatch.setattr(scan_orchestrator, "_wsl_homes", lambda **_: [])
+
+    def test_project_partial_marks_client_presence_incomplete(self, monkeypatch):
+        self._stub_empty_phases(monkeypatch)
+        project_status = ScanCompletionStatus()
+        project_status.mark_incomplete("project_crawl_timed_out")
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "_scan_project_phase",
+            lambda **_kwargs: scan_orchestrator.ProjectPhaseResult(
+                node_modules_paths=[Path("/project/node_modules")],
+                completion=project_status,
+            ),
+        )
+
+        result = scan_orchestrator.run_concurrent_scan_phases(
+            clients=[],
+            governor=SimpleNamespace(cpu_cores=2, checkpoint=lambda: None),
+            timer=PhaseTimer(),
+            scan_projects=True,
+            project_scan_timeout=60,
+            project_scan_depth=7,
+            detect_agents=False,
+            run_static_agents=False,
+        )
+
+        assert "project_crawl_timed_out" in result.completeness.client_presence.reasons
+
+    @pytest.mark.parametrize(
+        ("source", "reason"),
+        [
+            ("global_config", "global_config_incomplete"),
+            ("plugin_config", "claude_plugin_scan_failed"),
+            ("plugin_artifact", "plugin_artifact_incomplete"),
+            ("global_skill", "global_skill_incomplete"),
+            ("user_definition", "user_definition_incomplete"),
+        ],
+    )
+    def test_presence_artifact_source_failure_marks_client_presence_incomplete(
+        self,
+        monkeypatch,
+        source,
+        reason,
+    ):
+        self._stub_empty_phases(monkeypatch)
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "_scan_project_phase",
+            lambda **_kwargs: scan_orchestrator.ProjectPhaseResult(),
+        )
+
+        if source == "global_config":
+            status = ScanCompletionStatus()
+            status.mark_incomplete(reason)
+            monkeypatch.setattr(
+                scan_orchestrator,
+                "_scan_global_configurations",
+                lambda *_args, **_kwargs: scan_orchestrator.GlobalPhaseResult(
+                    completion=status,
+                ),
+            )
+        elif source == "plugin_config":
+
+            def fail_plugin_config():
+                raise OSError("unreadable plugin config")
+
+            monkeypatch.setattr(
+                scan_orchestrator,
+                "scan_claude_code_plugins",
+                fail_plugin_config,
+            )
+        elif source == "plugin_artifact":
+
+            def incomplete_plugin_artifacts(*, scan_status, **_kwargs):
+                scan_status.mark_incomplete(reason)
+                return []
+
+            monkeypatch.setattr(
+                scan_orchestrator,
+                "_scan_plugin_artifact_phase",
+                incomplete_plugin_artifacts,
+            )
+        elif source == "global_skill":
+
+            def incomplete_global_skills(*, scan_status, **_kwargs):
+                scan_status.mark_incomplete(reason)
+                return SkillPhaseScan([], [])
+
+            monkeypatch.setattr(
+                scan_orchestrator,
+                "scan_global_skills_with_candidates",
+                incomplete_global_skills,
+            )
+        else:
+
+            def incomplete_user_definitions(*, scan_status, **_kwargs):
+                scan_status.mark_incomplete(reason)
+                return []
+
+            monkeypatch.setattr(
+                scan_orchestrator,
+                "scan_user_agent_definitions",
+                incomplete_user_definitions,
+            )
+
+        result = scan_orchestrator.run_concurrent_scan_phases(
+            clients=[],
+            governor=SimpleNamespace(cpu_cores=2, checkpoint=lambda: None),
+            timer=PhaseTimer(),
+            scan_projects=True,
+            project_scan_timeout=60,
+            project_scan_depth=7,
+            detect_agents=False,
+            run_static_agents=False,
+        )
+
+        assert reason in result.completeness.client_presence.reasons
+
+    def test_handled_plugin_failure_marks_mcp_host_static_incomplete(
+        self,
+        monkeypatch,
+    ):
+        self._stub_empty_phases(monkeypatch)
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "_scan_project_phase",
+            lambda **_kwargs: scan_orchestrator.ProjectPhaseResult(),
+        )
+
+        def incomplete_plugin_artifacts(*, scan_status, **_kwargs):
+            scan_status.mark_incomplete("plugin_manifest_read_failed")
+            return []
+
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "_scan_plugin_artifact_phase",
+            incomplete_plugin_artifacts,
+        )
+
+        result = scan_orchestrator.run_concurrent_scan_phases(
+            clients=[],
+            governor=SimpleNamespace(cpu_cores=2, checkpoint=lambda: None),
+            timer=PhaseTimer(),
+            scan_projects=True,
+            project_scan_timeout=60,
+            project_scan_depth=7,
+            detect_agents=False,
+            run_static_agents=False,
+        )
+
+        assert (
+            "plugin_manifest_read_failed" in result.completeness.mcp_host_static.reasons
+        )
+
+    def test_global_config_failure_marks_wsl_static_incomplete(self, monkeypatch):
+        self._stub_empty_phases(monkeypatch)
+        global_status = ScanCompletionStatus()
+        global_status.mark_incomplete("config_path_enumeration_failed")
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "_scan_global_configurations",
+            lambda *_args, **_kwargs: scan_orchestrator.GlobalPhaseResult(
+                completion=global_status,
+            ),
+        )
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "_scan_project_phase",
+            lambda **_kwargs: scan_orchestrator.ProjectPhaseResult(),
+        )
+
+        result = scan_orchestrator.run_concurrent_scan_phases(
+            clients=[],
+            governor=SimpleNamespace(cpu_cores=2, checkpoint=lambda: None),
+            timer=PhaseTimer(),
+            scan_projects=True,
+            project_scan_timeout=60,
+            project_scan_depth=7,
+            detect_agents=False,
+            run_static_agents=False,
+        )
+
+        assert (
+            "config_path_enumeration_failed" in result.completeness.wsl_static.reasons
+        )
+
+    def test_skill_failure_marks_static_agent_surface_incomplete(self, monkeypatch):
+        self._stub_empty_phases(monkeypatch)
+        skill_status = ScanCompletionStatus()
+        skill_status.mark_incomplete("skill_marker_read_failed")
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "_scan_project_phase",
+            lambda **_kwargs: scan_orchestrator.ProjectPhaseResult(
+                skill_completion=skill_status,
+            ),
+        )
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "discover_agents",
+            lambda **_kwargs: SimpleNamespace(
+                agents=[],
+                complete=True,
+                incomplete_reasons=[],
+            ),
+        )
+
+        result = scan_orchestrator.run_concurrent_scan_phases(
+            clients=[],
+            governor=SimpleNamespace(cpu_cores=2, checkpoint=lambda: None),
+            timer=PhaseTimer(),
+            scan_projects=True,
+            project_scan_timeout=60,
+            project_scan_depth=7,
+            detect_agents=False,
+            run_static_agents=True,
+        )
+
+        assert (
+            "skill_marker_read_failed" in result.completeness.agent_host_static.reasons
+        )
+
+    @pytest.mark.parametrize(
+        "cap_field",
+        [
+            "node_modules_paths_truncated",
+            "python_env_roots_truncated",
+            "launcher_directories_truncated",
+        ],
+    )
+    def test_hidden_space_output_caps_mark_dependent_surfaces_incomplete(
+        self,
+        monkeypatch,
+        cap_field,
+    ):
+        self._stub_empty_phases(monkeypatch)
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "_scan_project_phase",
+            lambda **_kwargs: scan_orchestrator.ProjectPhaseResult(),
+        )
+        hidden_result = scan_orchestrator.HiddenSpaceScanResult()
+        setattr(hidden_result, cap_field, True)
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "scan_hidden_spaces",
+            lambda **_kwargs: hidden_result,
+        )
+
+        result = scan_orchestrator.run_concurrent_scan_phases(
+            clients=[],
+            governor=SimpleNamespace(cpu_cores=2, checkpoint=lambda: None),
+            timer=PhaseTimer(),
+            scan_projects=True,
+            project_scan_timeout=60,
+            project_scan_depth=7,
+            detect_agents=False,
+            run_static_agents=False,
+        )
+
+        assert (
+            "hidden_space_scan_truncated" in result.completeness.client_presence.reasons
+        )
+        assert "hidden_space_scan_truncated" in result.completeness.wsl_static.reasons
+
+    def test_project_skill_crawl_completeness_propagates(self, monkeypatch):
+        self._stub_empty_phases(monkeypatch)
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "_scan_project_phase",
+            lambda **_kwargs: scan_orchestrator.ProjectPhaseResult(
+                skill_crawl_complete=True
+            ),
+        )
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "scan_hidden_spaces",
+            lambda **_kwargs: scan_orchestrator.HiddenSpaceScanResult(),
+        )
+
+        result = scan_orchestrator.run_concurrent_scan_phases(
+            clients=[],
+            governor=SimpleNamespace(cpu_cores=2, checkpoint=lambda: None),
+            timer=PhaseTimer(),
+            scan_projects=True,
+            project_scan_timeout=60,
+            project_scan_depth=7,
+            detect_agents=False,
+            run_static_agents=False,
+        )
+
+        assert result.skill_crawl_complete is True
+
+    def test_global_skill_failure_marks_combined_crawl_incomplete(self, monkeypatch):
+        self._stub_empty_phases(monkeypatch)
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "_scan_project_phase",
+            lambda **_kwargs: scan_orchestrator.ProjectPhaseResult(
+                skill_crawl_complete=True
+            ),
+        )
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "scan_global_skills_with_candidates",
+            lambda **_kwargs: SkillPhaseScan([], [], complete=False),
+        )
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "scan_hidden_spaces",
+            lambda **_kwargs: scan_orchestrator.HiddenSpaceScanResult(),
+        )
+
+        result = scan_orchestrator.run_concurrent_scan_phases(
+            clients=[],
+            governor=SimpleNamespace(cpu_cores=2, checkpoint=lambda: None),
+            timer=PhaseTimer(),
+            scan_projects=True,
+            project_scan_timeout=60,
+            project_scan_depth=7,
+            detect_agents=False,
+            run_static_agents=False,
+        )
+
+        assert result.skill_crawl_complete is False
+
+    def test_skill_candidate_paths_propagate_by_phase(self, monkeypatch):
+        from runlayer_cli.scan.skill_scanner import (
+            DiscoveredSkillArtifact,
+        )
+
+        self._stub_empty_phases(monkeypatch)
+        project_skill = DiscoveredSkillArtifact(
+            name="project",
+            path="/repo/.agents/skills/project",
+            artifact_type="skill_md",
+            scope="project",
+            tool="multi",
+        )
+        global_skill = DiscoveredSkillArtifact(
+            name="global",
+            path="/home/u/.claude/skills/global",
+            artifact_type="skill_md",
+            scope="global",
+            tool="claude_code",
+        )
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "_scan_project_phase",
+            lambda **_kwargs: scan_orchestrator.ProjectPhaseResult(
+                skills=[project_skill],
+                discovered_project_paths=[Path("/repo")],
+                project_skill_candidate_paths=[project_skill.path],
+            ),
+        )
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "scan_global_skills_with_candidates",
+            lambda **_kwargs: SkillPhaseScan(
+                artifacts=[global_skill],
+                candidate_paths=[global_skill.path],
+            ),
+        )
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "scan_hidden_spaces",
+            lambda **_kwargs: scan_orchestrator.HiddenSpaceScanResult(),
+        )
+
+        result = scan_orchestrator.run_concurrent_scan_phases(
+            clients=[],
+            governor=SimpleNamespace(cpu_cores=2, checkpoint=lambda: None),
+            timer=PhaseTimer(),
+            scan_projects=True,
+            project_scan_timeout=60,
+            project_scan_depth=7,
+            detect_agents=False,
+            run_static_agents=False,
+        )
+
+        assert result.skills == [project_skill, global_skill]
+        assert result.discovered_project_paths == [Path("/repo")]
+        assert result.project_skill_candidate_paths == [project_skill.path]
+        assert result.global_skill_candidate_paths == [global_skill.path]
+
+    def test_disabled_project_phase_is_not_authoritative(self, monkeypatch):
+        self._stub_empty_phases(monkeypatch)
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "scan_hidden_spaces",
+            lambda **_kwargs: scan_orchestrator.HiddenSpaceScanResult(),
+        )
+
+        result = scan_orchestrator.run_concurrent_scan_phases(
+            clients=[],
+            governor=SimpleNamespace(cpu_cores=2, checkpoint=lambda: None),
+            timer=PhaseTimer(),
+            scan_projects=False,
+            project_scan_timeout=60,
+            project_scan_depth=7,
+            detect_agents=False,
+            run_static_agents=False,
+        )
+
+        assert result.skill_crawl_complete is False
+        assert result.project_skill_candidate_paths == []
+        assert result.global_skill_candidate_paths == []
 
     def test_disguised_skills_disabled_skips_probe_and_records_zero(self, monkeypatch):
         self._stub_empty_phases(monkeypatch)
@@ -2209,7 +3892,9 @@ class TestConcurrentScanPhases:
             lambda: ([config("phase-8")], []),
         )
         monkeypatch.setattr(
-            scan_orchestrator, "scan_global_skills", lambda **kwargs: []
+            scan_orchestrator,
+            "scan_global_skills_with_candidates",
+            lambda **kwargs: SkillPhaseScan([], []),
         )
         monkeypatch.setattr(
             scan_orchestrator,
@@ -2220,7 +3905,7 @@ class TestConcurrentScanPhases:
             scan_orchestrator, "_scan_plugin_artifact_phase", lambda **kwargs: []
         )
         monkeypatch.setattr(scan_orchestrator, "clear_git_remote_cache", lambda: None)
-        monkeypatch.setattr(scan_orchestrator, "_wsl_homes", lambda: [])
+        monkeypatch.setattr(scan_orchestrator, "_wsl_homes", lambda **_: [])
 
         governor = SimpleNamespace(cpu_cores=2, checkpoint=lambda: None)
         result = scan_orchestrator.run_concurrent_scan_phases(
@@ -2293,11 +3978,11 @@ class TestConcurrentScanPhases:
             extra_roots["project"] = list(kwargs["extra_home_roots"])
             return scan_orchestrator.ProjectPhaseResult()
 
-        def global_skills(*, extra_home_roots=(), checkpoint=None):
+        def global_skills(*, extra_home_roots=(), checkpoint=None, scan_status=None):
             extra_roots["skills"] = list(extra_home_roots)
-            return []
+            return SkillPhaseScan([], [])
 
-        def user_agent_definitions(*, extra_home_roots=()):
+        def user_agent_definitions(*, extra_home_roots=(), scan_status=None):
             extra_roots["agent_definitions"] = list(extra_home_roots)
             return []
 
@@ -2318,7 +4003,11 @@ class TestConcurrentScanPhases:
         monkeypatch.setattr(
             scan_orchestrator, "scan_gemini_extensions", lambda: ([], [])
         )
-        monkeypatch.setattr(scan_orchestrator, "scan_global_skills", global_skills)
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "scan_global_skills_with_candidates",
+            global_skills,
+        )
         monkeypatch.setattr(
             scan_orchestrator,
             "scan_user_agent_definitions",
@@ -2340,7 +4029,7 @@ class TestConcurrentScanPhases:
             run_static_agents=False,
         )
 
-        wsl_homes_mock.assert_called_once_with()
+        wsl_homes_mock.assert_called_once_with(scan_status=mock.ANY)
         assert plugin_calls == {
             "claude": [None, *wsl_homes],
             "codex": [None, *wsl_homes],
@@ -2363,7 +4052,7 @@ class TestConcurrentScanPhases:
             "scan_opencode_plugins": [],
             "scan_gemini_extensions": ([], []),
             "scan_copilot_plugins": ([], []),
-            "scan_global_skills": [],
+            "scan_global_skills_with_candidates": SkillPhaseScan([], []),
             "scan_user_agent_definitions": [],
             "_scan_plugin_artifact_phase": [],
         }
@@ -2379,7 +4068,7 @@ class TestConcurrentScanPhases:
             lambda **kwargs: SimpleNamespace(agents=[]),
         )
         monkeypatch.setattr(scan_orchestrator, "clear_git_remote_cache", lambda: None)
-        monkeypatch.setattr(scan_orchestrator, "_wsl_homes", lambda: [])
+        monkeypatch.setattr(scan_orchestrator, "_wsl_homes", lambda **_: [])
 
         class AgentPhaseTimer(PhaseTimer):
             @contextmanager
@@ -2530,6 +4219,31 @@ class TestScanResultFullPayload:
             {"flag": "--mcp-config", "value": "/tmp/custom.json"}
         ]
 
+    def test_every_scan_payload_reuses_one_aware_utc_start_timestamp(self):
+        started_at = datetime.datetime(
+            2026,
+            9,
+            3,
+            12,
+            34,
+            56,
+            789000,
+            tzinfo=datetime.timezone.utc,
+        )
+        result = self._result_with_findings()
+        result.scan_started_at = started_at
+
+        payloads = (
+            result.to_api_payload(),
+            result.to_full_payload(include_agents=True),
+            result.to_agent_report_payload(),
+            result.to_agent_definition_report_payload(),
+        )
+
+        assert {payload["scan_started_at"] for payload in payloads} == {
+            "2026-09-03T12:34:56.789000+00:00"
+        }
+
     def test_wire_payload_includes_detected_clients(self, monkeypatch):
         from runlayer_cli.scan.wsl_presence import WSLClientContext
 
@@ -2554,6 +4268,7 @@ class TestScanResultFullPayload:
                 "display_name": "Cursor",
                 "client_version": "1.2.3",
                 "detected_via": ["app", "config"],
+                "evidence_origin": "static",
                 "config_paths": ["/Users/dev/.cursor", "/other/.cursor"],
                 "wsl_contexts": [{"distro": "Ubuntu", "user": "dev"}],
             }
@@ -2581,6 +4296,7 @@ class TestScanResultFullPayload:
         from runlayer_cli.scan.containers import DiscoveredContainer
 
         result = self._result_with_findings()
+        result.container_scan_requested = True
         result.containers_scanned = True
         result.containers = [
             DiscoveredContainer(
@@ -2635,10 +4351,52 @@ class TestScanResultFullPayload:
             "mounts_host_home": False,
         }
 
+    def test_requested_failed_container_scan_reports_negative_authority(self):
+        result = self._result_with_findings()
+        result.container_scan_requested = True
+        result.container_scan_error = "Container runtime unavailable"
+
+        payload = result.to_api_payload()
+
+        assert payload["containers"] == []
+        assert payload["host_containers_scanned"] is False
+        assert payload["wsl_container_scanned_distros"] == []
+        assert payload["container_scan_error"] == "Container runtime unavailable"
+
+    def test_requested_failed_container_scan_defaults_to_incomplete_reason(self):
+        result = self._result_with_findings()
+        result.container_scan_requested = True
+
+        assert (
+            result.to_api_payload()["container_scan_error"]
+            == "Container inventory incomplete"
+        )
+
+    def test_requested_container_scan_error_is_bounded_and_sanitized(self):
+        result = self._result_with_findings()
+        result.container_scan_requested = True
+        result.container_scan_error = "  runtime\tunavailable\n" + ("x" * 300)
+
+        reason = result.to_api_payload()["container_scan_error"]
+
+        assert len(reason) == 200
+        assert reason.startswith("runtime unavailable ")
+        assert "\n" not in reason
+        assert "\t" not in reason
+
+    def test_disabled_container_scan_omits_container_authority(self):
+        payload = self._result_with_findings().to_api_payload()
+
+        assert "containers" not in payload
+        assert "host_containers_scanned" not in payload
+        assert "wsl_container_scanned_distros" not in payload
+        assert "container_scan_error" not in payload
+
     def test_wire_payload_carries_wsl_container_scan_authority(self):
         from runlayer_cli.scan.containers import DiscoveredContainer
 
         result = self._result_with_findings()
+        result.container_scan_requested = True
         result.containers = [
             DiscoveredContainer(
                 container_id="wsl-cid",
@@ -2660,6 +4418,7 @@ class TestScanResultFullPayload:
         from runlayer_cli.scan.containers import DiscoveredContainer
 
         result = self._result_with_findings()
+        result.container_scan_requested = True
         result.containers = [
             DiscoveredContainer(
                 container_id="wsl-cid",
@@ -2757,6 +4516,8 @@ class TestScanResultFullPayload:
             "username": "u",
             "org_device_id": None,
             "serial_number": None,
+            "scan_session_id": str(result.scan_session_id),
+            "scan_started_at": result.scan_started_at.isoformat(),
             "agent_definitions": [
                 {
                     "client": "cursor",
@@ -3363,31 +5124,37 @@ class TestToAgentReportPayload:
         payload = self._scan_result([]).to_agent_report_payload()
         assert payload["agents"] == []
 
-    def test_caps_at_max_agents(self):
+    def test_caps_at_max_agents(self, monkeypatch):
+        from runlayer_cli.scan import service as scan_service
+
         agents = [
             self._agent(location=f"/Users/alice/p{i}") for i in range(MAX_AGENTS + 5)
         ]
-        with structlog.testing.capture_logs() as logs:
-            payload = self._scan_result(agents).to_agent_report_payload()
+        logger = mock.Mock()
+        monkeypatch.setattr(scan_service, "logger", logger)
+
+        payload = self._scan_result(agents).to_agent_report_payload()
+
         assert len(payload["agents"]) == MAX_AGENTS
         # Cap bit -> warn so an outlier host's clamp is visible, parity with the
         # time-budget walk's truncated signal.
-        truncated = [e for e in logs if e["event"] == "agent_report_truncated"]
-        assert truncated == [
-            {
-                "event": "agent_report_truncated",
-                "log_level": "warning",
-                "detected": MAX_AGENTS + 5,
-                "sent": MAX_AGENTS,
-            }
-        ]
+        logger.warning.assert_called_once_with(
+            "agent_report_truncated",
+            detected=MAX_AGENTS + 5,
+            sent=MAX_AGENTS,
+        )
 
-    def test_no_truncation_warning_under_cap(self):
+    def test_no_truncation_warning_under_cap(self, monkeypatch):
+        from runlayer_cli.scan import service as scan_service
+
         agents = [self._agent(location=f"/Users/alice/p{i}") for i in range(MAX_AGENTS)]
-        with structlog.testing.capture_logs() as logs:
-            payload = self._scan_result(agents).to_agent_report_payload()
+        logger = mock.Mock()
+        monkeypatch.setattr(scan_service, "logger", logger)
+
+        payload = self._scan_result(agents).to_agent_report_payload()
+
         assert len(payload["agents"]) == MAX_AGENTS
-        assert not [e for e in logs if e["event"] == "agent_report_truncated"]
+        logger.warning.assert_not_called()
 
     def test_device_username_threaded_into_non_home_path(self):
         # The scan's own username is redacted even outside the home layout.
@@ -3531,6 +5298,7 @@ class TestScanSubmissionResultExitCode:
 
 def _submission_scan_result(
     *,
+    os_name: str = "darwin",
     servers: int = 0,
     clients: int = 0,
     skills: int = 0,
@@ -3539,11 +5307,24 @@ def _submission_scan_result(
     agent_definitions: int = 0,
     processes: int = 0,
     containers: int = 0,
+    container_scan_requested: bool = False,
     containers_scanned: bool = False,
     stopped_containers_scanned: bool = False,
     container_images_scanned: bool = False,
     wsl_distros: int = 0,
     wsl_scanned: bool = False,
+    skill_crawl_complete: bool = False,
+    project_scan_depth: int = 7,
+    project_scan_home: str | None = "/home/alice",
+    project_skill_candidate_paths: tuple[str, ...] = (),
+    global_skill_candidate_paths: tuple[str, ...] = (),
+    machine_scope: bool = True,
+    project_scan_requested: bool = True,
+    agent_discovery_complete: bool = True,
+    client_discovery_complete: bool = True,
+    process_scan_requested: bool = False,
+    processes_scanned: bool = False,
+    completeness: ScanCompleteness | None = None,
 ):
     """Minimal stand-in for ScanResult exposing only what the orchestrator reads."""
     agent_list = [
@@ -3569,31 +5350,85 @@ def _submission_scan_result(
         )
         for i in range(agent_definitions)
     ]
+    scan_session_id = uuid.UUID("00000000-0000-4000-8000-000000000001")
+    scan_started_at = datetime.datetime(
+        2026,
+        9,
+        3,
+        12,
+        0,
+        tzinfo=datetime.timezone.utc,
+    )
     return SimpleNamespace(
+        device_id="device-1",
+        scan_session_id=scan_session_id,
+        scan_started_at=scan_started_at,
+        completeness=completeness or ScanCompleteness(),
+        hostname="host",
+        os=os_name,
+        os_version="14",
+        username="alex",
+        org_device_id=None,
+        serial_number=None,
+        machine_scope=machine_scope,
+        project_scan_requested=project_scan_requested,
+        agent_discovery_complete=agent_discovery_complete,
+        client_discovery_complete=client_discovery_complete,
+        process_scan_requested=process_scan_requested,
+        processes_scanned=processes_scanned,
         total_servers=servers,
         detected_clients=[
             SimpleNamespace(client=f"client-{i}") for i in range(clients)
         ],
-        skills=[SimpleNamespace(name=f"skill-{i}") for i in range(skills)],
-        plugins=[SimpleNamespace(name=f"plugin-{i}") for i in range(plugins)],
+        skills=[
+            SimpleNamespace(
+                name=f"skill-{i}",
+                identifier=f"skill-{i}",
+                container_id=None,
+                wsl_distro=None,
+            )
+            for i in range(skills)
+        ],
+        plugins=[
+            SimpleNamespace(
+                name=f"plugin-{i}",
+                identifier=f"plugin-{i}",
+                container_id=None,
+            )
+            for i in range(plugins)
+        ],
         agents=agent_list,
         agent_definitions=definition_list,
         processes=[SimpleNamespace(pid=1000 + i) for i in range(processes)],
         containers=[
             SimpleNamespace(container_id=f"container-{i}") for i in range(containers)
         ],
+        container_scan_requested=container_scan_requested,
         containers_scanned=containers_scanned,
         stopped_containers_scanned=stopped_containers_scanned,
         container_images_scanned=container_images_scanned,
         wsl_distros=[SimpleNamespace(name=f"distro-{i}") for i in range(wsl_distros)],
         wsl_scanned=wsl_scanned,
-        to_api_payload=lambda: {"device_id": "device-1"},
+        skill_crawl_complete=skill_crawl_complete,
+        project_scan_depth=project_scan_depth,
+        project_scan_home=project_scan_home,
+        project_skill_candidate_paths=list(project_skill_candidate_paths),
+        global_skill_candidate_paths=list(global_skill_candidate_paths),
+        to_api_payload=lambda: {
+            "device_id": "device-1",
+            "scan_session_id": str(scan_session_id),
+            "scan_started_at": scan_started_at.isoformat(),
+        },
         to_agent_report_payload=lambda: {
             "device_id": "device-1",
+            "scan_session_id": str(scan_session_id),
+            "scan_started_at": scan_started_at.isoformat(),
             "agents": [a.to_api_payload() for a in agent_list],
         },
         to_agent_definition_report_payload=lambda: {
             "device_id": "device-1",
+            "scan_session_id": str(scan_session_id),
+            "scan_started_at": scan_started_at.isoformat(),
             "agent_definitions": [
                 definition.to_api_payload() for definition in definition_list
             ],
@@ -3617,7 +5452,13 @@ class TestSubmitDiscoveredServers:
         assert isinstance(result, ServerSubmission)
         assert result.status == "success"
         assert result.response == client.submit_mcp_watch_scan.return_value
-        client.submit_mcp_watch_scan.assert_called_once_with({"device_id": "device-1"})
+        client.submit_mcp_watch_scan.assert_called_once_with(
+            {
+                "device_id": "device-1",
+                "scan_session_id": "00000000-0000-4000-8000-000000000001",
+                "scan_started_at": "2026-09-03T12:00:00+00:00",
+            }
+        )
 
     def test_unsupported_response_has_no_body(self):
         client = mock.MagicMock()
@@ -3823,8 +5664,1556 @@ class TestSubmitDiscoveredAgentDefinitions:
         assert result == "unsupported"
 
 
+def _expected_presence_state(scan_result):
+    return build_state(
+        SkillPresenceParams(
+            project_depth=scan_result.project_scan_depth,
+            home=scan_result.project_scan_home,
+        ),
+        project_paths=scan_result.project_skill_candidate_paths,
+        global_paths=scan_result.global_skill_candidate_paths,
+    )
+
+
+class TestReconcileSkillPresence:
+    def test_first_complete_crawl_saves_baseline_without_submit(self, tmp_path):
+        state_path = tmp_path / "presence.json"
+        client = mock.MagicMock()
+        scan_result = _submission_scan_result(
+            skill_crawl_complete=True,
+            project_skill_candidate_paths=("/project/current",),
+            global_skill_candidate_paths=("/global/current",),
+        )
+
+        result = reconcile_skill_presence(
+            client,
+            scan_result,
+            state_path=state_path,
+        )
+
+        assert result == "success"
+        client.submit_skill_removals.assert_not_called()
+        assert load_state(state_path) == _expected_presence_state(scan_result)
+
+    def test_baseline_write_failure_is_best_effort(self, tmp_path, monkeypatch):
+        client = mock.MagicMock()
+        monkeypatch.setattr(
+            "runlayer_cli.scan.service.save_presence_state",
+            lambda *_args, **_kwargs: False,
+        )
+
+        result = reconcile_skill_presence(
+            client,
+            _submission_scan_result(skill_crawl_complete=True),
+            state_path=tmp_path / "presence.json",
+        )
+
+        assert result == "success"
+        client.submit_skill_removals.assert_not_called()
+
+    def test_incomplete_crawl_neither_reads_writes_nor_submits(
+        self, tmp_path, monkeypatch
+    ):
+        state_path = tmp_path / "presence.json"
+        client = mock.MagicMock()
+        load_mock = mock.Mock(side_effect=AssertionError("state read"))
+        save_mock = mock.Mock(side_effect=AssertionError("state write"))
+        monkeypatch.setattr("runlayer_cli.scan.service.load_presence_state", load_mock)
+        monkeypatch.setattr("runlayer_cli.scan.service.save_presence_state", save_mock)
+
+        result = reconcile_skill_presence(
+            client,
+            _submission_scan_result(
+                skill_crawl_complete=False,
+                project_skill_candidate_paths=("/project/current",),
+            ),
+            state_path=state_path,
+        )
+
+        assert result == "success"
+        load_mock.assert_not_called()
+        save_mock.assert_not_called()
+        client.submit_skill_removals.assert_not_called()
+        assert not state_path.exists()
+
+    def test_changed_params_replace_baseline_without_submit(self, tmp_path):
+        state_path = tmp_path / "presence.json"
+        previous = build_state(
+            SkillPresenceParams(project_depth=7, home="/home/alice"),
+            project_paths=("/project/removed",),
+        )
+        assert save_state(previous, state_path)
+        client = mock.MagicMock()
+        scan_result = _submission_scan_result(
+            skill_crawl_complete=True,
+            project_scan_depth=8,
+        )
+
+        result = reconcile_skill_presence(
+            client,
+            scan_result,
+            state_path=state_path,
+        )
+
+        assert result == "success"
+        client.submit_skill_removals.assert_not_called()
+        assert load_state(state_path) == _expected_presence_state(scan_result)
+
+    def test_deleted_project_still_submits_its_skill_removals(self, tmp_path):
+        """A deleted repo changes the discovered project set in the same scan
+        that drops its skills; that must not reset the baseline."""
+        state_path = tmp_path / "presence.json"
+        deleted_repo_skill = "/home/alice/repo/.agents/skills/release"
+        kept_skill = "/home/alice/other/.agents/skills/kept"
+        previous = build_state(
+            SkillPresenceParams(project_depth=7, home="/home/alice"),
+            project_paths=(deleted_repo_skill, kept_skill),
+        )
+        assert save_state(previous, state_path)
+        client = mock.MagicMock()
+        client.submit_skill_removals.return_value = {"removed": 1}
+        scan_result = _submission_scan_result(
+            skill_crawl_complete=True,
+            project_skill_candidate_paths=(kept_skill,),
+        )
+
+        result = reconcile_skill_presence(
+            client,
+            scan_result,
+            state_path=state_path,
+        )
+
+        assert result == "success"
+        assert client.submit_skill_removals.call_args.args[0] == [
+            path_hash(deleted_repo_skill)
+        ]
+        assert load_state(state_path) == _expected_presence_state(scan_result)
+
+    def test_successful_removal_advances_state(self, tmp_path):
+        state_path = tmp_path / "presence.json"
+        previous = build_state(
+            SkillPresenceParams(project_depth=7, home="/home/alice"),
+            project_paths=("/project/removed", "/project/kept"),
+        )
+        assert save_state(previous, state_path)
+        client = mock.MagicMock()
+        client.submit_skill_removals.return_value = {"removed": 1}
+        scan_result = _submission_scan_result(
+            skill_crawl_complete=True,
+            project_skill_candidate_paths=("/project/kept",),
+        )
+
+        result = reconcile_skill_presence(
+            client,
+            scan_result,
+            state_path=state_path,
+        )
+
+        assert result == "success"
+        client.submit_skill_removals.assert_called_once()
+        assert client.submit_skill_removals.call_args.args[0] == [
+            path_hash("/project/removed")
+        ]
+        assert client.submit_skill_removals.call_args.args[1]["device_id"] == "device-1"
+        assert load_state(state_path) == _expected_presence_state(scan_result)
+
+    def test_removal_state_write_failure_is_best_effort(self, tmp_path, monkeypatch):
+        state_path = tmp_path / "presence.json"
+        previous = build_state(
+            SkillPresenceParams(project_depth=7, home="/home/alice"),
+            project_paths=("/project/removed",),
+        )
+        assert save_state(previous, state_path)
+        client = mock.MagicMock()
+        client.submit_skill_removals.return_value = {"removed": 1}
+        monkeypatch.setattr(
+            "runlayer_cli.scan.service.save_presence_state",
+            lambda *_args, **_kwargs: False,
+        )
+
+        result = reconcile_skill_presence(
+            client,
+            _submission_scan_result(skill_crawl_complete=True),
+            state_path=state_path,
+        )
+
+        assert result == "success"
+        client.submit_skill_removals.assert_called_once()
+        assert load_state(state_path) == previous
+
+    def test_unsupported_removal_keeps_previous_state(self, tmp_path):
+        state_path = tmp_path / "presence.json"
+        previous = build_state(
+            SkillPresenceParams(project_depth=7, home="/home/alice"),
+            project_paths=("/project/removed",),
+        )
+        assert save_state(previous, state_path)
+        client = mock.MagicMock()
+        client.submit_skill_removals.return_value = {"unsupported": True}
+
+        result = reconcile_skill_presence(
+            client,
+            _submission_scan_result(skill_crawl_complete=True),
+            state_path=state_path,
+        )
+
+        assert result == "success"
+        assert load_state(state_path) == previous
+
+    def test_non_auth_failure_keeps_previous_state(self, tmp_path):
+        state_path = tmp_path / "presence.json"
+        previous = build_state(
+            SkillPresenceParams(project_depth=7, home="/home/alice"),
+            project_paths=("/project/removed",),
+        )
+        assert save_state(previous, state_path)
+        client = mock.MagicMock()
+        client.submit_skill_removals.side_effect = RuntimeError("backend unavailable")
+
+        result = reconcile_skill_presence(
+            client,
+            _submission_scan_result(skill_crawl_complete=True),
+            state_path=state_path,
+        )
+
+        assert result == "failed"
+        assert load_state(state_path) == previous
+
+    @pytest.mark.parametrize("status", [401, 403])
+    def test_auth_failure_propagates(self, tmp_path, status):
+        state_path = tmp_path / "presence.json"
+        previous = build_state(
+            SkillPresenceParams(project_depth=7, home="/home/alice"),
+            project_paths=("/project/removed",),
+        )
+        assert save_state(previous, state_path)
+        request = httpx.Request("POST", "https://example.com")
+        response = httpx.Response(status, request=request)
+        client = mock.MagicMock()
+        client.submit_skill_removals.side_effect = httpx.HTTPStatusError(
+            "unauthorized",
+            request=request,
+            response=response,
+        )
+
+        with pytest.raises(httpx.HTTPStatusError):
+            reconcile_skill_presence(
+                client,
+                _submission_scan_result(skill_crawl_complete=True),
+                state_path=state_path,
+            )
+
+        assert load_state(state_path) == previous
+
+
 class TestSubmitScanResults:
     """Orchestrator maps each category's status into the result buckets."""
+
+    def test_category_surface_contract_matches_backend_manifest_pairs(self):
+        expected_pairs = {
+            ("mcp", "host_static"),
+            ("mcp", "host_runtime"),
+            ("mcp", "container"),
+            ("mcp", "wsl"),
+            ("mcp", "wsl_runtime"),
+            ("client", "host_static"),
+            ("client", "host_runtime"),
+            ("client", "container"),
+            ("client", "wsl"),
+            ("client", "wsl_runtime"),
+            ("skill", "host_static"),
+            ("skill", "container"),
+            ("skill", "wsl"),
+            ("plugin", "host_static"),
+            ("plugin", "host_runtime"),
+            ("plugin", "container"),
+            ("plugin", "device"),
+            ("agent", "host_static"),
+            ("agent", "host_runtime"),
+            ("agent", "wsl"),
+            ("agent", "wsl_runtime"),
+            ("agent_definition", "host_static"),
+            ("agent_definition", "container"),
+            ("agent_definition", "wsl"),
+        }
+
+        assert {
+            (category, surface)
+            for category, surfaces in CATEGORY_SURFACES.items()
+            for surface in surfaces
+        } == expected_pairs
+
+    @pytest.mark.parametrize(("category", "surfaces"), CATEGORY_SURFACES.items())
+    def test_category_surface_contract_drives_all_consumers(
+        self,
+        category,
+        surfaces,
+    ):
+        from runlayer_cli.scan import service as scan_service
+
+        submission = ScanSubmissionResult()
+        entries = _scan_manifest_payload(
+            _submission_scan_result(),
+            submission,
+        )["entries"]
+        manifest_surfaces = tuple(
+            entry["surface"] for entry in entries if entry["category"] == category
+        )
+        assert manifest_surfaces == surfaces
+        assert {
+            surface
+            for outcome_category, surface in submission.surface_outcomes
+            if outcome_category == category
+        } == set(surfaces)
+
+        recorded = ScanSubmissionResult()
+        recorded.surface_outcomes.clear()
+        scan_service._record_surface_outcomes(
+            recorded,
+            category=category,
+            outcome="failed",
+        )
+        assert recorded.surface_outcomes == {
+            (category, surface): "failed" for surface in surfaces
+        }
+
+        for surface in surfaces:
+            consumed = ScanSubmissionResult()
+            scan_service._consume_backend_surface_failures(
+                consumed,
+                {
+                    "incomplete_surfaces": [
+                        {
+                            "category": category,
+                            "surface": surface,
+                            "reason": "backend_failure",
+                        }
+                    ]
+                },
+            )
+            assert consumed.incomplete_surfaces[(category, surface)] == (
+                "backend_failure"
+            )
+
+        invalid_surface = next(
+            surface
+            for valid_surfaces in CATEGORY_SURFACES.values()
+            for surface in valid_surfaces
+            if surface not in surfaces
+        )
+        rejected = ScanSubmissionResult()
+        scan_service._consume_backend_surface_failures(
+            rejected,
+            {
+                "incomplete_surfaces": [
+                    {
+                        "category": category,
+                        "surface": invalid_surface,
+                        "reason": "invalid_pair",
+                    }
+                ]
+            },
+        )
+        assert rejected.incomplete_surfaces == {}
+
+    @pytest.mark.parametrize(
+        ("category", "surface"),
+        [
+            (category, surface)
+            for category, surfaces in CATEGORY_SURFACES.items()
+            for surface in surfaces
+        ],
+    )
+    def test_missing_expected_surface_outcome_fails_loud(
+        self,
+        category,
+        surface,
+    ):
+        submission = ScanSubmissionResult()
+        del submission.surface_outcomes[(category, surface)]
+
+        with pytest.raises(KeyError):
+            _scan_manifest_payload(_submission_scan_result(), submission)
+
+    def test_empty_scan_still_sends_authoritative_manifest(self):
+        client = mock.MagicMock()
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+
+        submission = submit_scan_results(client, _submission_scan_result())
+
+        client.submit_mcp_watch_scan.assert_not_called()
+        client.submit_scan_manifest.assert_called_once()
+        payload = client.submit_scan_manifest.call_args.args[0]
+        assert payload["scan_session_id"] == ("00000000-0000-4000-8000-000000000001")
+        assert payload["scan_started_at"] == "2026-09-03T12:00:00+00:00"
+        assert payload["device_id"] == "device-1"
+        entries = {
+            (entry["category"], entry["surface"]): entry for entry in payload["entries"]
+        }
+        assert all(
+            entries[(category, "host_static")]["complete"]
+            for category in (
+                "mcp",
+                "skill",
+                "plugin",
+                "agent",
+                "agent_definition",
+            )
+        )
+        assert entries[("client", "host_static")] == {
+            "category": "client",
+            "surface": "host_static",
+            "complete": True,
+        }
+        assert entries[("client", "host_runtime")]["complete"] is False
+        assert entries[("client", "container")]["complete"] is False
+        assert submission.category_outcomes == {
+            "mcp": "success",
+            "client": "success",
+            "skill": "success",
+            "plugin": "success",
+            "agent": "success",
+            "agent_definition": "success",
+        }
+
+    @pytest.mark.parametrize(
+        ("scan_flags", "expected_completeness"),
+        [
+            ({}, (True, False, False)),
+            (
+                {
+                    "os_name": "windows",
+                    "wsl_scanned": True,
+                },
+                (True, False, False),
+            ),
+            (
+                {
+                    "process_scan_requested": True,
+                    "processes_scanned": True,
+                },
+                (True, True, False),
+            ),
+            (
+                {
+                    "process_scan_requested": True,
+                    "processes_scanned": True,
+                    "container_scan_requested": True,
+                    "containers_scanned": True,
+                },
+                (True, True, True),
+            ),
+            (
+                {
+                    "container_scan_requested": True,
+                    "containers_scanned": False,
+                },
+                (True, False, False),
+            ),
+            (
+                {
+                    "os_name": "windows",
+                    "process_scan_requested": True,
+                    "processes_scanned": True,
+                    "container_scan_requested": True,
+                    "containers_scanned": True,
+                },
+                (False, True, True),
+            ),
+            (
+                {
+                    "os_name": "windows",
+                    "wsl_scanned": True,
+                    "process_scan_requested": True,
+                    "processes_scanned": True,
+                    "container_scan_requested": True,
+                    "containers_scanned": True,
+                },
+                (True, True, True),
+            ),
+        ],
+        ids=[
+            "darwin-static-only",
+            "windows-static-only",
+            "static-and-runtime",
+            "all-channels",
+            "container-runtime-unavailable",
+            "windows-wsl-unavailable",
+            "windows-wsl-complete",
+        ],
+    )
+    def test_client_manifest_authority_tracks_each_evidence_surface(
+        self,
+        scan_flags,
+        expected_completeness,
+    ):
+        client = mock.MagicMock()
+        client.submit_mcp_watch_scan.return_value = {"servers_processed": 0}
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+
+        submit_scan_results(client, _submission_scan_result(**scan_flags))
+
+        client_entries = {
+            entry["surface"]: entry["complete"]
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+            if entry["category"] == "client"
+        }
+        assert (
+            tuple(
+                client_entries[surface]
+                for surface in ("host_static", "host_runtime", "container")
+            )
+            == expected_completeness
+        )
+
+    @pytest.mark.parametrize(
+        ("scan_flags", "expected_complete"),
+        [
+            (
+                {
+                    "os_name": "windows",
+                    "wsl_scanned": True,
+                },
+                False,
+            ),
+            (
+                {
+                    "os_name": "windows",
+                    "process_scan_requested": True,
+                    "processes_scanned": True,
+                },
+                False,
+            ),
+            (
+                {
+                    "os_name": "windows",
+                    "wsl_scanned": True,
+                    "process_scan_requested": True,
+                    "processes_scanned": True,
+                },
+                True,
+            ),
+        ],
+        ids=["wsl-only", "runtime-only", "wsl-runtime-complete"],
+    )
+    def test_client_wsl_runtime_manifest_requires_both_scans(
+        self,
+        scan_flags,
+        expected_complete,
+    ):
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in _scan_manifest_payload(
+                _submission_scan_result(**scan_flags),
+                ScanSubmissionResult(),
+            )["entries"]
+        }
+
+        assert entries[("client", "wsl_runtime")]["complete"] is expected_complete
+
+    def test_successful_empty_process_scan_submits_before_authoritative_manifest(self):
+        client = mock.MagicMock()
+        client.submit_mcp_watch_scan.return_value = {"servers_processed": 0}
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+
+        submission = submit_scan_results(
+            client,
+            _submission_scan_result(
+                process_scan_requested=True,
+                processes_scanned=True,
+            ),
+        )
+
+        assert [call[0] for call in client.method_calls] == [
+            "submit_mcp_watch_scan",
+            "submit_scan_manifest",
+        ]
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+        }
+        assert entries[("mcp", "host_runtime")]["complete"] is True
+        assert entries[("plugin", "host_runtime")]["complete"] is True
+        assert entries[("agent", "host_runtime")]["complete"] is True
+        assert submission.response == client.submit_mcp_watch_scan.return_value
+        assert submission.category_outcomes["mcp"] == "success"
+        assert submission.category_outcomes["client"] == "success"
+
+    @pytest.mark.parametrize(
+        ("processes_scanned", "runtime_incomplete"),
+        [
+            (False, False),
+            (True, True),
+        ],
+    )
+    def test_empty_incomplete_process_scan_does_not_submit_shared_inventory(
+        self,
+        processes_scanned,
+        runtime_incomplete,
+    ):
+        client = mock.MagicMock()
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+        completeness = ScanCompleteness()
+        if runtime_incomplete:
+            completeness.runtime.mark_incomplete("runtime_extension_root_capped")
+
+        submit_scan_results(
+            client,
+            _submission_scan_result(
+                process_scan_requested=True,
+                processes_scanned=processes_scanned,
+                completeness=completeness,
+            ),
+        )
+
+        client.submit_mcp_watch_scan.assert_not_called()
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+        }
+        assert entries[("mcp", "host_runtime")]["complete"] is False
+
+    def test_agent_wire_cap_suppresses_all_agent_surface_authority(self):
+        result = _submission_scan_result(agents=MAX_AGENTS + 1)
+
+        payload = _scan_manifest_payload(
+            result,
+            ScanSubmissionResult(),
+        )
+        agent_entries = [
+            entry for entry in payload["entries"] if entry["category"] == "agent"
+        ]
+
+        assert agent_entries
+        assert all(entry["complete"] is False for entry in agent_entries)
+        assert {entry["reason"] for entry in agent_entries} == {
+            "agent_payload_truncated"
+        }
+
+    def test_definition_wire_cap_suppresses_all_definition_surface_authority(self):
+        result = _submission_scan_result(agent_definitions=MAX_AGENT_DEFINITIONS + 1)
+
+        payload = _scan_manifest_payload(
+            result,
+            ScanSubmissionResult(),
+        )
+        definition_entries = [
+            entry
+            for entry in payload["entries"]
+            if entry["category"] == "agent_definition"
+        ]
+
+        assert definition_entries
+        assert all(entry["complete"] is False for entry in definition_entries)
+        assert {entry["reason"] for entry in definition_entries} == {
+            "agent_definition_payload_truncated"
+        }
+
+    def test_definition_host_failure_does_not_freeze_complete_container_surface(self):
+        completeness = ScanCompleteness()
+        completeness.agent_definition_host_static.mark_incomplete(
+            "agent_definition_marker_read_failed"
+        )
+        result = _submission_scan_result(
+            container_scan_requested=True,
+            containers_scanned=True,
+            completeness=completeness,
+        )
+
+        payload = _scan_manifest_payload(
+            result,
+            ScanSubmissionResult(),
+        )
+        entries = {
+            (entry["category"], entry["surface"]): entry for entry in payload["entries"]
+        }
+
+        assert entries[("agent_definition", "host_static")]["complete"] is False
+        assert entries[("agent_definition", "container")]["complete"] is True
+
+    def test_manifest_is_last_and_reuses_session_id_for_every_submit(self):
+        client = mock.MagicMock()
+        client.submit_agents.return_value = {"agents_processed": 1}
+        client.submit_agent_definitions.return_value = {
+            "agent_definitions": [],
+            "created_count": 1,
+            "updated_count": 0,
+        }
+        client.submit_mcp_watch_scan.return_value = {"servers_processed": 1}
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+        scan_result = _submission_scan_result(
+            servers=1,
+            agents=1,
+            agent_definitions=1,
+        )
+
+        submit_scan_results(client, scan_result)
+
+        expected_session_id = "00000000-0000-4000-8000-000000000001"
+        assert client.submit_agents.call_args.args[0]["scan_session_id"] == (
+            expected_session_id
+        )
+        assert (
+            client.submit_agent_definitions.call_args.args[0]["scan_session_id"]
+            == expected_session_id
+        )
+        assert (
+            client.submit_mcp_watch_scan.call_args.args[0]["scan_session_id"]
+            == expected_session_id
+        )
+        assert (
+            client.submit_scan_manifest.call_args.args[0]["scan_session_id"]
+            == expected_session_id
+        )
+        assert {
+            client.submit_agents.call_args.args[0]["scan_started_at"],
+            client.submit_agent_definitions.call_args.args[0]["scan_started_at"],
+            client.submit_mcp_watch_scan.call_args.args[0]["scan_started_at"],
+            client.submit_scan_manifest.call_args.args[0]["scan_started_at"],
+        } == {"2026-09-03T12:00:00+00:00"}
+        assert client.method_calls[-1][0] == "submit_scan_manifest"
+
+    def test_unexpected_agent_endpoint_failure_still_submits_manifest(self):
+        client = mock.MagicMock()
+        client.submit_agents.side_effect = RuntimeError("invalid response")
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+
+        submission = submit_scan_results(
+            client,
+            _submission_scan_result(agents=1),
+        )
+
+        client.submit_scan_manifest.assert_called_once()
+        client.submit_mcp_watch_scan.assert_not_called()
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+        }
+        assert entries[("agent", "host_static")]["reason"] == "submission_failed"
+        assert entries[("agent", "host_runtime")]["reason"] == (
+            "runtime_discovery_incomplete"
+        )
+        assert submission.failed_submissions == ["agents"]
+
+    def test_failed_category_is_incomplete_without_poisoning_other_categories(self):
+        client = mock.MagicMock()
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+        scan_result = _submission_scan_result(plugins=1)
+
+        with mock.patch(
+            "runlayer_cli.scan.service.submit_discovered_plugins",
+            return_value="failed",
+        ):
+            submission = submit_scan_results(client, scan_result)
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+        }
+        assert entries[("plugin", "host_static")] == {
+            "category": "plugin",
+            "surface": "host_static",
+            "complete": False,
+            "reason": "submission_failed",
+        }
+        assert entries[("skill", "host_static")]["complete"] is True
+        assert submission.category_outcomes["plugin"] == "failed"
+        assert submission.category_outcomes["skill"] == "success"
+
+    def test_partial_plugin_submission_gates_only_failed_surface(self):
+        client = mock.MagicMock()
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+        scan_result = _submission_scan_result(
+            plugins=1,
+            process_scan_requested=True,
+            processes_scanned=True,
+        )
+
+        def partially_fail(*_args, failed_surfaces, **_kwargs):
+            failed_surfaces.add("host_runtime")
+            return "success"
+
+        with mock.patch(
+            "runlayer_cli.scan.service.submit_discovered_plugins",
+            side_effect=partially_fail,
+        ):
+            submission = submit_scan_results(client, scan_result)
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+        }
+        assert entries[("plugin", "host_runtime")]["complete"] is False
+        assert entries[("plugin", "host_runtime")]["reason"] == "submission_failed"
+        assert entries[("plugin", "host_static")]["complete"] is True
+        assert submission.failed_submissions == ["plugins"]
+
+    def test_failed_skill_before_unsupported_skill_remains_failed(self):
+        from runlayer_cli.scan.skill_scanner import (
+            ARTIFACT_SKILL_MD,
+            DiscoveredSkillArtifact,
+            SkillFile,
+        )
+
+        client = mock.MagicMock()
+        client.submit_mcp_watch_scan.return_value = {"servers_processed": 0}
+        client.submit_skill_fingerprints.return_value = {"unsupported": True}
+        client.submit_skill_fingerprint.side_effect = [
+            {"known": False},
+            {"unsupported": True},
+        ]
+        client.submit_skill.side_effect = httpx.ConnectError(
+            "down",
+            request=httpx.Request("POST", "https://example.com/skills"),
+        )
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+        scan_result = _submission_scan_result(
+            container_scan_requested=True,
+            containers_scanned=True,
+        )
+        scan_result.skills = [
+            DiscoveredSkillArtifact(
+                name="failed-container-skill",
+                path="/container-skill",
+                artifact_type=ARTIFACT_SKILL_MD,
+                scope="project",
+                tool="multi",
+                identifier="failed-container-skill",
+                files=[SkillFile(title="SKILL.md", content="# container")],
+                container_id="container-1",
+            ),
+            DiscoveredSkillArtifact(
+                name="unsupported-static-skill",
+                path="/static-skill",
+                artifact_type=ARTIFACT_SKILL_MD,
+                scope="project",
+                tool="multi",
+                identifier="unsupported-static-skill",
+                files=[SkillFile(title="SKILL.md", content="# static")],
+            ),
+        ]
+
+        submission = submit_scan_results(client, scan_result)
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+        }
+        assert submission.category_outcomes["skill"] == "failed"
+        assert submission.failed_submissions == ["skills"]
+        assert submission.unsupported == []
+        assert submission.surface_outcomes[("skill", "container")] == "failed"
+        assert submission.incomplete_surfaces[("skill", "container")] == (
+            "submission_failed"
+        )
+        assert entries[("skill", "container")]["reason"] == "submission_failed"
+        assert submission.exit_code == EXIT_SUBMIT_FAILED
+
+    def test_pure_unsupported_skill_submission_remains_unsupported(self):
+        from runlayer_cli.scan.skill_scanner import (
+            ARTIFACT_SKILL_MD,
+            DiscoveredSkillArtifact,
+        )
+
+        client = mock.MagicMock()
+        client.submit_skill_fingerprints.return_value = {"unsupported": True}
+        client.submit_skill_fingerprint.return_value = {"unsupported": True}
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+        scan_result = _submission_scan_result()
+        scan_result.skills = [
+            DiscoveredSkillArtifact(
+                name="unsupported-skill",
+                path="/unsupported-skill",
+                artifact_type=ARTIFACT_SKILL_MD,
+                scope="project",
+                tool="multi",
+                identifier="unsupported-skill",
+            )
+        ]
+
+        submission = submit_scan_results(client, scan_result)
+
+        assert submission.category_outcomes["skill"] == "unsupported"
+        assert submission.failed_submissions == []
+        assert submission.unsupported == ["Shadow Skill Detection"]
+        assert all(
+            submission.surface_outcomes[("skill", surface)] == "unsupported"
+            for surface in CATEGORY_SURFACES["skill"]
+        )
+        assert submission.exit_code == EXIT_UNSUPPORTED
+
+    def test_category_specific_incomplete_reason_does_not_poison_peers(self):
+        client = mock.MagicMock()
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+        completeness = ScanCompleteness()
+        completeness.skill_host_static.mark_incomplete("project_skill_scan_capped")
+
+        submit_scan_results(
+            client,
+            _submission_scan_result(completeness=completeness),
+        )
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+        }
+        assert entries[("skill", "host_static")]["reason"] == (
+            "project_skill_scan_capped"
+        )
+        assert entries[("skill", "host_static")]["complete"] is False
+        assert entries[("mcp", "host_static")]["complete"] is True
+        assert entries[("plugin", "host_static")]["complete"] is True
+
+    @pytest.mark.parametrize(
+        ("surface", "scan_kwargs", "expected_reason"),
+        [
+            (
+                "host_static",
+                {"project_scan_requested": False},
+                "static_discovery_incomplete",
+            ),
+            (
+                "host_runtime",
+                {},
+                "runtime_discovery_incomplete",
+            ),
+        ],
+    )
+    def test_unrequested_plugin_host_channel_does_not_blame_wsl(
+        self,
+        surface,
+        scan_kwargs,
+        expected_reason,
+    ):
+        client = mock.MagicMock()
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+
+        submit_scan_results(
+            client,
+            _submission_scan_result(**scan_kwargs),
+        )
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+        }
+        assert entries[("plugin", surface)]["complete"] is False
+        assert entries[("plugin", surface)]["reason"] == expected_reason
+
+    @pytest.mark.parametrize("surface", ["host_static", "host_runtime"])
+    def test_windows_plugin_host_authority_requires_complete_wsl(
+        self,
+        surface,
+    ):
+        client = mock.MagicMock()
+        client.submit_mcp_watch_scan.return_value = {"servers_processed": 0}
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+        completeness = ScanCompleteness()
+        completeness.plugin_host_static.mark_incomplete("wsl_home_discovery_capped")
+
+        submit_scan_results(
+            client,
+            _submission_scan_result(
+                os_name="windows",
+                process_scan_requested=True,
+                processes_scanned=True,
+                wsl_scanned=True,
+                completeness=completeness,
+            ),
+        )
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+        }
+        assert entries[("plugin", surface)] == {
+            "category": "plugin",
+            "surface": surface,
+            "complete": False,
+            "reason": "wsl_home_discovery_capped",
+        }
+
+    @pytest.mark.parametrize("surface", ["host_static", "host_runtime"])
+    def test_windows_plugin_host_authority_ignores_wsl_project_walk(
+        self,
+        surface,
+    ):
+        completeness = ScanCompleteness()
+        completeness.wsl_static.mark_incomplete("wsl_project_scan_disabled")
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in _scan_manifest_payload(
+                _submission_scan_result(
+                    os_name="windows",
+                    process_scan_requested=True,
+                    processes_scanned=True,
+                    wsl_scanned=True,
+                    completeness=completeness,
+                ),
+                ScanSubmissionResult(),
+            )["entries"]
+        }
+
+        assert entries[("plugin", surface)]["complete"] is True
+
+    def test_windows_client_host_authority_ignores_disabled_wsl_project_walk(self):
+        completeness = ScanCompleteness()
+        completeness.wsl_static.mark_incomplete("wsl_project_scan_disabled")
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in _scan_manifest_payload(
+                _submission_scan_result(
+                    os_name="windows",
+                    wsl_scanned=True,
+                    completeness=completeness,
+                ),
+                ScanSubmissionResult(),
+            )["entries"]
+        }
+
+        assert entries[("client", "host_static")] == {
+            "category": "client",
+            "surface": "host_static",
+            "complete": True,
+        }
+        assert entries[("client", "wsl")] == {
+            "category": "client",
+            "surface": "wsl",
+            "complete": False,
+            "reason": "wsl_project_scan_disabled",
+        }
+
+    def test_windows_client_wsl_authority_requires_completed_project_walk(self):
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in _scan_manifest_payload(
+                _submission_scan_result(
+                    os_name="windows",
+                    wsl_scanned=True,
+                    container_scan_requested=True,
+                ),
+                ScanSubmissionResult(),
+            )["entries"]
+        }
+
+        assert entries[("client", "wsl")] == {
+            "category": "client",
+            "surface": "wsl",
+            "complete": True,
+        }
+
+    def test_client_wsl_authority_requires_client_discovery(self):
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in _scan_manifest_payload(
+                _submission_scan_result(
+                    os_name="windows",
+                    wsl_scanned=True,
+                    container_scan_requested=True,
+                    client_discovery_complete=False,
+                ),
+                ScanSubmissionResult(),
+            )["entries"]
+        }
+
+        assert entries[("client", "wsl")] == {
+            "category": "client",
+            "surface": "wsl",
+            "complete": False,
+            "reason": "client_discovery_incomplete",
+        }
+
+    def test_windows_client_host_authority_requires_requested_wsl_project_walk(
+        self,
+    ):
+        completeness = ScanCompleteness()
+        completeness.wsl_static.mark_incomplete("wsl_project_scan_timed_out")
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in _scan_manifest_payload(
+                _submission_scan_result(
+                    os_name="windows",
+                    wsl_scanned=True,
+                    container_scan_requested=True,
+                    completeness=completeness,
+                ),
+                ScanSubmissionResult(),
+            )["entries"]
+        }
+
+        assert entries[("client", "host_static")] == {
+            "category": "client",
+            "surface": "host_static",
+            "complete": False,
+            "reason": "wsl_project_scan_timed_out",
+        }
+
+    def test_windows_client_host_authority_requires_wsl_inventory(self):
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in _scan_manifest_payload(
+                _submission_scan_result(
+                    os_name="windows",
+                    wsl_scanned=False,
+                ),
+                ScanSubmissionResult(),
+            )["entries"]
+        }
+
+        assert entries[("client", "host_static")] == {
+            "category": "client",
+            "surface": "host_static",
+            "complete": False,
+            "reason": "wsl_inventory_incomplete",
+        }
+
+    @pytest.mark.parametrize(
+        ("surface", "scan_kwargs", "expected_reason"),
+        [
+            (
+                "wsl",
+                {
+                    "os_name": "windows",
+                    "project_scan_requested": False,
+                    "wsl_scanned": True,
+                },
+                "agent_discovery_incomplete",
+            ),
+            (
+                "wsl_runtime",
+                {
+                    "os_name": "windows",
+                    "wsl_scanned": True,
+                },
+                "runtime_discovery_incomplete",
+            ),
+        ],
+    )
+    def test_agent_wsl_reason_respects_host_authority_gate(
+        self,
+        surface,
+        scan_kwargs,
+        expected_reason,
+    ):
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in _scan_manifest_payload(
+                _submission_scan_result(**scan_kwargs),
+                ScanSubmissionResult(),
+            )["entries"]
+        }
+        assert entries[("agent", surface)]["complete"] is False
+        assert entries[("agent", surface)]["reason"] == expected_reason
+
+    def test_agent_definition_wsl_reason_uses_completeness_reason(self):
+        completeness = ScanCompleteness()
+        completeness.wsl_static.mark_incomplete("wsl_home_discovery_capped")
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in _scan_manifest_payload(
+                _submission_scan_result(
+                    os_name="windows",
+                    wsl_scanned=True,
+                    completeness=completeness,
+                ),
+                ScanSubmissionResult(),
+            )["entries"]
+        }
+
+        assert entries[("agent_definition", "wsl")] == {
+            "category": "agent_definition",
+            "surface": "wsl",
+            "complete": False,
+            "reason": "wsl_home_discovery_capped",
+        }
+
+    def test_windows_plugin_host_surfaces_complete_below_caps(self):
+        client = mock.MagicMock()
+        client.submit_mcp_watch_scan.return_value = {"servers_processed": 0}
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+
+        submit_scan_results(
+            client,
+            _submission_scan_result(
+                os_name="windows",
+                process_scan_requested=True,
+                processes_scanned=True,
+                wsl_scanned=True,
+            ),
+        )
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+        }
+        assert entries[("plugin", "host_static")]["complete"] is True
+        assert entries[("plugin", "host_runtime")]["complete"] is True
+
+    def test_container_artifact_truncation_blocks_container_authority(self):
+        client = mock.MagicMock()
+        client.submit_mcp_watch_scan.return_value = {"servers_processed": 0}
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+        completeness = ScanCompleteness()
+        completeness.container_artifacts.mark_incomplete(
+            "container_artifact_walk_truncated"
+        )
+
+        submit_scan_results(
+            client,
+            _submission_scan_result(
+                container_scan_requested=True,
+                containers_scanned=True,
+                completeness=completeness,
+            ),
+        )
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+        }
+        assert entries[("mcp", "container")] == {
+            "category": "mcp",
+            "surface": "container",
+            "complete": False,
+            "reason": "container_artifact_walk_truncated",
+        }
+
+    def test_runtime_contributor_error_reaches_runtime_manifest(self):
+        client = mock.MagicMock()
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+        completeness = ScanCompleteness()
+        completeness.runtime.mark_incomplete("runtime_extension_root_capped")
+
+        submit_scan_results(
+            client,
+            _submission_scan_result(
+                process_scan_requested=True,
+                processes_scanned=True,
+                completeness=completeness,
+            ),
+        )
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+        }
+        assert entries[("plugin", "host_runtime")]["reason"] == (
+            "runtime_extension_root_capped"
+        )
+        assert entries[("mcp", "host_runtime")]["complete"] is False
+
+    @pytest.mark.parametrize(
+        ("category", "surface", "artifact"),
+        [
+            (
+                "skill",
+                "wsl",
+                SimpleNamespace(
+                    identifier=None,
+                    container_id=None,
+                    wsl_distro="Ubuntu",
+                    files=[],
+                ),
+            ),
+            (
+                "plugin",
+                "container",
+                SimpleNamespace(identifier=None, container_id="container-1"),
+            ),
+            (
+                "plugin",
+                "device",
+                SimpleNamespace(
+                    identifier=None,
+                    container_id=None,
+                    wsl_distro=None,
+                    device_scope=True,
+                    scope=None,
+                ),
+            ),
+            (
+                "plugin",
+                "host_static",
+                SimpleNamespace(
+                    identifier=None,
+                    container_id=None,
+                    wsl_distro=None,
+                    device_scope=False,
+                    scope="user",
+                ),
+            ),
+            (
+                "plugin",
+                "host_runtime",
+                SimpleNamespace(
+                    identifier=None,
+                    container_id=None,
+                    wsl_distro=None,
+                    device_scope=False,
+                    scope="process_override",
+                ),
+            ),
+        ],
+    )
+    def test_unidentified_artifact_gates_its_surface_without_failing_run(
+        self,
+        category,
+        surface,
+        artifact,
+    ):
+        client = mock.MagicMock()
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+        scan_result = _submission_scan_result()
+        setattr(scan_result, f"{category}s", [artifact])
+
+        submission = submit_scan_results(client, scan_result)
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+        }
+        assert entries[(category, surface)]["complete"] is False
+        assert entries[(category, surface)]["reason"] == (
+            f"{category}_identifier_missing"
+        )
+        identifier_missing_surfaces = {
+            entry["surface"]
+            for entry in entries.values()
+            if entry["category"] == category
+            and entry.get("reason") == f"{category}_identifier_missing"
+        }
+        assert identifier_missing_surfaces == {surface}
+        assert submission.exit_code == 0
+
+    def test_failed_empty_shared_upload_makes_mcp_and_client_incomplete(self):
+        client = mock.MagicMock()
+        request = httpx.Request("POST", "https://example.com")
+        client.submit_mcp_watch_scan.side_effect = httpx.ConnectError(
+            "down",
+            request=request,
+        )
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+        scan_result = _submission_scan_result(
+            container_scan_requested=True,
+            containers_scanned=True,
+        )
+
+        submission = submit_scan_results(client, scan_result)
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+        }
+        assert entries[("mcp", "host_static")]["reason"] == "submission_failed"
+        assert entries[("mcp", "container")]["reason"] == "submission_failed"
+        assert entries[("client", "host_static")]["reason"] == "submission_failed"
+        assert submission.category_outcomes["mcp"] == "failed"
+        assert submission.category_outcomes["client"] == "failed"
+        assert submission.failed_submissions == ["scan inventory"]
+        assert submission.exit_code == EXIT_SUBMIT_FAILED
+
+    def test_runtime_agent_uses_shared_scan_outcome_not_static_agent_outcome(self):
+        client = mock.MagicMock()
+        request = httpx.Request("POST", "https://example.com")
+        client.submit_agents.return_value = {"agents_processed": 1}
+        client.submit_mcp_watch_scan.side_effect = httpx.ConnectError(
+            "down",
+            request=request,
+        )
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+
+        submission = submit_scan_results(
+            client,
+            _submission_scan_result(
+                agents=1,
+                processes=1,
+                process_scan_requested=True,
+                processes_scanned=True,
+            ),
+        )
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+        }
+        assert entries[("agent", "host_static")]["complete"] is True
+        assert entries[("agent", "host_runtime")] == {
+            "category": "agent",
+            "surface": "host_runtime",
+            "complete": False,
+            "reason": "submission_failed",
+        }
+        assert submission.failed_submissions == ["servers"]
+
+    def test_backend_partial_surface_failure_gates_only_reported_surface(self):
+        client = mock.MagicMock()
+        client.submit_mcp_watch_scan.return_value = {
+            "servers_processed": 1,
+            "incomplete_surfaces": [
+                {
+                    "category": "mcp",
+                    "surface": "container",
+                    "reason": "container_inventory_ingest_failed",
+                }
+            ],
+        }
+        client.submit_scan_manifest.side_effect = httpx.ConnectError(
+            "manifest down",
+            request=httpx.Request("POST", "https://example.com/manifest"),
+        )
+
+        submission = submit_scan_results(
+            client,
+            _submission_scan_result(
+                servers=1,
+                container_scan_requested=True,
+                containers_scanned=True,
+            ),
+        )
+
+        payload = client.submit_scan_manifest.call_args.args[0]
+        entries = {
+            (entry["category"], entry["surface"]): entry for entry in payload["entries"]
+        }
+        assert entries[("mcp", "host_static")]["complete"] is True
+        assert entries[("mcp", "container")] == {
+            "category": "mcp",
+            "surface": "container",
+            "complete": False,
+            "reason": "container_inventory_ingest_failed",
+        }
+        assert submission.failed_submissions == ["servers", "scan manifest"]
+        assert submission.incomplete_surfaces[("mcp", "container")] == (
+            "container_inventory_ingest_failed"
+        )
+
+    def test_container_image_backend_failure_is_nonzero_and_gates_container(self):
+        client = mock.MagicMock()
+        client.submit_mcp_watch_scan.return_value = {
+            "servers_processed": 1,
+            "incomplete_surfaces": [
+                {
+                    "category": "mcp",
+                    "surface": "container",
+                    "reason": "container_image_inventory_ingest_failed",
+                }
+            ],
+        }
+        client.submit_scan_manifest.return_value = {"reconciled": 1}
+
+        submission = submit_scan_results(
+            client,
+            _submission_scan_result(
+                servers=1,
+                container_scan_requested=True,
+                containers_scanned=True,
+            ),
+        )
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+        }
+        assert entries[("mcp", "host_static")]["complete"] is True
+        assert entries[("mcp", "container")] == {
+            "category": "mcp",
+            "surface": "container",
+            "complete": False,
+            "reason": "container_image_inventory_ingest_failed",
+        }
+        assert submission.failed_submissions == ["servers"]
+        assert submission.exit_code == EXIT_SUBMIT_FAILED
+
+    def test_plugins_submit_before_plugin_dependents_and_manifest_is_last(self):
+        client = mock.MagicMock()
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+        order: list[str] = []
+
+        def submit_plugins(*_args, **_kwargs):
+            order.append("plugins")
+            return "success"
+
+        def submit_servers(*_args, **_kwargs):
+            order.append("servers")
+            return ServerSubmission(status="success", response={"servers_processed": 1})
+
+        def submit_skills(*_args, **_kwargs):
+            order.append("skills")
+            return "success"
+
+        with (
+            mock.patch(
+                "runlayer_cli.scan.service.submit_discovered_plugins",
+                side_effect=submit_plugins,
+            ),
+            mock.patch(
+                "runlayer_cli.scan.service.submit_discovered_servers",
+                side_effect=submit_servers,
+            ),
+            mock.patch(
+                "runlayer_cli.scan.service.submit_discovered_skills",
+                side_effect=submit_skills,
+            ),
+        ):
+            submit_scan_results(
+                client,
+                _submission_scan_result(servers=1, skills=1, plugins=1),
+            )
+
+        assert order == ["plugins", "servers", "skills"]
+        assert client.method_calls[-1][0] == "submit_scan_manifest"
+
+    def test_disabled_authority_surfaces_are_incomplete(self):
+        client = mock.MagicMock()
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+
+        submit_scan_results(
+            client,
+            _submission_scan_result(
+                machine_scope=False,
+                process_scan_requested=False,
+                container_scan_requested=False,
+                wsl_scanned=False,
+            ),
+        )
+
+        entries = {
+            (entry["category"], entry["surface"]): entry
+            for entry in client.submit_scan_manifest.call_args.args[0]["entries"]
+        }
+        assert entries[("plugin", "device")]["complete"] is False
+        assert entries[("mcp", "container")]["complete"] is False
+        assert entries[("mcp", "wsl")]["complete"] is False
+        assert entries[("mcp", "host_runtime")]["complete"] is False
+
+    def test_unsupported_manifest_is_fail_open_but_transport_failure_is_reported(self):
+        unsupported_client = mock.MagicMock()
+        unsupported_client.submit_scan_manifest.return_value = {"unsupported": True}
+
+        unsupported = submit_scan_results(
+            unsupported_client,
+            _submission_scan_result(),
+        )
+
+        assert unsupported.failed_submissions == []
+        assert "Scan Absence Reconciliation" not in unsupported.unsupported
+        assert unsupported.exit_code == 0
+
+        failed_client = mock.MagicMock()
+        request = httpx.Request("POST", "https://example.com")
+        failed_client.submit_scan_manifest.side_effect = httpx.ConnectError(
+            "down",
+            request=request,
+        )
+
+        failed = submit_scan_results(failed_client, _submission_scan_result())
+
+        assert failed.failed_submissions == ["scan manifest"]
+        assert failed.exit_code == EXIT_SUBMIT_FAILED
 
     def test_all_success_records_response(self):
         client = mock.MagicMock()
@@ -3861,6 +7250,16 @@ class TestSubmitScanResults:
 
         assert submission.unsupported == ["Shadow MCP Detection"]
         assert submission.response is None
+        assert submission.exit_code == EXIT_UNSUPPORTED
+
+    def test_empty_inventory_unsupported_response_exits_unsupported(self):
+        client = mock.MagicMock()
+        client.submit_mcp_watch_scan.return_value = {"unsupported": True}
+        scan_result = _submission_scan_result(container_scan_requested=True)
+
+        submission = submit_scan_results(client, scan_result)
+
+        assert submission.unsupported == ["Scan Inventory"]
         assert submission.exit_code == EXIT_UNSUPPORTED
 
     def test_agent_definition_unsupported_response_is_bucketed(self):
@@ -3938,6 +7337,22 @@ class TestSubmitScanResults:
         client.submit_mcp_watch_scan.assert_called_once()
         assert submission.exit_code == 0
 
+    def test_failed_requested_container_inventory_submits(self):
+        client = mock.MagicMock()
+        client.submit_mcp_watch_scan.return_value = {
+            "servers_processed": 0,
+            "shadow_servers_found": 0,
+            "managed_servers_matched": 0,
+        }
+
+        submission = submit_scan_results(
+            client,
+            _submission_scan_result(container_scan_requested=True),
+        )
+
+        client.submit_mcp_watch_scan.assert_called_once()
+        assert submission.exit_code == 0
+
     @pytest.mark.parametrize(
         "inventory_flag",
         ["stopped_containers_scanned", "container_images_scanned"],
@@ -3986,6 +7401,198 @@ class TestSubmitScanResults:
 
         client.submit_mcp_watch_scan.assert_not_called()
         assert submission.response is None
+
+    def test_failed_skill_submit_skips_presence_reconcile(self, tmp_path):
+        from runlayer_cli.scan.skill_scanner import (
+            ARTIFACT_SKILL_MD,
+            DiscoveredSkillArtifact,
+            SkillFile,
+        )
+
+        state_path = tmp_path / "presence.json"
+        previous = build_state(
+            SkillPresenceParams(project_depth=7, home="/home/alice"),
+            project_paths=("/project/removed",),
+        )
+        assert save_state(previous, state_path)
+        client = mock.MagicMock()
+        client.submit_skill_fingerprints.return_value = {"unsupported": True}
+        client.submit_skill_fingerprint.return_value = {"known": False}
+        client.submit_skill.side_effect = httpx.ConnectError(
+            "down",
+            request=httpx.Request("POST", "https://example.com/skills"),
+        )
+        client.submit_scan_manifest.return_value = {"reconciled": 0}
+        scan_result = _submission_scan_result(skill_crawl_complete=True)
+        scan_result.skills = [
+            DiscoveredSkillArtifact(
+                name="failed-skill",
+                path="/project/failed-skill",
+                artifact_type=ARTIFACT_SKILL_MD,
+                scope="project",
+                tool="multi",
+                identifier="failed-skill",
+                files=[SkillFile(title="SKILL.md", content="# failed")],
+            )
+        ]
+        real_reconcile = reconcile_skill_presence
+
+        with mock.patch(
+            "runlayer_cli.scan.service.reconcile_skill_presence",
+            side_effect=lambda api_client, result: real_reconcile(
+                api_client,
+                result,
+                state_path=state_path,
+            ),
+        ) as reconcile_mock:
+            submission = submit_scan_results(client, scan_result)
+
+        # A failed skill POST is collected per-surface rather than failing the
+        # whole submit, but presence must not advance the baseline or emit
+        # removals for a scan the server never fully received.
+        reconcile_mock.assert_not_called()
+        client.submit_skill_removals.assert_not_called()
+        assert load_state(state_path) == previous
+        assert submission.failed_submissions == ["skills"]
+        assert submission.exit_code == EXIT_SUBMIT_FAILED
+
+    def test_removals_reconcile_when_current_skills_are_empty(self, tmp_path):
+        state_path = tmp_path / "presence.json"
+        previous = build_state(
+            SkillPresenceParams(project_depth=7, home="/home/alice"),
+            project_paths=("/project/removed",),
+        )
+        assert save_state(previous, state_path)
+        client = mock.MagicMock()
+        client.submit_skill_removals.return_value = {"removed": 1}
+        scan_result = _submission_scan_result(skill_crawl_complete=True)
+        real_reconcile = reconcile_skill_presence
+
+        with mock.patch(
+            "runlayer_cli.scan.service.reconcile_skill_presence",
+            side_effect=lambda api_client, result: real_reconcile(
+                api_client,
+                result,
+                state_path=state_path,
+            ),
+        ) as reconcile_mock:
+            submission = submit_scan_results(client, scan_result)
+
+        reconcile_mock.assert_called_once_with(client, scan_result)
+        client.submit_skill_removals.assert_called_once()
+        assert load_state(state_path) == _expected_presence_state(scan_result)
+        assert submission.unsupported == []
+        assert submission.failed_submissions == []
+
+    def test_removal_404_keeps_state_and_is_not_unsupported(self, tmp_path):
+        state_path = tmp_path / "presence.json"
+        previous = build_state(
+            SkillPresenceParams(project_depth=7, home="/home/alice"),
+            global_paths=("/global/removed",),
+        )
+        assert save_state(previous, state_path)
+        client = mock.MagicMock()
+        client.submit_skill_removals.return_value = {"unsupported": True}
+        scan_result = _submission_scan_result(skill_crawl_complete=True)
+        real_reconcile = reconcile_skill_presence
+
+        with mock.patch(
+            "runlayer_cli.scan.service.reconcile_skill_presence",
+            side_effect=lambda api_client, result: real_reconcile(
+                api_client,
+                result,
+                state_path=state_path,
+            ),
+        ):
+            submission = submit_scan_results(client, scan_result)
+
+        assert load_state(state_path) == previous
+        assert submission.unsupported == []
+        assert submission.failed_submissions == []
+        assert submission.exit_code == 0
+
+    def test_removal_failure_keeps_state_and_marks_failed(self, tmp_path):
+        state_path = tmp_path / "presence.json"
+        previous = build_state(
+            SkillPresenceParams(project_depth=7, home="/home/alice"),
+            global_paths=("/global/removed",),
+        )
+        assert save_state(previous, state_path)
+        client = mock.MagicMock()
+        client.submit_skill_removals.side_effect = RuntimeError("network down")
+        scan_result = _submission_scan_result(skill_crawl_complete=True)
+        real_reconcile = reconcile_skill_presence
+
+        with mock.patch(
+            "runlayer_cli.scan.service.reconcile_skill_presence",
+            side_effect=lambda api_client, result: real_reconcile(
+                api_client,
+                result,
+                state_path=state_path,
+            ),
+        ):
+            submission = submit_scan_results(client, scan_result)
+
+        assert load_state(state_path) == previous
+        assert submission.failed_submissions == ["skill removals"]
+        assert submission.exit_code == EXIT_SUBMIT_FAILED
+
+    @pytest.mark.parametrize(
+        ("skill_status", "expected_unsupported", "expected_failed"),
+        [
+            ("unsupported", ["Shadow Skill Detection"], []),
+            ("failed", [], ["skills"]),
+        ],
+    )
+    def test_skill_submit_failure_suppresses_presence_reconciliation(
+        self,
+        skill_status,
+        expected_unsupported,
+        expected_failed,
+    ):
+        client = mock.MagicMock()
+        scan_result = _submission_scan_result(
+            skills=1,
+            skill_crawl_complete=True,
+            project_skill_candidate_paths=("/project/current",),
+        )
+
+        with (
+            mock.patch(
+                "runlayer_cli.scan.service.submit_discovered_skills",
+                return_value=skill_status,
+            ),
+            mock.patch(
+                "runlayer_cli.scan.service.reconcile_skill_presence"
+            ) as reconcile_mock,
+        ):
+            submission = submit_scan_results(client, scan_result)
+
+        reconcile_mock.assert_not_called()
+        assert submission.unsupported == expected_unsupported
+        assert submission.failed_submissions == expected_failed
+
+    def test_successful_skill_submit_attempts_presence_reconciliation(self):
+        client = mock.MagicMock()
+        scan_result = _submission_scan_result(
+            skills=1,
+            skill_crawl_complete=True,
+            project_skill_candidate_paths=("/project/current",),
+        )
+
+        with (
+            mock.patch(
+                "runlayer_cli.scan.service.submit_discovered_skills",
+                return_value="success",
+            ),
+            mock.patch(
+                "runlayer_cli.scan.service.reconcile_skill_presence",
+                return_value="success",
+            ) as reconcile_mock,
+        ):
+            submit_scan_results(client, scan_result)
+
+        reconcile_mock.assert_called_once_with(client, scan_result)
 
     def test_skills_unsupported_bucketed(self):
         client = mock.MagicMock()
@@ -4130,3 +7737,426 @@ class TestSubmitScanResults:
 
         with pytest.raises(httpx.HTTPStatusError):
             submit_scan_results(client, scan_result)
+
+
+class TestPresenceGatedFilterRespectsProbeCompleteness:
+    """Absence of presence evidence is not evidence of absence (ISS-23).
+
+    When the install probes did not run to completion, dropping shared-path
+    project configs (``.mcp.json`` for github_copilot_cli) silently loses real
+    findings. The gate must only fire on a complete presence scan.
+    """
+
+    @staticmethod
+    def _copilot_project_config() -> MCPClientConfig:
+        return MCPClientConfig(
+            client="github_copilot_cli",
+            config_path="/work/app/.mcp.json",
+            config_modified_at=None,
+            servers=[MCPServerConfig(name="s", type="stdio", command="echo")],
+            config_scope="project",
+            project_path="/work/app",
+        )
+
+    def test_gate_drops_when_presence_scan_complete(self):
+        status = ScanCompletionStatus()
+        result = scan_service._filter_presence_gated_project_configurations(
+            [self._copilot_project_config()],
+            clients=get_all_clients(),
+            probed_clients=[],
+            presence_status=status,
+        )
+        assert result == []
+
+    def test_gate_is_skipped_when_presence_scan_incomplete(self):
+        status = ScanCompletionStatus()
+        status.mark_incomplete("client_presence_scan_failed")
+        config = self._copilot_project_config()
+        result = scan_service._filter_presence_gated_project_configurations(
+            [config],
+            clients=get_all_clients(),
+            probed_clients=[],
+            presence_status=status,
+        )
+        assert result == [config]
+
+
+class TestAssemblyStepsAreBestEffort:
+    """A bug in one post-phase assembly step must not lose the whole scan (ISS-11).
+
+    The phases are individually best-effort, but the dedupe / attribution /
+    presence-merge steps that stitch their results together ran unguarded in
+    ``scan_all_clients``; one exception there raised out of the scan and the
+    device reported nothing.
+    """
+
+    @staticmethod
+    def _run_with_failing_step(monkeypatch, step: str):
+        claude = get_client_by_name("claude_code")
+        assert claude is not None
+        configurations = [
+            MCPClientConfig(
+                client=claude.name,
+                config_path="/home/u/.claude.json",
+                config_scope="global",
+                servers=[MCPServerConfig(name="s", type="stdio", command="echo")],
+            )
+        ]
+        monkeypatch.setattr(scan_service, "get_all_clients", lambda: [claude])
+        monkeypatch.setattr(
+            scan_service,
+            "run_concurrent_scan_phases",
+            lambda **_kwargs: scan_orchestrator.ConcurrentScanResult(
+                configurations=configurations
+            ),
+        )
+        monkeypatch.setattr(
+            scan_service, "detect_client_presence", lambda _clients, **_kwargs: []
+        )
+
+        def explode(*_args, **_kwargs):
+            raise RuntimeError(f"{step} bug")
+
+        monkeypatch.setattr(scan_service, step, explode)
+        return scan_all_clients(
+            device_id="device", scan_projects=False, governor=mock.MagicMock()
+        )
+
+    @pytest.mark.parametrize(
+        ("step", "surface"),
+        [
+            ("_attribute_wsl_artifacts", "mcp_host_static"),
+            ("_dedupe_path_configurations", "mcp_host_static"),
+            ("dedupe_host_container_configurations", "mcp_host_static"),
+            ("strip_duplicate_skill_files", "skill_host_static"),
+            ("dedupe_agent_definitions", "agent_definition_host_static"),
+            ("_filter_presence_gated_project_configurations", "mcp_host_static"),
+        ],
+    )
+    def test_failing_step_keeps_configurations_and_marks_incomplete(
+        self, monkeypatch, step, surface
+    ):
+        result = self._run_with_failing_step(monkeypatch, step)
+
+        assert [config.client for config in result.configurations] == ["claude_code"]
+        status = getattr(result.completeness, surface)
+        assert "assembly_step_failed" in status.reasons
+
+    def test_failing_presence_merge_keeps_probed_clients(self, monkeypatch):
+        result = self._run_with_failing_step(monkeypatch, "merge_client_presence")
+
+        assert [config.client for config in result.configurations] == ["claude_code"]
+        assert "assembly_step_failed" in result.completeness.client_presence.reasons
+
+
+class _LatchedGovernor:
+    """Fake governor with the real one's sticky abort latch."""
+
+    cpu_cores = 2
+
+    def __init__(self, *, tripped: bool = False, reason: str = "over budget"):
+        self.tripped = tripped
+        self.reason = reason
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_exc):
+        return False
+
+    def trip(self) -> None:
+        self.tripped = True
+
+    def checkpoint(self) -> None:
+        if self.tripped:
+            raise scan_service.ScanResourceLimitExceeded(self.reason)
+
+
+class TestGovernorAbortKeepsPartialResults:
+    """A resource-cap abort must upload what was found, not discard it (ISS-09).
+
+    The governor's abort latch is sticky: once one phase trips it, every later
+    checkpoint raises. Before, the first raise escaped ``scan_all_clients`` and
+    the device reported nothing; now each phase past the trip falls through to
+    its incomplete default (``resource_limit_exceeded``) and the assembled
+    partial manifest is returned for upload with absence authority withheld.
+    """
+
+    @staticmethod
+    def _global_config() -> MCPClientConfig:
+        claude = get_client_by_name("claude_code")
+        assert claude is not None
+        return MCPClientConfig(
+            client=claude.name,
+            config_path="/home/u/.claude.json",
+            config_scope="global",
+            servers=[MCPServerConfig(name="s", type="stdio", command="echo")],
+        )
+
+    def test_orchestrator_assembles_phases_finished_before_the_trip(self, monkeypatch):
+        TestConcurrentScanPhases._stub_empty_phases(monkeypatch)
+        governor = _LatchedGovernor()
+        global_config = self._global_config()
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "_scan_global_configurations",
+            lambda *_a, **_k: scan_orchestrator.GlobalPhaseResult(
+                configurations=[global_config]
+            ),
+        )
+
+        def crawl_trips_the_cap(**_kwargs):
+            governor.trip()
+            governor.checkpoint()
+            raise AssertionError("unreachable")
+
+        monkeypatch.setattr(
+            scan_orchestrator, "_scan_project_phase", crawl_trips_the_cap
+        )
+
+        result = scan_orchestrator.run_concurrent_scan_phases(
+            clients=[],
+            governor=governor,
+            timer=PhaseTimer(),
+            scan_projects=True,
+            project_scan_timeout=60,
+            project_scan_depth=7,
+            detect_agents=True,
+            run_static_agents=True,
+        )
+
+        assert [config.client for config in result.configurations] == ["claude_code"]
+        assert result.resource_limit_exceeded == "over budget"
+        assert "resource_limit_exceeded" in result.completeness.mcp_host_static.reasons
+        assert (
+            "resource_limit_exceeded" in result.completeness.agent_host_static.reasons
+        )
+
+    def test_plugin_phase_abort_withholds_device_plugin_authority(self, monkeypatch):
+        """The device plugin scan runs inside phase 10; an abort there covers it.
+
+        The abort stamped ``plugin_artifacts`` only, and the bridge into
+        ``plugin_device`` copied just the crash reason, so an aborted
+        machine-scope scan still claimed device-plugin absence authority.
+        """
+        TestConcurrentScanPhases._stub_empty_phases(monkeypatch)
+        governor = _LatchedGovernor()
+
+        def plugin_phase_trips_the_cap(**_kwargs):
+            governor.trip()
+            governor.checkpoint()
+            raise AssertionError("unreachable")
+
+        monkeypatch.setattr(
+            scan_orchestrator, "_scan_plugin_artifact_phase", plugin_phase_trips_the_cap
+        )
+
+        result = scan_orchestrator.run_concurrent_scan_phases(
+            clients=[],
+            governor=governor,
+            timer=PhaseTimer(),
+            scan_projects=False,
+            project_scan_timeout=60,
+            project_scan_depth=7,
+            detect_agents=False,
+            run_static_agents=False,
+            machine_scope=True,
+        )
+
+        assert result.resource_limit_exceeded == "over budget"
+        assert "resource_limit_exceeded" in result.completeness.plugin_device.reasons
+        assert result.completeness.plugin_device.complete is False
+
+    @staticmethod
+    def _record_finalizers(monkeypatch) -> list[str]:
+        calls: list[str] = []
+        for name in ("finalize_skill_scan_state", "finalize_plugin_scan_state"):
+            monkeypatch.setattr(
+                scan_orchestrator,
+                name,
+                lambda *_a, _name=name, **_k: calls.append(_name),
+            )
+        return calls
+
+    @staticmethod
+    def _run_with_governor(governor):
+        return scan_orchestrator.run_concurrent_scan_phases(
+            clients=[],
+            governor=governor,
+            timer=PhaseTimer(),
+            scan_projects=False,
+            project_scan_timeout=60,
+            project_scan_depth=7,
+            detect_agents=False,
+            run_static_agents=False,
+            machine_scope=True,
+        )
+
+    def test_abort_skips_content_rotation_finalizers(self, monkeypatch):
+        """An aborted scan must not advance the skill/plugin content cursors.
+
+        The finalizers persist ``offset + admitted`` after a capped run. A
+        skill or plugin phase can admit content and then abort, returning its
+        empty default, so that content never reaches the partial manifest;
+        advancing the cursor past it would skip that slice on the next run.
+        """
+        TestConcurrentScanPhases._stub_empty_phases(monkeypatch)
+        calls = self._record_finalizers(monkeypatch)
+        governor = _LatchedGovernor()
+
+        def plugin_phase_trips_the_cap(**_kwargs):
+            governor.trip()
+            governor.checkpoint()
+            raise AssertionError("unreachable")
+
+        monkeypatch.setattr(
+            scan_orchestrator, "_scan_plugin_artifact_phase", plugin_phase_trips_the_cap
+        )
+
+        result = self._run_with_governor(governor)
+
+        assert result.resource_limit_exceeded == "over budget"
+        assert calls == []
+
+    def test_clean_run_still_advances_content_rotation(self, monkeypatch):
+        TestConcurrentScanPhases._stub_empty_phases(monkeypatch)
+        calls = self._record_finalizers(monkeypatch)
+
+        result = self._run_with_governor(_LatchedGovernor())
+
+        assert result.resource_limit_exceeded is None
+        assert calls == ["finalize_skill_scan_state", "finalize_plugin_scan_state"]
+
+    @staticmethod
+    def _run_agent_phases(monkeypatch, governor, *, discover_agents):
+        TestConcurrentScanPhases._stub_empty_phases(monkeypatch)
+        monkeypatch.setattr(
+            scan_orchestrator,
+            "_scan_project_phase",
+            lambda **_kwargs: scan_orchestrator.ProjectPhaseResult(),
+        )
+        monkeypatch.setattr(scan_orchestrator, "discover_agents", discover_agents)
+        return scan_orchestrator.run_concurrent_scan_phases(
+            clients=[],
+            governor=governor,
+            timer=PhaseTimer(),
+            scan_projects=True,
+            project_scan_timeout=60,
+            project_scan_depth=7,
+            detect_agents=True,
+            run_static_agents=True,
+        )
+
+    def test_agent_phase_abort_is_stamped_resource_limit_exceeded(self, monkeypatch):
+        """The agent surface carries the abort reason, like every other surface.
+
+        The agent phases used to pass a throwaway status and an already-marked
+        default, so a cap tripping *inside* them (after the crawl finished)
+        stamped ``agent_static_scan_failed`` on ``agent_host_static`` instead.
+        """
+        governor = _LatchedGovernor()
+
+        def agents_trip_the_cap(**kwargs):
+            if kwargs.get("detect_static"):
+                governor.trip()
+                governor.checkpoint()
+            return AgentScanResult()
+
+        result = self._run_agent_phases(
+            monkeypatch, governor, discover_agents=agents_trip_the_cap
+        )
+
+        assert result.resource_limit_exceeded == "over budget"
+        assert result.completeness.agent_host_static.reasons == [
+            "resource_limit_exceeded"
+        ]
+
+    def test_agent_phase_crash_keeps_its_phase_reason(self, monkeypatch):
+        def install_probe_crashes(**kwargs):
+            if kwargs.get("detect_install"):
+                raise RuntimeError("probe blew up")
+            return AgentScanResult()
+
+        result = self._run_agent_phases(
+            monkeypatch,
+            SimpleNamespace(cpu_cores=2, checkpoint=lambda: None),
+            discover_agents=install_probe_crashes,
+        )
+
+        assert result.resource_limit_exceeded is None
+        assert result.completeness.agent_host_static.reasons == [
+            "agent_install_scan_failed"
+        ]
+
+    def test_service_returns_partial_result_when_later_phases_abort(self, monkeypatch):
+        global_config = self._global_config()
+        claude = get_client_by_name("claude_code")
+        monkeypatch.setattr(scan_service, "get_all_clients", lambda: [claude])
+        monkeypatch.setattr(
+            scan_service,
+            "run_concurrent_scan_phases",
+            lambda **_kwargs: scan_orchestrator.ConcurrentScanResult(
+                configurations=[global_config]
+            ),
+        )
+        monkeypatch.setattr(
+            scan_service,
+            "detect_client_presence",
+            lambda *_a, **_k: pytest.fail("presence probe must not run after abort"),
+        )
+        monkeypatch.setattr(
+            scan_service,
+            "discover_processes",
+            lambda *_a, **_k: pytest.fail("process scan must not run after abort"),
+        )
+
+        result = scan_all_clients(
+            device_id="device",
+            scan_projects=False,
+            detect_processes=True,
+            governor=_LatchedGovernor(tripped=True, reason="memory cap hit"),
+        )
+
+        assert [config.client for config in result.configurations] == ["claude_code"]
+        assert result.resource_limit_exceeded == "memory cap hit"
+        assert result.client_discovery_complete is False
+        assert "resource_limit_exceeded" in result.completeness.runtime.reasons
+        assert "resource_limit_exceeded" in result.completeness.client_presence.reasons
+
+    def test_presence_probe_abort_keeps_presence_gated_project_configs(
+        self, monkeypatch
+    ):
+        """An aborted probe is not a complete "nothing installed" answer.
+
+        Phase 14 falls back to an empty probe list on abort. The presence gate
+        must see that scan as incomplete, or the shared-path project config
+        (``.mcp.json`` for github_copilot_cli) is dropped from the partial upload.
+        """
+        gated = (
+            TestPresenceGatedFilterRespectsProbeCompleteness._copilot_project_config()
+        )
+        copilot = get_client_by_name("github_copilot_cli")
+        monkeypatch.setattr(scan_service, "get_all_clients", lambda: [copilot])
+        monkeypatch.setattr(
+            scan_service,
+            "run_concurrent_scan_phases",
+            lambda **_kwargs: scan_orchestrator.ConcurrentScanResult(
+                configurations=[gated]
+            ),
+        )
+        governor = _LatchedGovernor(reason="memory cap hit")
+
+        def probe_trips_the_cap(*_a, **_k):
+            governor.trip()
+            governor.checkpoint()
+            raise AssertionError("unreachable")
+
+        monkeypatch.setattr(scan_service, "detect_client_presence", probe_trips_the_cap)
+
+        result = scan_all_clients(
+            device_id="device", scan_projects=False, governor=governor
+        )
+
+        assert result.configurations == [gated]
+        assert result.resource_limit_exceeded == "memory cap hit"
+        assert result.client_discovery_complete is False

@@ -1,4 +1,4 @@
-"""Bounded Docker Engine API access over the local Unix socket."""
+"""Bounded Docker Engine API access over local Unix and Windows transports."""
 
 from __future__ import annotations
 
@@ -19,6 +19,7 @@ from runlayer_cli.scan.containers.docker_cli import (
     MAX_DOCKER_CP_ARCHIVE_BYTES,
     MAX_IMAGE_LIST_BYTES,
     MAX_INSPECT_BYTES,
+    _docker_copy_path_absent,
 )
 from runlayer_cli.scan.containers.inspect_parse import (
     MAX_CONTAINERS,
@@ -39,9 +40,17 @@ from runlayer_cli.scan.containers.tar_walk import (
     _TarWalkResult,
     _walk_tar_stream,
 )
+from runlayer_cli.scan.containers.windows_named_pipe import (
+    _WindowsNamedPipeHTTPConnection,
+    _windows_named_pipe_available,
+)
+from runlayer_cli.scan.containers.collector import FileCopyResult
+from runlayer_cli.safe_parse import parse_json
 
 DOCKER_SOCKET_PATH = "/var/run/docker.sock"
+WINDOWS_DOCKER_PIPE = r"\\.\pipe\docker_engine"
 _READ_CHUNK_BYTES = 64 * 1024
+_MAX_ENGINE_ERROR_BYTES = 8 * 1024
 
 # Engine API ``/containers/json`` summaries are far fatter than
 # ``docker ps --format`` lines (they embed Mounts, NetworkSettings, and Ports),
@@ -86,14 +95,38 @@ class _UnixHTTPConnection(http.client.HTTPConnection):
         self.sock = sock
 
 
+def _http_connection_for_endpoint(
+    endpoint: str,
+    *,
+    timeout: float,
+    deadline: float,
+) -> http.client.HTTPConnection:
+    if endpoint.casefold().startswith("\\\\.\\pipe\\"):
+        return _WindowsNamedPipeHTTPConnection(
+            endpoint,
+            timeout=timeout,
+            deadline=deadline,
+        )
+    return _UnixHTTPConnection(endpoint, timeout=timeout)
+
+
 @dataclass
 class _OpenResponse:
-    connection: _UnixHTTPConnection
+    connection: http.client.HTTPConnection
     response: http.client.HTTPResponse
 
     def close(self) -> None:
-        self.response.close()
-        self.connection.close()
+        try:
+            self.response.close()
+        finally:
+            self.connection.close()
+
+
+@dataclass
+class _OpenGetResult:
+    opened: _OpenResponse | None
+    status: int | None
+    error_body: bytes | None = None
 
 
 class _DeadlineResponseStream(io.RawIOBase):
@@ -122,8 +155,13 @@ class _DeadlineResponseStream(io.RawIOBase):
 
 
 def find_docker_socket() -> str | None:
-    """Return the readable local Docker socket on supported Linux hosts."""
-    if platform.system() != "Linux" or not hasattr(socket, "AF_UNIX"):
+    """Return a reachable local Docker Engine endpoint."""
+    system = platform.system()
+    if system == "Windows":
+        if _windows_named_pipe_available(WINDOWS_DOCKER_PIPE):
+            return WINDOWS_DOCKER_PIPE
+        return None
+    if system != "Linux" or not hasattr(socket, "AF_UNIX"):
         return None
     try:
         socket_stat = os.stat(DOCKER_SOCKET_PATH)
@@ -161,28 +199,78 @@ class DockerSocketClient:
         return min(deadline, time.monotonic() + self._request_timeout)
 
     def _open_get(self, path: str, *, deadline: float) -> _OpenResponse | None:
+        return self._open_get_with_status(path, deadline=deadline).opened
+
+    def _open_get_with_status(
+        self,
+        path: str,
+        *,
+        deadline: float,
+    ) -> _OpenGetResult:
         timeout = self._next_timeout(deadline)
         if timeout is None:
-            return None
-        connection = _UnixHTTPConnection(self._socket_path, timeout=timeout)
+            return _OpenGetResult(opened=None, status=None)
+        connection = _http_connection_for_endpoint(
+            self._socket_path,
+            timeout=timeout,
+            deadline=deadline,
+        )
         try:
             connection.request("GET", path)
             response = connection.getresponse()
         except (OSError, ValueError, http.client.HTTPException):
             connection.close()
-            return None
-        if response.status != http.client.OK:
-            response.close()
-            connection.close()
-            return None
-        return _OpenResponse(connection=connection, response=response)
+            return _OpenGetResult(opened=None, status=None)
+        opened = _OpenResponse(connection=connection, response=response)
+        if response.status == http.client.OK:
+            return _OpenGetResult(opened=opened, status=response.status)
+
+        error_body = None
+        try:
+            if response.status == http.client.NOT_FOUND:
+                error_body = self._read_error_body(opened, deadline=deadline)
+        finally:
+            opened.close()
+        return _OpenGetResult(
+            opened=None,
+            status=response.status,
+            error_body=error_body,
+        )
 
     def _refresh_timeout(self, opened: _OpenResponse, *, deadline: float) -> None:
         timeout = self._next_timeout(deadline)
         if timeout is None:
             raise TimeoutError
         if opened.connection.sock is not None:
+            set_deadline = getattr(opened.connection.sock, "set_deadline", None)
+            if callable(set_deadline):
+                set_deadline(deadline)
             opened.connection.sock.settimeout(timeout)
+
+    def _read_error_body(
+        self,
+        opened: _OpenResponse,
+        *,
+        deadline: float,
+    ) -> bytes | None:
+        output = bytearray()
+        try:
+            while True:
+                self._refresh_timeout(opened, deadline=deadline)
+                read_size = min(
+                    _READ_CHUNK_BYTES,
+                    _MAX_ENGINE_ERROR_BYTES - len(output) + 1,
+                )
+                chunk = opened.response.read(read_size)
+                if not isinstance(chunk, bytes):
+                    return None
+                if not chunk:
+                    return bytes(output)
+                output.extend(chunk)
+                if len(output) > _MAX_ENGINE_ERROR_BYTES:
+                    return None
+        except (OSError, ValueError, http.client.HTTPException):
+            return None
 
     def _get(self, path: str, *, deadline: float, max_bytes: int) -> bytes | None:
         request_deadline = self._request_deadline(deadline)
@@ -223,6 +311,24 @@ class DockerSocketClient:
     def _archive_path(container_id: str, path: str) -> str:
         query = urlencode({"path": path})
         return f"/containers/{quote(container_id, safe='')}/archive?{query}"
+
+    @staticmethod
+    def _archive_path_absent(error_body: bytes | None) -> bool:
+        if error_body is None:
+            return False
+        text = DockerSocketClient._decode(error_body)
+        if text is None:
+            return False
+        outcome = parse_json(text)
+        if outcome["error"] is not None:
+            return False
+        error = outcome["value"]
+        if not isinstance(error, dict):
+            return False
+        message = error.get("message")
+        if not isinstance(message, str):
+            return False
+        return _docker_copy_path_absent(message.encode())
 
     @staticmethod
     def _inventory_path() -> str:
@@ -291,10 +397,10 @@ class DockerSocketClient:
             text = self._decode(output)
             if text is None:
                 return None
-            try:
-                row = json.loads(text)
-            except (TypeError, ValueError):
+            outcome = parse_json(text)
+            if outcome["error"] is not None:
                 return None
+            row = outcome["value"]
             if not isinstance(row, dict):
                 return None
             rows.append(row)
@@ -465,12 +571,53 @@ class DockerSocketClient:
         path: str,
         deadline: float,
         max_bytes: int = MAX_DOCKER_CP_ARCHIVE_BYTES,
-    ) -> bytes | None:
-        return self._get(
+    ) -> FileCopyResult:
+        request_deadline = self._request_deadline(deadline)
+        open_result = self._open_get_with_status(
             self._archive_path(container_id, path),
-            deadline=deadline,
-            max_bytes=max_bytes,
+            deadline=request_deadline,
         )
+        opened = open_result.opened
+        if opened is None:
+            if (
+                open_result.status == http.client.NOT_FOUND
+                and self._archive_path_absent(open_result.error_body)
+            ):
+                return FileCopyResult(status="absent")
+            return FileCopyResult(
+                status="failed",
+                failure_reason=(
+                    "container_artifact_socket_transport_failed"
+                    if open_result.status is None
+                    else f"container_artifact_socket_http_{open_result.status}"
+                ),
+            )
+        output = bytearray()
+        try:
+            while True:
+                self._refresh_timeout(opened, deadline=request_deadline)
+                read_size = min(_READ_CHUNK_BYTES, max_bytes - len(output) + 1)
+                chunk = opened.response.read(read_size)
+                if not isinstance(chunk, bytes):
+                    return FileCopyResult(
+                        status="failed",
+                        failure_reason="container_artifact_socket_read_failed",
+                    )
+                if not chunk:
+                    return FileCopyResult(status="success", archive=bytes(output))
+                output.extend(chunk)
+                if len(output) > max_bytes:
+                    return FileCopyResult(
+                        status="failed",
+                        failure_reason="container_artifact_copy_limit_exceeded",
+                    )
+        except (OSError, http.client.HTTPException, TimeoutError):
+            return FileCopyResult(
+                status="failed",
+                failure_reason="container_artifact_socket_read_failed",
+            )
+        finally:
+            opened.close()
 
     def copy_tree(
         self,
@@ -485,12 +632,25 @@ class DockerSocketClient:
     ) -> _TarWalkResult:
         if time.monotonic() >= deadline:
             return _TarWalkResult(truncated=True)
-        opened = self._open_get(
+        request_deadline = self._request_deadline(deadline)
+        open_result = self._open_get_with_status(
             self._archive_path(container_id, root_path),
-            deadline=deadline,
+            deadline=request_deadline,
         )
+        opened = open_result.opened
         if opened is None:
-            return _TarWalkResult()
+            if (
+                open_result.status == http.client.NOT_FOUND
+                and self._archive_path_absent(open_result.error_body)
+            ):
+                return _TarWalkResult()
+            return _TarWalkResult(
+                failure_reason=(
+                    "container_artifact_socket_transport_failed"
+                    if open_result.status is None
+                    else f"container_artifact_socket_http_{open_result.status}"
+                )
+            )
 
         stream = _DeadlineResponseStream(self, opened, deadline=deadline)
         try:

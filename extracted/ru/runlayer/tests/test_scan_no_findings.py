@@ -75,6 +75,11 @@ def test_successful_empty_container_inventory_is_a_finding():
     assert _no_findings(_result(containers_scanned=True)) is False
 
 
+def test_failed_requested_container_inventory_is_a_finding():
+    """Negative authority and its health reason still require submission."""
+    assert _no_findings(_result(container_scan_requested=True)) is False
+
+
 def test_wsl_inventory_only_is_a_finding():
     distro = DiscoveredWSLDistro(name="Ubuntu", wsl_version=2, is_running=True)
 

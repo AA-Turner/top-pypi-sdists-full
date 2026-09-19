@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -19,7 +19,7 @@ class LocalClusteringCoefficientEndpoints:
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         mutate_property: str,
         concurrency: int | None = None,
@@ -52,7 +52,7 @@ class LocalClusteringCoefficientEndpoints:
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
         sudo
             Disable the memory guard.
-        triangle_count_property : str | None, default=None
+        triangle_count_property
             Property name for pre-computed triangle counts
         username
             As an administrator, impersonate a different user for accessing their graphs.
@@ -67,7 +67,7 @@ class LocalClusteringCoefficientEndpoints:
     @abstractmethod
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         job_id: str | None = None,
@@ -97,7 +97,7 @@ class LocalClusteringCoefficientEndpoints:
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
         sudo
             Disable the memory guard.
-        triangle_count_property : str | None, default=None
+        triangle_count_property
             Property name for pre-computed triangle counts
         username
             As an administrator, impersonate a different user for accessing their graphs.
@@ -112,7 +112,7 @@ class LocalClusteringCoefficientEndpoints:
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         job_id: str | None = None,
@@ -142,7 +142,7 @@ class LocalClusteringCoefficientEndpoints:
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
         sudo
             Disable the memory guard.
-        triangle_count_property : str | None, default=None
+        triangle_count_property
             Property name for pre-computed triangle counts
         username
             As an administrator, impersonate a different user for accessing their graphs.
@@ -157,7 +157,7 @@ class LocalClusteringCoefficientEndpoints:
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         write_property: str,
         concurrency: int | None = None,
@@ -191,7 +191,7 @@ class LocalClusteringCoefficientEndpoints:
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
         sudo
             Disable the memory guard.
-        triangle_count_property : str | None, default=None
+        triangle_count_property
             Property name for pre-computed triangle counts
         username
             As an administrator, impersonate a different user for accessing their graphs.
@@ -206,7 +206,7 @@ class LocalClusteringCoefficientEndpoints:
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         job_id: str | None = None,
@@ -236,7 +236,7 @@ class LocalClusteringCoefficientEndpoints:
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
         sudo
             Disable the memory guard.
-        triangle_count_property : str | None, default=None
+        triangle_count_property
             Property name for pre-computed triangle counts
         username
             As an administrator, impersonate a different user for accessing their graphs.

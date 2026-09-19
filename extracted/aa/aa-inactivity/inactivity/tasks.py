@@ -18,7 +18,10 @@ from django.utils.translation import gettext_lazy as _
 from allianceauth.notifications import notify
 from allianceauth.services.hooks import get_extension_logger
 
-from inactivity.app_settings import INACTIVITY_TASKS_DEFAULT_PRIORITY
+from inactivity.app_settings import (
+    INACTIVITY_NOTIFY_USER,
+    INACTIVITY_TASKS_DEFAULT_PRIORITY,
+)
 from inactivity.core import check_user_active
 from inactivity.models import InactivityPing, InactivityPingConfig, Webhook
 
@@ -102,7 +105,8 @@ def send_inactivity_ping(user_pk: int, config_pk: int):
     )
 
     config = InactivityPingConfig.objects.get(pk=config_pk)
-    notify.danger(user, title="Inactivity notification", message=config.text)
+    if INACTIVITY_NOTIFY_USER:
+        notify.danger(user, title="Inactivity notification", message=config.text)
     InactivityPing.objects.create(config=config, user=user, last_login_at=last_login_at)
 
     relevant_webhooks = Webhook.objects.filter(

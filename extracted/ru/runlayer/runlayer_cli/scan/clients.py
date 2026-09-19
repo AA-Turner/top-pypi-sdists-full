@@ -9,7 +9,12 @@ from functools import lru_cache
 from pathlib import Path
 from typing import Any, Literal
 
-from runlayer_cli.scan.device import get_wsl_user_homes, list_wsl_distros
+from runlayer_cli.scan.completeness import CompletionStatusSink, ScanCompletionStatus
+from runlayer_cli.scan.device import (
+    get_wsl_distro_inventory,
+    get_wsl_user_homes,
+    list_wsl_distros,
+)
 
 
 @dataclass
@@ -148,7 +153,6 @@ class InstallProbe:
     probe_config_parents: bool = True
 
 
-@lru_cache(maxsize=1)
 def _is_windows_with_wsl() -> bool:
     """Cached: running on a Windows host that has WSL distros installed."""
     if platform.system() != "Windows":
@@ -156,15 +160,44 @@ def _is_windows_with_wsl() -> bool:
     return bool(list_wsl_distros())
 
 
-@lru_cache(maxsize=1)
-def _wsl_homes() -> list[Path]:
-    """Cached Linux user home dirs across all installed WSL distros."""
+def _discover_wsl_homes(
+    scan_status: CompletionStatusSink,
+) -> list[Path]:
     if platform.system() != "Windows":
         return []
+    inventory = get_wsl_distro_inventory()
+    if not inventory.success:
+        scan_status.mark_incomplete("wsl_distro_inventory_failed")
+        return []
+
     homes: list[Path] = []
-    for distro in list_wsl_distros():
-        homes.extend(get_wsl_user_homes(distro))
+    for distro in inventory.distros:
+        if distro.name.casefold().startswith("docker-desktop"):
+            continue
+        distro_status = scan_status if distro.is_running else None
+        homes.extend(
+            get_wsl_user_homes(
+                distro.name,
+                scan_status=distro_status,
+            )
+        )
     return homes
+
+
+@lru_cache(maxsize=1)
+def _cached_wsl_homes() -> tuple[tuple[Path, ...], tuple[str, ...]]:
+    scan_status = ScanCompletionStatus()
+    homes = tuple(_discover_wsl_homes(scan_status))
+    return homes, tuple(scan_status.reasons)
+
+
+def _wsl_homes(scan_status: CompletionStatusSink | None = None) -> list[Path]:
+    """Linux user home dirs across installed WSL distros."""
+    homes, reasons = _cached_wsl_homes()
+    if scan_status is not None:
+        for reason in reasons:
+            scan_status.mark_incomplete(reason)
+    return list(homes)
 
 
 def _resolve_wsl_linux_paths(template: str) -> list[Path]:
@@ -925,7 +958,19 @@ MCP_CLIENTS: list[MCPClientDefinition] = [
             npm_packages=[NpmPackage(name="@openai/codex", bin_name="codex")],
             cli_binaries=["codex"],
             windows_display_name_prefixes=["Codex CLI"],
-            windows_install_dirs=["%LOCALAPPDATA%/Programs/OpenAI/Codex/bin/codex.exe"],
+            # Codex ships to Windows four ways: the installer (Uninstall key +
+            # Programs dir), MSIX/winget (no Uninstall key; runtime under
+            # %LOCALAPPDATA%\OpenAI\Codex\bin), the standalone install.ps1
+            # payload under $CODEX_HOME (PATH junction is per-user, invisible
+            # to SYSTEM), and the VS Code extension. No bare "Codex" display
+            # prefix: it would match the ChatGPT desktop app.
+            windows_install_dirs=[
+                "%LOCALAPPDATA%/Programs/OpenAI/Codex/bin/codex.exe",
+                "%LOCALAPPDATA%/OpenAI/Codex/bin/codex.exe",
+                "%USERPROFILE%/.codex/packages/standalone/current/bin/codex.exe",
+                "$CODEX_HOME/packages/standalone/current/bin/codex.exe",
+            ],
+            vscode_extension_ids=["openai.chatgpt"],
             config_dirs=[
                 PlatformPath("$CODEX_HOME", platform="all"),
                 PlatformPath("~/.codex", platform="all"),

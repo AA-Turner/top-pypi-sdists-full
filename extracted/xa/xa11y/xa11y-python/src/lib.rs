@@ -233,6 +233,9 @@ fn make_py_element(
             modal: data.states.modal,
             required: data.states.required,
             busy: data.states.busy,
+            minimized: data.states.minimized,
+            maximized: data.states.maximized,
+            fullscreen: data.states.fullscreen,
             inner_data: data.clone(),
             provider,
         },
@@ -346,6 +349,16 @@ struct Element {
     required: bool,
     #[pyo3(get)]
     busy: bool,
+    /// Whether the window is minimized. ``None`` = unknown / not a window —
+    /// a platform that cannot report the state says so rather than guessing.
+    #[pyo3(get)]
+    minimized: Option<bool>,
+    /// Whether the window is maximized. ``None`` = unknown / not a window.
+    #[pyo3(get)]
+    maximized: Option<bool>,
+    /// Whether the window is fullscreen. ``None`` = unknown / not a window.
+    #[pyo3(get)]
+    fullscreen: Option<bool>,
 
     /// The underlying Rust ElementData (for provider calls).
     inner_data: xa11y::ElementData,
@@ -451,7 +464,7 @@ impl Element {
     // These act on the captured snapshot rather than re-resolving the selector
     // (contrast with Locator, which re-queries the provider on every call).
 
-    /// Press (default activate) this element.
+    /// Click / invoke this element.
     fn press(&self, py: Python<'_>) -> PyResult<()> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
         py.detach(move || element.press()).map_err(to_py_err)
@@ -535,6 +548,64 @@ impl Element {
     fn perform_action(&self, py: Python<'_>, action: &str) -> PyResult<()> {
         let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
         py.detach(move || element.perform_action(action))
+            .map_err(to_py_err)
+    }
+
+    // ── Window management ──
+
+    /// Activate this window: bring it to the foreground and give it focus.
+    fn activate(&self, py: Python<'_>) -> PyResult<()> {
+        let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
+        py.detach(move || element.activate()).map_err(to_py_err)
+    }
+    /// Minimize this window.
+    fn minimize(&self, py: Python<'_>) -> PyResult<()> {
+        let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
+        py.detach(move || element.minimize()).map_err(to_py_err)
+    }
+    /// Maximize this window.
+    ///
+    /// Distinct from ``enter_fullscreen``: this drives the platform's
+    /// maximized state, not native fullscreen. Raises
+    /// ``ActionNotSupportedError`` on a platform without an accessible
+    /// maximize (macOS exposes no readable or writable zoom state).
+    fn maximize(&self, py: Python<'_>) -> PyResult<()> {
+        let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
+        py.detach(move || element.maximize()).map_err(to_py_err)
+    }
+    /// Put this window in native fullscreen (macOS ``AXFullScreen``).
+    ///
+    /// Distinct from ``maximize``; ``restore`` leaves fullscreen. Raises
+    /// ``ActionNotSupportedError`` on platforms with no fullscreen
+    /// accessibility API (Windows/Linux).
+    fn enter_fullscreen(&self, py: Python<'_>) -> PyResult<()> {
+        let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
+        py.detach(move || element.enter_fullscreen())
+            .map_err(to_py_err)
+    }
+    /// Restore this window to its normal state (from
+    /// minimized/maximized/fullscreen).
+    fn restore(&self, py: Python<'_>) -> PyResult<()> {
+        let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
+        py.detach(move || element.restore()).map_err(to_py_err)
+    }
+    /// Close this window.
+    fn close(&self, py: Python<'_>) -> PyResult<()> {
+        let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
+        py.detach(move || element.close()).map_err(to_py_err)
+    }
+    /// Move this window in desktop coordinates (physical pixels on Windows).
+    fn move_to(&self, py: Python<'_>, x: i32, y: i32) -> PyResult<()> {
+        let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
+        py.detach(move || element.move_to(x, y)).map_err(to_py_err)
+    }
+    /// Resize this window in desktop units (physical pixels on Windows).
+    ///
+    /// Raises ``InvalidActionDataError`` if ``width`` or ``height`` is 0.
+    /// ``OverflowError`` if either is negative or exceeds ``u32``.
+    fn resize_to(&self, py: Python<'_>, width: u32, height: u32) -> PyResult<()> {
+        let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
+        py.detach(move || element.resize_to(width, height))
             .map_err(to_py_err)
     }
 
@@ -737,6 +808,72 @@ impl Locator {
             .map_err(to_py_err)
     }
 
+    // ── Window management ──
+    //
+    // Window verbs wait only for the window to be `enabled`: a minimized
+    // window is legitimately not visible, and these actions are exactly what
+    // must reach it.
+
+    /// Activate the matched window: bring it to the foreground and give it
+    /// focus.
+    fn activate(&self, py: Python<'_>) -> PyResult<()> {
+        let inner = self.inner.clone();
+        py.detach(move || inner.activate()).map_err(to_py_err)
+    }
+    /// Minimize the matched window.
+    fn minimize(&self, py: Python<'_>) -> PyResult<()> {
+        let inner = self.inner.clone();
+        py.detach(move || inner.minimize()).map_err(to_py_err)
+    }
+    /// Maximize the matched window.
+    ///
+    /// Distinct from ``enter_fullscreen``: this drives the platform's
+    /// maximized state, not native fullscreen.
+    fn maximize(&self, py: Python<'_>) -> PyResult<()> {
+        let inner = self.inner.clone();
+        py.detach(move || inner.maximize()).map_err(to_py_err)
+    }
+    /// Put the matched window in native fullscreen.
+    ///
+    /// Distinct from ``maximize``; ``restore`` leaves fullscreen.
+    fn enter_fullscreen(&self, py: Python<'_>) -> PyResult<()> {
+        let inner = self.inner.clone();
+        py.detach(move || inner.enter_fullscreen())
+            .map_err(to_py_err)
+    }
+    /// Restore the matched window to its normal state (from minimized,
+    /// maximized, or fullscreen).
+    ///
+    /// This is the inverse of ``minimize``, ``maximize``, and
+    /// ``enter_fullscreen``: it clears every special state the platform can
+    /// clear. There is deliberately no separate "exit fullscreen" method —
+    /// leaving fullscreen is the same absolute state write this performs.
+    fn restore(&self, py: Python<'_>) -> PyResult<()> {
+        let inner = self.inner.clone();
+        py.detach(move || inner.restore()).map_err(to_py_err)
+    }
+    /// Close the matched window.
+    fn close(&self, py: Python<'_>) -> PyResult<()> {
+        let inner = self.inner.clone();
+        py.detach(move || inner.close()).map_err(to_py_err)
+    }
+    /// Move the matched window to the given desktop coordinates
+    /// (top-left origin).
+    fn move_to(&self, py: Python<'_>, x: i32, y: i32) -> PyResult<()> {
+        let inner = self.inner.clone();
+        py.detach(move || inner.move_to(x, y)).map_err(to_py_err)
+    }
+    /// Resize the matched window to the given desktop dimensions.
+    ///
+    /// Raises ``InvalidActionDataError`` if ``width`` or ``height`` is 0,
+    /// before any auto-wait polling begins. ``OverflowError`` if either is
+    /// negative or exceeds ``u32``.
+    fn resize_to(&self, py: Python<'_>, width: u32, height: u32) -> PyResult<()> {
+        let inner = self.inner.clone();
+        py.detach(move || inner.resize_to(width, height))
+            .map_err(to_py_err)
+    }
+
     // ── Wait operations ──
     //
     // `timeout=None` (the default) resolves to the process-wide default —
@@ -926,6 +1063,9 @@ fn state_flag_to_str(flag: xa11y::StateFlag) -> &'static str {
         xa11y::StateFlag::Modal => "modal",
         xa11y::StateFlag::Required => "required",
         xa11y::StateFlag::Busy => "busy",
+        xa11y::StateFlag::Minimized => "minimized",
+        xa11y::StateFlag::Maximized => "maximized",
+        xa11y::StateFlag::Fullscreen => "fullscreen",
         // See the note on `to_py_err`: variant coverage is enforced by
         // `cargo xtask check-bindings-parity`, not by the compiler.
         _ => "unknown",
@@ -1260,10 +1400,15 @@ impl App {
 
     /// Resolve the application that currently holds the system foreground.
     ///
-    /// Queries the platform's foreground mechanism directly, so it returns the
-    /// exact foreground window on Windows and stays reliable when an app shows
-    /// a modal dialog. "Nothing focused" retries until `timeout`; see
-    /// `by_name` for timeout semantics. The returned app has
+    /// Queries the platform's foreground mechanism directly rather than
+    /// enumerating and tagging by pid. The result is the foreground
+    /// *process*'s ``Application`` node — one per process on every platform —
+    /// not the exact window holding the focus; on Windows that is the
+    /// synthesized node of the foreground process (the modal case, issues
+    /// #304/#305), and this stays reliable when an app shows a modal dialog.
+    /// To reach the exact foreground window, call ``windows()`` and pick the
+    /// entry reporting ``active``. "Nothing focused" retries until `timeout`;
+    /// see `by_name` for timeout semantics. The returned app has
     /// `is_foreground == True`.
     #[staticmethod]
     #[pyo3(signature = (*, timeout=None))]
@@ -1369,11 +1514,9 @@ impl App {
     /// ``App.list()`` and the predicate finders (``App.find()``). A
     /// point-in-time snapshot taken when the ``App`` was resolved.
     ///
-    /// On Windows apps are top-level windows, so the foreground process can own
-    /// several entries; tagging is window-precise, so only the entry actually
-    /// in the foreground reports ``is_foreground`` — not every window of the
-    /// process. Use ``App.foreground()`` to resolve the exact foreground window
-    /// directly.
+    /// This identifies the foreground process, including all of its native
+    /// registrations. Use ``App.foreground()`` to resolve that process, then
+    /// inspect ``active`` on its ``windows()`` for the exact foreground window.
     #[getter]
     fn is_foreground(&self) -> bool {
         self.inner_data.states.focused
@@ -1398,9 +1541,9 @@ impl App {
     /// Create a Locator scoped to this application's accessibility tree.
     fn locator(&self, selector: &str) -> Locator {
         Locator {
-            inner: xa11y::Locator::new(
+            inner: xa11y::Locator::new_for_app(
                 self.provider.clone(),
-                Some(self.inner_data.clone()),
+                self.inner_data.clone(),
                 selector,
             ),
         }
@@ -1424,11 +1567,36 @@ impl App {
         let provider = self.provider.clone();
         let data = self.inner_data.clone();
         let children = py
-            .detach(move || provider.get_children(Some(&data)))
+            .detach(move || xa11y::App::from_data(provider, data).children())
             .map_err(to_py_err)?;
         children
             .iter()
-            .map(|c| make_py_element(py, c, self.provider.clone()))
+            .map(|c| make_py_element(py, c.data(), self.provider.clone()))
+            .collect()
+    }
+
+    /// List the top-level windows of this application.
+    ///
+    /// Each call queries the provider; results are not cached. The windows
+    /// are the application's top-level windows with role ``window`` or
+    /// ``dialog``, in enumeration order. On Windows the application entry is
+    /// a synthesized process node whose children are the process's top-level
+    /// windows (main window plus modal dialogs). On Linux the answer is
+    /// process-complete: ``App::windows_with`` merges the filtered children
+    /// of every same-pid AT-SPI Application entry (an app that registers
+    /// several entries reports its whole process), so the results need not
+    /// be the direct children of this node and no single z-order spans them.
+    /// Calling ``windows`` on a non-application element fails with
+    /// ``ActionNotSupportedError``.
+    fn windows(&self, py: Python<'_>) -> PyResult<Vec<Py<Element>>> {
+        let provider = self.provider.clone();
+        let data = self.inner_data.clone();
+        let windows = py
+            .detach(move || xa11y::App::windows_with(provider, &data))
+            .map_err(to_py_err)?;
+        windows
+            .iter()
+            .map(|w| make_py_element(py, w.data(), w.provider().clone()))
             .collect()
     }
 
@@ -1447,13 +1615,11 @@ impl App {
     /// ``0`` = only the application node, ``1`` = application + direct
     /// children (typically windows), ``None`` = full subtree.
     ///
-    /// Equivalent to ``Element.tree(...)`` on the application's root element.
+    /// Includes every native application registration belonging to the process.
     #[pyo3(signature = (max_depth=None))]
     fn tree(&self, py: Python<'_>, max_depth: Option<usize>) -> PyResult<Py<PyAny>> {
-        let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        let node = py
-            .detach(move || element.tree(max_depth))
-            .map_err(to_py_err)?;
+        let app = xa11y::App::from_data(self.provider.clone(), self.inner_data.clone());
+        let node = py.detach(move || app.tree(max_depth)).map_err(to_py_err)?;
         tree_node_to_py(py, &node)
     }
 
@@ -1467,9 +1633,8 @@ impl App {
     /// For the same output from the shell, use ``xa11y tree --app NAME``.
     #[pyo3(signature = (max_depth=None))]
     fn dump(&self, py: Python<'_>, max_depth: Option<usize>) -> PyResult<String> {
-        let element = xa11y::Element::new(self.inner_data.clone(), self.provider.clone());
-        py.detach(move || element.dump(max_depth))
-            .map_err(to_py_err)
+        let app = xa11y::App::from_data(self.provider.clone(), self.inner_data.clone());
+        py.detach(move || app.dump(max_depth)).map_err(to_py_err)
     }
 
     fn __repr__(&self) -> String {
@@ -2050,7 +2215,7 @@ fn input_sim() -> PyResult<InputSim> {
 /// One drawn annotation box: the tag in the image, and the element it came
 /// from.
 ///
-/// `bounds` is in logical screen coordinates — the same space as
+/// `bounds` is in desktop coordinates — the same space as
 /// `Element.bounds`, not the capture's pixel space. `color` is the RGB triple
 /// the box was drawn in, for correlating a box with its entry by eye.
 #[pyclass(frozen, from_py_object)]
@@ -2075,7 +2240,7 @@ struct LegendEntry {
     /// The element's accessible name, when it has one.
     #[pyo3(get)]
     name: Option<String>,
-    /// The element's bounds in logical screen coordinates.
+    /// The element's bounds in desktop coordinates (physical pixels on Windows).
     #[pyo3(get)]
     bounds: Rect,
     /// The box colour as an ``(r, g, b)`` tuple.
@@ -2161,9 +2326,10 @@ impl Omission {
 
 /// A captured image: raw RGBA8 pixels plus dimensions and scale.
 ///
-/// `width` and `height` are in physical pixels. `scale` is the physical-to-
-/// logical ratio (1.0 on standard displays, 2.0 on typical Retina). `pixels`
-/// length is `width * height * 4` (RGBA).
+/// `width` and `height` are pixels in the returned image. `scale` is a
+/// compatibility hint for simple single-display captures; use the explicit
+/// coordinate conversion methods for mixed-DPI, cropped, or resized images.
+/// `pixels` length is `width * height * 4` (RGBA).
 ///
 /// `legend`, `omitted` and `truncated` describe what `annotate=` drew. They
 /// are `[]`, `[]` and `0` on an unannotated capture, so consumers need no
@@ -2228,6 +2394,80 @@ impl Screenshot {
 
 #[pymethods]
 impl Screenshot {
+    /// Whether desktop/image coordinate conversion metadata is available.
+    #[getter]
+    fn mapping_available(&self) -> bool {
+        self.inner.mapping_available()
+    }
+
+    /// Convert a desktop point to an image pixel.
+    fn desktop_to_image(&self, x: i32, y: i32) -> PyResult<(i32, i32)> {
+        let point = self
+            .inner
+            .desktop_to_image(xa11y::Point::new(x, y))
+            .map_err(to_py_err)?;
+        Ok((point.x, point.y))
+    }
+
+    /// Convert an image pixel to a desktop point suitable for input.
+    fn image_to_desktop(&self, x: i32, y: i32) -> PyResult<(i32, i32)> {
+        let point = self
+            .inner
+            .image_to_desktop(xa11y::Point::new(x, y))
+            .map_err(to_py_err)?;
+        Ok((point.x, point.y))
+    }
+
+    /// Convert a desktop rectangle to one or more image rectangles.
+    fn desktop_rect_to_image(
+        &self,
+        x: i32,
+        y: i32,
+        width: u32,
+        height: u32,
+    ) -> PyResult<Vec<Rect>> {
+        self.inner
+            .desktop_rect_to_image(xa11y::Rect {
+                x,
+                y,
+                width,
+                height,
+            })
+            .map(|rects| {
+                rects
+                    .into_iter()
+                    .map(|rect| Rect {
+                        x: rect.x,
+                        y: rect.y,
+                        width: rect.width,
+                        height: rect.height,
+                    })
+                    .collect()
+            })
+            .map_err(to_py_err)
+    }
+
+    /// Crop by image pixels and preserve coordinate mapping metadata.
+    fn crop(&self, x: i32, y: i32, width: u32, height: u32) -> PyResult<Self> {
+        self.inner
+            .crop(xa11y::Rect {
+                x,
+                y,
+                width,
+                height,
+            })
+            .map(Self::plain)
+            .map_err(to_py_err)
+    }
+
+    /// Resize image pixels and scale coordinate mapping metadata with them.
+    fn resize(&self, width: u32, height: u32) -> PyResult<Self> {
+        self.inner
+            .resize(width, height)
+            .map(Self::plain)
+            .map_err(to_py_err)
+    }
+
     /// Raw RGBA8 pixel bytes (`width * height * 4`).
     #[getter]
     fn pixels<'py>(&self, py: Python<'py>) -> Bound<'py, pyo3::types::PyBytes> {
@@ -2284,7 +2524,7 @@ fn parse_annotate_group(item: &Bound<'_, PyAny>) -> PyResult<xa11y::Locator> {
 ///
 /// With no arguments, captures the full primary display. Pass `element=` to
 /// capture the pixels under an element's current bounds, or `region=(x, y,
-/// width, height)` to capture an explicit rectangle in logical screen
+/// width, height)` to capture an explicit rectangle in desktop
 /// coordinates.
 ///
 /// `annotate=` draws a numbered box over every element each locator matches
@@ -2504,8 +2744,13 @@ fn _make_test_locator() -> PyResult<Locator> {
 
 /// Create a test App backed by the shared mock provider (resolves "TestApp").
 #[pyfunction]
-fn _make_test_app() -> PyResult<App> {
-    let provider = xa11y::mock::build_provider() as Arc<dyn xa11y::Provider>;
+#[pyo3(signature = (split=false))]
+fn _make_test_app(split: bool) -> PyResult<App> {
+    let provider = if split {
+        xa11y::mock::build_split_provider()
+    } else {
+        xa11y::mock::build_provider()
+    } as Arc<dyn xa11y::Provider>;
     // Resolve via the predicate finder (not `by_name_with`) so the returned
     // app is foreground-tagged — the mock reports its root as the focused app,
     // letting `App.is_foreground` tests observe a `True` value.

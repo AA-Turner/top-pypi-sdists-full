@@ -8,7 +8,11 @@ from .detail import Detail
 
 
 class ImageUrl(UniversalBaseModel):
-    url: str
+    url: str = pydantic.Field()
+    """
+    Inline `data:image/…;base64,…` URL. Remote HTTP(S) URLs are rejected.
+    """
+
     detail: typing.Optional[Detail] = None
 
     if IS_PYDANTIC_V2:

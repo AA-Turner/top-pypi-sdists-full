@@ -1,12 +1,16 @@
 Metadata-Version: 2.4
 Name: great_expectations
-Version: 1.23.0
+Version: 1.23.1
 Summary: Always know what to expect from your data.
 Home-page: https://greatexpectations.io
-Download-URL: https://github.com/great-expectations/great_expectations
+Download-URL: https://github.com/fivetran/great_expectations
 Author: The Great Expectations Team
 Author-email: team@greatexpectations.io
 License: Apache-2.0
+Project-URL: Homepage, https://greatexpectations.io
+Project-URL: Documentation, https://docs.greatexpectations.io
+Project-URL: Repository, https://github.com/fivetran/great_expectations
+Project-URL: Source, https://github.com/fivetran/great_expectations
 Keywords: data science testing pipeline data quality dataquality validation datavalidation
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
@@ -204,9 +208,10 @@ Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
 Dynamic: license-file
+Dynamic: project-url
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python
 Dynamic: summary
 
-Always know what to expect from your data. (See https://github.com/great-expectations/great_expectations for full description).
+Always know what to expect from your data. (See https://github.com/fivetran/great_expectations for full description).

@@ -9,6 +9,7 @@ use std::path::{Path, PathBuf};
 use std::slice;
 use std::str::FromStr;
 use std::sync::{Arc, LazyLock};
+use uv_distribution_types::RequirementScope;
 
 use itertools::Itertools;
 use jiff::Timestamp;
@@ -36,11 +37,11 @@ use uv_distribution_types::{
     ArchiveHashPolicy, BuiltDist, DependencyMetadata, DirectUrlBuiltDist, DirectUrlSourceDist,
     DirectorySourceDist, Dist, ExcludeNewerOverride, ExcludeNewerSpan, ExcludeNewerValue,
     FileLocation, FirstParty, GitDirectorySourceDist, GitPathBuiltDist, GitPathSourceDist,
-    HashValidation, Identifier, IndexLocations, IndexMetadata, IndexUrl, MetadataHashPolicy, Name,
-    NameRequirementSpecification, PYPI_URL, PathBuiltDist, PathSourceDist, RegistryBuiltDist,
-    RegistryBuiltWheel, RegistrySourceDist, RemoteSource, Requirement, RequirementSource,
-    RequiresPython, ResolvedDist, SimplifiedMarkerTree, StaticMetadata, ToUrlError, UrlString,
-    VersionId,
+    HashValidation, Identifier, IndexLocations, IndexMetadata, IndexUrl, MetadataHashPolicy,
+    MinimumLibcVersion, Name, NameRequirementSpecification, PYPI_URL, PathBuiltDist,
+    PathSourceDist, RegistryBuiltDist, RegistryBuiltWheel, RegistrySourceDist, RemoteSource,
+    Requirement, RequirementSource, RequiresPython, ResolvedDist, SimplifiedMarkerTree,
+    StaticMetadata, ToUrlError, UrlString, VersionId,
 };
 use uv_fs::{PortablePath, PortablePathBuf, Simplified, normalize_path, try_relative_to_if};
 use uv_git::{RepositoryReference, ResolvedRepositoryReference};
@@ -2527,7 +2528,7 @@ impl Lock {
             let ResolutionGraphNode::Dist(dist) = &resolution.graph[node_index] else {
                 continue;
             };
-            if let Some(extra) = dist.extra.as_ref() {
+            if let Some(extra) = dist.kind.extra() {
                 let id = PackageId::from_annotated_dist(dist, root)?;
                 let Some(package) = packages.get_mut(&id) else {
                     return Err(LockErrorKind::MissingExtraBase {
@@ -2554,7 +2555,7 @@ impl Lock {
                     root,
                 )?;
             }
-            if let Some(group) = dist.group.as_ref() {
+            if let Some(group) = dist.kind.group() {
                 let id = PackageId::from_annotated_dist(dist, root)?;
                 let Some(package) = packages.get_mut(&id) else {
                     return Err(LockErrorKind::MissingDevBase {
@@ -2580,6 +2581,7 @@ impl Lock {
             resolution_mode: resolution.options.resolution_mode,
             prerelease: resolution.options.prerelease.clone(),
             fork_strategy: resolution.options.fork_strategy,
+            minimum_libc_version: resolution.options.minimum_libc_version,
             exclude_newer: resolution.options.exclude_newer.clone(),
         };
         // Canonicalize the top-level fork markers to match what is persisted in
@@ -2964,6 +2966,11 @@ impl Lock {
     /// Returns the multi-version mode used to generate this lock.
     pub fn fork_strategy(&self) -> ForkStrategy {
         self.options.fork_strategy
+    }
+
+    /// Return the selected libc implementation and minimum version.
+    pub fn minimum_libc_version(&self) -> Option<MinimumLibcVersion> {
+        self.options.minimum_libc_version
     }
 
     /// Returns the exclude newer setting used to generate this lock.
@@ -5941,6 +5948,8 @@ struct ResolverOptions {
     prerelease: Prerelease,
     /// The [`ForkStrategy`] used to generate this lock.
     fork_strategy: ForkStrategy,
+    /// The selected libc implementation and minimum version.
+    minimum_libc_version: Option<MinimumLibcVersion>,
     /// The [`ExcludeNewer`] setting used to generate this lock.
     exclude_newer: ExcludeNewer,
 }
@@ -5958,6 +5967,8 @@ struct ResolverOptionsWire {
     /// The [`ForkStrategy`] used to generate this lock.
     #[serde(default)]
     fork_strategy: ForkStrategy,
+    /// The selected libc implementation and minimum version.
+    minimum_libc_version: Option<MinimumLibcVersion>,
     /// The [`ExcludeNewer`] setting used to generate this lock.
     #[serde(flatten)]
     exclude_newer: ExcludeNewerWire,
@@ -6236,6 +6247,7 @@ impl TryFrom<LockWire> for Lock {
             resolution_mode: options_wire.resolution_mode,
             prerelease: options_wire.prerelease.into(),
             fork_strategy: options_wire.fork_strategy,
+            minimum_libc_version: options_wire.minimum_libc_version,
             exclude_newer: options_wire.exclude_newer.into(),
         };
         let lock = Self::new(
@@ -6353,7 +6365,7 @@ impl Package {
             };
 
             let package_id = PackageId::from_annotated_dist(distribution, root)?;
-            let extras = distribution.extra.iter().cloned().collect();
+            let extras = distribution.kind.extra().into_iter().cloned().collect();
 
             // Preserve the distinction between an empty extra and an extra with dependencies.
             builder.add(
@@ -7162,6 +7174,17 @@ impl PackageWire {
                 name: self.id.name.clone(),
             }
             .into());
+        }
+
+        // A Git `path` points to a wheel or source archive within the repository.
+        if let Source::Git(_, git) = &self.id.source
+            && let Some(path) = &git.path
+        {
+            DistExtension::from_path(path).map_err(|err| LockErrorKind::InvalidGitPath {
+                id: self.id.clone(),
+                path: path.clone(),
+                err,
+            })?;
         }
 
         let unwire_deps = |deps: Vec<DependencyWire>| -> Result<Vec<Dependency>, LockError> {
@@ -9086,6 +9109,7 @@ fn normalize_requirement(
                     subdirectory,
                     url: VerbatimUrl::from_url(url),
                 },
+                scope: RequirementScope::Global,
                 origin: None,
             })
         }
@@ -9132,6 +9156,7 @@ fn normalize_requirement(
                     ext,
                     url: VerbatimUrl::from_url(url),
                 },
+                scope: RequirementScope::Global,
                 origin: None,
             })
         }
@@ -9155,6 +9180,7 @@ fn normalize_requirement(
                     ext,
                     url,
                 },
+                scope: RequirementScope::Global,
                 origin: None,
             })
         }
@@ -9180,6 +9206,7 @@ fn normalize_requirement(
                     r#virtual: Some(r#virtual.unwrap_or(false)),
                     url,
                 },
+                scope: RequirementScope::Global,
                 origin: None,
             })
         }
@@ -9206,6 +9233,7 @@ fn normalize_requirement(
                     index,
                     conflict,
                 },
+                scope: RequirementScope::Global,
                 origin: None,
             })
         }
@@ -9239,6 +9267,7 @@ fn normalize_requirement(
                     ext,
                     url: VerbatimUrl::from_url(url),
                 },
+                scope: RequirementScope::Global,
                 origin: None,
             })
         }
@@ -9711,6 +9740,16 @@ enum LockErrorKind {
     MissingExtension {
         /// The filename that was expected to have an extension.
         id: PackageId,
+        /// The list of valid extensions that were expected.
+        err: ExtensionError,
+    },
+    /// A Git archive path does not have a supported distribution extension.
+    #[error("Git archive path `{path}` for `{id}` must end in a supported file extension: {err}", path = path.display().cyan(), id = id.cyan())]
+    InvalidGitPath {
+        /// The ID of the package containing the Git archive path.
+        id: PackageId,
+        /// The path to the archive within the Git repository.
+        path: PathBuf,
         /// The list of valid extensions that were expected.
         err: ExtensionError,
     },

@@ -1,31 +1,19 @@
 Metadata-Version: 2.4
 Name: unicodedata2
-Version: 17.0.1
+Version: 18.0.0
 Summary: Unicodedata backport updated to the latest Unicode version.
-Home-page: http://github.com/fonttools/unicodedata2
-Download-URL: http://github.com/fonttools/unicodedata2
-Author: Mike Kaplinskiy
-Author-email: mike.kaplinskiy@gmail.com
-License: Apache License 2.0
+Author-email: Mike Kaplinskiy <mike.kaplinskiy@gmail.com>
+License-Expression: Apache-2.0
+Project-URL: Homepage, http://github.com/fonttools/unicodedata2
+Project-URL: Download, http://github.com/fonttools/unicodedata2
 Platform: any
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Provides-Extra: testing
 Requires-Dist: pytest; extra == "testing"
-Requires-Dist: coverage; extra == "testing"
-Requires-Dist: pytest-xdist; extra == "testing"
 Requires-Dist: pytest-randomly; extra == "testing"
-Dynamic: author
-Dynamic: author-email
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: license
 Dynamic: license-file
-Dynamic: platform
-Dynamic: provides-extra
-Dynamic: summary
 
 [![Githun CI Status](https://github.com/fonttools/unicodedata2/workflows/Build%20+%20Deploy/badge.svg)](https://github.com/fonttools/unicodedata2/actions?query=workflow%3A%22Build+%2B+Deploy%22)
 [![PyPI](https://img.shields.io/pypi/v/unicodedata2.svg)](https://pypi.org/project/unicodedata2/)
@@ -33,7 +21,9 @@ Dynamic: summary
 unicodedata2
 ============
 
-[unicodedata] backport/updates. Currently supports Unicode 17.0.0.
+[unicodedata] backport/updates. Currently supports Unicode 18.0.0.
+
+Requires Python 3.9 or newer.
 
 The versions of this package match Unicode versions, so unicodedata2==13.0.0 is data from Unicode 13.0.0.
 
@@ -46,17 +36,34 @@ Pre-compiled wheel packages are available on [PyPI] and can be installed via pip
 Testing
 =======
 
-We run the tests using `tox`. This can be installed as usual with `pip install tox`.
+We run the tests using `tox`. This can be installed as usual with `pip install tox`,
+or with `pip install --group dev` (pip 25.1 or newer) to pick it up from
+`pyproject.toml`.
+
+Tox and CI download the version-matched Unicode normalization data before
+running tests. Download failures stop the run. Before running `pytest` directly,
+run `python tests/download_test_data.py` once. The downloaded files are not
+included in source distributions or wheels.
 
 Without any options, `tox` will run the tests against all of the library's
 target Python versions. Any missing versions will be skipped.
 
 To run tests against a specific python version you can use the `-e` option followed by
-a tox environment name. E.g. `-e py38` will run tests against Python 3.8.
+a tox environment name. E.g. `-e py39` will run tests against Python 3.9.
 For more info, check `tox`'s [documentation](https://tox.readthedocs.io/en/latest/).
 
-Changelog
-=========
+# Changelog
+
+## 18.0.0
+ - Upgrade to Unicode 18.0.0
+ - Backport algorithmic character names from CPython, including Tangut, Jurchen, and Small Seal.
+ - Backport CPython's faster canonical ordering, also fixing Unicode normalization on PyPy.
+ - Require Python 3.9 or newer; drop Python 3.8 support.
+ - Fix historical numeric values in the Unicode 3.2 database.
+ - Make Hangul syllable lookup case-insensitive.
+ - Return algorithmic Hangul syllable mappings from decomposition().
+ - Always return an exact str from normalize(), including for str subclasses.
+
 ## 17.0.0
  - Upgrade to Unicode 17.0.0
 

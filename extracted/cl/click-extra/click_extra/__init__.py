@@ -611,13 +611,13 @@ _scrub_foreign_modules()
 del _scrub_foreign_modules
 
 
-__version__ = "9.3.0"
+__version__ = "9.3.1"
 __git_branch__ = ""
 __git_date__ = ""
 __git_long_hash__ = ""
 __git_short_hash__ = ""
 __git_tag__ = ""
-__git_tag_sha__ = "08551d0525e53df5791777ab1952d7dea9448a55"
+__git_tag_sha__ = "af8a0862c625f085d9c06892e11970fe2715c807"
 
 
 _LAZY_TEST_TOOLING = {

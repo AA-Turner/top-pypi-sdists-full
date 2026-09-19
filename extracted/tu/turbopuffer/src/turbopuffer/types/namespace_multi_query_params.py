@@ -10,9 +10,10 @@ from .._types import SequenceNotStr
 from .limit_param import LimitParam
 from .distance_metric import DistanceMetric
 from .vector_encoding import VectorEncoding
+from .rerank_limit_param import RerankLimitParam
 from .include_attributes_param import IncludeAttributesParam
 
-__all__ = ["NamespaceMultiQueryParams", "Query", "QueryLimit", "Consistency", "Limit", "LimitTotal"]
+__all__ = ["NamespaceMultiQueryParams", "Query", "QueryLimit", "Consistency", "Limit"]
 
 
 class NamespaceMultiQueryParams(TypedDict, total=False):
@@ -25,6 +26,12 @@ class NamespaceMultiQueryParams(TypedDict, total=False):
 
     limit: Limit
     """Limits the total number of reranked documents returned."""
+
+    offset: int
+    """Number of reranked documents to skip before returning results.
+
+    Requires `rerank_by` and `limit`.
+    """
 
     rerank_by: object
     """How to combine the rows returned by each sub-query into a single ranked list."""
@@ -79,6 +86,12 @@ class Query(TypedDict, total=False):
     limit: QueryLimit
     """Limits the documents returned by a query."""
 
+    offset: int
+    """Number of documents to skip before returning results.
+
+    Supported only in v2 queries with an explicit `rank_by` and `top_k` or `limit`.
+    """
+
     rank_by: object
     """How to rank the documents in the namespace."""
 
@@ -99,8 +112,4 @@ class Consistency(TypedDict, total=False):
     """
 
 
-class LimitTotal(TypedDict, total=False):
-    total: Required[int]
-
-
-Limit: TypeAlias = Union[int, LimitTotal]
+Limit: TypeAlias = Union[int, RerankLimitParam]

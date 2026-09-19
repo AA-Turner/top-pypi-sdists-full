@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-core
-Version: 1.18.0
+Version: 1.19.0
 Summary: Microsoft Agent Framework for building AI Agents with Python. This is the core package that has all the core abstractions and implementations.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -21,6 +21,7 @@ Requires-Dist: typing-extensions>=4.15.0,<5
 Requires-Dist: pydantic>=2,<3
 Requires-Dist: python-dotenv>=1,<2
 Requires-Dist: opentelemetry-api>=1.39.0,<2
+Requires-Dist: pyyaml>=6.0,<7.0
 Requires-Dist: mcp>=1.24.0,<2 ; extra == "all"
 Requires-Dist: agent-framework-a2a ; extra == "all"
 Requires-Dist: agent-framework-ag-ui ; extra == "all"
@@ -41,7 +42,7 @@ Requires-Dist: agent-framework-foundry-hosting ; extra == "all"
 Requires-Dist: agent-framework-foundry-local ; extra == "all"
 Requires-Dist: agent-framework-gemini ; extra == "all"
 Requires-Dist: agent-framework-github-copilot ; extra == "all" and ( python_version >= '3.11')
-Requires-Dist: agent-framework-hyperlight ; extra == "all" and ( (sys_platform == 'linux' and platform_machine == 'x86_64') or (sys_platform == 'win32' and platform_machine == 'AMD64'))
+Requires-Dist: agent-framework-hyperlight ; extra == "all" and ( python_version < '3.15' and ((sys_platform == 'linux' and platform_machine == 'x86_64') or (sys_platform == 'win32' and platform_machine == 'AMD64')))
 Requires-Dist: agent-framework-mem0 ; extra == "all"
 Requires-Dist: agent-framework-mistral ; extra == "all"
 Requires-Dist: agent-framework-monty ; extra == "all"
@@ -226,6 +227,21 @@ asyncio.run(main())
 ```
 
 You can explore additional agent samples [here](https://github.com/microsoft/agent-framework/tree/main/python/samples/02-agents).
+
+### MCP HTTP client ownership and cookies
+
+**Breaking change:** HTTP clients created by `MCPStreamableHTTPTool` no longer persist
+response cookies. This applies with or without a `header_provider`, including repeated
+calls within the same MCP session. Connection reuse, timeout and redirect defaults,
+and cleanup on close or reset are preserved. Explicit `Cookie` headers supplied through
+`static_headers` or a `header_provider` are still supported.
+
+Applications relying on cookie-based authentication, sessions, or load-balancer affinity
+must supply an `httpx.AsyncClient` through `http_client=`. Supplied clients retain their
+configuration and response-cookie handling and must be closed by the caller. Scope
+cookie-bearing clients and MCP tool sessions to one authenticated principal; do not
+share a user-specific cookie jar across users. Rejecting cookies does not partition
+MCP protocol sessions or other server-side state between principals.
 
 ## 5. Multi-Agent Orchestration
 

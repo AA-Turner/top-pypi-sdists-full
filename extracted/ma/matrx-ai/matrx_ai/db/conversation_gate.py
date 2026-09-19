@@ -74,6 +74,30 @@ def _cxm():
     return cxm
 
 
+def _remember_org_from_conversation_rows(conversation_id: str, rows: Any) -> None:
+    """Record the conversation's own organization for its child-row writers.
+
+    THE LAW: a child row lives in its parent record's organization. The child
+    doors (chat.message / chat.tool_call / observational memory) are synchronous
+    and often run in a detached task, so they cannot read the conversation row
+    themselves — this is the one place that already has it in hand. See
+    ``matrx_ai.persistence.conversation_org``.
+    """
+    try:
+        from matrx_ai.persistence.conversation_org import remember_conversation_organization
+
+        for row in rows or ():
+            if isinstance(row, dict):
+                org = row.get("organization_id")
+            else:
+                org = getattr(row, "organization_id", None)
+            if org:
+                remember_conversation_organization(conversation_id, str(org))
+                return
+    except Exception:  # noqa: BLE001 — a bookkeeping miss never breaks a write
+        pass
+
+
 # Lazy access to persistence.queue_helpers — breaks the matrx_ai.persistence
 # ↔ matrx_ai.db circular import (queue_helpers transitively imports through
 # orchestrator → db). Defined at module level as module functions that
@@ -643,11 +667,46 @@ _ADOPTION_BLOCKING_COLUMNS: tuple[str, ...] = (
     "deleted_at",
 )
 
+#: State the PERSON chose on this conversation, which adoption KEEPS.
+#:
+#: Adoption's rule is "an adopted row must be indistinguishable from a fresh
+#: create". That rule is about MACHINE state — a dead attempt's model, cached
+#: context, scratch counters. It was wrongly applied to the handful of columns
+#: that only a deliberate human act writes, and the result was a silent data
+#: loss: on ``/chat/new`` a person picks a sandbox, the ``PUT .../sandbox``
+#: door persists it on the minted id, and then their very first message
+#: adopted that shell and set the column back to ``NULL`` — the box they
+#: chose, gone, with no message anywhere. (Feedback
+#: 6fae7a84-420c-4d56-a015-814357516be8; ruling 2026-09-18: "a sandbox binding
+#: persisted on a minted id before the first turn is authoritative".)
+#:
+#: **"Never set" vs. "set before adoption" is read off the VALUE**, and that is
+#: sound rather than a shortcut: nothing in the platform writes any of these
+#: columns except an explicit human choice — the binding doors
+#: (``PUT``/``DELETE /conversations/{id}/sandbox``), ``persist_conversation_binding``
+#: recording the box a run was explicitly sent, the favourite star, and the
+#: exclude-from-knowledge-graph toggle. A create never sets them, so a default
+#: value here means "nobody has chosen", and a non-default value means "somebody
+#: chose, before any turn landed". There is no third writer to confuse the two.
+#:
+#: 🚨 Adding a column here is how user intent survives; adding one to
+#: ``_ADOPTION_RESET_TO_DEFAULT`` below is how it gets erased. A new
+#: per-conversation SETTING belongs here; a new piece of RUN state belongs there.
+_ADOPTION_PRESERVED_USER_CHOICE: tuple[str, ...] = (
+    "sandbox_instance_id",
+    "app_instance_id",
+    "is_favorite",
+    "exclude_from_kg",
+)
+
 #: Reset to a fresh row's value on adoption even though a create never sets them
 #: — carrying a dead attempt's value here is how an adopted conversation stops
 #: being equivalent to a new one. Adoption's rule is: match a fresh create, or
 #: refuse. A column that is neither re-stamped from ``create_kwargs``, listed
-#: here, nor blocking above is identity (``id``/``created_by``/``created_at``).
+#: here, preserved as user choice above, nor blocking above is identity
+#: (``id``/``created_by``/``created_at``).
+#:
+#: Everything here is MACHINE state — written by a run, not by a person.
 _ADOPTION_RESET_TO_DEFAULT: dict[str, Any] = {
     "last_model_id": None,
     "last_request_status": None,
@@ -657,13 +716,15 @@ _ADOPTION_RESET_TO_DEFAULT: dict[str, Any] = {
     "keywords": None,
     "task_id": None,
     "cache_state": {},
-    "sandbox_instance_id": None,
-    "app_instance_id": None,
-    "is_favorite": False,
-    "exclude_from_kg": False,
     "forked_from_id": None,
     "forked_at_position": None,
 }
+
+# One column cannot be both kept and cleared; a merge that lands it in both maps
+# would resolve silently in favour of whichever dict is applied last.
+assert not (set(_ADOPTION_PRESERVED_USER_CHOICE) & set(_ADOPTION_RESET_TO_DEFAULT)), (
+    "a conversation column is both preserved as user choice and reset on adoption"
+)
 
 
 #: The conversation THIS request created, if any. Set the moment the row is
@@ -871,10 +932,17 @@ async def _adopt_unstarted_conversation(
         )
 
     # An adopted conversation must be INDISTINGUISHABLE from a freshly created
-    # one. Start from the fresh-create defaults for everything a create does not
-    # set, then lay this request's start-state over the top — so a column nobody
-    # thought about gets RESET (safe) rather than carried (a dead attempt's data
-    # leaking into a live conversation).
+    # one IN ITS MACHINE STATE. Start from the fresh-create defaults for
+    # everything a create does not set, then lay this request's start-state over
+    # the top — so a column nobody thought about gets RESET (safe) rather than
+    # carried (a dead attempt's data leaking into a live conversation).
+    #
+    # What this write NEVER touches is the columns in
+    # ``_ADOPTION_PRESERVED_USER_CHOICE``: the sandbox or local machine the
+    # person picked on /chat/new before typing, their star, their
+    # exclude-from-knowledge-graph toggle. Those are decisions, not leftovers,
+    # and erasing them is the silent loss this map used to cause. They are
+    # simply absent from ``updates``, so the compare-and-swap leaves them alone.
     updates: dict[str, Any] = dict(_ADOPTION_RESET_TO_DEFAULT)
     updates.update(
         {
@@ -943,7 +1011,15 @@ async def _adopt_unstarted_conversation(
             f"a conversation with this id already exists (lost the adoption race: {exc})"
         ) from exc
 
-    mark_conversation_known(conversation_id, scope=_ENSURED_DURABLE)
+    # Adoption RE-STAMPS organization_id (it is in _ADOPTABLE_START_FIELDS), so
+    # the child-row registry must learn the new value in the same breath as the
+    # memo — otherwise ensure_conversation_exists never re-reads the row and
+    # every child of this conversation is filed in the dead attempt's org.
+    mark_conversation_known(
+        conversation_id,
+        scope=_ENSURED_DURABLE,
+        organization_id=updates.get("organization_id") or create_kwargs.get("organization_id"),
+    )
     _record_start_claim(conversation_id, str(user_id))
     vcprint(
         f"[ConversationGate] Adopted unstarted conversation {conversation_id} "
@@ -959,6 +1035,7 @@ async def create_new_conversation(
     forked_from_id: str | None = None,
     forked_at_position: int | None = None,
     title: str | None = None,
+    parent_conversation_id: str | None = None,
 ) -> None:
     """INSERT a cx_conversation row with the given client-generated ID.
 
@@ -974,6 +1051,15 @@ async def create_new_conversation(
     ``title`` overrides the default agent-name / source-feature derived
     title when the caller already knows what to write (e.g. a fork
     wanting to copy the source conversation's title).
+
+    ``parent_conversation_id`` carries sub-agent / child lineage, exactly as
+    :func:`ensure_conversation_exists` already does — a caller that mints a
+    child conversation with a client-generated id (the coding-session bridge
+    mirroring a coding tool's subagent) needs the same column the in-process
+    fork path writes. It is validated through
+    :func:`resolve_parent_conversation_lineage` and dropped to NULL when the
+    parent row is not on disk, so an optional lineage tag can never FK-violate
+    and lose the child conversation itself.
 
     An id that ALREADY EXISTS is not automatically a failure: when the row is
     the caller's own and no turn has ever landed on it, this is the same
@@ -1056,8 +1142,14 @@ async def create_new_conversation(
         "source_app": ctx.source_app if ctx else "",
         "source_feature": ctx.source_feature if ctx else "",
         "is_ephemeral": not ctx.store if ctx else False,
-        "conversation_type": _resolve_conversation_type(ctx),
+        "conversation_type": _resolve_conversation_type(ctx, parent_conversation_id),
     }
+    verified_parent = await resolve_parent_conversation_lineage(
+        parent_conversation_id,
+        conversation_id,
+    )
+    if verified_parent:
+        create_kwargs["parent_conversation_id"] = verified_parent
     # THE START CLAIM. Committed with the row itself, so a second request
     # arriving milliseconds later can SEE that a run already owns this id.
     #
@@ -1134,7 +1226,11 @@ async def create_new_conversation(
             raise ConversationGateError(
                 f"Failed to publish conversation {conversation_id} before streaming: {exc}"
             ) from exc
-        mark_conversation_known(conversation_id, scope=_ENSURED_DURABLE)
+        mark_conversation_known(
+            conversation_id,
+            scope=_ENSURED_DURABLE,
+            organization_id=create_kwargs.get("organization_id"),
+        )
         _record_start_claim(conversation_id, safe_user_id)
         vcprint(
             f"[ConversationGate] Published conversation before streaming: {conversation_id}",
@@ -1181,6 +1277,11 @@ async def create_new_conversation(
         ):
             async with Session():
                 await _cxm().conversation.create_conversation(**create_kwargs)
+        mark_conversation_known(
+            conversation_id,
+            scope=_ENSURED_DURABLE,
+            organization_id=create_kwargs.get("organization_id"),
+        )
         vcprint(
             f"[ConversationGate] Created conversation: {conversation_id}...",
             color="green",
@@ -1261,6 +1362,7 @@ async def ensure_conversation_exists(
     )
     if existing:
         _verify_system_anchor_owner(existing, safe_user_id)
+        _remember_org_from_conversation_rows(conversation_id, existing)
         mark_conversation_known(conversation_id, scope=_ENSURED_DURABLE)
         tracker = try_get_tracker()
         if tracker:
@@ -1312,7 +1414,11 @@ async def ensure_conversation_exists(
     # ORM create so the row still lands.
     if _get_active_lane_coordinator() is not None:
         _queue_conversation_create(**create_kwargs)
-        mark_conversation_known(conversation_id, scope=_coord_scope_key())
+        mark_conversation_known(
+            conversation_id,
+            scope=_coord_scope_key(),
+            organization_id=create_kwargs.get("organization_id"),
+        )
         vcprint(
             f"[ConversationGate] Queued conversation create: {conversation_id}",
             color="green",
@@ -1355,6 +1461,7 @@ async def ensure_conversation_exists(
         if report.error is not None:
             raise RuntimeError(report.error)
         mark_conversation_known(conversation_id, scope=_ENSURED_DURABLE)
+        _remember_org_from_conversation_rows(conversation_id, [create_kwargs])
         vcprint(
             f"[ConversationGate] Auto-created conversation: {conversation_id}",
             color="green",
@@ -1381,6 +1488,7 @@ async def ensure_conversation_exists(
         )
         if recheck:
             _verify_system_anchor_owner(recheck, safe_user_id)
+            _remember_org_from_conversation_rows(conversation_id, recheck)
             return
         if safe_user_id is None:
             raise ConversationGateError(
@@ -1444,6 +1552,7 @@ async def verify_existing_conversation(
         raise ConversationGateError(f"Conversation not found: {conversation_id}")
 
     row = matches[0]
+    _remember_org_from_conversation_rows(conversation_id, matches)
     vcprint(
         f"[ConversationGate] Verified conversation: {conversation_id}...",
         color="green",
@@ -1699,10 +1808,31 @@ def _remember_ensured(request_id: str, scope: object) -> None:
 _known_conversation_ids: OrderedDict[str, object] = OrderedDict()
 
 
-def mark_conversation_known(conversation_id: str, *, scope: object | None = None) -> None:
-    """Memoize a durable row globally or a queued row for its coordinator only."""
+def mark_conversation_known(
+    conversation_id: str,
+    *,
+    scope: object | None = None,
+    organization_id: str | None = None,
+) -> None:
+    """Memoize a durable row globally or a queued row for its coordinator only.
+
+    🚨 ONE DOOR, TWO MEMOS. This memo makes ``ensure_conversation_exists`` skip
+    its existence SELECT forever, so whatever the child-row registry
+    (``matrx_ai.persistence.conversation_org``) believed at that moment is what
+    every later child row is filed under — there is no second read to correct
+    it. On 2026-09-17 adoption re-stamped a shell's ``organization_id`` and
+    called this function without touching the registry, so every message and
+    tool call of the live conversation was filed in the DEAD first attempt's
+    organization while the bleed capture blamed the correct value.
+    ``organization_id`` is therefore part of this call: pass the organization
+    the row now carries at every site that knows it.
+    """
     if not conversation_id:
         return
+    if organization_id:
+        from matrx_ai.persistence.conversation_org import remember_conversation_organization
+
+        remember_conversation_organization(conversation_id, str(organization_id))
     _known_conversation_ids[conversation_id] = scope or _ENSURED_DURABLE
     _known_conversation_ids.move_to_end(conversation_id)
     while len(_known_conversation_ids) > _ENSURED_MEMO_MAX:

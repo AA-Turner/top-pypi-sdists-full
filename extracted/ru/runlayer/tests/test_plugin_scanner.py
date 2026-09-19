@@ -1,5 +1,6 @@
 """Tests for plugin artifact detection (plugin_scanner.py)."""
 
+import errno
 import json
 import ntpath
 from pathlib import Path
@@ -15,17 +16,275 @@ from runlayer_cli.scan.clients import (
     PluginPath,
 )
 from runlayer_cli.scan.cursor_plugins import scan_cursor_plugins
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.plugin_scanner import (
+    DiscoveredPluginArtifact,
     _CLAUDE_DESKTOP_CONFIG_PATHS,
     _collect_plugin_files,
     _redact_json_secrets,
+    _read_marketplace_catalog,
     compute_plugin_identifier,
+    reset_plugin_scan_state,
     scan_claude_code_plugin_artifacts,
     scan_claude_desktop_connectors,
     scan_codex_plugin_artifacts,
     scan_cursor_native_plugins,
     scan_cursor_user_local_plugins,
 )
+from tests.hostile_inputs import DEEP_NESTING
+
+
+def test_cursor_plugin_cache_read_failure_marks_incomplete(tmp_path, monkeypatch):
+    status = ScanCompletionStatus()
+    reset_plugin_scan_state(scan_status=status)
+    monkeypatch.setattr(Path, "iterdir", mock.Mock(side_effect=PermissionError()))
+
+    assert scan_cursor_native_plugins(plugin_cache_base=tmp_path) == []
+    assert status.reasons == ["cursor_plugin_cache_enumeration_failed"]
+    reset_plugin_scan_state()
+
+
+def test_cursor_user_local_read_failure_marks_incomplete(tmp_path, monkeypatch):
+    status = ScanCompletionStatus()
+    reset_plugin_scan_state(scan_status=status)
+    monkeypatch.setattr(Path, "iterdir", mock.Mock(side_effect=PermissionError()))
+
+    assert scan_cursor_user_local_plugins(local_base=tmp_path) == []
+    assert status.reasons == ["cursor_user_local_plugin_enumeration_failed"]
+    reset_plugin_scan_state()
+
+
+@pytest.mark.parametrize(
+    ("scanner", "base_kwarg", "expected_reason"),
+    [
+        (
+            scan_cursor_native_plugins,
+            "plugin_cache_base",
+            "cursor_plugin_cache_enumeration_failed",
+        ),
+        (
+            scan_cursor_user_local_plugins,
+            "local_base",
+            "cursor_user_local_plugin_enumeration_failed",
+        ),
+        (
+            scan_codex_plugin_artifacts,
+            "plugin_cache_base",
+            "codex_plugin_cache_enumeration_failed",
+        ),
+    ],
+)
+def test_plugin_root_probe_failure_marks_incomplete(
+    tmp_path, monkeypatch, scanner, base_kwarg, expected_reason
+):
+    status = ScanCompletionStatus()
+    reset_plugin_scan_state(scan_status=status)
+    original_stat = Path.stat
+
+    def fail_root_stat(path, *args, **kwargs):
+        if path == tmp_path:
+            raise PermissionError
+        return original_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", fail_root_stat)
+
+    assert scanner(**{base_kwarg: tmp_path}) == []
+    assert status.reasons == [expected_reason]
+    reset_plugin_scan_state()
+
+
+def test_claude_marketplace_read_failure_marks_incomplete(tmp_path, monkeypatch):
+    status = ScanCompletionStatus()
+    reset_plugin_scan_state(scan_status=status)
+    installed_plugins_path = tmp_path / ".claude" / "plugins" / "installed.json"
+    original_glob = Path.glob
+
+    def fail_marketplace_glob(path: Path, pattern: str):
+        if path.name == "marketplaces":
+            raise PermissionError
+        return original_glob(path, pattern)
+
+    monkeypatch.setattr(Path, "glob", fail_marketplace_glob)
+
+    assert (
+        scan_claude_code_plugin_artifacts(
+            installed_plugins_path=installed_plugins_path,
+            settings_override={},
+        )
+        == []
+    )
+    assert status.reasons == ["claude_marketplace_enumeration_failed"]
+    reset_plugin_scan_state()
+
+
+def test_claude_marketplace_path_resolution_failure_marks_incomplete(
+    tmp_path, monkeypatch
+):
+    plugin_dir = _create_marketplace_claude_plugin(
+        tmp_path,
+        "official",
+        "plugins",
+        "review",
+        plugin_json={"name": "review"},
+    )
+    status = ScanCompletionStatus()
+    reset_plugin_scan_state(scan_status=status)
+    original_resolve = Path.resolve
+
+    def fail_plugin_resolve(path: Path, *args, **kwargs):
+        if path == plugin_dir:
+            raise PermissionError
+        return original_resolve(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "resolve", fail_plugin_resolve)
+
+    assert (
+        scan_claude_code_plugin_artifacts(
+            installed_plugins_path=tmp_path / ".claude" / "plugins" / "installed.json",
+            settings_override={"review@official": True},
+        )
+        == []
+    )
+    assert status.reasons == ["claude_marketplace_path_resolution_failed"]
+    reset_plugin_scan_state()
+
+
+@pytest.mark.parametrize(
+    ("error", "expected_reasons"),
+    [
+        (
+            PermissionError(errno.EACCES, "denied"),
+            ["claude_plugin_install_dir_access_failed"],
+        ),
+        (FileNotFoundError(errno.ENOENT, "missing"), []),
+    ],
+)
+def test_claude_registry_install_dir_probe_classifies_access(
+    tmp_path, monkeypatch, error, expected_reasons
+):
+    install_dir = Path(
+        _create_claude_plugin(
+            tmp_path,
+            "official",
+            "review",
+            "1.0.0",
+            plugin_json={"name": "review"},
+        )
+    )
+    installed = _write_installed_plugins(
+        tmp_path,
+        {"review@official": [{"installPath": str(install_dir)}]},
+    )
+    status = ScanCompletionStatus()
+    reset_plugin_scan_state(scan_status=status)
+    original_stat = Path.stat
+
+    def fail_install_dir_stat(path: Path, *args, **kwargs):
+        if path == install_dir:
+            raise error
+        return original_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", fail_install_dir_stat)
+
+    assert scan_claude_code_plugin_artifacts(installed_plugins_path=installed) == []
+    assert status.reasons == expected_reasons
+    reset_plugin_scan_state()
+
+
+@pytest.mark.parametrize(
+    ("error", "expected_reasons"),
+    [
+        (
+            PermissionError(errno.EACCES, "denied"),
+            ["claude_marketplace_install_dir_access_failed"],
+        ),
+        (FileNotFoundError(errno.ENOENT, "missing"), []),
+    ],
+)
+def test_claude_marketplace_install_dir_probe_classifies_access(
+    tmp_path, monkeypatch, error, expected_reasons
+):
+    install_dir = _create_marketplace_claude_plugin(
+        tmp_path,
+        "official",
+        "plugins",
+        "review",
+        plugin_json={"name": "review"},
+    )
+    installed = _write_installed_plugins(tmp_path, {})
+    status = ScanCompletionStatus()
+    reset_plugin_scan_state(scan_status=status)
+    original_stat = Path.stat
+
+    def fail_install_dir_stat(path: Path, *args, **kwargs):
+        if path == install_dir:
+            raise error
+        return original_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", fail_install_dir_stat)
+
+    assert (
+        scan_claude_code_plugin_artifacts(
+            installed_plugins_path=installed,
+            settings_override={"review@official": True},
+        )
+        == []
+    )
+    assert status.reasons == expected_reasons
+    reset_plugin_scan_state()
+
+
+def test_claude_marketplace_catalog_resolution_failure_marks_incomplete(
+    tmp_path, monkeypatch
+):
+    _write_marketplace_catalog(
+        tmp_path,
+        "official",
+        "official",
+        [{"name": "review", "source": "./plugins/review"}],
+    )
+    marketplace_dir = tmp_path / ".claude" / "plugins" / "marketplaces" / "official"
+    status = ScanCompletionStatus()
+    reset_plugin_scan_state(scan_status=status)
+    monkeypatch.setattr(Path, "resolve", mock.Mock(side_effect=PermissionError()))
+
+    _, source_names = _read_marketplace_catalog(marketplace_dir)
+
+    assert source_names == {}
+    assert status.reasons == ["claude_marketplace_catalog_path_resolution_failed"]
+    reset_plugin_scan_state()
+
+
+def test_container_context_in_api_payload() -> None:
+    artifact = DiscoveredPluginArtifact(
+        name="Copilot",
+        plugin_type="vscode_extension",
+        client="vscode",
+        install_path="/home/dev/.vscode/extensions/github.copilot",
+        container_id="abc123",
+        container_name="dev",
+        container_image_ref="example/dev:latest",
+        container_image_digest="sha256:deadbeef",
+        container_runtime="docker",
+        container_is_devcontainer=True,
+        container_is_running=True,
+        container_labels={"devcontainer.local_folder": "/workspace"},
+        container_mounts_host_home=False,
+    )
+
+    payload = artifact.to_api_payload()
+
+    assert payload["container"] == {
+        "container_id": "abc123",
+        "name": "dev",
+        "image_ref": "example/dev:latest",
+        "image_digest": "sha256:deadbeef",
+        "runtime": "docker",
+        "is_devcontainer": True,
+        "is_running": True,
+        "labels": {"devcontainer.local_folder": "/workspace"},
+        "mounts_host_home": False,
+    }
 
 
 # ---------------------------------------------------------------------------
@@ -1179,6 +1438,12 @@ class TestScanClaudeDesktopConnectors:
         config.write_text("{invalid json")
         assert scan_claude_desktop_connectors(config_path_override=config) == []
 
+    def test_deeply_nested_json_skipped_not_raised(self, tmp_path: Path):
+        """RecursionError from json5 must stay inside the reader (ISS-01)."""
+        config = tmp_path / "claude_desktop_config.json"
+        config.write_text(DEEP_NESTING)
+        assert scan_claude_desktop_connectors(config_path_override=config) == []
+
 
 # ===========================================================================
 # Integration: plugin_identifier on MCPClientConfig
@@ -1806,6 +2071,20 @@ class TestCodexPluginSemverOrdering:
         monkeypatch.delenv("USERPROFILE", raising=False)
         result = scan_codex_plugin_artifacts()
         assert result == []
+
+    def test_codex_config_scan_marks_missing_windows_home_incomplete(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        status = ScanCompletionStatus()
+        reset_plugin_scan_state(scan_status=status)
+        monkeypatch.setattr(
+            "runlayer_cli.scan.codex_plugins.platform.system", lambda: "Windows"
+        )
+        monkeypatch.delenv("USERPROFILE", raising=False)
+
+        assert scan_codex_plugins() == []
+        assert status.reasons == ["codex_plugin_home_resolution_failed"]
+        reset_plugin_scan_state()
 
     def test_scan_codex_plugins_rc10_beats_rc2(self, tmp_path: Path):
         """rc10 must sort above rc2 (numeric, not lexicographic)."""

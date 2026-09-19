@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import hashlib
 import json
-import sys
 import unicodedata
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -12,21 +11,28 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-import json5
 import structlog
-import yaml
 
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.container_command import classify_container_command
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:
-    import tomli as tomllib
+from runlayer_cli.safe_parse import (
+    ParseOutcome,
+    parse_json5,
+    parse_toml,
+    parse_yaml,
+)
 
 if TYPE_CHECKING:
     from runlayer_cli.scan.clients import MCPClientDefinition
 
 logger = structlog.get_logger(__name__)
+
+_PARSERS_BY_FORMAT: dict[str, Callable[[str], ParseOutcome]] = {
+    "toml": parse_toml,
+    "yaml": parse_yaml,
+    "json": parse_json5,
+}
+_FORMAT_LABELS = {"toml": "TOML", "yaml": "YAML", "json": "JSON/JSONC"}
 
 
 def normalize_transport(explicit: object, *, has_url: bool) -> str:
@@ -264,18 +270,27 @@ def parse_plugin_mcp_file(mcp_path: Path, plugin_name: str) -> list[MCPServerCon
     """Read and parse an mcp.json / .mcp.json from a plugin directory."""
     try:
         text = mcp_path.read_text(encoding="utf-8")
-        if not text.strip():
-            return []
-        raw = json5.loads(text)
     except (ValueError, OSError) as e:
         logger.warning(
-            "Failed to parse plugin MCP config",
+            "Failed to read plugin MCP config",
             plugin=plugin_name,
             path=str(mcp_path),
             error=str(e),
         )
         return []
+    if not text.strip():
+        return []
 
+    outcome = parse_json5(text)
+    if outcome["error"] is not None:
+        logger.warning(
+            "Failed to parse plugin MCP config",
+            plugin=plugin_name,
+            path=str(mcp_path),
+            error=outcome["error"],
+        )
+        return []
+    raw = outcome["value"]
     if not isinstance(raw, dict):
         return []
 
@@ -329,15 +344,8 @@ def parse_config_content(
     if not text.strip():
         return []
 
-    try:
-        if client_def.config_format == "toml":
-            raw_config = tomllib.loads(text)
-        elif client_def.config_format == "yaml":
-            raw_config = yaml.safe_load(text)
-        else:
-            raw_config = json5.loads(text)
-    except (ValueError, tomllib.TOMLDecodeError, yaml.YAMLError):
-        return []
+    outcome = _PARSERS_BY_FORMAT.get(client_def.config_format, parse_json5)(text)
+    raw_config = outcome["value"]
     if not isinstance(raw_config, dict):
         return []
 
@@ -741,6 +749,7 @@ def parse_config_file(
     config_path: Path,
     *,
     redact_path_in_logs: bool = False,
+    scan_status: ScanCompletionStatus | None = None,
 ) -> MCPClientConfig | None:
     """
     Parse an MCP client configuration file.
@@ -759,33 +768,37 @@ def parse_config_file(
         MCPClientConfig if successfully parsed, None if file doesn't exist or is invalid
     """
 
-    def _warn_parse_failure(event: str, exc: Exception) -> None:
+    def _warn_parse_failure(event: str, error: str) -> None:
+        # ``error`` is ``"<ExceptionType>: <message>"`` as produced by safe_parse.
         if redact_path_in_logs:
             # YAML marks and OSError messages embed the file path, so the raw
             # error string is as sensitive as the path itself here.
             logger.warning(
                 event,
                 client=client_def.name,
-                error_type=type(exc).__name__,
+                error_type=error.split(":", 1)[0],
             )
         else:
             logger.warning(
                 event,
                 client=client_def.name,
                 path=str(config_path),
-                error=str(exc),
+                error=error,
             )
 
-    # On Python 3.13 Path.exists() propagates OSError (e.g. EACCES when a
-    # relative candidate stats through an unsearchable cwd) instead of
-    # returning False; an unreadable candidate is "not found" for our purposes.
     try:
-        config_exists = config_path.exists()
-    except OSError:
-        config_exists = False
-    if not config_exists:
+        config_path.stat()
+    except FileNotFoundError:
         logger.debug(
             "Config file not found",
+            client=client_def.name,
+        )
+        return None
+    except OSError:
+        if scan_status is not None:
+            scan_status.mark_incomplete("config_path_enumeration_failed")
+        logger.debug(
+            "Config file inaccessible",
             client=client_def.name,
         )
         return None
@@ -793,32 +806,36 @@ def parse_config_file(
     # Determine config format from client definition
     config_format = getattr(client_def, "config_format", "json")
 
+    format_label = _FORMAT_LABELS.get(config_format, "JSON/JSONC")
     try:
-        if config_format == "toml":
-            with open(config_path, "rb") as fb:
-                raw_config = tomllib.load(fb)
-        elif config_format == "yaml":
-            with open(config_path, encoding="utf-8") as f:
-                raw_config = yaml.safe_load(f)
-        else:
-            with open(config_path, encoding="utf-8") as f:
-                content = f.read()
-            if not content.strip():
-                raw_config = None
-            else:
-                raw_config = json5.loads(content)
-    except tomllib.TOMLDecodeError as e:
-        _warn_parse_failure("Failed to parse config file - invalid TOML", e)
+        content = config_path.read_bytes().decode("utf-8")
+    except OSError as e:
+        if scan_status is not None:
+            scan_status.mark_incomplete("config_read_failed")
+        _warn_parse_failure("Failed to read config file", f"{type(e).__name__}: {e}")
         return None
-    except yaml.YAMLError as e:
-        _warn_parse_failure("Failed to parse config file - invalid YAML", e)
+    except UnicodeDecodeError as e:
+        if scan_status is not None:
+            scan_status.mark_incomplete("config_parse_failed")
+        _warn_parse_failure(
+            f"Failed to parse config file - invalid {format_label}",
+            f"{type(e).__name__}: {e}",
+        )
         return None
-    except ValueError as e:
-        _warn_parse_failure("Failed to parse config file - invalid JSON/JSONC", e)
-        return None
-    except IOError as e:
-        _warn_parse_failure("Failed to read config file", e)
-        return None
+
+    if config_format in ("toml", "yaml") or content.strip():
+        outcome = _PARSERS_BY_FORMAT.get(config_format, parse_json5)(content)
+        if outcome["error"] is not None:
+            if scan_status is not None:
+                scan_status.mark_incomplete("config_parse_failed")
+            _warn_parse_failure(
+                f"Failed to parse config file - invalid {format_label}",
+                outcome["error"],
+            )
+            return None
+        raw_config = outcome["value"]
+    else:
+        raw_config = None
 
     # Handle case where YAML file is empty or contains only null
     if raw_config is None:

@@ -2,6 +2,7 @@
 
 from typing import NamedTuple
 
+from runlayer_cli.hook.credential_state import CREDENTIAL_REJECTED_STATUS
 from runlayer_cli.hook.failure import FailureContext
 
 AGENT_GUARDRAILS = (
@@ -14,6 +15,27 @@ AGENT_GUARDRAILS = (
 )
 
 DEFAULT_USER_MSG = "Action blocked by organization security policy"
+
+# Monitor-mode one-liner (hourly, per device) when the API rejects this
+# device's credentials: says what stopped (monitoring), what did not (the
+# user's work), and who owns the fix.
+MONITOR_CREDENTIALS_REJECTED_NOTICE = (
+    "Runlayer monitoring is offline on this device (credentials rejected). "
+    "Nothing is blocked. Ask your Runlayer administrator to re-push the "
+    "AI Watch configuration."
+)
+
+
+def host_override_notice(user_host: str, managed_host: str) -> str:
+    """Hourly one-liner when a managed device's ``runlayer login`` host differs
+    from its MDM host: says where hooks report, and that the login host is
+    unaffected for interactive commands, so neither side reads as broken."""
+    return (
+        f"This device is managed by Runlayer: AI Watch hooks report to "
+        f"{managed_host}, not your `runlayer login` host {user_host}. "
+        f"`runlayer run` and other interactive commands still use {user_host}."
+    )
+
 
 # Below this, a payload is too small to plausibly explain a transfer-time
 # failure, so the cause line states the size as fact but never *blames* it
@@ -131,32 +153,77 @@ def _unreachable_cause(failure: "FailureContext | None") -> _UnreachableCause:
     return _NO_CAUSE
 
 
+def _credential_rejected_message(
+    verification_phrase: str,
+    *,
+    tool_name: str,
+    hostname: str | None,
+    managed_credential: bool,
+) -> tuple[str, str]:
+    """Enforce deny for a 401; the remedy depends on who owns the credential
+    (MDM org key: the administrator; per-user secret: ``runlayer login``)."""
+    status = CREDENTIAL_REJECTED_STATUS
+    device = f" (device: {hostname})" if hostname else ""
+    ticket_hint = (
+        f'quote the device hostname "{hostname}"'
+        if hostname
+        else "quote this machine's hostname"
+    )
+    if managed_credential:
+        user_action = "Nothing to fix locally — contact your Runlayer administrator"
+        footer = (
+            "Nothing on this machine can fix this: the credential comes from "
+            "your organization's device management, and signing in again here "
+            "does not replace it. Your Runlayer administrator can identify the "
+            "revoked organization API key from Settings → MDM configuration "
+            "and the audit log, and must re-deploy a current configuration to "
+            f"this device. {ticket_hint[:1].upper()}{ticket_hint[1:]} when "
+            "opening a helpdesk ticket."
+        )
+    else:
+        user_action = "Run 'runlayer login' to refresh them"
+        footer = (
+            "Run 'runlayer login' to refresh this machine's Runlayer "
+            "credentials, then retry. If that does not help, contact your "
+            f"Runlayer administrator and {ticket_hint}."
+        )
+    return (
+        f"Runlayer API rejected this machine's credentials (HTTP {status}). "
+        f"{user_action}{device}",
+        _violation_with_tool(
+            "Authentication Required",
+            f"The Runlayer API rejected this machine's credentials during "
+            f"{verification_phrase} (HTTP {status}). The API was reachable — "
+            "this is a credential problem, not an outage. Unverified actions "
+            "are blocked (fail-closed).",
+            tool_name=tool_name,
+            extra_lines=f"- Device hostname: {hostname}" if hostname else "",
+            footer=footer,
+        ),
+    )
+
+
 def _unreachable_message(
     verification_phrase: str,
     *,
     tool_name: str,
     failure: "FailureContext | None",
+    hostname: str | None = None,
+    managed_credential: bool = True,
 ) -> tuple[str, str]:
     """Shared assembly for the two unreachable-API builders (single source so
     wording/field changes cannot drift between the MCP and local-tool paths)."""
     if failure is not None and failure.kind == "http":
         # Any HTTP response means the API was reached — an unreachable/outage
-        # framing would misdirect (403 = key lacks a role, 429 = throttled,
-        # 5xx = server error). 401 gets credential wording; no side effects
-        # are claimed (cache invalidation is daemon-only, and a genuinely
-        # revoked credential fails again regardless).
-        if failure.status_code == 401:
-            return (
-                "Runlayer API rejected this machine's credentials (HTTP 401)",
-                _violation_with_tool(
-                    "Authentication Required",
-                    f"The Runlayer API rejected this machine's credentials "
-                    f"during {verification_phrase} (HTTP 401). The API was "
-                    "reachable — this is a credential problem, not an outage. "
-                    "Unverified actions are blocked (fail-closed).",
-                    tool_name=tool_name,
-                    footer="If this keeps happening, this machine's Runlayer credentials may be stale or revoked — contact your Runlayer administrator.",
-                ),
+        # framing would misdirect (403 = key lacks a role or a proxy/WAF said
+        # no, 429 = throttled, 5xx = server error). Only 401 is a credential
+        # answer from the API itself and gets credential wording.
+        if failure.status_code == CREDENTIAL_REJECTED_STATUS:
+            return _credential_rejected_message(
+                verification_phrase,
+                tool_name=tool_name,
+                hostname=hostname,
+                managed_credential=managed_credential,
             )
         if failure.status_code == 407:
             # Proxy auth is generated by an HTTP proxy on the path — the
@@ -266,10 +333,18 @@ def auth_required(*, tool_name: str = "") -> tuple[str, str]:
 
 
 def api_unreachable(
-    *, tool_name: str = "", failure: "FailureContext | None" = None
+    *,
+    tool_name: str = "",
+    failure: "FailureContext | None" = None,
+    hostname: str | None = None,
+    managed_credential: bool = True,
 ) -> tuple[str, str]:
     return _unreachable_message(
-        "MCP execution verification", tool_name=tool_name, failure=failure
+        "MCP execution verification",
+        tool_name=tool_name,
+        failure=failure,
+        hostname=hostname,
+        managed_credential=managed_credential,
     )
 
 
@@ -297,10 +372,18 @@ def tool_auth_required(*, tool_name: str = "") -> tuple[str, str]:
 
 
 def tool_api_unreachable(
-    *, tool_name: str = "", failure: "FailureContext | None" = None
+    *,
+    tool_name: str = "",
+    failure: "FailureContext | None" = None,
+    hostname: str | None = None,
+    managed_credential: bool = True,
 ) -> tuple[str, str]:
     return _unreachable_message(
-        "local tool verification", tool_name=tool_name, failure=failure
+        "local tool verification",
+        tool_name=tool_name,
+        failure=failure,
+        hostname=hostname,
+        managed_credential=managed_credential,
     )
 
 

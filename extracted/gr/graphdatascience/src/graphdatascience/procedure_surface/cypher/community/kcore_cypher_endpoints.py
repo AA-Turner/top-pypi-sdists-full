@@ -2,7 +2,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.community.kcore_endpoints import (
     KCoreEndpoints,
     KCoreMutateResult,
@@ -29,7 +29,7 @@ class KCoreCypherEndpoints(KCoreEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         *,
         concurrency: int | None = None,
@@ -56,13 +56,13 @@ class KCoreCypherEndpoints(KCoreEndpoints):
 
         cypher_result = self._query_runner.call_procedure(
             endpoint="gds.kcore.mutate", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return KCoreMutateResult(**cypher_result.to_dict())
+        return KCoreMutateResult(**cypher_result)
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         job_id: str | None = None,
@@ -87,13 +87,13 @@ class KCoreCypherEndpoints(KCoreEndpoints):
 
         cypher_result = self._query_runner.call_procedure(
             endpoint="gds.kcore.stats", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return KCoreStatsResult(**cypher_result.to_dict())
+        return KCoreStatsResult(**cypher_result)
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         job_id: str | None = None,
@@ -120,7 +120,7 @@ class KCoreCypherEndpoints(KCoreEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         *,
         concurrency: int | None = None,
@@ -149,13 +149,13 @@ class KCoreCypherEndpoints(KCoreEndpoints):
 
         result = self._query_runner.call_procedure(
             endpoint="gds.kcore.write", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return KCoreWriteResult(**result.to_dict())
+        return KCoreWriteResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         *,
         concurrency: int | None = None,
         node_labels: list[str] = ALL_LABELS,

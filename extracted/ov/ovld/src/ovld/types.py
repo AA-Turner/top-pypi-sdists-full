@@ -1,5 +1,6 @@
 import importlib
 import inspect
+import numbers
 import sys
 import typing
 from dataclasses import dataclass
@@ -33,9 +34,13 @@ def eval_annotation(t, ctx, locals, catch=False):
         raise
 
 
+numtower_map = {int: numbers.Integral, float: numbers.Real, complex: numbers.Complex}
+
+
 class TypeNormalizer:
-    def __init__(self, generic_handlers=None):
-        self.generic_handlers = generic_handlers or TypeMap()
+    def __init__(self, generic_handlers=None, remappings=None):
+        self.generic_handlers = TypeMap() if generic_handlers is None else generic_handlers
+        self.remappings = remappings
 
     def register_generic(self, generic, handler=None):
         if handler is None:
@@ -43,11 +48,20 @@ class TypeNormalizer:
         else:
             self.generic_handlers.register(generic, handler)
 
-    def __call__(self, t, fn, lcl={}):
+    def with_remappings(self, remappings=None):
+        return type(self)(
+            generic_handlers=self.generic_handlers,
+            remappings={**(self.remappings or {}), **(remappings or {})},
+        )
+
+    def __call__(self, t, fn, lcl=None):
         from .dependent import DependentType
 
+        if lcl is None:
+            lcl = {}
+
         if isinstance(t, str):
-            t = eval_annotation(t, fn, lcl)
+            return self(eval_annotation(t, fn, lcl), fn, lcl)
 
         if t is type:
             t = type[object]
@@ -57,6 +71,8 @@ class TypeNormalizer:
             t = object
         elif t in UnionTypes:
             return type[t]
+        elif self.remappings and t in self.remappings:
+            return self.remappings[t]
         elif isinstance(t, typing._AnnotatedAlias):
             t = t.__origin__
 
@@ -95,7 +111,7 @@ normalize_type = TypeNormalizer()
 
 
 @normalize_type.register_generic(typing.Union)
-def _(self, t, fn):
+def _(self, t, fn):  # pragma: no cover
     return self(t.__args__, fn)
 
 

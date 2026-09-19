@@ -3,7 +3,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.similarity.knn_filtered_endpoints import KnnFilteredEndpoints
@@ -23,7 +23,7 @@ class KnnFilteredCypherEndpoints(KnnFilteredEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_relationship_type: str,
         mutate_property: str,
         node_properties: str | list[str] | dict[str, str],
@@ -76,11 +76,11 @@ class KnnFilteredCypherEndpoints(KnnFilteredEndpoints):
 
         result = self._query_runner.call_procedure("gds.knn.filtered.mutate", params=params).iloc[0]
 
-        return KnnMutateResult(**result.to_dict())
+        return KnnMutateResult(**result)
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         node_properties: str | list[str] | dict[str, str],
         source_node_filter: str,
         target_node_filter: str,
@@ -131,11 +131,11 @@ class KnnFilteredCypherEndpoints(KnnFilteredEndpoints):
             0
         ]
 
-        return KnnStatsResult(**result.to_dict())
+        return KnnStatsResult(**result)
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         node_properties: str | list[str] | dict[str, str],
         source_node_filter: str,
         target_node_filter: str,
@@ -186,7 +186,7 @@ class KnnFilteredCypherEndpoints(KnnFilteredEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_relationship_type: str,
         write_property: str,
         node_properties: str | list[str] | dict[str, str],
@@ -243,11 +243,11 @@ class KnnFilteredCypherEndpoints(KnnFilteredEndpoints):
             0
         ]
 
-        return KnnWriteResult(**result.to_dict())
+        return KnnWriteResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         node_properties: str | list[str] | dict[str, str],
         source_node_filter: str,
         target_node_filter: str,

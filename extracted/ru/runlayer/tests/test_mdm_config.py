@@ -540,9 +540,11 @@ def test_full_cli_macos_orders_cli_managed_local_before_aiwatch_managed_local(
     monkeypatch.setattr(runtime, "is_aiwatch_runtime", lambda: False)
     monkeypatch.setattr(mdm_config, "read_backend_config", lambda _org_api_key: None)
 
+    # cli-local declares a different Host, so its key stays with that host;
+    # the host-less aiwatch-managed key is the first eligible fallback.
     assert mdm_config.read_managed_config() == {
         "host": "https://cli-managed.example.com",
-        "org_api_key": "rl_org_cli_local",
+        "org_api_key": "rl_org_aiwatch_managed",
         "sessions": False,
         "auto_update": False,
     }
@@ -568,7 +570,8 @@ def test_aiwatch_runtime_ignores_cli_macos_domain(tmp_path, monkeypatch):
     assert mdm_config.read_managed_config() == {"org_api_key": "rl_org_aiwatch"}
 
 
-def test_macos_first_plist_wins_per_key(tmp_path, monkeypatch):
+def test_macos_first_plist_wins_and_other_host_keeps_its_key(tmp_path, monkeypatch):
+    """A lower plist's secret never pairs with a host it was not pushed with."""
     managed = tmp_path / "managed.plist"
     local = tmp_path / "local.plist"
     _write_plist(managed, {"Host": "https://managed.example.com"})
@@ -578,9 +581,72 @@ def test_macos_first_plist_wins_per_key(tmp_path, monkeypatch):
     )
     monkeypatch.setattr("platform.system", lambda: "Darwin")
     monkeypatch.setattr(mdm_config, "MACOS_PLIST_PATHS", (managed, local))
+    assert mdm_config.read_managed_config() == {"host": "https://managed.example.com"}
+
+
+def test_macos_same_host_lower_plist_still_supplies_key(tmp_path, monkeypatch):
+    managed = tmp_path / "managed.plist"
+    local = tmp_path / "local.plist"
+    _write_plist(managed, {"Host": "https://tenant.example.com/"})
+    _write_plist(
+        local,
+        {"Host": "https://tenant.example.com", "OrgApiKey": "rl_org_local"},
+    )
+    monkeypatch.setattr("platform.system", lambda: "Darwin")
+    monkeypatch.setattr(mdm_config, "MACOS_PLIST_PATHS", (managed, local))
+    monkeypatch.setattr(mdm_config, "read_backend_config", lambda _org_api_key: None)
     assert mdm_config.read_managed_config() == {
-        "host": "https://managed.example.com",
+        "host": "https://tenant.example.com/",
         "org_api_key": "rl_org_local",
+    }
+
+
+def test_full_cli_domain_host_refuses_aiwatch_key_for_other_host(tmp_path, monkeypatch):
+    """CLI ``Host=other`` + AI Watch ``Host=prod``/``OrgApiKey``: the prod key
+    must not ride along with the other host (hooks would post it there)."""
+    cli_managed = tmp_path / "cli-managed.plist"
+    aiwatch_managed = tmp_path / "aiwatch-managed.plist"
+    _write_plist(cli_managed, {"Host": "https://other.example.com"})
+    _write_plist(
+        aiwatch_managed,
+        {
+            "Host": "https://prod.example.com",
+            "OrgApiKey": "rl_org_prod",
+            "SkillSyncOrgApiKey": "rl_org_prod_skills",
+            "EnrollmentKey": "enroll_prod",
+            "Sessions": True,
+        },
+    )
+    monkeypatch.setattr("platform.system", lambda: "Darwin")
+    monkeypatch.setattr(mdm_config, "CLI_MACOS_PLIST_PATHS", (cli_managed,))
+    monkeypatch.setattr(mdm_config, "MACOS_PLIST_PATHS", (aiwatch_managed,))
+    monkeypatch.setattr(runtime, "is_aiwatch_runtime", lambda: False)
+    monkeypatch.setattr(mdm_config, "read_backend_config", lambda _org_api_key: None)
+
+    assert mdm_config.read_managed_config() == {
+        "host": "https://other.example.com",
+        "sessions": True,
+    }
+
+
+def test_full_cli_domain_key_only_pairs_with_aiwatch_host(tmp_path, monkeypatch):
+    """Documented fallback: a CLI plist with only a key borrows the AI Watch host."""
+    cli_managed = tmp_path / "cli-managed.plist"
+    aiwatch_managed = tmp_path / "aiwatch-managed.plist"
+    _write_plist(cli_managed, {"OrgApiKey": "rl_org_cli"})
+    _write_plist(
+        aiwatch_managed,
+        {"Host": "https://prod.example.com", "OrgApiKey": "rl_org_prod"},
+    )
+    monkeypatch.setattr("platform.system", lambda: "Darwin")
+    monkeypatch.setattr(mdm_config, "CLI_MACOS_PLIST_PATHS", (cli_managed,))
+    monkeypatch.setattr(mdm_config, "MACOS_PLIST_PATHS", (aiwatch_managed,))
+    monkeypatch.setattr(runtime, "is_aiwatch_runtime", lambda: False)
+    monkeypatch.setattr(mdm_config, "read_backend_config", lambda _org_api_key: None)
+
+    assert mdm_config.read_managed_config() == {
+        "host": "https://prod.example.com",
+        "org_api_key": "rl_org_cli",
     }
 
 
@@ -934,7 +1000,7 @@ def test_linux_rejects_bool_project_fields(tmp_path, monkeypatch):
     assert mdm_config.read_managed_config() == {}
 
 
-def test_linux_first_config_wins_per_key(tmp_path, monkeypatch):
+def test_linux_first_config_wins_and_other_host_keeps_its_key(tmp_path, monkeypatch):
     first = tmp_path / "first.json"
     second = tmp_path / "second.json"
     _write_json(first, {"Host": "https://first.example.com"})
@@ -944,10 +1010,7 @@ def test_linux_first_config_wins_per_key(tmp_path, monkeypatch):
     )
     monkeypatch.setattr("platform.system", lambda: "Linux")
     monkeypatch.setattr(mdm_config, "LINUX_CONFIG_PATHS", (first, second))
-    assert mdm_config.read_managed_config() == {
-        "host": "https://first.example.com",
-        "org_api_key": "rl_org_second",
-    }
+    assert mdm_config.read_managed_config() == {"host": "https://first.example.com"}
 
 
 class _FakeRegistryKey:
@@ -1020,9 +1083,11 @@ def test_full_cli_windows_orders_cli_domain_before_aiwatch_across_hives(
     monkeypatch.setattr(runtime, "is_aiwatch_runtime", lambda: False)
     monkeypatch.setattr(mdm_config, "read_backend_config", lambda _org_api_key: None)
 
+    # HKCU CLI declares a different Host, so its key is refused; the host-less
+    # HKLM AI Watch key is the first eligible fallback.
     assert mdm_config.read_managed_config() == {
         "host": "https://machine-cli.example.com",
-        "org_api_key": "rl_org_user_cli",
+        "org_api_key": "rl_org_machine_aiwatch",
         "sessions": False,
         "auto_update": False,
     }
@@ -1032,6 +1097,32 @@ def test_full_cli_windows_orders_cli_domain_before_aiwatch_across_hives(
         ("HKLM", aiwatch_path),
         ("HKCU", aiwatch_path),
     ]
+
+
+def test_full_cli_windows_cli_host_refuses_aiwatch_key_for_other_host(monkeypatch):
+    """HKCU CLI ``Host=other`` + HKLM AI Watch ``Host=prod``/``OrgApiKey``."""
+    cli_path = r"Software\RunlayerTest\CLI"
+    aiwatch_path = r"Software\RunlayerTest\AIWatch"
+    fake_winreg = _FakeWinreg(
+        {
+            ("HKCU", cli_path): {
+                "Host": ("https://other.example.com", _FakeWinreg.REG_SZ),
+            },
+            ("HKLM", aiwatch_path): {
+                "Host": ("https://prod.example.com", _FakeWinreg.REG_SZ),
+                "OrgApiKey": ("rl_org_prod", _FakeWinreg.REG_SZ),
+                "EnrollmentKey": ("enroll_prod", _FakeWinreg.REG_SZ),
+            },
+        }
+    )
+    monkeypatch.setattr("platform.system", lambda: "Windows")
+    monkeypatch.setattr(mdm_config, "winreg", fake_winreg)
+    monkeypatch.setattr(mdm_config, "CLI_REG_KEY_PATH", cli_path, raising=False)
+    monkeypatch.setattr(mdm_config, "REG_KEY_PATH", aiwatch_path)
+    monkeypatch.setattr(runtime, "is_aiwatch_runtime", lambda: False)
+    monkeypatch.setattr(mdm_config, "read_backend_config", lambda _org_api_key: None)
+
+    assert mdm_config.read_managed_config() == {"host": "https://other.example.com"}
 
 
 def test_aiwatch_runtime_ignores_cli_windows_path(monkeypatch):

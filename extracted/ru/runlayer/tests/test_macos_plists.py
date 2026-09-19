@@ -558,6 +558,31 @@ def test_pkg_ships_chrome_native_messaging_host() -> None:
     assert "com.runlayer.aiwatch.native-messaging-host.json" in build_script
 
 
+def test_pkg_ships_edge_native_host_with_the_chrome_origin() -> None:
+    """Edge loads the same signed CRX and must find its identity host."""
+    import json
+    import shlex
+
+    from runlayer_cli.aiwatch_uninstall import _PACKAGE_PATHS
+
+    destination = "Library/Microsoft/Edge/NativeMessagingHosts/com.runlayer.aiwatch.json"
+    build_script = (_PACKAGING_MACOS / "build_pkg.sh").read_text()
+    folded = build_script.replace("\\\n", " ")
+    assert [
+        "cp",
+        "$SCRIPT_DIR/com.runlayer.aiwatch.native-messaging-host.json",
+        f"$BUILD_DIR/payload/{destination}",
+    ] in [shlex.split(line) for line in folded.splitlines() if line.startswith("cp ")]
+    manifest = json.loads((_PACKAGING_MACOS / _NATIVE_MESSAGING_HOST).read_text())
+    assert manifest["allowed_origins"] == [
+        "chrome-extension://jijfcalfdbnjfpfcalkodmgmfijpfddi/"
+    ]
+    assert Path(f"/{destination}") in _PACKAGE_PATHS
+    assert f"rm -f /{destination}" in (
+        _PACKAGING_MACOS / "uninstall.sh"
+    ).read_text()
+
+
 def test_pkg_ships_firefox_native_messaging_host() -> None:
     """The macOS pkg allows the stable Firefox add-on ID to use identity."""
     import json

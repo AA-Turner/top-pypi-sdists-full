@@ -329,6 +329,101 @@ def test_wrapper_drops_privileges_per_user_with_timeout() -> None:
     assert "timeout -k 30 600" in text
 
 
+def test_wrapper_switches_machine_scope_after_first_success() -> None:
+    text = _WRAPPER.read_text()
+    initial = "machine_scope_flag=--machine-scope"
+    scan = '"$machine_scope_flag"'
+    later = "machine_scope_flag=--no-machine-scope"
+    result = "scan_rc=$?"
+
+    success = 'if [ "$scan_rc" -eq 0 ]; then'
+
+    assert text.find(initial) < text.find(scan) < text.find(result) < text.find(success)
+    assert text.find(success) < text.find(later)
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Linux wrapper requires a POSIX shell")
+def test_wrapper_retries_machine_scope_when_first_child_fails(
+    tmp_path: Path,
+) -> None:
+    lock_dir = tmp_path / "locks"
+    credentials = tmp_path / "credentials"
+    credentials.write_text("RUNLAYER_API_KEY=stub\n")
+    home_a = tmp_path / "home-a"
+    home_b = tmp_path / "home-b"
+    home_a.mkdir()
+    home_b.mkdir()
+    passwd = tmp_path / "passwd"
+    passwd.write_text(
+        f"alice:x:1000:1000::{home_a}:/bin/sh\n"
+        f"alice-alias:x:1001:1001::{home_a}:/bin/sh\n"
+        f"bob:x:1002:1002::{home_b}:/bin/sh\n"
+    )
+    wrapper = tmp_path / "run-aiwatch-scan.sh"
+    wrapper.write_text(
+        _WRAPPER.read_text()
+        .replace(
+            "LOCK_DIR=/run/runlayer-aiwatch",
+            f"LOCK_DIR={shlex.quote(str(lock_dir))}",
+        )
+        .replace(
+            "CREDENTIALS_FILE=/etc/runlayer/aiwatch/credentials",
+            f"CREDENTIALS_FILE={shlex.quote(str(credentials))}",
+        )
+    )
+    wrapper.chmod(0o755)
+
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    commands = {
+        "flock": "#!/bin/sh\nexit 0\n",
+        "logger": "#!/bin/sh\nexit 0\n",
+        "getent": '#!/bin/sh\nexec /bin/cat "$TEST_PASSWD"\n',
+        "readlink": """#!/bin/sh
+if [ "${1:-}" = "-f" ]; then shift; fi
+if [ "${1:-}" = "--" ]; then shift; fi
+cd "$1" && pwd -P
+""",
+        "timeout": """#!/bin/sh
+case " $* " in
+*" config refresh "*) exit 0 ;;
+esac
+printf '%s\n' "$*" >>"$TEST_SCAN_CALLS"
+if [ ! -e "$TEST_FIRST_SCAN_ATTEMPTED" ]; then
+    touch "$TEST_FIRST_SCAN_ATTEMPTED"
+    exit 17
+fi
+exit 0
+""",
+    }
+    for name, body in commands.items():
+        command = fake_bin / name
+        command.write_text(body)
+        command.chmod(0o755)
+
+    calls = tmp_path / "scan-calls"
+    first_attempted = tmp_path / "first-attempted"
+    completed = subprocess.run(
+        [str(wrapper)],
+        env={
+            **os.environ,
+            "PATH": f"{fake_bin}{os.pathsep}{os.environ['PATH']}",
+            "TEST_PASSWD": str(passwd),
+            "TEST_SCAN_CALLS": str(calls),
+            "TEST_FIRST_SCAN_ATTEMPTED": str(first_attempted),
+        },
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    scan_calls = calls.read_text().splitlines()
+    assert completed.returncode == 1, completed.stderr
+    assert len(scan_calls) == 2
+    assert "--machine-scope" in scan_calls[0].split()
+    assert "--machine-scope" in scan_calls[1].split()
+
+
 def test_wrapper_enumerates_all_users_without_filtering() -> None:
     """Explicit product requirement: scan ALL passwd entries — root, system,
     and service accounts included. No uid floor, no login-shell filter."""
@@ -338,6 +433,67 @@ def test_wrapper_enumerates_all_users_without_filtering() -> None:
     assert "1000" not in text, "wrapper must not filter users by uid"
     assert "nologin" not in text, "wrapper must not filter users by login shell"
     assert "/bin/false" not in text, "wrapper must not filter users by login shell"
+
+
+def test_wrapper_rejects_failed_or_partial_passwd_snapshot() -> None:
+    text = _WRAPPER.read_text()
+
+    assert 'if ! getent passwd >"$passwd_list"; then' in text
+    assert text.find('if ! getent passwd >"$passwd_list"; then') < text.find(
+        "while IFS=: read"
+    )
+
+
+@pytest.mark.skipif(os.name == "nt", reason="Linux wrapper requires a POSIX shell")
+def test_wrapper_exits_before_scan_when_getent_writes_partial_then_fails(
+    tmp_path: Path,
+) -> None:
+    lock_dir = tmp_path / "locks"
+    credentials = tmp_path / "credentials"
+    credentials.write_text("RUNLAYER_API_KEY=stub\n")
+    scan_marker = tmp_path / "scan-called"
+    wrapper = tmp_path / "run-aiwatch-scan.sh"
+    wrapper.write_text(
+        _WRAPPER.read_text()
+        .replace(
+            "LOCK_DIR=/run/runlayer-aiwatch",
+            f"LOCK_DIR={shlex.quote(str(lock_dir))}",
+        )
+        .replace(
+            "CREDENTIALS_FILE=/etc/runlayer/aiwatch/credentials",
+            f"CREDENTIALS_FILE={shlex.quote(str(credentials))}",
+        )
+    )
+    wrapper.chmod(0o755)
+    fake_bin = tmp_path / "bin"
+    fake_bin.mkdir()
+    commands = {
+        "flock": "#!/bin/sh\nexit 0\n",
+        "logger": "#!/bin/sh\nexit 0\n",
+        "getent": "#!/bin/sh\nprintf 'partial:x:1:1::/tmp:/bin/sh\\n'\nexit 17\n",
+        "timeout": (
+            '#!/bin/sh\ncase " $* " in *" config refresh "*) exit 0 ;; esac\n'
+            f"touch {shlex.quote(str(scan_marker))}\nexit 0\n"
+        ),
+    }
+    for name, body in commands.items():
+        command = fake_bin / name
+        command.write_text(body)
+        command.chmod(0o755)
+
+    completed = subprocess.run(
+        [str(wrapper)],
+        env={
+            **os.environ,
+            "PATH": f"{fake_bin}{os.pathsep}{os.environ['PATH']}",
+        },
+        capture_output=True,
+        check=False,
+        text=True,
+    )
+
+    assert completed.returncode != 0
+    assert not scan_marker.exists()
 
 
 def test_config_template_contains_only_bootstrap_host() -> None:

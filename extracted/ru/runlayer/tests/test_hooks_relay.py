@@ -52,7 +52,10 @@ def _no_managed_config():
         yield
 
 
-def _make_config(*, host: str = "https://app.example.com", secret: str = "test-key"):
+_HOST = "https://app.example.com"
+
+
+def _make_config(*, host: str = _HOST, secret: str = "test-key"):
     config = Config(
         default_host=host,
         hosts={
@@ -362,16 +365,19 @@ def test_finalize_never_attaches_device_context_to_mcp_usage():
         patch.object(
             relay,
             "read_managed_config",
-            return_value={"org_api_key": "rl_org_test"},
+            return_value={
+                "host": "https://app.example.com",
+                "org_api_key": "rl_org_test",
+            },
         ),
         patch.object(relay, "_build_device_context", return_value=full_context),
     ):
-        finalized = json.loads(relay._finalize_payload(body, "mcp-usage"))
+        finalized = json.loads(relay._finalize_payload(body, "mcp-usage", _HOST))
         assert "device" not in finalized
         assert "hostname" not in json.dumps(finalized)
 
         # The gate is target-scoped: event bodies still get the device block.
-        event_finalized = json.loads(relay._finalize_payload(body, "event"))
+        event_finalized = json.loads(relay._finalize_payload(body, "event", _HOST))
         assert event_finalized["device"] == full_context
 
 
@@ -820,7 +826,7 @@ class TestDeferredEventSending:
             lambda: ("https://api.example.com", "rl_org_test"),
         )
 
-        def _record_drain(payload: str, target: str) -> str:
+        def _record_drain(payload: str, target: str, host: str) -> str:
             drains.append(target)
             return payload
 

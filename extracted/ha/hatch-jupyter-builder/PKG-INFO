@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.5
 Name: hatch-jupyter-builder
-Version: 0.9.1
+Version: 0.10.0
 Summary: A hatch plugin to help build Jupyter packages
 Project-URL: Documentation, https://github.com/jupyterlab/hatch-jupyter-builder#readme
 Project-URL: Issues, https://github.com/jupyterlab/hatch-jupyter-builder/issues
@@ -41,10 +41,9 @@ Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Requires-Dist: hatchling>=1.17
 Provides-Extra: docs
-Requires-Dist: hatch-jupyter-builder; extra == 'docs'
 Requires-Dist: myst-parser; extra == 'docs'
 Requires-Dist: pydata-sphinx-theme; extra == 'docs'
 Requires-Dist: sphinx-autodoc-typehints; extra == 'docs'

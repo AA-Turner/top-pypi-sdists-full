@@ -2,13 +2,13 @@
 
 from __future__ import annotations
 
-import json
 import sys
 from pathlib import Path
 from typing import Any, Iterator, Mapping, cast
 
 from runlayer_cli.hook import hook_io
 from runlayer_cli.hook.mcp_types import MCPServer
+from runlayer_cli.safe_parse import parse_json
 
 GITHUB_COPILOT_CLI_BUILTIN_SOURCE = "github-copilot-cli-built-in"
 GITHUB_COPILOT_CLI_MAX_TOOL_NAME_LENGTH = 64
@@ -385,10 +385,7 @@ def _github_copilot_cli_mcp_server_maps_from_value(
         expanded_path = Path(text[1:]).expanduser()
         data = _read_json_object(Path(hook_io.abspath(str(expanded_path))))
     else:
-        try:
-            parsed = json.loads(text)
-        except json.JSONDecodeError:
-            return
+        parsed = parse_json(text)["value"]
         data = parsed if isinstance(parsed, dict) else None
 
     if data is not None:
@@ -419,13 +416,8 @@ def _search_server_map(
 
 
 def _read_json_servers(path: Path, key: str) -> Mapping[object, Any]:
-    if not path.is_file():
-        return {}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return {}
-    if not isinstance(data, dict):
+    data = _read_json_object(path)
+    if data is None:
         return {}
     servers = data.get(key, {})
     if not isinstance(servers, dict):
@@ -463,13 +455,20 @@ def _extract_server_entry(entry: object) -> MCPServer | None:
 
 
 def _read_json_object(path: Path) -> dict[str, Any] | None:
+    """Decode a user-controlled JSON config; ``None`` unless it is an object.
+
+    Exception-complete via ``safe_parse``: a deep-nested file raises
+    ``RecursionError``, not ``JSONDecodeError``, and must not abort the lookup
+    before later candidate paths are tried.
+    """
     if not path.is_file():
         return None
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+        text = path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
         return None
-    return data if isinstance(data, dict) else None
+    data = parse_json(text)["value"]
+    return cast(dict[str, Any], data) if isinstance(data, dict) else None
 
 
 def _iter_child_dirs(path: Path) -> Iterator[Path]:

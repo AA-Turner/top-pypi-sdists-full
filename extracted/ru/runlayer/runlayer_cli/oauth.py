@@ -65,6 +65,11 @@ class OAuthCallbackTimeoutError(TimeoutError):
     a generic network ``timeout`` (see ``error_classification.py``).
     """
 
+    @property
+    def client_message(self) -> str:
+        """Text the MCP client should see in place of the generic 'not running'."""
+        return str(self)
+
 
 def default_cache_dir() -> Path:
     return get_runlayer_dir() / "oauth-mcp-client-cache"
@@ -84,24 +89,84 @@ def get_free_port() -> int:
         return port
 
 
-def _callback_socket_error(port: int, stage: str, exc: OSError) -> RuntimeError:
+class OAuthCallbackListenerError(RuntimeError):
+    """The local OAuth callback listener could not be opened.
+
+    Raised before any browser login starts, so it is a device-local condition
+    (loopback policy, occupied port), not an upstream or IdP failure. A
+    ``RuntimeError`` like the message-only error it replaces, so ``except``
+    clauses written for that keep matching; ``flow_trace`` classifies it as
+    ``oauth_callback_listener``. The message is already the user guidance.
+    """
+
+    def __init__(self, message: str, *, port: int | None = None) -> None:
+        super().__init__(message)
+        self.port = port
+
+    @property
+    def client_message(self) -> str:
+        return str(self)
+
+
+class OAuthCallbackPortInUseError(OAuthCallbackListenerError):
+    """The cached callback port is bound by another process.
+
+    Almost always a sibling ``runlayer run`` for the same server whose browser
+    login is still pending (every client that spawns the proxy resolves the
+    same cached port). Classified as ``oauth_callback_port_in_use``.
+    """
+
+
+def _callback_socket_error(
+    port: int, stage: str, exc: OSError
+) -> OAuthCallbackListenerError:
     error_name = errno.errorcode.get(exc.errno or 0, "UNKNOWN")
     diagnostic = f"{stage}, {error_name}, errno={exc.errno}"
     if exc.errno == errno.EADDRINUSE:
-        message = (
+        return OAuthCallbackPortInUseError(
             f"OAuth callback port {port} is already in use ({diagnostic}). Another "
             "`runlayer run` OAuth flow may be running - finish it first, "
             "or pass a different --oauth-callback-port (and allowlist "
-            "http://localhost:<port>/callback for that port in your IdP)."
+            "http://localhost:<port>/callback for that port in your IdP).",
+            port=port,
         )
-    else:
-        message = (
-            f"OAuth callback server could not start on port {port} ({diagnostic}). "
-            "Check that your app or terminal is allowed to open a local loopback "
-            "listener, then retry. If this persists, share this diagnostic with "
-            "your administrator."
-        )
-    return RuntimeError(message)
+    return OAuthCallbackListenerError(
+        f"OAuth callback server could not start on port {port} ({diagnostic}). "
+        "Check that your app or terminal is allowed to open a local loopback "
+        "listener, then retry. If this persists, share this diagnostic with "
+        "your administrator.",
+        port=port,
+    )
+
+
+# One browser login may wait on a human for this long (the callback server's
+# timeout). A sibling `runlayer run` holding the cached callback port cannot
+# hold it longer, so the wait for a sibling's login shares the same bound;
+# middleware sizes its detached first connect as wait + own login.
+OAUTH_LOGIN_BUDGET_SECONDS = 300.0
+_SIBLING_LOGIN_WAIT_SECONDS = OAUTH_LOGIN_BUDGET_SECONDS
+_SIBLING_LOGIN_POLL_SECONDS = 1.0
+# The sibling releases its listener before its token exchange lands; keep
+# reading storage for this long after the port frees before concluding it
+# gave up (a premature own-login would open a second browser tab).
+_SIBLING_TOKEN_SETTLE_SECONDS = 10.0
+
+SiblingLoginOutcome = Literal["token", "port_free", "timed_out"]
+
+
+def _callback_port_still_held(port: int) -> bool:
+    """Probe whether the cached callback port is still bound by someone else.
+
+    Only a collision counts: any other listener failure is left for the real
+    attempt to raise with its full diagnostic.
+    """
+    try:
+        with _callback_listener(port):
+            return False
+    except OAuthCallbackPortInUseError:
+        return True
+    except OAuthCallbackListenerError:
+        return False
 
 
 @contextmanager
@@ -299,6 +364,10 @@ class FileTokenStorage(TokenStorage):
             return data.get("oauth_metadata")
         except (FileNotFoundError, json.JSONDecodeError):
             return None
+
+    def has_tokens_file(self) -> bool:
+        """Whether a tokens file exists (a quiet check for polling loops)."""
+        return self._get_file_path("tokens").exists()
 
     def get_callback_port(self) -> int | None:
         """Load a cached localhost callback port from client information."""
@@ -654,6 +723,10 @@ class OAuth(OAuthClientProvider):
         deduplication, and forcing the MCP SDK to reload storage. Persisted tokens
         stay intact so the retry can adopt one written by another process.
 
+        When the cached callback port is held by a sibling ``runlayer run``
+        mid-login, wait for that login's token (shared on disk) or for the port
+        to free up, then start the flow over once.
+
         When the upstream IdP rejects dynamic client registration with a 4xx
         (e.g. Okta's ``403 E0000005 Invalid session``), the mcp SDK raises an
         OAuthRegistrationError whose message is the raw IdP body — no hint
@@ -662,6 +735,7 @@ class OAuth(OAuthClientProvider):
         support); non-4xx registration errors pass through unchanged.
         """
         retried_expired_authorization_code = False
+        waited_for_sibling_login = False
         while True:
             inner = super().async_auth_flow(request)
             try:
@@ -682,15 +756,34 @@ class OAuth(OAuthClientProvider):
                 ):
                     raise
                 retried_expired_authorization_code = True
-                # Memory-only: another process may have persisted a fresh token.
-                self.context.clear_tokens()
+                self._reset_for_retry(request)
+                # A replacement login must be able to open its own tab.
                 _reset_browser_lockfile(self.server_base_url)
-                request.headers.pop("Authorization", None)
-                # mcp 1.x has no public re-init API; this gate reloads storage.
-                self._initialized = False
                 logger.warning(
                     "oauth_authorization_code_expired_retrying",
                     server_url=self.server_base_url,
+                )
+            except OAuthCallbackPortInUseError as exc:
+                # The holder is a sibling proxy for this server mid-login (see
+                # the exception docstring); wait once for its token or the
+                # port, then start over. The browser lockfile is left alone:
+                # a "port_free" retry may open a tab, an adopted token must not.
+                if waited_for_sibling_login or exc.port is None:
+                    raise
+                waited_for_sibling_login = True
+                outcome = await self._wait_for_sibling_login(exc.port)
+                if outcome == "timed_out":
+                    raise
+                # The collision happened after the pending-login marker was
+                # set; this process no longer waits on a browser (a retry that
+                # runs its own login marks it again).
+                oauth_guidance.mark_oauth_flow_finished()
+                self._reset_for_retry(request)
+                logger.info(
+                    "oauth_sibling_login_wait_finished",
+                    server_url=self.server_base_url,
+                    callback_port=exc.port,
+                    outcome=outcome,
                 )
             except OAuthRegistrationError as exc:
                 guidance = oauth_guidance.classify_registration_failure(str(exc))
@@ -702,6 +795,86 @@ class OAuth(OAuthClientProvider):
                     guidance=guidance,
                 )
                 raise OAuthRegistrationError(guidance) from exc
+
+    def _reset_for_retry(self, request: httpx.Request) -> None:
+        """Memory-only reset before re-running the parent auth flow.
+
+        Persisted tokens stay intact so the retry can adopt one written by
+        another process; mcp 1.x has no public re-init API, so the
+        ``_initialized`` gate is what makes the parent reload storage.
+        """
+        self.context.clear_tokens()
+        request.headers.pop("Authorization", None)
+        self._initialized = False
+
+    async def _read_stored_tokens(self) -> OAuthToken | None:
+        storage = self.context.storage
+        if isinstance(storage, FileTokenStorage) and not storage.has_tokens_file():
+            # Skip the read (and its "could not load" log line) while the
+            # sibling's first-ever login has written nothing yet.
+            return None
+        return await storage.get_tokens()
+
+    def _is_adoptable(self, stored: OAuthToken) -> bool:
+        """Whether a stored token is a sibling's result rather than our own stale one.
+
+        Different from the token in memory means a newer exchange happened. No
+        token in memory happens both for a first-time login (a sibling's fresh
+        token is adoptable) and after the SDK dropped ours on a failed refresh
+        (the file still holds that stale, expired token) — the stored expiry
+        tells them apart.
+        """
+        current = self.context.current_tokens
+        if current is not None:
+            return stored.access_token != current.access_token
+        storage = self.context.storage
+        if not isinstance(storage, FileTokenStorage):
+            return True
+        expiry = storage.get_token_expiry_time()
+        return expiry is None or expiry > time.time()
+
+    async def _wait_for_sibling_login(self, port: int) -> SiblingLoginOutcome:
+        """Block until a sibling's login lands, the port frees up, or the budget ends.
+
+        "token": storage holds an access token that differs from the one this
+        process started with (the sibling completed its exchange).
+        "port_free": the holder released the port and no token followed within
+        the settle window; the retry can run its own login. "timed_out": still
+        occupied at the deadline.
+        """
+        before = await self._read_stored_tokens()
+        if before is not None and self._is_adoptable(before):
+            # A sibling already finished while we were failing; adopt it now.
+            return "token"
+        before_access_token = before.access_token if before is not None else None
+        logger.info(
+            "oauth_waiting_for_sibling_login",
+            server_url=self.server_base_url,
+            callback_port=port,
+            timeout_seconds=_SIBLING_LOGIN_WAIT_SECONDS,
+        )
+        deadline = time.monotonic() + _SIBLING_LOGIN_WAIT_SECONDS
+        settle_deadline: float | None = None
+        # A port freed just before the deadline still gets its settle window;
+        # the sibling's own budget runs on the same clock as this wait.
+        while time.monotonic() < deadline or (
+            settle_deadline is not None and time.monotonic() < settle_deadline
+        ):
+            await anyio.sleep(_SIBLING_LOGIN_POLL_SECONDS)
+            tokens = await self._read_stored_tokens()
+            if tokens is not None and tokens.access_token != before_access_token:
+                return "token"
+            if settle_deadline is None and not _callback_port_still_held(port):
+                settle_deadline = time.monotonic() + _SIBLING_TOKEN_SETTLE_SECONDS
+            if settle_deadline is not None and time.monotonic() >= settle_deadline:
+                return "port_free"
+        logger.warning(
+            "oauth_sibling_login_wait_timed_out",
+            server_url=self.server_base_url,
+            callback_port=port,
+            timeout_seconds=_SIBLING_LOGIN_WAIT_SECONDS,
+        )
+        return "timed_out"
 
     async def redirect_handler(self, authorization_url: str) -> None:
         """Open browser for authorization, with protection against multiple tabs."""
@@ -765,7 +938,7 @@ class OAuth(OAuthClientProvider):
                     "Starting OAuth callback server", callback_port=self.redirect_port
                 )
 
-                TIMEOUT = 300.0  # 5 minute timeout
+                TIMEOUT = OAUTH_LOGIN_BUDGET_SECONDS
                 try:
                     with anyio.fail_after(TIMEOUT):
                         # Read the result after joining the server, preserving

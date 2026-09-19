@@ -138,20 +138,26 @@ class HeadlessSessionPolicy(SessionPolicy):
 
     The runtime reads ``is_autonomous=True`` and resolves
     ``ask_user()`` to ``deny`` instantly without touching any
-    transport. When set, ``max_steps`` is enforced by a ``GenerationStep`` hook
-    that emits ``Finish(reason="max_steps=N reached")`` once the turn has run
-    ``max_steps`` model turns. Tool fan-out and duplicate lifecycle events do
-    not consume additional budget. Explicit ``None`` keeps the session autonomous
-    without adding a policy step ceiling. The reset on ``AgentStart`` makes the
-    counter per-turn rather than per-session, so a long chat with multiple turns
-    each gets the full budget.
+    transport. ``max_steps`` defaults to ``None``, so selecting headless mode
+    does not add a budget implicitly. A numeric value is enforced by a
+    ``GenerationStep`` hook that emits ``Finish(reason="max_steps=N reached")``
+    once the turn has run ``max_steps`` model turns. Tool fan-out and duplicate
+    lifecycle events do not consume additional budget. ``None`` keeps the
+    session autonomous without adding a policy step ceiling. The reset on
+    ``AgentStart`` makes the counter per-turn rather than per-session, so a long
+    chat with multiple turns each gets the full budget.
+
+    Product surfaces that run unattended (``--auto``, ``--print``, ``/auto``,
+    background sessions, runtime optimization trials) pass an explicit budget
+    of :data:`~dreadnode.app.config.DEFAULT_AUTONOMOUS_MAX_STEPS`; the policy
+    type itself stays budget-neutral so library callers opt in deliberately.
     """
 
     name: t.ClassVar[str] = "headless"
     is_autonomous: t.ClassVar[bool] = True
     display_label: t.ClassVar[str] = "auto"
 
-    max_steps: int | None = Field(default=30, gt=0)
+    max_steps: int | None = Field(default=None, gt=0)
 
     _count: int = PrivateAttr(default=0)
 

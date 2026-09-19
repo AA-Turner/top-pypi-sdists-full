@@ -5,7 +5,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.job_handle import JobHandle
@@ -15,8 +15,7 @@ from graphdatascience.procedure_surface.api.pathfinding.single_source_dijkstra_e
     SingleSourceDijkstraWriteResult,
 )
 from graphdatascience.procedure_surface.arrow.relationship_endpoints_helper import RelationshipEndpointsHelper
-from graphdatascience.procedure_surface.arrow.stream_result_mapper import map_shortest_path_stream_result
-from graphdatascience.query_runner.protocol.write_protocols import WriteProtocol
+from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
 class SingleSourceDijkstraArrowEndpoints(SingleSourceDijkstraEndpoints):
@@ -32,7 +31,7 @@ class SingleSourceDijkstraArrowEndpoints(SingleSourceDijkstraEndpoints):
 
     def compute(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         *,
         relationship_weight_property: str | None = None,
@@ -60,7 +59,7 @@ class SingleSourceDijkstraArrowEndpoints(SingleSourceDijkstraEndpoints):
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         *,
         relationship_weight_property: str | None = None,
@@ -85,14 +84,11 @@ class SingleSourceDijkstraArrowEndpoints(SingleSourceDijkstraEndpoints):
             jobId=job_id,
         )
 
-        result = self._endpoints_helper.run_job_and_stream("v2/pathfinding.singleSource.dijkstra", G, config)
-        map_shortest_path_stream_result(result)
-
-        return result
+        return self._endpoints_helper.run_job_and_stream("v2/pathfinding.singleSource.dijkstra", G, config)
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         mutate_relationship_type: str,
         *,
@@ -129,7 +125,7 @@ class SingleSourceDijkstraArrowEndpoints(SingleSourceDijkstraEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         write_relationship_type: str,
         *,
@@ -175,7 +171,7 @@ class SingleSourceDijkstraArrowEndpoints(SingleSourceDijkstraEndpoints):
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         source_node: int,
         *,
         relationship_weight_property: str | None = None,

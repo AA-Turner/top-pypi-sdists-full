@@ -1,6 +1,6 @@
 [package]
 name = "deltalake-python"
-version = "1.6.3"
+version = "1.6.4"
 authors = [
     "Qingping Hou <dave2008713@gmail.com>",
     "Will Jones <willjones127@gmail.com>",
@@ -48,7 +48,6 @@ parking_lot = "0.12"
 
 # runtime
 futures = { workspace = true }
-num_cpus = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread"] }
 
 deltalake-mount = { path = "../crates/mount" }

@@ -2074,6 +2074,83 @@ class TestOrgKeyModeInstall:
         assert result.exit_code == 0, result.output
         assert captured, "install_client never called"
 
+    def test_mdm_install_writes_enterprise_dir_hooks_when_probe_fails(
+        self, tmp_path, monkeypatch
+    ):
+        """ENG-6643: Cursor's enterprise hooks.json lands even when the Cursor
+        presence probe fails; console-home clients (Claude Code) stay gated."""
+        from runlayer_cli.hook_install import clients as clients_module
+        from runlayer_cli.hook_install.clients import Client
+
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        monkeypatch.setattr(clients_module.platform, "system", lambda: "Unknown")
+        enterprise_cursor = tmp_path / "Library" / "Application Support" / "Cursor"
+        monkeypatch.setattr(
+            clients_module, "enterprise_cursor_dir", lambda: enterprise_cursor
+        )
+        config = _config_no_secret()
+        managed = {"org_api_key": "rl_org_x", "sessions": True}
+
+        with (
+            patch(
+                "runlayer_cli.commands.aiwatch_setup.load_config",
+                return_value=config,
+            ),
+            patch("runlayer_cli.enrollment.load_config", return_value=config),
+            patch("runlayer_cli.enrollment.read_managed_config", return_value={}),
+            patch(
+                "runlayer_cli.commands.aiwatch_setup.read_managed_config",
+                return_value=managed,
+            ),
+            patch(
+                "runlayer_cli.hook_install.credential_gate.read_managed_config",
+                return_value={"org_api_key": "rl_org_x"},
+            ),
+            patch(
+                "runlayer_cli.commands.aiwatch_setup.resolve_hook_command",
+                return_value="/usr/local/bin/aiwatch-hook",
+            ),
+            patch(
+                "runlayer_cli.commands.aiwatch_setup.iter_supported_clients",
+                return_value=(Client.CURSOR, Client.CLAUDE_CODE),
+            ),
+            patch(
+                "runlayer_cli.hook_install.presence.client_is_installed",
+                return_value=False,
+            ),
+            patch(
+                "runlayer_cli.commands.aiwatch_setup._llm_routing_step",
+                return_value=False,
+            ),
+            patch(
+                "runlayer_cli.commands.aiwatch_setup._install_browser_extension_step",
+                return_value=(False, False),
+            ),
+        ):
+            result = runner.invoke(
+                aiwatch_app,
+                [
+                    "setup",
+                    "hooks",
+                    "install",
+                    "--mdm",
+                    "--host",
+                    "https://t.example.com",
+                ],
+            )
+
+        assert result.exit_code == 0, result.output
+        hooks_json = enterprise_cursor / "hooks.json"
+        assert f"cursor: hooks installed at {hooks_json}" in result.output
+        assert "claude_code: skipped (client not installed)" in result.output
+        assert hooks_json.is_file()
+        commands = {
+            entry["command"]
+            for hook_list in json.loads(hooks_json.read_text())["hooks"].values()
+            for entry in hook_list
+        }
+        assert commands == {"/usr/local/bin/aiwatch-hook --client cursor"}
+
 
 # ── scan-only hook removal (Enforcement + Sessions both off) ──────────────────
 

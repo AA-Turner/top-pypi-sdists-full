@@ -60,7 +60,7 @@ Documentation = "https://django-ninja.dev"
 Repository = "https://github.com/vitalik/django-ninja"
 
 
-[project.optional-dependencies]
+[dependency-groups]
 test = [
     "pytest",
     "pytest-cov",
@@ -71,8 +71,19 @@ test = [
     "ruff==0.5.7",
     "django-stubs",
 ]
-doc = ["mkdocs", "mkdocs-material", "markdown-include", "mkdocstrings"]
-dev = ["pre-commit"]
+doc = ["mkdocs", "mkdocs-material", "markdown-include", "mkdocstrings[python]"]
+dev = [
+    { include-group = "test" },
+    { include-group = "doc" },
+    "pre-commit",
+]
+
+[tool.uv.dependency-groups]
+# The library itself supports Python >=3.7, but the dev tooling does not
+# have to — resolve dev/test/doc dependencies for modern Pythons only.
+test = { requires-python = ">=3.9" }
+doc = { requires-python = ">=3.9" }
+dev = { requires-python = ">=3.9" }
 
 [tool.flit.module]
 name = "ninja"

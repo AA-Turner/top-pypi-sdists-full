@@ -5,24 +5,26 @@ from __future__ import annotations
 import json
 import os
 import platform
+import stat
 import threading
 from collections.abc import Callable, Iterator
 from dataclasses import dataclass, field
 from pathlib import Path, PurePosixPath, PureWindowsPath
 from typing import Any
 
-import json5
 import structlog
 
 from runlayer_cli import regex_safe
 from runlayer_cli.paths import strip_reported_path_prefix
 from runlayer_cli.scan import scan_state
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.config_parser import normalize_transport
 from runlayer_cli.scan.config_redact import (
     BENIGN_ENV_KEYS,
     redact_config_mapping,
 )
 from runlayer_cli.scan.file_collector import CollectedFile, collect_files
+from runlayer_cli.safe_parse import parse_json5
 from runlayer_cli.skill_identifier import SkillFileInput, compute_skill_identifier
 
 logger = structlog.get_logger(__name__)
@@ -102,6 +104,7 @@ class DiscoveredPluginArtifact:
     author: str | None = None
     enabled: bool | None = None
     scope: str = "global"
+    device_scope: bool = False
     marketplace: str | None = None
     installed_at: str | None = None
     last_updated: str | None = None
@@ -111,18 +114,44 @@ class DiscoveredPluginArtifact:
     has_commands: bool = False
     has_hooks: bool = False
     project_path: str | None = None
+    wsl_distro: str | None = None
     mcp_servers: list[PluginMCPServer] = field(default_factory=list)
     files: list[PluginFile] = field(default_factory=list)
     file_count: int = 0
     oversized: bool = False
     symlinks_found: list[str] = field(default_factory=list)
+    container_id: str | None = None
+    container_name: str | None = None
+    container_image_ref: str | None = None
+    container_image_digest: str | None = None
+    container_runtime: str | None = None
+    container_is_devcontainer: bool = False
+    container_is_running: bool = True
+    container_labels: dict[str, str] = field(default_factory=dict)
+    container_mounts_host_home: bool = False
 
     def to_api_payload(self) -> dict[str, Any]:
-        return {
+        is_container = self.container_id is not None
+        install_path = (
+            self.install_path
+            if is_container
+            else strip_reported_path_prefix(self.install_path)
+        )
+        project_path = (
+            self.project_path
+            if is_container
+            else strip_reported_path_prefix(self.project_path)
+        )
+        symlinks_found = (
+            list(self.symlinks_found)
+            if is_container
+            else [strip_reported_path_prefix(path) for path in self.symlinks_found]
+        )
+        payload: dict[str, Any] = {
             "name": self.name,
             "plugin_type": self.plugin_type,
             "client": self.client,
-            "install_path": strip_reported_path_prefix(self.install_path),
+            "install_path": install_path,
             "identifier": self.identifier,
             "source_identifier": self.source_identifier,
             "version": self.version,
@@ -130,6 +159,7 @@ class DiscoveredPluginArtifact:
             "author": self.author,
             "enabled": self.enabled,
             "scope": self.scope,
+            "device_scope": self.device_scope,
             "marketplace": self.marketplace,
             "installed_at": self.installed_at,
             "last_updated": self.last_updated,
@@ -138,12 +168,10 @@ class DiscoveredPluginArtifact:
             "has_rules": self.has_rules,
             "has_commands": self.has_commands,
             "has_hooks": self.has_hooks,
-            "project_path": strip_reported_path_prefix(self.project_path),
+            "project_path": project_path,
             "file_count": self.file_count,
             "oversized": self.oversized,
-            "symlinks_found": [
-                strip_reported_path_prefix(p) for p in self.symlinks_found
-            ],
+            "symlinks_found": symlinks_found,
             "mcp_servers": [
                 {"name": s.name, "type": s.type, "command": s.command, "url": s.url}
                 for s in self.mcp_servers
@@ -152,6 +180,19 @@ class DiscoveredPluginArtifact:
                 {"title": f.title, "content": _uploaded_content(f)} for f in self.files
             ],
         }
+        if self.container_id is not None:
+            payload["container"] = {
+                "container_id": self.container_id,
+                "name": self.container_name,
+                "image_ref": self.container_image_ref,
+                "image_digest": self.container_image_digest,
+                "runtime": self.container_runtime or "docker",
+                "is_devcontainer": self.container_is_devcontainer,
+                "is_running": self.container_is_running,
+                "labels": dict(self.container_labels),
+                "mounts_host_home": self.container_mounts_host_home,
+            }
+        return payload
 
 
 # ---------------------------------------------------------------------------
@@ -159,14 +200,36 @@ class DiscoveredPluginArtifact:
 # ---------------------------------------------------------------------------
 
 
+def _dir_probe(path: Path) -> bool | None:
+    try:
+        mode = path.stat().st_mode
+    except (FileNotFoundError, NotADirectoryError):
+        return False
+    except OSError:
+        return None
+    return stat.S_ISDIR(mode)
+
+
 def _read_json_safe(path: Path) -> dict[str, Any] | None:
-    if not path.exists():
+    try:
+        path.stat()
+    except FileNotFoundError:
+        return None
+    except OSError:
+        mark_plugin_scan_incomplete("plugin_manifest_access_failed")
         return None
     try:
-        raw = json5.loads(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
     except (ValueError, OSError) as e:
+        mark_plugin_scan_incomplete("plugin_manifest_read_failed")
         logger.warning("Failed to read JSON", path=str(path), error=str(e))
         return None
+    outcome = parse_json5(text)
+    if outcome["error"] is not None:
+        mark_plugin_scan_incomplete("plugin_manifest_read_failed")
+        logger.warning("Failed to read JSON", path=str(path), error=outcome["error"])
+        return None
+    raw = outcome["value"]
     return raw if isinstance(raw, dict) else None
 
 
@@ -189,6 +252,7 @@ _retention_lock = threading.Lock()
 _retained_bytes = 0
 _retained_count = 0
 _scan_checkpoint: Callable[[], None] | None = None
+_scan_status: ScanCompletionStatus | None = None
 _content_offset = 0
 _content_skip_remaining = 0
 _content_admitted = 0
@@ -198,6 +262,7 @@ _content_capped = False
 def reset_plugin_scan_state(
     checkpoint: Callable[[], None] | None = None,
     state_path: Path | None = None,
+    scan_status: ScanCompletionStatus | None = None,
 ) -> None:
     """Reset per-scan retention counters; install the governor *checkpoint*.
 
@@ -205,7 +270,7 @@ def reset_plugin_scan_state(
     scanner signature) because plugin collection funnels through
     ``_collect_plugin_files`` from many scanners across several modules.
     """
-    global _retained_bytes, _retained_count, _scan_checkpoint
+    global _retained_bytes, _retained_count, _scan_checkpoint, _scan_status
     global _content_offset, _content_skip_remaining, _content_admitted
     global _content_capped
     offset = scan_state.load_content_offset(_CONTENT_ROTATION_CATEGORY, state_path)
@@ -213,10 +278,18 @@ def reset_plugin_scan_state(
         _retained_bytes = 0
         _retained_count = 0
         _scan_checkpoint = checkpoint
+        _scan_status = scan_status
         _content_offset = offset
         _content_skip_remaining = offset
         _content_admitted = 0
         _content_capped = False
+
+
+def mark_plugin_scan_incomplete(reason: str) -> None:
+    with _retention_lock:
+        status = _scan_status
+    if status is not None:
+        status.mark_incomplete(reason)
 
 
 def finalize_plugin_scan_state(state_path: Path | None = None) -> None:
@@ -249,10 +322,10 @@ def _redact_json_secrets(content: str) -> str:
     header on global installs). Anything else is left alone, and a document
     that does not parse or contains neither mapping is returned unchanged.
     """
-    try:
-        parsed = json5.loads(content)
-    except Exception:
+    outcome = parse_json5(content)
+    if outcome["error"] is not None:
         return content
+    parsed = outcome["value"]
 
     changed = False
 
@@ -457,6 +530,9 @@ def _read_marketplace_catalog(
             try:
                 resolved = (marketplace_dir / plugin_root / source).resolve()
             except (OSError, RuntimeError):
+                mark_plugin_scan_incomplete(
+                    "claude_marketplace_catalog_path_resolution_failed"
+                )
                 continue
             source_names[resolved] = name
 
@@ -533,6 +609,7 @@ def _iter_enabled_claude_marketplace_plugin_dirs(
         try:
             plugin_dirs = sorted(marketplaces_dir.glob(f"*/{collection}/*"))
         except OSError as e:
+            mark_plugin_scan_incomplete("claude_marketplace_enumeration_failed")
             logger.warning(
                 "Failed to scan Claude Code marketplace plugins",
                 path=str(marketplaces_dir),
@@ -544,8 +621,16 @@ def _iter_enabled_claude_marketplace_plugin_dirs(
             try:
                 resolved = install_dir.resolve()
             except (OSError, RuntimeError):
+                mark_plugin_scan_incomplete("claude_marketplace_path_resolution_failed")
                 continue
-            if resolved in registry_install_paths or not install_dir.is_dir():
+            if resolved in registry_install_paths:
+                continue
+            install_is_dir = _dir_probe(install_dir)
+            if install_is_dir is not True:
+                if install_is_dir is None:
+                    mark_plugin_scan_incomplete(
+                        "claude_marketplace_install_dir_access_failed"
+                    )
                 continue
 
             marketplace_dir = install_dir.parent.parent
@@ -691,7 +776,10 @@ def scan_cursor_native_plugins(
         else:
             plugin_cache_base = Path.home() / ".cursor/plugins/cache/cursor-public"
 
-    if not plugin_cache_base.is_dir():
+    cache_is_dir = _dir_probe(plugin_cache_base)
+    if cache_is_dir is not True:
+        if cache_is_dir is None:
+            mark_plugin_scan_incomplete("cursor_plugin_cache_enumeration_failed")
         return []
 
     enabled_map = (
@@ -764,6 +852,7 @@ def scan_cursor_native_plugins(
                 seen.add(plugin_name)
                 break  # use first hash dir
     except OSError as e:
+        mark_plugin_scan_incomplete("cursor_plugin_cache_enumeration_failed")
         logger.warning(
             "Failed to scan Cursor plugin cache",
             path=str(plugin_cache_base),
@@ -809,7 +898,10 @@ def scan_cursor_user_local_plugins(
     if local_base is None:
         local_base = _cursor_user_local_base(home)
 
-    if not local_base.is_dir():
+    local_is_dir = _dir_probe(local_base)
+    if local_is_dir is not True:
+        if local_is_dir is None:
+            mark_plugin_scan_incomplete("cursor_user_local_plugin_enumeration_failed")
         return []
 
     enabled_map = (
@@ -865,6 +957,7 @@ def scan_cursor_user_local_plugins(
                 )
             )
     except OSError as e:
+        mark_plugin_scan_incomplete("cursor_user_local_plugin_enumeration_failed")
         logger.warning(
             "Failed to scan Cursor user-local plugins",
             path=str(local_base),
@@ -924,8 +1017,13 @@ def scan_claude_code_plugin_artifacts(
             try:
                 registry_install_paths.add(install_dir.resolve())
             except (OSError, RuntimeError):
-                pass
-            if not install_dir.is_dir():
+                mark_plugin_scan_incomplete("claude_plugin_path_resolution_failed")
+            install_is_dir = _dir_probe(install_dir)
+            if install_is_dir is not True:
+                if install_is_dir is None:
+                    mark_plugin_scan_incomplete(
+                        "claude_plugin_install_dir_access_failed"
+                    )
                 continue
 
             manifest_path = install_dir / CLAUDE_PLUGIN_MANIFEST
@@ -1202,7 +1300,10 @@ def scan_codex_plugin_artifacts(
         else:
             plugin_cache_base = Path.home() / _CODEX_PLUGIN_CACHE_RELATIVE
 
-    if not plugin_cache_base.is_dir():
+    cache_is_dir = _dir_probe(plugin_cache_base)
+    if cache_is_dir is not True:
+        if cache_is_dir is None:
+            mark_plugin_scan_incomplete("codex_plugin_cache_enumeration_failed")
         return []
 
     results: list[DiscoveredPluginArtifact] = []
@@ -1274,6 +1375,7 @@ def scan_codex_plugin_artifacts(
                     seen.add(seen_key)
                     break  # use first (latest) version dir
     except OSError as e:
+        mark_plugin_scan_incomplete("codex_plugin_cache_enumeration_failed")
         logger.warning(
             "Failed to scan Codex plugin cache",
             path=str(plugin_cache_base),
@@ -1326,6 +1428,7 @@ def scan_opencode_plugin_artifacts(
             try:
                 home = Path.home()
             except RuntimeError:
+                mark_plugin_scan_incomplete("opencode_plugin_home_resolution_failed")
                 return []
         if local_plugins_base is None:
             local_plugins_base = home / _OPENCODE_LOCAL_PLUGINS_RELATIVE
@@ -1376,6 +1479,7 @@ def scan_opencode_plugin_artifacts(
                     try:
                         content = item.read_text(encoding="utf-8")
                     except (OSError, UnicodeDecodeError):
+                        mark_plugin_scan_incomplete("opencode_plugin_read_failed")
                         continue
                     pf = PluginFile(title=item.name, content=content)
                     results.append(
@@ -1391,6 +1495,7 @@ def scan_opencode_plugin_artifacts(
                         )
                     )
         except OSError as e:
+            mark_plugin_scan_incomplete("opencode_plugin_cache_enumeration_failed")
             logger.warning(
                 "Failed to scan OpenCode local plugins",
                 path=str(local_plugins_base),

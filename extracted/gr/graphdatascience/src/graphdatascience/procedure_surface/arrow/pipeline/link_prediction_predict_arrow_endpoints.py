@@ -4,15 +4,16 @@ from pandas import DataFrame
 
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
 from graphdatascience.arrow_client.v2.job_client import JobClient
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.pipeline.link_prediction_predict_endpoints import (
     LinkPredictionPipelinePredictEndpoints,
     LinkPredictionPipelinePredictMutateResult,
 )
 from graphdatascience.procedure_surface.arrow.relationship_endpoints_helper import RelationshipEndpointsHelper
+from graphdatascience.procedure_surface.arrow.stream_result_mapper import apply_stream_mapper
 from graphdatascience.procedure_surface.utils.config_converter import ConfigConverter
-from graphdatascience.query_runner.protocol.write_protocols import WriteProtocol
+from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
 class LinkPredictionPredictArrowEndpoints(LinkPredictionPipelinePredictEndpoints):
@@ -32,7 +33,7 @@ class LinkPredictionPredictArrowEndpoints(LinkPredictionPipelinePredictEndpoints
 
     def estimate(
         self,
-        G: GraphV2,
+        G: Graph,
         model_name: str,
         *,
         source_node_label: str | None = None,
@@ -59,7 +60,7 @@ class LinkPredictionPredictArrowEndpoints(LinkPredictionPipelinePredictEndpoints
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         model_name: str,
         *,
         relationship_types: list[str] | None = None,
@@ -108,11 +109,14 @@ class LinkPredictionPredictArrowEndpoints(LinkPredictionPipelinePredictEndpoints
             config,
             show_progress=show_progress,
         )
-        return JobClient.stream_results(self._arrow_client, G.name(), result_job_id)
+        return apply_stream_mapper(
+            "v2/pipeline.linkPrediction.predict",
+            JobClient.stream_results(self._arrow_client, G.name(), result_job_id),
+        )
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         model_name: str,
         mutate_relationship_type: str,
         *,

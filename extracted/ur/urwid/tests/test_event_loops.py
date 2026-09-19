@@ -41,6 +41,9 @@ except ImportError:
 else:
     TRIO_AVAILABLE = True
 
+if sys.version_info < (3, 11):
+    from exceptiongroup import BaseExceptionGroup  # pylint: disable=redefined-builtin  # backport
+
 try:
     import zmq
 except ImportError:
@@ -573,9 +576,286 @@ class TrioEventLoopTest(unittest.TestCase, EventLoopTestMixin):
     def test_run_in_executor(self):
         """Not implemented for trio event loop."""
 
+    def test_async_alarm_callback(self):
+        evl = self.evl
+        out: list[str] = []
+
+        async def step1() -> typing.NoReturn:
+            out.append("async alarm")
+            raise urwid.ExitMainLoop
+
+        evl.alarm(0, step1)
+        evl.run()
+        self.assertEqual(["async alarm"], out)
+
+    def test_async_watch_file_callback(self):
+        evl = self.evl
+        out: list[str] = []
+
+        with ClosingSocketPair() as (rd, wr):
+            # Non-blocking: the fd stays readable for one extra event loop
+            # tick after the async callback is scheduled, so it may fire
+            # again with no data left to read.
+            rd.setblocking(False)
+
+            async def step2() -> None:
+                try:
+                    data = rd.recv(2)
+                except BlockingIOError:
+                    return
+                out.append(data.decode("ascii"))
+                raise urwid.ExitMainLoop
+
+            handle = evl.watch_file(rd.fileno(), step2)
+            wr.send(b"hi")
+            evl.run()
+            evl.remove_watch_file(handle)
+
+        self.assertEqual(["hi"], out)
+
+    def test_async_enter_idle_callback(self):
+        evl = self.evl
+        out: list[str] = []
+
+        async def say_waiting() -> None:
+            out.append("waiting")
+
+        def say_hello() -> None:
+            out.append("hello")
+
+        def exit_clean() -> typing.NoReturn:
+            raise urwid.ExitMainLoop
+
+        evl.enter_idle(say_waiting)
+        evl.alarm(0.005, say_hello)
+        evl.alarm(0.01, exit_clean)
+        evl.run()
+        self.assertIn("waiting", out)
+
+    def test_async_alarm_callback_error(self):
+        evl = self.evl
+
+        async def error_coro() -> typing.NoReturn:
+            1 / 0  # Simulate error in coroutine
+
+        evl.alarm(0, error_coro)
+        self.assertRaises(ZeroDivisionError, evl.run)
+
+    def test_watch_file_callback_self_cancel_exits_cleanly(self):
+        # A callback that cancels its own watch (rather than raising ExitMainLoop)
+        # has to leave the watching task's loop, not have it call wait_readable
+        # again on an fd it just gave up watching.
+        evl = self.evl
+        out: list[str] = []
+
+        with ClosingSocketPair() as (rd, wr):
+
+            def step() -> None:
+                out.append(rd.recv(2).decode("ascii"))
+                evl.remove_watch_file(handle)
+
+            handle = evl.watch_file(rd.fileno(), step)
+            wr.send(b"hi")
+
+            def exit_clean() -> typing.NoReturn:
+                raise urwid.ExitMainLoop
+
+            evl.alarm(0.02, exit_clean)
+            evl.run()
+
+        self.assertEqual(["hi"], out)
+
+    def test_run_async_embeds_in_an_existing_trio_run(self):
+        evl = self.evl
+        out: list[str] = []
+
+        async def body() -> None:
+            async with trio.open_nursery() as nursery:
+
+                def exit_clean() -> typing.NoReturn:
+                    out.append("clean exit")
+                    raise urwid.ExitMainLoop
+
+                evl.alarm(0.01, exit_clean)
+                await evl.run_async()
+                nursery.cancel_scope.cancel()
+
+        trio.run(body)
+        self.assertEqual(["clean exit"], out)
+
+    def test_run_async_reraises_a_callback_error(self):
+        # No outer nursery here (unlike the embedding example above): wrapping the
+        # await in one more nursery would let *its* __aexit__ re-wrap the already
+        # unwrapped error in a fresh single-exception ExceptionGroup of its own.
+        evl = self.evl
+        evl.alarm(0, lambda: 1 / 0)
+
+        async def body() -> None:
+            await evl.run_async()
+
+        self.assertRaises(ZeroDivisionError, trio.run, body)
+
+    def test_multi_exception_group_is_not_unwrapped(self):
+        # A single failing task's exception is unwrapped from its ExceptionGroup
+        # (see test_error above), but a group of more than one exception has to
+        # be raised as-is so neither exception is silently dropped. Triggering
+        # two *simultaneous* task failures through evl.run() is inherently racy
+        # (trio cancels not-yet-started sibling tasks before they can raise
+        # their own exception), so the group is built directly instead.
+        evl = self.evl
+        group = BaseExceptionGroup("multiple failures", [ZeroDivisionError(), RuntimeError("boom")])
+
+        with self.assertRaises(BaseExceptionGroup) as ctx:
+            evl._handle_main_loop_exception(group)
+        self.assertIs(group, ctx.exception)
+
 
 @unittest.skipUnless(ZMQ_AVAILABLE, "ZMQ is not available")
 @unittest.skipIf(IS_WINDOWS, "ZMQEventLoop is not supported under windows")
 class ZMQEventLoopTest(unittest.TestCase, EventLoopTestMixin):
     def setUp(self):
         self.evl = urwid.ZMQEventLoop()
+
+    def test_watch_queue_and_remove_watch_queue(self):
+        evl = self.evl
+        out: list[bytes] = []
+        ctx = zmq.Context.instance()
+        pull = ctx.socket(zmq.PULL)
+        push = ctx.socket(zmq.PUSH)
+        try:
+            address = f"inproc://{self.id()}"
+            pull.bind(address)
+            push.connect(address)
+
+            def on_ready() -> typing.NoReturn:
+                out.append(pull.recv())
+                raise urwid.ExitMainLoop
+
+            handle = evl.watch_queue(pull, on_ready)
+            push.send(b"hi")
+            evl.run()
+
+            self.assertEqual([b"hi"], out)
+            self.assertTrue(evl.remove_watch_queue(handle))
+            self.assertFalse(evl.remove_watch_queue(handle))
+        finally:
+            pull.close()
+            push.close()
+
+    def test_watch_queue_rejects_a_queue_already_being_watched(self):
+        evl = self.evl
+        pull = zmq.Context.instance().socket(zmq.PULL)
+        try:
+            evl.watch_queue(pull, lambda: None)
+            with self.assertRaises(ValueError):
+                evl.watch_queue(pull, lambda: None)
+        finally:
+            evl.remove_watch_queue(pull)
+            pull.close()
+
+    def test_remove_watch_queue_missing_handle(self):
+        evl = self.evl
+        pull = zmq.Context.instance().socket(zmq.PULL)
+        try:
+            self.assertFalse(evl.remove_watch_queue(pull))
+        finally:
+            pull.close()
+
+    def test_async_alarm_callback(self):
+        evl = self.evl
+        out: list[str] = []
+
+        async def step1() -> typing.NoReturn:
+            out.append("async alarm")
+            raise urwid.ExitMainLoop
+
+        evl.alarm(0, step1)
+        evl.run()
+        self.assertEqual(["async alarm"], out)
+
+    def test_async_watch_file_callback(self):
+        evl = self.evl
+        out: list[str] = []
+
+        with ClosingSocketPair() as (rd, wr):
+            # Non-blocking: the fd stays readable for one extra event loop
+            # tick after the async callback is scheduled, so it may fire
+            # again with no data left to read.
+            rd.setblocking(False)
+
+            async def step2() -> None:
+                try:
+                    data = rd.recv(2)
+                except BlockingIOError:
+                    return
+                out.append(data.decode("ascii"))
+                raise urwid.ExitMainLoop
+
+            handle = evl.watch_file(rd.fileno(), step2)
+            wr.send(b"hi")
+            evl.run()
+            evl.remove_watch_file(handle)
+
+        self.assertEqual(["hi"], out)
+
+    def test_async_enter_idle_callback(self):
+        evl = self.evl
+        out: list[str] = []
+
+        async def say_waiting() -> None:
+            out.append("waiting")
+
+        def say_hello() -> None:
+            out.append("hello")
+
+        def exit_clean() -> typing.NoReturn:
+            raise urwid.ExitMainLoop
+
+        evl.enter_idle(say_waiting)
+        evl.alarm(0.005, say_hello)
+        evl.alarm(0.01, exit_clean)
+        evl.run()
+        self.assertIn("waiting", out)
+
+    def test_async_alarm_callback_error(self):
+        evl = self.evl
+
+        async def error_coro() -> typing.NoReturn:
+            1 / 0  # Simulate error in coroutine
+
+        evl.alarm(0, error_coro)
+        self.assertRaises(ZeroDivisionError, evl.run)
+
+    def test_async_callback_runs_concurrently_as_a_background_task(self):
+        # ZMQEventLoop runs on top of an asyncio loop (via zmq.asyncio.Poller), so an
+        # async def callback is scheduled as a background task there just like on
+        # AsyncioEventLoop/TornadoEventLoop: the rest of the loop keeps running rather
+        # than waiting for the callback's own internal awaits to resolve.
+        evl = self.evl
+        out: list[str] = []
+
+        async def slow() -> None:
+            out.append("start")
+            await asyncio.sleep(10)  # long enough to still be pending when the loop exits
+            out.append("end")
+
+        def exit_clean() -> typing.NoReturn:
+            out.append("exit")
+            raise urwid.ExitMainLoop
+
+        evl.alarm(0, slow)
+        evl.alarm(0, exit_clean)
+        evl.run()
+        self.assertEqual(["start", "exit"], out)
+
+    def test_exception_handler_is_a_no_op_once_the_main_task_is_gone(self):
+        # _run_async() clears _main_task in its finally block once the loop stops, so a
+        # background task's exception that only surfaces during interpreter/loop shutdown
+        # (after _run_async() itself has already returned) must not crash trying to
+        # cancel a task that no longer exists.
+        evl = self.evl
+        self.assertIsNone(evl._main_task)
+
+        evl._exception_handler(typing.cast("typing.Any", None), {"exception": RuntimeError("boom")})
+
+        self.assertIsInstance(evl._exc, RuntimeError)

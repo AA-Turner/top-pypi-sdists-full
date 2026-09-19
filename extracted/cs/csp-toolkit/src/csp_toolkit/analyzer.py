@@ -11,33 +11,12 @@ def analyze(policy: Policy) -> list[Finding]:
     if not policy.directives:
         return []
 
-    checks = [
-        _check_missing_script_src_and_default_src,
-        _check_unsafe_inline_script,
-        _check_data_uri_script,
-        _check_unsafe_eval_script,
-        _check_wildcard_source,
-        _check_blob_uri_script,
-        _check_missing_object_src,
-        _check_missing_base_uri,
-        _check_missing_form_action,
-        _check_missing_frame_ancestors,
-        _check_overly_broad_hosts,
-        _check_unsafe_hashes,
-        _check_unsafe_inline_style,
-        _check_strict_dynamic_without_nonce_hash,
-        _check_https_scheme_script,
-        _check_report_only,
-        _check_http_sources,
-        _check_ip_address_sources,
-        _check_data_uri_in_non_script,
-        _check_missing_trusted_types,
-        _check_missing_navigate_to,
-    ]
-
     findings: list[Finding] = []
-    for check in checks:
-        findings.extend(check(policy))
+    for check_id, check in CHECKS:
+        for finding in check(policy):
+            if finding.check_id is None:
+                finding.check_id = check_id
+            findings.append(finding)
 
     severity_order = {
         Severity.CRITICAL: 0,
@@ -351,6 +330,7 @@ def _check_overly_broad_hosts(policy: Policy) -> list[Finding]:
                             f"attacker-controllable content. Use the bypass finder for specifics."
                         ),
                         directive=name,
+                        subject=source.raw,
                         bypass_type="broad_domain",
                     )
                 )
@@ -471,6 +451,7 @@ def _check_ip_address_sources(policy: Policy) -> list[Finding]:
                             "or exploitable."
                         ),
                         directive=name,
+                        subject=source.raw,
                     )
                 )
     return findings
@@ -556,3 +537,109 @@ def _check_missing_navigate_to(policy: Policy) -> list[Finding]:
             )
         ]
     return []
+
+
+def _check_worker_src_fallback(policy: Policy) -> list[Finding]:
+    """Missing worker-src inherits a broader source list than script-src allows.
+
+    Workers fall back worker-src -> child-src -> script-src -> default-src (see
+    models.FALLBACK_CHAINS). When child-src is present and looser than script-src,
+    worker code can be loaded from origins the script-src was written to exclude.
+    """
+    if policy.has_directive("worker-src"):
+        return []
+
+    _, inherited_from = policy.resolve("worker-src")
+    # Only child-src widens things; inheriting script-src or default-src directly
+    # cannot be looser than script-src, and having nothing at all is already
+    # reported by the missing-script-src check.
+    if inherited_from != "child-src":
+        return []
+
+    child_src = policy.get_directive("child-src")
+    script_src = policy.effective_directive("script-src")
+    if child_src is None or script_src is None:
+        return []
+
+    script_allowed = {s.raw.lower() for s in script_src.sources}
+    # Nonces and hashes cannot be satisfied by a worker script URL, so a
+    # nonce-based script-src is strictly narrower than any host/scheme list.
+    extra = [
+        s
+        for s in child_src.sources
+        if s.source_type in (SourceType.HOST, SourceType.SCHEME, SourceType.WILDCARD)
+        and s.raw.lower() not in script_allowed
+    ]
+    if not extra:
+        return []
+
+    sources = ", ".join(f"'{s.raw}'" if not s.raw.startswith("'") else s.raw for s in extra)
+    return [
+        Finding(
+            severity=Severity.MEDIUM,
+            title="Missing worker-src — workers inherit broader child-src sources",
+            description=(
+                "worker-src is absent, so Workers, SharedWorkers, and ServiceWorkers "
+                f"fall back to child-src, which allows {sources} that script-src does "
+                "not. An attacker who can inject a worker URL executes script from "
+                "those origins, bypassing the tighter script-src. Set worker-src "
+                "explicitly (e.g. \"worker-src 'self'\")."
+            ),
+            directive="worker-src",
+            references=["https://www.w3.org/TR/CSP3/#directive-worker-src"],
+        )
+    ]
+
+
+def _check_meta_ignored_directives(policy: Policy) -> list[Finding]:
+    """Directives specified in a <meta> policy that the browser ignores outright."""
+    if not policy.ignored_directives:
+        return []
+
+    names = ", ".join(policy.ignored_directives)
+    return [
+        Finding(
+            severity=Severity.MEDIUM,
+            title=f"Meta-delivered policy specifies ignored directive(s): {names}",
+            description=(
+                f"This policy was delivered via <meta http-equiv>, where {names} "
+                "is ignored by the browser. The protection it appears to provide is "
+                "not in effect and has been excluded from this analysis. Move the "
+                "policy to a Content-Security-Policy response header to enforce it."
+            ),
+            references=[
+                "https://www.w3.org/TR/CSP3/#meta-element",
+            ],
+        )
+    ]
+
+
+#: The analyzer's checks, paired with the stable ids that appear in json-v1
+#: output, SARIF rule ids, and stored baselines. Ids are part of the output
+#: contract: rename a check function freely, but changing an id here breaks
+#: every baseline in the wild.
+CHECKS: tuple[tuple[str, object], ...] = (
+    ("no-script-src", _check_missing_script_src_and_default_src),
+    ("unsafe-inline-script", _check_unsafe_inline_script),
+    ("data-uri-script", _check_data_uri_script),
+    ("unsafe-eval", _check_unsafe_eval_script),
+    ("wildcard-source", _check_wildcard_source),
+    ("blob-uri-script", _check_blob_uri_script),
+    ("object-src", _check_missing_object_src),
+    ("missing-base-uri", _check_missing_base_uri),
+    ("missing-form-action", _check_missing_form_action),
+    ("missing-frame-ancestors", _check_missing_frame_ancestors),
+    ("broad-host", _check_overly_broad_hosts),
+    ("unsafe-hashes", _check_unsafe_hashes),
+    ("unsafe-inline-style", _check_unsafe_inline_style),
+    ("strict-dynamic-without-nonce", _check_strict_dynamic_without_nonce_hash),
+    ("https-scheme-script", _check_https_scheme_script),
+    ("report-only", _check_report_only),
+    ("http-scheme-source", _check_http_sources),
+    ("ip-address-source", _check_ip_address_sources),
+    ("data-uri-non-script", _check_data_uri_in_non_script),
+    ("missing-trusted-types", _check_missing_trusted_types),
+    ("missing-navigate-to", _check_missing_navigate_to),
+    ("missing-worker-src", _check_worker_src_fallback),
+    ("meta-ignored-directives", _check_meta_ignored_directives),
+)

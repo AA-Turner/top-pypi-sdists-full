@@ -1,4 +1,3 @@
-from graphdatascience.graph.v2.graph_backend import GraphBackend
 from graphdatascience.procedure_surface.api.catalog.catalog_endpoints import (
     CatalogEndpoints,
     GraphFilterResult,
@@ -8,7 +7,11 @@ from graphdatascience.procedure_surface.api.catalog.catalog_endpoints import (
     RelationshipPropertySpec,
 )
 from graphdatascience.procedure_surface.api.catalog.dataset_endpoints import DatasetEndpoints
-from graphdatascience.procedure_surface.api.catalog.graph_info import GraphInfo, GraphInfoWithDegrees
+from graphdatascience.procedure_surface.api.catalog.graph_export_endpoints import (
+    GraphExportCsvResult,
+    GraphExportEndpoints,
+    GraphExportResult,
+)
 from graphdatascience.procedure_surface.api.catalog.graph_sampling_endpoints import (
     GraphSamplingEndpoints,
     GraphSamplingResult,
@@ -26,6 +29,14 @@ from graphdatascience.procedure_surface.api.catalog.node_properties_endpoints im
     NodePropertiesWriteResult,
     NodePropertySpec,
 )
+from graphdatascience.procedure_surface.api.catalog.node_property_endpoints import NodePropertyEndpoints
+from graphdatascience.procedure_surface.api.catalog.relationship_properties_endpoints import (
+    RelationshipPropertiesEndpoints,
+)
+from graphdatascience.procedure_surface.api.catalog.relationship_property_endpoints import (
+    RelationshipPropertyEndpoints,
+)
+from graphdatascience.procedure_surface.api.catalog.relationships_data_frame import RelationshipsDataFrame
 from graphdatascience.procedure_surface.api.catalog.relationships_endpoints import (
     Aggregation,
     RelationshipsDropResult,
@@ -46,11 +57,11 @@ __all__ = [
     "Aggregation",
     "CatalogEndpoints",
     "DatasetEndpoints",
-    "GraphBackend",
-    "GraphInfoWithDegrees",
+    "GraphExportCsvResult",
+    "GraphExportEndpoints",
+    "GraphExportResult",
     "GraphFilterResult",
     "GraphGenerationStats",
-    "GraphInfo",
     "GraphSamplingEndpoints",
     "GraphSamplingResult",
     "GraphWithFilterResult",
@@ -63,8 +74,12 @@ __all__ = [
     "NodePropertiesDropResult",
     "NodePropertiesEndpoints",
     "NodePropertiesWriteResult",
+    "NodePropertyEndpoints",
     "NodePropertySpec",
+    "RelationshipPropertiesEndpoints",
+    "RelationshipPropertyEndpoints",
     "RelationshipPropertySpec",
+    "RelationshipsDataFrame",
     "RelationshipsDropResult",
     "RelationshipsEndpoints",
     "RelationshipsInverseIndexResult",

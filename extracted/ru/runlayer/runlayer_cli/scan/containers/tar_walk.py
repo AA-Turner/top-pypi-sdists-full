@@ -3,18 +3,21 @@
 from __future__ import annotations
 
 import io
+import os
 import posixpath
 import subprocess
 import tarfile
+import tempfile
 import threading
 import time
 from collections import deque
 from dataclasses import dataclass, field
-from typing import IO, Callable
+from typing import IO, Callable, Literal
 
 import structlog
 
 from runlayer_cli.scan.containers.docker_cli import (
+    _docker_copy_path_absent,
     _kill_and_reap,
     _kill_process,
 )
@@ -30,6 +33,8 @@ MAX_DOCKER_TREE_MATCHED_FILES = 128
 # Sparse identity files admitted from skipped dependency trees must not lose
 # their slots to broad content collection earlier in archive order.
 MAX_DOCKER_TREE_PRIORITY_FILES = 64
+_TRUNCATED_COPY_REAP_GRACE_SECONDS = 0.05
+_MAX_DOCKER_COPY_STDERR_BYTES = 8 * 1024
 
 logger = structlog.get_logger(__name__)
 
@@ -39,6 +44,14 @@ class _TarWalkResult:
     files: dict[str, bytes] = field(default_factory=dict)
     truncated: bool = False
     stream_bytes: int = 0
+    failure_reason: str | None = None
+    stream_aborted: bool = False
+
+
+@dataclass(frozen=True)
+class _CopyProcessResult:
+    returncode: int | None = None
+    failure: Literal["timeout", "wait"] | None = None
 
 
 class _TarWalkLimitExceeded(Exception):
@@ -163,6 +176,7 @@ def _walk_tar_stream(
                         result.truncated = True
                         continue
                 if member.size < 0 or member.size > MAX_SINGLE_FILE_BYTES:
+                    result.truncated = True
                     continue
                 if allowed_skipped:
                     while (
@@ -176,6 +190,7 @@ def _walk_tar_stream(
                     continue
                 extracted = archive.extractfile(member)
                 if extracted is None:
+                    result.truncated = True
                     continue
                 with extracted:
                     content = extracted.read(member.size + 1)
@@ -190,14 +205,95 @@ def _walk_tar_stream(
                     normal_paths.append(path)
     except (tarfile.TarError, OSError, _TarWalkLimitExceeded):
         result.truncated = True
+        result.failure_reason = "container_artifact_tar_walk_failed"
+        result.stream_aborted = True
     except Exception as exc:
         logger.warning(
             "Unexpected error walking container tar stream",
             error_type=type(exc).__name__,
         )
         result.truncated = True
+        result.failure_reason = "container_artifact_tar_walk_failed"
+        result.stream_aborted = True
     result.stream_bytes = bounded_stream.bytes_read
     return result
+
+
+def _reap_copy_process(
+    process: subprocess.Popen[bytes],
+    *,
+    deadline: float,
+    walked_truncated: bool,
+    expired: bool,
+) -> _CopyProcessResult:
+    """Wait once within budget, then terminate and reap incomplete producers."""
+    if expired:
+        _kill_and_reap(process)
+        return _CopyProcessResult(failure="timeout")
+
+    remaining = deadline - time.monotonic()
+    if remaining <= 0:
+        _kill_and_reap(process)
+        return _CopyProcessResult(failure="timeout")
+    wait_timeout = (
+        min(remaining, _TRUNCATED_COPY_REAP_GRACE_SECONDS)
+        if walked_truncated
+        else remaining
+    )
+    try:
+        return _CopyProcessResult(returncode=process.wait(timeout=wait_timeout))
+    except subprocess.TimeoutExpired:
+        _kill_and_reap(process)
+        return _CopyProcessResult(failure="timeout")
+    except OSError:
+        _kill_and_reap(process)
+        return _CopyProcessResult(failure="wait")
+
+
+def _classify_copy_outcome(
+    walked: _TarWalkResult,
+    process_result: _CopyProcessResult,
+    *,
+    stderr: bytes,
+) -> _TarWalkResult:
+    """Purely combine tar-walk evidence with the producer's terminal state."""
+    if process_result.failure == "wait":
+        return _TarWalkResult(
+            files=dict(walked.files),
+            truncated=walked.truncated,
+            stream_bytes=walked.stream_bytes,
+            failure_reason="container_artifact_copy_wait_failed",
+            stream_aborted=walked.stream_aborted,
+        )
+    if process_result.failure == "timeout":
+        return _TarWalkResult(
+            files=dict(walked.files),
+            truncated=True,
+            stream_bytes=walked.stream_bytes,
+            failure_reason=walked.failure_reason,
+            stream_aborted=walked.stream_aborted,
+        )
+    if process_result.returncode in {None, 0}:
+        return walked
+
+    absent = _docker_copy_path_absent(stderr)
+    if absent and not walked.files:
+        return _TarWalkResult(stream_bytes=walked.stream_bytes)
+    if walked.truncated and (walked.files or not walked.stream_aborted):
+        if not (absent and walked.failure_reason is None):
+            return walked
+    if walked.truncated and not walked.files:
+        return _TarWalkResult(
+            stream_bytes=walked.stream_bytes,
+            failure_reason="container_artifact_copy_nonzero",
+        )
+    return _TarWalkResult(
+        files=dict(walked.files),
+        truncated=True,
+        stream_bytes=walked.stream_bytes,
+        failure_reason="container_artifact_copy_nonzero",
+        stream_aborted=walked.stream_aborted,
+    )
 
 
 def _copy_container_tree(
@@ -214,66 +310,63 @@ def _copy_container_tree(
     """Stream one container tree through the bounded tar walker."""
     if time.monotonic() >= deadline:
         return _TarWalkResult(truncated=True)
-    try:
-        process = subprocess.Popen(
-            [docker, "cp", f"{container_id}:{root_path}", "-"],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
-        )
-    except OSError:
-        return _TarWalkResult()
-    if process.stdout is None:
-        _kill_and_reap(process)
-        return _TarWalkResult()
+    with tempfile.TemporaryFile() as stderr_file:
+        try:
+            process = subprocess.Popen(
+                [docker, "cp", f"{container_id}:{root_path}", "-"],
+                stdout=subprocess.PIPE,
+                stderr=stderr_file,
+                start_new_session=os.name != "nt",
+            )
+        except OSError:
+            return _TarWalkResult(failure_reason="container_artifact_copy_spawn_failed")
+        if process.stdout is None:
+            _kill_and_reap(process)
+            return _TarWalkResult(
+                failure_reason="container_artifact_copy_stdout_missing"
+            )
 
-    timed_out = threading.Event()
+        timed_out = threading.Event()
 
-    def _expire() -> None:
-        timed_out.set()
-        _kill_process(process)
+        def _expire() -> None:
+            timed_out.set()
+            _kill_process(process)
 
-    watchdog = threading.Timer(max(deadline - time.monotonic(), 0), _expire)
-    watchdog.daemon = True
-    watchdog.start()
-    result = _walk_tar_stream(
-        process.stdout,
-        root_path=root_path,
-        wanted_file=wanted_file,
-        allow_file_in_skipped_directory=allow_file_in_skipped_directory,
-        deadline=deadline,
-        max_stream_bytes=max_stream_bytes,
-        max_matched_files=max_matched_files,
-    )
-    watchdog.cancel()
-    watchdog.join(timeout=0.1)
-    try:
-        process.stdout.close()
-    except OSError:
-        pass
+        watchdog = threading.Timer(max(deadline - time.monotonic(), 0), _expire)
+        watchdog.daemon = True
+        watchdog.start()
+        try:
+            try:
+                result = _walk_tar_stream(
+                    process.stdout,
+                    root_path=root_path,
+                    wanted_file=wanted_file,
+                    allow_file_in_skipped_directory=allow_file_in_skipped_directory,
+                    deadline=deadline,
+                    max_stream_bytes=max_stream_bytes,
+                    max_matched_files=max_matched_files,
+                )
+            finally:
+                watchdog.cancel()
+                watchdog.join(timeout=0.1)
+                try:
+                    process.stdout.close()
+                except OSError:
+                    pass
 
-    if result.truncated or timed_out.is_set():
-        result.truncated = True
-        _kill_and_reap(process)
-        return result
-
-    remaining = deadline - time.monotonic()
-    if remaining <= 0:
-        result.truncated = True
-        _kill_and_reap(process)
-        return result
-    try:
-        process.wait(timeout=remaining)
-    except subprocess.TimeoutExpired:
-        result.truncated = True
-        _kill_and_reap(process)
-        return result
-    except OSError:
-        result.files.clear()
-        _kill_and_reap(process)
-        return result
-    if process.returncode != 0:
-        result.files.clear()
-    return result
+            process_result = _reap_copy_process(
+                process,
+                deadline=deadline,
+                walked_truncated=result.truncated,
+                expired=timed_out.is_set(),
+            )
+        except BaseException:
+            if process.poll() is None:
+                _kill_and_reap(process)
+            raise
+        stderr_file.seek(0)
+        stderr = stderr_file.read(_MAX_DOCKER_COPY_STDERR_BYTES)
+        return _classify_copy_outcome(result, process_result, stderr=stderr)
 
 
 def _extract_copied_file(archive: bytes) -> bytes | None:

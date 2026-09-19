@@ -8,7 +8,7 @@ import warnings
 import numpy as np
 
 import jax
-from jax import lax
+from jax import Array, lax
 import jax.numpy as jnp
 from jax.typing import ArrayLike
 
@@ -94,6 +94,7 @@ class LeftCensoredDistribution(Distribution):
         # Optionally test that cdf actually works (in validate_args mode)
         if validate_args:
             try:
+                assert base_dist.support is not None
                 test_val = base_dist.support.feasible_like(jnp.array(0.0))
                 _ = base_dist.cdf(test_val)
             except (NotImplementedError, AttributeError) as e:
@@ -112,15 +113,16 @@ class LeftCensoredDistribution(Distribution):
 
     def sample(
         self, key: Optional[jax.Array], sample_shape: tuple[int, ...] = ()
-    ) -> ArrayLike:
+    ) -> Array:
         return self.base_dist.expand(self.batch_shape).sample(key, sample_shape)
 
     @constraints.dependent_property(is_discrete=False, event_dim=0)
     def support(self) -> Constraint:
+        assert self._support is not None
         return self._support
 
     @validate_sample
-    def log_prob(self, value: ArrayLike) -> ArrayLike:
+    def log_prob(self, value: ArrayLike) -> Array:
         dtype = jnp.result_type(value, float)
         minval = 100.0 * jnp.finfo(dtype).tiny
 
@@ -210,6 +212,7 @@ class RightCensoredDistribution(Distribution):
         # Optionally test that cdf actually works (in validate_args mode)
         if validate_args:
             try:
+                assert base_dist.support is not None
                 test_val = base_dist.support.feasible_like(jnp.array(0.0))
                 _ = base_dist.cdf(test_val)
             except (NotImplementedError, AttributeError) as e:
@@ -228,15 +231,16 @@ class RightCensoredDistribution(Distribution):
 
     def sample(
         self, key: Optional[jax.Array], sample_shape: tuple[int, ...] = ()
-    ) -> ArrayLike:
+    ) -> Array:
         return self.base_dist.expand(self.batch_shape).sample(key, sample_shape)
 
     @constraints.dependent_property(is_discrete=False, event_dim=0)
     def support(self) -> Constraint:
+        assert self._support is not None
         return self._support
 
     @validate_sample
-    def log_prob(self, value: ArrayLike) -> ArrayLike:
+    def log_prob(self, value: ArrayLike) -> Array:
         dtype = jnp.result_type(value, float)
         eps = jnp.finfo(dtype).eps
 
@@ -340,6 +344,7 @@ class IntervalCensoredDistribution(Distribution):
         # Optionally test that cdf actually works (in validate_args mode)
         if validate_args:
             try:
+                assert base_dist.support is not None
                 test_val = base_dist.support.feasible_like(jnp.array(0.0))
                 _ = base_dist.cdf(test_val)
             except (NotImplementedError, AttributeError) as e:
@@ -363,11 +368,12 @@ class IntervalCensoredDistribution(Distribution):
 
     def sample(
         self, key: Optional[jax.Array], sample_shape: tuple[int, ...] = ()
-    ) -> ArrayLike:
+    ) -> Array:
         return self.base_dist.expand(self.batch_shape).sample(key, sample_shape)
 
     @constraints.dependent_property(is_discrete=False, event_dim=1)
     def support(self) -> Constraint:
+        assert self._support is not None
         return self._support
 
     def _get_censoring_masks(self, value):
@@ -385,7 +391,7 @@ class IntervalCensoredDistribution(Distribution):
         return m_left, m_right, m_int, m_double, m_point
 
     @validate_sample
-    def log_prob(self, value):
+    def log_prob(self, value) -> Array:
         dtype = jnp.result_type(value, float)
         minval = 100.0 * jnp.finfo(dtype).tiny  # for values close to 0
         eps = jnp.finfo(dtype).eps  # otherwise
@@ -421,12 +427,18 @@ class IntervalCensoredDistribution(Distribution):
         logF1 = jnp.log(F1)
         logF2 = jnp.log(F2)
 
-        lp_interval = logF2 + jnp.log1p(-jnp.exp(jnp.clip(logF1 - logF2, max=-minval)))
+        # jnp.where propagates NaN gradients from unselected branches, so each
+        # branch is evaluated on safe inputs before selecting.
+        log_diff = jnp.clip(logF1 - logF2, max=-minval)
+        safe_log_diff = jnp.where(m_point, -1.0, log_diff)
+        lp_interval = logF2 + jnp.log1p(-jnp.exp(safe_log_diff))
         # handle point intervals (x1 == x2) by returning log density instead of log prob
-        lp_interval = jnp.where(m_point, self.base_dist.log_prob(x1), lp_interval)
+        lp_interval = jnp.where(
+            m_point, self.base_dist.log_prob(x1_finite), lp_interval
+        )
 
         # for doubly censored data, the value is not in the interval, so computation is 1 - exp(lp_interval)
-        lp_double = log1mexp(lp_interval)
+        lp_double = log1mexp(jnp.where(m_double, lp_interval, -1.0))
 
         # Select the right expression per row
         # left: log F(x2)
@@ -437,14 +449,14 @@ class IntervalCensoredDistribution(Distribution):
         logp = jnp.zeros_like(logF1)
         logp = jnp.where(m_left, lp_left, logp)
         logp = jnp.where(m_right, lp_right, logp)
-        logp = jnp.where(m_int, lp_interval, logp)
+        logp = jnp.where(m_int | m_point, lp_interval, logp)
         logp = jnp.where(m_double, lp_double, logp)
         return logp
 
-    def _validate_sample(self, value: ArrayLike) -> None:
-        if value.shape[-1] != 2:
+    def _validate_sample(self, value: ArrayLike) -> Array:
+        if jnp.shape(value)[-1] != 2:
             raise ValueError(
-                f"Expected last dimension of `value` to be 2 (lower, upper), but got shape {value.shape}"
+                f"Expected last dimension of `value` to be 2 (lower, upper), but got shape {jnp.shape(value)}"
             )
         x1 = jnp.take(value, 0, axis=-1)  # left bound
         x2 = jnp.take(value, 1, axis=-1)  # right bound

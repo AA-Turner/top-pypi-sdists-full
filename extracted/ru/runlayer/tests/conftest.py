@@ -52,9 +52,7 @@ def _guard_subprocess_keyring():
 
 
 @pytest.fixture(autouse=True)
-def isolated_scan_run_lock(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> Path:
+def isolated_scan_run_lock(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     """Point the scan run lock at a per-test dir.
 
     run_lock binds get_runlayer_dir at import time, so ~/.runlayer isolation
@@ -66,10 +64,26 @@ def isolated_scan_run_lock(
     assertions. Regression tests: ``tests/e2e/scan/test_scan_lock_isolation.py``.
     """
     lock_dir = tmp_path / ".runlayer-scan-lock"
-    monkeypatch.setattr(
-        "runlayer_cli.scan.run_lock.get_runlayer_dir", lambda: lock_dir
-    )
+    monkeypatch.setattr("runlayer_cli.scan.run_lock.get_runlayer_dir", lambda: lock_dir)
     return lock_dir
+
+
+@pytest.fixture(autouse=True)
+def isolated_credential_state(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
+    """Keep the hook relay's credential-rejection record out of the real
+    ``~/.runlayer``: every test that drives ``relay._post`` into a 401/403
+    would otherwise arm the developer machine's Monitor negative cache."""
+    state_dir = tmp_path / ".runlayer-credential-state"
+    monkeypatch.setattr(
+        "runlayer_cli.hook.credential_state.get_runlayer_dir", lambda: state_dir
+    )
+    # Same isolation for the hook host-override marker: any test driving
+    # ``relay._load_credentials`` with a YAML default_host would otherwise
+    # write/clear the developer machine's real deviation record.
+    monkeypatch.setattr(
+        "runlayer_cli.hook.host_override.get_runlayer_dir", lambda: state_dir
+    )
+    return state_dir
 
 
 @pytest.fixture(autouse=True)
@@ -115,6 +129,10 @@ def _default_managed_config():
         ),
         patch(
             "runlayer_cli.hook_install.credential_gate.read_managed_config",
+            return_value={},
+        ),
+        patch(
+            "runlayer_cli.commands.auth.read_managed_config",
             return_value={},
         ),
         patch("runlayer_cli.mdm_config.read_backend_config", return_value=None),

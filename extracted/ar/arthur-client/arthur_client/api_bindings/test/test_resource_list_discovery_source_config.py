@@ -51,6 +51,7 @@ class TestResourceListDiscoverySourceConfig(unittest.TestCase):
                         engine_ids = [
                             ''
                             ], 
+                        is_enabled = True, 
                         output_column_check_result = arthur_client.api_bindings.models.output_column_check_result.OutputColumnCheckResult(
                             outcome = 'pass', 
                             missing_columns = [
@@ -100,6 +101,7 @@ class TestResourceListDiscoverySourceConfig(unittest.TestCase):
                         engine_ids = [
                             ''
                             ], 
+                        is_enabled = True, 
                         output_column_check_result = arthur_client.api_bindings.models.output_column_check_result.OutputColumnCheckResult(
                             outcome = 'pass', 
                             missing_columns = [

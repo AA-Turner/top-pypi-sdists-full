@@ -53,6 +53,7 @@ flock -n 9 || exit $EX_TEMPFAIL
 # The API key must never live in the world-readable config.json.
 CREDENTIALS_FILE=/etc/runlayer/aiwatch/credentials
 if [ -f "$CREDENTIALS_FILE" ] && [ -r "$CREDENTIALS_FILE" ]; then
+    # shellcheck source=/dev/null
     . "$CREDENTIALS_FILE"
 fi
 
@@ -79,12 +80,16 @@ fi
 
 rc=0
 seen_homes=""
+machine_scope_flag=--machine-scope
 
 # Snapshot passwd to a temp file: `getent passwd | while read` would run the
 # loop body in a subshell and lose rc/seen_homes; `done < file` does not.
 passwd_list=$(mktemp) || exit 1
 trap 'rm -f "$passwd_list"' EXIT
-getent passwd >"$passwd_list"
+if ! getent passwd >"$passwd_list"; then
+    logger -t runlayer-aiwatch "passwd enumeration failed"
+    exit 1
+fi
 
 while IFS=: read -r user _pw _uid _gid _gecos home _shell; do
     [ -n "$user" ] || continue
@@ -116,9 +121,13 @@ $canon_home"
         timeout -k 30 600 runuser -u "$user" -- \
             env HOME="$home" USER="$user" LOGNAME="$user" \
             /usr/lib/runlayer/aiwatch/aiwatch scan --quiet --username "$user" \
+            "$machine_scope_flag" \
             </dev/null 2>&1
     )
     scan_rc=$?
+    if [ "$scan_rc" -eq 0 ]; then
+        machine_scope_flag=--no-machine-scope
+    fi
     if [ -n "$scan_output" ]; then
         printf '%s\n' "$scan_output" | logger -t runlayer-aiwatch
     fi

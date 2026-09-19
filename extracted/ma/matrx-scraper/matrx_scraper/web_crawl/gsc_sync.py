@@ -398,6 +398,15 @@ async def resolve_google_credential(
         params["site_id"] = site_id
     if provider_binding_key:
         params["provider_binding_key"] = provider_binding_key
+    organization_id = str(site_organization_id or "").strip()
+    if not organization_id:
+        raise RuntimeError(
+            "resolve_google_credential: no organization for "
+            f"{credential_ref} — the aidream credential route admits a "
+            "server-to-server call only with the organization it acts in "
+            "(X-Organization-Id). Pass the site's organization; it is never "
+            "omitted or resolved on the far side."
+        )
     async with httpx.AsyncClient(timeout=30.0) as http:
         response = await http.get(
             url,
@@ -405,6 +414,11 @@ async def resolve_google_credential(
             headers={
                 "Authorization": f"Bearer {token}",
                 "X-Matrx-User-Id": user_id,
+                # The organization crosses the boundary as a HEADER — the
+                # aidream bridge reads the forwarded organization from it and
+                # refuses without it. The query param above stays as the
+                # CONFIRMING claim the route checks it against.
+                "X-Organization-Id": organization_id,
             },
         )
     if response.status_code >= 400:

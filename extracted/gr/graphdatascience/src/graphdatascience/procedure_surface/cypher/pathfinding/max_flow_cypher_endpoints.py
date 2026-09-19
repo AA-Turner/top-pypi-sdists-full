@@ -3,7 +3,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.pathfinding import MaxFlowMinCostEndpoints
@@ -31,7 +31,7 @@ class MaxFlowCypherEndpoints(MaxFlowEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         source_nodes: list[int],
         target_nodes: list[int],
         mutate_property: str,
@@ -68,13 +68,13 @@ class MaxFlowCypherEndpoints(MaxFlowEndpoints):
 
         cypher_result = self._query_runner.call_procedure(
             endpoint="gds.maxFlow.mutate", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return MaxFlowMutateResult(**cypher_result.to_dict())
+        return MaxFlowMutateResult(**cypher_result)
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         source_nodes: list[int],
         target_nodes: list[int],
         *,
@@ -107,18 +107,18 @@ class MaxFlowCypherEndpoints(MaxFlowEndpoints):
 
         cypher_result = self._query_runner.call_procedure(
             endpoint="gds.maxFlow.stats", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
         raw_result = cypher_result.to_dict()
         # return field got added in 2.24
         if "postProcessingMillis" not in raw_result:
             raw_result["postProcessingMillis"] = 0
 
-        return MaxFlowStatsResult(**raw_result)
+        return MaxFlowStatsResult.model_validate(raw_result)
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         source_nodes: list[int],
         target_nodes: list[int],
         *,
@@ -153,7 +153,7 @@ class MaxFlowCypherEndpoints(MaxFlowEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         source_nodes: list[int],
         target_nodes: list[int],
         write_property: str,
@@ -192,13 +192,13 @@ class MaxFlowCypherEndpoints(MaxFlowEndpoints):
 
         result = self._query_runner.call_procedure(
             endpoint="gds.maxFlow.write", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return MaxFlowWriteResult(**result.to_dict())
+        return MaxFlowWriteResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         source_nodes: list[int],
         target_nodes: list[int],
         *,

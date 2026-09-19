@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -15,7 +15,7 @@ class SccEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         *,
         concurrency: int | None = None,
@@ -43,7 +43,7 @@ class SccEndpoints(ABC):
             Number of concurrent threads to use.
         consecutive_ids
             Use consecutive IDs for the components.
-        job_id : str | None, default=None
+        job_id
             Identifier for the computation.
         log_progress
             Display progress logging.
@@ -66,7 +66,7 @@ class SccEndpoints(ABC):
     @abstractmethod
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         consecutive_ids: bool = False,
@@ -111,7 +111,7 @@ class SccEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         consecutive_ids: bool = False,
@@ -148,7 +148,7 @@ class SccEndpoints(ABC):
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             DataFrame with the algorithm results
         """
         pass
@@ -156,7 +156,7 @@ class SccEndpoints(ABC):
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         *,
         concurrency: int | None = None,
@@ -205,7 +205,7 @@ class SccEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         *,
         concurrency: int | None = None,
         consecutive_ids: bool = False,

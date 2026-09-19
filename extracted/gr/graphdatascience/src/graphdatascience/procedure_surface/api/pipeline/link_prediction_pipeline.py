@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABEL
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
-from graphdatascience.procedure_surface.api.model.link_prediction_model import LinkPredictionModelV2
+from graphdatascience.procedure_surface.api.pipeline.link_prediction_model import LinkPredictionModel
 from graphdatascience.procedure_surface.api.pipeline.link_prediction_pipeline_protocol import (
     LinkPredictionPipelineOps,
     LinkPredictionPipelineTrainer,
@@ -18,13 +18,14 @@ from graphdatascience.procedure_surface.api.pipeline.pipeline_catalog_protocol i
     PipelineCatalogEntryProtocol,
     PipelineCatalogProtocol,
 )
+from graphdatascience.procedure_surface.api.pipeline.pipeline_info_mapping import to_pipeline_info
 
 
 class LinkPredictionPipeline:
     """
     Represents a link prediction training pipeline.
 
-    Construct this using :func:`gds.v2.pipeline.link_prediction.create()`.
+    Construct this using `gds.v2.pipeline.link_prediction.create()`.
     """
 
     def __init__(
@@ -145,6 +146,11 @@ class LinkPredictionPipeline:
     def configure_auto_tuning(self, *, max_trials: int = 10) -> LinkPredictionPipelineInfoResult:
         return self._ops.configure_auto_tuning(self._name, max_trials=max_trials)
 
+    def details(self) -> LinkPredictionPipelineInfoResult:
+        """Return the stored configuration of the pipeline (feature steps, split, parameter space)."""
+        entry = self._catalog.get(self._name)
+        return LinkPredictionPipelineInfoResult.model_validate(to_pipeline_info(entry, feature_key="featureSteps"))
+
     def exists(self) -> bool:
         return self._catalog.exists(self._name) is not None
 
@@ -153,7 +159,7 @@ class LinkPredictionPipeline:
 
     def train(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         model_name: str,
         metrics: list[str] = ["AUCPR"],
@@ -168,7 +174,7 @@ class LinkPredictionPipeline:
         sudo: bool = False,
         concurrency: int | None = None,
         job_id: str | None = None,
-    ) -> tuple[LinkPredictionModelV2, LinkPredictionPipelineTrainResult]:
+    ) -> tuple[LinkPredictionModel, LinkPredictionPipelineTrainResult]:
         return self._trainer.train(
             G,
             self._name,
@@ -189,7 +195,7 @@ class LinkPredictionPipeline:
 
     def train_estimate(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         model_name: str,
         metrics: list[str] = ["AUCPR"],

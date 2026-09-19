@@ -9,6 +9,7 @@ from pathlib import Path
 import pytest
 
 from runlayer_cli.scan import scanner_primitives as scanner_primitives_module
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.scanner_primitives import (
     MAX_PLUGIN_NAME_LENGTH,
     MAX_PLUGIN_SOURCE_IDENTIFIER_LENGTH,
@@ -21,6 +22,7 @@ from runlayer_cli.scan.scanner_primitives import (
     is_contained_real_directory,
     is_real_directory,
     iter_directory_entries,
+    mark_path_unresolved_if_present,
     plugin_artifact_identifier,
     read_bounded,
     read_safe_relative_file,
@@ -395,6 +397,104 @@ def test_layout_resolver_accepts_covered_final_after_intermediate_link(
 
 
 @pytest.mark.skipif(os.name == "nt", reason="symlink setup requires privileges")
+def test_resolve_directory_claim_final_false_preserves_follow_budget_with_intermediate_link(
+    tmp_path: Path,
+):
+    home = tmp_path / "home"
+    home.mkdir()
+    relocated = tmp_path / "relocated"
+    relocated.mkdir()
+    extensions = relocated / "extensions"
+    extensions.mkdir()
+    (home / ".vscode-server").symlink_to(relocated, target_is_directory=True)
+
+    later_target = tmp_path / "later-target"
+    later_target.mkdir()
+    later_link = tmp_path / "later-link"
+    later_link.symlink_to(later_target, target_is_directory=True)
+
+    policy = SymlinkFollowPolicy(scan_areas=[(home, 7)], max_followed=1)
+    resolver = SymlinkLayoutResolver(policy=policy, windows_system_context=False)
+
+    resolved = resolver.resolve_directory(
+        home,
+        Path(".vscode-server") / "extensions",
+    )
+
+    assert resolved == extensions.resolve()
+    # claim_final=False (the default) must not consume a follow slot for the
+    # relocated final directory reached through an intermediate link, so an
+    # unrelated later symlink follow still succeeds.
+    assert policy.evaluate(later_link) == later_target.resolve()
+
+
+@pytest.mark.skipif(os.name == "nt", reason="symlink setup requires privileges")
+def test_resolve_directory_claim_final_false_returns_dir_when_budget_exhausted(
+    tmp_path: Path,
+):
+    home = tmp_path / "home"
+    home.mkdir()
+    relocated = tmp_path / "relocated"
+    relocated.mkdir()
+    extensions = relocated / "extensions"
+    extensions.mkdir()
+    (home / ".vscode-server").symlink_to(relocated, target_is_directory=True)
+
+    other_target = tmp_path / "other-target"
+    other_target.mkdir()
+    other_link = tmp_path / "other-link"
+    other_link.symlink_to(other_target, target_is_directory=True)
+
+    policy = SymlinkFollowPolicy(scan_areas=[(home, 7)], max_followed=1)
+    # Pre-exhaust the single follow slot the way a real scan walk would.
+    assert policy.evaluate(other_link) == other_target.resolve()
+    resolver = SymlinkLayoutResolver(policy=policy, windows_system_context=False)
+
+    resolved = resolver.resolve_directory(
+        home,
+        Path(".vscode-server") / "extensions",
+    )
+
+    # claim_final=False must return the directory even when the shared budget
+    # is already exhausted, instead of dropping the layout from the scan.
+    assert resolved == extensions.resolve()
+    assert policy.evaluate(other_link) is None
+
+
+@pytest.mark.skipif(os.name == "nt", reason="symlink setup requires privileges")
+def test_resolve_directory_claim_final_true_consumes_follow_budget_with_intermediate_link(
+    tmp_path: Path,
+):
+    home = tmp_path / "home"
+    home.mkdir()
+    relocated = tmp_path / "relocated"
+    relocated.mkdir()
+    extensions = relocated / "extensions"
+    extensions.mkdir()
+    (home / ".vscode-server").symlink_to(relocated, target_is_directory=True)
+
+    later_target = tmp_path / "later-target"
+    later_target.mkdir()
+    later_link = tmp_path / "later-link"
+    later_link.symlink_to(later_target, target_is_directory=True)
+
+    policy = SymlinkFollowPolicy(scan_areas=[(home, 7)], max_followed=1)
+    resolver = SymlinkLayoutResolver(policy=policy, windows_system_context=False)
+
+    resolved = resolver.resolve_directory(
+        home,
+        Path(".vscode-server") / "extensions",
+        claim_final=True,
+    )
+
+    assert resolved == extensions.resolve()
+    # claim_final=True legitimately consumes the single follow slot for the
+    # uncovered final directory reached through an intermediate link, so a
+    # later symlink follow is refused once the cap is reached.
+    assert policy.evaluate(later_link) is None
+
+
+@pytest.mark.skipif(os.name == "nt", reason="symlink setup requires privileges")
 def test_symlink_policy_skips_unreadable_target(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -505,17 +605,22 @@ def test_drain_round_robin_interleaves_fairly():
         ]
     )
 
-    consumed = drain_round_robin(
+    result = drain_round_robin(
         iterators,
         visit=lambda context, item: visited.append((context, item)),
     )
 
-    assert consumed == 3
+    assert result == {
+        "entries_consumed": 3,
+        "max_entries_exceeded": False,
+    }
     assert visited == [("a", "a1"), ("b", "b1"), ("a", "a2")]
     assert sorted(closed) == ["a", "b"]
 
 
 def test_drain_round_robin_closes_suspended_generators_at_max_entries():
+    visited: list[tuple[str, str]] = []
+    checkpoints: list[int] = []
     closed: list[str] = []
     iterators = deque(
         [
@@ -524,13 +629,43 @@ def test_drain_round_robin_closes_suspended_generators_at_max_entries():
         ]
     )
 
-    consumed = drain_round_robin(
+    result = drain_round_robin(
         iterators,
-        visit=lambda _context, _item: None,
+        visit=lambda context, item: visited.append((context, item)),
+        max_entries=2,
+        checkpoint=lambda: checkpoints.append(1),
+    )
+
+    assert result == {
+        "entries_consumed": 2,
+        "max_entries_exceeded": True,
+    }
+    assert visited == [("a", "a1"), ("b", "b1")]
+    assert len(checkpoints) == 2
+    assert sorted(closed) == ["a", "b"]
+
+
+def test_drain_round_robin_exact_max_entries_is_not_exceeded():
+    visited: list[tuple[str, str]] = []
+    closed: list[str] = []
+    iterators = deque(
+        [
+            ("a", _tracking_generator(["a1"], closed, "a")),
+            ("b", _tracking_generator(["b1"], closed, "b")),
+        ]
+    )
+
+    result = drain_round_robin(
+        iterators,
+        visit=lambda context, item: visited.append((context, item)),
         max_entries=2,
     )
 
-    assert consumed == 2
+    assert result == {
+        "entries_consumed": 2,
+        "max_entries_exceeded": False,
+    }
+    assert visited == [("a", "a1"), ("b", "b1")]
     assert sorted(closed) == ["a", "b"]
 
 
@@ -549,13 +684,16 @@ def test_drain_round_robin_closes_suspended_generators_on_should_stop():
         ]
     )
 
-    consumed = drain_round_robin(
+    result = drain_round_robin(
         iterators,
         visit=visit,
         should_stop=lambda: visits >= 2,
     )
 
-    assert consumed == 2
+    assert result == {
+        "entries_consumed": 2,
+        "max_entries_exceeded": False,
+    }
     assert sorted(closed) == ["a", "b"]
 
 
@@ -603,6 +741,46 @@ def test_is_real_directory_accepts_directories_only(tmp_path: Path):
     assert is_real_directory(real_dir) is True
     assert is_real_directory(regular_file) is False
     assert is_real_directory(tmp_path / "missing") is False
+
+
+def test_mark_path_unresolved_if_present_ignores_absence(tmp_path: Path):
+    status = ScanCompletionStatus()
+
+    mark_path_unresolved_if_present(tmp_path / "missing", status, "scan_failed")
+
+    assert status.complete is True
+    assert status.reasons == []
+
+
+def test_mark_path_unresolved_if_present_marks_existing_path(tmp_path: Path):
+    path = tmp_path / "existing"
+    path.touch()
+    status = ScanCompletionStatus()
+
+    mark_path_unresolved_if_present(path, status, "scan_failed")
+
+    assert status.reasons == ["scan_failed"]
+
+
+def test_mark_path_unresolved_if_present_marks_access_failure(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+):
+    path = tmp_path / "denied"
+    path.touch()
+    original_lstat = Path.lstat
+
+    def denied_lstat(candidate: Path):
+        if candidate == path:
+            raise PermissionError
+        return original_lstat(candidate)
+
+    monkeypatch.setattr(Path, "lstat", denied_lstat)
+    status = ScanCompletionStatus()
+
+    mark_path_unresolved_if_present(path, status, "scan_failed")
+
+    assert status.reasons == ["scan_failed_access"]
 
 
 def test_is_real_directory_rejects_symlinked_directories(tmp_path: Path):

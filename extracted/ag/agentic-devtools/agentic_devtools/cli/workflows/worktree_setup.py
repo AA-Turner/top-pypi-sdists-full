@@ -527,8 +527,8 @@ def create_worktree(
     """
     Create a git worktree for the given issue key.
 
-    The worktree will be created as a sibling directory to the main repo,
-    named after the issue key (e.g., ../PROJECT-1234).
+    The worktree will be created at the configured sibling worktree location
+    derived from ``.agdt/config/project.json`` and the normalized issue key.
 
     Args:
         issue_key: The issue key (e.g., "PROJECT-1234")
@@ -571,7 +571,30 @@ def create_worktree(
             error_message="Could not determine repository parent directory",
         )
 
-    worktree_path = os.path.join(repos_parent, issue_key)
+    # Determine the branch name to use
+    if branch_name:
+        resolved_branch_name = branch_name
+    else:
+        resolved_branch_name = f"{branch_prefix}/{issue_key}/implementation"
+
+    from ..git.worktree_paths import resolve_worktree_path_from_parent
+
+    main_repo_root = get_main_repo_root()
+    try:
+        worktree_resolution = resolve_worktree_path_from_parent(
+            repos_parent,
+            issue_key,
+            git_root=Path(main_repo_root) if main_repo_root else None,
+        )
+    except ValueError as exc:
+        return WorktreeSetupResult(
+            success=False,
+            worktree_path="",
+            branch_name=resolved_branch_name,
+            error_message=str(exc),
+        )
+
+    worktree_path = worktree_resolution.worktree_path
 
     def _seed_copilot_worktree_trust() -> bool:
         # Pre-seed Copilot's trusted folders so auto-started sessions in this
@@ -604,16 +627,17 @@ def create_worktree(
     ) -> None:
         _cleanup_failed_worktree_setup(result, failure_context=failure_context)
 
-    # Determine the branch name to use
-    if branch_name:
-        resolved_branch_name = branch_name
-    else:
-        resolved_branch_name = f"{branch_prefix}/{issue_key}/implementation"
-
     # Check if worktree already exists
     if os.path.exists(worktree_path):
         try:
             registered_worktree_path = check_worktree_exists(issue_key)
+        except ValueError as exc:
+            return WorktreeSetupResult(
+                success=False,
+                worktree_path=worktree_path,
+                branch_name=resolved_branch_name,
+                error_message=str(exc),
+            )
         except (GitError, FileNotFoundError, OSError) as exc:
             return WorktreeSetupResult(
                 success=False,
@@ -654,6 +678,20 @@ def create_worktree(
                 "it is not a registered git worktree eligible for resume in current Git metadata"
             ),
         )
+
+    if worktree_resolution.configured_parent_dir is not None:
+        try:
+            os.makedirs(worktree_resolution.configured_parent_dir, exist_ok=True)
+        except OSError as exc:
+            return WorktreeSetupResult(
+                success=False,
+                worktree_path=worktree_path,
+                branch_name=resolved_branch_name,
+                error_message=(
+                    f"Failed to create configured worktree parent directory "
+                    f"{worktree_resolution.configured_parent_dir}: {exc}"
+                ),
+            )
 
     current_branch = get_current_branch()
     in_worktree = is_in_worktree()
@@ -797,6 +835,24 @@ def create_worktree(
                         require_registered=True,
                         expected_path=worktree_path,
                     )
+                except ValueError as exc:
+                    failure_result = WorktreeSetupResult(
+                        success=False,
+                        worktree_path=worktree_path,
+                        branch_name=resolved_branch_name,
+                        error_message=str(exc),
+                        created_worktree=True,
+                        created_branch=True,
+                    )
+                    _cleanup_created_worktree(
+                        failure_result, failure_context="the worktree metadata verification failure"
+                    )
+                    failure_result.error_message = _restore_temp_branch_name(
+                        failure_result.error_message or "Unable to verify created worktree",
+                        temp_branch_name,
+                        branch_name,
+                    )
+                    return failure_result
                 except (GitError, FileNotFoundError, OSError) as exc:
                     failure_result = WorktreeSetupResult(
                         success=False,
@@ -1033,6 +1089,17 @@ def create_worktree(
                 require_registered=True,
                 expected_path=worktree_path,
             )
+        except ValueError as exc:
+            failure_result = WorktreeSetupResult(
+                success=False,
+                worktree_path=worktree_path,
+                branch_name=resolved_branch_name,
+                error_message=str(exc),
+                created_worktree=True,
+                created_branch=created_branch,
+            )
+            _cleanup_created_worktree(failure_result, failure_context="the worktree metadata verification failure")
+            return failure_result
         except (GitError, FileNotFoundError, OSError) as exc:
             failure_result = WorktreeSetupResult(
                 success=False,
@@ -4690,8 +4757,29 @@ def setup_worktree_in_background_sync(
     # Check if worktree already exists
     try:
         existing_path = check_worktree_exists(issue_key)
+    except ValueError as exc:
+        print(f"\n❌ {exc}", file=sys.stderr)
+        return WorktreeSetupResult(
+            success=False,
+            worktree_path="",
+            branch_name=branch_name or f"{branch_prefix}/{issue_key}/implementation",
+            error_message=str(exc),
+        )
     except (GitError, FileNotFoundError, OSError) as exc:
-        worktree_path = os.path.join(get_repos_parent_dir() or "", issue_key)
+        worktree_path = ""
+        repos_parent = get_repos_parent_dir()
+        main_repo_root = get_main_repo_root()
+        if repos_parent:
+            from ..git.worktree_paths import resolve_worktree_path_from_parent
+
+            try:
+                worktree_path = resolve_worktree_path_from_parent(
+                    repos_parent,
+                    issue_key,
+                    git_root=Path(main_repo_root) if main_repo_root else None,
+                ).worktree_path
+            except ValueError:
+                worktree_path = ""
         branch_name = branch_name or f"{branch_prefix}/{issue_key}/implementation"
         error_message = f"Unable to verify existing worktree: {_sanitize_worktree_setup_diagnostic(exc)}"
         print(f"\n❌ {error_message}", file=sys.stderr)
@@ -5320,7 +5408,7 @@ def create_placeholder_and_setup_worktree(
     # Check if worktree already exists (unlikely for new issue, but check anyway)
     try:
         existing_path = check_worktree_exists(issue_key)
-    except (GitError, FileNotFoundError, OSError) as exc:
+    except (GitError, FileNotFoundError, OSError, ValueError) as exc:
         error_message = f"Unable to verify existing worktree: {_sanitize_worktree_setup_diagnostic(exc)}"
         print(f"\n❌ {error_message}", file=sys.stderr)
         return False, issue_key
@@ -5352,5 +5440,14 @@ def create_placeholder_and_setup_worktree(
         print(f"\n❌ Worktree setup failed: {result.error_message}")
         print(f"   Issue {issue_key} was created but environment setup failed.")
         print("   Please set up the worktree manually:")
-        print(f"   git worktree add ../{issue_key} -b {branch_name}")
+        if result.worktree_path:
+            print(
+                "   git worktree add "
+                f"{_quote_recovery_argument(result.worktree_path)} -b {_quote_recovery_argument(branch_name)}"
+            )
+        else:
+            print(
+                "   Resolve the 'worktree_folder' project.json setting "
+                f"reported above, then run: git worktree add <path> -b {_quote_recovery_argument(branch_name)}"
+            )
         return False, issue_key

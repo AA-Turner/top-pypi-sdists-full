@@ -28,6 +28,7 @@ from runlayer_cli.scan.plugin_scanner import (
     _OPENCODE_NPM_CACHE_RELATIVE,
     _read_opencode_npm_plugin_names,
     compute_plugin_identifier,
+    mark_plugin_scan_incomplete,
 )
 
 logger = structlog.get_logger(__name__)
@@ -96,6 +97,7 @@ def _discover_local_plugins(
                     server_count=len(result.servers),
                 )
     except OSError as e:
+        mark_plugin_scan_incomplete("opencode_plugin_cache_enumeration_failed")
         logger.warning(
             "Failed to scan OpenCode local plugins",
             path=str(plugins_base),
@@ -159,6 +161,7 @@ def scan_opencode_plugins(
             try:
                 home = Path.home()
             except RuntimeError:
+                mark_plugin_scan_incomplete("opencode_plugin_home_resolution_failed")
                 return []
 
     if local_plugins_base is None:

@@ -52,12 +52,20 @@ import structlog
 logger = structlog.get_logger(__name__)
 
 
+# Completeness reason recorded on every surface a phase would have fed when
+# the phase was cut short by the governor's abort latch.
+RESOURCE_LIMIT_EXCEEDED_REASON = "resource_limit_exceeded"
+
+
 class ScanResourceLimitExceeded(Exception):
     """Raised at a checkpoint once the scan trips a configured resource cap.
 
-    Propagates out of ``scan_all_clients`` to the ``_run_scan`` handler, which
-    reports a Detect *error* check-in and exits nonzero (same path as any other
-    scan failure) rather than silently returning partial findings.
+    The abort latch is sticky, so after the first raise every later checkpoint
+    raises too. Scanners let it propagate out of their loops; the phase
+    boundaries in the orchestrator and service convert it into that phase's
+    incomplete default (``RESOURCE_LIMIT_EXCEEDED_REASON``) so the findings
+    gathered before the trip still upload, with absence authority withheld,
+    and ``_run_scan`` then reports a Detect *error* check-in and exits nonzero.
     """
 
 

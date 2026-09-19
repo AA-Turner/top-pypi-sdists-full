@@ -26,7 +26,7 @@ import typer
 import yaml
 
 from runlayer_cli.credential_store import get_keyring_store
-from runlayer_cli.mdm_config import read_managed_config
+from runlayer_cli.mdm_config import ManagedConfig, read_managed_config
 from runlayer_cli.paths import get_runlayer_dir
 from runlayer_cli.runtime import is_aiwatch_runtime
 
@@ -81,6 +81,23 @@ def normalize_url(url: str) -> str:
         URL with trailing slashes removed
     """
     return url.rstrip("/")
+
+
+def hosts_equal(left: str, right: str) -> bool:
+    """Whether two URLs name the same backend for the managed-host comparison.
+
+    Hostnames are case-insensitive per RFC 3986 §3.2.2 and are compared via
+    :func:`url_to_host_key`, which lowercases the host (``urlparse().hostname``)
+    and includes the port only when non-default for the scheme — matching what
+    the keychain already treats as the same host. Scheme is compared
+    separately (case-insensitively) because :func:`url_to_host_key` drops it,
+    but ``http`` vs ``https`` on the same host is a meaningful deviation for
+    the managed-host-wins guarantee this backs.
+    """
+    return (
+        url_to_host_key(left) == url_to_host_key(right)
+        and urlparse(left).scheme.lower() == urlparse(right).scheme.lower()
+    )
 
 
 @dataclass
@@ -529,7 +546,9 @@ def set_credentials_in_context(
         ctx.obj["org_api_key_name"] = org_api_key_name
 
 
-def _get_mdm_managed_key(effective_host: str, key_field: str) -> Optional[str]:
+def _get_mdm_managed_key(
+    effective_host: str, key_field: str, *, managed: ManagedConfig | None = None
+) -> Optional[str]:
     """Return a secret from MDM-managed config if it matches *effective_host*.
 
     Single home for the managed-host-match refusal: without a managed host
@@ -537,8 +556,12 @@ def _get_mdm_managed_key(effective_host: str, key_field: str) -> Optional[str]:
     this tenant, so we refuse to release it (would leak the secret to a
     user-supplied ``--host``). Every managed-key lookup must go through here
     so a hardening change can never reach one key type and miss another.
+
+    ``managed`` lets hot paths that already hold the parsed managed config
+    (the hook relay) reuse it instead of re-reading the plist/registry.
     """
-    managed = read_managed_config()
+    if managed is None:
+        managed = read_managed_config()
     secret = managed.get(key_field)
     if not secret:
         return None
@@ -548,14 +571,27 @@ def _get_mdm_managed_key(effective_host: str, key_field: str) -> Optional[str]:
     return secret  # type: ignore[return-value]
 
 
-def _get_mdm_managed_org_api_key(effective_host: str) -> Optional[str]:
+def _get_mdm_managed_org_api_key(
+    effective_host: str, *, managed: ManagedConfig | None = None
+) -> Optional[str]:
     """The MDM-deployed org API key, host-match gated."""
-    return _get_mdm_managed_key(effective_host, "org_api_key")
+    return _get_mdm_managed_key(effective_host, "org_api_key", managed=managed)
 
 
 def _get_mdm_managed_skill_sync_api_key(effective_host: str) -> Optional[str]:
     """The dedicated skill-sync org API key, host-match gated."""
     return _get_mdm_managed_key(effective_host, "skill_sync_org_api_key")
+
+
+def _get_mdm_managed_enrollment_key(
+    effective_host: str, *, managed: ManagedConfig | None = None
+) -> Optional[str]:
+    """The legacy MDM ``EnrollmentKey``, host-match gated.
+
+    Exchanging it mints a per-user API key on whatever host receives it, so
+    it is bound to the provisioned host like the org key.
+    """
+    return _get_mdm_managed_key(effective_host, "enrollment_key", managed=managed)
 
 
 def resolve_skill_sync_secret(effective_host: str) -> Optional[str]:
@@ -588,6 +624,7 @@ def resolve_credentials(
     allow_org_key: bool = False,
     implicit_org_key_label: Optional[str] = None,
     interactive_login_on_missing: bool = True,
+    managed_host_wins: bool = False,
 ) -> ResolvedCredentials:
     """Resolve credentials from CLI args, config file, or trigger login flow.
 
@@ -607,6 +644,11 @@ def resolve_credentials(
         allow_org_key: If True, accept rl_org_ keys without triggering login
         implicit_org_key_label: Try this named org key before the user secret
         interactive_login_on_missing: If False, never start interactive login
+        managed_host_wins: Rank the MDM ``Host`` above the YAML ``default_host``
+            (an explicit ``--host`` / ``RUNLAYER_HOST`` still wins). Device
+            telemetry commands (``scan`` and its check-ins) set this so a user
+            login against another tenant cannot redirect them off the host the
+            admin provisioned — the same rule the hook relay applies.
 
     Returns:
         Dict with 'secret' and 'host' keys
@@ -634,7 +676,10 @@ def resolve_credentials(
     config = load_config()
 
     # Determine effective host
-    effective_host = cli_host or config.default_host
+    effective_host = cli_host
+    if not effective_host and managed_host_wins:
+        effective_host = _get_mdm_managed_host()
+    effective_host = effective_host or config.default_host
     if not effective_host and len(config.hosts) == 1:
         only_host = next(iter(config.hosts.values()))
         effective_host = only_host.get("url")

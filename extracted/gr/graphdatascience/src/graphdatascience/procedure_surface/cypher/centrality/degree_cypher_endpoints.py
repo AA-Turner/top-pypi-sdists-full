@@ -3,7 +3,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.centrality.degree_endpoints import (
     DegreeEndpoints,
     DegreeMutateResult,
@@ -23,7 +23,7 @@ class DegreeCypherEndpoints(DegreeEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         orientation: str = "NATURAL",
         relationship_types: list[str] = ALL_TYPES,
@@ -56,12 +56,12 @@ class DegreeCypherEndpoints(DegreeEndpoints):
 
         result = self._query_runner.call_procedure(
             endpoint="gds.degree.mutate", params=params, logging=log_progress
-        ).squeeze()
-        return DegreeMutateResult(**result.to_dict())
+        ).iloc[0]
+        return DegreeMutateResult(**result)
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         orientation: str = "NATURAL",
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -92,12 +92,12 @@ class DegreeCypherEndpoints(DegreeEndpoints):
 
         result = self._query_runner.call_procedure(
             endpoint="gds.degree.stats", params=params, logging=log_progress
-        ).squeeze()
-        return DegreeStatsResult(**result.to_dict())
+        ).iloc[0]
+        return DegreeStatsResult(**result)
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         orientation: str = "NATURAL",
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -130,7 +130,7 @@ class DegreeCypherEndpoints(DegreeEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         orientation: str = "NATURAL",
         relationship_types: list[str] = ALL_TYPES,
@@ -164,12 +164,12 @@ class DegreeCypherEndpoints(DegreeEndpoints):
 
         result = self._query_runner.call_procedure(
             endpoint="gds.degree.write", params=params, logging=log_progress
-        ).squeeze()
-        return DegreeWriteResult(**result.to_dict())
+        ).iloc[0]
+        return DegreeWriteResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         orientation: str = "NATURAL",
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,

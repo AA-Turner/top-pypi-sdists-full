@@ -53,12 +53,12 @@ pub struct DeltaTableConfig {
     /// when processing record batches.
     pub log_batch_size: usize,
 
-    /// Skip parsing per-file statistics while opening the table.
+    /// Skip parsing file statistics while opening the table.
     /// This defaults to `false`.
     ///
-    /// Use for workflows that never need file pruning (vacuum, filesystem check,
-    /// append-only writes). Any predicated query on this instance will scan every
-    /// file because the cache has no stats. Partition pruning is unaffected.
+    /// Use this option for maintenance and append workflows that do not need file pruning.
+    /// Queries with predicates scan each file because the kernel disables statistics and
+    /// partition pruning.
     #[serde(default)]
     pub skip_stats: bool,
 
@@ -72,7 +72,10 @@ impl Default for DeltaTableConfig {
     fn default() -> Self {
         Self {
             require_files: true,
-            log_buffer_size: num_cpus::get() * 4,
+            log_buffer_size: std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(1)
+                * 4,
             log_batch_size: 1024,
             skip_stats: false,
             io_runtime: None,

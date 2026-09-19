@@ -3,15 +3,19 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.centrality.closeness_endpoints import (
     ClosenessEndpoints,
     ClosenessMutateResult,
     ClosenessStatsResult,
     ClosenessWriteResult,
 )
+from graphdatascience.procedure_surface.api.centrality.closeness_harmonic_endpoints import ClosenessHarmonicEndpoints
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
+from graphdatascience.procedure_surface.cypher.centrality.closeness_harmonic_cypher_endpoints import (
+    ClosenessHarmonicCypherEndpoints,
+)
 from graphdatascience.procedure_surface.cypher.estimation_utils import estimate_algorithm
 from graphdatascience.procedure_surface.utils.config_converter import ConfigConverter
 from graphdatascience.query_runner.query_runner import QueryRunner
@@ -23,9 +27,13 @@ class ClosenessCypherEndpoints(ClosenessEndpoints):
     def __init__(self, query_runner: QueryRunner):
         self._query_runner = query_runner
 
+    @property
+    def harmonic(self) -> ClosenessHarmonicEndpoints:
+        return ClosenessHarmonicCypherEndpoints(self._query_runner)
+
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         use_wasserman_faust: bool = False,
         relationship_types: list[str] = ALL_TYPES,
@@ -56,12 +64,12 @@ class ClosenessCypherEndpoints(ClosenessEndpoints):
 
         result = self._query_runner.call_procedure(
             endpoint="gds.closeness.mutate", params=params, logging=log_progress
-        ).squeeze()
-        return ClosenessMutateResult(**result.to_dict())
+        ).iloc[0]
+        return ClosenessMutateResult(**result)
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         use_wasserman_faust: bool = False,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -90,12 +98,12 @@ class ClosenessCypherEndpoints(ClosenessEndpoints):
 
         result = self._query_runner.call_procedure(
             endpoint="gds.closeness.stats", params=params, logging=log_progress
-        ).squeeze()
-        return ClosenessStatsResult(**result.to_dict())
+        ).iloc[0]
+        return ClosenessStatsResult(**result)
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         use_wasserman_faust: bool = False,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -126,7 +134,7 @@ class ClosenessCypherEndpoints(ClosenessEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         use_wasserman_faust: bool = False,
         relationship_types: list[str] = ALL_TYPES,
@@ -159,12 +167,12 @@ class ClosenessCypherEndpoints(ClosenessEndpoints):
 
         result = self._query_runner.call_procedure(
             endpoint="gds.closeness.write", params=params, logging=log_progress
-        ).squeeze()
-        return ClosenessWriteResult(**result.to_dict())
+        ).iloc[0]
+        return ClosenessWriteResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         use_wasserman_faust: bool = False,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,

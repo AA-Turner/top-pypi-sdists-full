@@ -44,7 +44,7 @@ from kiota_http.middleware.parameters_name_decoding_handler import ParametersNam
 
 from ._version import VERSION
 from .kiota_client_factory import KiotaClientFactory
-from .middleware import ParametersNameDecodingHandler
+from .middleware import REQUEST_OPTIONS_KEY, ParametersNameDecodingHandler
 from .middleware.options import ParametersNameDecodingHandlerOption, ResponseHandlerOption
 from .observability_options import ObservabilityOptions
 
@@ -626,26 +626,29 @@ class HttpxRequestAdapter(RequestAdapter):
         self, resp: httpx.Response, request_info: RequestInformation, claims: str
     ) -> httpx.Response:
         parent_span = self.start_tracing_span(request_info, "retry_cae_response_if_required")
-        if (
-            resp.status_code == 401
-            and not claims  # previous claims exist. Means request has already been retried
-            and resp.headers.get(self.RESPONSE_AUTH_HEADER)
-        ):
-            auth_header_value = resp.headers.get(self.RESPONSE_AUTH_HEADER)
-            if auth_header_value.casefold().startswith(
-                self.BEARER_AUTHENTICATION_SCHEME.casefold()
+        try:
+            if (
+                resp.status_code == 401
+                and not claims  # previous claims exist. Means request has already been retried
+                and resp.headers.get(self.RESPONSE_AUTH_HEADER)
             ):
-                claims_match = re.search('claims="([^"]+)"', auth_header_value)
-                if not claims_match:
-                    return resp
-                response_claims = claims_match.group(1)
-                parent_span.add_event(AUTHENTICATE_CHALLENGED_EVENT_KEY)
-                parent_span.set_attribute("http.retry_count", 1)
-                return await self.get_http_response_message(
-                    request_info, parent_span, response_claims
-                )
+                auth_header_value = resp.headers.get(self.RESPONSE_AUTH_HEADER)
+                if auth_header_value.casefold().startswith(
+                    self.BEARER_AUTHENTICATION_SCHEME.casefold()
+                ):
+                    claims_match = re.search('claims="([^"]+)"', auth_header_value)
+                    if not claims_match:
+                        return resp
+                    response_claims = claims_match.group(1)
+                    parent_span.add_event(AUTHENTICATE_CHALLENGED_EVENT_KEY)
+                    parent_span.set_attribute("http.retry_count", 1)
+                    return await self.get_http_response_message(
+                        request_info, parent_span, response_claims
+                    )
+                return resp
             return resp
-        return resp
+        finally:
+            parent_span.end()
 
     def get_response_handler(self, request_info: RequestInformation) -> Any:
         response_handler_option = request_info.request_options.get(ResponseHandlerOption.get_key())
@@ -683,18 +686,18 @@ class HttpxRequestAdapter(RequestAdapter):
         if self.observability_options.include_euii_attributes:
             otel_attributes.update({URL_FULL: url.geturl()})
 
-        request = self._http_client.build_request(
-            method=method.value,
-            url=request_info.url,
-            headers=request_info.request_headers,
-            content=request_info.content,
-        )
         request_options = {
             self.observability_options.get_key(): self.observability_options,
             "parent_span": parent_span,
             **request_info.request_options,
         }
-        setattr(request, "options", request_options)
+        request = self._http_client.build_request(
+            method=method.value,
+            url=request_info.url,
+            headers=request_info.request_headers,
+            content=request_info.content,
+            extensions={REQUEST_OPTIONS_KEY: request_options},
+        )
 
         if content_length := request.headers.get("Content-Length", None):
             otel_attributes.update({"http.request.body.size": content_length})

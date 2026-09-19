@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Mapping
 from typing import TYPE_CHECKING, Any, Literal, TypeVar
 
 import httpx
@@ -54,9 +55,15 @@ _PLUGIN_READ_RETRIES = 1
 _PLUGIN_READ_RETRY_SLEEP_SECONDS = 0.25
 _AUDIT_LOG_TIMEOUT = 30.0
 _AIWATCH_CONFIG_TIMEOUT = 10.0
+# The scan manifest can run to megabytes on a busy developer host and the
+# backend ingests it synchronously; httpx's 5s default read timeout dropped
+# whole scans. The check-in is small but shares the same fleet-wide backend.
+_AIWATCH_SCAN_UPLOAD_TIMEOUT = 120.0
+_AIWATCH_CHECKIN_TIMEOUT = 30.0
 # Bounded so a slow/unreachable backend can't stall command exit on the
 # best-effort command-perf telemetry flush.
 _COMMAND_EVENTS_TIMEOUT = 2.0
+_SKILL_REMOVAL_BATCH_SIZE = 1000
 T = TypeVar("T", bound=BaseModel)
 
 # Mirror backend SkillListFilter / PluginListFilter separately: their accepted
@@ -412,7 +419,7 @@ class RunlayerClient(CatalogClientMixin):
             # trace. Best-effort: empty when tracing is disabled.
             trace_headers: dict[str, str] = {}
             telemetry.inject_trace_context(trace_headers)
-            with self._client() as client:
+            with self._client(timeout=_AIWATCH_SCAN_UPLOAD_TIMEOUT) as client:
                 response = client.post(
                     f"{self.base_url}/api/v1/ai-watch/scan",
                     json=payload,
@@ -431,7 +438,7 @@ class RunlayerClient(CatalogClientMixin):
 
     def submit_aiwatch_checkin(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Submit an AI Watch feature check-in to the backend."""
-        with self._client() as client:
+        with self._client(timeout=_AIWATCH_CHECKIN_TIMEOUT) as client:
             response = client.post(
                 f"{self.base_url}/api/v1/ai-watch/check-in",
                 json=payload,
@@ -441,10 +448,22 @@ class RunlayerClient(CatalogClientMixin):
             response.raise_for_status()
             return response.json()
 
-    def get_aiwatch_config(self) -> SyncedAIWatchConfig | None:
-        """Fetch backend-authoritative AI Watch settings when supported."""
+    def get_aiwatch_config(
+        self, *, device_id: str | None = None
+    ) -> SyncedAIWatchConfig | None:
+        """Fetch backend-authoritative AI Watch settings when supported.
+
+        ``device_id`` lets the backend resolve device-level policy. Only the
+        device identity is sent: user→policy mapping happens at check-in, so a
+        username here would be a spoofable identity input for no benefit.
+        """
+        params: dict[str, str] = {}
+        if device_id:
+            params["device_id"] = device_id
         with self._client(timeout=_AIWATCH_CONFIG_TIMEOUT) as client:
-            response = client.get(f"{self.base_url}/api/v1/ai-watch/config")
+            response = client.get(
+                f"{self.base_url}/api/v1/ai-watch/config", params=params
+            )
             if response.status_code == 404:
                 return None
             response.raise_for_status()
@@ -484,6 +503,25 @@ class RunlayerClient(CatalogClientMixin):
             with self._client(timeout=120) as client:
                 response = client.post(
                     f"{self.base_url}/api/v1/ai-watch/agent-definitions",
+                    json=payload,
+                    headers=trace_headers or None,
+                )
+                if response.status_code == 404:
+                    return {"unsupported": True}
+                response.raise_for_status()
+                return response.json()
+
+    def submit_scan_manifest(self, payload: dict[str, Any]) -> dict[str, Any]:
+        """Submit bounded authoritative scan completion state."""
+        with telemetry.command_span(
+            "cli.submit",
+            endpoint="ai-watch/scan-manifest",
+        ):
+            trace_headers: dict[str, str] = {}
+            telemetry.inject_trace_context(trace_headers)
+            with self._client(timeout=30) as client:
+                response = client.post(
+                    f"{self.base_url}/api/v1/ai-watch/scan-manifest",
                     json=payload,
                     headers=trace_headers or None,
                 )
@@ -562,6 +600,37 @@ class RunlayerClient(CatalogClientMixin):
                 return {"unsupported": True}
             response.raise_for_status()
             return response.json()
+
+    def submit_skill_removals(
+        self,
+        path_hashes: list[str],
+        device_context: Mapping[str, Any],
+    ) -> dict[str, Any]:
+        """Submit host skill removals in backend-bounded idempotent chunks."""
+        if not path_hashes:
+            return {"removed": 0}
+
+        removed = 0
+        with self._client(timeout=120) as client:
+            for start in range(0, len(path_hashes), _SKILL_REMOVAL_BATCH_SIZE):
+                chunk = path_hashes[start : start + _SKILL_REMOVAL_BATCH_SIZE]
+                response = client.post(
+                    f"{self.base_url}/api/v1/ai-watch/skills/removed",
+                    json={"path_hashes": chunk, **device_context},
+                )
+                if response.status_code == 404:
+                    return {"unsupported": True}
+                response.raise_for_status()
+                response_body = response.json()
+                chunk_removed = response_body.get("removed")
+                if (
+                    not isinstance(chunk_removed, int)
+                    or isinstance(chunk_removed, bool)
+                    or chunk_removed < 0
+                ):
+                    raise ValueError("invalid skill removal response")
+                removed += chunk_removed
+        return {"removed": removed}
 
     def submit_plugin_fingerprint(
         self,

@@ -42,6 +42,7 @@ class SpeechToTextClient:
         language_code: typing.Optional[SpeechToTextLanguage] = OMIT,
         with_timestamps: typing.Optional[bool] = OMIT,
         input_audio_codec: typing.Optional[InputAudioCodec] = OMIT,
+        keyterms: typing.Optional[typing.List[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SpeechToTextResponse:
         """
@@ -128,6 +129,9 @@ class SpeechToTextClient:
         input_audio_codec : typing.Optional[InputAudioCodec]
             Input Audio codec/format of the input file. PCM files are supported only at 16kHz sample rate.
 
+        keyterms : typing.Optional[typing.List[str]]
+            List of up to 50 domain-specific terms (names, places, brands, technical terms) to bias recognition toward. Each keyterm can contain up to 64 characters. Put phrases such as `New Delhi` in one list item; do not send comma-separated terms in one string. Keyterms bias recognition — they do not guarantee that a term will appear in the transcript. **Only supported with `model=saaras:v4`.** Sent as a JSON-encoded array in one multipart form field, e.g. `keyterms=["Sarvam","New Delhi","Vistaar"]`. Do not use the older `keyterm` or `hotwords` fields.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -152,6 +156,7 @@ class SpeechToTextClient:
             language_code=language_code,
             with_timestamps=with_timestamps,
             input_audio_codec=input_audio_codec,
+            keyterms=keyterms,
             request_options=request_options,
         )
         return _response.data
@@ -246,6 +251,7 @@ class AsyncSpeechToTextClient:
         language_code: typing.Optional[SpeechToTextLanguage] = OMIT,
         with_timestamps: typing.Optional[bool] = OMIT,
         input_audio_codec: typing.Optional[InputAudioCodec] = OMIT,
+        keyterms: typing.Optional[typing.List[str]] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> SpeechToTextResponse:
         """
@@ -332,6 +338,9 @@ class AsyncSpeechToTextClient:
         input_audio_codec : typing.Optional[InputAudioCodec]
             Input Audio codec/format of the input file. PCM files are supported only at 16kHz sample rate.
 
+        keyterms : typing.Optional[typing.List[str]]
+            List of up to 50 domain-specific terms (names, places, brands, technical terms) to bias recognition toward. Each keyterm can contain up to 64 characters. Put phrases such as `New Delhi` in one list item; do not send comma-separated terms in one string. Keyterms bias recognition — they do not guarantee that a term will appear in the transcript. **Only supported with `model=saaras:v4`.** Sent as a JSON-encoded array in one multipart form field, e.g. `keyterms=["Sarvam","New Delhi","Vistaar"]`. Do not use the older `keyterm` or `hotwords` fields.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -364,6 +373,7 @@ class AsyncSpeechToTextClient:
             language_code=language_code,
             with_timestamps=with_timestamps,
             input_audio_codec=input_audio_codec,
+            keyterms=keyterms,
             request_options=request_options,
         )
         return _response.data

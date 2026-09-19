@@ -10,6 +10,7 @@ from nacl.signing import SigningKey, VerifyKey
 
 from . import asymmetric_crypto
 from .bcs import Deserializer, Serializer
+from .errors import InvalidKeyError, InvalidSignatureError
 
 
 class PrivateKey(asymmetric_crypto.PrivateKey):
@@ -28,8 +29,8 @@ class PrivateKey(asymmetric_crypto.PrivateKey):
     def __str__(self):
         return self.aip80()
 
-    @staticmethod
-    def from_hex(value: str | bytes, strict: bool | None = None) -> PrivateKey:
+    @classmethod
+    def from_hex(cls, value: str | bytes, strict: bool | None = None) -> PrivateKey:
         """
         Parse a HexInput that may be a hex string, bytes, or an AIP-80 compliant string to a private key.
 
@@ -37,16 +38,14 @@ class PrivateKey(asymmetric_crypto.PrivateKey):
         :param strict: If true, the value MUST be compliant with AIP-80.
         :return: Parsed Ed25519 private key.
         """
-        return PrivateKey(
+        return cls(
             SigningKey(
-                PrivateKey.parse_hex_input(
-                    value, asymmetric_crypto.PrivateKeyVariant.Ed25519, strict
-                )
+                cls.parse_hex_input(value, asymmetric_crypto.PrivateKeyVariant.Ed25519, strict)
             )
         )
 
-    @staticmethod
-    def from_str(value: str, strict: bool | None = None) -> PrivateKey:
+    @classmethod
+    def from_str(cls, value: str, strict: bool | None = None) -> PrivateKey:
         """
         Parse a HexInput that may be a hex string or an AIP-80 compliant string to a private key.
 
@@ -54,7 +53,7 @@ class PrivateKey(asymmetric_crypto.PrivateKey):
         :param strict: If true, the value MUST be compliant with AIP-80.
         :return: Parsed Ed25519 private key.
         """
-        return PrivateKey.from_hex(value, strict)
+        return cls.from_hex(value, strict)
 
     def hex(self) -> str:
         return f"0x{self.key.encode().hex()}"
@@ -67,20 +66,20 @@ class PrivateKey(asymmetric_crypto.PrivateKey):
     def public_key(self) -> PublicKey:
         return PublicKey(self.key.verify_key)
 
-    @staticmethod
-    def random() -> PrivateKey:
-        return PrivateKey(SigningKey.generate())
+    @classmethod
+    def random(cls) -> PrivateKey:
+        return cls(SigningKey.generate())
 
     def sign(self, data: bytes) -> Signature:
         return Signature(self.key.sign(data).signature)
 
-    @staticmethod
-    def deserialize(deserializer: Deserializer) -> PrivateKey:
+    @classmethod
+    def deserialize(cls, deserializer: Deserializer) -> PrivateKey:
         key = deserializer.to_bytes()
         if len(key) != PrivateKey.LENGTH:
-            raise Exception("Length mismatch")
+            raise InvalidKeyError("Length mismatch")
 
-        return PrivateKey(SigningKey(key))
+        return cls(SigningKey(key))
 
     def serialize(self, serializer: Serializer):
         serializer.to_bytes(self.key.encode())
@@ -102,11 +101,11 @@ class PublicKey(asymmetric_crypto.PublicKey):
     def __str__(self) -> str:
         return f"0x{self.key.encode().hex()}"
 
-    @staticmethod
-    def from_str(value: str) -> PublicKey:
+    @classmethod
+    def from_str(cls, value: str) -> PublicKey:
         if value[0:2] == "0x":
             value = value[2:]
-        return PublicKey(VerifyKey(bytes.fromhex(value)))
+        return cls(VerifyKey(bytes.fromhex(value)))
 
     def verify(self, data: bytes, signature: asymmetric_crypto.Signature) -> bool:
         try:
@@ -119,13 +118,13 @@ class PublicKey(asymmetric_crypto.PublicKey):
     def to_crypto_bytes(self) -> bytes:
         return self.key.encode()
 
-    @staticmethod
-    def deserialize(deserializer: Deserializer) -> PublicKey:
+    @classmethod
+    def deserialize(cls, deserializer: Deserializer) -> PublicKey:
         key = deserializer.to_bytes()
         if len(key) != PublicKey.LENGTH:
-            raise Exception("Length mismatch")
+            raise InvalidKeyError("Length mismatch")
 
-        return PublicKey(VerifyKey(key))
+        return cls(VerifyKey(key))
 
     def serialize(self, serializer: Serializer):
         serializer.to_bytes(self.key.encode())
@@ -140,12 +139,10 @@ class MultiPublicKey(asymmetric_crypto.PublicKey):
     MIN_THRESHOLD = 1
 
     def __init__(self, keys: List[PublicKey], threshold: int):
-        assert (
-            self.MIN_KEYS <= len(keys) <= self.MAX_KEYS
-        ), f"Must have between {self.MIN_KEYS} and {self.MAX_KEYS} keys."
-        assert (
-            self.MIN_THRESHOLD <= threshold <= len(keys)
-        ), f"Threshold must be between {self.MIN_THRESHOLD} and {len(keys)}."
+        if not (self.MIN_KEYS <= len(keys) <= self.MAX_KEYS):
+            raise ValueError(f"Must have between {self.MIN_KEYS} and {self.MAX_KEYS} keys.")
+        if not (self.MIN_THRESHOLD <= threshold <= len(keys)):
+            raise ValueError(f"Threshold must be between {self.MIN_THRESHOLD} and {len(keys)}.")
 
         self.keys = keys
         self.threshold = threshold
@@ -156,23 +153,20 @@ class MultiPublicKey(asymmetric_crypto.PublicKey):
     def verify(self, data: bytes, signature: asymmetric_crypto.Signature) -> bool:
         try:
             signatures = cast(MultiSignature, signature)
-            assert self.threshold <= len(
-                signatures.signatures
-            ), f"Insufficient signatures, {self.threshold} > {len(signatures.signatures)}"
+            if self.threshold > len(signatures.signatures):
+                return False
 
             for idx, signature in signatures.signatures:
-                assert (
-                    len(self.keys) > idx
-                ), f"Signature index exceeds available keys {len(self.keys)} < {idx}"
-                assert self.keys[idx].verify(
-                    data, signature
-                ), "Unable to verify signature"
+                if len(self.keys) <= idx:
+                    return False
+                if not self.keys[idx].verify(data, signature):
+                    return False
         except Exception:
             return False
         return True
 
-    @staticmethod
-    def from_crypto_bytes(indata: bytes) -> MultiPublicKey:
+    @classmethod
+    def from_crypto_bytes(cls, indata: bytes) -> MultiPublicKey:
         total_keys = int(len(indata) / PublicKey.LENGTH)
         keys: List[PublicKey] = []
         for idx in range(total_keys):
@@ -180,7 +174,7 @@ class MultiPublicKey(asymmetric_crypto.PublicKey):
             end = (idx + 1) * PublicKey.LENGTH
             keys.append(PublicKey(VerifyKey(indata[start:end])))
         threshold = indata[-1]
-        return MultiPublicKey(keys, threshold)
+        return cls(keys, threshold)
 
     def to_crypto_bytes(self) -> bytes:
         key_bytes = bytearray()
@@ -189,10 +183,10 @@ class MultiPublicKey(asymmetric_crypto.PublicKey):
         key_bytes.append(self.threshold)
         return key_bytes
 
-    @staticmethod
-    def deserialize(deserializer: Deserializer) -> MultiPublicKey:
+    @classmethod
+    def deserialize(cls, deserializer: Deserializer) -> MultiPublicKey:
         indata = deserializer.to_bytes()
-        return MultiPublicKey.from_crypto_bytes(indata)
+        return cls.from_crypto_bytes(indata)
 
     def serialize(self, serializer: Serializer):
         serializer.to_bytes(self.to_crypto_bytes())
@@ -217,19 +211,19 @@ class Signature(asymmetric_crypto.Signature):
     def data(self) -> bytes:
         return self.signature
 
-    @staticmethod
-    def deserialize(deserializer: Deserializer) -> Signature:
+    @classmethod
+    def deserialize(cls, deserializer: Deserializer) -> Signature:
         signature = deserializer.to_bytes()
         if len(signature) != Signature.LENGTH:
-            raise Exception("Length mismatch")
+            raise InvalidSignatureError("Length mismatch")
 
-        return Signature(signature)
+        return cls(signature)
 
-    @staticmethod
-    def from_str(value: str) -> Signature:
+    @classmethod
+    def from_str(cls, value: str) -> Signature:
         if value[0:2] == "0x":
             value = value[2:]
-        return Signature(bytes.fromhex(value))
+        return cls(bytes.fromhex(value))
 
     def serialize(self, serializer: Serializer):
         serializer.to_bytes(self.signature)
@@ -241,9 +235,8 @@ class MultiSignature(asymmetric_crypto.Signature):
 
     def __init__(self, signatures: List[Tuple[int, Signature]]):
         for signature in signatures:
-            assert (
-                signature[0] < self.BITMAP_NUM_OF_BYTES * 8
-            ), "bitmap value exceeds maximum value"
+            if signature[0] >= self.BITMAP_NUM_OF_BYTES * 8:
+                raise ValueError("bitmap value exceeds maximum value")
         self.signatures = signatures
 
     def __eq__(self, other: object):
@@ -254,8 +247,9 @@ class MultiSignature(asymmetric_crypto.Signature):
     def __str__(self) -> str:
         return f"{self.signatures}"
 
-    @staticmethod
+    @classmethod
     def from_key_map(
+        cls,
         public_key: MultiPublicKey,
         signatures_map: List[Tuple[PublicKey, Signature]],
     ) -> MultiSignature:
@@ -263,15 +257,14 @@ class MultiSignature(asymmetric_crypto.Signature):
 
         for entry in signatures_map:
             signatures.append((public_key.keys.index(entry[0]), entry[1]))
-        return MultiSignature(signatures)
+        return cls(signatures)
 
-    @staticmethod
-    def deserialize(deserializer: Deserializer) -> MultiSignature:
+    @classmethod
+    def deserialize(cls, deserializer: Deserializer) -> MultiSignature:
         signature_bytes = deserializer.to_bytes()
         count = len(signature_bytes) // Signature.LENGTH
-        assert count * Signature.LENGTH + MultiSignature.BITMAP_NUM_OF_BYTES == len(
-            signature_bytes
-        ), "MultiSignature length is invalid"
+        if count * Signature.LENGTH + MultiSignature.BITMAP_NUM_OF_BYTES != len(signature_bytes):
+            raise ValueError("MultiSignature length is invalid")
 
         bitmap = int.from_bytes(signature_bytes[-4:], "big")
 
@@ -287,7 +280,7 @@ class MultiSignature(asymmetric_crypto.Signature):
                 current += 1
             position += 1
 
-        return MultiSignature(signatures)
+        return cls(signatures)
 
     def serialize(self, serializer: Serializer):
         signature_bytes = bytearray()
@@ -298,9 +291,7 @@ class MultiSignature(asymmetric_crypto.Signature):
             bitmap = bitmap | (1 << shift)
             signature_bytes.extend(signature[1].data())
 
-        signature_bytes.extend(
-            bitmap.to_bytes(MultiSignature.BITMAP_NUM_OF_BYTES, "big")
-        )
+        signature_bytes.extend(bitmap.to_bytes(MultiSignature.BITMAP_NUM_OF_BYTES, "big"))
         serializer.to_bytes(signature_bytes)
 
 
@@ -314,9 +305,7 @@ class Test(unittest.TestCase):
             True,
         )
         private_key_bytes = PrivateKey.from_hex(
-            bytes.fromhex(
-                "4e5e3be60f4bbd5e98d086d932f3ce779ff4b58da99bf9e5241ae1212a29e5fe"
-            ),
+            bytes.fromhex("4e5e3be60f4bbd5e98d086d932f3ce779ff4b58da99bf9e5241ae1212a29e5fe"),
             False,
         )
         self.assertEqual(
@@ -326,7 +315,9 @@ class Test(unittest.TestCase):
         )
 
     def test_private_key_aip80_formatting(self):
-        private_key_with_prefix = "ed25519-priv-0x4e5e3be60f4bbd5e98d086d932f3ce779ff4b58da99bf9e5241ae1212a29e5fe"
+        private_key_with_prefix = (
+            "ed25519-priv-0x4e5e3be60f4bbd5e98d086d932f3ce779ff4b58da99bf9e5241ae1212a29e5fe"
+        )
         self.assertEqual(
             str(PrivateKey.from_str(private_key_with_prefix, True)),
             private_key_with_prefix,
@@ -425,38 +416,28 @@ class Test(unittest.TestCase):
 
     def test_multisig_range_checks(self):
         # Generate public keys.
-        keys = [
-            PrivateKey.random().public_key() for x in range(MultiPublicKey.MAX_KEYS + 1)
-        ]
+        keys = [PrivateKey.random().public_key() for x in range(MultiPublicKey.MAX_KEYS + 1)]
         # Verify failure for initializing multisig instance with too few keys.
-        with self.assertRaisesRegex(AssertionError, "Must have between 2 and 32 keys."):
+        with self.assertRaisesRegex(ValueError, "Must have between 2 and 32 keys."):
             MultiPublicKey([keys[0]], 1)
         # Verify failure for initializing multisig instance with too many keys.
-        with self.assertRaisesRegex(AssertionError, "Must have between 2 and 32 keys."):
+        with self.assertRaisesRegex(ValueError, "Must have between 2 and 32 keys."):
             MultiPublicKey(keys, 1)
         # Verify failure for initializing multisig instance with small threshold.
-        with self.assertRaisesRegex(
-            AssertionError, "Threshold must be between 1 and 4."
-        ):
+        with self.assertRaisesRegex(ValueError, "Threshold must be between 1 and 4."):
             MultiPublicKey(keys[0:4], 0)
         # Verify failure for initializing multisig instance with large threshold.
-        with self.assertRaisesRegex(
-            AssertionError, "Threshold must be between 1 and 4."
-        ):
+        with self.assertRaisesRegex(ValueError, "Threshold must be between 1 and 4."):
             MultiPublicKey(keys[0:4], 5)
         # Verify failure for initializing from bytes with too few keys.
-        with self.assertRaisesRegex(AssertionError, "Must have between 2 and 32 keys."):
+        with self.assertRaisesRegex(ValueError, "Must have between 2 and 32 keys."):
             MultiPublicKey.from_bytes(MultiPublicKey([keys[0]], 1).to_bytes())
         # Verify failure for initializing from bytes with too many keys.
-        with self.assertRaisesRegex(AssertionError, "Must have between 2 and 32 keys."):
+        with self.assertRaisesRegex(ValueError, "Must have between 2 and 32 keys."):
             MultiPublicKey.from_bytes(MultiPublicKey(keys, 1).to_bytes())
         # Verify failure for initializing from bytes with small threshold.
-        with self.assertRaisesRegex(
-            AssertionError, "Threshold must be between 1 and 4."
-        ):
+        with self.assertRaisesRegex(ValueError, "Threshold must be between 1 and 4."):
             MultiPublicKey.from_bytes(MultiPublicKey(keys[0:4], 0).to_bytes())
         # Verify failure for initializing from bytes with large threshold.
-        with self.assertRaisesRegex(
-            AssertionError, "Threshold must be between 1 and 4."
-        ):
+        with self.assertRaisesRegex(ValueError, "Threshold must be between 1 and 4."):
             MultiPublicKey.from_bytes(MultiPublicKey(keys[0:4], 5).to_bytes())

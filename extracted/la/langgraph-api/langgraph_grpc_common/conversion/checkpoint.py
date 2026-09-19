@@ -2,6 +2,7 @@ from collections.abc import Mapping
 from collections.abc import Sequence as SequenceType
 from typing import Any, Literal, cast
 
+from langchain_core.runnables import RunnableConfig
 from langgraph.checkpoint.base import (
     Checkpoint,
     CheckpointMetadata,
@@ -33,6 +34,14 @@ SOURCE_MAP = {
     "update": engine_common_pb2.CheckpointMetadata.CheckpointSource.update,
     "fork": engine_common_pb2.CheckpointMetadata.CheckpointSource.fork,
 }
+
+
+def checkpoint_config_to_proto(
+    config: RunnableConfig | None,
+) -> engine_common_pb2.EngineRunnableConfig | None:
+    if config is None:
+        return None
+    return config_to_proto(config, skip_private_configurable=True)
 
 
 def checkpoint_from_proto(
@@ -135,13 +144,13 @@ def checkpoint_tuple_to_proto(
     checkpoint_tuple: CheckpointTuple,
 ) -> engine_common_pb2.CheckpointTuple:
     proto = engine_common_pb2.CheckpointTuple()
-    if config_pb := config_to_proto(checkpoint_tuple.config):
+    if config_pb := checkpoint_config_to_proto(checkpoint_tuple.config):
         proto.config.CopyFrom(config_pb)
     proto.checkpoint.CopyFrom(checkpoint_to_proto(checkpoint_tuple.checkpoint))
     if checkpoint_tuple.metadata:
         proto.metadata.CopyFrom(checkpoint_metadata_to_proto(checkpoint_tuple.metadata))
     if checkpoint_tuple.parent_config:
-        if parent_pb := config_to_proto(checkpoint_tuple.parent_config):
+        if parent_pb := checkpoint_config_to_proto(checkpoint_tuple.parent_config):
             proto.parent_config.CopyFrom(parent_pb)
     if checkpoint_tuple.pending_writes:
         for task_id, channel, value in checkpoint_tuple.pending_writes:

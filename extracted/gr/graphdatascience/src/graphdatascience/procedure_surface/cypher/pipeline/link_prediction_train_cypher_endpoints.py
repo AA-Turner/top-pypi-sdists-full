@@ -3,9 +3,9 @@ from __future__ import annotations
 from typing import Any
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
-from graphdatascience.procedure_surface.api.model.link_prediction_model import LinkPredictionModelV2
+from graphdatascience.procedure_surface.api.pipeline.link_prediction_model import LinkPredictionModel
 from graphdatascience.procedure_surface.api.pipeline.link_prediction_pipeline_results import (
     LinkPredictionPipelineTrainResult,
 )
@@ -15,7 +15,7 @@ from graphdatascience.procedure_surface.api.pipeline.link_prediction_predict_end
 from graphdatascience.procedure_surface.api.pipeline.link_prediction_train_endpoints import (
     LinkPredictionPipelineTrainEndpoints,
 )
-from graphdatascience.procedure_surface.cypher.model_api_cypher import ModelApiCypher
+from graphdatascience.procedure_surface.cypher.model.model_catalog_cypher_endpoints import ModelCatalogCypherEndpoints
 from graphdatascience.procedure_surface.utils.config_converter import ConfigConverter
 from graphdatascience.query_runner.query_runner import QueryRunner
 
@@ -27,7 +27,7 @@ class LinkPredictionTrainCypherEndpoints(LinkPredictionPipelineTrainEndpoints):
 
     def __call__(
         self,
-        G: GraphV2,
+        G: Graph,
         pipeline_name: str,
         *,
         model_name: str,
@@ -43,7 +43,7 @@ class LinkPredictionTrainCypherEndpoints(LinkPredictionPipelineTrainEndpoints):
         sudo: bool = False,
         concurrency: int | None = None,
         job_id: str | None = None,
-    ) -> tuple[LinkPredictionModelV2, LinkPredictionPipelineTrainResult]:
+    ) -> tuple[LinkPredictionModel, LinkPredictionPipelineTrainResult]:
         config = ConfigConverter.convert_to_gds_config(
             metrics=metrics,
             model_name=model_name,
@@ -66,19 +66,19 @@ class LinkPredictionTrainCypherEndpoints(LinkPredictionPipelineTrainEndpoints):
             endpoint="gds.beta.pipeline.linkPrediction.train",
             params=params,
             logging=True,
-        ).squeeze()
+        ).iloc[0]
         return (
-            LinkPredictionModelV2(
+            LinkPredictionModel(
                 name=model_name,
-                model_api=ModelApiCypher(self._query_runner),
+                catalog=ModelCatalogCypherEndpoints(self._query_runner),
                 predict_endpoints=self._predict_endpoints,
             ),
-            LinkPredictionPipelineTrainResult(**result.to_dict()),
+            LinkPredictionPipelineTrainResult(**result),
         )
 
     def estimate(
         self,
-        G: GraphV2,
+        G: Graph,
         pipeline_name: str,
         *,
         model_name: str,
@@ -116,5 +116,5 @@ class LinkPredictionTrainCypherEndpoints(LinkPredictionPipelineTrainEndpoints):
         result = self._query_runner.call_procedure(
             endpoint="gds.beta.pipeline.linkPrediction.train.estimate",
             params=params,
-        ).squeeze()
+        ).iloc[0]
         return EstimationResult.from_cypher(result.to_dict())

@@ -17,6 +17,7 @@ if typing.TYPE_CHECKING:
     from .chat_completion_named_tool_choice import ChatCompletionNamedToolChoice
     from .chat_completion_named_tool_choice_function import ChatCompletionNamedToolChoiceFunction
     from .chat_completion_request_assistant_message import ChatCompletionRequestAssistantMessage
+    from .chat_completion_request_developer_message import ChatCompletionRequestDeveloperMessage
     from .chat_completion_request_generic_message import ChatCompletionRequestGenericMessage
     from .chat_completion_request_message import ChatCompletionRequestMessage
     from .chat_completion_request_system_message import ChatCompletionRequestSystemMessage
@@ -24,9 +25,12 @@ if typing.TYPE_CHECKING:
     from .chat_completion_request_user_message import ChatCompletionRequestUserMessage
     from .chat_completion_response_message import ChatCompletionResponseMessage
     from .chat_completion_tool import ChatCompletionTool
+    from .chat_stream_options import ChatStreamOptions
     from .choice import Choice
     from .completion_event_flag import CompletionEventFlag
+    from .completion_tokens_details import CompletionTokensDetails
     from .completion_usage import CompletionUsage
+    from .completion_usage_prompt_tokens_details import CompletionUsagePromptTokensDetails
     from .config_message import ConfigMessage
     from .configure_connection import ConfigureConnection
     from .configure_connection_data import ConfigureConnectionData
@@ -43,6 +47,10 @@ if typing.TYPE_CHECKING:
     from .create_document_job_response import CreateDocumentJobResponse
     from .create_dubbing_job_data import CreateDubbingJobData
     from .create_dubbing_job_response import CreateDubbingJobResponse
+    from .create_response_v2request import CreateResponseV2Request
+    from .create_response_v2request_tool_choice import CreateResponseV2RequestToolChoice
+    from .create_response_v2response import CreateResponseV2Response
+    from .create_response_v2response_tool_choice import CreateResponseV2ResponseToolChoice
     from .detail import Detail
     from .diarized_entry import DiarizedEntry
     from .diarized_transcript import DiarizedTranscript
@@ -156,6 +164,7 @@ if typing.TYPE_CHECKING:
     from .realtime_vad_speech_end import RealtimeVadSpeechEnd
     from .realtime_vad_speech_start import RealtimeVadSpeechStart
     from .reasoning_effort import ReasoningEffort
+    from .response_conversation import ResponseConversation
     from .response_format import (
         ResponseFormat,
         ResponseFormat_JsonObject,
@@ -165,7 +174,28 @@ if typing.TYPE_CHECKING:
     from .response_format_json_object import ResponseFormatJsonObject
     from .response_format_json_schema import ResponseFormatJsonSchema
     from .response_format_text import ResponseFormatText
+    from .response_function_tool import ResponseFunctionTool
+    from .response_incomplete_details import ResponseIncompleteDetails
+    from .response_input import ResponseInput
+    from .response_input_content_part import ResponseInputContentPart
+    from .response_input_image_part import ResponseInputImagePart
+    from .response_input_item import ResponseInputItem
+    from .response_input_message import ResponseInputMessage
+    from .response_input_text_part import ResponseInputTextPart
+    from .response_output_item import ResponseOutputItem
+    from .response_output_message import ResponseOutputMessage
+    from .response_output_text_part import ResponseOutputTextPart
+    from .response_pass_through_item import ResponsePassThroughItem
+    from .response_reasoning import ResponseReasoning
+    from .response_reasoning_effort import ResponseReasoningEffort
+    from .response_stream_event import ResponseStreamEvent
+    from .response_text_config import ResponseTextConfig
+    from .response_text_format import ResponseTextFormat
     from .response_type import ResponseType
+    from .response_usage import ResponseUsage
+    from .response_usage_input_tokens_details import ResponseUsageInputTokensDetails
+    from .response_usage_output_tokens_details import ResponseUsageOutputTokensDetails
+    from .responses_model_ids import ResponsesModelIds
     from .role import Role
     from .sarvam_model_ids import SarvamModelIds
     from .send_text import SendText
@@ -193,6 +223,7 @@ if typing.TYPE_CHECKING:
     from .stop_configuration import StopConfiguration
     from .storage_container_type import StorageContainerType
     from .stt_flush_signal import SttFlushSignal
+    from .summary import Summary
     from .task_detail import TaskDetail
     from .task_file_details import TaskFileDetails
     from .task_state import TaskState
@@ -217,6 +248,9 @@ if typing.TYPE_CHECKING:
     from .transliterate_mode import TransliterateMode
     from .transliterate_source_language import TransliterateSourceLanguage
     from .transliteration_response import TransliterationResponse
+    from .type import Type
+    from .v2error_object import V2ErrorObject
+    from .v2error_response import V2ErrorResponse
     from .v2model_ids import V2ModelIds
 _dynamic_imports: typing.Dict[str, str] = {
     "AudioData": ".audio_data",
@@ -230,6 +264,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChatCompletionNamedToolChoice": ".chat_completion_named_tool_choice",
     "ChatCompletionNamedToolChoiceFunction": ".chat_completion_named_tool_choice_function",
     "ChatCompletionRequestAssistantMessage": ".chat_completion_request_assistant_message",
+    "ChatCompletionRequestDeveloperMessage": ".chat_completion_request_developer_message",
     "ChatCompletionRequestGenericMessage": ".chat_completion_request_generic_message",
     "ChatCompletionRequestMessage": ".chat_completion_request_message",
     "ChatCompletionRequestSystemMessage": ".chat_completion_request_system_message",
@@ -237,9 +272,12 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ChatCompletionRequestUserMessage": ".chat_completion_request_user_message",
     "ChatCompletionResponseMessage": ".chat_completion_response_message",
     "ChatCompletionTool": ".chat_completion_tool",
+    "ChatStreamOptions": ".chat_stream_options",
     "Choice": ".choice",
     "CompletionEventFlag": ".completion_event_flag",
+    "CompletionTokensDetails": ".completion_tokens_details",
     "CompletionUsage": ".completion_usage",
+    "CompletionUsagePromptTokensDetails": ".completion_usage_prompt_tokens_details",
     "ConfigMessage": ".config_message",
     "ConfigureConnection": ".configure_connection",
     "ConfigureConnectionData": ".configure_connection_data",
@@ -258,6 +296,10 @@ _dynamic_imports: typing.Dict[str, str] = {
     "CreateDocumentJobResponse": ".create_document_job_response",
     "CreateDubbingJobData": ".create_dubbing_job_data",
     "CreateDubbingJobResponse": ".create_dubbing_job_response",
+    "CreateResponseV2Request": ".create_response_v2request",
+    "CreateResponseV2RequestToolChoice": ".create_response_v2request_tool_choice",
+    "CreateResponseV2Response": ".create_response_v2response",
+    "CreateResponseV2ResponseToolChoice": ".create_response_v2response_tool_choice",
     "Detail": ".detail",
     "DiarizedEntry": ".diarized_entry",
     "DiarizedTranscript": ".diarized_transcript",
@@ -371,6 +413,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "RealtimeVadSpeechEnd": ".realtime_vad_speech_end",
     "RealtimeVadSpeechStart": ".realtime_vad_speech_start",
     "ReasoningEffort": ".reasoning_effort",
+    "ResponseConversation": ".response_conversation",
     "ResponseFormat": ".response_format",
     "ResponseFormatJsonObject": ".response_format_json_object",
     "ResponseFormatJsonSchema": ".response_format_json_schema",
@@ -378,7 +421,28 @@ _dynamic_imports: typing.Dict[str, str] = {
     "ResponseFormat_JsonObject": ".response_format",
     "ResponseFormat_JsonSchema": ".response_format",
     "ResponseFormat_Text": ".response_format",
+    "ResponseFunctionTool": ".response_function_tool",
+    "ResponseIncompleteDetails": ".response_incomplete_details",
+    "ResponseInput": ".response_input",
+    "ResponseInputContentPart": ".response_input_content_part",
+    "ResponseInputImagePart": ".response_input_image_part",
+    "ResponseInputItem": ".response_input_item",
+    "ResponseInputMessage": ".response_input_message",
+    "ResponseInputTextPart": ".response_input_text_part",
+    "ResponseOutputItem": ".response_output_item",
+    "ResponseOutputMessage": ".response_output_message",
+    "ResponseOutputTextPart": ".response_output_text_part",
+    "ResponsePassThroughItem": ".response_pass_through_item",
+    "ResponseReasoning": ".response_reasoning",
+    "ResponseReasoningEffort": ".response_reasoning_effort",
+    "ResponseStreamEvent": ".response_stream_event",
+    "ResponseTextConfig": ".response_text_config",
+    "ResponseTextFormat": ".response_text_format",
     "ResponseType": ".response_type",
+    "ResponseUsage": ".response_usage",
+    "ResponseUsageInputTokensDetails": ".response_usage_input_tokens_details",
+    "ResponseUsageOutputTokensDetails": ".response_usage_output_tokens_details",
+    "ResponsesModelIds": ".responses_model_ids",
     "Role": ".role",
     "SarvamModelIds": ".sarvam_model_ids",
     "SendText": ".send_text",
@@ -406,6 +470,7 @@ _dynamic_imports: typing.Dict[str, str] = {
     "StopConfiguration": ".stop_configuration",
     "StorageContainerType": ".storage_container_type",
     "SttFlushSignal": ".stt_flush_signal",
+    "Summary": ".summary",
     "TaskDetail": ".task_detail",
     "TaskFileDetails": ".task_file_details",
     "TaskState": ".task_state",
@@ -430,6 +495,9 @@ _dynamic_imports: typing.Dict[str, str] = {
     "TransliterateMode": ".transliterate_mode",
     "TransliterateSourceLanguage": ".transliterate_source_language",
     "TransliterationResponse": ".transliteration_response",
+    "Type": ".type",
+    "V2ErrorObject": ".v2error_object",
+    "V2ErrorResponse": ".v2error_response",
     "V2ModelIds": ".v2model_ids",
 }
 
@@ -467,6 +535,7 @@ __all__ = [
     "ChatCompletionNamedToolChoice",
     "ChatCompletionNamedToolChoiceFunction",
     "ChatCompletionRequestAssistantMessage",
+    "ChatCompletionRequestDeveloperMessage",
     "ChatCompletionRequestGenericMessage",
     "ChatCompletionRequestMessage",
     "ChatCompletionRequestSystemMessage",
@@ -474,9 +543,12 @@ __all__ = [
     "ChatCompletionRequestUserMessage",
     "ChatCompletionResponseMessage",
     "ChatCompletionTool",
+    "ChatStreamOptions",
     "Choice",
     "CompletionEventFlag",
+    "CompletionTokensDetails",
     "CompletionUsage",
+    "CompletionUsagePromptTokensDetails",
     "ConfigMessage",
     "ConfigureConnection",
     "ConfigureConnectionData",
@@ -495,6 +567,10 @@ __all__ = [
     "CreateDocumentJobResponse",
     "CreateDubbingJobData",
     "CreateDubbingJobResponse",
+    "CreateResponseV2Request",
+    "CreateResponseV2RequestToolChoice",
+    "CreateResponseV2Response",
+    "CreateResponseV2ResponseToolChoice",
     "Detail",
     "DiarizedEntry",
     "DiarizedTranscript",
@@ -608,6 +684,7 @@ __all__ = [
     "RealtimeVadSpeechEnd",
     "RealtimeVadSpeechStart",
     "ReasoningEffort",
+    "ResponseConversation",
     "ResponseFormat",
     "ResponseFormatJsonObject",
     "ResponseFormatJsonSchema",
@@ -615,7 +692,28 @@ __all__ = [
     "ResponseFormat_JsonObject",
     "ResponseFormat_JsonSchema",
     "ResponseFormat_Text",
+    "ResponseFunctionTool",
+    "ResponseIncompleteDetails",
+    "ResponseInput",
+    "ResponseInputContentPart",
+    "ResponseInputImagePart",
+    "ResponseInputItem",
+    "ResponseInputMessage",
+    "ResponseInputTextPart",
+    "ResponseOutputItem",
+    "ResponseOutputMessage",
+    "ResponseOutputTextPart",
+    "ResponsePassThroughItem",
+    "ResponseReasoning",
+    "ResponseReasoningEffort",
+    "ResponseStreamEvent",
+    "ResponseTextConfig",
+    "ResponseTextFormat",
     "ResponseType",
+    "ResponseUsage",
+    "ResponseUsageInputTokensDetails",
+    "ResponseUsageOutputTokensDetails",
+    "ResponsesModelIds",
     "Role",
     "SarvamModelIds",
     "SendText",
@@ -643,6 +741,7 @@ __all__ = [
     "StopConfiguration",
     "StorageContainerType",
     "SttFlushSignal",
+    "Summary",
     "TaskDetail",
     "TaskFileDetails",
     "TaskState",
@@ -667,5 +766,8 @@ __all__ = [
     "TransliterateMode",
     "TransliterateSourceLanguage",
     "TransliterationResponse",
+    "Type",
+    "V2ErrorObject",
+    "V2ErrorResponse",
     "V2ModelIds",
 ]

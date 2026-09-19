@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import base64
 import datetime
 import json
 from calendar import timegm
@@ -9,6 +8,7 @@ from urllib.parse import urlparse
 
 import jwt
 import responses
+from jwt.utils import base64url_encode
 
 from social_core.backends.open_id_connect import OpenIdConnectAuth
 from social_core.exceptions import AuthTokenError
@@ -37,6 +37,7 @@ JWK_KEY = {
 }
 
 JWK_PUBLIC_KEY = {key: value for key, value in JWK_KEY.items() if key != "d"}
+STORED_ID_TOKEN_CONTEXT_KEY = "_oidc_id_token_context"
 OpenIdConnectAuthT = TypeVar("OpenIdConnectAuthT", bound=OpenIdConnectAuth)
 
 
@@ -120,7 +121,7 @@ class OpenIdConnectTest(
             "sub": subject or "1234",
         }
 
-    def prepare_access_token_body(  # NOQA: PLR0913, PLR0917
+    def prepare_access_token_body(  # NOQA: C901, PLR0913, PLR0917
         self,
         client_key=None,
         tamper_message=False,
@@ -137,6 +138,7 @@ class OpenIdConnectTest(
         auth_time: int | None = None,
         include_azp: bool = True,
         authorized_party: str | None = None,
+        exclude_claims: tuple[str, ...] = (),
     ):
         """
         Prepares a provider access token response. Arguments:
@@ -182,6 +184,8 @@ class OpenIdConnectTest(
             id_token["at_hash"] = at_hash
         elif access_token is not None:
             id_token["at_hash"] = OpenIdConnectAuth.calc_at_hash(access_token, "RS256")
+        for claim in exclude_claims:
+            id_token.pop(claim)
 
         body["id_token"] = jwt.encode(
             id_token,
@@ -195,10 +199,35 @@ class OpenIdConnectTest(
         if tamper_message:
             header, msg, sig = body["id_token"].split(".")
             id_token["sub"] = "1235"
-            msg = base64.encodebytes(json.dumps(id_token).encode()).decode()
+            msg = base64url_encode(json.dumps(id_token).encode()).decode()
             body["id_token"] = f"{header}.{msg}.{sig}"
 
         return json.dumps(body)
+
+    def login_for_refresh(self, **id_token_kwargs):
+        self.access_token_kwargs = {
+            "refresh_token": "refresh-token",
+            **id_token_kwargs,
+        }
+        user = self.do_login()
+        return user.social[0]
+
+    def refresh_response(self, **id_token_kwargs) -> str:
+        return self.prepare_access_token_body(
+            access_token="refreshed-access-token",  # noqa: S106
+            include_nonce=False,
+            **id_token_kwargs,
+        )
+
+    def refresh_social(self, social, body: str) -> None:
+        responses.add(
+            self._method(self.backend.REFRESH_TOKEN_METHOD),
+            self.backend.refresh_token_url(),
+            status=200,
+            body=body,
+            content_type="application/json",
+        )
+        social.refresh_token(strategy=self.strategy)
 
     def authtoken_raised(self, expected_message, **access_token_kwargs) -> None:
         self.access_token_kwargs = access_token_kwargs

@@ -40,7 +40,11 @@ from mcp.client.auth import OAuthFlowError, OAuthRegistrationError, OAuthTokenEr
 from mcp.shared.exceptions import McpError
 
 from runlayer_cli import oauth_guidance
-from runlayer_cli.oauth import OAuthCallbackTimeoutError
+from runlayer_cli.oauth import (
+    OAuthCallbackListenerError,
+    OAuthCallbackPortInUseError,
+    OAuthCallbackTimeoutError,
+)
 
 # Total exceptions visited across group members and __cause__/__context__
 # links — bounds pathological graphs while comfortably covering real anyio /
@@ -48,7 +52,9 @@ from runlayer_cli.oauth import OAuthCallbackTimeoutError
 _MAX_TRAVERSED_EXCEPTIONS = 32
 
 
-def _iter_tree(exc: BaseException) -> Iterator[BaseException]:
+def iter_exception_tree(
+    exc: BaseException, *, follow_context: bool = True
+) -> Iterator[BaseException]:
     """Yield every non-group exception reachable from ``exc``, wrapper-first.
 
     Uniform traversal: ExceptionGroups are unwrapped into their member leaves
@@ -58,6 +64,11 @@ def _iter_tree(exc: BaseException) -> Iterator[BaseException]:
     group member. Breadth-first, so wrappers classify before the exceptions
     they wrap; bounded and cycle-safe (visited set) against pathological
     graphs.
+
+    ``follow_context=False`` follows only explicit ``raise ... from`` causes
+    and group members: the shape for callers that change control flow on a
+    match, where an implicit ``__context__`` (an unrelated bug raised while
+    handling a transport error) must not count as the transport error.
     """
     seen: set[int] = set()
     queue: list[BaseException] = [exc]
@@ -74,9 +85,10 @@ def _iter_tree(exc: BaseException) -> Iterator[BaseException]:
             links.extend(current.exceptions)
         else:
             yield current
-        for link in (current.__cause__, current.__context__):
-            if link is not None:
-                links.append(link)
+        if current.__cause__ is not None:
+            links.append(current.__cause__)
+        if follow_context and current.__context__ is not None:
+            links.append(current.__context__)
         queue.extend(link for link in links if id(link) not in seen)
 
 
@@ -112,8 +124,17 @@ def _classify_single(exc: BaseException) -> tuple[str, int | None]:
         return (_status_category(status_code), status_code)
     if isinstance(exc, OAuthCallbackTimeoutError):
         return ("oauth_flow_timeout", None)
+    # Device-local listener failures (occupied cached port, loopback policy)
+    # and the SDK's own flow/token errors get names of their own so they never
+    # classify by the CancelledError a task-group teardown leaves in the chain.
+    if isinstance(exc, OAuthCallbackPortInUseError):
+        return ("oauth_callback_port_in_use", None)
+    if isinstance(exc, OAuthCallbackListenerError):
+        return ("oauth_callback_listener", None)
+    # Wrapper-first: an http_* node deeper in the chain is deliberately
+    # shadowed — the SDK raises these bare, and the flow leg is the diagnosis.
     if isinstance(exc, OAuthFlowError | OAuthTokenError):
-        return ("other", None)
+        return ("oauth_flow_error", None)
 
     if isinstance(exc, httpx.HTTPStatusError):
         status_code = exc.response.status_code
@@ -167,7 +188,7 @@ def classify_exception(exc: BaseException) -> tuple[str, int | None]:
     Never raises and never includes message text.
     """
     try:
-        nodes = list(_iter_tree(exc))
+        nodes = list(iter_exception_tree(exc))
         for node in nodes:
             if isinstance(node, socket.gaierror):
                 return ("dns", None)

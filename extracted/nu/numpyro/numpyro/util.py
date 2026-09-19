@@ -142,7 +142,11 @@ def maybe_jit(fn: Callable, *args, **kwargs) -> Callable:
 
 
 def cond(
-    pred: bool, true_operand, true_fun: Callable, false_operand, false_fun: Callable
+    pred: bool | jax.Array,
+    true_operand,
+    true_fun: Callable,
+    false_operand,
+    false_fun: Callable,
 ) -> Any:
     if _DISABLE_CONTROL_FLOW_PRIM:
         if pred:
@@ -481,7 +485,7 @@ def soft_vmap(
     xs = jax.tree.map(
         lambda x: jnp.reshape(x, prepend_shape + jnp.shape(x)[batch_ndims:]), xs
     )
-    # XXX: probably for the default behavior with chunk_size=None,
+    # Note: probably for the default behavior with chunk_size=None,
     # it is better to catch OOM error and reduce chunk_size by half until OOM disappears.
     chunk_size = batch_size if chunk_size is None else min(batch_size, chunk_size)
     if chunk_size > 1:
@@ -849,9 +853,13 @@ def nested_attrgetter(*collect_fields):
 
 def _get_nested_attr(obj, field):
     """
-    Helper function to recursively access attributes and dictionary keys.
+    Helper function to recursively access attributes, dictionary keys and, for tuples and
+    lists, decimal indices (e.g. ``"block_states.1.diverging"``).
     """
     for attr in field.split("."):
+        if isinstance(obj, (tuple, list)) and attr.isdecimal():
+            obj = obj[int(attr)]
+            continue
         try:
             obj = getattr(obj, attr)
         except AttributeError:

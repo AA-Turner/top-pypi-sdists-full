@@ -12,6 +12,7 @@ from typing import Literal, Protocol, Sequence
 
 from runlayer_cli.scan.agents.redact import sanitize_path
 from runlayer_cli.scan.processes.models import (
+    ExtensionRootRef,
     MAX_SETTINGS_OVERRIDE_VALUE_LENGTH,
     MAX_SETTINGS_OVERRIDES_PER_PROCESS,
     OverrideConfigRef,
@@ -132,6 +133,35 @@ def override_config_refs(
                 user=candidate.user,
                 cwd=candidate.cwd,
                 wsl_distro=candidate.wsl_distro,
+                owner_sid=candidate.owner_sid,
             )
         )
     return refs
+
+
+def extension_root_refs(
+    candidate: ProcessCandidate,
+    client_name: str | None,
+    matches: Sequence[SettingsOverrideMatch],
+) -> list[ExtensionRootRef]:
+    """Build local-only refs for explicit VS Code-family extension roots."""
+
+    if client_name is None:
+        return []
+
+    return [
+        ExtensionRootRef(
+            client=client_name,
+            flag=match.flag,
+            value=match.value,
+            pid=candidate.pid,
+            user=candidate.user,
+            cwd=candidate.cwd,
+            wsl_distro=candidate.wsl_distro,
+            owner_sid=candidate.owner_sid,
+        )
+        for match in matches[:MAX_SETTINGS_OVERRIDES_PER_PROCESS]
+        if match.flag == "--extensions-dir"
+        and match.value is not None
+        and not match.inline_json
+    ]

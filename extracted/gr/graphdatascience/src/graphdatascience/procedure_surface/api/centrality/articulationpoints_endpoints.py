@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -15,7 +15,7 @@ class ArticulationPointsEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -60,7 +60,7 @@ class ArticulationPointsEndpoints(ABC):
     @abstractmethod
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
         sudo: bool = False,
@@ -102,7 +102,7 @@ class ArticulationPointsEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
         sudo: bool = False,
@@ -135,16 +135,16 @@ class ArticulationPointsEndpoints(ABC):
 
         Returns
         -------
-        DataFrame
-            A DataFrame containing articulation points with columns:
-            - nodeId: The ID of the articulation point
-            - resultingComponents: Information about resulting components
+        pandas.DataFrame
+            A DataFrame with 'nodeId' and 'resultingComponents' columns. The 'resultingComponents'
+            column contains a map with 'min', 'max', and 'count' keys describing the resulting
+            components when the node is removed (null for non-articulation-point nodes).
         """
 
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -190,7 +190,7 @@ class ArticulationPointsEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
         concurrency: int | None = None,

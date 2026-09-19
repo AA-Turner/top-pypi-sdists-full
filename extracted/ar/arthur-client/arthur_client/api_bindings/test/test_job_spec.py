@@ -103,6 +103,15 @@ class TestJobSpec(unittest.TestCase):
                 data_plane_id = '',
                 project_id = '',
                 lookback_hours = 56,
+                discovery_source_config_id = '',
+                discovery_source_config = arthur_client.api_bindings.models.discovery_source_config_spec.DiscoverySourceConfigSpec(
+                    discovery_source_id = '', 
+                    name = '', 
+                    vendor = '', 
+                    query = '', 
+                    query_language = '', 
+                    lookback_window_seconds = 56, ),
+                scan_id = '',
                 errored_alert_rule_ids = [
                     ''
                     ]

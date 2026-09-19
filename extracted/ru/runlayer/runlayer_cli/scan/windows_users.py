@@ -52,6 +52,12 @@ from typing import Optional, TypedDict
 import structlog
 
 from runlayer_cli import regex_safe
+from runlayer_cli.scan.container_limits import HOST_CONTAINER_PHASE_MAX_TIME_BUDGET_S
+from runlayer_cli.scan.wsl_limits import (
+    WSL_CONTAINER_SCAN_TIME_BUDGET_S,
+    WSL_PRESENCE_TIME_BUDGET_S,
+    WSL_SCAN_MAX_TIME_BUDGET_S,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -88,6 +94,17 @@ _PROFILE_LIST_KEY = r"SOFTWARE\Microsoft\Windows NT\CurrentVersion\ProfileList"
 # wedged child (hung network submit, stuck filesystem) can't starve the rest of
 # the run or blow the task's 1h ExecutionTimeLimit.
 _PER_PROFILE_TIMEOUT_BUFFER_S = 120
+# With container detection on (the child inherits RUNLAYER_DETECT_CONTAINERS
+# from the parent's environment) the child also runs the host container phase
+# and then the WSL phases, each with its own wall-clock budget spent on top of
+# the host project scan. The cap must outlast their sum or a container- or
+# WSL-heavy profile is killed mid-scan and reports nothing.
+_CONTAINER_PHASE_TIME_BUDGET_S = int(
+    HOST_CONTAINER_PHASE_MAX_TIME_BUDGET_S
+    + WSL_SCAN_MAX_TIME_BUDGET_S
+    + WSL_PRESENCE_TIME_BUDGET_S
+    + WSL_CONTAINER_SCAN_TIME_BUDGET_S
+)
 _PER_USER_SCHEDULE_TIMEOUT_S = 600
 
 _CREATE_NO_WINDOW = 0x08000000
@@ -514,7 +531,10 @@ def _scan_argv(
     cpu_cores: int,
     max_cpu_percent: int,
     memory_limit_mb: int,
+    machine_scope: bool = True,
     artifact_lookup_cache: Optional[bool] = None,
+    windows_user_sid: Optional[str] = None,
+    windows_system_profile: bool = False,
 ) -> list[str]:
     """``aiwatch`` argv (sans executable) for scanning one profile as *username*.
 
@@ -523,6 +543,11 @@ def _scan_argv(
     the cache setting is explicit so child environments cannot override it.
     """
     argv = ["scan", "--username", username]
+    if windows_user_sid is not None:
+        argv += ["--windows-user-sid", windows_user_sid]
+    if windows_system_profile:
+        argv.append("--windows-system-profile")
+    argv.append("--machine-scope" if machine_scope else "--no-machine-scope")
     if not scan_projects:
         argv.append("--no-projects")
     argv += ["--project-timeout", str(project_timeout)]
@@ -574,6 +599,7 @@ def run_scan_as_system(
     max_cpu_percent: int,
     memory_limit_mb: int,
     timeout: int,
+    machine_scope: bool = True,
 ) -> int:
     """Scan *profile* as SYSTEM, env pointed at its home dir (logged-off path).
 
@@ -589,7 +615,10 @@ def run_scan_as_system(
             cpu_cores=cpu_cores,
             max_cpu_percent=max_cpu_percent,
             memory_limit_mb=memory_limit_mb,
+            machine_scope=machine_scope,
             artifact_lookup_cache=False,
+            windows_user_sid=profile.sid,
+            windows_system_profile=True,
         ),
     ]
     creationflags = _CREATE_NO_WINDOW if platform.system() == "Windows" else 0
@@ -691,6 +720,8 @@ def launch_argv_as_user(session_id: int, argv: list[str], timeout: int) -> int:
         have_env = bool(
             userenv.CreateEnvironmentBlock(ctypes.byref(env_block), token, False)
         )
+        if not have_env:
+            raise OSError("CreateEnvironmentBlock failed")
         try:
             startup = STARTUPINFOW()
             startup.cb = ctypes.sizeof(STARTUPINFOW)
@@ -709,7 +740,7 @@ def launch_argv_as_user(session_id: int, argv: list[str], timeout: int) -> int:
                 None,
                 False,
                 _CREATE_NO_WINDOW | _CREATE_UNICODE_ENVIRONMENT,
-                env_block if have_env else None,
+                env_block,
                 None,
                 ctypes.byref(startup),
                 ctypes.byref(proc_info),
@@ -754,6 +785,7 @@ def launch_scan_as_user(
     max_cpu_percent: int,
     memory_limit_mb: int,
     timeout: int,
+    machine_scope: bool = True,
     artifact_lookup_cache: Optional[bool] = None,
 ) -> int:
     """Scan *profile* as the logged-on user in *session_id* (drops privileges)."""
@@ -767,7 +799,9 @@ def launch_scan_as_user(
             cpu_cores=cpu_cores,
             max_cpu_percent=max_cpu_percent,
             memory_limit_mb=memory_limit_mb,
+            machine_scope=machine_scope,
             artifact_lookup_cache=artifact_lookup_cache,
+            windows_user_sid=profile.sid,
         ),
     ]
     try:
@@ -835,6 +869,13 @@ def _prepare_all_users_run(*, command: str, task_name: str) -> _AllUsersRunPrep:
     return {"exit_code": None, "profiles": profiles, "active": active}
 
 
+def all_users_child_timeout(project_timeout: int) -> int:
+    """Wall-clock cap for one per-profile child scan."""
+    return (
+        project_timeout + _CONTAINER_PHASE_TIME_BUDGET_S + _PER_PROFILE_TIMEOUT_BUFFER_S
+    )
+
+
 def run_all_users_scan(
     *,
     scan_projects: bool,
@@ -860,9 +901,11 @@ def run_all_users_scan(
     profiles = prep["profiles"]
     active = prep["active"]
 
-    timeout = project_timeout + _PER_PROFILE_TIMEOUT_BUFFER_S
+    timeout = all_users_child_timeout(project_timeout)
     failures = 0
+    machine_scope = True
     for profile in profiles:
+        profile_machine_scope = machine_scope
         session_id = active.get(profile.sid)
         logged_on = session_id is not None
         try:
@@ -877,6 +920,7 @@ def run_all_users_scan(
                     max_cpu_percent=max_cpu_percent,
                     memory_limit_mb=memory_limit_mb,
                     timeout=timeout,
+                    machine_scope=profile_machine_scope,
                     artifact_lookup_cache=artifact_lookup_cache,
                 )
             else:
@@ -889,6 +933,7 @@ def run_all_users_scan(
                     max_cpu_percent=max_cpu_percent,
                     memory_limit_mb=memory_limit_mb,
                     timeout=timeout,
+                    machine_scope=profile_machine_scope,
                 )
         except Exception as exc:  # noqa: BLE001 - one profile can't abort the run
             # A logged-on token launch can *raise* on a transient Win32 failure
@@ -914,6 +959,7 @@ def run_all_users_scan(
                         max_cpu_percent=max_cpu_percent,
                         memory_limit_mb=memory_limit_mb,
                         timeout=timeout,
+                        machine_scope=profile_machine_scope,
                     )
                 except Exception as fallback_exc:  # noqa: BLE001
                     logger.warning(
@@ -935,6 +981,7 @@ def run_all_users_scan(
         if code != 0:
             failures += 1
         else:
+            machine_scope = False
             logger.info(
                 "all_users_profile_scan_ok",
                 sid=profile.sid,

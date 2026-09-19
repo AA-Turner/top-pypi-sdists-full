@@ -52,6 +52,108 @@ def _write_config(project: Path, content: bytes | None = None) -> Path:
     return config
 
 
+def test_entry_classification_failure_marks_wsl_project_incomplete(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = tmp_path / "wsl-home"
+    _write_config(home / "code" / "demo")
+    strict_link_status = wsl_projects_module.link_or_reparse_status_or_raise
+
+    def denied_link_status(path: Path) -> bool:
+        if path == home:
+            return False
+        raise PermissionError(path)
+
+    monkeypatch.setattr(
+        wsl_projects_module,
+        "link_or_reparse_status_or_raise",
+        denied_link_status,
+    )
+
+    result = scan_wsl_projects(
+        clients=[_client()],
+        wsl_homes=[home],
+        time_budget=10,
+    )
+
+    assert result.configurations == []
+    assert "wsl_project_entry_classification_failed" in result.incomplete_reasons
+    assert strict_link_status(home) is False
+
+
+def test_vanished_entry_keeps_wsl_project_scan_complete(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = tmp_path / "wsl-home"
+    _write_config(home / "code" / "demo")
+    vanished = home / "code" / "gone"
+    vanished.mkdir(parents=True)
+    strict_link_status = wsl_projects_module.link_or_reparse_status_or_raise
+
+    def racing_link_status(path: Path) -> bool:
+        # Listed by scandir, gone before lstat.
+        if path == vanished:
+            raise FileNotFoundError(path)
+        return strict_link_status(path)
+
+    monkeypatch.setattr(
+        wsl_projects_module,
+        "link_or_reparse_status_or_raise",
+        racing_link_status,
+    )
+
+    result = scan_wsl_projects(
+        clients=[_client()],
+        wsl_homes=[home],
+        time_budget=10,
+    )
+
+    assert len(result.configurations) == 1
+    assert result.incomplete_reasons == []
+
+
+def test_vanished_marker_keeps_wsl_project_scan_complete(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = tmp_path / "wsl-home"
+    _write_config(home / "code" / "demo")
+    real_read = wsl_projects_module._read_bounded_file
+
+    def racing_read(path: Path, *, byte_budget):
+        # Marker deleted between classification and read.
+        path.unlink()
+        return real_read(path, byte_budget=byte_budget)
+
+    monkeypatch.setattr(wsl_projects_module, "_read_bounded_file", racing_read)
+
+    result = scan_wsl_projects(
+        clients=[_client()],
+        wsl_homes=[home],
+        time_budget=10,
+    )
+
+    assert result.configurations == []
+    assert result.incomplete_reasons == []
+
+
+def test_wsl_home_discovery_failure_marks_project_scan_incomplete(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def incomplete_homes(scan_status):
+        scan_status.mark_incomplete("wsl_distro_inventory_failed")
+        return []
+
+    monkeypatch.setattr(wsl_projects_module, "_wsl_homes", incomplete_homes)
+
+    result = scan_wsl_projects(clients=[_client()], time_budget=10)
+
+    assert result.complete is False
+    assert result.incomplete_reasons == ["wsl_distro_inventory_failed"]
+
+
 def test_scan_wsl_projects_collects_configs_skills_and_agent_definitions(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -309,6 +411,29 @@ def test_scan_wsl_projects_skips_broken_ancestor_and_looping_links(
         str(entry / first_config.relative_to(first_target)),
         str(entry / "to-second" / second_config.relative_to(second_target)),
     ]
+    # A dangling link is clean absence, not an access failure.
+    assert result.incomplete_reasons == []
+
+
+def test_scan_wsl_projects_dangling_home_link_is_absence_not_failure(
+    tmp_path: Path,
+) -> None:
+    dangling_home = tmp_path / "wsl-home"
+    live_home = tmp_path / "live-home"
+    config = _write_config(live_home / "project")
+    try:
+        dangling_home.symlink_to(tmp_path / "missing-home", target_is_directory=True)
+    except OSError:
+        pytest.skip("symlinks unavailable")
+
+    result = scan_wsl_projects(
+        clients=[_client()],
+        wsl_homes=[dangling_home, live_home],
+        time_budget=10,
+    )
+
+    assert [c.config_path for c in result.configurations] == [str(config)]
+    assert result.incomplete_reasons == []
 
 
 def test_scan_wsl_projects_caps_followed_targets_at_64(tmp_path: Path) -> None:
@@ -821,6 +946,37 @@ def test_scan_wsl_projects_caps_matched_files_per_home(
     ]
 
 
+def test_matched_file_cap_stops_pending_descent(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    home = tmp_path / "wsl-home"
+    _write_config(home / "a", _config_content("first"))
+    agent_root = home / "b" / ".opencode" / "agents"
+    nested = agent_root / "nested"
+    nested.mkdir(parents=True)
+    (agent_root / "reviewer.md").write_text("# Reviewer")
+    (nested / "deeper.md").write_text("# Deeper")
+    monkeypatch.setattr(wsl_projects_module, "MAX_WSL_PROJECT_MATCHED_FILES", 1)
+    visited: list[Path] = []
+    original_scandir = os.scandir
+
+    def recording_scandir(path):
+        visited.append(Path(path))
+        return original_scandir(path)
+
+    monkeypatch.setattr(wsl_projects_module.os, "scandir", recording_scandir)
+
+    result = scan_wsl_projects(
+        clients=[_client()],
+        wsl_homes=[home],
+        time_budget=10,
+    )
+
+    assert nested not in visited
+    assert "wsl_project_matched_file_capped" in result.incomplete_reasons
+
+
 def test_scan_wsl_projects_followed_matches_share_file_cap(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -944,6 +1100,40 @@ def test_scan_wsl_projects_returns_partial_results_at_time_budget(
     )
 
     assert [config.config_path for config in result.configurations] == [str(first)]
+
+
+def test_global_budget_stops_remaining_homes_and_keeps_all_reasons(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    homes = [tmp_path / "first-home", tmp_path / "second-home"]
+    for home in homes:
+        home.mkdir()
+    walked: list[Path] = []
+
+    def walk_wsl_home(*, home, **_kwargs):
+        walked.append(home)
+        return wsl_projects_module._HomeWalkResult(
+            artifacts=wsl_projects_module._CollectedWSLProjectArtifacts(),
+            budget_exhausted=True,
+            incomplete_reasons=[
+                "wsl_project_marker_read_failed",
+                "wsl_project_scan_timed_out_or_byte_capped",
+            ],
+        )
+
+    monkeypatch.setattr(wsl_projects_module, "_walk_wsl_home", walk_wsl_home)
+
+    result = scan_wsl_projects(
+        clients=[_client()],
+        wsl_homes=homes,
+        time_budget=10,
+    )
+
+    assert walked == [homes[0]]
+    assert "wsl_project_marker_read_failed" in result.incomplete_reasons
+    assert "wsl_project_scan_timed_out_or_byte_capped" in result.incomplete_reasons
+    assert "wsl_project_scan_truncated" in result.incomplete_reasons
 
 
 def test_scaled_wsl_scan_budget_is_bounded() -> None:

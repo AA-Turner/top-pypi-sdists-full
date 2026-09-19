@@ -233,9 +233,9 @@ unicodedata_UCD_numeric_impl(PyObject *self, int chr,
             have_old = 1;
             rc = -1.0;
         }
-        else if (old->decimal_changed != 0xFF) {
+        else if (old->numeric_changed != 0.0) {
             have_old = 1;
-            rc = old->decimal_changed;
+            rc = old->numeric_changed;
         }
     }
 
@@ -392,6 +392,17 @@ unicodedata_UCD_east_asian_width_impl(PyObject *self, int chr)
     return PyUnicode_FromString(_PyUnicode_EastAsianWidthNames[index]);
 }
 
+// For Hangul decomposition
+#define SBase   0xAC00
+#define LBase   0x1100
+#define VBase   0x1161
+#define TBase   0x11A7
+#define LCount  19
+#define VCount  21
+#define TCount  28
+#define NCount  (VCount*TCount)
+#define SCount  (LCount*NCount)
+
 /*[clinic input]
 unicodedata.UCD.decomposition
 
@@ -420,6 +431,25 @@ unicodedata_UCD_decomposition_impl(PyObject *self, int chr)
         const change_record *old = get_old_record(self, c);
         if (old->category_changed == 0)
             return PyUnicode_FromString(""); /* unassigned */
+    }
+
+    // Hangul Decomposition.
+    // See section 3.12.2, "Hangul Syllable Decomposition"
+    // https://www.unicode.org/versions/latest/core-spec/chapter-3/#G56669
+    if (SBase <= code && code < (SBase + SCount)) {
+        int SIndex = code - SBase;
+        int L = LBase + SIndex / NCount;
+        int V = VBase + (SIndex % NCount) / TCount;
+        int T = TBase + SIndex % TCount;
+        if (T != TBase) {
+            PyOS_snprintf(decomp, sizeof(decomp),
+                          "%04X %04X %04X", L, V, T);
+        }
+        else {
+            PyOS_snprintf(decomp, sizeof(decomp),
+                          "%04X %04X", L, V);
+        }
+        return PyUnicode_FromString(decomp);
     }
 
     if (code < 0 || code >= 0x110000)
@@ -482,15 +512,57 @@ get_decomp_record(PyObject *self, Py_UCS4 code, int *index, int *prefix, int *co
     (*index)++;
 }
 
-#define SBase   0xAC00
-#define LBase   0x1100
-#define VBase   0x1161
-#define TBase   0x11A7
-#define LCount  19
-#define VCount  21
-#define TCount  28
-#define NCount  (VCount*TCount)
-#define SCount  (LCount*NCount)
+#define CANONICAL_ORDERING_COUNTING_SORT_THRESHOLD 20
+
+static void
+canonical_ordering_sort_insertion(Py_UCS4 *data, Py_ssize_t length)
+{
+    for (Py_ssize_t i = 1; i < length; i++) {
+        Py_UCS4 code = data[i];
+        unsigned char combining = _getrecord_ex(code)->combining;
+        Py_ssize_t j = i;
+
+        while (j > 0) {
+            Py_UCS4 previous = data[j - 1];
+            if (_getrecord_ex(previous)->combining <= combining) {
+                break;
+            }
+            data[j] = previous;
+            j--;
+        }
+        if (j != i) {
+            data[j] = code;
+        }
+    }
+}
+
+static void
+canonical_ordering_sort_counting(Py_UCS4 *data, Py_ssize_t length,
+                                 Py_UCS4 *sortbuf)
+{
+    Py_ssize_t counts[256] = {0};
+    Py_ssize_t total = 0;
+
+    for (Py_ssize_t i = 0; i < length; i++) {
+        Py_UCS4 code = data[i];
+        unsigned char combining = _getrecord_ex(code)->combining;
+        counts[combining]++;
+    }
+
+    for (size_t i = 0; i < Py_ARRAY_LENGTH(counts); i++) {
+        Py_ssize_t count = counts[i];
+        counts[i] = total;
+        total += count;
+    }
+
+    /* Reuse counts[] as the next output slot for each CCC. */
+    for (Py_ssize_t i = 0; i < length; i++) {
+        Py_UCS4 code = data[i];
+        unsigned char combining = _getrecord_ex(code)->combining;
+        sortbuf[counts[combining]++] = code;
+    }
+    memcpy(data, sortbuf, length * sizeof(Py_UCS4));
+}
 
 static PyObject*
 nfd_nfkd(PyObject *self, PyObject *input, int k)
@@ -498,13 +570,15 @@ nfd_nfkd(PyObject *self, PyObject *input, int k)
     PyObject *result;
     Py_UCS4 *output;
     Py_ssize_t i, o, osize;
-    int kind;
-    void *data;
+    int input_kind;
+    const void *input_data;
     /* Longest decomposition in Unicode 3.2: U+FDFA */
     Py_UCS4 stack[20];
     Py_ssize_t space, isize;
     int index, prefix, count, stackptr;
     unsigned char prev, cur;
+    Py_UCS4 *sortbuf = NULL;
+    Py_ssize_t sortbuflen = 0;
 
     stackptr = 0;
     isize = PyUnicode_GET_LENGTH(input);
@@ -524,11 +598,11 @@ nfd_nfkd(PyObject *self, PyObject *input, int k)
         return NULL;
     }
     i = o = 0;
-    kind = PyUnicode_KIND(input);
-    data = PyUnicode_DATA(input);
+    input_kind = PyUnicode_KIND(input);
+    input_data = PyUnicode_DATA(input);
 
     while (i < isize) {
-        stack[stackptr++] = PyUnicode_READ(kind, data, i++);
+        stack[stackptr++] = PyUnicode_READ(input_kind, input_data, i++);
         while(stackptr) {
             Py_UCS4 code = stack[--stackptr];
             /* Hangul Decomposition adds three characters in
@@ -545,7 +619,9 @@ nfd_nfkd(PyObject *self, PyObject *input, int k)
                 }
                 output = new_output;
             }
-            /* Hangul Decomposition. */
+            // Hangul Decomposition.
+            // See section 3.12.2, "Hangul Syllable Decomposition"
+            // https://www.unicode.org/versions/latest/core-spec/chapter-3/#G56669
             if (SBase <= code && code < (SBase+SCount)) {
                 int SIndex = code - SBase;
                 int L = LBase + SIndex / NCount;
@@ -588,40 +664,62 @@ nfd_nfkd(PyObject *self, PyObject *input, int k)
         }
     }
 
-    result = PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND,
-                                       output, o);
-    PyMem_Free(output);
-    if (!result)
-        return NULL;
-    /* result is guaranteed to be ready, as it is compact. */
-    kind = PyUnicode_KIND(result);
-    data = PyUnicode_DATA(result);
-
-    /* Sort canonically. */
+    /* Sort each consecutive combining-character run canonically. */
     i = 0;
-    prev = _getrecord_ex(PyUnicode_READ(kind, data, i))->combining;
-    for (i++; i < PyUnicode_GET_LENGTH(result); i++) {
-        cur = _getrecord_ex(PyUnicode_READ(kind, data, i))->combining;
-        if (prev == 0 || cur == 0 || prev <= cur) {
-            prev = cur;
+    while (i < o) {
+        Py_ssize_t run_length, run_start;
+        int needs_sort = 0;
+
+        Py_UCS4 ch = output[i];
+        prev = _getrecord_ex(ch)->combining;
+        if (prev == 0) {
+            i++;
             continue;
         }
-        /* Non-canonical order. Need to switch *i with previous. */
-        o = i - 1;
-        while (1) {
-            Py_UCS4 tmp = PyUnicode_READ(kind, data, o+1);
-            PyUnicode_WRITE(kind, data, o+1,
-                            PyUnicode_READ(kind, data, o));
-            PyUnicode_WRITE(kind, data, o, tmp);
-            o--;
-            if (o < 0)
+
+        run_start = i++;
+        while (i < o) {
+            Py_UCS4 ch = output[i];
+            cur = _getrecord_ex(ch)->combining;
+            if (cur == 0) {
                 break;
-            prev = _getrecord_ex(PyUnicode_READ(kind, data, o))->combining;
-            if (prev == 0 || prev <= cur)
-                break;
+            }
+            if (prev > cur) {
+                needs_sort = 1;
+            }
+            prev = cur;
+            i++;
         }
-        prev = _getrecord_ex(PyUnicode_READ(kind, data, i))->combining;
+        if (!needs_sort) {
+            continue;
+        }
+
+        run_length = i - run_start;
+        if (run_length < CANONICAL_ORDERING_COUNTING_SORT_THRESHOLD) {
+            canonical_ordering_sort_insertion(output + run_start, run_length);
+            continue;
+        }
+
+        if (run_length > sortbuflen) {
+            /* PyMem_Resize overwrites its argument even on failure. */
+            Py_UCS4 *new_sortbuf = sortbuf;
+            PyMem_Resize(new_sortbuf, Py_UCS4, run_length);
+            if (new_sortbuf == NULL) {
+                PyErr_NoMemory();
+                PyMem_Free(sortbuf);
+                PyMem_Free(output);
+                return NULL;
+            }
+            sortbuf = new_sortbuf;
+            sortbuflen = run_length;
+        }
+
+        canonical_ordering_sort_counting(output + run_start, run_length,
+                                         sortbuf);
     }
+    PyMem_Free(sortbuf);
+    result = PyUnicode_FromKindAndData(PyUnicode_4BYTE_KIND, output, o);
+    PyMem_Free(output);
     return result;
 }
 
@@ -838,35 +936,30 @@ unicodedata_UCD_normalize_impl(PyObject *self, const char *form,
     if (PyUnicode_GET_LENGTH(input) == 0) {
         /* Special case empty input strings, since resizing
            them  later would cause internal errors. */
-        Py_INCREF(input);
-        return input;
+        return PyUnicode_FromObject(input);
     }
 
     if (strcmp(form, "NFC") == 0) {
         if (is_normalized(self, input, 1, 0)) {
-            Py_INCREF(input);
-            return input;
+            return PyUnicode_FromObject(input);
         }
         return nfc_nfkc(self, input, 0);
     }
     if (strcmp(form, "NFKC") == 0) {
         if (is_normalized(self, input, 1, 1)) {
-            Py_INCREF(input);
-            return input;
+            return PyUnicode_FromObject(input);
         }
         return nfc_nfkc(self, input, 1);
     }
     if (strcmp(form, "NFD") == 0) {
         if (is_normalized(self, input, 0, 0)) {
-            Py_INCREF(input);
-            return input;
+            return PyUnicode_FromObject(input);
         }
         return nfd_nfkd(self, input, 0);
     }
     if (strcmp(form, "NFKD") == 0) {
         if (is_normalized(self, input, 0, 1)) {
-            Py_INCREF(input);
-            return input;
+            return PyUnicode_FromObject(input);
         }
         return nfd_nfkd(self, input, 1);
     }
@@ -890,7 +983,7 @@ _gethash(const char *s, int len, int scale)
     unsigned long h = 0;
     unsigned long ix;
     for (i = 0; i < len; i++) {
-        h = (h * scale) + (unsigned char) Py_TOUPPER(Py_CHARMASK(s[i]));
+        h = (h * scale) + (unsigned char) UNICODEDATA2_TOUPPER(s[i]);
         ix = h & 0xff000000;
         if (ix)
             h = (h ^ ((ix>>24) & 0xff)) & 0x00ffffff;
@@ -929,8 +1022,19 @@ static const char * const hangul_syllables[][3] = {
     { 0,    0,     "H"  }
 };
 
-/* CJK Unified Ideograph ranges, generated by makeunicodedata.py */
-#include "unicodedata_cjk.h"
+static int
+find_prefix_id(Py_UCS4 code)
+{
+    for (int i = 0; i < (int)Py_ARRAY_LENGTH(derived_name_ranges); i++) {
+        if (code < derived_name_ranges[i].first) {
+            return -1;
+        }
+        if (code <= derived_name_ranges[i].last) {
+            return derived_name_ranges[i].prefixid;
+        }
+    }
+    return -1;
+}
 
 /* macros used to determine if the given code point is in the PUA range that
  * we are using to store aliases and named sequences */
@@ -969,7 +1073,9 @@ _getucname(PyObject *self, Py_UCS4 code, char* buffer, int buflen,
         }
     }
 
-    if (SBase <= code && code < SBase+SCount) {
+    int prefixid = find_prefix_id(code);
+    if (prefixid == 0) {
+        assert(SBase <= code && code < SBase+SCount);
         /* Hangul syllable. */
         int SIndex = code - SBase;
         int L = SIndex / NCount;
@@ -991,11 +1097,11 @@ _getucname(PyObject *self, Py_UCS4 code, char* buffer, int buflen,
         return 1;
     }
 
-    if (is_unified_ideograph(code)) {
-        if (buflen < 28)
-            /* Worst case: CJK UNIFIED IDEOGRAPH-20000 */
+    if (prefixid > 0) {
+        const char *prefix = derived_name_prefixes[prefixid];
+        if (snprintf(buffer, buflen, "%s%04X", prefix, code) >= buflen) {
             return 0;
-        sprintf(buffer, "CJK UNIFIED IDEOGRAPH-%X", code);
+        }
         return 1;
     }
 
@@ -1049,10 +1155,22 @@ _cmpname(PyObject *self, int code, const char* name, int namelen)
     if (!_getucname(self, code, buffer, NAME_MAXLEN, 1))
         return 0;
     for (i = 0; i < namelen; i++) {
-        if (Py_TOUPPER(Py_CHARMASK(name[i])) != buffer[i])
+        if (UNICODEDATA2_TOUPPER(name[i]) != buffer[i])
             return 0;
     }
     return buffer[namelen] == '\0';
+}
+
+/* The generated prefixes are uppercase ASCII. PyPy lacks PyOS_strnicmp. */
+static int
+name_startswith(const char *name, const char *prefix)
+{
+    while (*prefix) {
+        if (UNICODEDATA2_TOUPPER(*name++) != *prefix++) {
+            return 0;
+        }
+    }
+    return 1;
 }
 
 static void
@@ -1065,7 +1183,7 @@ find_syllable(const char *str, int *len, int *pos, int count, int column)
         len1 = Py_SAFE_DOWNCAST(strlen(s), size_t, int);
         if (len1 <= *len)
             continue;
-        if (strncmp(str, s, len1) == 0) {
+        if (name_startswith(str, s)) {
             *len = len1;
             *pos = i;
         }
@@ -1090,6 +1208,36 @@ _check_alias_and_seq(unsigned int cp, Py_UCS4* code, int with_named_seq)
     return 1;
 }
 
+static Py_UCS4
+parse_hex_code(const char *name, int namelen)
+{
+    if (namelen < 4 || namelen > 6) {
+        return (Py_UCS4)-1;
+    }
+    if (*name == '0') {
+        return (Py_UCS4)-1;
+    }
+    int v = 0;
+    while (namelen--) {
+        v *= 16;
+        Py_UCS1 c = UNICODEDATA2_TOUPPER(*name);
+        if (c >= '0' && c <= '9') {
+            v += c - '0';
+        }
+        else if (c >= 'A' && c <= 'F') {
+            v += c - 'A' + 10;
+        }
+        else {
+            return (Py_UCS4)-1;
+        }
+        name++;
+    }
+    if (v > 0x10ffff) {
+        return (Py_UCS4)-1;
+    }
+    return v;
+}
+
 static int
 _getcode(PyObject* self, const char* name, int namelen, Py_UCS4* code,
          int with_named_seq)
@@ -1102,8 +1250,19 @@ _getcode(PyObject* self, const char* name, int namelen, Py_UCS4* code,
     unsigned int mask = code_size-1;
     unsigned int i, incr;
 
-    /* Check for hangul syllables. */
-    if (strncmp(name, "HANGUL SYLLABLE ", 16) == 0) {
+    int prefixid = 0;
+    size_t prefixlen;
+    for (; prefixid < (int)Py_ARRAY_LENGTH(derived_name_prefixes); prefixid++) {
+        const char *prefix = derived_name_prefixes[prefixid];
+        prefixlen = strlen(prefix);
+        if (name_startswith(name, prefix)) {
+            break;
+        }
+    }
+
+    if (prefixid == 0) {
+        /* Hangul syllables. */
+        assert(name_startswith(name, "HANGUL SYLLABLE "));
         int len, L = -1, V = -1, T = -1;
         const char *pos = name + 16;
         find_syllable(pos, &len, &L, LCount, 0);
@@ -1120,26 +1279,11 @@ _getcode(PyObject* self, const char* name, int namelen, Py_UCS4* code,
         return 0;
     }
 
-    /* Check for unified ideographs. */
-    if (strncmp(name, "CJK UNIFIED IDEOGRAPH-", 22) == 0) {
-        /* Four or five hexdigits must follow. */
-        v = 0;
-        name += 22;
-        namelen -= 22;
-        if (namelen != 4 && namelen != 5)
+    if (prefixid < (int)Py_ARRAY_LENGTH(derived_name_prefixes)) {
+        Py_UCS4 v = parse_hex_code(name + prefixlen, namelen - (int)prefixlen);
+        if (find_prefix_id(v) != prefixid) {
             return 0;
-        while (namelen--) {
-            v *= 16;
-            if (*name >= '0' && *name <= '9')
-                v += *name - '0';
-            else if (*name >= 'A' && *name <= 'F')
-                v += *name - 'A' + 10;
-            else
-                return 0;
-            name++;
         }
-        if (!is_unified_ideograph(v))
-            return 0;
         *code = v;
         return 1;
     }

@@ -35,7 +35,7 @@ import socket
 import subprocess
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Mapping
+from typing import TYPE_CHECKING, Any, Mapping, Sequence
 
 import click
 
@@ -46,6 +46,7 @@ from coord.drive_queue import (
     APPLY_APPLIED,
     APPLY_FAILED,
     DEFAULT_MAX_ATTEMPTS,
+    DEFAULT_MAX_PARALLEL,
     DEFAULT_MAX_PARALLEL_PER_REPO,
     HOLD_FIRED,
     HOLD_RELEASED,
@@ -77,6 +78,7 @@ from coord.drive_queue import (
     add_preflight_notice,
     apply_gate_status,
     build_board_view,
+    default_max_parallel,
     detect_unreachable_waits,
     diagnose_blocked_after,
     effective_max_fix_rounds,
@@ -109,6 +111,7 @@ from coord.overlap_predict import (
     EVENT_SCORED,
     OUTCOME_UNKNOWN,
     SOURCE_DECLARED,
+    Overlap,
     Prediction,
     classify_outcome,
     collect_candidate_files,
@@ -116,6 +119,7 @@ from coord.overlap_predict import (
     fanout_warnings,
     inflight_footprints,
     malformed_files_warning,
+    overlap_would_run_before,
     parse_declared_files,
     predict_overlap,
     predictions_from_audit,
@@ -124,6 +128,7 @@ from coord.overlap_predict import (
 
 if TYPE_CHECKING:  # pragma: no cover — typing only
     from coord.config import Config
+    from coord.merge_queue import QueuedMerge
 
 log = logging.getLogger(__name__)
 
@@ -462,12 +467,38 @@ def drive_queue_add(
     malformed_note = ""
     auto_after: list[str] = []
     rejected_after: list[str] = []
+    # #3395 rule 2: overlaps against an already-queued, not-yet-dispatched
+    # entry that THIS add is positioning ahead of — the edge for those goes
+    # on the INCUMBENT (`entry --after this add`), applied further down once
+    # this add's own row exists, never on `after` above (that would chain
+    # this add behind an entry it is about to run in front of).
+    reverse_candidates: list[tuple[QueueEntry, Overlap]] = []
+    reverse_rejected: list[str] = []
     if not no_predict_overlap:
         prediction, staleness_note, malformed_note = _predict_overlap(
             config_path, repo, issue, existing_entries
         )
+        effective_position = _resolve_effective_new_position(position, previous)
+        forward_keys, all_reverse = _partition_overlap_after(
+            existing_entries,
+            effective_position,
+            prediction,
+            previous_position=previous.position if previous is not None else None,
+        )
+        # #2603's --reject-after is the same narrower escape hatch for a
+        # REVERSED edge too — it names the OTHER entry's key either way, so
+        # an operator does not need to know which direction rule 2 picked to
+        # veto it.
+        reverse_candidates = [
+            (entry, overlap) for entry, overlap in all_reverse
+            if entry.key not in reject_after
+        ]
+        reverse_rejected = [
+            entry.key for entry, _overlap in all_reverse if entry.key in reject_after
+        ]
         candidate_after = _applicable_auto_after(
-            existing_entries, repo, issue, after, prediction
+            existing_entries, repo, issue, after, prediction,
+            candidate_keys=forward_keys,
         )
         # #2603: --reject-after is the narrower escape hatch — it drops only
         # the named edge(s) from what actually gets applied, never the whole
@@ -490,6 +521,18 @@ def drive_queue_add(
         no_acceptance=no_acceptance,
         plan_destructive=plan_destructive,
     )
+    # #3395: apply the REVERSED edges rule 2 selected — writing to the
+    # INCUMBENT entry's own row, now that this add's row exists to name as
+    # its `--after`. Must run after the write above: it names `entry_key
+    # (repo, issue)` as a pre-req, and while nothing here checks the row for
+    # existence, doing this first keeps the audit trail (both events land in
+    # enqueue order, not out of order relative to `queued ...`) intuitive to
+    # read back.
+    reverse_applied: list[tuple[QueueEntry, Overlap]] = []
+    if reverse_candidates:
+        reverse_applied = _apply_reversed_overlap_after(
+            existing_entries, entry_key(repo, issue), after, reverse_candidates,
+        )
     # #2839: queueing a drive is a strictly STRONGER statement than "send to
     # Pipeline" (`coord track`), so it must never leave the issue in a
     # weaker label state — apply the same `coord` + `status:ready` labels
@@ -539,13 +582,22 @@ def drive_queue_add(
     # --reject-after confirmation above: an author who wrote a declaration
     # that never took must not see output byte-identical to "declared
     # nothing".
+    # #3395: plus, for every REVERSED edge rule 2 applied, a line naming the
+    # INCUMBENT entry and why the direction is flipped from #2247's usual
+    # "ordered --after" reading — an unexplained edge on a row OTHER than
+    # the one this `add` named is exactly the kind of surprise an operator
+    # needs the reason for immediately, not by going and reading that row's
+    # own `last_reason` separately.
     overlap_notes: list[str] = []
     if auto_after:
         overlap_notes.append(prediction.reason)
         overlap_notes.extend(_declared_overlap_age_notes(prediction, auto_after))
-    if rejected_after:
+    for entry, overlap in reverse_applied:
+        overlap_notes.append(_reverse_overlap_reason(entry_key(repo, issue), overlap))
+    all_rejected = [*rejected_after, *reverse_rejected]
+    if all_rejected:
         overlap_notes.append(
-            "rejected via --reject-after (not applied): " + ", ".join(rejected_after)
+            "rejected via --reject-after (not applied): " + ", ".join(all_rejected)
         )
     overlap_notes.extend(fanout_warnings(prediction))
     if malformed_note:
@@ -922,6 +974,8 @@ def _applicable_auto_after(
     issue: int,
     after: list[str],
     prediction: Prediction,
+    *,
+    candidate_keys: Sequence[str] | None = None,
 ) -> list[str]:
     """The predicted pre-reqs that are actually safe to add.
 
@@ -930,9 +984,20 @@ def _applicable_auto_after(
     dropped if it would self-edge or close a cycle — the opposite posture to
     `validate_enqueue`'s treatment of an operator-declared `--after`, which is
     a typo worth reporting.
+
+    #3395: *candidate_keys* narrows which of `prediction.after_keys` this
+    call even considers — `None` (the default, unused by `drive_queue_add`'s
+    own call today but kept for a caller that wants pre-#3395 behaviour, or
+    a future direct test) keeps the pre-#3395 behaviour of trying all of
+    them. `drive_queue_add` passes the FORWARD subset only:
+    `_partition_overlap_after` has already routed the REVERSED ones (a
+    newcomer positioned ahead of an overlapping, not-yet-dispatched entry) to
+    `_apply_reversed_overlap_after` instead, and chaining this entry after
+    them TOO would apply rule 2's edge twice, in both directions.
     """
+    keys = prediction.after_keys if candidate_keys is None else tuple(candidate_keys)
     applied: list[str] = []
-    for candidate_key in prediction.after_keys:
+    for candidate_key in keys:
         if candidate_key in after or candidate_key in applied:
             continue
         try:
@@ -943,6 +1008,226 @@ def _applicable_auto_after(
             continue
         applied.append(candidate_key)
     return applied
+
+
+def _resolve_effective_new_position(
+    position: int | None, previous: QueueEntry | None,
+) -> int | None:
+    """#3395: the position this `add` actually leaves the entry at, for
+    :func:`coord.overlap_predict.overlap_would_run_before` to compare against.
+
+    An explicit ``--position`` wins outright. Otherwise, re-adding an
+    already-queued entry keeps its CURRENT position — `enqueue_drive_queue`
+    never moves a row unless `position` is given — so that position is what
+    the entry will actually run at. A brand-new entry with no `--position`
+    appends at the tail (``None``, `overlap_would_run_before`'s own "never
+    ahead of anything" case) — there is no meaningful position yet.
+    """
+    if position is not None:
+        return position
+    if previous is not None:
+        return previous.position
+    return None
+
+
+def _partition_overlap_after(
+    existing_entries: list[QueueEntry],
+    effective_position: int | None,
+    prediction: Prediction,
+    *,
+    previous_position: int | None = None,
+) -> tuple[list[str], list[tuple[QueueEntry, Overlap]]]:
+    """#3395 rule 2: split predicted overlaps by which direction the
+    ``--after`` edge belongs in.
+
+    FORWARD (returned as plain keys, same shape `_applicable_auto_after`
+    always took) is correct whenever the other side either is already
+    running (`[branch]` — it started before this `add` regardless of queue
+    position) or is queued but will still dispatch no earlier than this
+    newcomer. REVERSE (returned paired with the other side's own
+    `QueueEntry`, since applying it means writing to THAT row, not this one)
+    is the case the issue is about: a `[declared]` overlap against an entry
+    that is still queued but is about to be pushed BEHIND this newcomer in
+    dispatch order. Chaining the newcomer after it there would force the
+    newcomer to run last despite the operator's own `--position`, while the
+    incumbent — now scheduled first — would carry no edge stopping it from
+    colliding with the newcomer's fresher files.
+
+    An overlap naming a key with no matching `QueueEntry` (the declared
+    footprint disappeared between prediction and this call — a `remove` race,
+    vanishingly rare) falls back to FORWARD: the safe, pre-#3395 default.
+
+    ``previous_position`` is the target's OWN position before this call —
+    `None` for a brand-new entry, the row's current position when this
+    `add` is REPOSITIONING an already-queued entry. Passed straight through
+    to `overlap_would_run_before`, which needs it to account for
+    `_move_drive_queue_entry_local`'s remove-then-reinsert shift: without
+    it, the direction decision compares `other`'s stale pre-removal
+    position and can pick the REVERSE edge when FORWARD is actually correct
+    (or vice versa) — see that function's docstring for the full case
+    analysis.
+    """
+    entries_by_key = {e.key: e for e in existing_entries}
+    forward: list[str] = []
+    reverse: list[tuple[QueueEntry, Overlap]] = []
+    for overlap in prediction.overlaps:
+        other = entries_by_key.get(overlap.key)
+        if (
+            overlap.source == SOURCE_DECLARED
+            and other is not None
+            and overlap_would_run_before(
+                effective_position,
+                other.position,
+                previous_position=previous_position,
+            )
+        ):
+            reverse.append((other, overlap))
+        else:
+            forward.append(overlap.key)
+    return forward, reverse
+
+
+def _apply_reversed_overlap_after(
+    existing_entries: list[QueueEntry],
+    new_key: str,
+    new_key_after: Sequence[str],
+    reverse_candidates: list[tuple[QueueEntry, Overlap]],
+) -> list[tuple[QueueEntry, Overlap]]:
+    """#3395: apply the REVERSED edges `_partition_overlap_after` identified
+    — chain each incumbent entry ``--after`` the newcomer, since the
+    newcomer is the one that will actually dispatch first.
+
+    Same fail-safe posture as `_applicable_auto_after`: a would-be cycle is
+    silently dropped rather than failing this `add` (an INFERRED edge must
+    never be able to refuse an operator's own `--position`), and an edge that
+    already exists on the incumbent is left alone (no redundant write).
+    Every OTHER operator-declared field on the incumbent's row (`machine`,
+    the hold gate, `max_fix_rounds`, ...) is carried through unchanged —
+    `enqueue_drive_queue` fully replaces those columns on every call, so
+    omitting one here would silently clear it off a row this `add` was never
+    asked to touch.
+
+    ``new_key_after`` is the newcomer's OWN final ``--after`` list from this
+    same `add` (operator-declared plus rule 1's forward auto-chains). The
+    cycle check below builds its own edge graph rather than reusing
+    `validate_enqueue` directly, because `existing_entries` is the pre-write
+    snapshot: it never contains the newcomer's row (a brand-new entry) and,
+    on a reposition, contains only its STALE pre-`add` edges — so a
+    `validate_enqueue` call scoped to just the incumbent's candidate edge
+    cannot see the newcomer's own outgoing edges and would miss a two-node
+    cycle this single `add` invocation introduces (rule 1 chains the
+    newcomer after an overlapping incumbent, rule 2 separately wants that
+    same incumbent chained after the newcomer). Including `new_key_after` as
+    the newcomer's node in the graph here closes that gap; the tick's own
+    full-graph `find_cycle` would otherwise be the only thing to catch it,
+    after the fact.
+    """
+    from coord.state import enqueue_drive_queue  # noqa: PLC0415
+
+    applied: list[tuple[QueueEntry, Overlap]] = []
+    base_edges: dict[str, list[str]] = {
+        e.key: list(e.after) for e in existing_entries if e.key != new_key
+    }
+    base_edges[new_key] = [str(a) for a in new_key_after]
+    for entry, overlap in reverse_candidates:
+        if new_key in entry.after:
+            applied.append((entry, overlap))
+            continue
+        new_after = [*entry.after, new_key]
+        trial_edges = dict(base_edges)
+        trial_edges[entry.key] = new_after
+        if find_cycle(trial_edges) is not None:
+            continue
+        enqueue_drive_queue(
+            entry.repo,
+            entry.issue,
+            machine=entry.machine or None,
+            after=new_after,
+            position=None,
+            hold_after=entry.hold_after,
+            hold_reason=entry.hold_reason,
+            resume_when=entry.resume_when,
+            hold_scope=entry.hold_scope,
+            max_fix_rounds=entry.max_fix_rounds,
+            no_acceptance=entry.no_acceptance,
+            plan_destructive=entry.plan_destructive,
+        )
+        applied.append((entry, overlap))
+        _record_reverse_overlap_prediction(entry.repo, entry.issue, new_key, overlap)
+    return applied
+
+
+def _reverse_overlap_reason(new_key: str, overlap: Overlap) -> str:
+    """#3395: the one sentence shared by `add`'s stdout, the audit summary,
+    and the INCUMBENT's own `last_reason` for a REVERSED edge — so all three
+    surfaces agree on why a row this `add` never named got a new `after=`.
+    """
+    return (
+        "predicted file overlap (#2247) — ordered "
+        + overlap.describe_reversed(new_key)
+        + " (#3395: this add was positioned ahead of an existing queued entry)"
+    )
+
+
+def _record_reverse_overlap_prediction(
+    repo: str, issue: int, new_key: str, overlap: Overlap,
+) -> None:
+    """#3395: the audit + `last_reason` twin of `_record_overlap_prediction`
+    for a REVERSED edge — recorded against *repo*/*issue*, the INCUMBENT
+    entry that actually got the new `after=` write, not the entry `add` was
+    called for. Mirrors `_record_overlap_prediction`'s two sinks (a durable
+    audit row, plus the `last_reason` column an operator reading `coord
+    drive-queue list` sees immediately) for the same reason: a `last_reason`
+    the next tick attempt will overwrite is not durable, so the claim also
+    needs a permanent home to be scored later.
+
+    Kept as its own event rather than reusing `Prediction.audit_details()`
+    verbatim: that payload's `after` list and `predicted_files` are framed
+    from the CANDIDATE's point of view (`_predict_overlap` computed them
+    that way), and reusing it here unedited would misrepresent whose files
+    were actually being ordered against whose.
+    """
+    reason = _reverse_overlap_reason(new_key, overlap)
+    details = {
+        "predicted_files": list(overlap.files),
+        "overlaps": [
+            {
+                "key": new_key,
+                "source": overlap.source,
+                "branch": overlap.branch,
+                "head_sha": overlap.head_sha,
+                "synced_at": overlap.synced_at,
+                "liveness_checked": overlap.liveness_checked,
+                "files": list(overlap.files),
+            }
+        ],
+        "after": [new_key],
+        # #3395: the one field with no forward-edge equivalent — lets a later
+        # reader (a human, `overlap-report`) tell this row's `after=` was
+        # rule 2's reversal, not an ordinary same-direction prediction.
+        "reversed": True,
+    }
+    try:
+        from coord.audit import record_audit  # noqa: PLC0415
+
+        record_audit(
+            tier="business",
+            category=AUDIT_CATEGORY,
+            event_type=EVENT_PREDICTED,
+            actor="drive-queue",
+            summary=reason,
+            repo=repo,
+            issue=issue,
+            details=details,
+        )
+    except Exception:  # noqa: BLE001 — recording must never fail the enqueue
+        pass
+    try:
+        from coord.state import update_drive_queue_entry  # noqa: PLC0415
+
+        update_drive_queue_entry(repo, issue, last_reason=reason)
+    except Exception:  # noqa: BLE001 — same
+        pass
 
 
 def _record_overlap_prediction(
@@ -2814,13 +3099,21 @@ def _local_issue_rows() -> list[dict]:
 
     Fail-soft: an unreadable/absent table degrades to ``[]``, which puts the
     daemon host back on the assignment-only signals rather than aborting.
+
+    #3384: ``state_reason`` selected alongside ``state`` — this IS the
+    ``coord drive-queue tick`` daemon-host path, so without it
+    ``coord.drive_queue.IssueFacts.reopened`` would never populate on the
+    one host that actually ticks the queue, and a reopened issue's stale
+    ``merged`` witness would keep short-circuiting entries straight to
+    ``done`` there regardless of the fix in ``build_board_view``.
     """
     from coord import sql  # noqa: PLC0415
     from coord.db import get_connection  # noqa: PLC0415
 
     try:
         rows = sql.execute(
-            get_connection(), "SELECT repo_name, number, state FROM issues"
+            get_connection(),
+            "SELECT repo_name, number, state, state_reason FROM issues",
         ).fetchall()
     except Exception:  # noqa: BLE001 — see the fail-soft note above
         return []
@@ -4740,14 +5033,51 @@ def _run_merge_only_candidates(plan: TickPlan, config_path: Path | None) -> None
         click.echo(f"merge-only: {reason}")
 
 
+# #3396: the `stage` this call site's escalations are recorded under —
+# mirrors `ROLL_PENDING_ALERT_STAGE`/`SELF_CORDON_ALERT_STAGE` above, but
+# keyed per-entry (the entry's own `(repo_name, issue_number)`) rather than a
+# single fleet-wide slot, since more than one branch can be `checks_stale` at
+# once. `_run_auto_revalidate_checks_stale`'s cleanup pass reads this same
+# constant back to find which open escalations are its own to dismiss.
+CHECKS_STALE_ALERT_STAGE = "checks_stale"
+
+
+def _record_checks_stale_escalation(entry: "QueuedMerge", *, reason: str) -> None:
+    """Write (or refresh) the durable, human-visible escalation for *entry*
+    (#3396 item 2) — ``coord escalate list``/``coord escalate run`` and the
+    TUI already surface this table for every other "needs a human" condition
+    in this file; a `checks_stale` block that this tick cannot move forward
+    on its own now reaches it too, instead of only ever reprinting the same
+    diagnosis to the journal every ~3 minutes forever.
+
+    Best-effort: a write failure here must not take down the rest of the
+    tick — the caller already echoed the reason to stdout, which is the
+    floor this falls back to.
+    """
+    try:
+        from coord.state import record_drive_escalation  # noqa: PLC0415
+
+        record_drive_escalation(
+            entry.repo_name,
+            entry.issue_number,
+            stage=CHECKS_STALE_ALERT_STAGE,
+            reason=reason,
+            gate_readings=f"error={entry.error}" if entry.error else "gate: READY",
+            proposed_command=(
+                f"coord merge --only {entry.repo_name}#{entry.issue_number}"
+            ),
+            assignment_id=entry.assignment_id,
+        )
+    except Exception as exc:  # noqa: BLE001 — the stdout line is the floor
+        click.echo(f"  (could not record the checks_stale escalation: {exc})")
+
+
 def _run_auto_revalidate_checks_stale(config_path: Path | None) -> None:
-    """#2535: best-effort surfacing of merge-queue entries blocked SOLELY on
+    """#2535: unattended remedy for merge-queue entries blocked SOLELY on
     stale CI checks against an already-approved review — closing the gap
     where nothing periodic ever looks at such an entry on an operator's
-    behalf, so it just sits until someone notices ``--dry-run``'s
-    ``checks_stale`` line by hand (the trigger: #2530's Gate-A PR #2534 sat
-    blocked 2026-08-21 on nothing but 210 unrelated merges having landed
-    since its CI last ran).
+    behalf (the trigger: #2530's Gate-A PR #2534 sat blocked 2026-08-21 on
+    nothing but 210 unrelated merges having landed since its CI last ran).
 
     #3266: this used to auto-fire a ``gh run rerun`` (``CiStore.
     rerun_for_pr``) for exactly this shape, up to ``MAX_CI_STALE_RERUNS`` —
@@ -4756,46 +5086,89 @@ def _run_auto_revalidate_checks_stale(config_path: Path | None) -> None:
     there too: a ``gh run rerun`` replays the SAME event payload against
     the SAME base the stale checks already used, so it can never see a
     base that has since moved — which is the ONLY thing a staleness
-    reading means. Every tick that found a candidate here was spending a
-    full CI cycle (this repo's median: ~62 minutes) on a guaranteed no-op,
-    twice, before the shared ``ci_stale_reruns`` budget parked the entry
-    anyway (claude-coordinator#2972). Per this repo's "one question, one
-    answer" rule, this tick and ``process()`` must agree on the same
-    question ("should we auto-rerun CI for a checks_stale block?") — they
-    now both answer "no, park and point at a rebase" identically, rather
-    than this call site silently keeping the old answer #2197 already gave
-    up on live. See ``MAX_CI_STALE_RERUNS``'s comment in
+    reading means. See ``MAX_CI_STALE_RERUNS``'s comment in
     ``coord/merge_queue.py`` and ``ci_stale_reason``'s docstring for the
-    full reasoning and the actual remedy (rebase onto the target branch,
-    then ``git push --force-with-lease`` — the only thing that produces a
-    check against the CURRENT base).
+    full reasoning. The actual remedy is a rebase onto the target branch
+    followed by ``git push --force-with-lease`` — the only thing that
+    produces a check against the CURRENT base.
+
+    #3396: from #2535 through #3266 this call site only ever *reported*
+    that remedy — it never performed it, so a `checks_stale` entry whose
+    owning `coord drive` session had already exhausted its merge attempts
+    and exited had NOTHING left watching it: this tick re-diagnosed the
+    same block every ~3 minutes, forever, and the stale-rebase worker
+    that exists for exactly this shape (:func:`coord.conflict_fix.
+    dispatch_conflict_fix` with ``stale_rebase=True``, #3349) was never
+    dispatched. #3349 already wired that worker into
+    ``coord.notify``'s stalled-pipeline sweep (``merge_gate_checks_stale``),
+    but that sweep only runs when ``coord notify`` is invoked and
+    ``pipeline.auto_dispatch_stalled`` is on — it is not this tick, which
+    runs unconditionally every few minutes on the daemon host. Per this
+    repo's "one question, one answer" rule this call site now reuses the
+    IDENTICAL dispatcher rather than re-deriving the decision: a
+    content-preserving rebase gets force-pushed and the merge queue picks
+    it up on its own next attempt, with no operator action, exactly like
+    the #1090 reference case in the issue. A rebase that turns out to
+    conflict (or change content) still refuses and escalates — the
+    worker's own narrow briefing (:func:`coord.conflict_fix.
+    build_stale_rebase_briefing`) enforces that, not this call site.
+
+    Escalation (#3396 item 2): a candidate this function cannot move
+    forward — a conflict-fix already tried and failed against this SAME
+    error (:func:`coord.conflict_fix.has_prior_conflict_fix`), or dispatch
+    itself declined (no capable/reachable machine, no ``repo_path``) — is
+    recorded via :func:`coord.state.record_drive_escalation` under the
+    entry's OWN ``(repo, issue)``, the same durable, human-visible table
+    ``coord escalate list``/``coord escalate run`` already serve for every
+    other "needs a human" condition in this file (see
+    ``ROLL_PENDING_ALERT_REPO``/``SELF_CORDON_ALERT_REPO`` above for the
+    established one-slot-per-condition pattern; this one is naturally
+    keyed per-entry instead, since more than one branch can be
+    ``checks_stale`` at once). Before #3396 a block that "needs a human"
+    only ever reached this function's own stdout/journal line, printed
+    again unchanged every tick — never a place an operator or the TUI
+    would actually see it (the issue's own complaint: `coord drive-queue
+    status` reporting ``alert: (none)`` throughout). A candidate that
+    clears on its own (the rebase lands, or the base stops moving) is no
+    longer in the next tick's *candidates* list, so its escalation (if any)
+    is dismissed below — the table only ever holds genuinely-live blocks.
 
     Deliberately narrow — this is NOT ``merge.auto_drain`` reopened (that
     flag stays ``False`` by design; see ``docs/DRIVE_QUEUE.md`` and the
     2026-06-07 incident it guards against). This step never merges
-    anything, never mutates the queue, and never touches an entry blocked
-    on review, a real CI failure, or a conflict — it only *reports* the
-    exact shape :func:`coord.merge_queue.ci_revalidation_candidates` scopes
+    anything and never mutates the merge-queue row itself — it only ever
+    dispatches the SAME bounded, self-refusing worker
+    :func:`coord.conflict_fix.dispatch_conflict_fix` already provides
+    for the identical shape reached from a live drive/stalled-pipeline
+    sweep, gated by the SAME one-per-entry retry cap
+    (:func:`coord.conflict_fix.has_prior_conflict_fix`) — so a second
+    tick finding the same still-stale entry while a rebase attempt is
+    already running/pending does nothing, and one that already failed
+    escalates instead of retrying. It never touches an entry blocked on
+    review, a real CI failure, or a conflict — only the exact shape
+    :func:`coord.merge_queue.ci_revalidation_candidates` scopes
     ``--revalidate``'s (equally no-op) CI arm to (#1851/#1925): ``PENDING``,
     review approved, smoke fresh, CI checks green but predating the current
     base.
 
     ``MAX_CI_STALE_RERUNS``/``ci_stale_reruns`` are read nowhere in this
-    function any more — nothing here increments or checks that budget, so a
-    row already carrying a nonzero count from before this fix is left
-    exactly as ``process()`` leaves it (converges to 0 on the next
-    genuinely-fresh reading, never incremented further by this call site).
+    function — nothing here increments or checks that budget, so a row
+    already carrying a nonzero count from before #3266 is left exactly as
+    ``process()`` leaves it (converges to 0 on the next genuinely-fresh
+    reading, never incremented further by this call site).
 
-    Cost-visible (#1632's posture) in the opposite direction from before:
-    there is no external spend to report any more, only a
-    :func:`coord.audit.record_audit` (operational tier) row per candidate
-    per tick, so an operator watching the trail still sees the block
-    without this function ever burning a CI cycle trying (and failing) to
-    clear it.
+    Cost-visible (#1632's posture): dispatching a worker is real, visible
+    spend — a :func:`coord.audit.record_audit` (business tier) row marks
+    it, distinct from the operational-tier rows for a declined/escalated
+    candidate, so an operator watching the audit trail can tell "this tick
+    spent a session" from "this tick only reported a block" at a glance.
 
-    Deliberately NOT behind a new config flag — this is strictly a
-    supplementary read with no external action, so there is nothing new to
-    gate.
+    Deliberately NOT behind a new config flag — the worker it dispatches
+    already carries its own bounded, self-refusing briefing and one-shot
+    retry cap; there is nothing further to gate that
+    ``pipeline.auto_dispatch_stalled`` (the flag guarding ``coord
+    notify``'s unrelated, broader stalled-pipeline sweep) doesn't already
+    cover for that other call site.
 
     Best-effort like every other optional step in this tick (conflict
     reconciliation in ``_auto_drain_tick``, the merge-only fast path above):
@@ -4803,6 +5176,24 @@ def _run_auto_revalidate_checks_stale(config_path: Path | None) -> None:
     on a thin client — this daemon-host tick is the only place it ever
     runs, same guard :func:`_fetch_live_ci_gate`/
     :func:`_run_merge_only_candidates` use.
+
+    Known race, widened by this change (#3396 review): this tick is a new,
+    independent, ALWAYS-ON caller of ``dispatch_conflict_fix(...,
+    stale_rebase=True)`` (``deploy/coord-drive-queue.service``/``.timer``),
+    alongside ``coord notify``'s stalled-pipeline sweep (a separate systemd
+    timer, see ``docs/AGENT_OPERATIONS.md``) and a live drive's own merge
+    attempt — three independent callers for the identical shape now. The
+    shared guard (``has_prior_conflict_fix``/``_has_active_conflict_fix``)
+    is a plain board-snapshot read with no cross-process lock between them:
+    if two of these fire within the same window for the same gate-READY
+    ``checks_stale`` entry, both can independently observe "no prior fix in
+    flight" and dispatch a duplicate stale-rebase worker. Wasted spend, not
+    data loss — the second worker's push is a no-op or is itself refused —
+    but this is the first caller to fire unconditionally on a fixed timer
+    rather than behind a live drive or an opt-in flag, which widens the
+    window. A real fix needs a cross-process claim (e.g. a DB-level lock
+    keyed on the entry) rather than a snapshot read; tracked as a follow-up,
+    not fixed here.
     """
     from coord.board_service import resolve as resolve_board_service  # noqa: PLC0415
 
@@ -4815,10 +5206,32 @@ def _run_auto_revalidate_checks_stale(config_path: Path | None) -> None:
         from coord.audit import record_audit  # noqa: PLC0415
         from coord.ci_store import build_ci_store  # noqa: PLC0415
         from coord.commands._common import _load_config  # noqa: PLC0415
-        from coord.state import load_board as _load_board  # noqa: PLC0415
+        from coord.conflict_fix import (  # noqa: PLC0415
+            _has_active_conflict_fix,
+            describe_conflict_fix_decline,
+            dispatch_conflict_fix,
+            has_prior_conflict_fix,
+        )
+        from coord.network import fetch_status  # noqa: PLC0415
+        from coord.state import (  # noqa: PLC0415
+            dismiss_drive_escalation,
+            list_drive_escalations,
+            load_board as _load_board,
+        )
 
         cfg = _load_config(config_path)
-        board = _load_board()
+        # #3396: `load_board()` can legitimately return `None` (no board data
+        # at all yet). `ci_revalidation_candidates` already tolerates that
+        # (its gate reads never dereference a `None` board when the gate they
+        # guard isn't required), but `has_prior_conflict_fix`/
+        # `dispatch_conflict_fix` below unconditionally walk
+        # `board.active`/`board.completed` — an empty board is the correct
+        # "no prior assignments exist" reading for both, and keeps the two
+        # calls sharing the exact same object rather than one seeing `None`
+        # and the other a stand-in.
+        from coord.models import Board  # noqa: PLC0415
+
+        board = _load_board() or Board()
         ci_store = build_ci_store(
             cfg.ci_store.type, host=cfg.ci_store.host, token_env=cfg.ci_store.token_env,
         )
@@ -4829,34 +5242,145 @@ def _run_auto_revalidate_checks_stale(config_path: Path | None) -> None:
     except Exception:  # noqa: BLE001 — best-effort, see docstring
         return
 
+    # #3396 review: the cleanup pass below treats an escalation's absence
+    # from *candidates* as "confirmed cleared" — that's only a safe reading
+    # once we know `candidates` came from a REAL read, not from a
+    # `ci_store` that was `None`/unavailable (which `ci_revalidation_
+    # candidates` also answers with `[]`, indistinguishable by return value
+    # alone from "genuinely nothing is stale"). The `ci_store.is_available`
+    # check above, and the broader `except Exception: return` around this
+    # whole block, both already `return` BEFORE this point on exactly that
+    # ambiguous case — so reaching here at all already means the read was
+    # real. Do not restructure this so cleanup can be reached without a
+    # confirmed-available `ci_store` and a `ci_revalidation_candidates` call
+    # that returned normally; that reintroduces the "unconfirmed success"
+    # bug this comment describes (epic #2096: dismissing an escalation is
+    # asserting "resolved" — only do it from an observation, not an
+    # inability to look).
+    #
+    # #3396: drop any prior checks_stale escalation for an entry that is no
+    # longer a candidate this tick — either it landed, or the base stopped
+    # moving. Runs even when *candidates* is empty (that's the fully-healed
+    # case). Best-effort: a read/write hiccup here must not stop the actual
+    # dispatch loop below from running.
+    try:
+        live_keys = {(c.repo_name, c.issue_number) for c in candidates}
+        for esc in list_drive_escalations():
+            if esc.get("stage") != CHECKS_STALE_ALERT_STAGE:
+                continue
+            key = (esc.get("repo_name"), esc.get("issue_number"))
+            if key not in live_keys:
+                dismiss_drive_escalation(esc["repo_name"], esc["issue_number"])
+    except Exception:  # noqa: BLE001 — best-effort, see docstring
+        pass
+
     if not candidates:
         return
 
     for entry in candidates:
         label = f"{entry.repo_name} #{entry.issue_number} ({entry.branch})"
-        # #3266: no `gh run rerun` fires here any more — a same-base replay
-        # cannot clear a staleness reading, so this is visibility only, not
-        # a remedy attempt. See the docstring above and
-        # `coord.merge_queue.ci_stale_reason` for why.
-        click.echo(
-            f"auto-revalidate: {label} is checks_stale — a CI re-run cannot "
-            "clear it (same base); needs a rebase onto the target branch "
-            "and `git push --force-with-lease`, or a human running `coord "
-            "merge --only` after one"
+
+        if has_prior_conflict_fix(board, entry.assignment_id, current_error=entry.error):
+            if _has_active_conflict_fix(board, entry.assignment_id):
+                # A stale-rebase attempt is already running/pending for this
+                # entry (dispatched by this same tick earlier, a live drive,
+                # or the `coord notify` sweep) — nothing to do, and nothing
+                # to escalate: it will resolve, or fail and escalate, on its
+                # own.
+                click.echo(
+                    f"auto-revalidate: {label} is checks_stale — a "
+                    "stale-rebase conflict-fix is already in flight for it"
+                )
+                continue
+            # A prior stale-rebase (or ordinary conflict-fix) attempt for
+            # this SAME error already failed — the retry cap is spent, and
+            # re-diagnosing it every tick forever is exactly the #3396 bug.
+            # Escalate once into the durable table instead of only echoing.
+            reason = (
+                f"{label} is checks_stale and a prior conflict-fix attempt "
+                "already failed against this same block — a CI re-run "
+                "cannot clear it (same base) and the automatic rebase "
+                "already gave up; needs a human"
+            )
+            click.echo(f"auto-revalidate: {reason}")
+            record_audit(
+                tier="operational", category="merge",
+                event_type="merge_checks_stale_human_required",
+                actor="drive-queue-tick",
+                summary=reason,
+                repo=entry.repo_name, issue=entry.issue_number,
+                assignment_id=entry.assignment_id,
+                details={"pr_number": entry.pr_number, "error": entry.error},
+            )
+            _record_checks_stale_escalation(entry, reason=reason)
+            continue
+
+        pick_out: list = []
+        fix = dispatch_conflict_fix(
+            entry, board, cfg, stale_rebase=True,
+            status_fetcher=fetch_status, machine_pick_out=pick_out,
         )
+        if fix is not None:
+            click.echo(
+                f"auto-revalidate: {label} is checks_stale — dispatched a "
+                f"stale-rebase conflict-fix ({fix.assignment_id}) to "
+                f"{fix.machine_name} (#3396: no live drive needed)"
+            )
+            record_audit(
+                tier="business", category="merge",
+                event_type="merge_checks_stale_auto_rebase_dispatched",
+                actor="drive-queue-tick",
+                summary=(
+                    f"stale-rebase conflict-fix dispatched: {label} → "
+                    f"{fix.machine_name}"
+                ),
+                repo=entry.repo_name, issue=entry.issue_number,
+                assignment_id=fix.assignment_id,
+                details={
+                    "pr_number": entry.pr_number,
+                    "merge_entry_id": entry.assignment_id,
+                },
+            )
+            # #3396 review: an earlier tick may have already written a
+            # `checks_stale` escalation for this SAME entry (dispatch
+            # declined that time — no machine, no repo_path) before a later
+            # tick found dispatch available and actually fired the worker.
+            # Without this, `coord escalate list`/the TUI keep showing
+            # "needs a human" for an entry that in fact now has a
+            # stale-rebase worker actively running against it, until it
+            # eventually drops out of `candidates` entirely. Best-effort —
+            # a dismissal failure here must not undo the dispatch above.
+            try:
+                dismiss_drive_escalation(entry.repo_name, entry.issue_number)
+            except Exception:  # noqa: BLE001 — best-effort, see docstring
+                pass
+            continue
+
+        # Dispatch declined before ever starting a rebase — no capable or
+        # reachable machine, no `repo_path` configured, or a flapping agent
+        # (#3353). Still `checks_stale`, still gate-ready, and still nobody
+        # is going to clear it on its own — surface it the same durable way
+        # a genuine retry-cap exhaustion does, rather than a print-only line
+        # nothing but the journal ever sees.
+        decline_reason = describe_conflict_fix_decline(pick_out)
+        reason = (
+            f"{label} is checks_stale with a content-preserving rebase "
+            f"expected to clear it, but dispatch declined: {decline_reason}"
+        )
+        click.echo(f"auto-revalidate: {reason}")
         record_audit(
             tier="operational", category="merge",
             event_type="merge_checks_stale_parked",
             actor="drive-queue-tick",
             summary=(
                 f"checks_stale: {label} needs a rebase, not a CI re-run "
-                "(#3266) — a same-base `gh run rerun` can never clear "
-                "staleness"
+                f"(#3266); auto-dispatch declined: {decline_reason} (#3396)"
             ),
             repo=entry.repo_name, issue=entry.issue_number,
             assignment_id=entry.assignment_id,
-            details={"pr_number": entry.pr_number},
+            details={"pr_number": entry.pr_number, "decline_reason": decline_reason},
         )
+        _record_checks_stale_escalation(entry, reason=reason)
 
 
 def _run_resume_probe(entry: QueueEntry) -> ProbeResult:
@@ -5008,12 +5532,25 @@ def _blocked_escalation_command(entry: QueueEntry | None, key: str, reason: str)
 @click.option(
     "--max-parallel",
     type=int,
-    default=1,
-    show_default=True,
+    default=None,
     help=(
-        "Concurrency ceiling. Capacity is counted from BOARD state, not from a "
-        "session count, so a drive whose observer hit its deadline (#1660) "
-        "still occupies a slot."
+        "Global concurrency ceiling. Capacity is counted from BOARD state, "
+        "not from a session count, so a drive whose observer hit its "
+        "deadline (#1660) still occupies a slot. Omit this flag to use "
+        "pipeline.max_parallel from coordinator.yml (or, absent that, a "
+        "derivation from the fleet's own shape — repo count times the "
+        "resolved --max-parallel-per-repo, clamped to "
+        "concurrency.max_workers, see coord.drive_queue."
+        "default_max_parallel; falling back further, if the config itself "
+        f"can't be read, to {DEFAULT_MAX_PARALLEL}, #3388) — passing it "
+        "explicitly always wins over both. #3388: a hardcoded constant here "
+        "(coord-drive-queue.service used to pin --max-parallel 4) silently "
+        "starves every repo but the first couple once "
+        "--max-parallel-per-repo can exceed 1 — prefer the config setting "
+        "over a systemd drop-in for the same reason #2573 gives for "
+        "--max-parallel-per-repo: a drop-in has to restate the packaged "
+        "unit's whole ExecStart= to change just this flag, and that copy "
+        "silently drifts from the packaged unit's other flags over time."
     ),
 )
 @click.option(
@@ -5061,7 +5598,7 @@ def _blocked_escalation_command(entry: QueueEntry | None, key: str, reason: str)
 )
 @_CONFIG_OPTION
 def drive_queue_tick(
-    max_parallel: int,
+    max_parallel: int | None,
     max_parallel_per_repo: int | None,
     dry_run: bool,
     reconcile_only: bool,
@@ -5098,6 +5635,20 @@ def drive_queue_tick(
     reverted #2314's pinned-venv `ExecStart=` right back to a
     worker-overwritable path as an unnoticed side effect).
 
+    #3388: `--max-parallel` resolves the SAME way, one level up — the flag on
+    THIS invocation, when given; else `pipeline.max_parallel` from
+    `coordinator.yml`; else `coord.drive_queue.default_max_parallel`'s
+    derivation from the fleet's own shape (repo count times the
+    ALREADY-RESOLVED `--max-parallel-per-repo` above, clamped to
+    `concurrency.max_workers`); else, only if the config itself could not be
+    read at all, `coord.drive_queue.DEFAULT_MAX_PARALLEL` (1). A hardcoded
+    `--max-parallel` on the deployed systemd unit is exactly the failure mode
+    this closes: #2012 set it to the repo count when `--max-parallel-per-repo`
+    always defaulted to 1, #2057 raised it once by hand for a fifth repo, and
+    neither update survived #2573 letting the per-repo ceiling exceed 1 — two
+    repos alone then reach a stale global ceiling and starve every other repo
+    in the fleet, forever, however deep their own queues are.
+
     `--max-parallel 0` (or `--reconcile-only`, the readable spelling of the
     same thing — #2110) reconciles every `running` entry against the board and
     then stops: no capacity walk, no deferrals, no queue-level alert, no
@@ -5129,24 +5680,37 @@ def drive_queue_tick(
     from coord.filelock import FileLock, LockBusy, drive_queue_lock_path  # noqa: PLC0415
     from coord.state import list_drive_queue, update_drive_queue_entry  # noqa: PLC0415
 
-    if max_parallel < 0:
-        raise click.ClickException(
-            "--max-parallel must be at least 0 (0 = reconcile-only, launch "
-            "nothing this run — see --reconcile-only)"
-        )
+    # Loaded at most once, shared by both ceilings' config-default resolution
+    # below (#3388's `max_parallel` derivation needs the same config
+    # `max_parallel_per_repo` already reads, plus `repos`/`concurrency`) —
+    # `None` on the documented fail-open path, same posture as every other
+    # best-effort config read on this path (an unreadable config must never
+    # abort the tick).
+    _resolved_config: Config | None = None
+    _config_load_attempted = False
+
+    def _config_for_defaults() -> Config | None:
+        nonlocal _resolved_config, _config_load_attempted
+        if not _config_load_attempted:
+            _config_load_attempted = True
+            try:
+                from coord.commands._common import _load_config  # noqa: PLC0415
+
+                _resolved_config = _load_config(config_path)
+            except Exception:  # noqa: BLE001 — an unreadable config must not abort the tick
+                _resolved_config = None
+        return _resolved_config
 
     # #2573: an explicit `--max-parallel-per-repo` always wins; otherwise
     # fall back to the fleet-wide `pipeline.max_parallel_per_repo` in
     # coordinator.yml, and only then to the hardcoded default. Resolved
-    # BEFORE validation below so a bad value from either source is caught
-    # the same way regardless of which one supplied it.
+    # BEFORE `--max-parallel` (#3388's derivation multiplies BY this
+    # already-resolved value) and before validation below, so a bad value
+    # from either source is caught the same way regardless of which one
+    # supplied it.
     if max_parallel_per_repo is None:
-        try:
-            from coord.commands._common import _load_config  # noqa: PLC0415
-
-            config_default = _load_config(config_path).pipeline.max_parallel_per_repo
-        except Exception:  # noqa: BLE001 — an unreadable config must not abort the tick
-            config_default = None
+        _cfg = _config_for_defaults()
+        config_default = None if _cfg is None else _cfg.pipeline.max_parallel_per_repo
         max_parallel_per_repo = (
             DEFAULT_MAX_PARALLEL_PER_REPO if config_default is None else config_default
         )
@@ -5154,6 +5718,35 @@ def drive_queue_tick(
     if max_parallel_per_repo < 0:
         raise click.ClickException(
             "--max-parallel-per-repo must be 0 (no per-repo ceiling) or more"
+        )
+
+    # #3388: an explicit `--max-parallel` always wins; otherwise
+    # `pipeline.max_parallel` from coordinator.yml; otherwise derive it from
+    # the fleet's own shape (repo count * the per-repo ceiling just resolved
+    # above, clamped to the fleet's real worker capacity) rather than fall
+    # back to a hand-maintained constant that goes stale the moment either
+    # side changes — see `coord.drive_queue.default_max_parallel`. Only when
+    # the config itself could not be read at all (so neither the fleet
+    # default nor the fleet shape is known) does this fall back to the
+    # hardcoded `DEFAULT_MAX_PARALLEL`.
+    if max_parallel is None:
+        _cfg = _config_for_defaults()
+        config_max_parallel = None if _cfg is None else _cfg.pipeline.max_parallel
+        if config_max_parallel is not None:
+            max_parallel = config_max_parallel
+        elif _cfg is not None:
+            max_parallel = default_max_parallel(
+                repo_count=len(_cfg.repos),
+                max_parallel_per_repo=max_parallel_per_repo,
+                max_workers_cap=_cfg.concurrency.max_workers,
+            )
+        else:
+            max_parallel = DEFAULT_MAX_PARALLEL
+
+    if max_parallel < 0:
+        raise click.ClickException(
+            "--max-parallel must be at least 0 (0 = reconcile-only, launch "
+            "nothing this run — see --reconcile-only)"
         )
 
     # #2110: `--reconcile-only` and `--max-parallel 0` are the same request —

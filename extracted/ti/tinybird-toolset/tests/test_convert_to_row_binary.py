@@ -1,6 +1,7 @@
 import json
 import logging
 import re
+import shutil
 import pytest
 from chtoolset import query as chquery
 import random
@@ -26,6 +27,8 @@ omit_quarantine_changes = False
 logging.basicConfig(level=logging.DEBUG)
 
 fix_q_tests = os.getenv('FIXQTESTS', 'False').lower() == '1'
+# clickhouse local is used to decode encoder output where available (it is not in the CI image)
+clickhouse_available = shutil.which('clickhouse') is not None
 MB = 1024**2
 
 
@@ -8678,6 +8681,14 @@ class TestRowBinaryEncoder:
              ('c2', 'LowCardinality(String)', '', False),
              ('c3', 'Array(Tuple(String, Int16, Date))', '.x.y.m[:]', False)],
             "Invalid JSONPath"),
+        # LowCardinality can never sit below a Nullable: ClickHouse rejects Nullable around composite and
+        # LowCardinality types. The encoder relies on this when it caches a LowCardinality-free serialization
+        # per column (recursiveRemoveLowCardinality does not descend through Nullable).
+        (ConversionMode.ALWAYS, [('c1', 'Nullable(LowCardinality(String))', '$.c1', False)], "cannot be inside Nullable"),
+        (ConversionMode.ALWAYS, [('c1', 'Nullable(Array(LowCardinality(String)))', '$.c1', False)], "cannot be inside Nullable"),
+        (ConversionMode.ALWAYS, [('c1', 'Array(Nullable(Array(LowCardinality(String))))', '$.c1', False)], "cannot be inside Nullable"),
+        (ConversionMode.ALWAYS, [('c1', 'Nullable(Tuple(LowCardinality(String)))', '$.c1', False)], "cannot be inside Nullable"),
+        (ConversionMode.ALWAYS, [('c1', 'Nullable(Map(String, LowCardinality(String)))', '$.c1', False)], "cannot be inside Nullable"),
         (ConversionMode.ALWAYS, '[{"invalid-json"}]', "Invalid schema"),
         (ConversionMode.ALWAYS, '[{"name":"v","type":"String","has_default":false}]', "Invalid schema"),
         (ConversionMode.ALWAYS, '{"name":"v","type":"String","jsonpath":"$.v","has_default":false}', "Invalid schema"),
@@ -8998,6 +9009,74 @@ class TestRowBinaryEncoder:
         for right_schema in right_schemas:
             enc = chquery.RowBinaryEncoder(right_schema, max_json_row_size=100)
             enc.close()
+
+    # The encoder writes LowCardinality columns with the serialization of the equivalent
+    # LowCardinality-free type (see ColumnDefinition::field_serialization). RowBinary has no
+    # dictionary encoding, so the bytes must be identical to the plain type at every nesting level,
+    # and ClickHouse must decode them under the LowCardinality schema to the same value.
+    LOWCARDINALITY_EQUIVALENCE_CASES = [
+        ('LowCardinality(String)', 'String', 'es'),
+        ('LowCardinality(String)', 'String', ''),
+        ('LowCardinality(Nullable(String))', 'Nullable(String)', 'x'),
+        ('LowCardinality(Nullable(String))', 'Nullable(String)', None),
+        ('LowCardinality(FixedString(2))', 'FixedString(2)', 'ab'),
+        ('LowCardinality(UInt16)', 'UInt16', 7),
+        ('LowCardinality(Nullable(Int64))', 'Nullable(Int64)', -5),
+        ('LowCardinality(DateTime)', 'DateTime', '2026-09-08 12:00:00'),
+        ('LowCardinality(Date)', 'Date', '2026-09-08'),
+        ('Array(LowCardinality(String))', 'Array(String)', ['a', 'b']),
+        ('Array(LowCardinality(String))', 'Array(String)', []),
+        ('Array(LowCardinality(Nullable(String)))', 'Array(Nullable(String))', ['a', None, 'c']),
+        ('Array(Array(LowCardinality(String)))', 'Array(Array(String))', [['a'], [], ['b', 'c']]),
+        ('Map(LowCardinality(String), LowCardinality(String))', 'Map(String, String)', {'k1': 'v1', 'k2': 'v2'}),
+        ('Map(String, LowCardinality(Nullable(String)))', 'Map(String, Nullable(String))', {'k1': 'v1', 'k2': None}),
+        ('Map(String, Array(LowCardinality(String)))', 'Map(String, Array(String))', {'k': ['a', 'b']}),
+        ('Tuple(LowCardinality(String), Nullable(Int32))', 'Tuple(String, Nullable(Int32))', ['a', 1]),
+        ('Tuple(a LowCardinality(String), b LowCardinality(Nullable(String)))', 'Tuple(a String, b Nullable(String))', ['a', None]),
+        ('Array(Tuple(LowCardinality(String), Int8))', 'Array(Tuple(String, Int8))', [['a', 1], ['b', 2]]),
+        ('Map(String, Tuple(LowCardinality(String), Array(LowCardinality(UInt8))))', 'Map(String, Tuple(String, Array(UInt8)))', {'k': ['a', [1, 2]]}),
+    ]
+
+    @pytest.mark.parametrize("legacy_conversion_mode", [True, False])
+    @pytest.mark.parametrize("lc_type, plain_type, value", LOWCARDINALITY_EQUIVALENCE_CASES)
+    def test_lowcardinality_encodes_identically_to_plain_type(self, legacy_conversion_mode, lc_type, plain_type, value):
+        data = json.dumps({'v': value})
+        # Array and Tuple columns are addressed with the collection operator
+        jsonpath = '$.v[:]' if plain_type.startswith(('Array', 'Tuple')) else '$.v'
+        outputs = {}
+        for type_name in (lc_type, plain_type):
+            schema = json.dumps(get_schema([('v', type_name, jsonpath, False)]))
+            with chquery.RowBinaryEncoder(schema, legacy_conversion_mode=legacy_conversion_mode) as encoder:
+                result, quarantine, nrows, nquarantine = encoder.encode(data)
+            assert (nrows, nquarantine, quarantine) == (1, 0, b''), f"{type_name} did not encode {data}"
+            outputs[type_name] = result
+        assert outputs[lc_type] == outputs[plain_type]
+
+        # The bytes must also be valid RowBinary for the LowCardinality schema itself
+        if not clickhouse_available:
+            pytest.skip("clickhouse binary is not available for RowBinary decoding")
+        decoded = {}
+        for type_name in (lc_type, plain_type):
+            query = validationQuery([('v', type_name)], outputs[type_name]).rstrip(';')
+            query += ', allow_suspicious_low_cardinality_types=1 FORMAT JSON'
+            row, error = RunQuery(query)
+            assert error is None, f"clickhouse could not decode {type_name}: {error}"
+            decoded[type_name] = row
+        assert decoded[lc_type] == decoded[plain_type]
+
+    # A JSON value next to a LowCardinality element takes the column-based write path
+    # (binary_json_as_string), which must keep using the serialization of the full column type.
+    @pytest.mark.parametrize("binary_json_as_string", [True, False])
+    def test_lowcardinality_next_to_json_encodes_identically_to_plain_type(self, binary_json_as_string):
+        data = json.dumps({'v': [{'a': 1, 'b': 'x'}, 'tag']})
+        outputs = {}
+        for type_name in ('Tuple(JSON, LowCardinality(String))', 'Tuple(JSON, String)'):
+            schema = json.dumps(get_schema([('v', type_name, '$.v[:]', False)]))
+            with chquery.RowBinaryEncoder(schema, binary_json_as_string=binary_json_as_string, legacy_conversion_mode=False) as encoder:
+                result, quarantine, nrows, nquarantine = encoder.encode(data)
+            assert (nrows, nquarantine, quarantine) == (1, 0, b''), f"{type_name} did not encode {data}"
+            outputs[type_name] = result
+        assert outputs['Tuple(JSON, LowCardinality(String))'] == outputs['Tuple(JSON, String)']
 
     def test_getRaw_whitespace_trimming_for_integers(self):
         """Test that getRaw method properly trims whitespace from integers, especially when they are the last element in JSON objects."""

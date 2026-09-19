@@ -2,6 +2,4 @@
 
 import typing
 
-SpeechToTextRealtimeStreamingModel = typing.Union[
-    typing.Literal["saaras:v3-realtime", "saaras:v4-realtime"], typing.Any
-]
+SpeechToTextRealtimeStreamingModel = typing.Union[typing.Literal["saaras:v3-realtime", "saaras:v4"], typing.Any]

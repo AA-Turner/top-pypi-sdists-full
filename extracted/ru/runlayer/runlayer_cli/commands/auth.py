@@ -13,9 +13,11 @@ from runlayer_cli.cli_persistence import (
     persist_credentials_or_exit,
 )
 from runlayer_cli.config import (
+    hosts_equal,
     load_config,
     normalize_url,
 )
+from runlayer_cli.mdm_config import read_managed_config
 from runlayer_cli.tls import http_client, set_ca_bundle_path
 
 
@@ -132,6 +134,7 @@ def login(
                             err=True,
                         )
                         typer.echo(f"Host: {effective_host}", err=True)
+                        _warn_if_managed_host_differs(effective_host)
                         return
 
                     elif token_response.status_code == 202:
@@ -181,6 +184,36 @@ def login(
     except KeyboardInterrupt:
         typer.echo("\nAuthentication cancelled.", err=True)
         raise typer.Exit(1)
+
+
+def _warn_if_managed_host_differs(login_host: str) -> None:
+    """On a managed device, say up front that hooks follow the MDM host.
+
+    ``runlayer login`` sets ``default_host`` for interactive commands only;
+    AI Watch hooks and check-ins always target the MDM ``Host`` (see
+    ``hook.host_override``). Saying so here beats the user discovering it from
+    an hourly hook notice or a missing-sessions ticket.
+    """
+    try:
+        raw_managed = read_managed_config().get("host")
+    except Exception:
+        return
+    if not raw_managed:
+        return
+    managed_host = normalize_url(raw_managed)
+    if hosts_equal(managed_host, login_host):
+        return
+    typer.echo("", err=True)
+    typer.secho(
+        f"Note: this device is managed by Runlayer ({managed_host}).",
+        fg=typer.colors.YELLOW,
+        err=True,
+    )
+    typer.echo(
+        f"AI Watch hooks and check-ins keep reporting to {managed_host}; "
+        f"`runlayer run` and other interactive commands use {login_host}.",
+        err=True,
+    )
 
 
 def logout(

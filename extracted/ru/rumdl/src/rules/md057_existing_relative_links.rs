@@ -14,11 +14,15 @@ use crate::workspace_index::{
 };
 use pulldown_cmark::LinkType;
 use regex::Regex;
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::env;
-use std::path::{Path, PathBuf};
+use std::ffi::{OsStr, OsString};
+use std::path::{Component, Path, PathBuf};
 use std::sync::LazyLock;
 use std::sync::{Arc, Mutex};
+use std::time::SystemTime;
+use unicode_normalization::UnicodeNormalization;
 
 mod md057_config;
 use crate::utils::mkdocs_config::resolve_docs_dir;
@@ -30,10 +34,162 @@ pub use md057_config::{AbsoluteLinksOption, MD057Config};
 static FILE_EXISTENCE_CACHE: LazyLock<Arc<Mutex<HashMap<PathBuf, bool>>>> =
     LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
 
-// Reset the file existence cache (typically between rule runs)
+/// The shared map behind the directory cache. Each listing is an `Arc` so a
+/// lookup clones the handle and releases the lock before reading the names.
+type DirectoryListingCache = Arc<Mutex<HashMap<PathBuf, Arc<DirectoryListing>>>>;
+
+/// Directory listings, keyed by directory. One listing answers for every link
+/// naming an entry in that directory, and stands for as long as the
+/// directory's modification time does.
+static DIRECTORY_LISTING_CACHE: LazyLock<DirectoryListingCache> =
+    LazyLock::new(|| Arc::new(Mutex::new(HashMap::new())));
+
+/// Drops what one check learned about which paths exist, so the next check
+/// asks the filesystem again.
+///
+/// The directory listings are not dropped. Each carries the modification time
+/// it was read at and is read again once that time moves, which is a stat per
+/// lookup rather than a read of the whole directory per file checked.
 fn reset_file_existence_cache() {
     if let Ok(mut cache) = FILE_EXISTENCE_CACHE.lock() {
         cache.clear();
+    }
+}
+
+/// The entry names of one directory, in the spelling the filesystem stores,
+/// together with the moment they were read at.
+struct DirectoryListing {
+    /// The directory's modification time when the read began, or `None` where
+    /// the directory's metadata could not be read. A lookup keeps this listing
+    /// only while the directory still reports this time.
+    modified: Option<SystemTime>,
+    /// Whether the directory could be read in full. One that could not says
+    /// nothing about how its entries are spelled.
+    listed: bool,
+    /// Every entry name, compared byte for byte.
+    names: HashSet<OsString>,
+    /// The composed form of each entry name holding a character outside ASCII.
+    /// A macOS volume can store such a name decomposed while the link is typed
+    /// composed, and the two spell the same name.
+    composed: HashSet<String>,
+}
+
+impl DirectoryListing {
+    /// A listing that says nothing about how the directory's entries are
+    /// spelled, so every name under it is accepted.
+    fn unlisted(modified: Option<SystemTime>) -> Self {
+        Self {
+            modified,
+            listed: false,
+            names: HashSet::new(),
+            composed: HashSet::new(),
+        }
+    }
+
+    fn read(directory: &Path) -> Self {
+        // The time is taken before the entries are, so a change landing during
+        // the read leaves this listing behind the directory's own time and the
+        // next lookup reads again.
+        let modified = std::fs::metadata(directory)
+            .and_then(|metadata| metadata.modified())
+            .ok();
+        let mut names = HashSet::new();
+        let mut composed = HashSet::new();
+        let Ok(entries) = std::fs::read_dir(directory) else {
+            return Self::unlisted(modified);
+        };
+        for entry in entries {
+            let Ok(entry) = entry else {
+                // A name the kernel could not return is missing from these
+                // names, and a listing missing a name must not answer that the
+                // name is absent.
+                return Self::unlisted(modified);
+            };
+            let name = entry.file_name();
+            if let Some(text) = name.to_str()
+                && !text.is_ascii()
+            {
+                composed.insert(text.nfc().collect());
+            }
+            names.insert(name);
+        }
+        Self {
+            modified,
+            listed: true,
+            names,
+            composed,
+        }
+    }
+
+    /// Whether the directory holds an entry that spells `name`: either the
+    /// spelling as written, or the same name in composed form on one side or
+    /// the other. A name outside ASCII can compose to one inside it (the
+    /// Kelvin sign composes to the letter K), so an ASCII name is looked up
+    /// among the composed forms as well, and a composed form is looked up
+    /// among the entries as written as well as among their composed forms.
+    fn holds(&self, name: &OsStr) -> bool {
+        if !self.listed {
+            return true;
+        }
+        if self.names.contains(name) {
+            return true;
+        }
+        let Some(text) = name.to_str() else {
+            return false;
+        };
+        if text.is_ascii() {
+            return self.composed.contains(text);
+        }
+        let composed: String = text.nfc().collect();
+        self.composed.contains(composed.as_str()) || self.names.contains(OsStr::new(composed.as_str()))
+    }
+}
+
+/// The listing of `directory`, reused for every link naming an entry in it
+/// until the directory's modification time moves.
+///
+/// A lookup stats the directory and keeps a stored listing only while the time
+/// it recorded is the one the directory reports, so a directory of many
+/// documents linking to their siblings is read once rather than once per
+/// document. Creating, deleting or renaming an entry moves that time on APFS,
+/// ext4 and NTFS, so a process that lints the same tree repeatedly sees the
+/// change at its next lookup. Where the filesystem keeps the time coarsely,
+/// one second on HFS+ and two on FAT, a change inside the same tick as the
+/// read is seen once the directory next changes. A long-lived process holds
+/// one listing per directory its links reach.
+///
+/// The read happens with no lock held, so one slow directory does not stop
+/// other threads answering from the cache. Two threads reaching the same
+/// directory both read it and store the same names.
+fn directory_listing(directory: &Path) -> Arc<DirectoryListing> {
+    let Ok(modified) = std::fs::metadata(directory).and_then(|metadata| metadata.modified()) else {
+        // With no time to compare against, a stored listing cannot be told
+        // from one the directory has outgrown.
+        return Arc::new(DirectoryListing::read(directory));
+    };
+    match DIRECTORY_LISTING_CACHE.lock() {
+        Ok(cache) => {
+            if let Some(listing) = cache.get(directory)
+                && listing.modified == Some(modified)
+            {
+                return Arc::clone(listing);
+            }
+        }
+        Err(_) => return Arc::new(DirectoryListing::read(directory)), // Fallback to an uncached listing on mutex poison
+    }
+    let listing = Arc::new(DirectoryListing::read(directory));
+    match DIRECTORY_LISTING_CACHE.lock() {
+        Ok(mut cache) => {
+            // Two threads that raced on an unchanged directory store the same
+            // names. If the directory changed between their reads, the slower
+            // thread can store the older listing over the newer one; the next
+            // lookup's stat then finds a time that no longer matches and reads
+            // again, so a stale insert costs one extra read and never a wrong
+            // answer.
+            cache.insert(directory.to_path_buf(), Arc::clone(&listing));
+            listing
+        }
+        Err(_) => listing, // Fallback to an uncached listing on mutex poison
     }
 }
 
@@ -45,10 +201,75 @@ fn file_exists_with_cache(path: &Path) -> bool {
     }
 }
 
+/// Whether every component of `path` below `anchor` is spelled the way the
+/// filesystem stores it.
+///
+/// `anchor` is the directory the link resolves against, so everything above it
+/// is the path to the project rather than anything the link author wrote and is
+/// left alone. A `..` moves up without a listing check, and a directory that
+/// cannot be listed is accepted, so the walk only ever rejects a spelling a
+/// directory listing contradicts.
+///
+/// A `..` component moves the anchor up lexically, the way a URL resolver does,
+/// so a link through a symlinked directory is judged by the path as written
+/// rather than by the directory the symlink reaches.
+fn has_exact_case_components(anchor: &Path, path: &Path) -> bool {
+    let Ok(relative) = path.strip_prefix(anchor) else {
+        return true;
+    };
+    let mut directory = if anchor.as_os_str().is_empty() {
+        PathBuf::from(".")
+    } else {
+        anchor.to_path_buf()
+    };
+    for component in relative.components() {
+        match component {
+            Component::CurDir => {}
+            Component::ParentDir => {
+                // Only a named directory can be stepped out of by dropping it.
+                // Above a root, or past a `..` already on the path, the step
+                // has to be written out instead.
+                if matches!(directory.components().next_back(), Some(Component::Normal(_))) {
+                    directory.pop();
+                } else {
+                    directory.push("..");
+                }
+                // Dropping the only component of a relative path lands on the
+                // directory the process runs in.
+                if directory.as_os_str().is_empty() {
+                    directory.push(".");
+                }
+            }
+            Component::Normal(name) => {
+                if !directory_listing(&directory).holds(name) {
+                    return false;
+                }
+                directory.push(name);
+            }
+            // A relative path holds neither, and a path that does is not one
+            // this rule resolved against the anchor.
+            Component::RootDir | Component::Prefix(_) => return true,
+        }
+    }
+    true
+}
+
+/// Whether `path` exists with exactly the spelling it is written in.
+///
+/// A case-insensitive volume answers `exists` for a spelling it does not store,
+/// so macOS and Windows accept a link that 404s on every web server and breaks
+/// the moment the project is checked out on Linux. The filesystem's own answer
+/// is the cheap negative: a path that is not there is not there whatever its
+/// case. A path that is there is confirmed against the directory listings below
+/// `anchor`, which compare the stored name, as a server does.
+fn exists_exact_case(anchor: &Path, path: &Path) -> bool {
+    file_exists_with_cache(path) && has_exact_case_components(anchor, path)
+}
+
 /// Check if a file exists, also trying markdown extensions for extensionless links.
 /// This supports wiki-style links like `[Link](page)` that resolve to `page.md`.
-fn file_exists_or_markdown_extension(path: &Path) -> bool {
-    resolve_existing_target(path).is_some()
+fn file_exists_or_markdown_extension(anchor: &Path, path: &Path) -> bool {
+    resolve_existing_target(anchor, path).is_some()
 }
 
 /// The file a link path resolves to, or `None` when nothing is there.
@@ -57,9 +278,9 @@ fn file_exists_or_markdown_extension(path: &Path) -> bool {
 /// `[Link](page)` resolves to `page.md`. Callers that only need existence go
 /// through `file_exists_or_markdown_extension`; the resolved path itself
 /// matters when the answer has to be compared against another file.
-fn resolve_existing_target(path: &Path) -> Option<PathBuf> {
+fn resolve_existing_target(anchor: &Path, path: &Path) -> Option<PathBuf> {
     // First, check exact path
-    if file_exists_with_cache(path) {
+    if exists_exact_case(anchor, path) {
         return Some(path.to_path_buf());
     }
 
@@ -68,7 +289,7 @@ fn resolve_existing_target(path: &Path) -> Option<PathBuf> {
         for ext in MARKDOWN_EXTENSIONS {
             // MARKDOWN_EXTENSIONS includes the dot, e.g., ".md"
             let path_with_ext = path.with_extension(&ext[1..]);
-            if file_exists_with_cache(&path_with_ext) {
+            if exists_exact_case(anchor, &path_with_ext) {
                 return Some(path_with_ext);
             }
         }
@@ -76,9 +297,6 @@ fn resolve_existing_target(path: &Path) -> Option<PathBuf> {
 
     None
 }
-
-// Regex to match the start of a link - simplified for performance
-static LINK_START_REGEX: LazyLock<Regex> = LazyLock::new(|| Regex::new(r"!?\[[^\]]*\]").unwrap());
 
 /// Regex to detect URLs with explicit schemes (should not be checked as relative links)
 /// Matches: scheme:// or scheme: (per RFC 3986)
@@ -373,69 +591,19 @@ impl MD057ExistingRelativeLinks {
     /// The index keeps frontmatter inputs regardless of the current rule config
     /// because a content-matched entry can be reused by another config group.
     fn contribute_dependency_targets(&self, ctx: &crate::lint_context::LintContext, index: &mut FileIndex) {
-        if !ctx.links().is_empty() {
-            let lines = ctx.raw_lines();
-            let mut processed_lines = HashSet::new();
-
-            for link in ctx.links() {
-                let line_index = link.line - 1;
-                if line_index >= lines.len()
-                    || ctx
-                        .line_info(link.line)
-                        .is_some_and(|info| info.in_front_matter || info.in_pymdown_block)
-                    || !processed_lines.insert(line_index)
-                {
-                    continue;
-                }
-                let line = lines[line_index];
-                if !line.contains("](") {
-                    continue;
-                }
-
-                let line_start_byte = ctx.line_start_byte(link.line).unwrap_or(0);
-                for link_match in LINK_START_REGEX.find_iter(line) {
-                    if link_match.as_str().starts_with('!') {
-                        let escapes = line[..link_match.start()]
-                            .bytes()
-                            .rev()
-                            .take_while(|&byte| byte == b'\\')
-                            .count();
-                        if escapes % 2 == 0 {
-                            continue;
-                        }
-                    }
-
-                    let absolute_start = line_start_byte + link_match.start();
-                    if ctx.is_in_code_span_byte(absolute_start)
-                        || ctx.is_in_math_span(absolute_start)
-                        || ctx.is_in_shortcode(absolute_start)
-                    {
-                        continue;
-                    }
-                    let expected_start = link_match.end() - 1;
-                    let caps_and_url = extract_url_at(&URL_EXTRACT_ANGLE_BRACKET_REGEX, line, expected_start)
-                        .and_then(|caps| caps.get(1).map(|url| (caps, url)))
-                        .or_else(|| {
-                            extract_url_at(&URL_EXTRACT_REGEX, line, expected_start)
-                                .and_then(|caps| caps.get(1).map(|url| (caps, url)))
-                        });
-                    let Some((_, url_match)) = caps_and_url else {
-                        continue;
-                    };
-                    let url = url_match.as_str().trim();
-                    if url.is_empty()
-                        || (url.starts_with('`') && url.ends_with('`'))
-                        || self.is_non_file_destination(url, ctx.flavor)
-                        || self.is_fragment_only_link(url)
-                    {
-                        continue;
-                    }
-                    index.add_md057_link_target(Md057LinkTarget {
-                        target: url.to_string(),
-                        origin: LinkOrigin::Body,
-                    });
-                }
+        for destination in body_link_destinations(ctx) {
+            let url = destination.url;
+            if url.is_empty()
+                || (url.starts_with('`') && url.ends_with('`'))
+                || self.is_non_file_destination(url, ctx.flavor)
+                || self.is_fragment_only_link(url)
+            {
+                continue;
             }
+            index.add_md057_link_target(Md057LinkTarget {
+                target: url.to_string(),
+                origin: LinkOrigin::Body,
+            });
         }
 
         for image in ctx.images() {
@@ -492,22 +660,30 @@ impl MD057ExistingRelativeLinks {
     ) -> bool {
         search_paths.iter().any(|dir| {
             let candidate = dir.join(decoded_path);
-            Self::target_exists(&candidate, policy)
+            Self::target_exists(dir, &candidate, policy)
         })
     }
 
-    fn target_exists(path: &Path, policy: Option<&crate::lint_context::LinkTargetPolicy>) -> bool {
-        Self::resolve_target(path, policy).is_some()
+    fn target_exists(anchor: &Path, path: &Path, policy: Option<&crate::lint_context::LinkTargetPolicy>) -> bool {
+        Self::resolve_target(anchor, path, policy).is_some()
     }
 
-    fn resolve_target(path: &Path, policy: Option<&crate::lint_context::LinkTargetPolicy>) -> Option<PathBuf> {
+    /// The file a link target names, resolved against the directory the link is
+    /// written relative to. That directory is the anchor for the spelling
+    /// check: the components below it are the link author's, the ones above it
+    /// belong to wherever the project happens to sit.
+    fn resolve_target(
+        anchor: &Path,
+        path: &Path,
+        policy: Option<&crate::lint_context::LinkTargetPolicy>,
+    ) -> Option<PathBuf> {
         if let Some(supplied) = policy.and_then(|policy| policy.resolve_supplied(path)) {
             return Some(supplied);
         }
         if policy.is_some_and(|policy| !policy.allow_disk_fallback()) {
             return None;
         }
-        resolve_existing_target(path)
+        resolve_existing_target(anchor, path)
     }
 
     fn missing_relative_message(url: &str, policy: Option<&crate::lint_context::LinkTargetPolicy>) -> String {
@@ -578,7 +754,9 @@ impl MD057ExistingRelativeLinks {
         // answers for a link that resolves nowhere else.
         let resolved = std::iter::once(base_path)
             .chain(search_paths.iter().map(PathBuf::as_path))
-            .find_map(|dir| Self::resolve_target(&Self::resolve_link_path_with_base(&decoded_path, dir), policy))?;
+            .find_map(|dir| {
+                Self::resolve_target(dir, &Self::resolve_link_path_with_base(&decoded_path, dir), policy)
+            })?;
         if !Self::is_same_file(&resolved, source_file) {
             return None;
         }
@@ -737,7 +915,7 @@ impl MD057ExistingRelativeLinks {
         let resolved_path = Self::resolve_link_path_with_base(&decoded_path, base_path);
 
         // An extensionless link is also tried with each markdown extension.
-        if Self::target_exists(&resolved_path, policy) {
+        if Self::target_exists(base_path, &resolved_path, policy) {
             return true;
         }
 
@@ -749,7 +927,7 @@ impl MD057ExistingRelativeLinks {
             )
             && MARKDOWN_EXTENSIONS
                 .iter()
-                .any(|md_ext| Self::target_exists(&parent.join(format!("{stem}{md_ext}")), policy))
+                .any(|md_ext| Self::target_exists(base_path, &parent.join(format!("{stem}{md_ext}")), policy))
         {
             return true;
         }
@@ -879,32 +1057,36 @@ impl MD057ExistingRelativeLinks {
     ///
     /// - `false` (roots / filesystem mode): a link names a path on disk, so an
     ///   existing directory is a valid target. That is what relative links already
-    ///   do (they only ask `path.exists()`), and the spelling of the link does not
-    ///   change it: `/adir`, `/adir/` and `/adir/#section` all name the same
-    ///   directory, and no router is going to turn one of them into `index.md`.
-    ///   (#632, #863)
+    ///   do (they ask only whether the target is there), and the punctuation of
+    ///   the link does not change it: `/adir`, `/adir/` and `/adir/#section` all
+    ///   name the same directory, and no router is going to turn one of them into
+    ///   `index.md`.
+    ///
+    /// Every path is resolved under `root_path`, which is therefore the anchor
+    /// for the spelling check: a target is found only under the case the link
+    /// writes it in.
     ///
     /// Applies resolution strategies in order:
     /// 1. A directory hit, answered by the mode as described above. Must be checked
-    ///    before `file_exists_or_markdown_extension`, because `path.exists()`
-    ///    returns `true` for directories.
+    ///    before `file_exists_or_markdown_extension`, because a directory is one of
+    ///    the things a target can be.
     /// 2. Direct existence (with markdown-extension fallback for extensionless links).
     /// 3. `.html`/`.htm` links: look for a markdown source with the same stem.
     fn resolve_under_root_with_opts(root_path: &Path, decoded: &str, require_index_for_dirs: bool) -> Resolution {
         let resolved = root_path.join(decoded);
 
-        if resolved.is_dir() {
+        if resolved.is_dir() && exists_exact_case(root_path, &resolved) {
             if !require_index_for_dirs {
                 return Resolution::Found;
             }
-            return if file_exists_with_cache(&resolved.join("index.md")) {
+            return if exists_exact_case(root_path, &resolved.join("index.md")) {
                 Resolution::Found
             } else {
                 Resolution::DirectoryWithoutIndex { resolved }
             };
         }
 
-        if file_exists_or_markdown_extension(&resolved) {
+        if file_exists_or_markdown_extension(root_path, &resolved) {
             return Resolution::Found;
         }
 
@@ -916,7 +1098,7 @@ impl MD057ExistingRelativeLinks {
         {
             let has_md_source = MARKDOWN_EXTENSIONS.iter().any(|md_ext| {
                 let source_path = parent.join(format!("{stem}{md_ext}"));
-                file_exists_with_cache(&source_path)
+                exists_exact_case(root_path, &source_path)
             });
             if has_md_source {
                 return Resolution::Found;
@@ -1049,13 +1231,21 @@ impl MD057ExistingRelativeLinks {
         Self::hash_bytes(hasher, path.to_string_lossy().as_bytes());
     }
 
-    fn observe_path(hasher: &mut blake3::Hasher, path: &Path) -> DependencyPathState {
+    /// Record one path and what is there, judged the way the check judges it: a
+    /// target the filesystem answers for under a spelling it does not store
+    /// counts as missing, so renaming a file to the case its links use changes
+    /// the fingerprint and the cached verdict is thrown away.
+    fn observe_path(hasher: &mut blake3::Hasher, anchor: &Path, path: &Path) -> DependencyPathState {
         Self::hash_path(hasher, path);
-        let state = match std::fs::metadata(path) {
-            Ok(metadata) if metadata.is_file() => DependencyPathState::File,
-            Ok(metadata) if metadata.is_dir() => DependencyPathState::Directory,
-            Ok(_) => DependencyPathState::Other,
-            Err(_) => DependencyPathState::Missing,
+        let state = if exists_exact_case(anchor, path) {
+            match std::fs::metadata(path) {
+                Ok(metadata) if metadata.is_file() => DependencyPathState::File,
+                Ok(metadata) if metadata.is_dir() => DependencyPathState::Directory,
+                Ok(_) => DependencyPathState::Other,
+                Err(_) => DependencyPathState::Missing,
+            }
+        } else {
+            DependencyPathState::Missing
         };
         hasher.update(&[match state {
             DependencyPathState::Missing => 0,
@@ -1066,14 +1256,14 @@ impl MD057ExistingRelativeLinks {
         state
     }
 
-    fn observe_existing_target(hasher: &mut blake3::Hasher, path: &Path) -> Option<PathBuf> {
-        if Self::observe_path(hasher, path) != DependencyPathState::Missing {
+    fn observe_existing_target(hasher: &mut blake3::Hasher, anchor: &Path, path: &Path) -> Option<PathBuf> {
+        if Self::observe_path(hasher, anchor, path) != DependencyPathState::Missing {
             return Some(path.to_path_buf());
         }
         if path.extension().is_none() {
             for extension in MARKDOWN_EXTENSIONS {
                 let candidate = path.with_extension(&extension[1..]);
-                if Self::observe_path(hasher, &candidate) != DependencyPathState::Missing {
+                if Self::observe_path(hasher, anchor, &candidate) != DependencyPathState::Missing {
                     return Some(candidate);
                 }
             }
@@ -1091,7 +1281,7 @@ impl MD057ExistingRelativeLinks {
         let decoded = Self::url_decode(Self::strip_query_and_fragment(url));
         for directory in std::iter::once(base_path).chain(search_paths.iter().map(PathBuf::as_path)) {
             let candidate = Self::resolve_link_path_with_base(&decoded, directory);
-            if let Some(resolved) = Self::observe_existing_target(hasher, &candidate) {
+            if let Some(resolved) = Self::observe_existing_target(hasher, directory, &candidate) {
                 let canonical = resolved.canonicalize().unwrap_or(resolved);
                 hasher.update(b"resolved-identity");
                 Self::hash_path(hasher, &canonical);
@@ -1104,7 +1294,7 @@ impl MD057ExistingRelativeLinks {
     fn observe_relative_resolution(hasher: &mut blake3::Hasher, url: &str, base_path: &Path, search_paths: &[PathBuf]) {
         let decoded = Self::url_decode(Self::strip_query_and_fragment(url));
         let resolved = Self::resolve_link_path_with_base(&decoded, base_path);
-        if Self::observe_existing_target(hasher, &resolved).is_some() {
+        if Self::observe_existing_target(hasher, base_path, &resolved).is_some() {
             return;
         }
 
@@ -1112,14 +1302,15 @@ impl MD057ExistingRelativeLinks {
             && (extension.eq_ignore_ascii_case("html") || extension.eq_ignore_ascii_case("htm"))
             && let (Some(stem), Some(parent)) = (resolved.file_stem().and_then(|stem| stem.to_str()), resolved.parent())
             && MARKDOWN_EXTENSIONS.iter().any(|extension| {
-                Self::observe_path(hasher, &parent.join(format!("{stem}{extension}"))) != DependencyPathState::Missing
+                Self::observe_path(hasher, base_path, &parent.join(format!("{stem}{extension}")))
+                    != DependencyPathState::Missing
             })
         {
             return;
         }
 
         for search_path in search_paths {
-            if Self::observe_existing_target(hasher, &search_path.join(&decoded)).is_some() {
+            if Self::observe_existing_target(hasher, search_path, &search_path.join(&decoded)).is_some() {
                 return;
             }
         }
@@ -1145,13 +1336,13 @@ impl MD057ExistingRelativeLinks {
         require_index_for_dirs: bool,
     ) -> bool {
         let resolved = root.join(decoded);
-        let resolved_state = Self::observe_path(hasher, &resolved);
+        let resolved_state = Self::observe_path(hasher, root, &resolved);
 
         if resolved_state == DependencyPathState::Directory {
             if !require_index_for_dirs {
                 return true;
             }
-            return Self::observe_path(hasher, &resolved.join("index.md")) != DependencyPathState::Missing;
+            return Self::observe_path(hasher, root, &resolved.join("index.md")) != DependencyPathState::Missing;
         }
 
         if resolved_state != DependencyPathState::Missing {
@@ -1159,7 +1350,8 @@ impl MD057ExistingRelativeLinks {
         }
         if resolved.extension().is_none()
             && MARKDOWN_EXTENSIONS.iter().any(|extension| {
-                Self::observe_path(hasher, &resolved.with_extension(&extension[1..])) != DependencyPathState::Missing
+                Self::observe_path(hasher, root, &resolved.with_extension(&extension[1..]))
+                    != DependencyPathState::Missing
             })
         {
             return true;
@@ -1170,7 +1362,8 @@ impl MD057ExistingRelativeLinks {
             && let (Some(stem), Some(parent)) = (resolved.file_stem().and_then(|stem| stem.to_str()), resolved.parent())
         {
             return MARKDOWN_EXTENSIONS.iter().any(|extension| {
-                Self::observe_path(hasher, &parent.join(format!("{stem}{extension}"))) != DependencyPathState::Missing
+                Self::observe_path(hasher, root, &parent.join(format!("{stem}{extension}")))
+                    != DependencyPathState::Missing
             });
         }
 
@@ -1203,6 +1396,169 @@ fn extract_url_at<'a>(re: &Regex, line: &'a str, expected_start: usize) -> Optio
         return None;
     }
     Some(caps)
+}
+
+/// The destination of one inline link, located in the document.
+struct BodyLinkDestination<'a> {
+    /// The destination without its fragment. This is the path the existence
+    /// check resolves and the text a warning names.
+    url: &'a str,
+    /// The fragment that follows the destination, `#` included, or empty when
+    /// the link carries none.
+    fragment: &'a str,
+    /// Byte range of `url` in the document, used for the warning position.
+    url_range: std::ops::Range<usize>,
+    /// Byte range covering the destination together with its fragment. A
+    /// rewrite spans this range so the fragment survives the edit.
+    fix_range: std::ops::Range<usize>,
+}
+
+impl<'a> BodyLinkDestination<'a> {
+    /// The destination as the document spells it, fragment included. A
+    /// destination carrying no fragment is borrowed rather than rebuilt.
+    fn full_url(&self) -> Cow<'a, str> {
+        if self.fragment.is_empty() {
+            Cow::Borrowed(self.url)
+        } else {
+            Cow::Owned(format!("{}{}", self.url, self.fragment))
+        }
+    }
+}
+
+/// Every inline link destination in the document body, in document order.
+///
+/// The check pass and the cross-file index pass both read destinations through
+/// this one iterator, so they always see the same set of links. Each
+/// destination is located inside the link's own source span, which is what
+/// lets a link whose text wraps onto another line be read at all.
+///
+/// Only `LinkType::Inline` qualifies, because that is the one shape whose
+/// destination is a path written in the link itself. The gate excludes a
+/// reference link, whose destination is written in the definition that both
+/// passes read separately; a wiki link, whose target names a vault entry
+/// rather than a path relative to this file; and an autolink or an email
+/// address, which are spelled between angle brackets and carry no destination
+/// to extract at all. Destinations in frontmatter, PyMdown blocks, code spans,
+/// math spans and template shortcodes are skipped as well, as is a link
+/// written inside an image's description, which renders as alt text rather
+/// than as a hyperlink.
+fn body_link_destinations<'ctx>(
+    ctx: &'ctx crate::lint_context::LintContext<'_>,
+) -> impl Iterator<Item = BodyLinkDestination<'ctx>> + 'ctx {
+    // Links and images both leave the parser sorted by start offset, so one
+    // sweep over the links finds the images around each of them. Images
+    // either nest or are disjoint, never partially overlap, so the images
+    // open at any offset form a chain with each inside the one below it. A
+    // stack of them, popped once the sweep passes an image's end, holds
+    // exactly the images around the current offset, and every image is pushed
+    // and popped once, so the sweep is linear in images plus links.
+    let mut pending_images = ctx.images().iter().peekable();
+    let mut open_images: Vec<&crate::lint_context::ParsedImage<'_>> = Vec::new();
+    let mut previous_link_offset = 0usize;
+    ctx.links().iter().filter_map(move |link| {
+        debug_assert!(
+            link.byte_offset >= previous_link_offset,
+            "the links arrive sorted by start offset, which is what lets one forward pass over the images find the ones around each link"
+        );
+        previous_link_offset = link.byte_offset;
+        if !matches!(link.link_type, LinkType::Inline) {
+            return None;
+        }
+        if ctx
+            .line_info(link.line)
+            .is_some_and(|info| info.in_front_matter || info.in_pymdown_block)
+        {
+            return None;
+        }
+        if ctx.is_in_code_span_byte(link.byte_offset)
+            || ctx.is_in_math_span(link.byte_offset)
+            || ctx.is_in_shortcode(link.byte_offset)
+        {
+            return None;
+        }
+        // Link syntax inside an image's description renders as the text of an
+        // `alt` attribute and never as a hyperlink, so its destination names
+        // nothing. The whole link has to lie inside the image: an image used
+        // as a link's text starts after the link does, which leaves the link's
+        // own destination readable.
+        while let Some(image) = pending_images.next_if(|image| image.byte_offset <= link.byte_offset) {
+            close_images_ending_by(&mut open_images, image.byte_offset);
+            open_images.push(image);
+        }
+        close_images_ending_by(&mut open_images, link.byte_offset);
+        if open_images
+            .iter()
+            .any(|image| link.byte_end <= image.byte_end && renders_as_image(ctx, image))
+        {
+            return None;
+        }
+        locate_destination(ctx.content, link)
+    })
+}
+
+/// Pops every open image the sweep has passed the end of. The stack is a
+/// chain of nested images, so the ends shrink from bottom to top and the
+/// first image still open past `offset` stops the popping.
+fn close_images_ending_by(open_images: &mut Vec<&crate::lint_context::ParsedImage<'_>>, offset: usize) {
+    while open_images.last().is_some_and(|image| image.byte_end <= offset) {
+        open_images.pop();
+    }
+}
+
+/// Whether an image record is something the renderer turns into an image.
+///
+/// A reference image is only an image once its definition is found. Without
+/// one, the renderer leaves every bracket as text and whatever is written
+/// between them keeps its own meaning, so a link in there is a real link. An
+/// inline image is always an image, an empty destination included, because the
+/// parentheses are what make it one.
+fn renders_as_image(ctx: &crate::lint_context::LintContext<'_>, image: &crate::lint_context::ParsedImage<'_>) -> bool {
+    if !image.is_reference {
+        return true;
+    }
+    image
+        .reference_id
+        .as_ref()
+        .is_some_and(|id| ctx.reference_definition(id).is_some())
+}
+
+/// The destination written inside one link's source span.
+///
+/// The search is anchored at the `]` that closes the link text, so a link text
+/// carrying a newline is read exactly like one written on a single line. That
+/// bracket comes from the parse: the parsed text is the source between the
+/// brackets, so the closing one sits just past it. Taking it from the parse
+/// rather than walking the bytes again is what keeps a label holding a code
+/// span, an escaped bracket or inline HTML with a bracket in an attribute
+/// value from being read as ending somewhere else. A shape whose text is not
+/// the source between brackets, an autolink above all, lands on something
+/// other than `](` and carries no destination. The angle-bracketed spelling is
+/// tried first, because a path holding parentheses is only read whole in that
+/// form.
+fn locate_destination<'a>(
+    content: &'a str,
+    link: &crate::lint_context::ParsedLink<'_>,
+) -> Option<BodyLinkDestination<'a>> {
+    let span = content.get(link.byte_offset..link.byte_end)?;
+    let anchor = 1 + link.text.len();
+    if !span.get(anchor..).is_some_and(|rest| rest.starts_with("](")) {
+        return None;
+    }
+    let caps = extract_url_at(&URL_EXTRACT_ANGLE_BRACKET_REGEX, span, anchor)
+        .or_else(|| extract_url_at(&URL_EXTRACT_REGEX, span, anchor))?;
+    let url_group = caps.get(1)?;
+    let fragment = caps.get(2);
+
+    let span_start = link.byte_offset;
+    let url_range = span_start + url_group.start()..span_start + url_group.end();
+    let fix_end = fragment.map_or(url_range.end, |group| span_start + group.end());
+
+    Some(BodyLinkDestination {
+        url: url_group.as_str().trim(),
+        fragment: fragment.map_or("", |group| group.as_str()),
+        fix_range: url_range.start..fix_end,
+        url_range,
+    })
 }
 
 impl Rule for MD057ExistingRelativeLinks {
@@ -1243,7 +1599,7 @@ impl Rule for MD057ExistingRelativeLinks {
             return Ok(Vec::new());
         }
 
-        // Reset the file existence cache for a fresh run
+        // Reset the filesystem caches for a fresh run
         reset_file_existence_cache();
 
         let mut warnings = Vec::new();
@@ -1292,221 +1648,112 @@ impl Rule for MD057ExistingRelativeLinks {
         // Compute additional search paths for fallback link resolution
         let extra_search_paths = self.compute_search_paths(ctx.flavor, ctx.source_file(), &base_path, &project_root);
 
-        // Use LintContext links instead of expensive regex parsing
-        if !ctx.links().is_empty() {
-            // Document source locations preserve offsets across all line ending types.
+        // Destinations come from the parse, so a link whose text wraps onto
+        // another line is read the same as one written on a single line. Every
+        // report on a link points at its destination, which sits on the line
+        // the link ends on rather than the line it starts on.
+        for destination in body_link_destinations(ctx) {
+            let url = destination.url;
 
-            // Pre-collected lines from context
-            let lines = ctx.raw_lines();
-
-            // Track which lines we've already processed to avoid duplicates
-            // (ctx.links() may have multiple entries for the same line, especially with malformed markdown)
-            let mut processed_lines = std::collections::HashSet::new();
-
-            for link in ctx.links() {
-                let line_idx = link.line - 1;
-                if line_idx >= lines.len() {
-                    continue;
-                }
-
-                // Skip lines inside PyMdown blocks
-                if ctx
-                    .line_info(link.line)
-                    .is_some_and(|info| info.in_front_matter || info.in_pymdown_block)
-                {
-                    continue;
-                }
-
-                // Skip if we've already processed this line
-                if !processed_lines.insert(line_idx) {
-                    continue;
-                }
-
-                let line = lines[line_idx];
-
-                // Quick check for link pattern in this line
-                if !line.contains("](") {
-                    continue;
-                }
-
-                // Find all links in this line using optimized regex
-                for link_match in LINK_START_REGEX.find_iter(line) {
-                    // Skip image syntax (`![...]`) here, images are already fully
-                    // validated by the dedicated ctx.images() loop below, and processing
-                    // them again here would duplicate that warning. A bang preceded by
-                    // an odd number of backslashes is escaped, literal text per
-                    // CommonMark, making the bracket a normal link that the image loop
-                    // never sees, so it must stay in this loop.
-                    if link_match.as_str().starts_with('!') {
-                        let escapes = line[..link_match.start()]
-                            .bytes()
-                            .rev()
-                            .take_while(|&b| b == b'\\')
-                            .count();
-                        if escapes % 2 == 0 {
-                            continue;
-                        }
-                    }
-
-                    let start_pos = link_match.start();
-                    let end_pos = link_match.end();
-
-                    // Calculate the absolute position through the document context.
-                    let line_start_byte = ctx.line_start_byte(line_idx + 1).unwrap_or(0);
-                    let absolute_start_pos = line_start_byte + start_pos;
-
-                    // Skip if this link is in a code span
-                    if ctx.is_in_code_span_byte(absolute_start_pos) {
-                        continue;
-                    }
-
-                    // Skip if this link is in a math span (LaTeX $...$ or $$...$$)
-                    if ctx.is_in_math_span(absolute_start_pos) {
-                        continue;
-                    }
-
-                    // Skip if this link is inside a template shortcode tag. The
-                    // tag is an argument list read by a template, so a path in it
-                    // is resolved by the site generator's own rules rather than
-                    // relative to this file.
-                    if ctx.is_in_shortcode(absolute_start_pos) {
-                        continue;
-                    }
-
-                    // Find the URL part after the link text
-                    // Try angle-bracket regex first (handles URLs with parens like `<path/(with)/parens.md>`)
-                    // Then fall back to normal URL regex. Both searches are anchored to
-                    // this bracket's own position so a destination that cannot match
-                    // here (fragment-only, empty) yields no URL instead of borrowing
-                    // the next bracket's destination.
-                    let caps_and_url = extract_url_at(&URL_EXTRACT_ANGLE_BRACKET_REGEX, line, end_pos - 1)
-                        .and_then(|caps| caps.get(1).map(|g| (caps, g)))
-                        .or_else(|| {
-                            extract_url_at(&URL_EXTRACT_REGEX, line, end_pos - 1)
-                                .and_then(|caps| caps.get(1).map(|g| (caps, g)))
-                        });
-
-                    if let Some((caps, url_group)) = caps_and_url {
-                        let url = url_group.as_str().trim();
-
-                        // Skip empty URLs
-                        if url.is_empty() {
-                            continue;
-                        }
-
-                        // Skip rustdoc intra-doc links (backtick-wrapped URLs)
-                        // These are Rust API references, not file paths
-                        // Example: [`f32::is_subnormal`], [`Vec::push`]
-                        if url.starts_with('`') && url.ends_with('`') {
-                            continue;
-                        }
-
-                        // Skip external URLs and fragment-only links
-                        if self.is_non_file_destination(url, ctx.flavor) || self.is_fragment_only_link(url) {
-                            continue;
-                        }
-
-                        // Handle absolute paths based on config
-                        if Self::is_absolute_path(url) {
-                            if let Some(message) = self.absolute_link_message(url, &base_path, &project_root) {
-                                warnings.push(LintWarning {
-                                    rule_name: Some(self.name().to_string()),
-                                    line: link.line,
-                                    column: byte_to_char_count(line, url_group.start()),
-                                    end_line: link.line,
-                                    end_column: byte_to_char_count(line, url_group.end()),
-                                    message,
-                                    severity: Severity::Warning,
-                                    fix: None,
-                                });
-                            }
-                            continue;
-                        }
-
-                        // Check for unnecessary path traversal (compact-paths)
-                        // Reconstruct full URL including fragment (regex group 2)
-                        // since url_group (group 1) contains only the path part
-                        let full_url_for_compact = if let Some(frag) = caps.get(2) {
-                            format!("{url}{}", frag.as_str())
-                        } else {
-                            url.to_string()
-                        };
-                        // A link back into the current file. Reported instead of
-                        // the compaction below, whose shorter path would still
-                        // be a link the reader should not follow, and instead
-                        // of the existence check, which this target passes.
-                        if let Some(self_link) = self.self_referential_link(
-                            &full_url_for_compact,
-                            &base_path,
-                            &extra_search_paths,
-                            self_path.as_deref(),
-                            ctx.link_target_policy(),
-                        ) {
-                            let url_start = url_group.start();
-                            let url_end = caps.get(2).map_or(url_group.end(), |frag| frag.end());
-                            let fix_byte_start = line_start_byte + url_start;
-                            let fix_byte_end = line_start_byte + url_end;
-                            warnings.push(LintWarning {
-                                rule_name: Some(self.name().to_string()),
-                                line: link.line,
-                                column: byte_to_char_count(line, url_start),
-                                end_line: link.line,
-                                end_column: byte_to_char_count(line, url_end),
-                                message: Self::self_referential_message(&full_url_for_compact, &self_link),
-                                severity: Severity::Warning,
-                                fix: match &self_link {
-                                    SelfReferentialLink::Fragment(fragment) => {
-                                        Some(Fix::new(fix_byte_start..fix_byte_end, fragment.clone()))
-                                    }
-                                    SelfReferentialLink::WholeFile => None,
-                                },
-                            });
-                            continue;
-                        }
-
-                        if let Some(suggestion) = self.compact_path_suggestion(&full_url_for_compact, &base_path) {
-                            let url_start = url_group.start();
-                            let url_end = caps.get(2).map_or(url_group.end(), |frag| frag.end());
-                            let fix_byte_start = line_start_byte + url_start;
-                            let fix_byte_end = line_start_byte + url_end;
-                            warnings.push(LintWarning {
-                                rule_name: Some(self.name().to_string()),
-                                line: link.line,
-                                column: byte_to_char_count(line, url_start),
-                                end_line: link.line,
-                                end_column: byte_to_char_count(line, url_end),
-                                message: format!(
-                                    "Relative link '{full_url_for_compact}' can be simplified to '{suggestion}'"
-                                ),
-                                severity: Severity::Warning,
-                                fix: Some(Fix::new(fix_byte_start..fix_byte_end, suggestion)),
-                            });
-                        }
-
-                        if Self::relative_target_exists(url, &base_path, &extra_search_paths, ctx.link_target_policy())
-                        {
-                            continue;
-                        }
-
-                        // File doesn't exist and no source file found
-                        // Use actual URL position from regex capture group
-                        // Note: capture group positions are absolute within the line string
-                        let url_start = url_group.start();
-                        let url_end = url_group.end();
-
-                        warnings.push(LintWarning {
-                            rule_name: Some(self.name().to_string()),
-                            line: link.line,
-                            column: byte_to_char_count(line, url_start),
-                            end_line: link.line,
-                            end_column: byte_to_char_count(line, url_end),
-                            message: Self::missing_relative_message(url, ctx.link_target_policy()),
-                            severity: Severity::Error,
-                            fix: None,
-                        });
-                    }
-                }
+            // Skip empty URLs
+            if url.is_empty() {
+                continue;
             }
+
+            // Skip rustdoc intra-doc links (backtick-wrapped URLs)
+            // These are Rust API references, not file paths
+            // Example: [`f32::is_subnormal`], [`Vec::push`]
+            if url.starts_with('`') && url.ends_with('`') {
+                continue;
+            }
+
+            // Skip external URLs and fragment-only links
+            if self.is_non_file_destination(url, ctx.flavor) || self.is_fragment_only_link(url) {
+                continue;
+            }
+
+            // Handle absolute paths based on config
+            if Self::is_absolute_path(url) {
+                if let Some(message) = self.absolute_link_message(url, &base_path, &project_root) {
+                    let (line, column) = ctx.offset_to_line_col(destination.url_range.start);
+                    warnings.push(LintWarning {
+                        rule_name: Some(self.name().to_string()),
+                        line,
+                        column,
+                        end_line: line,
+                        end_column: ctx.offset_to_line_col(destination.url_range.end).1,
+                        message,
+                        severity: Severity::Warning,
+                        fix: None,
+                    });
+                }
+                continue;
+            }
+
+            // The compaction and the self-link check both read the destination
+            // together with its fragment, because both rewrite the whole of it.
+            let full_url = destination.full_url();
+
+            // A link back into the current file. Reported instead of
+            // the compaction below, whose shorter path would still
+            // be a link the reader should not follow, and instead
+            // of the existence check, which this target passes.
+            if let Some(self_link) = self.self_referential_link(
+                &full_url,
+                &base_path,
+                &extra_search_paths,
+                self_path.as_deref(),
+                ctx.link_target_policy(),
+            ) {
+                let (line, column) = ctx.offset_to_line_col(destination.url_range.start);
+                warnings.push(LintWarning {
+                    rule_name: Some(self.name().to_string()),
+                    line,
+                    column,
+                    end_line: line,
+                    end_column: ctx.offset_to_line_col(destination.fix_range.end).1,
+                    message: Self::self_referential_message(&full_url, &self_link),
+                    severity: Severity::Warning,
+                    fix: match &self_link {
+                        SelfReferentialLink::Fragment(fragment) => {
+                            Some(Fix::new(destination.fix_range.clone(), fragment.clone()))
+                        }
+                        SelfReferentialLink::WholeFile => None,
+                    },
+                });
+                continue;
+            }
+
+            if let Some(suggestion) = self.compact_path_suggestion(&full_url, &base_path) {
+                let (line, column) = ctx.offset_to_line_col(destination.url_range.start);
+                warnings.push(LintWarning {
+                    rule_name: Some(self.name().to_string()),
+                    line,
+                    column,
+                    end_line: line,
+                    end_column: ctx.offset_to_line_col(destination.fix_range.end).1,
+                    message: format!("Relative link '{full_url}' can be simplified to '{suggestion}'"),
+                    severity: Severity::Warning,
+                    fix: Some(Fix::new(destination.fix_range.clone(), suggestion)),
+                });
+            }
+
+            if Self::relative_target_exists(url, &base_path, &extra_search_paths, ctx.link_target_policy()) {
+                continue;
+            }
+
+            // File doesn't exist and no source file found
+            let (line, column) = ctx.offset_to_line_col(destination.url_range.start);
+            warnings.push(LintWarning {
+                rule_name: Some(self.name().to_string()),
+                line,
+                column,
+                end_line: line,
+                end_column: ctx.offset_to_line_col(destination.url_range.end).1,
+                message: Self::missing_relative_message(url, ctx.link_target_policy()),
+                severity: Severity::Error,
+                fix: None,
+            });
         }
 
         // Also process images - they have URLs already parsed
@@ -4510,7 +4757,7 @@ mod self_referential_links_tests {
     use tempfile::tempdir;
 
     /// A document written to `dir/<name>`, checked as itself.
-    fn check_as_file(dir: &Path, name: &str, content: &str, config: MD057Config) -> Vec<LintWarning> {
+    pub(super) fn check_as_file(dir: &Path, name: &str, content: &str, config: MD057Config) -> Vec<LintWarning> {
         let source_file = dir.join(name);
         std::fs::write(&source_file, content).unwrap();
         let rule = MD057ExistingRelativeLinks::from_config_struct(config);
@@ -4919,5 +5166,959 @@ mod self_referential_links_tests {
             result.is_empty(),
             "Only path-shaped values are destinations. Got: {result:?}"
         );
+    }
+}
+
+/// An inline link whose text carries a newline is checked like any other.
+///
+/// The destination of such a link sits on the line the link ends on, so every
+/// report on it names that line and the column the destination starts at.
+#[cfg(test)]
+mod wrapped_link_text_tests {
+    use super::self_referential_links_tests::check_as_file;
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_a_wrapped_link_in_a_list_item_is_reported() {
+        let temp_dir = tempdir().unwrap();
+        let content = "- Items reimbursable by the various [one-off\n  expense](does-not-exist-anywhere)\n  budgets.\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(
+            result[0].message,
+            "Relative link 'does-not-exist-anywhere' does not exist"
+        );
+        assert_eq!(result[0].line, 2, "The destination sits on the second line");
+        assert_eq!(result[0].end_line, 2);
+        // Line 2 is `  expense](does-not-exist-anywhere)`, so the destination
+        // starts at the twelfth character and runs 23 characters.
+        assert_eq!(result[0].column, 12);
+        assert_eq!(result[0].end_column, 35);
+    }
+
+    #[test]
+    fn test_a_wrapped_link_in_a_paragraph_is_reported() {
+        let temp_dir = tempdir().unwrap();
+        let content = "Paragraph with [wrapped\ntext](also-missing) here.\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(result[0].message, "Relative link 'also-missing' does not exist");
+        assert_eq!(result[0].line, 2, "The destination sits on the second line");
+        // Line 2 is `text](also-missing) here.`, so the destination starts at
+        // the seventh character and runs 12 characters.
+        assert_eq!(result[0].column, 7);
+        assert_eq!(result[0].end_column, 19);
+    }
+
+    #[test]
+    fn test_a_wrapped_link_carrying_a_title_is_reported() {
+        let temp_dir = tempdir().unwrap();
+        let content = "[wrapped\ntext](missing-titled.md \"t\")\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(result[0].message, "Relative link 'missing-titled.md' does not exist");
+        assert_eq!(result[0].line, 2);
+        // The title is not part of the destination, so the warning ends with
+        // the path at the twenty-fourth character.
+        assert_eq!(result[0].column, 7);
+        assert_eq!(result[0].end_column, 24);
+    }
+
+    #[test]
+    fn test_a_wrapped_link_to_an_existing_file_is_left_alone() {
+        let temp_dir = tempdir().unwrap();
+        std::fs::write(temp_dir.path().join("target.md"), "# Target\n").unwrap();
+        let content = "Paragraph with [wrapped\ntext](target.md) here.\n";
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert!(result.is_empty(), "The target exists. Got: {result:?}");
+    }
+
+    #[test]
+    fn test_a_wrapped_link_target_reaches_the_dependency_index() {
+        let rule = MD057ExistingRelativeLinks::new();
+        let content = "Paragraph with [wrapped\ntext](./docs/guide.md) here.\n";
+
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let mut index = FileIndex::new();
+        rule.contribute_to_index(&ctx, &mut index);
+
+        let targets: Vec<&str> = index
+            .md057_link_targets
+            .iter()
+            .map(|target| target.target.as_str())
+            .collect();
+        assert_eq!(
+            targets,
+            vec!["./docs/guide.md"],
+            "The index must record the target so a cached verdict is invalidated when the file appears"
+        );
+    }
+
+    #[test]
+    fn test_a_wrapped_link_is_compacted_over_the_right_bytes() {
+        let temp_dir = tempdir().unwrap();
+        let sub_dir = temp_dir.path().join("sub");
+        std::fs::create_dir_all(&sub_dir).unwrap();
+        std::fs::write(sub_dir.join("other.md"), "# Other\n").unwrap();
+
+        let content = "See [the long way\nround](../sub/other.md#part) here.\n";
+        let config = MD057Config {
+            compact_paths: true,
+            ..Default::default()
+        };
+        let result = check_as_file(&sub_dir, "test.md", content, config);
+
+        assert_eq!(result.len(), 1, "Expected the compaction warning. Got: {result:?}");
+        assert_eq!(
+            result[0].message,
+            "Relative link '../sub/other.md#part' can be simplified to 'other.md#part'"
+        );
+        assert_eq!(result[0].line, 2);
+        let fix = result[0].fix.as_ref().expect("a compaction is fixable");
+        assert_eq!(&content[fix.range.clone()], "../sub/other.md#part");
+        assert_eq!(fix.replacement, "other.md#part");
+    }
+
+    #[test]
+    fn test_a_wrapped_self_link_is_reduced_over_the_right_bytes() {
+        let temp_dir = tempdir().unwrap();
+        let content = "# Title\n\nSee [the section\nbelow](test.md#level-2-heading).\n\n## Level 2 heading\n";
+        let config = MD057Config {
+            self_referential_links: true,
+            ..Default::default()
+        };
+        let result = check_as_file(temp_dir.path(), "test.md", content, config);
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(
+            result[0].message,
+            "Relative link 'test.md#level-2-heading' points to the file it is in and can be simplified to '#level-2-heading'"
+        );
+        assert_eq!(result[0].line, 4);
+        let fix = result[0].fix.as_ref().expect("the fragment form is fixable");
+        assert_eq!(&content[fix.range.clone()], "test.md#level-2-heading");
+        assert_eq!(fix.replacement, "#level-2-heading");
+    }
+}
+
+/// The destination is read from inside the link's label, never from past it.
+///
+/// A label can spell `](` in a code span, and a destination title can spell it
+/// in plain text. Neither opens a destination, and a shape that carries no
+/// destination at all yields nothing to report and nothing to rewrite.
+#[cfg(test)]
+mod destination_boundary_tests {
+    use super::self_referential_links_tests::check_as_file;
+    use super::*;
+    use tempfile::tempdir;
+
+    fn compacting() -> MD057Config {
+        MD057Config {
+            compact_paths: true,
+            ..Default::default()
+        }
+    }
+
+    /// A label holding an unmatched backtick still ends where the parse closes
+    /// it. The destination is the one the label closes on, not the `](` the
+    /// title happens to contain.
+    #[test]
+    fn test_a_title_spelling_a_bracket_paren_is_not_the_destination() {
+        let temp_dir = tempdir().unwrap();
+        std::fs::write(temp_dir.path().join("existing.md"), "# Existing\n").unwrap();
+        let content = "[literal `](missing.md \"See ](./existing.md)\")\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(result[0].message, "Relative link 'missing.md' does not exist");
+        assert_eq!(result[0].line, 1);
+        // `missing.md` opens at the thirteenth character, just past `](`.
+        assert_eq!(result[0].column, 13);
+        assert_eq!(result[0].end_column, 23);
+        assert!(result[0].fix.is_none(), "A missing target carries no fix");
+    }
+
+    /// The same document with compaction on. The path inside the title looks
+    /// compactable, so a report naming it would rewrite the title.
+    #[test]
+    fn test_compaction_never_rewrites_a_title() {
+        let temp_dir = tempdir().unwrap();
+        std::fs::write(temp_dir.path().join("existing.md"), "# Existing\n").unwrap();
+        let content = "[literal `](missing.md \"See ](./existing.md)\")\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, compacting());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(result[0].message, "Relative link 'missing.md' does not exist");
+        assert_eq!(result[0].column, 13);
+        assert!(
+            result.iter().all(|warning| warning.fix.is_none()),
+            "Nothing in this document is rewritable. Got: {result:?}"
+        );
+    }
+
+    /// Brackets nest inside a label, so the first `]` is not the one that
+    /// closes it.
+    #[test]
+    fn test_a_nested_bracket_does_not_close_the_label() {
+        let temp_dir = tempdir().unwrap();
+        let content = "[see [note]](./missing.md)\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(result[0].message, "Relative link './missing.md' does not exist");
+        // `./missing.md` opens at the fourteenth character, past both brackets.
+        assert_eq!(result[0].column, 14);
+        assert_eq!(result[0].end_column, 26);
+    }
+
+    /// An autolink is a URL between angle brackets. Its text is the URL itself,
+    /// so a `](` written in it opens no destination and nothing in it is a path
+    /// this rule may rewrite.
+    #[test]
+    fn test_an_autolink_carries_no_destination() {
+        let temp_dir = tempdir().unwrap();
+        std::fs::write(temp_dir.path().join("existing.md"), "# Existing\n").unwrap();
+        let content = "<https://example.com/](./existing.md)> [ok](existing.md)\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, compacting());
+
+        assert!(result.is_empty(), "An autolink is not a relative link. Got: {result:?}");
+    }
+
+    /// Control for the autolink case: an email autolink is the same shape.
+    #[test]
+    fn test_an_email_autolink_carries_no_destination() {
+        let temp_dir = tempdir().unwrap();
+        let content = "<user@example.com>\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, compacting());
+
+        assert!(
+            result.is_empty(),
+            "An email autolink is not a relative link. Got: {result:?}"
+        );
+    }
+
+    /// A code span holds its own `](`, and the span runs past it to the second
+    /// run of backticks. The link closes on the bracket after that run, so the
+    /// path inside the code span is not a destination and nothing about it is
+    /// reportable or rewritable.
+    #[test]
+    fn test_a_code_span_spelling_a_bracket_paren_is_not_the_destination() {
+        let temp_dir = tempdir().unwrap();
+        std::fs::write(temp_dir.path().join("exists.md"), "# Exists\n").unwrap();
+        let content = "[``a\n](./exists.md)``](exists.md)\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, compacting());
+
+        assert!(
+            result.is_empty(),
+            "Both destinations exist, so nothing is reported. Got: {result:?}"
+        );
+        assert!(
+            result.iter().all(|warning| warning.fix.is_none()),
+            "Nothing here is rewritable, the code span least of all. Got: {result:?}"
+        );
+    }
+
+    /// Inline HTML in a label can spell `[` inside an attribute value. The
+    /// parse reads the attribute as text rather than as an opening bracket, so
+    /// the label closes where it is written to.
+    #[test]
+    fn test_a_bracket_in_an_html_attribute_does_not_open_a_label() {
+        let temp_dir = tempdir().unwrap();
+        let content = "[<i title=\"[\">text</i>](missing.md)\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(result[0].message, "Relative link 'missing.md' does not exist");
+        assert_eq!(result[0].line, 1);
+        // `missing.md` opens at the twenty fifth character, just past `](`.
+        assert_eq!(result[0].column, 25);
+        assert_eq!(result[0].end_column, 35);
+    }
+
+    /// Link syntax inside an image's description is not a link. The renderer
+    /// puts the description in an `alt` attribute, where a hyperlink cannot
+    /// exist, so its destination names no target this document reaches.
+    #[test]
+    fn test_a_link_inside_an_image_description_is_not_a_link() {
+        let temp_dir = tempdir().unwrap();
+        std::fs::write(temp_dir.path().join("exists.png"), "x").unwrap();
+        let content = "![an [example](missing.md)](exists.png)\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert!(
+            result.is_empty(),
+            "The description of an image carries no link. Got: {result:?}"
+        );
+    }
+
+    /// The control for the case above. A link cannot nest inside a link, so
+    /// the outer brackets here are literal text and the inner link is the only
+    /// one in the line. Nothing about it sits inside an image.
+    #[test]
+    fn test_a_link_inside_literal_brackets_is_still_a_link() {
+        let temp_dir = tempdir().unwrap();
+        std::fs::write(temp_dir.path().join("exists.png"), "x").unwrap();
+        let content = "[outer [inner](missing2.md)](exists.png)\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(result[0].message, "Relative link 'missing2.md' does not exist");
+        assert_eq!(result[0].line, 1);
+        // `missing2.md` opens at the sixteenth character, just past `](`.
+        assert_eq!(result[0].column, 16);
+    }
+
+    /// The second control. An image is still read by the image pass, which the
+    /// link pass does not touch.
+    #[test]
+    fn test_an_image_of_its_own_is_still_reported() {
+        let temp_dir = tempdir().unwrap();
+        let content = "![plain](missing.png)\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(result[0].message, "Relative link 'missing.png' does not exist");
+        assert_eq!(result[0].column, 1);
+    }
+
+    /// The third control. An image used as a link's text leaves the link
+    /// itself outside the image, so the link's own destination is still read.
+    #[test]
+    fn test_an_image_used_as_link_text_leaves_the_link_readable() {
+        let temp_dir = tempdir().unwrap();
+        std::fs::write(temp_dir.path().join("exists.png"), "x").unwrap();
+        let content = "[![alt](exists.png)](missing.md)\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(result[0].message, "Relative link 'missing.md' does not exist");
+        // `missing.md` opens at the twenty second character.
+        assert_eq!(result[0].column, 22);
+    }
+
+    /// The image used as link text is a collapsed reference. The label closes
+    /// on the bracket after the image's `[]`, and the link's own destination
+    /// is read from past that bracket.
+    #[test]
+    fn test_a_link_wrapping_a_collapsed_reference_image_is_still_read() {
+        let temp_dir = tempdir().unwrap();
+        std::fs::write(temp_dir.path().join("exists.png"), "x").unwrap();
+        let content = "[![alt][]](missing.md)\n\n[alt]: exists.png\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(result[0].message, "Relative link 'missing.md' does not exist");
+        assert_eq!(result[0].line, 1);
+        // `missing.md` opens at the twelfth character, just past `](`.
+        assert_eq!(result[0].column, 12);
+        assert_eq!(result[0].end_column, 22);
+    }
+
+    /// A reference image with no definition is not an image. The renderer
+    /// leaves its brackets as text, so a link written between them is a real
+    /// link and its destination is a real target. All three reference
+    /// spellings behave the same way.
+    #[test]
+    fn test_a_link_inside_an_undefined_reference_image_is_a_link() {
+        for content in [
+            "![alt [x](missing.md)][nodef]\n",
+            "![alt [x](missing.md)][]\n",
+            "![alt [x](missing.md)]\n",
+        ] {
+            let temp_dir = tempdir().unwrap();
+
+            let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+            assert_eq!(result.len(), 1, "Expected one warning for {content:?}. Got: {result:?}");
+            assert_eq!(result[0].message, "Relative link 'missing.md' does not exist");
+            // `missing.md` opens at the eleventh character, just past `](`.
+            assert_eq!(result[0].column, 11, "Wrong column for {content:?}");
+        }
+    }
+
+    /// An inline image with an empty destination is still an image, so what is
+    /// written between its brackets is still alt text.
+    #[test]
+    fn test_an_image_with_an_empty_destination_is_still_an_image() {
+        let temp_dir = tempdir().unwrap();
+        let content = "![alt [x](missing.md)]()\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert!(
+            result.is_empty(),
+            "An image with no destination is still an image. Got: {result:?}"
+        );
+    }
+
+    /// An image's description can hold another image before the link. The
+    /// inner image ends before the link starts, so the image that contains
+    /// the link is the outer one, and the link is alt text all the same.
+    #[test]
+    fn test_a_link_after_an_inner_image_is_still_inside_the_outer_image() {
+        let temp_dir = tempdir().unwrap();
+        std::fs::write(temp_dir.path().join("exists.png"), "x").unwrap();
+        let content = "![outer ![inner](exists.png) [link](missing.md)](exists.png)\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert!(
+            result.is_empty(),
+            "The link sits inside the outer image's description. Got: {result:?}"
+        );
+    }
+
+    /// The control for the case above. Without the outer image, the link
+    /// follows an image rather than sitting inside one.
+    #[test]
+    fn test_a_link_after_an_image_is_a_link() {
+        let temp_dir = tempdir().unwrap();
+        std::fs::write(temp_dir.path().join("exists.png"), "x").unwrap();
+        let content = "![inner](exists.png) [link](missing.md)\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(result[0].message, "Relative link 'missing.md' does not exist");
+        // `missing.md` opens at the twenty ninth character, just past `](`.
+        assert_eq!(result[0].column, 29);
+    }
+
+    /// A reference image whose definition exists is an image like any other.
+    #[test]
+    fn test_a_link_inside_a_defined_reference_image_is_not_a_link() {
+        let temp_dir = tempdir().unwrap();
+        std::fs::write(temp_dir.path().join("exists.png"), "x").unwrap();
+        let content = "![alt [x](missing.md)][def]\n\n[def]: exists.png\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert!(
+            result.is_empty(),
+            "The description of a resolved reference image carries no link. Got: {result:?}"
+        );
+    }
+
+    /// A destination may start on the line after the `](` that opens it. The
+    /// report names the line the destination is written on.
+    #[test]
+    fn test_a_destination_on_the_next_line_is_reported_there() {
+        let temp_dir = tempdir().unwrap();
+        let content = "[a](\n  ./gone.md)\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(result[0].message, "Relative link './gone.md' does not exist");
+        assert_eq!(result[0].line, 2, "The destination sits on the second line");
+        assert_eq!(result[0].end_line, 2);
+        // Line 2 is `  ./gone.md)`, so the destination opens at the third character.
+        assert_eq!(result[0].column, 3);
+        assert_eq!(result[0].end_column, 12);
+    }
+}
+
+/// A link target has to be spelled the way the filesystem stores it.
+///
+/// macOS and Windows resolve a differently cased spelling to the same file, so
+/// a link that 404s once the project is served, or once it is checked out on
+/// Linux, passes on the machine it was written on. On Linux the metadata probe
+/// alone reports every one of these rows, so the walk is only observable on a
+/// case-insensitive volume.
+#[cfg(test)]
+mod exact_case_tests {
+    use super::self_referential_links_tests::check_as_file;
+    use super::*;
+    use tempfile::tempdir;
+
+    /// Whether the volume holding `dir` resolves a differently cased spelling
+    /// to the same entry. Only such a volume can hide a case mismatch, so the
+    /// rows that turn on one skip elsewhere, where the filesystem cannot
+    /// produce the difference they assert.
+    fn volume_folds_case(dir: &Path) -> bool {
+        let probe = dir.join("case-fold-probe.tmp");
+        std::fs::write(&probe, "").unwrap();
+        let folded = dir.join("CASE-FOLD-PROBE.TMP").exists();
+        std::fs::remove_file(&probe).unwrap();
+        folded
+    }
+
+    /// `Foo.md` and `Docs/Guide.md` on disk, linked in every spelling from the
+    /// report: the four case mismatches, the three exact spellings and a target
+    /// that is not there at all.
+    fn write_case_fixture(dir: &Path) {
+        std::fs::write(dir.join("Foo.md"), "# Foo\n").unwrap();
+        std::fs::create_dir_all(dir.join("Docs")).unwrap();
+        std::fs::write(dir.join("Docs").join("Guide.md"), "# Guide\n").unwrap();
+    }
+
+    /// The control for every row below: on a volume that folds case the
+    /// filesystem answers for a spelling it does not store, which is the whole
+    /// reason the spelling has to be confirmed against the listing. On a volume
+    /// that does not fold, the rows hold for the plainer reason that the path
+    /// is simply not there.
+    #[test]
+    fn test_the_filesystem_answers_for_a_spelling_it_does_not_store() {
+        let temp_dir = tempdir().unwrap();
+        let anchor = temp_dir.path();
+        write_case_fixture(anchor);
+        reset_file_existence_cache();
+
+        assert_eq!(anchor.join("foo.md").exists(), volume_folds_case(anchor));
+        assert!(!exists_exact_case(anchor, &anchor.join("foo.md")));
+    }
+
+    #[test]
+    fn test_only_the_stored_spelling_of_a_target_exists() {
+        let temp_dir = tempdir().unwrap();
+        let anchor = temp_dir.path();
+        write_case_fixture(anchor);
+        reset_file_existence_cache();
+
+        for target in ["Foo.md", "Docs/Guide.md", "Docs"] {
+            assert!(
+                exists_exact_case(anchor, &anchor.join(target)),
+                "{target} is on disk under this spelling"
+            );
+        }
+        for target in ["foo.md", "docs/Guide.md", "Docs/guide.md", "docs", "Bar.md"] {
+            assert!(
+                !exists_exact_case(anchor, &anchor.join(target)),
+                "{target} is not on disk under this spelling"
+            );
+        }
+    }
+
+    /// A target without an extension is looked for under each markdown
+    /// extension, and every candidate answers for its own spelling.
+    #[test]
+    fn test_the_extension_fallback_keeps_the_case_of_the_target() {
+        let temp_dir = tempdir().unwrap();
+        let anchor = temp_dir.path();
+        write_case_fixture(anchor);
+        reset_file_existence_cache();
+
+        assert!(file_exists_or_markdown_extension(anchor, &anchor.join("Foo")));
+        assert!(!file_exists_or_markdown_extension(anchor, &anchor.join("foo")));
+    }
+
+    /// A link out of a subdirectory names entries of the directory it climbs
+    /// to, and those are checked like any other.
+    #[test]
+    fn test_a_target_reached_through_a_parent_step_is_checked() {
+        let temp_dir = tempdir().unwrap();
+        write_case_fixture(temp_dir.path());
+        let anchor = temp_dir.path().join("Docs");
+        reset_file_existence_cache();
+
+        assert!(exists_exact_case(&anchor, &anchor.join("..").join("Foo.md")));
+        assert!(!exists_exact_case(&anchor, &anchor.join("..").join("foo.md")));
+    }
+
+    /// The path to the project is not the link author's, so the anchor and
+    /// everything above it are taken as given whatever their case.
+    #[test]
+    fn test_a_component_above_the_anchor_is_accepted() {
+        let temp_dir = tempdir().unwrap();
+        write_case_fixture(temp_dir.path());
+        let anchor = temp_dir.path().join("docs");
+        reset_file_existence_cache();
+
+        assert!(has_exact_case_components(&anchor, &anchor.join("Guide.md")));
+    }
+
+    /// A symlinked directory is named by the link, and the name the symlink
+    /// points at is the filesystem's business. Resolving the link to its
+    /// target's path would compare that other name and report a link that works.
+    #[cfg(unix)]
+    #[test]
+    fn test_a_link_through_a_symlinked_directory_exists() {
+        let temp_dir = tempdir().unwrap();
+        let anchor = temp_dir.path();
+        std::fs::create_dir_all(anchor.join("shared").join("Docs")).unwrap();
+        std::fs::write(anchor.join("shared").join("Docs").join("Guide.md"), "# Guide\n").unwrap();
+        std::os::unix::fs::symlink("shared/Docs", anchor.join("docs")).unwrap();
+        reset_file_existence_cache();
+
+        assert!(exists_exact_case(anchor, &anchor.join("docs").join("Guide.md")));
+    }
+
+    /// macOS stores a name outside ASCII in whichever normalization it is
+    /// created with and answers for either, so the two forms spell one name.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn test_a_decomposed_name_matches_a_composed_link() {
+        let temp_dir = tempdir().unwrap();
+        let anchor = temp_dir.path();
+        std::fs::write(anchor.join("cafe\u{301}.md"), "# Cafe\n").unwrap();
+        reset_file_existence_cache();
+
+        assert!(exists_exact_case(anchor, &anchor.join("caf\u{e9}.md")));
+        assert!(!exists_exact_case(anchor, &anchor.join("CAF\u{c9}.md")));
+    }
+
+    #[test]
+    fn test_a_link_reports_every_spelling_the_filesystem_does_not_store() {
+        let temp_dir = tempdir().unwrap();
+        write_case_fixture(temp_dir.path());
+        let content = "\
+[a](foo.md)\n\
+[b](docs/Guide.md)\n\
+[c](foo)\n\
+[d](docs)\n\
+[e](Foo.md)\n\
+[f](Docs/Guide.md)\n\
+[g](Docs)\n\
+[h](Bar.md)\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        let messages: Vec<&str> = result.iter().map(|warning| warning.message.as_str()).collect();
+        assert_eq!(
+            messages,
+            vec![
+                "Relative link 'foo.md' does not exist",
+                "Relative link 'docs/Guide.md' does not exist",
+                "Relative link 'foo' does not exist",
+                "Relative link 'docs' does not exist",
+                "Relative link 'Bar.md' does not exist",
+            ],
+            "Got: {result:?}"
+        );
+    }
+
+    /// The reporter's own document: the file on disk is `changelog.md` and the
+    /// link names `CHANGELOG.md`.
+    #[test]
+    fn test_the_reporters_link_is_reported() {
+        let temp_dir = tempdir().unwrap();
+        std::fs::write(temp_dir.path().join("changelog.md"), "").unwrap();
+        let content = "# Test\n\nSee the [changelog](CHANGELOG.md).\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(result[0].message, "Relative link 'CHANGELOG.md' does not exist");
+        assert_eq!(result[0].line, 3);
+        assert_eq!(result[0].column, 21);
+    }
+
+    /// The markdown source behind an `.html` link is looked for under the stem
+    /// the link spells, so a mis-cased stem finds nothing.
+    #[test]
+    fn test_the_html_fallback_keeps_the_case_of_the_stem() {
+        let temp_dir = tempdir().unwrap();
+        std::fs::write(temp_dir.path().join("Guide.md"), "# Guide\n").unwrap();
+        let content = "[a](Guide.html)\n[b](guide.html)\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, MD057Config::default());
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(result[0].message, "Relative link 'guide.html' does not exist");
+        assert_eq!(result[0].line, 2);
+    }
+
+    /// A search path answers for the spelling it stores, like the document's
+    /// own directory does.
+    #[test]
+    fn test_a_search_path_answers_for_the_exact_spelling() {
+        let temp_dir = tempdir().unwrap();
+        let assets = temp_dir.path().join("assets");
+        std::fs::create_dir_all(&assets).unwrap();
+        std::fs::write(assets.join("Logo.png"), "").unwrap();
+        let config = MD057Config {
+            search_paths: vec![assets.to_string_lossy().into_owned()],
+            ..Default::default()
+        };
+        let content = "[a](Logo.png)\n[b](logo.png)\n";
+
+        let result = check_as_file(temp_dir.path(), "test.md", content, config);
+
+        assert_eq!(result.len(), 1, "Expected one warning. Got: {result:?}");
+        assert_eq!(result[0].message, "Relative link 'logo.png' does not exist");
+        assert_eq!(result[0].line, 2);
+    }
+
+    /// An absolute link resolves under a root, and the components below that
+    /// root are the link author's spelling just as a relative link's are.
+    #[test]
+    fn test_an_absolute_link_under_a_root_keeps_its_case() {
+        let temp_dir = tempdir().unwrap();
+        let root = temp_dir.path();
+        write_case_fixture(root);
+        let content = "[a](/Docs/Guide.md)\n[b](/docs/Guide.md)\n[c](/Docs)\n[d](/docs)\n";
+
+        let config = MD057Config {
+            absolute_links: AbsoluteLinksOption::RelativeToRoots,
+            roots: vec![],
+            ..Default::default()
+        };
+        let rule = MD057ExistingRelativeLinks::from_config_struct(config).with_path(root);
+        let ctx = crate::lint_context::LintContext::new(content, crate::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+
+        let messages: Vec<&str> = result.iter().map(|warning| warning.message.as_str()).collect();
+        assert_eq!(
+            messages,
+            vec![
+                "Absolute link '/docs/Guide.md' was not found under the project root",
+                "Absolute link '/docs' was not found under the project root",
+            ],
+            "Got: {result:?}"
+        );
+    }
+
+    /// A `..` is resolved lexically, so `docs/../Foo.md` names `Foo.md` beside
+    /// the document however `docs` is stored. Every renderer of the document
+    /// resolves the link that way, and the reader gets whatever is at that
+    /// path, so the rule reports what the reader sees.
+    #[cfg(unix)]
+    #[test]
+    fn test_a_parent_step_is_resolved_lexically_through_a_symlink() {
+        let temp_dir = tempdir().unwrap();
+        let anchor = temp_dir.path();
+        std::fs::create_dir_all(anchor.join("shared").join("Docs")).unwrap();
+        std::fs::write(anchor.join("shared").join("Foo.md"), "# Foo\n").unwrap();
+        std::fs::write(anchor.join("shared").join("Docs").join("Bar.md"), "# Bar\n").unwrap();
+        std::os::unix::fs::symlink("shared/Docs", anchor.join("docs")).unwrap();
+        let content = "[a](docs/../Foo.md)\n[b](docs/Bar.md)\n[c](docs/bar.md)\n";
+
+        let result = check_as_file(anchor, "test.md", content, MD057Config::default());
+
+        let messages: Vec<&str> = result.iter().map(|warning| warning.message.as_str()).collect();
+        assert_eq!(
+            messages,
+            vec![
+                "Relative link 'docs/../Foo.md' does not exist",
+                "Relative link 'docs/bar.md' does not exist",
+            ],
+            "Got: {result:?}"
+        );
+    }
+
+    /// Restores the mode a directory had when the guard was taken, so a test
+    /// that takes read permission away gives it back even when an assertion
+    /// between the two panics and the temporary directory still has to be
+    /// removable.
+    #[cfg(unix)]
+    struct RestoreMode {
+        directory: PathBuf,
+        mode: u32,
+    }
+
+    #[cfg(unix)]
+    impl RestoreMode {
+        fn take(directory: &Path) -> Self {
+            use std::os::unix::fs::PermissionsExt;
+            Self {
+                directory: directory.to_path_buf(),
+                mode: std::fs::metadata(directory).unwrap().permissions().mode(),
+            }
+        }
+    }
+
+    #[cfg(unix)]
+    impl Drop for RestoreMode {
+        fn drop(&mut self) {
+            use std::os::unix::fs::PermissionsExt;
+            let _ = std::fs::set_permissions(&self.directory, std::fs::Permissions::from_mode(self.mode));
+        }
+    }
+
+    /// A directory the process may enter but not read says nothing about how
+    /// its entries are spelled, so every name under it is accepted. That is the
+    /// branch making the walk unable to report a link that is really there.
+    #[cfg(unix)]
+    #[test]
+    fn test_a_directory_that_cannot_be_listed_is_accepted() {
+        use std::os::unix::fs::PermissionsExt;
+
+        let temp_dir = tempdir().unwrap();
+        let anchor = temp_dir.path();
+        let locked = anchor.join("locked");
+        std::fs::create_dir_all(&locked).unwrap();
+        std::fs::write(locked.join("Target.md"), "# Target\n").unwrap();
+
+        let _restore = RestoreMode::take(&locked);
+        std::fs::set_permissions(&locked, std::fs::Permissions::from_mode(0o111)).unwrap();
+        if std::fs::read_dir(&locked).is_ok() {
+            // A process with the privilege to read any directory cannot reach
+            // the branch under test.
+            return;
+        }
+        assert!(locked.join("Target.md").exists(), "the directory can still be entered");
+        let content = "[a](locked/Target.md)\n";
+
+        let result = check_as_file(anchor, "test.md", content, MD057Config::default());
+
+        assert!(result.is_empty(), "Expected no warning. Got: {result:?}");
+    }
+
+    /// The other direction of the same name: a composed name on disk answers
+    /// for a decomposed link, because the two spell one name. Case is a
+    /// difference in the name itself and is still reported.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn test_a_composed_name_matches_a_decomposed_link() {
+        let temp_dir = tempdir().unwrap();
+        let anchor = temp_dir.path();
+        std::fs::write(anchor.join("caf\u{e9}.md"), "# Cafe\n").unwrap();
+        reset_file_existence_cache();
+
+        assert!(exists_exact_case(anchor, &anchor.join("cafe\u{301}.md")));
+        assert!(!exists_exact_case(anchor, &anchor.join("CAFE\u{301}.md")));
+
+        let content = "[a](cafe\u{301}.md)\n[b](CAFE\u{301}.md)\n";
+
+        let result = check_as_file(anchor, "test.md", content, MD057Config::default());
+
+        let messages: Vec<&str> = result.iter().map(|warning| warning.message.as_str()).collect();
+        assert_eq!(
+            messages,
+            vec!["Relative link 'CAFE\u{301}.md' does not exist"],
+            "Got: {result:?}"
+        );
+    }
+
+    /// The Kelvin sign composes to the ASCII letter K, so a name written with
+    /// it and the same name written with the letter spell one name, and the
+    /// volume answers for both. A link in the ASCII spelling is accepted; a
+    /// case difference is still reported.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn test_a_name_composing_to_ascii_matches_an_ascii_link() {
+        let temp_dir = tempdir().unwrap();
+        let anchor = temp_dir.path();
+        std::fs::write(anchor.join("\u{212a}elvin.md"), "# Kelvin\n").unwrap();
+        reset_file_existence_cache();
+
+        assert!(exists_exact_case(anchor, &anchor.join("Kelvin.md")));
+        assert!(!exists_exact_case(anchor, &anchor.join("kelvin.md")));
+
+        let content = "[a](Kelvin.md)\n[b](kelvin.md)\n";
+
+        let result = check_as_file(anchor, "test.md", content, MD057Config::default());
+
+        let messages: Vec<&str> = result.iter().map(|warning| warning.message.as_str()).collect();
+        assert_eq!(
+            messages,
+            vec!["Relative link 'kelvin.md' does not exist"],
+            "Got: {result:?}"
+        );
+    }
+
+    /// The other direction: an ASCII name on disk answers for a link whose
+    /// spelling composes to it, because the two spell one name. Case is a
+    /// difference in the name itself and is still reported.
+    #[cfg(target_os = "macos")]
+    #[test]
+    fn test_an_ascii_name_matches_a_link_composing_to_it() {
+        let temp_dir = tempdir().unwrap();
+        let anchor = temp_dir.path();
+        std::fs::write(anchor.join("Kelvin.md"), "# Kelvin\n").unwrap();
+        reset_file_existence_cache();
+
+        assert!(exists_exact_case(anchor, &anchor.join("\u{212a}elvin.md")));
+        assert!(!exists_exact_case(anchor, &anchor.join("\u{212a}ELVIN.md")));
+
+        let content = "[a](\u{212a}elvin.md)\n[b](\u{212a}ELVIN.md)\n";
+
+        let result = check_as_file(anchor, "test.md", content, MD057Config::default());
+
+        let messages: Vec<&str> = result.iter().map(|warning| warning.message.as_str()).collect();
+        assert_eq!(
+            messages,
+            vec!["Relative link '\u{212a}ELVIN.md' does not exist"],
+            "Got: {result:?}"
+        );
+    }
+
+    /// Puts a listing in the cache for `directory` naming only `Other.md`,
+    /// recorded at `modified`. Any other name is absent from it, so a link to
+    /// a file that is really on disk is reported for as long as this listing
+    /// is the one a lookup accepts.
+    ///
+    /// The key is the directory's canonical path, which is what a check
+    /// resolves a document's directory to and so what a lookup asks for.
+    fn seed_listing(directory: &Path, modified: SystemTime) {
+        let listing = DirectoryListing {
+            modified: Some(modified),
+            listed: true,
+            names: HashSet::from([OsString::from("Other.md")]),
+            composed: HashSet::new(),
+        };
+        let key = std::fs::canonicalize(directory).unwrap();
+        DIRECTORY_LISTING_CACHE.lock().unwrap().insert(key, Arc::new(listing));
+    }
+
+    /// A listing answers for as long as the directory's modification time
+    /// stands, so checking many documents in one directory reads it once; and
+    /// it is read again as soon as that time moves, so a file appearing
+    /// between two checks is seen.
+    #[test]
+    fn test_a_listing_answers_until_the_directory_changes() {
+        let temp_dir = tempdir().unwrap();
+        let anchor = temp_dir.path();
+        std::fs::write(anchor.join("README.md"), "# Readme\n").unwrap();
+        // The document is written before the time is taken, so the check's own
+        // write of it does not move the directory on.
+        std::fs::write(anchor.join("test.md"), "").unwrap();
+        let read_at = std::fs::metadata(anchor).unwrap().modified().unwrap();
+        seed_listing(anchor, read_at);
+
+        let reported = check_as_file(anchor, "test.md", "[a](README.md)\n", MD057Config::default());
+
+        let messages: Vec<&str> = reported.iter().map(|warning| warning.message.as_str()).collect();
+        assert_eq!(
+            messages,
+            vec!["Relative link 'README.md' does not exist"],
+            "the seeded listing answers while the directory's time stands. Got: {reported:?}"
+        );
+
+        std::fs::write(anchor.join("Another.md"), "# Another\n").unwrap();
+        assert_ne!(
+            std::fs::metadata(anchor).unwrap().modified().unwrap(),
+            read_at,
+            "creating an entry moves the directory's modification time"
+        );
+
+        let accepted = check_as_file(anchor, "test.md", "[a](README.md)\n", MD057Config::default());
+
+        assert!(
+            accepted.is_empty(),
+            "the listing is read again once the directory has moved on. Got: {accepted:?}"
+        );
+    }
+
+    /// A listing recorded at a moment that is not the directory's is
+    /// discarded, so a directory that changed while nothing was checking it is
+    /// read again rather than answered from.
+    #[test]
+    fn test_a_listing_from_another_moment_is_discarded() {
+        let temp_dir = tempdir().unwrap();
+        let anchor = temp_dir.path();
+        std::fs::write(anchor.join("README.md"), "# Readme\n").unwrap();
+        seed_listing(anchor, SystemTime::UNIX_EPOCH);
+
+        let result = check_as_file(anchor, "test.md", "[a](README.md)\n", MD057Config::default());
+
+        assert!(result.is_empty(), "Expected no warning. Got: {result:?}");
     }
 }

@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.catalog.scaler_config import ScalerConfig
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
@@ -16,7 +16,7 @@ class PageRankEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         damping_factor: float = 0.85,
         tolerance: float = 1.0e-7,
@@ -44,11 +44,11 @@ class PageRankEndpoints(ABC):
            Graph object to use
         mutate_property
             Name of the node property to store the results in.
-        damping_factor : float
+        damping_factor
             Probability of a jump to a random node.
         tolerance
             Minimum change in scores between iterations.
-        max_iterations : int
+        max_iterations
             Maximum number of iterations to run.
         scaler
             The scaler to use. Can be:
@@ -72,7 +72,7 @@ class PageRankEndpoints(ABC):
             Identifier for the computation.
         relationship_weight_property
             Name of the property to be used as weights.
-        source_nodes : int | list[int] | list[tuple[int, float]] | None, default=None
+        source_nodes
             node ids to use as starting points. Can be:
             - single node id (e.g., 42)
             - list of node id (e.g., [42, 43, 44])
@@ -88,7 +88,7 @@ class PageRankEndpoints(ABC):
     @abstractmethod
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         damping_factor: float = 0.85,
         tolerance: float = 1.0e-7,
         max_iterations: int = 20,
@@ -113,11 +113,11 @@ class PageRankEndpoints(ABC):
         ----------
         G
            Graph object to use
-        damping_factor : float
+        damping_factor
             Probability of a jump to a random node.
         tolerance
             Minimum change in scores between iterations.
-        max_iterations : int
+        max_iterations
             Maximum number of iterations to run.
         scaler
             The scaler to use. Can be:
@@ -141,7 +141,7 @@ class PageRankEndpoints(ABC):
             Identifier for the computation.
         relationship_weight_property
             Name of the property to be used as weights.
-        source_nodes : int | list[int] | list[tuple[int, float]] | None, default=None
+        source_nodes
             node ids to use as starting points. Can be:
 
             - single node id (e.g., 42)
@@ -159,7 +159,7 @@ class PageRankEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         damping_factor: float = 0.85,
         tolerance: float = 1.0e-7,
         max_iterations: int = 20,
@@ -181,7 +181,7 @@ class PageRankEndpoints(ABC):
         ----------
         G
            Graph object to use
-        damping_factor : float
+        damping_factor
             The damping factor controls the probability of a random jump to a random node
         tolerance
             Minimum change in scores between iterations.
@@ -209,12 +209,12 @@ class PageRankEndpoints(ABC):
             Identifier for the computation.
         relationship_weight_property
             Name of the property to be used as weights.
-        source_nodes : Any | None, default=None
+        source_nodes
             The source nodes for personalized PageRank
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             DataFrame with node IDs and their PageRank scores
         """
         pass
@@ -222,7 +222,7 @@ class PageRankEndpoints(ABC):
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         damping_factor: float = 0.85,
         tolerance: float = 1.0e-7,
@@ -251,11 +251,11 @@ class PageRankEndpoints(ABC):
            Graph object to use
         write_property
             Name of the node property to store the results in.
-        damping_factor : float
+        damping_factor
             Probability of a jump to a random node.
         tolerance
             Minimum change in scores between iterations.
-        max_iterations : int
+        max_iterations
             Maximum number of iterations to run.
         scaler
             The scaler to use. Can be:
@@ -279,7 +279,7 @@ class PageRankEndpoints(ABC):
             Identifier for the computation.
         relationship_weight_property
             Name of the property to be used as weights.
-        source_nodes : int | list[int] | list[tuple[int, float]] | None, default=None
+        source_nodes
             node ids to use as starting points. Can be:
             - single node id (e.g., 42)
             - list of node id (e.g., [42, 43, 44])
@@ -295,7 +295,7 @@ class PageRankEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         damping_factor: float = 0.85,
         tolerance: float = 1.0e-7,
         max_iterations: int = 20,
@@ -313,7 +313,7 @@ class PageRankEndpoints(ABC):
         ----------
         G
            Graph object to use or a dictionary representing the graph dimensions.
-        damping_factor : float
+        damping_factor
             The damping factor controls the probability of a random jump to a random node
         tolerance
             Minimum change in scores between iterations.
@@ -333,7 +333,7 @@ class PageRankEndpoints(ABC):
             Number of concurrent threads to use.
         relationship_weight_property
             Name of the property to be used as weights.
-        source_nodes : Any | None, default=None
+        source_nodes
             The source nodes for personalized PageRank
 
         Returns

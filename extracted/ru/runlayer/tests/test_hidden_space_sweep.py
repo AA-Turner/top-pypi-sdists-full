@@ -14,6 +14,87 @@ from runlayer_cli.scan.hidden_space_sweep import (
 )
 
 
+def test_hidden_space_follow_budget_marks_result_truncated(
+    tmp_path: Path,
+    monkeypatch,
+):
+    external = tmp_path / "external"
+    external.mkdir()
+    hidden_link = tmp_path / ".cache" / ".hidden-link"
+    hidden_link.parent.mkdir()
+    hidden_link.symlink_to(external, target_is_directory=True)
+    monkeypatch.setattr(sweep_module, "MAX_FOLLOWED_SYMLINK_TARGETS", 0)
+
+    result = scan_hidden_spaces(
+        home=tmp_path,
+        system="Linux",
+        include_files=True,
+        temp_roots=(),
+    )
+
+    assert result.truncated is True
+
+
+def test_hidden_space_directory_error_preserves_findings_and_marks_truncated(
+    tmp_path: Path,
+    monkeypatch,
+):
+    bad_root = tmp_path / ".cache" / ".bad"
+    bad_root.mkdir(parents=True)
+    good_root = tmp_path / ".config" / ".good"
+    good_root.mkdir(parents=True)
+    good_file = good_root / "payload.dat"
+    good_file.write_text("payload")
+    original_scandir = os.scandir
+
+    def scandir(path):
+        if Path(path) == bad_root:
+            raise OSError("denied")
+        return original_scandir(path)
+
+    monkeypatch.setattr(os, "scandir", scandir)
+
+    result = scan_hidden_spaces(
+        home=tmp_path,
+        system="Linux",
+        include_files=True,
+        temp_roots=(),
+    )
+
+    assert good_file in result.files
+    assert result.truncated is True
+
+
+def test_hidden_space_entry_error_preserves_findings_and_marks_truncated(
+    tmp_path: Path,
+    monkeypatch,
+):
+    good_root = tmp_path / ".good"
+    good_root.mkdir()
+    good_file = good_root / "payload.dat"
+    good_file.write_text("payload")
+    bad_root = tmp_path / ".bad"
+    bad_root.mkdir()
+    original_is_link_or_reparse = sweep_module.is_link_or_reparse
+
+    def is_link_or_reparse(path: Path) -> bool:
+        if path == bad_root:
+            raise OSError("entry denied")
+        return original_is_link_or_reparse(path)
+
+    monkeypatch.setattr(sweep_module, "is_link_or_reparse", is_link_or_reparse)
+
+    result = scan_hidden_spaces(
+        home=tmp_path,
+        system="Linux",
+        include_files=True,
+        temp_roots=(),
+    )
+
+    assert good_file in result.files
+    assert result.truncated is True
+
+
 def test_scan_hidden_spaces_finds_files_below_arbitrarily_named_hidden_directory(
     tmp_path: Path,
 ):
@@ -363,6 +444,87 @@ def test_hidden_space_bfs_follows_external_directory_and_file_targets(
     )
 
     assert sorted(result.files) == sorted([external_file, nested_skill])
+
+
+def test_hidden_space_records_followed_bin_with_renamed_target(
+    tmp_path: Path,
+) -> None:
+    home = tmp_path / "home"
+    hidden_root = home / ".cache" / "app"
+    hidden_root.mkdir(parents=True)
+    launcher_target = tmp_path / "external" / "tools"
+    launcher_target.mkdir(parents=True)
+    try:
+        (hidden_root / "bin").symlink_to(
+            launcher_target,
+            target_is_directory=True,
+        )
+    except OSError:
+        pytest.skip("directory symlinks unavailable")
+
+    result = scan_hidden_spaces(
+        home=home,
+        system="Linux",
+        include_files=False,
+        temp_roots=(),
+    )
+
+    assert [directory.path for directory in result.launcher_directories] == [
+        launcher_target
+    ]
+
+
+def test_hidden_space_records_in_tree_bin_symlink_to_renamed_dir(
+    tmp_path: Path,
+) -> None:
+    home = tmp_path / "home"
+    hidden_root = home / ".cache" / "app"
+    launcher_target = hidden_root / "tools"
+    launcher_target.mkdir(parents=True)
+    try:
+        (hidden_root / "bin").symlink_to(
+            launcher_target,
+            target_is_directory=True,
+        )
+    except OSError:
+        pytest.skip("directory symlinks unavailable")
+
+    result = scan_hidden_spaces(
+        home=home,
+        system="Linux",
+        include_files=False,
+        temp_roots=(),
+    )
+
+    assert launcher_target in {
+        directory.path for directory in result.launcher_directories
+    }
+
+
+def test_hidden_space_records_namespace_bin_symlink_to_renamed_dir(
+    tmp_path: Path,
+) -> None:
+    home = tmp_path / "home"
+    launcher_target = home / ".cache" / "tools"
+    launcher_target.mkdir(parents=True)
+    try:
+        (launcher_target.parent / "bin").symlink_to(
+            launcher_target,
+            target_is_directory=True,
+        )
+    except OSError:
+        pytest.skip("directory symlinks unavailable")
+
+    result = scan_hidden_spaces(
+        home=home,
+        system="Linux",
+        include_files=False,
+        temp_roots=(),
+    )
+
+    assert [directory.path for directory in result.launcher_directories] == [
+        launcher_target
+    ]
 
 
 def test_hidden_space_symlink_following_stays_disabled_for_system(

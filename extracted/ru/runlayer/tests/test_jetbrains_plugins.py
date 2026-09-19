@@ -8,6 +8,7 @@ import pytest
 
 from runlayer_cli.scan import orchestrator
 from runlayer_cli.scan import jetbrains_plugins as jetbrains_plugins_module
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.jetbrains_plugins import scan_jetbrains_plugins
 from runlayer_cli.scan.scanner_primitives import (
     SymlinkFollowPolicy,
@@ -257,11 +258,20 @@ def test_plugin_artifact_phase_includes_jetbrains_plugins_and_wsl_roots(
         "scan_claude_desktop_connectors",
         "scan_codex_plugin_artifacts",
         "scan_opencode_plugin_artifacts",
-        "scan_vscode_extensions",
     ):
         monkeypatch.setattr(orchestrator, scanner_name, lambda **kwargs: [])
 
-    def scan_jetbrains_plugins_stub(*, extra_home_roots, checkpoint):
+    def scan_vscode_extensions_stub(**kwargs):
+        captured["vscode_kwargs"] = kwargs
+        return []
+
+    monkeypatch.setattr(
+        orchestrator,
+        "scan_vscode_extensions",
+        scan_vscode_extensions_stub,
+    )
+
+    def scan_jetbrains_plugins_stub(*, extra_home_roots, checkpoint, scan_status):
         captured["extra_home_roots"] = extra_home_roots
         captured["checkpoint"] = checkpoint
         return [expected]
@@ -276,11 +286,13 @@ def test_plugin_artifact_phase_includes_jetbrains_plugins_and_wsl_roots(
     result = orchestrator._scan_plugin_artifact_phase(
         governor=SimpleNamespace(checkpoint=governor_checkpoint),
         extra_home_roots=[tmp_path],
+        machine_scope=False,
     )
 
     assert result == [expected]
     assert captured["extra_home_roots"] == [tmp_path]
     assert captured["checkpoint"] is governor_checkpoint
+    assert captured["vscode_kwargs"]["machine_scope"] is False
 
 
 def test_scan_jetbrains_plugins_covers_windows_and_macos_roots(tmp_path: Path):
@@ -958,8 +970,8 @@ def test_scan_jetbrains_plugins_reads_symlinked_lib_from_visited_plugin(
         pytest.skip("directory symlinks unavailable")
     real_iter_directory_entries = jetbrains_plugins_module.iter_directory_entries
 
-    def sorted_directory_entries(directory: Path):
-        yield from sorted(real_iter_directory_entries(directory))
+    def sorted_directory_entries(directory: Path, **kwargs):
+        yield from sorted(real_iter_directory_entries(directory, **kwargs))
 
     monkeypatch.setattr(
         jetbrains_plugins_module,
@@ -1084,10 +1096,10 @@ def test_product_dir_cap_closes_suspended_directory_iterator(
     closed: list[Path] = []
     real_iter_directory_entries = jetbrains_plugins_module.iter_directory_entries
 
-    def tracking_iter_directory_entries(directory: Path):
+    def tracking_iter_directory_entries(directory: Path, **kwargs):
         opened.append(directory)
         try:
-            yield from real_iter_directory_entries(directory)
+            yield from real_iter_directory_entries(directory, **kwargs)
         finally:
             closed.append(directory)
 
@@ -1097,11 +1109,13 @@ def test_product_dir_cap_closes_suspended_directory_iterator(
         tracking_iter_directory_entries,
     )
     monkeypatch.setattr(jetbrains_plugins_module, "MAX_PRODUCT_DIRS_PER_ROOT", 1)
+    scan_status = ScanCompletionStatus()
 
-    scan_jetbrains_plugins(home=tmp_path)
+    scan_jetbrains_plugins(home=tmp_path, scan_status=scan_status)
 
     assert opened
     assert sorted(closed) == sorted(opened)
+    assert "jetbrains_plugin_product_dirs_capped" in scan_status.reasons
 
 
 def test_scan_jetbrains_plugins_cap_is_scan_wide_fair_and_checkpointed(
@@ -1132,7 +1146,12 @@ def test_scan_jetbrains_plugins_cap_is_scan_wide_fair_and_checkpointed(
         nonlocal checkpoints
         checkpoints += 1
 
-    artifacts = scan_jetbrains_plugins(home=tmp_path, checkpoint=checkpoint)
+    scan_status = ScanCompletionStatus()
+    artifacts = scan_jetbrains_plugins(
+        home=tmp_path,
+        checkpoint=checkpoint,
+        scan_status=scan_status,
+    )
 
     assert {artifact.client for artifact in artifacts} == {
         "intellij_idea_community",
@@ -1140,3 +1159,26 @@ def test_scan_jetbrains_plugins_cap_is_scan_wide_fair_and_checkpointed(
     }
     assert len(artifacts) == 2
     assert checkpoints >= 2
+    assert "jetbrains_plugin_scan_capped" in scan_status.reasons
+
+
+def test_scan_jetbrains_plugins_exact_capacity_remains_complete(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    for index in range(2):
+        _write_jar_plugin(
+            tmp_path,
+            product="IdeaIC2025.2",
+            folder=f"plugin-{index}",
+            plugin_id=f"example.plugin.{index}",
+            name=f"Plugin {index}",
+            version="1.0.0",
+        )
+    monkeypatch.setattr(jetbrains_plugins_module, "MAX_PLUGINS_PER_SCAN", 2)
+    scan_status = ScanCompletionStatus()
+
+    artifacts = scan_jetbrains_plugins(home=tmp_path, scan_status=scan_status)
+
+    assert len(artifacts) == 2
+    assert "jetbrains_plugin_scan_capped" not in scan_status.reasons

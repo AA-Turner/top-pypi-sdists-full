@@ -450,6 +450,11 @@ _HOOK_SUBCOMMAND = "hook"
 
 
 def cli():
+    if len(sys.argv) >= 2 and sys.argv[1] == "__publish_managed_policy__":
+        from runlayer_cli.managed_policy_publication import main as publish  # noqa: PLC0415
+
+        raise SystemExit(publish())
+
     # Fast in-process hook dispatch, mirroring ``aiwatch.py:main``. ``runlayer
     # hook [--client X] [--no-enforcement]`` is wired into each AI client's hook
     # config by ``runlayer setup hooks --install`` and fires here before the

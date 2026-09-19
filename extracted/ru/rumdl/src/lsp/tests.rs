@@ -736,6 +736,7 @@ async fn test_workspace_symbol_search() {
             auto_anchor: "configuration".to_string(),
             custom_anchor: None,
             line: 3,
+            text_lines: 1,
             is_setext: false,
         });
         fi.headings.push(HeadingIndex {
@@ -743,6 +744,7 @@ async fn test_workspace_symbol_search() {
             auto_anchor: "usage".to_string(),
             custom_anchor: None,
             line: 10,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(doc_path.clone(), fi);
@@ -2872,6 +2874,7 @@ async fn test_get_file_completions_returns_workspace_files() {
             auto_anchor: "current".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(current.clone(), fi);
@@ -2882,6 +2885,7 @@ async fn test_get_file_completions_returns_workspace_files() {
             auto_anchor: "other".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(other.clone(), fi2);
@@ -2892,6 +2896,7 @@ async fn test_get_file_completions_returns_workspace_files() {
             auto_anchor: "guide".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(sub_file.clone(), fi3);
@@ -3220,6 +3225,7 @@ async fn test_get_anchor_completions_returns_headings() {
                 auto_anchor: "installation".to_string(),
                 custom_anchor: None,
                 line: 1,
+                text_lines: 1,
                 is_setext: false,
             },
             HeadingIndex {
@@ -3227,6 +3233,7 @@ async fn test_get_anchor_completions_returns_headings() {
                 auto_anchor: "configuration".to_string(),
                 custom_anchor: None,
                 line: 3,
+                text_lines: 1,
                 is_setext: false,
             },
             HeadingIndex {
@@ -3234,6 +3241,7 @@ async fn test_get_anchor_completions_returns_headings() {
                 auto_anchor: "troubleshooting".to_string(),
                 custom_anchor: None,
                 line: 5,
+                text_lines: 1,
                 is_setext: false,
             },
         ];
@@ -3282,6 +3290,7 @@ async fn test_get_anchor_completions_resolves_absolute_path_against_content_root
             auto_anchor: "installation".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         }];
         index.insert_file(target.clone(), fi);
@@ -3439,6 +3448,7 @@ async fn test_get_anchor_completions_absolute_rejects_parent_traversal() {
             auto_anchor: "secret".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         }];
         index.insert_file(secret.clone(), fi);
@@ -3485,6 +3495,7 @@ async fn test_get_anchor_completions_filters_by_prefix() {
                 auto_anchor: "installation".to_string(),
                 custom_anchor: None,
                 line: 1,
+                text_lines: 1,
                 is_setext: false,
             },
             HeadingIndex {
@@ -3492,6 +3503,7 @@ async fn test_get_anchor_completions_filters_by_prefix() {
                 auto_anchor: "introduction".to_string(),
                 custom_anchor: None,
                 line: 2,
+                text_lines: 1,
                 is_setext: false,
             },
             HeadingIndex {
@@ -3499,6 +3511,7 @@ async fn test_get_anchor_completions_filters_by_prefix() {
                 auto_anchor: "configuration".to_string(),
                 custom_anchor: None,
                 line: 3,
+                text_lines: 1,
                 is_setext: false,
             },
         ];
@@ -3543,6 +3556,7 @@ async fn test_get_anchor_completions_uses_custom_anchor() {
             auto_anchor: "getting-started".to_string(),
             custom_anchor: Some("start".to_string()),
             line: 1,
+            text_lines: 1,
             is_setext: false,
         }];
         index.insert_file(target.clone(), fi);
@@ -3584,6 +3598,7 @@ async fn test_get_anchor_completions_empty_file_path_uses_current() {
                 auto_anchor: "section-one".to_string(),
                 custom_anchor: None,
                 line: 1,
+                text_lines: 1,
                 is_setext: false,
             },
             HeadingIndex {
@@ -3591,6 +3606,7 @@ async fn test_get_anchor_completions_empty_file_path_uses_current() {
                 auto_anchor: "section-two".to_string(),
                 custom_anchor: None,
                 line: 3,
+                text_lines: 1,
                 is_setext: false,
             },
         ];
@@ -4506,6 +4522,7 @@ async fn test_goto_definition_file_path_only() {
             auto_anchor: "guide".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), fi);
@@ -4799,6 +4816,7 @@ async fn test_goto_definition_file_with_anchor() {
             auto_anchor: "getting-started".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         fi.add_heading(HeadingIndex {
@@ -4806,6 +4824,7 @@ async fn test_goto_definition_file_with_anchor() {
             auto_anchor: "installation".to_string(),
             custom_anchor: None,
             line: 10,
+            text_lines: 1,
             is_setext: false,
         });
         fi.add_heading(HeadingIndex {
@@ -4813,6 +4832,7 @@ async fn test_goto_definition_file_with_anchor() {
             auto_anchor: "configuration".to_string(),
             custom_anchor: None,
             line: 25,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), fi);
@@ -4867,6 +4887,7 @@ async fn test_goto_definition_same_file_anchor() {
             auto_anchor: "title".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         fi.add_heading(HeadingIndex {
@@ -4874,6 +4895,7 @@ async fn test_goto_definition_same_file_anchor() {
             auto_anchor: "configuration".to_string(),
             custom_anchor: None,
             line: 5,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(file.clone(), fi);
@@ -4954,6 +4976,7 @@ async fn test_find_references_heading_with_incoming_links() {
             auto_anchor: "installation".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), target_fi);
@@ -5051,6 +5074,7 @@ async fn test_find_references_excludes_frontmatter_links() {
             auto_anchor: "installation".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), target_fi);
@@ -5200,6 +5224,7 @@ async fn test_find_references_finds_root_relative_links() {
             auto_anchor: "installation".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), target_fi);
@@ -5256,6 +5281,7 @@ async fn test_find_references_heading_no_incoming_links() {
             auto_anchor: "lonely-heading".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(file.clone(), fi);
@@ -5299,6 +5325,7 @@ async fn test_goto_definition_with_custom_anchor() {
             auto_anchor: "installation-guide".to_string(),
             custom_anchor: Some("install".to_string()),
             line: 15,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), fi);
@@ -5352,6 +5379,7 @@ async fn test_goto_definition_anchor_not_found_falls_back_to_line_zero() {
             auto_anchor: "introduction".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), fi);
@@ -5405,6 +5433,7 @@ async fn test_find_references_from_link_position() {
             auto_anchor: "guide".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), target_fi);
@@ -5534,6 +5563,7 @@ async fn test_goto_definition_link_with_title() {
             auto_anchor: "guide".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), fi);
@@ -5589,6 +5619,7 @@ async fn test_goto_definition_angle_bracket_link() {
             auto_anchor: "guide".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), fi);
@@ -5639,6 +5670,7 @@ async fn test_find_references_includes_same_file_fragment_links() {
             auto_anchor: "installation".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(file.clone(), fi);
@@ -5742,6 +5774,7 @@ async fn test_goto_definition_reference_link() {
             auto_anchor: "installation".to_string(),
             custom_anchor: Some("install".to_string()),
             line: 10,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), fi);
@@ -5795,6 +5828,7 @@ async fn test_goto_definition_collapsed_reference() {
             auto_anchor: "guide".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), fi);
@@ -5847,6 +5881,7 @@ async fn test_goto_definition_reference_definition_line() {
             auto_anchor: "installation".to_string(),
             custom_anchor: Some("install".to_string()),
             line: 10,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), fi);
@@ -5995,6 +6030,100 @@ async fn test_fix_all_applies_all_document_fixes_regardless_of_range() {
         !fixed_text.contains('\t'),
         "fixAll should fix all tab issues in the document, not just those in range"
     );
+}
+
+/// The text the `source.fixAll.rumdl` action writes, or `None` when it is not offered.
+async fn fix_all_text(server: &RumdlLanguageServer, uri: &Url, text: &str) -> Option<String> {
+    let start = Position { line: 0, character: 0 };
+    let actions = server
+        .get_code_actions(uri, text, Range { start, end: start })
+        .await
+        .unwrap();
+    let fix_all = actions
+        .into_iter()
+        .find(|a| a.kind.as_ref().is_some_and(|k| k.as_str() == "source.fixAll.rumdl"))?;
+    let mut changes = fix_all.edit?.changes?;
+    changes.remove(uri)?.into_iter().next().map(|edit| edit.new_text)
+}
+
+/// A tab (MD010) and a single trailing space (MD009), both fixable by default.
+const TAB_AND_TRAILING_SPACE: &str = "# Title\n\nFirst\tissue\nTrailing space \n";
+
+/// "Fix all" applies the fixes formatting applies, so a rule configuration marks
+/// `unfixable` keeps its findings in the document. The rule's quick fix stays on
+/// offer, since that is one finding the user picks.
+#[tokio::test]
+async fn test_fix_all_leaves_unfixable_rules_alone() {
+    let server = create_test_server();
+    server.rumdl_config.write().await.global.unfixable = vec!["MD010".to_string()];
+    let uri = Url::parse("file:///test.md").unwrap();
+    let text = TAB_AND_TRAILING_SPACE;
+
+    let fixed = fix_all_text(&server, &uri, text)
+        .await
+        .expect("MD009 is still fixable, so fix-all is offered");
+    assert_eq!(fixed, "# Title\n\nFirst\tissue\nTrailing space\n");
+    assert_eq!(
+        server.apply_all_fixes(&uri, text).await.unwrap(),
+        Some(fixed),
+        "fix-all and formatting apply the same fixes"
+    );
+
+    let tab_line = Range {
+        start: Position { line: 2, character: 0 },
+        end: Position { line: 2, character: 0 },
+    };
+    let actions = server.get_code_actions(&uri, text, tab_line).await.unwrap();
+    assert!(
+        actions.iter().any(|a| a.kind == Some(CodeActionKind::QUICKFIX)
+            && a.diagnostics
+                .iter()
+                .flatten()
+                .any(|d| d.code == Some(NumberOrString::String("MD010".to_string())))),
+        "the MD010 quick fix should stay on offer, got: {actions:?}"
+    );
+}
+
+/// A `fixable` allowlist limits fix-all to the rules it names.
+#[tokio::test]
+async fn test_fix_all_applies_only_the_fixable_allowlist() {
+    let uri = Url::parse("file:///test.md").unwrap();
+    let text = TAB_AND_TRAILING_SPACE;
+
+    let server = create_test_server();
+    server.rumdl_config.write().await.global.fixable = vec!["MD009".to_string()];
+    let fixed = fix_all_text(&server, &uri, text)
+        .await
+        .expect("MD009 is allowed to fix");
+    assert_eq!(fixed, "# Title\n\nFirst\tissue\nTrailing space\n");
+    assert_eq!(server.apply_all_fixes(&uri, text).await.unwrap(), Some(fixed));
+
+    let server = create_test_server();
+    server.rumdl_config.write().await.global.fixable = vec!["MD010".to_string()];
+    let fixed = fix_all_text(&server, &uri, text)
+        .await
+        .expect("MD010 is allowed to fix");
+    assert!(
+        !fixed.contains('\t') && fixed.ends_with("\nTrailing space \n"),
+        "only the tab should be fixed, got: {fixed:?}"
+    );
+    assert_eq!(server.apply_all_fixes(&uri, text).await.unwrap(), Some(fixed));
+}
+
+/// A rule's fix capability can follow its settings, and a document can change
+/// those settings inline. MD033 fixes only with `fix` on, so a document turning
+/// it on gets those fixes from fix-all, as it does from formatting.
+#[tokio::test]
+async fn test_fix_all_reads_fix_capability_from_inline_configuration() {
+    let server = create_test_server();
+    let uri = Url::parse("file:///test.md").unwrap();
+    let text = "# Title\n\n<!-- rumdl-configure-file { \"MD033\": { \"fix\": true } } -->\n\nSome <b>bold</b> text\n";
+
+    let fixed = fix_all_text(&server, &uri, text)
+        .await
+        .expect("MD033 fixes under the inline configuration");
+    assert!(!fixed.contains("<b>"), "the inline tag should be fixed, got: {fixed:?}");
+    assert_eq!(server.apply_all_fixes(&uri, text).await.unwrap(), Some(fixed));
 }
 
 /// Test issue #210: Config cache serves stale config when config file is created or modified
@@ -6575,6 +6704,7 @@ async fn test_find_references_heading_takes_priority_over_fallback() {
             auto_anchor: "installation".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), target_fi);
@@ -6668,6 +6798,7 @@ async fn test_hover_inline_link_to_file() {
             auto_anchor: "guide".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), fi);
@@ -7051,6 +7182,7 @@ async fn test_hover_inline_link_with_anchor() {
             auto_anchor: "guide".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         fi.add_heading(HeadingIndex {
@@ -7058,6 +7190,7 @@ async fn test_hover_inline_link_with_anchor() {
             auto_anchor: "installation".to_string(),
             custom_anchor: None,
             line: 5,
+            text_lines: 1,
             is_setext: false,
         });
         fi.add_heading(HeadingIndex {
@@ -7065,6 +7198,7 @@ async fn test_hover_inline_link_with_anchor() {
             auto_anchor: "usage".to_string(),
             custom_anchor: None,
             line: 11,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), fi);
@@ -7138,6 +7272,7 @@ async fn test_hover_reference_style_link() {
             auto_anchor: "guide".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), fi);
@@ -7268,6 +7403,7 @@ async fn test_hover_same_file_anchor() {
             auto_anchor: "title".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         fi.add_heading(HeadingIndex {
@@ -7275,6 +7411,7 @@ async fn test_hover_same_file_anchor() {
             auto_anchor: "configuration".to_string(),
             custom_anchor: None,
             line: 7,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(file.clone(), fi);
@@ -7396,6 +7533,7 @@ async fn test_hover_anchor_section_end_no_ellipsis() {
             auto_anchor: "guide".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         fi.add_heading(HeadingIndex {
@@ -7403,6 +7541,7 @@ async fn test_hover_anchor_section_end_no_ellipsis() {
             auto_anchor: "install".to_string(),
             custom_anchor: None,
             line: 3,
+            text_lines: 1,
             is_setext: false,
         });
         fi.add_heading(HeadingIndex {
@@ -7410,6 +7549,7 @@ async fn test_hover_anchor_section_end_no_ellipsis() {
             auto_anchor: "usage".to_string(),
             custom_anchor: None,
             line: 7,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), fi);
@@ -7476,6 +7616,7 @@ async fn test_hover_anchor_preview_skips_code_block_hashes() {
             auto_anchor: "configuration".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), fi);
@@ -7595,6 +7736,7 @@ async fn test_hover_anchor_does_not_stop_at_hashtag_word() {
             auto_anchor: "tags".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), fi);
@@ -7663,6 +7805,7 @@ async fn test_hover_anchor_stops_at_indented_heading() {
             auto_anchor: "intro".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         fi.add_heading(HeadingIndex {
@@ -7670,6 +7813,7 @@ async fn test_hover_anchor_stops_at_indented_heading() {
             auto_anchor: "next-section".to_string(),
             custom_anchor: None,
             line: 5,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), fi);
@@ -7722,6 +7866,7 @@ async fn test_prepare_rename_atx_heading() {
             auto_anchor: "installation-guide".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(file.clone(), fi);
@@ -7767,6 +7912,7 @@ async fn test_prepare_rename_setext_heading() {
             auto_anchor: "installation-guide".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: true,
         });
         index.insert_file(file.clone(), fi);
@@ -7833,6 +7979,7 @@ async fn test_rename_heading_updates_same_file_links() {
             auto_anchor: "getting-started".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(file.clone(), fi);
@@ -7884,6 +8031,7 @@ async fn test_rename_heading_with_custom_anchor_only_changes_text() {
             auto_anchor: "guide".to_string(),
             custom_anchor: Some("install".to_string()),
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(file.clone(), fi);
@@ -7943,6 +8091,7 @@ async fn test_rename_heading_updates_cross_file_links() {
             auto_anchor: "api-reference".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), target_fi);
@@ -8025,6 +8174,7 @@ async fn test_rename_heading_updates_a_cross_file_link_carrying_a_query() {
             auto_anchor: "api-reference".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), target_fi);
@@ -8089,6 +8239,7 @@ async fn test_rename_refuses_empty_name() {
             auto_anchor: "heading".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(file.clone(), fi);
@@ -8128,6 +8279,7 @@ async fn test_rename_refuses_anchor_collision() {
             auto_anchor: "foo".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         fi.add_heading(HeadingIndex {
@@ -8135,6 +8287,7 @@ async fn test_rename_refuses_anchor_collision() {
             auto_anchor: "bar".to_string(),
             custom_anchor: None,
             line: 3,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(file.clone(), fi);
@@ -8172,6 +8325,7 @@ async fn test_rename_heading_with_closing_atx() {
             auto_anchor: "hello".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(file.clone(), fi);
@@ -8216,6 +8370,7 @@ async fn test_rename_updates_same_file_ref_definitions() {
             auto_anchor: "getting-started".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(file.clone(), fi);
@@ -8286,6 +8441,7 @@ async fn test_rename_cross_file_multiple_links_same_line() {
             auto_anchor: "getting-started".to_string(),
             custom_anchor: None,
             line: 1,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(target_file.clone(), target_fi);
@@ -8637,6 +8793,7 @@ async fn test_workspace_symbol_disabled_when_symbols_off() {
             auto_anchor: "configuration".to_string(),
             custom_anchor: None,
             line: 3,
+            text_lines: 1,
             is_setext: false,
         });
         index.insert_file(doc_path, fi);
@@ -11586,10 +11743,7 @@ async fn test_merge_conflict_blocks_formatting_options_and_code_actions() {
     );
     let diagnostics = server.lint_document(&uri, text, true).await.unwrap();
     assert_eq!(diagnostics.len(), 1);
-    assert_eq!(
-        diagnostics[0].code,
-        Some(NumberOrString::String("merge-conflict".into()))
-    );
+    assert_eq!(diagnostics[0].code, Some(NumberOrString::String("MD092".into())));
     assert_eq!(diagnostics[0].range.start.line, 2);
     let result = server
         .formatting(DocumentFormattingParams {
@@ -11608,4 +11762,278 @@ async fn test_merge_conflict_blocks_formatting_options_and_code_actions() {
             .unwrap()
             .is_empty()
     );
+}
+
+// =========================================================================
+// Multi-line setext heading navigation
+// =========================================================================
+
+/// Build a file index the way the index worker does, so a test sees the
+/// heading span the workspace index really carries.
+fn index_for(content: &str, path: &std::path::Path) -> crate::workspace_index::FileIndex {
+    let config = crate::config::Config::default();
+    let rules = crate::lsp::index_worker::cross_file_rules(&config);
+    crate::lsp::index_worker::IndexWorker::build_file_index(
+        content,
+        &rules,
+        crate::config::MarkdownFlavor::Standard,
+        Some(path),
+    )
+}
+
+/// A setext underline makes a heading of the whole paragraph above it, so this
+/// document's heading is `Installation Guide for rumdl`, written on two lines
+/// and anchored on their joined text.
+const SETEXT_SPAN_DOC: &str = "Installation Guide\nfor rumdl\n------------------\n\nSee [guide](#installation-guide-for-rumdl).\n\n## Usage\n\nUse it.\n";
+
+/// Seed a server with `SETEXT_SPAN_DOC` as an open document and its real index.
+async fn setext_span_server(dir: &str) -> (RumdlLanguageServer, std::path::PathBuf, Url) {
+    let server = create_test_server();
+    let file = test_temp_path(dir).join("doc.md");
+    let uri = Url::from_file_path(&file).unwrap();
+    server.documents.write().await.insert(
+        uri.clone(),
+        DocumentEntry {
+            content: SETEXT_SPAN_DOC.to_string(),
+            version: Some(1),
+            from_disk: false,
+        },
+    );
+    let file_index = index_for(SETEXT_SPAN_DOC, &file);
+    server
+        .workspace_index
+        .write()
+        .await
+        .insert_file(file.clone(), file_index);
+    (server, file, uri)
+}
+
+/// Every line of the paragraph is heading text, so a cursor on the first one is
+/// on the heading, and the renameable range runs to the end of the last line.
+#[tokio::test]
+async fn test_prepare_rename_on_the_first_line_of_a_multi_line_setext_heading() {
+    let (server, _file, uri) = setext_span_server("rumdl-setext-prepare-rename").await;
+
+    let result = server
+        .handle_prepare_rename(&uri, Position { line: 0, character: 3 })
+        .await;
+
+    let Some(PrepareRenameResponse::Range(range)) = result else {
+        panic!("the first line of a setext heading must be renameable, got {result:?}");
+    };
+    assert_eq!(range.start, Position { line: 0, character: 0 });
+    assert_eq!(range.end, Position { line: 1, character: 9 }, "end of `for rumdl`");
+}
+
+/// Renaming replaces the whole heading text with the new name on one line, so
+/// the earlier text lines do not survive beside it and the anchor changes as
+/// the edit to every link predicts.
+#[tokio::test]
+async fn test_rename_multi_line_setext_heading_replaces_the_whole_span() {
+    let (server, _file, uri) = setext_span_server("rumdl-setext-rename").await;
+
+    let result = server
+        .handle_rename(&uri, Position { line: 0, character: 3 }, "Setup")
+        .await;
+
+    let edit = result.expect("renaming from the heading's first line must produce an edit");
+    let changes = edit.changes.expect("the edit carries changes");
+    let edits = changes.get(&uri).expect("the document is edited");
+    let heading_edits: Vec<_> = edits.iter().filter(|e| e.new_text == "Setup").collect();
+    assert_eq!(heading_edits.len(), 1, "one edit for the heading text: {edits:?}");
+    assert_eq!(heading_edits[0].range.start, Position { line: 0, character: 0 });
+    assert_eq!(
+        heading_edits[0].range.end,
+        Position { line: 1, character: 9 },
+        "the edit covers both text lines"
+    );
+    assert!(
+        edits.iter().any(|e| e.new_text == "setup"),
+        "the link to the old anchor is updated: {edits:?}"
+    );
+}
+
+/// Following a link to the heading's anchor lands on the line the heading
+/// starts on, not on the last line of its text.
+#[tokio::test]
+async fn test_goto_anchor_lands_on_the_first_line_of_a_multi_line_setext_heading() {
+    let server = create_test_server();
+    let dir = test_temp_path("rumdl-setext-goto");
+    let current_file = dir.join("index.md");
+    let target_file = dir.join("guide.md");
+    let current_uri = Url::from_file_path(&current_file).unwrap();
+
+    let content = "# Index\n\nSee [guide](guide.md#installation-guide-for-rumdl).\n";
+    server.documents.write().await.insert(
+        current_uri.clone(),
+        DocumentEntry {
+            content: content.to_string(),
+            version: Some(1),
+            from_disk: false,
+        },
+    );
+    let file_index = index_for(SETEXT_SPAN_DOC, &target_file);
+    server
+        .workspace_index
+        .write()
+        .await
+        .insert_file(target_file.clone(), file_index);
+
+    let result = server
+        .handle_goto_definition(&current_uri, Position { line: 2, character: 20 })
+        .await;
+
+    let Some(GotoDefinitionResponse::Scalar(location)) = result else {
+        panic!("the anchor must resolve, got {result:?}");
+    };
+    assert_eq!(location.uri, Url::from_file_path(&target_file).unwrap());
+    assert_eq!(
+        location.range.start.line, 0,
+        "the heading starts on its first text line"
+    );
+}
+
+/// The hover preview of an anchor shows the heading it targets, so it begins
+/// with the heading's own first line and ends where the section does.
+#[tokio::test]
+async fn test_hover_preview_of_a_multi_line_setext_heading_starts_at_its_text() {
+    let server = create_test_server();
+    let dir = test_temp_path("rumdl-setext-hover");
+    let current_file = dir.join("index.md");
+    let target_file = dir.join("guide.md");
+    let current_uri = Url::from_file_path(&current_file).unwrap();
+    let target_uri = Url::from_file_path(&target_file).unwrap();
+
+    let content = "# Index\n\nSee [guide](guide.md#installation-guide-for-rumdl).\n";
+    {
+        let mut documents = server.documents.write().await;
+        documents.insert(
+            current_uri.clone(),
+            DocumentEntry {
+                content: content.to_string(),
+                version: Some(1),
+                from_disk: false,
+            },
+        );
+        documents.insert(
+            target_uri.clone(),
+            DocumentEntry {
+                content: SETEXT_SPAN_DOC.to_string(),
+                version: Some(1),
+                from_disk: false,
+            },
+        );
+    }
+    let file_index = index_for(SETEXT_SPAN_DOC, &target_file);
+    server
+        .workspace_index
+        .write()
+        .await
+        .insert_file(target_file.clone(), file_index);
+
+    let hover = server
+        .handle_hover(&current_uri, Position { line: 2, character: 20 })
+        .await
+        .expect("the anchor resolves to a preview");
+
+    let HoverContents::Markup(markup) = hover.contents else {
+        panic!("expected markup hover contents");
+    };
+    assert!(
+        markup.value.starts_with("Installation Guide\nfor rumdl\n---"),
+        "the preview begins with the heading: got {}",
+        markup.value
+    );
+    assert!(
+        !markup.value.contains("## Usage"),
+        "the preview stops at the next heading of the same level: got {}",
+        markup.value
+    );
+}
+
+#[tokio::test]
+async fn explicit_embedded_markdown_variants_respect_lint_slot_in_lsp() {
+    let uri = Url::parse("file:///test.md").unwrap();
+    let text = "# Test\n\n```markdown\n#  Hello\n```\n";
+    for lint_enabled in [false, true] {
+        let server = create_test_server();
+        {
+            let mut cfg = server.rumdl_config.write().await;
+            cfg.code_block_tools = make_embedded_markdown_config();
+            let markdown = cfg.code_block_tools.languages.get_mut("markdown").unwrap();
+            markdown.lint = if lint_enabled {
+                vec!["rumdl:lint".to_string()]
+            } else {
+                Vec::new()
+            };
+            markdown.format = vec!["rumdl:format".to_string()];
+        }
+        let diagnostics = server.lint_document(&uri, text, true).await.unwrap();
+        assert_eq!(
+            diagnostics.iter().any(|d| d.range.start.line == 3),
+            lint_enabled,
+            "{diagnostics:?}"
+        );
+    }
+}
+
+#[tokio::test]
+async fn test_merge_conflict_suppression_allows_editor_formatting() {
+    for directive in [
+        "<!-- rumdl-disable MD092 -->",
+        "<!-- rumdl-disable merge-conflict -->",
+        "<!-- rumdl-configure-file {\"MD092\": false} -->",
+    ] {
+        let server = create_test_server();
+        let uri = Url::from_file_path(test_temp_path("conflict-example.md")).unwrap();
+        let text =
+            format!("# Title\n\n{directive}\n```text\n<<<<<<< HEAD\n```\n<!-- rumdl-enable MD092 -->\n\nText   \n");
+        server.documents.write().await.insert(
+            uri.clone(),
+            DocumentEntry {
+                content: text.clone(),
+                version: Some(1),
+                from_disk: false,
+            },
+        );
+        let diagnostics = server.lint_document(&uri, &text, true).await.unwrap();
+        assert!(
+            !diagnostics
+                .iter()
+                .any(|d| d.code == Some(NumberOrString::String("MD092".into())))
+        );
+        assert!(
+            diagnostics
+                .iter()
+                .any(|d| d.code == Some(NumberOrString::String("MD009".into())))
+        );
+        let edits = server
+            .formatting(DocumentFormattingParams {
+                text_document: TextDocumentIdentifier { uri: uri.clone() },
+                options: editor_formatting_options(),
+                work_done_progress_params: WorkDoneProgressParams::default(),
+            })
+            .await
+            .unwrap()
+            .unwrap();
+        assert_eq!(edits.len(), 1);
+        assert_eq!(edits[0].new_text, text.replace("Text   ", "Text"));
+        assert!(server.apply_all_fixes(&uri, &text).await.unwrap().is_some());
+        // Re-enabling restores the whole-document guard, including editor options.
+        if !directive.contains("configure-file") {
+            let conflicted = format!("{text}\n>>>>>>> branch");
+            server.documents.write().await.get_mut(&uri).unwrap().content = conflicted.clone();
+            assert!(server.apply_all_fixes(&uri, &conflicted).await.unwrap().is_none());
+            let edits = server
+                .formatting(DocumentFormattingParams {
+                    text_document: TextDocumentIdentifier { uri: uri.clone() },
+                    options: editor_formatting_options(),
+                    work_done_progress_params: WorkDoneProgressParams::default(),
+                })
+                .await
+                .unwrap()
+                .unwrap();
+            assert!(edits.is_empty());
+        }
+    }
 }

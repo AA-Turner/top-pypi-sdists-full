@@ -1,6 +1,7 @@
 import keras
 
 from keras_hub.src.api_export import keras_hub_export
+from keras_hub.src.utils.tensor_utils import assert_tf_installed
 from keras_hub.src.utils.tensor_utils import convert_to_numpy
 from keras_hub.src.utils.tensor_utils import is_float_dtype
 
@@ -76,6 +77,7 @@ class EditDistance(keras.metrics.Metric):
         name="edit_distance",
         **kwargs,
     ):
+        assert_tf_installed(self.__class__.__name__)
         super().__init__(name=name, dtype=dtype, **kwargs)
 
         if not is_float_dtype(dtype):
@@ -126,9 +128,14 @@ class EditDistance(keras.metrics.Metric):
         y_pred = validate_and_fix_rank(y_pred, "y_pred")
 
         if self.normalize:
+            reference_values = (
+                y_true.flat_values
+                if isinstance(y_true, tf.RaggedTensor)
+                else y_true
+            )
             self._aggregate_reference_length.assign_add(
                 convert_to_numpy(
-                    tf.cast(tf.size(y_true.flat_values), dtype=self.dtype)
+                    tf.cast(tf.size(reference_values), dtype=self.dtype)
                 )
             )
 

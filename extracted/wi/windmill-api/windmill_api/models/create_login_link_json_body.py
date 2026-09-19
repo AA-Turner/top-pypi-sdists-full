@@ -13,16 +13,20 @@ class CreateLoginLinkJsonBody:
     """
     Attributes:
         email (str):
-        expires_in_s (Union[Unset, int]): link lifetime in seconds, at most 900 (default 600)
+        expires_in_s (Union[Unset, int]): link lifetime in seconds, at most 7200 (default 600)
         rd (Union[Unset, str]): same-origin path the browser lands on after login (default /user/workspaces)
         require_login_type (Union[Unset, str]): mint only while the account still has this login type (for example
             pending_oauth), so a link stops working once the owner has set a password or signed in with a provider
+        confirm (Union[Unset, bool]): return a /user/login_link page that signs in only when its button is clicked,
+            instead of a link spent by opening it; set it for links sent by email, which mail scanners open on delivery
+            (default false)
     """
 
     email: str
     expires_in_s: Union[Unset, int] = UNSET
     rd: Union[Unset, str] = UNSET
     require_login_type: Union[Unset, str] = UNSET
+    confirm: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -30,6 +34,7 @@ class CreateLoginLinkJsonBody:
         expires_in_s = self.expires_in_s
         rd = self.rd
         require_login_type = self.require_login_type
+        confirm = self.confirm
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -44,6 +49,8 @@ class CreateLoginLinkJsonBody:
             field_dict["rd"] = rd
         if require_login_type is not UNSET:
             field_dict["require_login_type"] = require_login_type
+        if confirm is not UNSET:
+            field_dict["confirm"] = confirm
 
         return field_dict
 
@@ -58,11 +65,14 @@ class CreateLoginLinkJsonBody:
 
         require_login_type = d.pop("require_login_type", UNSET)
 
+        confirm = d.pop("confirm", UNSET)
+
         create_login_link_json_body = cls(
             email=email,
             expires_in_s=expires_in_s,
             rd=rd,
             require_login_type=require_login_type,
+            confirm=confirm,
         )
 
         create_login_link_json_body.additional_properties = d

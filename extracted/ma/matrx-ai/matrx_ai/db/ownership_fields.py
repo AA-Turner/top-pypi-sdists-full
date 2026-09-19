@@ -36,12 +36,14 @@ def stamp_org_id(row: dict[str, Any], organization_id: str | None) -> None:
 
     The 2026-06 schema reorg made ``organization_id`` NOT NULL on the org-scoped
     chat.* tables (conversation / user_request / message / tool_call / memory).
-    This records the user's CHOSEN org (``ctx.organization_id``) so the row is
-    attributed correctly. When the org is unknown (personal scope), we leave it
-    unset and the DB backstop trigger ``chat._stamp_org_default`` defaults it to
-    the creator's personal org — the same policy as
-    ``resolve_effective_organization_id``. Idempotent: never overwrites an
-    explicit value already in ``row``.
+    This records the organization the caller was ADMITTED for (read off the
+    request context, or off the record a background re-entry is processing) so
+    the row is attributed correctly. The caller owns obtaining it: a stamp with
+    no organization leaves the column unset and the INSERT fails on NOT NULL —
+    which is the honest outcome, because nothing here may choose a tenant for
+    the row (the legacy backstop trigger that defaulted a NULL to the creator's
+    personal organization is being retired per table). Idempotent: never
+    overwrites an explicit value already in ``row``.
     """
     if organization_id:
         row.setdefault("organization_id", organization_id)

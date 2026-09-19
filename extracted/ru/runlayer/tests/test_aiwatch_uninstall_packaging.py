@@ -3,7 +3,12 @@
 from __future__ import annotations
 
 from pathlib import Path
+import shlex
 import stat
+
+import yaml
+
+from runlayer_cli import regex_safe as re
 
 
 ROOT = Path(__file__).parents[2]
@@ -13,6 +18,27 @@ BUILD_SCRIPT = CLI_ROOT / "packaging" / "macos" / "build_uninstall_pkg.sh"
 POSTINSTALL = CLI_ROOT / "packaging" / "macos" / "uninstall-pkg" / "postinstall"
 MAKEFILE = CLI_ROOT / "Makefile"
 RELEASE_WORKFLOW = ROOT / ".github" / "workflows" / "release-aiwatch.yml"
+
+
+def test_release_keychain_allows_every_package_signer() -> None:
+    workflow = yaml.safe_load(RELEASE_WORKFLOW.read_text())
+    import_step = next(
+        step
+        for step in workflow["jobs"]["build-macos"]["steps"]
+        if step.get("name") == "Import signing certificates"
+    )
+    trusted_apps = set(re.findall(r"-T\s+(\S+)", import_step["run"]))
+
+    for script in (BUILD_SCRIPT.with_name("build_pkg.sh"), BUILD_SCRIPT):
+        for line in script.read_text().replace("\\\n", " ").splitlines():
+            if re.match(r"\s*(codesign|pkgbuild|productbuild|productsign)\b", line):
+                command = shlex.split(line, comments=True)
+                if "--sign" in command:
+                    signer = f"/usr/bin/{command[0]}"
+                    assert signer in trusted_apps, (
+                        f"{script.name} signs with {signer}, but the release keychain "
+                        "does not permit it to access the signing identity unattended"
+                    )
 
 
 def test_uninstall_spec_is_minimal_onedir_without_upx() -> None:
@@ -54,7 +80,7 @@ def test_uninstall_pkg_is_payload_free_signed_and_disposable() -> None:
     assert "file -b" in build
     assert "codesign --force --options=runtime --timestamp" in build
     assert (
-        'codesign --force --options=runtime --timestamp \\\n'
+        "codesign --force --options=runtime --timestamp \\\n"
         '        --identifier "$PACKAGE_ID" \\\n'
         '        --entitlements "$SCRIPT_DIR/entitlements.plist" \\\n'
         '        --sign "$SIGN_APP" \\\n'

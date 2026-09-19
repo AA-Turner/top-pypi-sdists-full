@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::io::{Read, Write};
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -52,7 +52,20 @@ impl<'a> Changelog<'a> {
     /// Builds a changelog from releases and config.
     fn build(releases: Vec<Release<'a>>, config: Config) -> Result<Self> {
         let trim = config.changelog.trim;
-        Ok(Self {
+        let mut additional_context: HashMap<String, serde_json::Value> = HashMap::new();
+        let mut seen_groups = HashSet::new();
+        let parser_groups: Vec<String> = config
+            .git
+            .commit_parsers
+            .iter()
+            .filter_map(|p| p.group.clone())
+            .filter(|g| seen_groups.insert(g.clone()))
+            .collect();
+        additional_context.insert(
+            String::from("commit_parsers_groups"),
+            serde_json::to_value(parser_groups)?,
+        );
+        let changelog = Self {
             releases,
             header_template: match &config.changelog.header {
                 Some(header) => Some(Template::new("header", header.clone(), trim)?),
@@ -64,8 +77,10 @@ impl<'a> Changelog<'a> {
                 None => None,
             },
             config,
-            additional_context: HashMap::new(),
-        })
+            additional_context,
+        };
+        warn_if_remote_template_variables_without_feature(&changelog);
+        Ok(changelog)
     }
 
     /// Constructs an instance from a serialized context object.
@@ -151,12 +166,12 @@ impl<'a> Changelog<'a> {
             .into_iter()
             .rev()
             .filter(|release| {
-                if let Some(version) = &release.version {
-                    if skip_regex.is_some_and(|r| r.is_match(version)) {
-                        skipped_tags.push(version.clone());
-                        tracing::debug!("Skipping release: {version}");
-                        return false;
-                    }
+                if let Some(version) = &release.version &&
+                    skip_regex.is_some_and(|r| r.is_match(version))
+                {
+                    skipped_tags.push(version.clone());
+                    tracing::debug!("Skipping release: {version}");
+                    return false;
                 }
                 if release.commits.is_empty() {
                     if let Some(version) = release.version.clone() {
@@ -549,20 +564,23 @@ impl<'a> Changelog<'a> {
     #[cfg_attr(feature = "tracing", tracing::instrument(skip_all))]
     pub fn bump_version(&mut self) -> Result<Option<String>> {
         crate::set_progress_message!("Bumping the version for unreleased changes");
-        if let Some(ref mut last_release) = self.releases.iter_mut().next() {
-            if last_release.version.is_none() {
-                let next = last_release.calculate_next_version_with_config(&self.config.bump)?;
-                tracing::debug!("Bumping the version to {}", next.version);
-                last_release.bump_type = next.bump_type;
-                last_release.version = Some(next.version.clone());
-                last_release.timestamp = Some(
-                    SystemTime::now()
-                        .duration_since(UNIX_EPOCH)?
-                        .as_secs()
-                        .try_into()?,
-                );
-                return Ok(Some(next.version));
-            }
+        if let Some(last_release) = self.releases.first_mut() &&
+            last_release.version.is_none()
+        {
+            let next = last_release.calculate_next_version_from_commits(
+                &self.config.bump,
+                self.config.git.conventional_commits,
+            )?;
+            tracing::debug!("Bumping the version to {}", next.version);
+            last_release.bump_type = next.bump_type;
+            last_release.version = Some(next.version.clone());
+            last_release.timestamp = Some(
+                SystemTime::now()
+                    .duration_since(UNIX_EPOCH)?
+                    .as_secs()
+                    .try_into()?,
+            );
+            return Ok(Some(next.version));
         }
         Ok(None)
     }
@@ -572,64 +590,66 @@ impl<'a> Changelog<'a> {
     pub fn generate<W: Write + ?Sized>(&self, out: &mut W) -> Result<()> {
         crate::set_progress_message!("Generating and writing the changelog");
         tracing::debug!("Generating changelog");
+
+        let mut output = self.render()?;
+        if self.config.changelog.format {
+            output = crate::markdown::format_markdown(&output)?;
+        }
+
+        let write_result = write!(out, "{output}");
+        if let Err(e) = write_result &&
+            e.kind() != std::io::ErrorKind::BrokenPipe
+        {
+            return Err(e.into());
+        }
+
+        Ok(())
+    }
+
+    /// Renders the changelog (header + releases + footer) into a string.
+    ///
+    /// With `format` disabled this produces byte-for-byte the same output that
+    /// used to be written directly to the writer.
+    fn render(&self) -> Result<String> {
         let postprocessors = self.config.changelog.postprocessors.clone();
+        let mut output = String::new();
 
         if let Some(header_template) = &self.header_template {
-            let write_result = writeln!(
-                out,
-                "{}",
-                header_template.render(
-                    &Releases {
-                        releases: &self.releases,
-                    },
-                    Some(&self.additional_context),
-                    &postprocessors,
-                )?
-            );
-            if let Err(e) = write_result {
-                if e.kind() != std::io::ErrorKind::BrokenPipe {
-                    return Err(e.into());
-                }
+            output.push_str(&header_template.render(
+                &Releases {
+                    releases: &self.releases,
+                },
+                Some(&self.additional_context),
+                &postprocessors,
+            )?);
+            output.push('\n');
+            let header_marker = &self.config.changelog.header_marker;
+            if !header_template.variables.is_empty() && !header_marker.is_empty() {
+                output.push_str(header_marker);
+                output.push('\n');
             }
         }
 
         for release in &self.releases {
-            let write_result = write!(
-                out,
-                "{}",
-                self.body_template.render(
-                    &release,
-                    Some(&self.additional_context),
-                    &postprocessors
-                )?
-            );
-            if let Err(e) = write_result {
-                if e.kind() != std::io::ErrorKind::BrokenPipe {
-                    return Err(e.into());
-                }
-            }
+            output.push_str(&self.body_template.render(
+                &release,
+                Some(&self.additional_context),
+                &postprocessors,
+            )?);
         }
 
         if let Some(footer_template) = &self.footer_template {
-            let write_result = writeln!(
-                out,
-                "{}",
-                footer_template.render(
-                    &Releases {
-                        releases: &self.releases,
-                    },
-                    Some(&self.additional_context),
-                    &postprocessors,
-                )?
-            );
-            if let Err(e) = write_result {
-                if e.kind() != std::io::ErrorKind::BrokenPipe {
-                    return Err(e.into());
-                }
-            }
+            output.push_str(&footer_template.render(
+                &Releases {
+                    releases: &self.releases,
+                },
+                Some(&self.additional_context),
+                &postprocessors,
+            )?);
+            output.push('\n');
         }
 
-        Ok(())
+        Ok(output)
     }
 
     /// Generates a changelog and prepends it to the given changelog.
@@ -637,10 +657,44 @@ impl<'a> Changelog<'a> {
     pub fn prepend<W: Write + ?Sized>(&self, mut changelog: String, out: &mut W) -> Result<()> {
         crate::set_progress_message!("Generating and prepending the changelog");
         tracing::debug!("Generating changelog and prepending");
-        if let Some(header) = &self.config.changelog.header {
-            changelog = changelog.replacen(header, "", 1);
+        let header_marker = &self.config.changelog.header_marker;
+        let marker_index = if header_marker.is_empty() {
+            None
+        } else {
+            changelog.find(header_marker)
+        };
+        if let Some(marker_index) = marker_index {
+            changelog.replace_range(..marker_index + header_marker.len(), "");
+        } else if let Some(header) = &self.config.changelog.header {
+            let stripped = changelog.replacen(header, "", 1);
+            if stripped.len() != changelog.len() {
+                changelog = stripped;
+            } else if self.config.changelog.format {
+                // When formatting is enabled the existing changelog was written
+                // with a formatted header, so the raw configured header no
+                // longer matches. Strip the formatted version instead to avoid
+                // duplicating the header on prepend.
+                let formatted_header = crate::markdown::format_markdown(header)?;
+                changelog = changelog.replacen(&formatted_header, "", 1);
+            }
         }
-        self.generate(out)?;
+        let mut generated = Vec::new();
+        self.generate(&mut generated)?;
+        let generated = std::str::from_utf8(&generated)?;
+        write!(out, "{generated}")?;
+        // Both the rendered output and the existing content are written
+        // through unchanged so templates keep full control over their own
+        // whitespace. Only when there is no newline at all at the boundary
+        // (the rendered output does not end with one and the existing
+        // changelog does not start with one) a blank line is inserted to
+        // keep the two sections from running into each other.
+        if !generated.is_empty() &&
+            !changelog.is_empty() &&
+            !generated.ends_with('\n') &&
+            !changelog.starts_with(['\n', '\r'])
+        {
+            write!(out, "\n\n")?;
+        }
         write!(out, "{changelog}")?;
         Ok(())
     }
@@ -656,6 +710,59 @@ impl<'a> Changelog<'a> {
         writeln!(out, "{output}")?;
         Ok(())
     }
+}
+
+/// Emits a warning when a template references remote-specific variables for a
+/// provider whose Cargo feature is not compiled in.
+fn warn_if_remote_template_variables_without_feature(changelog: &Changelog<'_>) {
+    // `changelog` is only referenced inside #[cfg(not(feature = "..."))] blocks;
+    // when all remote features are enabled every block is compiled out.
+    let _ = changelog;
+    macro_rules! warn_missing_feature {
+        ($feature:literal, $vars:expr, $example:literal) => {
+            #[cfg(not(feature = $feature))]
+            if [
+                Some(&changelog.body_template),
+                changelog.header_template.as_ref(),
+                changelog.footer_template.as_ref(),
+            ]
+            .into_iter()
+            .flatten()
+            .any(|t| t.contains_variable($vars))
+            {
+                tracing::warn!(
+                    "Template uses `{}` variables (e.g. `{}`) but the `{}` feature is not \
+                     enabled. Rebuild with `--features {}`.",
+                    $feature,
+                    $example,
+                    $feature,
+                    $feature,
+                );
+            }
+        };
+    }
+
+    warn_missing_feature!(
+        "github",
+        &["github", "commit.github"],
+        "github.contributors"
+    );
+    warn_missing_feature!(
+        "gitlab",
+        &["gitlab", "commit.gitlab"],
+        "gitlab.contributors"
+    );
+    warn_missing_feature!("gitea", &["gitea", "commit.gitea"], "gitea.contributors");
+    warn_missing_feature!(
+        "bitbucket",
+        &["bitbucket", "commit.bitbucket"],
+        "bitbucket.contributors"
+    );
+    warn_missing_feature!(
+        "azure_devops",
+        &["azure_devops", "commit.azure_devops"],
+        "azure_devops.contributors"
+    );
 }
 
 fn get_body_template(config: &Config, trim: bool) -> Result<Template> {
@@ -689,11 +796,63 @@ mod test {
         Bump, ChangelogConfig, CommitParser, GitConfig, LinkParser, Remote, RemoteConfig,
         TextProcessor,
     };
+    use crate::embed::BuiltinConfig;
+
+    #[test]
+    fn keepachangelog_footers_handle_missing_previous_release() -> Result<()> {
+        for name in [
+            "keepachangelog",
+            "github-keepachangelog",
+            "gitlab-keepachangelog",
+            "azure-devops-keepachangelog",
+        ] {
+            let config: toml::Value =
+                toml::from_str(&BuiltinConfig::get_config(name.to_string())?)?;
+            let footer = config
+                .get("changelog")
+                .and_then(|changelog| changelog.get("footer"))
+                .and_then(toml::Value::as_str)
+                .expect("built-in Keep a Changelog template must have a footer");
+            let footer_template = Template::new("footer", footer.to_string(), true)?;
+            let releases = vec![
+                Release {
+                    version: None,
+                    previous: None,
+                    ..Default::default()
+                },
+                Release {
+                    version: Some(String::from("v2.0.0")),
+                    previous: Some(Box::new(Release {
+                        version: Some(String::from("v1.0.0")),
+                        ..Default::default()
+                    })),
+                    ..Default::default()
+                },
+            ];
+            let additional_context = HashMap::from([(
+                String::from("remote"),
+                serde_json::to_value(RemoteConfig::default())?,
+            )]);
+            let rendered = footer_template.render(
+                &Releases {
+                    releases: &releases,
+                },
+                Some(&additional_context),
+                &[],
+            )?;
+            assert!(
+                rendered.contains("v1.0.0") && rendered.contains("v2.0.0"),
+                "{name} did not render the valid comparison link:\n{rendered}"
+            );
+        }
+        Ok(())
+    }
 
     fn get_test_data() -> (Config, Vec<Release<'static>>) {
         let config = Config {
             changelog: ChangelogConfig {
                 header: Some(String::from("# Changelog")),
+                header_marker: String::from("<!-- git-cliff: end of header -->"),
                 body: String::from(
                     r#"{% if version %}
 				## Release [{{ version }}] - {{ timestamp | date(format="%Y-%m-%d") }} - ({{ repository }})
@@ -730,6 +889,7 @@ mod test {
                     replace_command: None,
                 }],
                 render_always: false,
+                format: false,
                 output: None,
             },
             git: GitConfig {
@@ -753,6 +913,7 @@ mod test {
                         default_scope: None,
                         scope: None,
                         skip: None,
+                        r#continue: None,
                         field: None,
                         pattern: None,
                     },
@@ -765,6 +926,7 @@ mod test {
                         default_scope: None,
                         scope: None,
                         skip: Some(true),
+                        r#continue: None,
                         field: None,
                         pattern: None,
                     },
@@ -777,6 +939,7 @@ mod test {
                         default_scope: None,
                         scope: None,
                         skip: Some(true),
+                        r#continue: None,
                         field: None,
                         pattern: None,
                     },
@@ -789,6 +952,7 @@ mod test {
                         default_scope: None,
                         scope: None,
                         skip: Some(true),
+                        r#continue: None,
                         field: None,
                         pattern: None,
                     },
@@ -801,6 +965,7 @@ mod test {
                         default_scope: Some(String::from("other")),
                         scope: None,
                         skip: None,
+                        r#continue: None,
                         field: None,
                         pattern: None,
                     },
@@ -813,6 +978,7 @@ mod test {
                         default_scope: None,
                         scope: None,
                         skip: None,
+                        r#continue: None,
                         field: None,
                         pattern: None,
                     },
@@ -825,6 +991,7 @@ mod test {
                         default_scope: None,
                         scope: Some(String::from("documentation")),
                         skip: None,
+                        r#continue: None,
                         field: None,
                         pattern: None,
                     },
@@ -837,6 +1004,7 @@ mod test {
                         default_scope: None,
                         scope: Some(String::from("documentation")),
                         skip: None,
+                        r#continue: None,
                         field: None,
                         pattern: None,
                     },
@@ -849,6 +1017,7 @@ mod test {
                         default_scope: None,
                         scope: None,
                         skip: None,
+                        r#continue: None,
                         field: None,
                         pattern: None,
                     },
@@ -861,6 +1030,7 @@ mod test {
                         default_scope: None,
                         scope: Some(String::from("footer")),
                         skip: None,
+                        r#continue: None,
                         field: None,
                         pattern: None,
                     },
@@ -873,6 +1043,7 @@ mod test {
                         default_scope: Some(String::from("other")),
                         scope: None,
                         skip: None,
+                        r#continue: None,
                         field: None,
                         pattern: None,
                     },
@@ -884,6 +1055,7 @@ mod test {
                 skip_tags: Regex::new("v3.*").ok(),
                 ignore_tags: None,
                 count_tags: None,
+                limit_tags: None,
                 use_branch_tags: false,
                 topo_order: false,
                 topo_order_commits: true,
@@ -906,6 +1078,7 @@ mod test {
                     token: None,
                     is_custom: false,
                     api_url: None,
+                    http_timeout: std::time::Duration::from_secs(30),
                     native_tls: None,
                 },
                 gitlab: Remote {
@@ -914,6 +1087,7 @@ mod test {
                     token: None,
                     is_custom: false,
                     api_url: None,
+                    http_timeout: std::time::Duration::from_secs(30),
                     native_tls: None,
                 },
                 gitea: Remote {
@@ -922,6 +1096,7 @@ mod test {
                     token: None,
                     is_custom: false,
                     api_url: None,
+                    http_timeout: std::time::Duration::from_secs(30),
                     native_tls: None,
                 },
                 bitbucket: Remote {
@@ -930,6 +1105,7 @@ mod test {
                     token: None,
                     is_custom: false,
                     api_url: None,
+                    http_timeout: std::time::Duration::from_secs(30),
                     native_tls: None,
                 },
                 azure_devops: Remote {
@@ -938,6 +1114,7 @@ mod test {
                     token: None,
                     is_custom: false,
                     api_url: None,
+                    http_timeout: std::time::Duration::from_secs(30),
                     native_tls: None,
                 },
             },
@@ -1389,6 +1566,36 @@ mod test {
     }
 
     #[test]
+    fn changelog_generator_format() -> Result<()> {
+        let (config, releases) = get_test_data();
+
+        // Formatting disabled: the output is exactly what the templates render.
+        let plain = {
+            let changelog = Changelog::new(releases.clone(), config.clone(), None)?;
+            let mut out = Vec::new();
+            changelog.generate(&mut out)?;
+            String::from_utf8(out).expect("output should be valid utf-8")
+        };
+
+        // Formatting enabled: the output is the rendered changelog run through
+        // the Markdown formatter.
+        let mut formatted_config = config;
+        formatted_config.changelog.format = true;
+        let formatted = {
+            let changelog = Changelog::new(releases, formatted_config, None)?;
+            let mut out = Vec::new();
+            changelog.generate(&mut out)?;
+            String::from_utf8(out).expect("output should be valid utf-8")
+        };
+
+        assert_eq!(formatted, crate::markdown::format_markdown(&plain)?);
+        // The fixture output isn't already normalized, so formatting changes it.
+        assert_ne!(plain, formatted);
+
+        Ok(())
+    }
+
+    #[test]
     fn changelog_generator_split_commits() -> Result<()> {
         let (mut config, mut releases) = get_test_data();
         config.git.split_commits = true;
@@ -1552,6 +1759,88 @@ chore(deps): fix broken deps
         Ok(())
     }
 
+    /// Regression for <https://github.com/orhun/git-cliff/issues/9>: commit
+    /// groups should be rendered in the order in which they first appear in
+    /// `commit_parsers`, not alphabetically.
+    #[test]
+    fn changelog_group_order_matches_commit_parsers() -> Result<()> {
+        // This is the reproducer from the issue: a small `commit_parsers`
+        // list with named groups that would be alphabetized by the built-in
+        // `group_by` filter.
+        let config = Config {
+            changelog: ChangelogConfig {
+                header: None,
+                header_marker: String::from("<!-- git-cliff: end of header -->"),
+                body: String::from(
+                    "{% for entry in commits | commit_groups(groups=commit_parsers_groups) %}### \
+                     {{ entry.group }}\n{% for commit in entry.commits %}- {{ commit.message \
+                     }}\n{% endfor %}{% endfor %}",
+                ),
+                footer: None,
+                trim: true,
+                postprocessors: Vec::new(),
+                render_always: false,
+                format: false,
+                output: None,
+            },
+            git: GitConfig {
+                conventional_commits: true,
+                filter_unconventional: false,
+                commit_parsers: vec![
+                    CommitParser {
+                        message: Regex::new("^feat").ok(),
+                        group: Some(String::from(":rocket: New features")),
+                        ..Default::default()
+                    },
+                    CommitParser {
+                        message: Regex::new("^fix").ok(),
+                        group: Some(String::from(":bug: Bug fixes")),
+                        ..Default::default()
+                    },
+                    CommitParser {
+                        message: Regex::new("^perf").ok(),
+                        group: Some(String::from(":zap: Performance")),
+                        ..Default::default()
+                    },
+                    CommitParser {
+                        message: Regex::new("^chore").ok(),
+                        group: Some(String::from(":gear: Miscellaneous")),
+                        ..Default::default()
+                    },
+                ],
+                ..Default::default()
+            },
+            remote: RemoteConfig::default(),
+            bump: Bump::default(),
+        };
+
+        // Commits arrive in an order whose group names sort alphabetically
+        // (`:bug:` < `:gear:` < `:rocket:` < `:zap:`), which is the wrong
+        // order. The filter is expected to use the `commit_parsers` order
+        // instead.
+        let release = Release {
+            version: None,
+            commits: vec![
+                Commit::new(String::from("1"), String::from("chore: misc")),
+                Commit::new(String::from("2"), String::from("fix: a bug")),
+                Commit::new(String::from("3"), String::from("perf: faster")),
+                Commit::new(String::from("4"), String::from("feat: shiny new thing")),
+            ],
+            ..Default::default()
+        };
+
+        let changelog = Changelog::new(vec![release], config, None)?;
+        let mut out = Vec::new();
+        changelog.generate(&mut out)?;
+        let rendered = String::from_utf8(out).unwrap_or_default();
+
+        let expected = "### :rocket: New features\n- shiny new thing\n### :bug: Bug fixes\n- a \
+                        bug\n### :zap: Performance\n- faster\n### :gear: Miscellaneous\n- misc\n";
+        assert_eq!(expected, rendered);
+
+        Ok(())
+    }
+
     #[test]
     fn changelog_adds_additional_context() -> Result<()> {
         let (mut config, releases) = get_test_data();
@@ -1635,6 +1924,149 @@ chore(deps): fix broken deps
     -- total releases: 2 --
 "]]
         .assert_eq(str::from_utf8(&out).unwrap_or_default());
+        Ok(())
+    }
+
+    #[test]
+    fn changelog_prepend_inserts_blank_line_before_existing_content() -> Result<()> {
+        let (mut config, releases) = get_test_data();
+        config.changelog.header = None;
+        config.changelog.body = String::from("## New Release");
+        config.changelog.footer = None;
+        config.changelog.postprocessors = Vec::new();
+
+        let changelog = Changelog::build(vec![releases[0].clone()], config)?;
+        let mut out = Vec::new();
+        changelog.prepend(String::from("## Old Release"), &mut out)?;
+
+        assert_eq!(
+            "## New Release\n\n## Old Release",
+            str::from_utf8(&out).unwrap_or_default()
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn changelog_prepend_handles_empty_existing_content() -> Result<()> {
+        let (mut config, releases) = get_test_data();
+        config.changelog.header = None;
+        config.changelog.body = String::from("## New Release");
+        config.changelog.footer = None;
+        config.changelog.postprocessors = Vec::new();
+
+        let changelog = Changelog::build(vec![releases[0].clone()], config)?;
+        let mut out = Vec::new();
+        changelog.prepend(String::new(), &mut out)?;
+
+        assert_eq!("## New Release", str::from_utf8(&out).unwrap_or_default());
+
+        Ok(())
+    }
+
+    #[test]
+    fn changelog_prepend_keeps_template_controlled_boundary() -> Result<()> {
+        let (mut config, releases) = get_test_data();
+        config.changelog.header = None;
+        config.changelog.body = String::from("## New Release");
+        config.changelog.footer = None;
+        config.changelog.postprocessors = Vec::new();
+
+        let changelog = Changelog::build(vec![releases[0].clone()], config)?;
+        let mut out = Vec::new();
+        changelog.prepend(String::from("\n## Old Release"), &mut out)?;
+
+        assert_eq!(
+            "## New Release\n## Old Release",
+            str::from_utf8(&out).unwrap_or_default()
+        );
+
+        Ok(())
+    }
+    #[test]
+    fn changelog_prepend_strips_formatted_header() -> Result<()> {
+        let (mut config, releases) = get_test_data();
+        config.changelog.header = Some(String::from("Changelog\n=========\n"));
+        config.changelog.body = String::from("## New Release\n");
+        config.changelog.footer = None;
+        config.changelog.postprocessors = Vec::new();
+        config.changelog.format = true;
+
+        // Simulate a changelog that was previously written with formatting on:
+        // its stored header is the formatted version of the configured header,
+        // which no longer matches the raw configured text.
+        let changelog = Changelog::build(vec![releases[0].clone()], config)?;
+        let mut existing = Vec::new();
+        changelog.generate(&mut existing)?;
+        let existing = String::from_utf8(existing).unwrap_or_default();
+
+        let mut out = Vec::new();
+        changelog.prepend(existing, &mut out)?;
+        let out = String::from_utf8(out).unwrap_or_default();
+
+        assert_eq!(
+            1,
+            out.matches("Changelog").count(),
+            "header should not be duplicated on prepend:\n{out}"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn changelog_prepend_replaces_a_changed_header_template() -> Result<()> {
+        let (mut config, releases) = get_test_data();
+        config.changelog.header = Some(String::from("# Changelog for {{ project }}"));
+        config.changelog.body = String::from("## Old Release");
+        config.changelog.footer = None;
+        config.changelog.postprocessors = Vec::new();
+
+        let mut old_changelog = Changelog::build(vec![releases[0].clone()], config.clone())?;
+        old_changelog.add_context("project", "old")?;
+        let mut existing = Vec::new();
+        old_changelog.generate(&mut existing)?;
+        assert!(str::from_utf8(&existing)?.contains(&old_changelog.config.changelog.header_marker));
+
+        config.changelog.body = String::from("## New Release");
+        let mut new_changelog = Changelog::build(vec![releases[0].clone()], config)?;
+        new_changelog.add_context("project", "new")?;
+        let mut out = Vec::new();
+        new_changelog.prepend(str::from_utf8(&existing)?.to_owned(), &mut out)?;
+
+        assert_eq!(
+            "# Changelog for new\n<!-- git-cliff: end of header -->\n## New Release\n## Old \
+             Release",
+            str::from_utf8(&out).unwrap_or_default()
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn changelog_prepend_uses_configured_header_marker() -> Result<()> {
+        let (mut config, releases) = get_test_data();
+        config.changelog.header = Some(String::from("# Changelog for {{ project }}"));
+        config.changelog.header_marker = String::from("<!-- custom header boundary -->");
+        config.changelog.body = String::from("## Old Release");
+        config.changelog.footer = None;
+        config.changelog.postprocessors = Vec::new();
+
+        let mut old_changelog = Changelog::build(vec![releases[0].clone()], config.clone())?;
+        old_changelog.add_context("project", "old")?;
+        let mut existing = Vec::new();
+        old_changelog.generate(&mut existing)?;
+
+        config.changelog.body = String::from("## New Release");
+        let mut new_changelog = Changelog::build(vec![releases[0].clone()], config)?;
+        new_changelog.add_context("project", "new")?;
+        let mut out = Vec::new();
+        new_changelog.prepend(str::from_utf8(&existing)?.to_owned(), &mut out)?;
+
+        assert_eq!(
+            "# Changelog for new\n<!-- custom header boundary -->\n## New Release\n## Old Release",
+            str::from_utf8(&out).unwrap_or_default()
+        );
+
         Ok(())
     }
 }

@@ -10,6 +10,7 @@ from ..types.presence_token_response_out import PresenceTokenResponseOut
 from ..types.update_workspace_disclaimer_in import UpdateWorkspaceDisclaimerIn
 from ..types.update_workspace_tool_registry_tool_in import UpdateWorkspaceToolRegistryToolIn
 from ..types.workspace_configuration_response_out import WorkspaceConfigurationResponseOut
+from ..types.workspace_member_search_response_out import WorkspaceMemberSearchResponseOut
 from ..types.workspace_tool_registry_response_out import WorkspaceToolRegistryResponseOut
 from .raw_client import AsyncRawWorkspacesClient, RawWorkspacesClient
 
@@ -103,6 +104,52 @@ class WorkspacesClient:
         _response = self._raw_client.update_configuration(
             workspace_id, workspace_disclaimer=workspace_disclaimer, request_options=request_options
         )
+        return _response.data
+
+    def search_members(
+        self,
+        workspace_id: str,
+        *,
+        q: str,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> WorkspaceMemberSearchResponseOut:
+        """
+        Prefix-search the people an asset in this workspace can be shared with — active members plus external viewers provisioned for the workspace — by email, first name or last name. Built for share pickers: a query of at least two characters is required, results are capped, and only name and email are returned (no user ids). Callers must be a member of the workspace (or a deployment admin). External SSO viewers may search only their own workspace, only see people in their own email domain, receive at most 10 results per call, and hold a per-viewer budget of 120 searches per 10 minutes (429 with Retry-After when exhausted; 503 if the budget cannot be enforced).
+
+        Parameters
+        ----------
+        workspace_id : str
+            Unique identifier of the workspace to search
+
+        q : str
+            Search prefix, matched case-insensitively against email, first name and last name
+
+        limit : typing.Optional[int]
+            Maximum number of people to return
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        WorkspaceMemberSearchResponseOut
+            Matching people, ordered by email
+
+        Examples
+        --------
+        from athena import Athena
+
+        client = Athena(
+            api_key="YOUR_API_KEY",
+        )
+        client.workspaces.search_members(
+            workspace_id="workspace_eb171baf",
+            q="ale",
+            limit=20,
+        )
+        """
+        _response = self._raw_client.search_members(workspace_id, q=q, limit=limit, request_options=request_options)
         return _response.data
 
     def create_presence_token(
@@ -390,6 +437,62 @@ class AsyncWorkspacesClient:
         """
         _response = await self._raw_client.update_configuration(
             workspace_id, workspace_disclaimer=workspace_disclaimer, request_options=request_options
+        )
+        return _response.data
+
+    async def search_members(
+        self,
+        workspace_id: str,
+        *,
+        q: str,
+        limit: typing.Optional[int] = None,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> WorkspaceMemberSearchResponseOut:
+        """
+        Prefix-search the people an asset in this workspace can be shared with — active members plus external viewers provisioned for the workspace — by email, first name or last name. Built for share pickers: a query of at least two characters is required, results are capped, and only name and email are returned (no user ids). Callers must be a member of the workspace (or a deployment admin). External SSO viewers may search only their own workspace, only see people in their own email domain, receive at most 10 results per call, and hold a per-viewer budget of 120 searches per 10 minutes (429 with Retry-After when exhausted; 503 if the budget cannot be enforced).
+
+        Parameters
+        ----------
+        workspace_id : str
+            Unique identifier of the workspace to search
+
+        q : str
+            Search prefix, matched case-insensitively against email, first name and last name
+
+        limit : typing.Optional[int]
+            Maximum number of people to return
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        WorkspaceMemberSearchResponseOut
+            Matching people, ordered by email
+
+        Examples
+        --------
+        import asyncio
+
+        from athena import AsyncAthena
+
+        client = AsyncAthena(
+            api_key="YOUR_API_KEY",
+        )
+
+
+        async def main() -> None:
+            await client.workspaces.search_members(
+                workspace_id="workspace_eb171baf",
+                q="ale",
+                limit=20,
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._raw_client.search_members(
+            workspace_id, q=q, limit=limit, request_options=request_options
         )
         return _response.data
 

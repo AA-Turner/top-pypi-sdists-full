@@ -3,7 +3,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.community.sllpa_endpoints import (
     SllpaEndpoints,
     SllpaMutateResult,
@@ -27,7 +27,7 @@ class SllpaCypherEndpoints(SllpaEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         *,
         max_iterations: int,
@@ -61,13 +61,13 @@ class SllpaCypherEndpoints(SllpaEndpoints):
         )
         params.ensure_job_id_in_config()
 
-        result = self._query_runner.call_procedure(endpoint="gds.sllpa.mutate", params=params).squeeze()
+        result = self._query_runner.call_procedure(endpoint="gds.sllpa.mutate", params=params).iloc[0]
 
         return SllpaMutateResult(**result)
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         max_iterations: int,
         concurrency: int | None = None,
@@ -99,13 +99,13 @@ class SllpaCypherEndpoints(SllpaEndpoints):
         )
         params.ensure_job_id_in_config()
 
-        result = self._query_runner.call_procedure(endpoint="gds.sllpa.stats", params=params).squeeze()
+        result = self._query_runner.call_procedure(endpoint="gds.sllpa.stats", params=params).iloc[0]
 
         return SllpaStatsResult(**result)
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         max_iterations: int,
         concurrency: int | None = None,
@@ -143,7 +143,7 @@ class SllpaCypherEndpoints(SllpaEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         *,
         max_iterations: int,
@@ -179,13 +179,13 @@ class SllpaCypherEndpoints(SllpaEndpoints):
         )
         params.ensure_job_id_in_config()
 
-        result = self._query_runner.call_procedure(endpoint="gds.sllpa.write", params=params).squeeze()
+        result = self._query_runner.call_procedure(endpoint="gds.sllpa.write", params=params).iloc[0]
 
         return SllpaWriteResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         *,
         max_iterations: int,
         concurrency: int | None = None,

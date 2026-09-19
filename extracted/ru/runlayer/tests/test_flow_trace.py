@@ -551,3 +551,37 @@ class TestResetFlow:
         finally:
             flow_trace._flow_var.reset(token)
             reset_flow()
+
+
+class TestTargetHost:
+    def test_target_host_reflected_in_summary_verbatim(self, sink):
+        with flow("cli.hook_event"):
+            flow_trace.set_target_host("app.example.com")
+        assert sink[0]["target_host"] == "app.example.com"
+
+    def test_target_host_omitted_when_unset(self, sink):
+        with flow("cli.hook_event"):
+            pass
+        assert "target_host" not in sink[0]
+
+    def test_long_hostname_is_not_truncated(self, sink):
+        # 200 chars: valid DNS (< 253) but past _MAX_IDENTIFIER_LEN; the spool
+        # drain compares the full value, so a truncated stamp never matches.
+        host = ".".join(["a" * 60] * 3) + ".example.com"
+        assert len(host) > flow_trace._MAX_IDENTIFIER_LEN
+        with flow("cli.hook_event"):
+            flow_trace.set_target_host(host)
+        assert sink[0]["target_host"] == host
+
+    def test_last_value_wins(self, sink):
+        with flow("cli.hook_event"):
+            flow_trace.set_target_host("a.example.com")
+            flow_trace.set_target_host("b.example.com")
+        assert sink[0]["target_host"] == "b.example.com"
+
+    def test_blank_clears_and_no_flow_is_noop(self, sink):
+        flow_trace.set_target_host("orphan.example.com")  # no active flow
+        with flow("cli.hook_event"):
+            flow_trace.set_target_host("a.example.com")
+            flow_trace.set_target_host("   ")
+        assert "target_host" not in sink[0]

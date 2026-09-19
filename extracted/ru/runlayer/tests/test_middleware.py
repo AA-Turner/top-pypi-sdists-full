@@ -16,6 +16,7 @@ from fastmcp.tools.tool import ToolResult
 from runlayer_cli.middleware import RunlayerMiddleware
 from runlayer_cli.models import ServerDetails
 from runlayer_cli.models_mcp import LocalCapabilities, PostRequest, PreRequest
+from runlayer_cli.oauth import OAuthCallbackPortInUseError
 
 
 def create_test_server(
@@ -1002,29 +1003,29 @@ async def test_first_upstream_connect_outlives_cancelled_list_tools():
     middleware, mock_client, transport, proxy = _make_gated_proxy_middleware(gate)
     call_next = await _list_tools_via_proxy(proxy)
 
-    with patch("runlayer_cli.middleware._LIST_TOOLS_UPSTREAM_TIMEOUT_SECONDS", 0.1):
-        async with anyio.create_task_group() as tg:
-            middleware.background_tasks = tg
-
+    async with anyio.create_task_group() as tg:
+        middleware.background_tasks = tg
+        with patch("runlayer_cli.middleware._LIST_TOOLS_UPSTREAM_TIMEOUT_SECONDS", 0.1):
             timed_out = await _call_on_list_tools(middleware, call_next)
 
-            assert timed_out == []
-            assert transport.connects == 1
-            assert transport.aborted == 0
-            assert not middleware._first_connect.is_set()
+        assert timed_out == []
+        assert transport.connects == 1
+        assert transport.aborted == 0
+        assert not middleware._first_connect.is_set()
 
-            gate.set()  # the human finishes logging in after the client gave up
-            with anyio.fail_after(5):
-                await middleware._first_connect.wait()
+        gate.set()  # the human finishes logging in after the client gave up
+        with anyio.fail_after(5):
+            await middleware._first_connect.wait()
 
-            assert transport.aborted == 0
+        assert transport.aborted == 0
+        with anyio.fail_after(5):
             listed = await _call_on_list_tools(middleware, call_next)
 
-            # The warm session is reused (nesting), never reconnected.
-            assert [tool.name for tool in listed] == ["echo"]
-            assert transport.connects == 1
+        # The warm session is reused (nesting), never reconnected.
+        assert [tool.name for tool in listed] == ["echo"]
+        assert transport.connects == 1
 
-            tg.cancel_scope.cancel()  # stop the held-open warm connect
+        tg.cancel_scope.cancel()  # stop the held-open warm connect
 
     upstream_error = mock_client.post.call_args_list[0].args[1].upstream_error
     assert upstream_error is not None and upstream_error.type == "TimeoutError"
@@ -1092,3 +1093,89 @@ async def test_first_upstream_connect_skipped_without_oauth(transport_type: str)
 
     mock_proxy.client_factory.assert_not_called()
     assert middleware._first_connect.is_set()
+
+
+def _wrapped_by_fastmcp(inner: BaseException) -> RuntimeError:
+    """fastmcp re-raises the session task's failure as a wrapped RuntimeError."""
+    exc = RuntimeError(f"Client failed to connect: {inner}")
+    exc.__cause__ = inner
+    return exc
+
+
+@pytest.mark.asyncio
+async def test_on_list_tools_wrapped_connect_error_returns_empty():
+    """A connect error behind fastmcp's RuntimeError wrapper still takes the
+    graceful branch (before, only direct/group-wrapped errors did)."""
+    middleware, mock_client, _ = _make_list_tools_middleware(sync_required=False)
+    exc = _wrapped_by_fastmcp(httpx.ConnectError("refused"))
+
+    result = await _list_tools_with(middleware, _raising_call_next(exc))
+
+    assert result == []
+    _assert_list_unreachable_post(mock_client)
+
+
+@pytest.mark.asyncio
+async def test_on_list_tools_implicit_context_does_not_swallow():
+    """Only explicit causes count for control flow: a bug raised while
+    handling a transport error must still propagate."""
+    middleware, mock_client, _ = _make_list_tools_middleware(sync_required=False)
+    try:
+        try:
+            raise httpx.ConnectError("refused")
+        except httpx.ConnectError:
+            raise KeyError("bug in cleanup")
+    except KeyError as exc:
+        implicit = exc
+
+    with pytest.raises(KeyError):
+        await _list_tools_with(middleware, _raising_call_next(implicit))
+    mock_client.post.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_on_list_tools_callback_port_in_use_is_posted_then_raised(flow_sink):
+    """The occupied callback port is audited with its own category and the
+    client still receives the guidance (an empty tool list would hide it)."""
+    middleware, mock_client, _ = _make_list_tools_middleware(sync_required=False)
+    bind_failure = OSError(48, "Address already in use")
+    busy = OAuthCallbackPortInUseError(
+        "OAuth callback port 53682 is already in use", port=53682
+    )
+    busy.__cause__ = bind_failure
+
+    with pytest.raises(OAuthCallbackPortInUseError, match="53682") as exc_info:
+        await _list_tools_with(
+            middleware, _raising_call_next(_wrapped_by_fastmcp(busy))
+        )
+
+    # The listener error keeps its own cause (the bind failure), not the wrapper.
+    assert exc_info.value.__cause__ is bind_failure
+
+    _assert_list_unreachable_post(mock_client)
+    post_payload = mock_client.post.call_args[0][1]
+    assert post_payload.upstream_error.type == "OAuthCallbackPortInUseError"
+    assert "53682" in post_payload.upstream_error.message
+    summary = flow_sink[0]
+    assert summary["status"] == "error"
+    assert summary["error_type"] == "OAuthCallbackPortInUseError"
+    assert summary["error_category"] == "oauth_callback_port_in_use"
+    assert [s["name"] for s in summary["steps"]] == ["pre", "upstream", "post"]
+
+
+@pytest.mark.asyncio
+async def test_on_call_tool_callback_port_in_use_returns_guidance(flow_sink):
+    middleware, mock_context = _call_tool_middleware()
+    busy = OAuthCallbackPortInUseError(
+        "OAuth callback port 53682 is already in use", port=53682
+    )
+
+    result = await middleware.on_call_tool(
+        mock_context, _raising_call_next(_wrapped_by_fastmcp(busy))
+    )
+
+    assert isinstance(result, ToolResult)
+    text = result.content[0].text  # type: ignore[union-attr]
+    assert "53682" in text
+    assert "is not running" not in text
+    assert flow_sink[0]["error_category"] == "oauth_callback_port_in_use"

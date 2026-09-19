@@ -58,6 +58,47 @@ def _enable_daemon(monkeypatch, endpoint: Path) -> None:
     monkeypatch.setattr(daemon_client, "daemon_endpoint", lambda: str(endpoint))
 
 
+def test_windows_daemon_pipe_open_limits_server_impersonation(monkeypatch) -> None:
+    flags: list[int] = []
+
+    class _Kernel32:
+        @staticmethod
+        def WaitNamedPipeW(_endpoint: str, _timeout: int) -> bool:
+            return True
+
+        @staticmethod
+        def CreateFileW(
+            _endpoint: str,
+            _access: int,
+            _share: int,
+            _security: object,
+            _creation: int,
+            attributes: int,
+            _template: object,
+        ) -> int:
+            flags.append(attributes)
+            return 42
+
+        @staticmethod
+        def SetNamedPipeHandleState(*_args: object) -> bool:
+            return True
+
+        @staticmethod
+        def CloseHandle(_handle: object) -> bool:
+            return True
+
+    monkeypatch.setattr(
+        daemon_client, "_verify_windows_pipe_owner", lambda _handle: None
+    )
+
+    assert daemon_client._connect_windows_pipe(_Kernel32(), r"\\.\pipe\test") == 42
+    assert flags == [
+        0x40000000  # FILE_FLAG_OVERLAPPED
+        | 0x00100000  # SECURITY_SQOS_PRESENT
+        | 0x00010000  # SECURITY_IDENTIFICATION
+    ]
+
+
 def test_daemon_gate_requires_managed_org_key_and_backend_flag(monkeypatch) -> None:
     monkeypatch.setattr(
         mdm_config,

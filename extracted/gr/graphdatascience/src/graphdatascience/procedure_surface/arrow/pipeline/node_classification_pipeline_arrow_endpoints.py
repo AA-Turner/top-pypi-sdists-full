@@ -4,6 +4,7 @@ from typing import Any
 
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
 from graphdatascience.arrow_client.v2.data_mapper_utils import deserialize_single
+from graphdatascience.procedure_surface.api.pipeline.node_classification_model import NodeClassificationModel
 from graphdatascience.procedure_surface.api.pipeline.node_classification_pipeline import (
     NodeClassificationPipeline,
 )
@@ -21,7 +22,7 @@ from graphdatascience.procedure_surface.api.pipeline.node_classification_train_e
 )
 from graphdatascience.procedure_surface.api.pipeline.parameter_space_config import convert_to_parameter_space_config
 from graphdatascience.procedure_surface.api.pipeline.pipeline_catalog_protocol import PipelineCatalogProtocol
-from graphdatascience.procedure_surface.arrow.model_api_arrow import ModelApiArrow
+from graphdatascience.procedure_surface.arrow.model.model_catalog_arrow_endpoints import ModelCatalogArrowEndpoints
 from graphdatascience.procedure_surface.arrow.pipeline.node_classification_predict_arrow_endpoints import (
     NodeClassificationPredictArrowEndpoints,
 )
@@ -32,7 +33,7 @@ from graphdatascience.procedure_surface.arrow.pipeline.pipeline_catalog_arrow_en
     PipelineCatalogArrowEndpoints,
 )
 from graphdatascience.procedure_surface.utils.config_converter import ConfigConverter
-from graphdatascience.query_runner.protocol.write_protocols import WriteProtocol
+from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
 class NodeClassificationPipelineArrowEndpoints(NodeClassificationPipelineEndpoints):
@@ -54,10 +55,10 @@ class NodeClassificationPipelineArrowEndpoints(NodeClassificationPipelineEndpoin
             arrow_client,
             show_progress=show_progress,
         )
-        self._model_api = ModelApiArrow(arrow_client)
+        self._model_catalog = ModelCatalogArrowEndpoints(arrow_client)
         self._train = NodeClassificationTrainArrowEndpoints(
             arrow_client=arrow_client,
-            model_api=self._model_api,
+            catalog=self._model_catalog,
             predict_endpoints=self._predict,
             show_progress=show_progress,
         )
@@ -78,16 +79,24 @@ class NodeClassificationPipelineArrowEndpoints(NodeClassificationPipelineEndpoin
         )
 
     def get(self, pipeline_name: str) -> NodeClassificationPipeline:
-        pipeline_info = self._pipeline_catalog.exists(pipeline_name)
-        if not pipeline_info:
-            raise ValueError(f"No pipeline named '{pipeline_name}' exists")
-        if pipeline_info.pipeline_type != "Node classification training pipeline":
+        entry = self._pipeline_catalog.get(pipeline_name)
+        if entry.pipeline_type != "Node classification training pipeline":
             raise ValueError(f"Pipeline '{pipeline_name}' is not a node classification pipeline")
         return NodeClassificationPipeline(
-            pipeline_info.pipeline_name,
+            entry.pipeline_name,
             self,
             self,
             self._pipeline_catalog,
+        )
+
+    def get_model(self, model_name: str) -> NodeClassificationModel:
+        details = self._model_catalog.get(model_name)
+        if details.model_type != "NodeClassification":
+            raise ValueError(f"Model '{model_name}' is not a node classification model")
+        return NodeClassificationModel(
+            details.model_name,
+            self._model_catalog,
+            predict_endpoints=self._predict,
         )
 
     def add_node_property(

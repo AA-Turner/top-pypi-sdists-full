@@ -31,7 +31,9 @@ from runlayer_cli.scan.skill_scanner import (
     _scan_skill_md_dir,
     clear_git_remote_cache,
     process_skill_paths,
+    process_skill_paths_with_candidates,
     scan_global_skills,
+    scan_global_skills_with_candidates,
     strip_duplicate_skill_files,
 )
 
@@ -288,8 +290,21 @@ class TestStreamingDedupe:
 # --- per-run caps + bytes budget ---------------------------------------------
 
 
+@pytest.mark.parametrize(
+    ("total_found", "expected"),
+    [
+        (999, 1000),
+        (115_000, 2396),
+        (240_001, 5000),
+    ],
+)
+def test_per_run_window(total_found, expected):
+    assert skill_scanner.per_run_window(total_found) == expected
+
+
 class TestSkillCapsAndBudget:
     def test_per_run_artifact_cap(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(skill_scanner, "MIN_SKILL_ARTIFACTS_PER_RUN", 3)
         monkeypatch.setattr(skill_scanner, "MAX_SKILL_ARTIFACTS_PER_RUN", 3)
         markers = [
             _make_skill_dir(tmp_path / f"proj-{i}", "skill", body=f"# body {i}")
@@ -298,6 +313,26 @@ class TestSkillCapsAndBudget:
 
         results = process_skill_paths(markers, state_path=tmp_path / "scan-state.json")
         assert len(results) == 3
+
+    def test_project_candidates_include_entire_pre_window_set(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.setattr(skill_scanner, "MIN_SKILL_ARTIFACTS_PER_RUN", 3)
+        monkeypatch.setattr(skill_scanner, "MAX_SKILL_ARTIFACTS_PER_RUN", 3)
+        markers = [
+            _make_skill_dir(tmp_path / f"proj-{i}", "skill", body=f"# body {i}")
+            for i in range(5)
+        ]
+
+        result = process_skill_paths_with_candidates(
+            list(reversed(markers)),
+            state_path=tmp_path / "scan-state.json",
+        )
+
+        assert len(result.artifacts) == 3
+        assert result.candidate_paths == sorted(
+            str(marker.parent.resolve()) for marker in markers
+        )
 
     def test_total_bytes_budget_keeps_metadata(self, tmp_path, monkeypatch):
         # Each skill's SKILL.md is ~62 bytes: the first fits, the rest do not.
@@ -341,6 +376,7 @@ class TestSkillCapsAndBudget:
     @mock.patch("runlayer_cli.scan.skill_scanner.Path.home")
     def test_global_skills_capped(self, mock_home, tmp_path, monkeypatch):
         mock_home.return_value = tmp_path
+        monkeypatch.setattr(skill_scanner, "MIN_SKILL_ARTIFACTS_PER_RUN", 2)
         monkeypatch.setattr(skill_scanner, "MAX_SKILL_ARTIFACTS_PER_RUN", 2)
         for i in range(4):
             skills_dir = tmp_path / ".claude" / "skills" / f"skill-{i}"
@@ -349,6 +385,36 @@ class TestSkillCapsAndBudget:
 
         results = scan_global_skills(state_path=tmp_path / "scan-state.json")
         assert len(results) == 2
+
+    @mock.patch("runlayer_cli.scan.skill_scanner.Path.home")
+    def test_global_candidates_include_entire_pre_window_set(
+        self, mock_home, tmp_path, monkeypatch
+    ):
+        mock_home.return_value = tmp_path
+        monkeypatch.setattr(skill_scanner, "MIN_SKILL_ARTIFACTS_PER_RUN", 3)
+        monkeypatch.setattr(skill_scanner, "MAX_SKILL_ARTIFACTS_PER_RUN", 3)
+        skills_root = tmp_path / ".claude" / "skills"
+        expected_paths: list[str] = []
+        for i in range(3):
+            marker = _make_skill_dir(
+                skills_root,
+                f"dir-skill-{i}",
+                body=f"# body {i}",
+            )
+            expected_paths.append(str(marker.parent.resolve()))
+        for i in range(2):
+            loose = skills_root / f"loose-skill-{i}.md"
+            loose.write_text(
+                f"---\nname: loose-{i}\ndescription: loose skill\n---\n# body {i}\n"
+            )
+            expected_paths.append(str(loose.resolve()))
+
+        result = scan_global_skills_with_candidates(
+            state_path=tmp_path / "scan-state.json"
+        )
+
+        assert len(result.artifacts) == 3
+        assert result.candidate_paths == sorted(expected_paths)
 
 
 # --- cross-run rotation catch-up ---------------------------------------------
@@ -424,6 +490,7 @@ class TestRotationCatchUp:
         )
 
     def test_aborted_window_is_retried(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(skill_scanner, "MIN_SKILL_ARTIFACTS_PER_RUN", 3)
         monkeypatch.setattr(skill_scanner, "MAX_SKILL_ARTIFACTS_PER_RUN", 3)
         markers = [
             _make_skill_dir(tmp_path / f"proj-{i}", "skill", body=f"# body {i}")
@@ -452,6 +519,7 @@ class TestRotationCatchUp:
         assert [artifact.path for artifact in retried] == expected_paths
 
     def test_successive_runs_cover_all_dirs_and_wrap(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(skill_scanner, "MIN_SKILL_ARTIFACTS_PER_RUN", 3)
         monkeypatch.setattr(skill_scanner, "MAX_SKILL_ARTIFACTS_PER_RUN", 3)
         markers = [
             _make_skill_dir(tmp_path / f"proj-{i}", "skill", body=f"# body {i}")
@@ -470,6 +538,7 @@ class TestRotationCatchUp:
         assert seen == all_dirs
 
     def test_dir_added_mid_rotation_is_not_skipped(self, tmp_path, monkeypatch):
+        monkeypatch.setattr(skill_scanner, "MIN_SKILL_ARTIFACTS_PER_RUN", 3)
         monkeypatch.setattr(skill_scanner, "MAX_SKILL_ARTIFACTS_PER_RUN", 3)
         markers = [
             _make_skill_dir(tmp_path / f"proj-{i}", "skill", body=f"# body {i}")
@@ -505,6 +574,7 @@ class TestRotationCatchUp:
         self, mock_home, tmp_path, monkeypatch
     ):
         mock_home.return_value = tmp_path
+        monkeypatch.setattr(skill_scanner, "MIN_SKILL_ARTIFACTS_PER_RUN", 3)
         monkeypatch.setattr(skill_scanner, "MAX_SKILL_ARTIFACTS_PER_RUN", 3)
         all_dirs: set[str] = set()
         for i in range(7):
@@ -528,6 +598,7 @@ class TestRotationCatchUp:
         self, mock_home, tmp_path, monkeypatch
     ):
         mock_home.return_value = tmp_path
+        monkeypatch.setattr(skill_scanner, "MIN_SKILL_ARTIFACTS_PER_RUN", 3)
         monkeypatch.setattr(skill_scanner, "MAX_SKILL_ARTIFACTS_PER_RUN", 3)
         skills_root = tmp_path / ".claude" / "skills"
         all_paths: set[str] = set()
@@ -540,9 +611,7 @@ class TestRotationCatchUp:
             all_paths.add(str(skills_dir.resolve()))
         for i in range(2):
             loose = skills_root / f"zephlin-notes-{i}.md"
-            loose.write_text(
-                f"---\nname: loose-skill-{i}\ndescription: l\n---\n# {i}"
-            )
+            loose.write_text(f"---\nname: loose-skill-{i}\ndescription: l\n---\n# {i}")
             all_paths.add(str(loose.resolve()))
         state = tmp_path / "state" / "scan-state.json"
 
@@ -558,6 +627,7 @@ class TestRotationCatchUp:
     @mock.patch("runlayer_cli.scan.skill_scanner.Path.home")
     def test_global_aborted_window_is_retried(self, mock_home, tmp_path, monkeypatch):
         mock_home.return_value = tmp_path
+        monkeypatch.setattr(skill_scanner, "MIN_SKILL_ARTIFACTS_PER_RUN", 3)
         monkeypatch.setattr(skill_scanner, "MAX_SKILL_ARTIFACTS_PER_RUN", 3)
         expected_paths = []
         for i in range(5):
@@ -588,6 +658,7 @@ class TestRotationCatchUp:
         self, mock_home, tmp_path, monkeypatch
     ):
         mock_home.return_value = tmp_path
+        monkeypatch.setattr(skill_scanner, "MIN_SKILL_ARTIFACTS_PER_RUN", 2)
         monkeypatch.setattr(skill_scanner, "MAX_SKILL_ARTIFACTS_PER_RUN", 2)
         for i in range(4):
             skills_dir = tmp_path / ".claude" / "skills" / f"g-{i}"

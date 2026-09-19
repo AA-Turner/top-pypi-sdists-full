@@ -5,18 +5,19 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 
 from ...arrow_client.authenticated_flight_client import AuthenticatedArrowClient
 from ...arrow_client.v2.data_mapper_utils import deserialize_single
 from ...arrow_client.v2.job_client import JobClient
-from ...query_runner.protocol.write_protocols import WriteProtocol
 from ...query_runner.termination_flag import TerminationFlag
+from ...session.remote_ops.write_protocols import WriteProtocol
 from ..api.estimation_result import EstimationResult
 from ..api.job_handle import JobHandle
 from ..api.write_job_handle import WriteJobHandle
 from ..utils.config_converter import ConfigConverter
 from .mutation_runner import MutationRunner
+from .stream_result_mapper import apply_stream_mapper
 
 
 class EndpointsHelperBase:
@@ -31,7 +32,7 @@ class EndpointsHelperBase:
         self._show_progress = show_progress
         self._mutation_runner = MutationRunner(arrow_client)
 
-    def run_job(self, G: GraphV2, endpoint: str, config: dict[str, Any]) -> JobHandle:
+    def run_job(self, G: Graph, endpoint: str, config: dict[str, Any]) -> JobHandle:
         """Starts a job and returns associated JobHandle."""
         show_progress: bool = config.get("logProgress", True) and self._show_progress
 
@@ -67,16 +68,23 @@ class EndpointsHelperBase:
             mutate_property_overwrites=mutate_property_overwrites,
         )
 
-    def run_job_and_stream(self, endpoint: str, G: GraphV2, config: dict[str, Any]) -> DataFrame:
-        """Run a job and return streamed results."""
+    def run_job_and_stream(
+        self, endpoint: str, G: Graph, config: dict[str, Any], *, apply_mapping: bool = True
+    ) -> DataFrame:
+        """Run a job and return streamed results.
+
+        The endpoint-specific stream mapper is applied by default, so that the column names match those of the
+        Cypher endpoints. Pass `apply_mapping=False` if the caller maps the result itself.
+        """
         show_progress = config.get("logProgress", True) and self._show_progress
         job_id = JobClient.run_job_and_wait(self._arrow_client, endpoint, config, show_progress=show_progress)
-        return JobClient.stream_results(self._arrow_client, G.name(), job_id)
+        result = JobClient.stream_results(self._arrow_client, G.name(), job_id)
+        return apply_stream_mapper(endpoint, result) if apply_mapping else result
 
     def _run_job_and_write(
         self,
         endpoint: str,
-        G: GraphV2,
+        G: Graph,
         config: dict[str, Any],
         *,
         relationship_type_overwrite: str | None = None,
@@ -110,12 +118,12 @@ class EndpointsHelperBase:
 
         if relationship_type_overwrite:
             computation_result["relationshipsWritten"] = write_result.written_relationships
-        if property_overwrites:
-            computation_result["propertiesWritten"] = write_result.written_node_properties
+        if property_overwrites and not relationship_type_overwrite:
+            computation_result["nodePropertiesWritten"] = write_result.written_node_properties
 
         return computation_result
 
-    def create_base_config(self, G: GraphV2, **kwargs: Any) -> dict[str, Any]:
+    def create_base_config(self, G: Graph, **kwargs: Any) -> dict[str, Any]:
         """Create base configuration with common parameters."""
         return ConfigConverter.convert_to_gds_config(graph_name=G.name(), **kwargs)
 
@@ -126,11 +134,11 @@ class EndpointsHelperBase:
     def estimate(
         self,
         estimate_endpoint: str,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         algo_config: dict[str, Any] | None = None,
     ) -> EstimationResult:
         """Estimate memory requirements for the algorithm."""
-        if isinstance(G, GraphV2):
+        if isinstance(G, Graph):
             payload = {"graphName": G.name()}
         elif isinstance(G, dict):
             payload = G

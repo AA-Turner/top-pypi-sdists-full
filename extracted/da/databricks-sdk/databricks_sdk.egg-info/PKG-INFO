@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: databricks-sdk
-Version: 0.139.0
+Version: 0.140.0
 Summary: Databricks SDK for Python (Beta)
 Project-URL: Documentation, https://databricks-sdk-py.readthedocs.io
 Keywords: databricks,sdk
@@ -39,6 +39,7 @@ Requires-Dist: pytest-rerunfailures; extra == "dev"
 Requires-Dist: openai; extra == "dev"
 Requires-Dist: langchain-openai; extra == "dev"
 Requires-Dist: httpx; extra == "dev"
+Requires-Dist: grpcio<2; extra == "dev"
 Requires-Dist: build; extra == "dev"
 Requires-Dist: check-manifest; extra == "dev"
 Provides-Extra: notebook
@@ -48,6 +49,8 @@ Provides-Extra: openai
 Requires-Dist: openai; extra == "openai"
 Requires-Dist: langchain-openai; extra == "openai"
 Requires-Dist: httpx; extra == "openai"
+Provides-Extra: sandbox
+Requires-Dist: grpcio<2; extra == "sandbox"
 Dynamic: license-file
 
 # Databricks SDK for Python (Beta)

@@ -406,6 +406,56 @@ def test_hook_closure_imports_under_blocklist():
     )
 
 
+def test_safe_parse_module_top_is_stdlib_only():
+    """``safe_parse`` is in the hook hot path and the ``flow_*`` closure.
+
+    Its third-party and heavier stdlib decoders (``json5`` / ``yaml`` /
+    ``tomllib`` / ``plistlib``) must load lazily inside each ``parse_*``, so
+    ``flow_spool`` stays stdlib-only and a hook fire never pays the ~200 ms
+    cold ``yaml`` import just to decode JSON.
+    """
+    probe = "\n        ".join(
+        [
+            "import runlayer_cli.safe_parse",
+            "import runlayer_cli.flow_spool",
+            "from runlayer_cli.safe_parse import parse_json",
+            "assert parse_json('{\"a\": 1}')['value'] == {'a': 1}",
+        ]
+    )
+    result = _run_import_probe(
+        probe,
+        ("json5", "yaml", "tomllib", "tomli", "plistlib"),
+    )
+    assert result.returncode == 0, (
+        f"safe_parse module top pulled in a lazily-loaded decoder:\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
+
+
+def test_hook_closure_does_not_import_json5():
+    """``dispatch`` / ``transcript_stream`` decode through ``safe_parse``.
+
+    ``json5`` is the one decoder nothing on the hook path needs (JSONC hook
+    configs go through the slim ``tolerant_json``), so it must stay out of the
+    closure. ``yaml`` / ``tomllib`` are not blocked here: hook-path readers
+    load them lazily via ``parse_yaml`` / ``parse_toml`` only when a YAML or
+    TOML config is actually read.
+    """
+    probe = "\n        ".join(
+        [
+            "import runlayer_cli.hook.dispatch",
+            "import runlayer_cli.hook.transcript_stream",
+        ]
+    )
+    result = _run_import_probe(probe, ("json5",))
+    assert result.returncode == 0, (
+        f"hook closure pulled in json5:\n"
+        f"stdout:\n{result.stdout}\n"
+        f"stderr:\n{result.stderr}"
+    )
+
+
 def test_native_messaging_closure_imports_under_blocklist():
     """The Chrome native messaging host closure must import cleanly.
 

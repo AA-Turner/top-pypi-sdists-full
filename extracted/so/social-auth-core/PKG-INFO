@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: social-auth-core
-Version: 5.1.0
+Version: 5.1.1
 Summary: Python social authentication made simple.
 Author-email: Matias Aguirre <matiasaguirre@gmail.com>, Michal Čihař <michal@weblate.org>
 License-Expression: BSD-3-Clause
@@ -11,13 +11,13 @@ Keywords: oauth,openid,saml,social auth
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Intended Audience :: Developers
+Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
-Classifier: Programming Language :: Python
 Classifier: Topic :: Internet
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
@@ -37,24 +37,25 @@ Requires-Dist: social-auth-core[shopify]; extra == "all"
 Provides-Extra: allpy3
 Requires-Dist: social-auth-core[all]; extra == "allpy3"
 Provides-Extra: dev
-Requires-Dist: coverage==7.15.3; extra == "dev"
+Requires-Dist: coverage==7.16.1; extra == "dev"
 Requires-Dist: flake8==7.3.0; extra == "dev"
 Requires-Dist: google-auth-stubs==0.3.0; extra == "dev"
-Requires-Dist: mypy==2.3.0; extra == "dev"
-Requires-Dist: pyright==1.1.411; extra == "dev"
+Requires-Dist: mypy==2.3.1; extra == "dev"
+Requires-Dist: pyright==1.1.414; extra == "dev"
 Requires-Dist: pytest-cov==7.1.0; extra == "dev"
 Requires-Dist: pytest-github-actions-annotate-failures==0.4.2; extra == "dev"
 Requires-Dist: pytest-profiling==1.8.1; extra == "dev"
 Requires-Dist: pytest-xdist==3.8.0; extra == "dev"
 Requires-Dist: pytest==9.1.1; extra == "dev"
-Requires-Dist: responses==0.26.2; extra == "dev"
-Requires-Dist: ty==0.0.69; extra == "dev"
+Requires-Dist: responses==0.26.3; extra == "dev"
+Requires-Dist: ty==0.0.82; extra == "dev"
 Requires-Dist: types-defusedxml==0.7.0.20260504; extra == "dev"
+Requires-Dist: types-lxml==2026.2.16; extra == "dev"
 Requires-Dist: types-oauthlib==3.3.0.20260724; extra == "dev"
-Requires-Dist: types-requests-oauthlib==2.0.0.20260610; extra == "dev"
-Requires-Dist: types-requests==2.33.0.20260712; extra == "dev"
+Requires-Dist: types-requests-oauthlib==2.0.0.20260907; extra == "dev"
+Requires-Dist: types-requests==2.33.0.20260906; extra == "dev"
 Provides-Extra: google-onetap
-Requires-Dist: google-auth<2.57,>=2.40.0; extra == "google-onetap"
+Requires-Dist: google-auth<2.59,>=2.40.0; extra == "google-onetap"
 Provides-Extra: saml
 Requires-Dist: python3-saml>=1.16.0; extra == "saml"
 Provides-Extra: shopify
@@ -75,12 +76,12 @@ and storage solutions.
 
 ## Documentation
 
-Project documentation is available at https://python-social-auth.readthedocs.io/.
+Project documentation is available at <https://python-social-auth.readthedocs.io/>.
 
 ## Setup
 
 ```shell
-$ pip install social-auth-core
+pip install social-auth-core
 ```
 
 ## Contributing

@@ -55,6 +55,7 @@ __all__ = (
     "GuardrailTopicTypeType",
     "ImportJobStatusType",
     "ImportJobTypeType",
+    "InteractionModeType",
     "KnowledgeBaseSearchTypeType",
     "KnowledgeBaseStatusType",
     "KnowledgeBaseTypeType",
@@ -105,6 +106,7 @@ __all__ = (
     "RelevanceLevelType",
     "RelevanceType",
     "ResourceServiceName",
+    "ReturnReasonType",
     "SearchContentPaginatorName",
     "SearchMessageTemplatesPaginatorName",
     "SearchQuickResponsesPaginatorName",
@@ -240,6 +242,7 @@ ImportJobStatusType = Literal[
     "COMPLETE", "DELETED", "DELETE_FAILED", "DELETE_IN_PROGRESS", "FAILED", "START_IN_PROGRESS"
 ]
 ImportJobTypeType = Literal["QUICK_RESPONSES"]
+InteractionModeType = Literal["DELEGATE", "HANDOFF"]
 KnowledgeBaseSearchTypeType = Literal["HYBRID", "SEMANTIC"]
 KnowledgeBaseStatusType = Literal[
     "ACTIVE",
@@ -274,7 +277,7 @@ MessageFilterTypeType = Literal["ALL", "TEXT_ONLY"]
 MessageTemplateAttributeTypeType = Literal["AGENT", "CUSTOM", "CUSTOMER_PROFILE", "SYSTEM"]
 MessageTemplateFilterOperatorType = Literal["EQUALS", "PREFIX"]
 MessageTemplateQueryOperatorType = Literal["CONTAINS", "CONTAINS_AND_PREFIX"]
-MessageTypeType = Literal["TEXT", "TOOL_USE_RESULT"]
+MessageTypeType = Literal["DATA", "TEXT", "TOOL_USE_RESULT"]
 ModelLifecycleType = Literal["ACTIVE", "LEGACY"]
 OrderType = Literal["ASC", "DESC"]
 OriginType = Literal["CUSTOMER", "SYSTEM"]
@@ -348,6 +351,7 @@ ReferenceTypeType = Literal[
 ]
 RelevanceLevelType = Literal["HIGH", "LOW", "MEDIUM"]
 RelevanceType = Literal["HELPFUL", "NOT_HELPFUL"]
+ReturnReasonType = Literal["COMPLETE", "COMPLETE_WITH_ERROR", "ESCALATE", "OUT_OF_DOMAIN"]
 SearchContentPaginatorName = Literal["search_content"]
 SearchMessageTemplatesPaginatorName = Literal["search_message_templates"]
 SearchQuickResponsesPaginatorName = Literal["search_quick_responses"]

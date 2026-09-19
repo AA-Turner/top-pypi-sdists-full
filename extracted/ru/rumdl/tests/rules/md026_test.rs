@@ -739,3 +739,110 @@ fn test_md026_escaped_entity_and_shortcode_are_literal_text() {
         assert_eq!(rule.fix(&ctx).unwrap(), content, "{content:?} was rewritten");
     }
 }
+
+/// A setext heading's text is the whole paragraph its underline ends, and the
+/// trailing punctuation sits on the paragraph's last line. The warning points
+/// at that punctuation, and the fix strips it there, leaving the other text
+/// lines alone.
+#[test]
+fn test_multi_line_setext_heading_punctuation_on_last_line() {
+    let rule = MD026NoTrailingPunctuation::default();
+    let content = "First\nsecond.\n===\n";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let result = rule.check(&ctx).unwrap();
+    assert_eq!(result.len(), 1, "one warning: {result:?}");
+    assert_eq!(result[0].line, 2, "the punctuation is on the last text line");
+    assert_eq!(result[0].column, 7, "the column of the period in `second.`");
+    assert_eq!(result[0].end_line, 2);
+    assert_eq!(result[0].end_column, 8);
+    let fixed = rule.fix(&ctx).unwrap();
+    assert_eq!(fixed, "First\nsecond\n===\n");
+    let refixed = LintContext::new(&fixed, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    assert_eq!(rule.fix(&refixed).unwrap(), fixed, "the fix is idempotent");
+}
+
+/// The trailing punctuation of a setext heading is reported where it stands in
+/// the source, and the fix deletes exactly that punctuation: an attribute list
+/// or an anchor element after it stays, on the same line or on a line of its
+/// own, and so does the indentation of a heading written inside a container.
+/// Punctuation separated by whitespace goes in one pass, across a line break.
+#[test]
+fn test_setext_heading_punctuation_is_deleted_where_it_stands() {
+    let rule = MD026NoTrailingPunctuation::default();
+    let cases = [
+        ("Title. {#id}\n===\n", (1, 6, 1, 7), "Title {#id}\n===\n"),
+        ("Title.\n{#id}\n===\n", (1, 6, 1, 7), "Title\n{#id}\n===\n"),
+        (
+            "Title.\n<a name=\"x\"></a>\n===\n",
+            (1, 6, 1, 7),
+            "Title\n<a name=\"x\"></a>\n===\n",
+        ),
+        (
+            "- item\n\n  Title.\n  ===\n",
+            (3, 8, 3, 9),
+            "- item\n\n  Title\n  ===\n",
+        ),
+        ("Title. :\n===\n", (1, 8, 1, 9), "Title\n===\n"),
+        ("Title.\n:\n===\n", (2, 1, 2, 2), "Title\n===\n"),
+    ];
+    for (content, position, expected) in cases {
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert_eq!(result.len(), 1, "one warning for {content:?}: {result:?}");
+        assert_eq!(
+            (
+                result[0].line,
+                result[0].column,
+                result[0].end_line,
+                result[0].end_column
+            ),
+            position,
+            "position of the punctuation in {content:?}"
+        );
+        let fixed = rule.fix(&ctx).unwrap();
+        assert_eq!(fixed, expected, "fix of {content:?}");
+        let refixed = LintContext::new(&fixed, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        assert_eq!(
+            rule.fix(&refixed).unwrap(),
+            fixed,
+            "the fix of {content:?} is idempotent"
+        );
+    }
+}
+
+/// The trailing punctuation of an ATX heading is reported where it stands, an
+/// anchor element written inside the text and the characters it holds
+/// notwithstanding, and the fix deletes it.
+#[test]
+fn test_atx_heading_punctuation_is_reported_where_it_stands() {
+    let rule = MD026NoTrailingPunctuation::default();
+    let cases = [
+        (
+            "# Foo <a id=\"x\"></a> bar.\n",
+            (1, 25, 1, 26),
+            "# Foo <a id=\"x\"></a> bar\n",
+        ),
+        (
+            "# Foo <a id=\"\u{1f4a5}\"></a> ttttttt.\n",
+            (1, 29, 1, 30),
+            "# Foo <a id=\"\u{1f4a5}\"></a> ttttttt\n",
+        ),
+        ("# Foo. ##\n", (1, 6, 1, 7), "# Foo ##\n"),
+    ];
+    for (content, position, expected) in cases {
+        let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+        let result = rule.check(&ctx).unwrap();
+        assert_eq!(result.len(), 1, "one warning for {content:?}: {result:?}");
+        assert_eq!(
+            (
+                result[0].line,
+                result[0].column,
+                result[0].end_line,
+                result[0].end_column
+            ),
+            position,
+            "position of the punctuation in {content:?}"
+        );
+        assert_eq!(rule.fix(&ctx).unwrap(), expected, "fix of {content:?}");
+    }
+}

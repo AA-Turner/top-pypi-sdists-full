@@ -197,7 +197,9 @@ def compute_fingerprint(
     payload = "\x1f".join(
         [framework_id, language or "", *sorted({m for m in markers if m})]
     )
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    # Markers come from os.walk names, which carry surrogateescape code points
+    # for undecodable bytes; backslashreplace keeps the hash total and stable.
+    return hashlib.sha256(payload.encode("utf-8", "backslashreplace")).hexdigest()
 
 
 def _is_word_char(ch: str) -> bool:
@@ -552,6 +554,7 @@ def collect_agents(
     seed_manifests: Mapping[Path, ManifestInfo] | None = None,
     deadline: float | None = None,
     checkpoint: Callable[[], None] | None = None,
+    on_deadline_exhausted: Callable[[], None] | None = None,
 ) -> list[DiscoveredAgent]:
     """Discover units under each root and run static framework detection.
 
@@ -569,6 +572,10 @@ def collect_agents(
     large root's walk is bounded too. Best-effort -- partial results are still
     returned.
 
+    ``on_deadline_exhausted`` is called once when the cutoff skips a root, walk
+    content, or a discovered unit awaiting scoring. Crossing the deadline only
+    after all work completes does not call it.
+
     Scoring is sequential: :meth:`Detector.detect` is CPU-bound regex over
     pre-loaded source text, and CPython's ``re`` engine holds the GIL for the
     match, so a thread pool does not parallelize it (benchmarked ~1.0x). The
@@ -579,14 +586,25 @@ def collect_agents(
     results: list[DiscoveredAgent] = []
     detected_units: list[tuple[DiscoveredAgent, AgentUnit]] = []
     seen: set[str] = set()
+    deadline_reported = False
+
+    def report_deadline_exhausted() -> None:
+        nonlocal deadline_reported
+        if not deadline_reported:
+            deadline_reported = True
+            if on_deadline_exhausted is not None:
+                on_deadline_exhausted()
+
     for root in roots:
         if deadline is not None and time.monotonic() >= deadline:
+            report_deadline_exhausted()
             break
         for unit in discover(
             root,
             seed_manifests=seed_manifests,
             deadline=deadline,
             checkpoint=checkpoint,
+            on_deadline_exhausted=report_deadline_exhausted,
         ):
             # Scoring each unit (regex over every source file) is itself work, so
             # honor the deadline between units too -- otherwise a root that
@@ -594,6 +612,7 @@ def collect_agents(
             if checkpoint is not None:
                 checkpoint()
             if deadline is not None and time.monotonic() >= deadline:
+                report_deadline_exhausted()
                 break
             detection = detector.detect(unit)
             # Source text is only needed for scoring; disambiguation below uses

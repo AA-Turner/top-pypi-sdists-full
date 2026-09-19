@@ -55,6 +55,7 @@ else:
 
 
 logger = logging.getLogger(__name__)
+DEFAULT_WORKFLOW_NAME = "Magentic"
 
 # Consistent author name for messages produced by the Magentic manager/orchestrator
 MAGENTIC_MANAGER_NAME = "magentic_manager"
@@ -1418,10 +1419,11 @@ class MagenticBuilder:
         task_ledger_plan_update_prompt: str | None = None,
         progress_ledger_prompt: str | None = None,
         final_answer_prompt: str | None = None,
-        max_stall_count: int | Sentinel = UNSET,  # type: ignore[reportArgumentType]
+        max_stall_count: int | Sentinel = UNSET,
         max_reset_count: int | None = None,
         max_round_count: int | None = None,
         # Existing params
+        name: str | None = None,
         enable_plan_review: bool = False,
         checkpoint_storage: CheckpointStorage | None = None,
         output_from: Sequence[_ParticipantOutputSpecifier] | Literal["all"] | None = cast(Any, UNSET),
@@ -1430,6 +1432,7 @@ class MagenticBuilder:
         """Initialize the Magentic workflow builder.
 
         Args:
+            name: Optional workflow identifier. Defaults to ``"Magentic"``.
             participants: Sequence of agent or executor instances for the workflow.
             manager: Pre-configured manager instance (subclass of MagenticManagerBase).
             manager_factory: Callable that returns a new MagenticManagerBase instance.
@@ -1455,6 +1458,7 @@ class MagenticBuilder:
                 surface as workflow ``intermediate`` events. Pass ``"all_other"`` to select every participant
                 not selected by ``output_from``. Unlisted participant outputs are hidden.
         """
+        self._name = name or DEFAULT_WORKFLOW_NAME
         self._participants: dict[str, SupportsAgentRun | Executor] = {}
 
         # Manager related members
@@ -1628,7 +1632,7 @@ class MagenticBuilder:
         progress_ledger_prompt: str | None = None,
         final_answer_prompt: str | None = None,
         # Limits
-        max_stall_count: int | Sentinel = UNSET,  # type: ignore[reportArgumentType]
+        max_stall_count: int | Sentinel = UNSET,
         max_reset_count: int | None = None,
         max_round_count: int | None = None,
     ) -> None:
@@ -1794,6 +1798,7 @@ class MagenticBuilder:
             extra_output_executors=[orchestrator],
         )
         workflow_builder = WorkflowBuilder(
+            name=self._name,
             start_executor=orchestrator,
             checkpoint_storage=self._checkpoint_storage,
             output_from=designated,

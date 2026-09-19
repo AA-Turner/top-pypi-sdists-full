@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-a2a
-Version: 1.0.0b260910
+Version: 1.0.0b260918
 Summary: A2A integration for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core>=1.15.0,<2
+Requires-Dist: agent-framework-core>=1.19.0,<2
 Requires-Dist: a2a-sdk>=1.0.0,<2
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
@@ -46,6 +46,19 @@ from agent_framework.a2a import A2AAgent
 a2a_agent = A2AAgent(url="http://remote-agent/a2a")
 response = await a2a_agent.run("Hello!")
 ```
+
+**Breaking change:** HTTP clients created by `A2AAgent` no longer persist response cookies. This prevents
+one run's cookies from being reused by another run through the same agent.
+Connection pooling and cleanup of internally created clients are unchanged.
+
+If the remote service requires cookies for authentication, sessions, or load-balancer affinity, explicitly supply an
+`httpx.AsyncClient` using `http_client=`. Its cookie behavior is preserved.
+Scope that client to the intended authenticated user or security context and
+manage its lifetime; do not share a user-specific cookie jar across users.
+
+Supplied HTTP clients remain caller-owned even when `client=` is also provided.
+Applications that previously relied on the agent closing a supplied HTTP client
+in that combination must now close it explicitly.
 
 ### A2AExecutor (Hosting)
 

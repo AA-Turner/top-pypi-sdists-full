@@ -29,9 +29,9 @@ from .literals import (
 )
 
 if sys.version_info >= (3, 12):
-    from typing import NotRequired, TypedDict
+    from typing import Literal, NotRequired, TypedDict
 else:
-    from typing_extensions import NotRequired, TypedDict
+    from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
     "ApplicationAssociationSummaryTypeDef",
@@ -40,6 +40,7 @@ __all__ = (
     "ApplicationSourceConfigTypeDef",
     "ApplicationSourceConfigUnionTypeDef",
     "ApplicationSummaryTypeDef",
+    "AuthConfigTypeDef",
     "ContactHandlingTypeDef",
     "CreateApplicationRequestTypeDef",
     "CreateApplicationResponseTypeDef",
@@ -132,6 +133,10 @@ class ApplicationSummaryTypeDef(TypedDict):
     LastModifiedTime: NotRequired[datetime]
     IsService: NotRequired[bool]
     ApplicationType: NotRequired[ApplicationTypeType]
+
+class AuthConfigTypeDef(TypedDict):
+    AuthType: NotRequired[Literal["API_KEY"]]
+    CredentialProviderIdentifier: NotRequired[str]
 
 class PublicationTypeDef(TypedDict):
     Event: str
@@ -413,6 +418,7 @@ class GetApplicationResponseTypeDef(TypedDict):
     ApplicationConfig: ApplicationConfigTypeDef
     IframeConfig: IframeConfigOutputTypeDef
     ApplicationType: ApplicationTypeType
+    AuthConfig: AuthConfigTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 ApplicationSourceConfigUnionTypeDef = Union[
@@ -472,6 +478,7 @@ class CreateApplicationRequestTypeDef(TypedDict):
     ApplicationConfig: NotRequired[ApplicationConfigTypeDef]
     IframeConfig: NotRequired[IframeConfigUnionTypeDef]
     ApplicationType: NotRequired[ApplicationTypeType]
+    AuthConfig: NotRequired[AuthConfigTypeDef]
 
 class UpdateApplicationRequestTypeDef(TypedDict):
     Arn: str
@@ -486,6 +493,7 @@ class UpdateApplicationRequestTypeDef(TypedDict):
     ApplicationConfig: NotRequired[ApplicationConfigTypeDef]
     IframeConfig: NotRequired[IframeConfigUnionTypeDef]
     ApplicationType: NotRequired[ApplicationTypeType]
+    AuthConfig: NotRequired[AuthConfigTypeDef]
 
 class ListDataIntegrationAssociationsResponseTypeDef(TypedDict):
     DataIntegrationAssociations: list[DataIntegrationAssociationSummaryTypeDef]

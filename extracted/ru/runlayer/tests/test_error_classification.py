@@ -21,7 +21,11 @@ from mcp.types import ErrorData
 
 from runlayer_cli.error_classification import classify_exception
 from runlayer_cli.flow_contract import CLIENT_FLOW_ERROR_CATEGORIES
-from runlayer_cli.oauth import OAuthCallbackTimeoutError
+from runlayer_cli.oauth import (
+    OAuthCallbackListenerError,
+    OAuthCallbackPortInUseError,
+    OAuthCallbackTimeoutError,
+)
 
 SECRET = "hunter2-super-secret"
 
@@ -123,8 +127,30 @@ class TestSingleExceptions:
         )
 
     @pytest.mark.parametrize("exc_type", [OAuthFlowError, OAuthTokenError])
-    def test_other_oauth_errors_are_other(self, exc_type):
-        assert classify_exception(exc_type(SECRET)) == ("other", None)
+    def test_sdk_oauth_errors_have_their_own_category(self, exc_type):
+        assert classify_exception(exc_type(SECRET)) == ("oauth_flow_error", None)
+
+    def test_callback_port_in_use(self):
+        exc = OAuthCallbackPortInUseError(f"port busy {SECRET}", port=53682)
+        assert classify_exception(exc) == ("oauth_callback_port_in_use", None)
+
+    def test_callback_listener_failure(self):
+        exc = OAuthCallbackListenerError(f"no loopback {SECRET}", port=53682)
+        assert classify_exception(exc) == ("oauth_callback_listener", None)
+
+    def test_callback_port_in_use_beats_cancellation_in_chain(self):
+        """fastmcp wraps the session task's failure in a RuntimeError, and the
+        transport task group's teardown leaves a CancelledError in the chain;
+        the listener error must still win (it used to classify as cancelled)."""
+        try:
+            try:
+                raise asyncio.CancelledError()
+            except asyncio.CancelledError:
+                raise OAuthCallbackPortInUseError(SECRET, port=53682)
+        except OAuthCallbackPortInUseError as inner:
+            exc = RuntimeError(f"Client failed to connect: {SECRET}")
+            exc.__cause__ = inner
+        assert classify_exception(exc) == ("oauth_callback_port_in_use", None)
 
     def test_mcp_error(self):
         exc = McpError(ErrorData(code=-32603, message=SECRET))
@@ -156,9 +182,7 @@ class TestExceptionGroups:
         """A group reachable only via __cause__ (e.g. RuntimeError raised
         from an anyio task group's ExceptionGroup of transport errors) must
         classify by its leaves, not degrade to `other`."""
-        group = _ExceptionGroup(
-            "g", [httpx.ConnectError(SECRET), RuntimeError("x")]
-        )
+        group = _ExceptionGroup("g", [httpx.ConnectError(SECRET), RuntimeError("x")])
         try:
             raise RuntimeError(SECRET) from group
         except RuntimeError as wrapper:

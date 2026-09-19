@@ -21,9 +21,9 @@ from collections.abc import Callable, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
-import json5
 import structlog
 
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.plugin_scanner import (
     DiscoveredPluginArtifact,
     _collect_mcp_server_refs,
@@ -32,6 +32,7 @@ from runlayer_cli.scan.plugin_scanner import (
     _extract_manifest_metadata,
     compute_plugin_identifier,
 )
+from runlayer_cli.safe_parse import parse_json5
 from runlayer_cli.scan.scanner_primitives import (
     SymlinkFollowPolicy,
     SymlinkLayoutResolver,
@@ -183,9 +184,10 @@ def _read_marker(
     manifest_path = result["path"]
     content = result["content"]
     try:
-        value = json5.loads(content.decode("utf-8"))
-    except (UnicodeDecodeError, ValueError):
-        value = None
+        text = content.decode("utf-8")
+    except UnicodeDecodeError:
+        return manifest_path, None
+    value = parse_json5(text)["value"]
     return manifest_path, value if isinstance(value, dict) else None
 
 
@@ -380,6 +382,7 @@ def scan_renamed_plugin_caches(
     home: Path | None = None,
     extra_home_roots: Sequence[Path] = (),
     checkpoint: Callable[[], None] | None = None,
+    scan_status: ScanCompletionStatus | None = None,
 ) -> list[DiscoveredPluginArtifact]:
     """Probe allowlisted client roots for renamed plugin cache directories."""
     budget = _ProbeBudget()
@@ -442,6 +445,10 @@ def scan_renamed_plugin_caches(
         found=len(artifacts),
         truncated=budget.truncated,
     )
+    if budget.truncated and scan_status is not None:
+        scan_status.mark_incomplete("renamed_plugin_scan_truncated")
+    if symlink_policy.follow_budget_exhausted and scan_status is not None:
+        scan_status.mark_incomplete("renamed_plugin_symlink_follow_capped")
     return artifacts
 
 

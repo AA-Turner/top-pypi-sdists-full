@@ -5,6 +5,7 @@ import datetime
 import logging
 import smtplib
 import socket
+import typing
 import uuid
 
 import django
@@ -17,6 +18,7 @@ from django.core.files.storage import InvalidStorageError, storages
 from django.core.files.storage import Storage as DjangoStorage
 from django.core.mail import get_connection
 from django.core.mail.backends.base import BaseEmailBackend
+from dns.nameserver import Nameserver
 
 if django.VERSION >= (6, 1):
     from django.core.mail import DEFAULT_MAILER_ALIAS, mailers
@@ -151,6 +153,8 @@ class DNS(HealthCheck):
     Args:
         hostname: The hostname to resolve.
         timeout: DNS query timeout.
+        nameservers: Optional list of nameservers to use for DNS resolution.
+        record_type: DNS record type to query (default is A record).
 
     """
 
@@ -158,19 +162,23 @@ class DNS(HealthCheck):
     timeout: datetime.timedelta = dataclasses.field(
         default=datetime.timedelta(seconds=5), repr=False
     )
-    nameservers: list[str] | None = dataclasses.field(default=None, repr=False)
+    nameservers: typing.Sequence[str | Nameserver] = dataclasses.field(
+        default_factory=lambda: dns.resolver.get_default_resolver().nameservers
+    )
+    record_type: str | dns.rdatatype.RdataType = dataclasses.field(
+        default=dns.rdatatype.A
+    )
 
     async def run(self):
         logger.debug("Attempting to resolve hostname: %s", self.hostname)
 
         resolver = dns.asyncresolver.Resolver()
         resolver.lifetime = self.timeout.total_seconds()
-        if self.nameservers is not None:
-            resolver.nameservers = self.nameservers
+        resolver.nameservers = [*self.nameservers]
 
         try:
             # Perform DNS resolution (A record by default)
-            answers = await resolver.resolve(self.hostname, "A")
+            answers = await resolver.resolve(self.hostname, self.record_type)
         except dns.resolver.NXDOMAIN as e:
             raise ServiceUnavailable(
                 f"DNS resolution failed: hostname {self.hostname} does not exist"

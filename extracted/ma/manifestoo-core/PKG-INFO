@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: manifestoo_core
-Version: 1.15.5
+Version: 1.16.1
 Summary: A library to reason about Odoo addons manifests
 Project-URL: Homepage, https://github.com/acsone/manifestoo-core
 Project-URL: Documentation, https://manifestoo-core.readthedocs.io/en/stable/
@@ -25,7 +25,6 @@ Requires-Dist: furo; extra == 'doc'
 Requires-Dist: myst-parser; extra == 'doc'
 Requires-Dist: sphinx; extra == 'doc'
 Requires-Dist: sphinxcontrib-towncrier; extra == 'doc'
-Requires-Dist: towncrier<22.8; extra == 'doc'
 Provides-Extra: metadata
 Provides-Extra: test
 Requires-Dist: coverage[toml]; extra == 'test'

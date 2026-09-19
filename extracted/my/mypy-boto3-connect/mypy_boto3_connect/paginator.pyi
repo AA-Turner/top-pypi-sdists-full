@@ -57,6 +57,7 @@ Usage::
         ListRoutingProfilesPaginator,
         ListRulesPaginator,
         ListSecurityKeysPaginator,
+        ListSecurityProfileAIAgentsPaginator,
         ListSecurityProfileApplicationsPaginator,
         ListSecurityProfileFlowModulesPaginator,
         ListSecurityProfilePermissionsPaginator,
@@ -147,6 +148,7 @@ Usage::
     list_routing_profiles_paginator: ListRoutingProfilesPaginator = client.get_paginator("list_routing_profiles")
     list_rules_paginator: ListRulesPaginator = client.get_paginator("list_rules")
     list_security_keys_paginator: ListSecurityKeysPaginator = client.get_paginator("list_security_keys")
+    list_security_profile_ai_agents_paginator: ListSecurityProfileAIAgentsPaginator = client.get_paginator("list_security_profile_ai_agents")
     list_security_profile_applications_paginator: ListSecurityProfileApplicationsPaginator = client.get_paginator("list_security_profile_applications")
     list_security_profile_flow_modules_paginator: ListSecurityProfileFlowModulesPaginator = client.get_paginator("list_security_profile_flow_modules")
     list_security_profile_permissions_paginator: ListSecurityProfilePermissionsPaginator = client.get_paginator("list_security_profile_permissions")
@@ -288,6 +290,8 @@ from .type_defs import (
     ListRulesResponseTypeDef,
     ListSecurityKeysRequestPaginateTypeDef,
     ListSecurityKeysResponseTypeDef,
+    ListSecurityProfileAIAgentsRequestPaginateTypeDef,
+    ListSecurityProfileAIAgentsResponseTypeDef,
     ListSecurityProfileApplicationsRequestPaginateTypeDef,
     ListSecurityProfileApplicationsResponseTypeDef,
     ListSecurityProfileFlowModulesRequestPaginateTypeDef,
@@ -421,6 +425,7 @@ __all__ = (
     "ListRoutingProfilesPaginator",
     "ListRulesPaginator",
     "ListSecurityKeysPaginator",
+    "ListSecurityProfileAIAgentsPaginator",
     "ListSecurityProfileApplicationsPaginator",
     "ListSecurityProfileFlowModulesPaginator",
     "ListSecurityProfilePermissionsPaginator",
@@ -1285,6 +1290,26 @@ class ListSecurityKeysPaginator(_ListSecurityKeysPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListSecurityKeys.html#Connect.Paginator.ListSecurityKeys.paginate)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/paginators/#listsecuritykeyspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListSecurityProfileAIAgentsPaginatorBase = Paginator[
+        ListSecurityProfileAIAgentsResponseTypeDef
+    ]
+else:
+    _ListSecurityProfileAIAgentsPaginatorBase = Paginator  # type: ignore[assignment]
+
+class ListSecurityProfileAIAgentsPaginator(_ListSecurityProfileAIAgentsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListSecurityProfileAIAgents.html#Connect.Paginator.ListSecurityProfileAIAgents)
+    [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/paginators/#listsecurityprofileaiagentspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListSecurityProfileAIAgentsRequestPaginateTypeDef]
+    ) -> PageIterator[ListSecurityProfileAIAgentsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/connect/paginator/ListSecurityProfileAIAgents.html#Connect.Paginator.ListSecurityProfileAIAgents.paginate)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_connect/paginators/#listsecurityprofileaiagentspaginator)
         """
 
 if TYPE_CHECKING:

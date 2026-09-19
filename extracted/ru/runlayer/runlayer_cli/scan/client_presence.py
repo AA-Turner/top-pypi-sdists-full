@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
+import errno
 import importlib
 import os
 import platform
-import plistlib
+import stat
 from dataclasses import dataclass, field
 from itertools import islice, zip_longest
 from pathlib import Path
@@ -15,6 +16,7 @@ import structlog
 
 from runlayer_cli import regex_safe
 from runlayer_cli.hook_install import runlayer_written_hook_artifact_paths
+from runlayer_cli.safe_parse import parse_plist
 from runlayer_cli.scan.bin_shims import ShimFinding, sweep_shim_identities
 from runlayer_cli.scan.cli_binaries import get_cli_version, locate_cli_binary
 from runlayer_cli.scan.clients import (
@@ -23,14 +25,18 @@ from runlayer_cli.scan.clients import (
     _resolve_wsl_linux_paths,
     _wsl_homes,
 )
+from runlayer_cli.scan.completeness import CompletionStatusSink
 from runlayer_cli.scan.device import DiscoveredWSLDistro, get_wsl_distro_inventory
 from runlayer_cli.scan.hidden_space_sweep import (
     HiddenSpaceScanResult,
     scan_hidden_spaces,
 )
+from runlayer_cli.scan.launcher_inspection import inspect_launcher_identities
 from runlayer_cli.scan.npm_global import NpmGlobalPackage, scan_npm_global_packages
 from runlayer_cli.scan.pip_global import PipGlobalPackage, scan_pip_global_packages
 from runlayer_cli.scan.resource_governor import ScanResourceLimitExceeded
+from runlayer_cli.scan.scanner_primitives import read_bounded
+from runlayer_cli.scan.windows_users import is_windows_system_context
 from runlayer_cli.scan.wsl_presence import (
     WSLBinaryFinding,
     WSLClientContext,
@@ -40,6 +46,10 @@ from runlayer_cli.scan.wsl_limits import MAX_WSL_CLIENT_CONTEXTS, MAX_WSL_HOMES_
 from runlayer_cli.scan.wsl_paths import parse_wsl_unc_path
 
 logger = structlog.get_logger(__name__)
+
+# User-owned ``~/Applications`` bundles make ``Info.plist`` attacker-writable;
+# real ones are a few KiB, so the cap only ever trips on hostile input.
+MAX_INFO_PLIST_BYTES = 1024 * 1024
 
 DetectionMethod = Literal[
     "app",
@@ -54,6 +64,13 @@ DetectionMethod = Literal[
     "skill",
     "plugin",
     "extension",
+]
+ClientEvidenceOrigin = Literal[
+    "static",
+    "runtime",
+    "container",
+    "wsl",
+    "wsl_runtime",
 ]
 
 # Mirrored in docs/shadow-ai/detect/index.mdx ("AI Client Detection"); kept in
@@ -72,6 +89,17 @@ DETECTION_METHOD_ORDER: tuple[DetectionMethod, ...] = (
     "plugin",
     "extension",
 )
+STATIC_DETECTION_METHODS: frozenset[DetectionMethod] = frozenset(
+    {
+        "app",
+        "cli",
+        "registry",
+        "npm_global",
+        "pip_global",
+        "config",
+        "trace",
+    }
+)
 
 _EXECUTABLE_SUFFIXES = {".exe", ".cmd", ".bat"}
 _EXTENSION_HOST_DIRS = (
@@ -80,10 +108,17 @@ _EXTENSION_HOST_DIRS = (
     ".vscode-oss",
     ".cursor",
     ".windsurf",
+    ".devin",
     ".vscode-server",
     ".vscode-server-insiders",
     ".cursor-server",
     ".windsurf-server",
+    ".devin-server",
+    ".local/share/code-server",
+    ".openvscode-server",
+    ".var/app/com.visualstudio.code/data/vscode",
+    ".var/app/com.visualstudio.code-oss/data/vscode",
+    ".var/app/com.vscodium.codium/data/codium",
 )
 _WINDOWS_ENV_PATTERN = regex_safe.compile(r"%([^%]+)%")
 _DOLLAR_ENV_PATTERN = regex_safe.compile(
@@ -91,6 +126,12 @@ _DOLLAR_ENV_PATTERN = regex_safe.compile(
 )
 _MAX_VERSIONED_CONFIG_DIRS = 64
 _WINDOWS_USER_SID_UNSET = object()
+_DEFINITE_ABSENCE_ERRNOS = (
+    errno.ENOENT,
+    errno.ENOTDIR,
+    errno.EBADF,
+    errno.ELOOP,
+)
 
 
 @dataclass
@@ -101,6 +142,7 @@ class DetectedClient:
     display_name: str
     client_version: str | None = None
     detected_via: list[DetectionMethod] = field(default_factory=list)
+    evidence_origin: ClientEvidenceOrigin = "static"
     config_paths: list[str] = field(default_factory=list)
     wsl_contexts: list[WSLClientContext] = field(default_factory=list)
     container_ids: list[str] = field(default_factory=list, repr=False)
@@ -149,17 +191,27 @@ class _ConfigPresenceCandidate:
     kind: Literal["configured_path", "file", "dir"]
 
 
-def _safe_is_file(path: Path) -> bool:
+def _safe_is_file(
+    path: Path,
+    scan_status: CompletionStatusSink | None = None,
+) -> bool:
     try:
-        return path.is_file()
-    except OSError:
+        return stat.S_ISREG(path.stat().st_mode)
+    except OSError as exc:
+        if scan_status is not None and exc.errno not in _DEFINITE_ABSENCE_ERRNOS:
+            scan_status.mark_incomplete("client_filesystem_stat_failed")
         return False
 
 
-def _safe_is_dir(path: Path) -> bool:
+def _safe_is_dir(
+    path: Path,
+    scan_status: CompletionStatusSink | None = None,
+) -> bool:
     try:
-        return path.is_dir()
-    except OSError:
+        return stat.S_ISDIR(path.stat().st_mode)
+    except OSError as exc:
+        if scan_status is not None and exc.errno not in _DEFINITE_ABSENCE_ERRNOS:
+            scan_status.mark_incomplete("client_filesystem_stat_failed")
         return False
 
 
@@ -229,11 +281,18 @@ def _is_runlayer_written_artifact(
     )
 
 
+def _wsl_homes_with_status(
+    scan_status: CompletionStatusSink | None,
+) -> list[Path]:
+    return _wsl_homes() if scan_status is None else _wsl_homes(scan_status)
+
+
 def _presence_artifact_paths(
     *,
     home: Path,
     system: str,
     environment: Mapping[str, str],
+    scan_status: CompletionStatusSink | None = None,
 ) -> frozenset[Path]:
     """Runlayer hook artifacts for every home this scan resolves paths under.
 
@@ -250,7 +309,7 @@ def _presence_artifact_paths(
         )
     )
     if system == "Windows":
-        for wsl_home in _wsl_homes():
+        for wsl_home in _wsl_homes_with_status(scan_status):
             artifacts |= runlayer_written_hook_artifact_paths(
                 home=wsl_home,
                 system="Linux",
@@ -266,6 +325,7 @@ def _directory_has_presence_trace(
     artifacts: Iterable[Path],
     *,
     system: str,
+    scan_status: CompletionStatusSink | None = None,
 ) -> bool:
     """Ignore only trees made entirely from known Runlayer artifact paths.
 
@@ -301,10 +361,10 @@ def _directory_has_presence_trace(
                 exact_match = () in matching
                 nested_matches = tuple(suffix for suffix in matching if suffix)
                 if exact_match and not nested_matches:
-                    if _safe_is_dir(child):
+                    if _safe_is_dir(child, scan_status):
                         return True
                     continue
-                if child.is_symlink() or not _safe_is_dir(child):
+                if child.is_symlink() or not _safe_is_dir(child, scan_status):
                     return True
                 if inspect(
                     child,
@@ -313,6 +373,8 @@ def _directory_has_presence_trace(
                 ):
                     return True
         except OSError:
+            if scan_status is not None:
+                scan_status.mark_incomplete("client_filesystem_probe_failed")
             return False
         return empty_is_trace and not saw_child
 
@@ -379,11 +441,10 @@ def _macos_app_roots(home: Path) -> tuple[Path, Path]:
 
 def _macos_app_version(bundle: Path) -> str | None:
     info_plist = bundle / "Contents" / "Info.plist"
-    try:
-        with info_plist.open("rb") as file:
-            info = plistlib.load(file)
-    except (OSError, plistlib.InvalidFileException):
+    raw = read_bounded(info_plist, max_bytes=MAX_INFO_PLIST_BYTES)
+    if raw is None:
         return None
+    info = parse_plist(raw)["value"]
     if not isinstance(info, dict):
         return None
     version = info.get("CFBundleShortVersionString")
@@ -401,6 +462,7 @@ def _detect_vscode_extension_presence(
     system: str,
     home: Path,
     extension_ids: Iterable[str],
+    scan_status: CompletionStatusSink | None = None,
 ) -> None:
     prefixes = tuple(
         (f"{extension_id}-".casefold(), len(extension_id) + 1)
@@ -417,7 +479,7 @@ def _detect_vscode_extension_presence(
             root = extension_home / host_dir / "extensions"
             try:
                 for child in root.iterdir():
-                    if not _safe_is_dir(child):
+                    if not _safe_is_dir(child, scan_status):
                         continue
                     child_name = child.name
                     casefolded_name = child_name.casefold()
@@ -431,14 +493,20 @@ def _detect_vscode_extension_presence(
                                 config_path=child if method == "config" else None,
                             )
                             break
+            except FileNotFoundError:
+                continue
             except OSError:
+                if scan_status is not None:
+                    scan_status.mark_incomplete("client_filesystem_probe_failed")
                 continue
 
     scan_extension_roots(home, "app")
     if system == "Windows":
         try:
-            wsl_homes = _wsl_homes()
+            wsl_homes = _wsl_homes_with_status(scan_status)
         except OSError:
+            if scan_status is not None:
+                scan_status.mark_incomplete("client_filesystem_probe_failed")
             return
         for wsl_home in wsl_homes:
             scan_extension_roots(wsl_home, "config")
@@ -454,22 +522,29 @@ def _linux_desktop_roots(home: Path) -> tuple[Path, ...]:
     )
 
 
-def _windows_install_present(path: Path) -> bool:
-    if _safe_is_file(path):
+def _windows_install_present(
+    path: Path,
+    scan_status: CompletionStatusSink | None = None,
+) -> bool:
+    if _safe_is_file(path, scan_status):
         return path.suffix.lower() in _EXECUTABLE_SUFFIXES
-    if not _safe_is_dir(path):
+    if not _safe_is_dir(path, scan_status):
         return False
     try:
         return any(
-            _safe_is_file(child) and child.suffix.lower() in _EXECUTABLE_SUFFIXES
+            _safe_is_file(child, scan_status)
+            and child.suffix.lower() in _EXECUTABLE_SUFFIXES
             for child in path.iterdir()
         )
     except OSError:
+        if scan_status is not None:
+            scan_status.mark_incomplete("client_filesystem_probe_failed")
         return False
 
 
 def _windows_uninstall_entries(
     user_sid: str | None | object = _WINDOWS_USER_SID_UNSET,
+    scan_status: CompletionStatusSink | None = None,
 ) -> list[tuple[str, str | None]]:
     """Read uninstall entries from machine hives and the intended user hive.
 
@@ -500,6 +575,10 @@ def _windows_uninstall_entries(
     for hive, key_path in locations:
         try:
             root = winreg.OpenKey(hive, key_path)
+        except PermissionError:
+            if scan_status is not None:
+                scan_status.mark_incomplete("client_registry_access_failed")
+            continue
         except OSError:
             continue
         try:
@@ -512,6 +591,10 @@ def _windows_uninstall_entries(
                 index += 1
                 try:
                     subkey = winreg.OpenKey(root, subkey_name)
+                except PermissionError:
+                    if scan_status is not None:
+                        scan_status.mark_incomplete("client_registry_access_failed")
+                    continue
                 except OSError:
                     continue
                 try:
@@ -522,6 +605,10 @@ def _windows_uninstall_entries(
                         ]
                     except OSError:
                         display_version = None
+                except PermissionError:
+                    if scan_status is not None:
+                        scan_status.mark_incomplete("client_registry_access_failed")
+                    continue
                 except OSError:
                     continue
                 finally:
@@ -631,12 +718,14 @@ def _detect_config_presence(
     system: str,
     home: Path,
     environment: Mapping[str, str],
+    scan_status: CompletionStatusSink | None = None,
 ) -> None:
     try:
         runlayer_artifacts = _presence_artifact_paths(
             home=home,
             system=system,
             environment=environment,
+            scan_status=scan_status,
         )
         for candidate in _resolved_config_candidates(
             client,
@@ -645,16 +734,17 @@ def _detect_config_presence(
             environment=environment,
         ):
             if candidate.kind == "dir":
-                if _safe_is_dir(candidate.path):
+                if _safe_is_dir(candidate.path, scan_status):
                     if _directory_has_presence_trace(
                         candidate.path,
                         runlayer_artifacts,
                         system=system,
+                        scan_status=scan_status,
                     ):
                         detected.add_detection("trace", config_path=candidate.path)
                 continue
 
-            exact_file_exists = _safe_is_file(candidate.path)
+            exact_file_exists = _safe_is_file(candidate.path, scan_status)
             exact_file_is_runlayer_artifact = _is_runlayer_written_artifact(
                 candidate.path,
                 runlayer_artifacts,
@@ -675,15 +765,18 @@ def _detect_config_presence(
                 )
                 if (
                     parent is not None
-                    and _safe_is_dir(parent)
+                    and _safe_is_dir(parent, scan_status)
                     and _directory_has_presence_trace(
                         parent,
                         runlayer_artifacts,
                         system=system,
+                        scan_status=scan_status,
                     )
                 ):
                     detected.add_detection("trace", config_path=parent)
     except (OSError, RuntimeError):
+        if scan_status is not None:
+            scan_status.mark_incomplete("client_filesystem_probe_failed")
         return
 
 
@@ -699,6 +792,8 @@ def _probe_client_presence(
     pip_findings: Mapping[str, PipGlobalPackage],
     shim_findings_by_basename: Mapping[str, list[ShimFinding]] | None = None,
     shim_findings_by_package: Mapping[str, list[ShimFinding]] | None = None,
+    launcher_basenames: frozenset[str] = frozenset(),
+    scan_status: CompletionStatusSink | None = None,
 ) -> None:
     """Collect independent presence signals for one client."""
     shim_findings_by_basename = shim_findings_by_basename or {}
@@ -709,6 +804,7 @@ def _probe_client_presence(
         system=system,
         home=home,
         environment=environment,
+        scan_status=scan_status,
     )
 
     probe = client.install_probe
@@ -720,13 +816,14 @@ def _probe_client_presence(
         system=system,
         home=home,
         extension_ids=probe.vscode_extension_ids,
+        scan_status=scan_status,
     )
 
     if system == "Darwin":
         for bundle_name in probe.macos_app_bundles:
             for app_root in _macos_app_roots(home):
                 bundle = app_root / bundle_name
-                if _safe_is_dir(bundle):
+                if _safe_is_dir(bundle, scan_status):
                     detected.add_detection(
                         "app",
                         version=_macos_app_version(bundle),
@@ -741,7 +838,8 @@ def _probe_client_presence(
                 else f"{desktop_id}.desktop"
             )
             if any(
-                _safe_is_file(root / filename) for root in _linux_desktop_roots(home)
+                _safe_is_file(root / filename, scan_status)
+                for root in _linux_desktop_roots(home)
             ):
                 detected.add_detection("app")
 
@@ -759,7 +857,7 @@ def _probe_client_presence(
                 home=home,
                 environment=environment,
             )
-            if path is not None and _windows_install_present(path):
+            if path is not None and _windows_install_present(path, scan_status):
                 detected.add_detection("app")
 
     for package in probe.npm_packages:
@@ -818,6 +916,9 @@ def _probe_client_presence(
                 version=finding.version,
                 config_path=finding.target_path,
             )
+    for binary in probe.cli_binaries:
+        if binary in launcher_basenames:
+            detected.add_detection("cli")
 
 
 def detect_client_presence(
@@ -830,24 +931,44 @@ def detect_client_presence(
     hidden_space_result: HiddenSpaceScanResult | None = None,
     checkpoint: Callable[[], None] | None = None,
     windows_user_sid: str | None = None,
+    windows_system_profile: bool = False,
     include_current_user_registry: bool = True,
     wsl_distros: Iterable[DiscoveredWSLDistro] | None = None,
+    scan_status: CompletionStatusSink | None = None,
 ) -> list[DetectedClient]:
     """Run OS install probes for every enabled client definition."""
     client_list = list(clients)
     actual_home = home or Path.home()
     actual_system = system or platform.system()
     actual_environment = os.environ if environment is None else environment
+    windows_profile_requires_reparse_safe_reads = actual_system == "Windows" and (
+        windows_system_profile or is_windows_system_context()
+    )
+    if (
+        scan_status is not None
+        and actual_system == "Windows"
+        and windows_user_sid is None
+        and not include_current_user_registry
+    ):
+        scan_status.mark_incomplete("client_registry_profile_safety_skip")
     try:
         if actual_system != "Windows":
             registry_entries = []
         elif windows_user_sid is not None:
-            registry_entries = _windows_uninstall_entries(user_sid=windows_user_sid)
+            registry_entries = _windows_uninstall_entries(
+                user_sid=windows_user_sid,
+                scan_status=scan_status,
+            )
         elif include_current_user_registry:
-            registry_entries = _windows_uninstall_entries()
+            registry_entries = _windows_uninstall_entries(scan_status=scan_status)
         else:
-            registry_entries = _windows_uninstall_entries(user_sid=None)
+            registry_entries = _windows_uninstall_entries(
+                user_sid=None,
+                scan_status=scan_status,
+            )
     except Exception:
+        if scan_status is not None:
+            scan_status.mark_incomplete("client_registry_probe_failed")
         logger.debug("client_registry_probe_failed", exc_info=True)
         registry_entries = []
     npm_packages = [
@@ -862,29 +983,61 @@ def detect_client_presence(
         if client.install_probe is not None
         for package in client.install_probe.pip_packages
     ]
+    cli_basenames = [
+        binary
+        for client in client_list
+        if client.install_probe is not None
+        for binary in client.install_probe.cli_binaries
+    ]
     try:
-        wsl_homes: tuple[Path, ...] = (
-            tuple(islice(_wsl_homes(), MAX_WSL_HOMES_TOTAL))
-            if actual_system == "Windows"
-            else ()
-        )
+        if actual_system == "Windows":
+            discovered_wsl_homes = _wsl_homes_with_status(scan_status)
+            bounded_wsl_homes = tuple(
+                islice(discovered_wsl_homes, MAX_WSL_HOMES_TOTAL + 1)
+            )
+        else:
+            bounded_wsl_homes = ()
+        if len(bounded_wsl_homes) > MAX_WSL_HOMES_TOTAL and scan_status is not None:
+            scan_status.mark_incomplete("client_wsl_homes_capped")
+        wsl_homes: tuple[Path, ...] = bounded_wsl_homes[:MAX_WSL_HOMES_TOTAL]
     except Exception:
+        if scan_status is not None:
+            scan_status.mark_incomplete("client_wsl_home_discovery_failed")
         logger.debug("wsl_home_discovery_failed", exc_info=True)
         wsl_homes = ()
     hidden_result = hidden_space_result
-    if (npm_packages or pip_packages) and hidden_result is None:
+    if (npm_packages or pip_packages or cli_basenames) and hidden_result is None:
         # The standalone fallback must match the orchestrator sweep's home
         # coverage: WSL homes ride along as extra roots so hidden WSL
         # node_modules/python envs are still discovered with
         # discover_hidden=False below.
-        hidden_result = scan_hidden_spaces(
-            home=actual_home,
-            system=actual_system,
-            extra_home_roots=wsl_homes,
-            include_files=False,
-            temp_roots=() if home is not None else None,
-            checkpoint=checkpoint,
+        try:
+            hidden_result = scan_hidden_spaces(
+                home=actual_home,
+                system=actual_system,
+                extra_home_roots=wsl_homes,
+                include_files=False,
+                temp_roots=() if home is not None else None,
+                checkpoint=checkpoint,
+            )
+        except ScanResourceLimitExceeded:
+            raise
+        except Exception:
+            if scan_status is not None:
+                scan_status.mark_incomplete("client_hidden_space_scan_failed")
+            logger.debug("hidden_space_scan_failed", exc_info=True)
+            hidden_result = None
+    if (
+        scan_status is not None
+        and hidden_result is not None
+        and (
+            hidden_result.truncated
+            or hidden_result.node_modules_paths_truncated
+            or hidden_result.python_env_roots_truncated
+            or hidden_result.launcher_directories_truncated
         )
+    ):
+        scan_status.mark_incomplete("client_hidden_space_scan_truncated")
     hidden_node_modules_paths = _filter_hidden_package_roots(
         hidden_result.node_modules_paths if hidden_result is not None else (),
         system=actual_system,
@@ -911,10 +1064,13 @@ def detect_client_presence(
             node_modules_paths=effective_node_modules_paths,
             discover_hidden=False,
             checkpoint=checkpoint,
+            scan_status=scan_status,
         )
     except ScanResourceLimitExceeded:
         raise
     except Exception:
+        if scan_status is not None:
+            scan_status.mark_incomplete("client_npm_probe_failed")
         logger.debug("npm_global_probe_failed", exc_info=True)
         npm_findings = {}
     try:
@@ -927,20 +1083,18 @@ def detect_client_presence(
             wsl_homes=wsl_homes,
             discover_hidden=False,
             checkpoint=checkpoint,
+            scan_status=scan_status,
         )
     except ScanResourceLimitExceeded:
         raise
     except Exception:
+        if scan_status is not None:
+            scan_status.mark_incomplete("client_pip_probe_failed")
         logger.debug("pip_global_probe_failed", exc_info=True)
         pip_findings = {}
     try:
         shim_findings_by_basename, shim_findings_by_package = sweep_shim_identities(
-            cli_basenames=[
-                binary
-                for client in client_list
-                if client.install_probe is not None
-                for binary in client.install_probe.cli_binaries
-            ],
+            cli_basenames=cli_basenames,
             npm_packages={package.name: package for package in npm_packages},
             home=actual_home,
             system=actual_system,
@@ -951,26 +1105,65 @@ def detect_client_presence(
     except ScanResourceLimitExceeded:
         raise
     except Exception:
+        if scan_status is not None:
+            scan_status.mark_incomplete("client_shim_probe_failed")
         logger.debug("shim_identity_sweep_failed", exc_info=True)
         shim_findings_by_basename = {}
         shim_findings_by_package = {}
+    if windows_profile_requires_reparse_safe_reads:
+        launcher_basenames = frozenset()
+        if scan_status is not None and cli_basenames:
+            scan_status.mark_incomplete("client_launcher_profile_safety_skip")
+    else:
+        try:
+            launcher_result = inspect_launcher_identities(
+                known_basenames=cli_basenames,
+                home=actual_home,
+                system=actual_system,
+                hidden_directories=(
+                    hidden_result.launcher_directories
+                    if hidden_result is not None
+                    else ()
+                ),
+                windows_system_profile=False,
+                checkpoint=checkpoint,
+            )
+            launcher_basenames = frozenset(
+                finding.basename for finding in launcher_result.findings
+            )
+            if scan_status is not None and launcher_result.truncated:
+                scan_status.mark_incomplete("client_launcher_probe_truncated")
+            if scan_status is not None and launcher_result.hidden_directories_skipped:
+                scan_status.mark_incomplete("client_launcher_hidden_dirs_skipped")
+        except ScanResourceLimitExceeded:
+            raise
+        except Exception:
+            logger.debug("launcher_inspection_failed", exc_info=True)
+            launcher_basenames = frozenset()
+            if scan_status is not None:
+                scan_status.mark_incomplete("client_launcher_probe_failed")
     wsl_findings_by_client: dict[str, list[WSLBinaryFinding]] = {}
     if actual_system == "Windows":
         try:
             if wsl_distros is None:
                 inventory = get_wsl_distro_inventory()
                 effective_wsl_distros = inventory.distros if inventory.success else ()
+                if not inventory.success and scan_status is not None:
+                    scan_status.mark_incomplete("client_wsl_inventory_failed")
             else:
                 effective_wsl_distros = tuple(wsl_distros)
             for finding in scan_wsl_cli_binaries(
                 client_list,
                 effective_wsl_distros,
                 checkpoint=checkpoint,
+                scan_status=scan_status,
             ):
                 wsl_findings_by_client.setdefault(finding.client, []).append(finding)
         except ScanResourceLimitExceeded:
             raise
         except Exception:
+            if scan_status is not None:
+                scan_status.mark_incomplete("client_wsl_probe_failed")
             logger.debug("wsl_cli_presence_probe_failed", exc_info=True)
     detected: dict[str, DetectedClient] = {}
 
@@ -991,6 +1184,8 @@ def detect_client_presence(
                 pip_findings=pip_findings,
                 shim_findings_by_basename=shim_findings_by_basename,
                 shim_findings_by_package=shim_findings_by_package,
+                launcher_basenames=launcher_basenames,
+                scan_status=scan_status,
             )
             for finding in wsl_findings_by_client.get(client.name, ()):
                 result.add_detection(
@@ -999,6 +1194,10 @@ def detect_client_presence(
                     wsl_context=finding.context,
                 )
         except Exception:
+            if scan_status is not None:
+                scan_status.mark_incomplete(
+                    f"client_presence_probe_failed:{client.name}"
+                )
             logger.debug(
                 "client_presence_probe_failed",
                 client=client.name,
@@ -1046,6 +1245,40 @@ def coalesce_detected_clients(
     return list(merged.values())
 
 
+def _artifact_evidence_origin(
+    *,
+    container_id: str | None,
+    scope: str | None,
+    wsl_distro: str | None = None,
+) -> ClientEvidenceOrigin:
+    if container_id or scope == "container":
+        origin: ClientEvidenceOrigin = "container"
+    elif scope == "process_override":
+        origin = "wsl_runtime" if wsl_distro is not None else "runtime"
+    elif scope == "wsl" or wsl_distro is not None:
+        origin = "wsl"
+    else:
+        origin = "static"
+    return origin
+
+
+def _strongest_evidence_origin(
+    origins: Iterable[ClientEvidenceOrigin],
+) -> ClientEvidenceOrigin:
+    origin_set = set(origins)
+    if "static" in origin_set:
+        origin: ClientEvidenceOrigin = "static"
+    elif "wsl" in origin_set:
+        origin = "wsl"
+    elif "wsl_runtime" in origin_set:
+        origin = "wsl_runtime"
+    elif "container" in origin_set:
+        origin = "container"
+    else:
+        origin = "runtime"
+    return origin
+
+
 def merge_client_presence(
     detected_clients: Iterable[DetectedClient],
     *,
@@ -1062,6 +1295,22 @@ def merge_client_presence(
     merged = {
         client.client: client for client in coalesce_detected_clients(detected_clients)
     }
+    origins_by_client: dict[str, set[ClientEvidenceOrigin]] = {}
+
+    def record_origin(
+        client_name: str,
+        origin: ClientEvidenceOrigin,
+    ) -> None:
+        origins_by_client.setdefault(client_name, set()).add(origin)
+
+    for client_name, result in merged.items():
+        methods = set(result.detected_via)
+        if methods & STATIC_DETECTION_METHODS:
+            record_origin(client_name, "static")
+        elif "container" in methods:
+            record_origin(client_name, "container")
+        else:
+            record_origin(client_name, "runtime")
 
     def result_for(client_name: str) -> DetectedClient | None:
         definition = definitions.get(client_name)
@@ -1081,8 +1330,29 @@ def merge_client_presence(
             continue
         scope = getattr(config, "config_scope", None)
         config_path = getattr(config, "config_path", None)
+        record_origin(
+            result.client,
+            _artifact_evidence_origin(
+                container_id=getattr(config, "container_id", None),
+                scope=scope,
+                wsl_distro=getattr(config, "wsl_distro", None),
+            ),
+        )
         if scope in {"global", "project", "wsl"} and config_path:
-            result.add_detection("config", config_path=config_path)
+            wsl_distro = getattr(config, "wsl_distro", None)
+            wsl_context = (
+                WSLClientContext(
+                    distro=wsl_distro,
+                    user=getattr(config, "wsl_user", None),
+                )
+                if scope == "wsl" and isinstance(wsl_distro, str) and wsl_distro
+                else None
+            )
+            result.add_detection(
+                "config",
+                config_path=config_path,
+                wsl_context=wsl_context,
+            )
         if scope == "container":
             result.add_detection(
                 "container",
@@ -1100,7 +1370,13 @@ def merge_client_presence(
     for skill in skills:
         result = result_for(getattr(skill, "tool", ""))
         if result is not None:
-            if getattr(skill, "container_id", None):
+            origin = _artifact_evidence_origin(
+                container_id=getattr(skill, "container_id", None),
+                scope=None,
+                wsl_distro=getattr(skill, "wsl_distro", None),
+            )
+            record_origin(result.client, origin)
+            if origin == "container":
                 result.add_detection("container")
             result.add_detection("skill")
 
@@ -1112,7 +1388,13 @@ def merge_client_presence(
             # how skills always record "skill"); otherwise a host-side
             # definition would create an empty DetectedClient via result_for()
             # and report the client with no detection methods.
-            if getattr(agent_definition, "container_id", None):
+            origin = _artifact_evidence_origin(
+                container_id=getattr(agent_definition, "container_id", None),
+                scope=None,
+                wsl_distro=getattr(agent_definition, "wsl_distro", None),
+            )
+            record_origin(result.client, origin)
+            if origin == "container":
                 result.add_detection("container")
             result.add_detection("config")
 
@@ -1120,6 +1402,14 @@ def merge_client_presence(
         result = result_for(getattr(plugin, "client", ""))
         if result is None:
             continue
+        record_origin(
+            result.client,
+            _artifact_evidence_origin(
+                container_id=getattr(plugin, "container_id", None),
+                scope=getattr(plugin, "scope", None),
+                wsl_distro=getattr(plugin, "wsl_distro", None),
+            ),
+        )
         plugin_type = str(getattr(plugin, "plugin_type", ""))
         method: DetectionMethod = (
             "extension" if "extension" in plugin_type else "plugin"
@@ -1129,6 +1419,11 @@ def merge_client_presence(
     for client_name in extension_clients:
         result = result_for(client_name)
         if result is not None:
+            record_origin(result.client, "static")
             result.add_detection("extension")
 
-    return [merged[client.name] for client in client_list if client.name in merged]
+    detected = [merged[client.name] for client in client_list if client.name in merged]
+    for result in detected:
+        origins = origins_by_client.get(result.client, set())
+        result.evidence_origin = _strongest_evidence_origin(origins)
+    return detected

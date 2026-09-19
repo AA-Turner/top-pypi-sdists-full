@@ -9,8 +9,8 @@
 use std::collections::BTreeMap;
 
 use mergify_ci_api::{
-    ApiConfig, AttrValue, Client, ClientInfo, FlakyDetectionContext, Mode, Outcome, SpanData,
-    SpanStatus, TestSelection, budget,
+    ApiConfig, AttrValue, Client, ClientInfo, FlakyDetectionContext, Mode, Outcome, SessionVerdict,
+    SessionVerdictSelection, SpanData, SpanStatus, TestSelection, budget,
 };
 use mergify_ci_core::{AttrValue as CoreAttrValue, CiContext};
 use pyo3::exceptions::{PyKeyError, PyRuntimeError, PyTypeError, PyValueError};
@@ -60,7 +60,8 @@ fn detect_attributes(py: Python<'_>) -> PyResult<Py<PyDict>> {
 /// each call drives the future to completion on an owned single-threaded
 /// runtime with the GIL released (`Python::detach`). Fetches resolve to a
 /// value, `None` when the feature is not enabled for the repository, or raise
-/// `RuntimeError` on a genuine failure. Trace upload fails loud.
+/// `RuntimeError` on a genuine failure. Trace upload fails loud; the session
+/// verdict, sent before it, follows the fetches' rule.
 #[pyclass]
 struct CiApiClient {
     runtime: tokio::runtime::Runtime,
@@ -145,6 +146,40 @@ impl CiApiClient {
         }
     }
 
+
+    /// Send the session verdict, the document Test Selection answers the next
+    /// merge-queue rerun from. Sent BEFORE `upload_trace`, so it never waits
+    /// behind the upload's timeout and retries.
+    ///
+    /// `verdict` is a dict shaped like the wire body (see `SessionVerdict` in
+    /// mergify-ci-api): the run coordinates, the collection fingerprint and
+    /// count, the five counts, `failing_tests` and
+    /// `quarantined_failing_tests` as lists of node ids, and an optional
+    /// `selection` dict (`answer`, `reason`, `kept_count`, optional
+    /// `not_applied_reason`). Returns `{"truncated": bool}` once the engine
+    /// has it -- `truncated` when the ids did not fit the request bound and
+    /// only the counts went out -- or `None` when the feature is not enabled
+    /// for the repository. Raises `RuntimeError` on a failure the plugin
+    /// should report; it never fails the run.
+    fn send_session_verdict(
+        &self,
+        py: Python<'_>,
+        verdict: &Bound<'_, PyDict>,
+    ) -> PyResult<Option<Py<PyDict>>> {
+        let verdict = verdict_from_dict(verdict)?;
+        let outcome =
+            py.detach(|| self.runtime.block_on(self.client.send_session_verdict(verdict)));
+        match outcome {
+            Outcome::Ready(receipt) => {
+                let dict = PyDict::new(py);
+                dict.set_item("truncated", receipt.truncated)?;
+                Ok(Some(dict.into()))
+            }
+            Outcome::Dormant => Ok(None),
+            Outcome::Failed(message) => Err(PyRuntimeError::new_err(message)),
+        }
+    }
+
     /// Upload `spans` (under `resource_attributes`) as gzipped OTLP protobuf.
     ///
     /// `resource_attributes` is a `dict[str, str|int|float|bool]`; each span is
@@ -195,8 +230,10 @@ fn flaky_context_dict(py: Python<'_>, context: &FlakyDetectionContext) -> PyResu
 }
 
 /// Marshal a [`TestSelection`] into the dict pytest-mergify's `TestSelection`
-/// lifecycle consumes. The subset-vs-full normalisation stays on the Python
-/// side, so this hands over the server's answer verbatim.
+/// lifecycle consumes. What to do about an answer the run cannot honour is
+/// decided on the Python side, so this hands over the server's answer verbatim
+/// -- including a `selection` this client predates, which the plugin keeps and
+/// declares rather than rewriting.
 fn test_selection_dict(py: Python<'_>, selection: &TestSelection) -> PyResult<Py<PyDict>> {
     let dict = PyDict::new(py);
     dict.set_item("selection", &selection.selection)?;
@@ -206,7 +243,8 @@ fn test_selection_dict(py: Python<'_>, selection: &TestSelection) -> PyResult<Py
     // `subset` without it is rejected upstream. An empty list is the right
     // value for the plugin: it keeps the key present, so `TestSelection(**dict)`
     // never raises, and what the answer then means is decided on the Python
-    // side from `selection` alone, never from the emptiness of this list.
+    // side from `selection` and this list together -- a `subset` arriving empty
+    // is a shape the plugin runs everything for, and declares.
     dict.set_item("tests", selection.tests.clone().unwrap_or_default())?;
     // Unlike `tests`, this one is handed over as-is rather than defaulted: the
     // dict then mirrors the wire, where the key is simply absent from every
@@ -247,6 +285,38 @@ fn compute_budget(
     let plan = budget::plan(&context_from_dict(context)?, parse_mode(mode)?, &session_tests, &excluded);
     let result = PyDict::new(py);
     result.set_item("available_budget_ms", plan.available_budget_ms)?;
+    result.set_item("tests_to_process", plan.tests_to_process)?;
+    Ok(result.into())
+}
+
+/// Select the tests test retry answers for and compute its session budget.
+///
+/// `tests_being_detected` is flaky detection's target set for this session, and
+/// `detection_gates_failures` says a failure of those reruns is itself the merge
+/// gate (`"new"` mode). Returns a dict with `available_budget_ms`,
+/// `eligible_tests` and `tests_to_process` -- the last two differ exactly by
+/// what flaky detection is already rerunning.
+// pyo3 extracts the test lists by value; the budget engine only borrows them.
+#[allow(clippy::needless_pass_by_value)]
+#[pyfunction]
+fn compute_retry_budget(
+    py: Python<'_>,
+    context: &Bound<'_, PyDict>,
+    session_tests: Vec<String>,
+    excluded: Vec<String>,
+    tests_being_detected: Vec<String>,
+    detection_gates_failures: bool,
+) -> PyResult<Py<PyDict>> {
+    let plan = budget::retry_plan(
+        &context_from_dict(context)?,
+        &session_tests,
+        &excluded,
+        &tests_being_detected,
+        detection_gates_failures,
+    );
+    let result = PyDict::new(py);
+    result.set_item("available_budget_ms", plan.available_budget_ms)?;
+    result.set_item("eligible_tests", plan.eligible_tests)?;
     result.set_item("tests_to_process", plan.tests_to_process)?;
     Ok(result.into())
 }
@@ -310,6 +380,49 @@ fn context_from_dict(dict: &Bound<'_, PyDict>) -> PyResult<FlakyDetectionContext
         max_test_name_length: req_item(dict, "max_test_name_length")?.extract()?,
         min_budget_duration_ms: req_item(dict, "min_budget_duration_ms")?.extract()?,
         min_test_execution_count: req_item(dict, "min_test_execution_count")?.extract()?,
+    })
+}
+
+/// Marshal the plugin's verdict dict into the wire model. Every required key
+/// is a `KeyError` here rather than a 422 from the engine: the dict is built
+/// by our own code, so a missing key is a plugin bug and should read as one.
+fn verdict_from_dict(dict: &Bound<'_, PyDict>) -> PyResult<SessionVerdict> {
+    let selection = match opt_item(dict, "selection")? {
+        Some(value) => {
+            let selection = value.cast::<PyDict>()?;
+            Some(SessionVerdictSelection {
+                answer: req_item(selection, "answer")?.extract()?,
+                reason: req_item(selection, "reason")?.extract()?,
+                kept_count: req_item(selection, "kept_count")?.extract()?,
+                not_applied_reason: opt_item(selection, "not_applied_reason")?
+                    .map(|value| value.extract())
+                    .transpose()?,
+            })
+        }
+        None => None,
+    };
+    Ok(SessionVerdict {
+        test_run_id: req_item(dict, "test_run_id")?.extract()?,
+        head_sha: req_item(dict, "head_sha")?.extract()?,
+        head_branch: opt_item(dict, "head_branch")?.map(|value| value.extract()).transpose()?,
+        pipeline_name: req_item(dict, "pipeline_name")?.extract()?,
+        job_name: req_item(dict, "job_name")?.extract()?,
+        // A string on the wire whatever the provider reports -- GitHub's run
+        // id is an integer, Jenkins' a string -- so `str()` it here rather
+        // than making the plugin know which it has.
+        run_id: opt_item(dict, "run_id")?.map(|value| value.str()?.extract()).transpose()?,
+        run_attempt: opt_item(dict, "run_attempt")?.map(|value| value.extract()).transpose()?,
+        collection_fingerprint: req_item(dict, "collection_fingerprint")?.extract()?,
+        collection_count: req_item(dict, "collection_count")?.extract()?,
+        executed_count: req_item(dict, "executed_count")?.extract()?,
+        passed_count: req_item(dict, "passed_count")?.extract()?,
+        failed_count: req_item(dict, "failed_count")?.extract()?,
+        skipped_count: req_item(dict, "skipped_count")?.extract()?,
+        total_test_runtime_ms: req_item(dict, "total_test_runtime_ms")?.extract()?,
+        failing_tests: req_item(dict, "failing_tests")?.extract()?,
+        quarantined_failing_tests: req_item(dict, "quarantined_failing_tests")?.extract()?,
+        failing_tests_truncated: false,
+        selection,
     })
 }
 
@@ -393,6 +506,7 @@ fn _mergify_ci(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_function(wrap_pyfunction!(detect_repository_name, m)?)?;
     m.add_function(wrap_pyfunction!(detect_attributes, m)?)?;
     m.add_function(wrap_pyfunction!(compute_budget, m)?)?;
+    m.add_function(wrap_pyfunction!(compute_retry_budget, m)?)?;
     m.add_function(wrap_pyfunction!(compute_test_collection_fingerprint, m)?)?;
     m.add_function(wrap_pyfunction!(should_run, m)?)?;
     m.add_function(wrap_pyfunction!(static_share_ms, m)?)?;

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.catalog.relationships_endpoints import CollapsePathResult
 from graphdatascience.procedure_surface.api.collapse_path_endpoints import CollapsePathEndpoints
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS
@@ -15,7 +15,7 @@ class CollapsePathCypherEndpoints(CollapsePathEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         path_templates: list[list[str]],
         mutate_relationship_type: str,
         *,
@@ -45,5 +45,5 @@ class CollapsePathCypherEndpoints(CollapsePathEndpoints):
         )
         params.ensure_job_id_in_config()
 
-        result = self._query_runner.call_procedure(endpoint="gds.collapsePath.mutate", params=params).squeeze()
-        return CollapsePathResult(**result.to_dict())
+        result = self._query_runner.call_procedure(endpoint="gds.collapsePath.mutate", params=params).iloc[0]
+        return CollapsePathResult(**result)

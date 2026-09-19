@@ -1,13 +1,13 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: juliacall
-Version: 0.9.35
+Version: 0.9.36
 Summary: Julia and Python in seamless harmony
 License-File: LICENSE
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Requires-Python: <4,>=3.10
-Requires-Dist: juliapkg<0.2,>=0.1.24
+Requires-Dist: juliapkg<0.2,>=0.1.26
 Description-Content-Type: text/markdown
 
 <h1><img src="docs/src/assets/logo.png" alt="PythonCall.jl logo" style="width: 100px;"><br>PythonCall &amp;&nbsp;JuliaCall</h1>

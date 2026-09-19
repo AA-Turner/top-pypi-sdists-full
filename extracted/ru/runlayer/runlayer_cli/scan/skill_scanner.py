@@ -10,8 +10,10 @@ from typing import Any
 
 import structlog
 
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan import scan_state
 from runlayer_cli.scan.file_collector import CollectedFile, collect_files
+from runlayer_cli.scan.scanner_primitives import mark_path_unresolved_if_present
 from runlayer_cli.skill_identifier import SkillFileInput, compute_skill_identifier
 from runlayer_cli.skills.discovery import (
     SUPPORTED_EXTENSIONS as REGISTRY_SUPPORTED_EXTENSIONS,
@@ -47,7 +49,10 @@ def is_skill_marker_name(name: str) -> bool:
     return name.lower() == "skill.md"
 
 
-def find_skill_marker(skill_dir: Path) -> Path | None:
+def find_skill_marker(
+    skill_dir: Path,
+    scan_status: ScanCompletionStatus | None = None,
+) -> Path | None:
     """Resolve the on-disk SKILL.md marker in *skill_dir*, any casing.
 
     Prefers the exact canonical name so a dir holding both ``SKILL.md`` and
@@ -58,13 +63,20 @@ def find_skill_marker(skill_dir: Path) -> Path | None:
         if exact.is_file():
             return exact
         entries = sorted(skill_dir.iterdir())
+    except FileNotFoundError:
+        # Skill dir vanished after the crawl listed it: clean absence.
+        return None
     except OSError:
+        if scan_status is not None:
+            scan_status.mark_incomplete("skill_marker_enumeration_failed")
         return None
     for entry in entries:
         try:
             if is_skill_marker_name(entry.name) and entry.is_file():
                 return entry
         except OSError:
+            if scan_status is not None:
+                scan_status.mark_incomplete("skill_marker_access_failed")
             continue
     return None
 
@@ -96,10 +108,34 @@ def has_skill_structure(content: str) -> bool:
     )
 
 
-# Per-run processing cap. Skill-heavy hosts (agent session copies) can hold
-# 100k+ SKILL.md dirs; one run processes at most this many and a persisted
-# rotation cursor (``scan_state``) covers the rest over successive runs.
-MAX_SKILL_ARTIFACTS_PER_RUN = 1000
+# Adaptive per-run processing window. Skill-heavy hosts (agent session copies)
+# can hold 100k+ SKILL.md dirs; target rotation across 48 scheduled runs
+# (~12h at 15-minute cadence), bounded to control each run's work.
+MIN_SKILL_ARTIFACTS_PER_RUN = 1000
+MAX_SKILL_ARTIFACTS_PER_RUN = 5000
+SKILL_ROTATION_TARGET_RUNS = 48
+
+
+def per_run_window(total_found: int) -> int:
+    """Return the artifact window sized for the 48-run rotation target.
+
+    Forty-eight scheduled runs are about 12 hours at a 15-minute cadence.
+    Retained skill file content memory remains bounded separately by
+    ``MAX_TOTAL_SKILL_FILE_BYTES``; per-run stat/read/hash work grows with the
+    window only on hosts above ``48 * MIN_SKILL_ARTIFACTS_PER_RUN`` skills,
+    where the fixed floor is what made a full pass outlast the chart window.
+
+    Interim formula. Per
+    ``docs-internal/decision-records/2026-09-08-scan-budgets-and-deferred-scanning.md``
+    volume budgets like this window are expected to become DB-backed
+    workspace settings; the clamp bounds here are the values to migrate.
+    """
+    target_window = -(-total_found // SKILL_ROTATION_TARGET_RUNS)
+    return min(
+        MAX_SKILL_ARTIFACTS_PER_RUN,
+        max(MIN_SKILL_ARTIFACTS_PER_RUN, target_window),
+    )
+
 
 # Shared budget for retained skill file content across the global + project
 # phases (they run in parallel). Past it, artifacts keep metadata only.
@@ -266,9 +302,25 @@ class DiscoveredSkillArtifact:
         return payload
 
 
+@dataclass
+class SkillPhaseScan:
+    """Artifacts processed this run plus the full host candidate set."""
+
+    artifacts: list[DiscoveredSkillArtifact]
+    candidate_paths: list[str]
+    complete: bool = True
+
+
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
+
+def _reported_candidate_path(path: str) -> str:
+    """Normalize a canonical host path exactly like an artifact payload."""
+    reported_path = strip_reported_path_prefix(path)
+    assert reported_path is not None
+    return reported_path
 
 
 def _is_dependency_path(path: Path) -> bool:
@@ -291,7 +343,7 @@ def _classify_source_type(path: Path, scope: str) -> str:
 
 _git_cache_lock = threading.Lock()
 # Cleared per scan; starting directories are bounded by the global + project
-# ``MAX_SKILL_ARTIFACTS_PER_RUN`` windows, plus their finite ancestor chains.
+# adaptive per-run windows, plus their finite ancestor chains.
 _repo_root_cache: dict[str, str | None] = {}
 _origin_url_cache: dict[str, str | None] = {}
 
@@ -721,13 +773,17 @@ def _scan_skill_md_dir(
     scope: str,
     tool: str,
     project_path: str | None = None,
+    scan_status: ScanCompletionStatus | None = None,
 ) -> DiscoveredSkillArtifact | None:
     """Build a ``DiscoveredSkillArtifact`` from a directory containing SKILL.md."""
-    marker = find_skill_marker(skill_dir)
+    marker = find_skill_marker(skill_dir, scan_status)
     if marker is None:
         return None
     marker_content = _read_bounded_text(marker)
     if marker_content is None:
+        # Vanished between crawl and read is clean absence; only a marker
+        # that is still present but unreadable revokes absence authority.
+        mark_path_unresolved_if_present(marker, scan_status, "skill_marker_read_failed")
         return None
 
     has_scripts = (skill_dir / "scripts").is_dir()
@@ -765,36 +821,49 @@ def _scan_skill_md_dir(
 _LOOSE_MD_SNIFF_BYTES = 16
 
 
-def _loose_md_has_frontmatter_prefix(path: Path) -> bool:
+def _loose_md_has_frontmatter_prefix(
+    path: Path,
+    scan_status: ScanCompletionStatus | None = None,
+) -> bool:
     """Cheap pre-filter so most junk markdown skips the bounded full read."""
     try:
         with path.open("rb") as handle:
             prefix = handle.read(_LOOSE_MD_SNIFF_BYTES)
+    except FileNotFoundError:
+        return False
     except OSError:
+        if scan_status is not None:
+            scan_status.mark_incomplete("skill_marker_read_failed")
         return False
     lines = prefix.splitlines()
     return bool(lines) and lines[0].strip() == b"---"
 
 
-def _loose_md_is_structural_skill(path: Path) -> bool:
+def _loose_md_is_structural_skill(
+    path: Path,
+    scan_status: ScanCompletionStatus | None = None,
+) -> bool:
     """Discovery gate: full structural identity before the rotation window.
 
     Directory candidates must hold a real SKILL.md marker to enter the
     rotation window; loose files must clear the equivalent content bar. A
-    prefix-only sniff would let planted frontmatter junk consume
-    ``MAX_SKILL_ARTIFACTS_PER_RUN`` slots shared with real skills, delaying
-    their discovery across successive runs.
+    prefix-only sniff would let planted frontmatter junk consume per-run slots
+    shared with real skills, delaying their discovery across successive runs.
     """
-    if not _loose_md_has_frontmatter_prefix(path):
+    if not _loose_md_has_frontmatter_prefix(path, scan_status):
         return False
     content = _read_bounded_text(path)
-    return content is not None and has_skill_structure(content)
+    if content is None:
+        mark_path_unresolved_if_present(path, scan_status, "skill_marker_read_failed")
+        return False
+    return has_skill_structure(content)
 
 
 def _scan_loose_skill_md_file(
     md_file: Path,
     scope: str,
     tool: str,
+    scan_status: ScanCompletionStatus | None = None,
 ) -> DiscoveredSkillArtifact | None:
     """Build an artifact from a loose markdown skill, classified by content.
 
@@ -804,7 +873,12 @@ def _scan_loose_skill_md_file(
     identity matches the same content discovered in canonical layout.
     """
     content = _read_bounded_text(md_file)
-    if content is None or not has_skill_structure(content):
+    if content is None:
+        mark_path_unresolved_if_present(
+            md_file, scan_status, "skill_marker_read_failed"
+        )
+        return None
+    if not has_skill_structure(content):
         return None
     abs_path = Path(md_file).resolve()
     artifact = build_skill_artifact_from_files(
@@ -832,10 +906,7 @@ def _expand_global_skill_dirs(home: Path, rel_dir: str) -> list[Path]:
     """Expand wildcard global roots while preserving direct path handling."""
     if not any(char in rel_dir for char in "*?["):
         return [home / rel_dir]
-    try:
-        return sorted(home.glob(rel_dir))
-    except OSError:
-        return []
+    return sorted(home.glob(rel_dir))
 
 
 def scan_global_skills(
@@ -843,42 +914,80 @@ def scan_global_skills(
     *,
     checkpoint: Callable[[], None] | None = None,
     state_path: Path | None = None,
+    scan_status: ScanCompletionStatus | None = None,
 ) -> list[DiscoveredSkillArtifact]:
+    """Walk known home-directory skill paths and return discovered artifacts."""
+    return scan_global_skills_with_candidates(
+        extra_home_roots=extra_home_roots,
+        checkpoint=checkpoint,
+        state_path=state_path,
+        scan_status=scan_status,
+    ).artifacts
+
+
+def scan_global_skills_with_candidates(
+    extra_home_roots: Sequence[Path] = (),
+    *,
+    checkpoint: Callable[[], None] | None = None,
+    state_path: Path | None = None,
+    scan_status: ScanCompletionStatus | None = None,
+) -> SkillPhaseScan:
     """Walk known home-directory skill paths and return discovered artifacts.
 
-    At most ``MAX_SKILL_ARTIFACTS_PER_RUN`` directories are processed per run
-    (independently of the project phase's cap, since the two run in parallel).
-    Global dirs are normally a tiny set, but when they exceed the cap a
-    rotation cursor persisted at *state_path* (default
-    ``~/.runlayer/scan-state.json``, category ``global_skills``) picks this
-    run's window so successive runs cover every directory — same contract as
-    ``process_skill_paths``: the cursor advances only after the selected
-    window completes, and under the cap no artifact-window cursor is read or
-    written.
+    The adaptive per-run window targets rotation across 48 scheduled runs
+    (~12h at a 15-minute cadence), subject to its bounds and independently of
+    the parallel project phase. Retained file content memory is bounded
+    separately. When global dirs exceed this window, a rotation cursor
+    persisted at *state_path* (default ``~/.runlayer/scan-state.json``,
+    category ``global_skills``) picks this run's window so successive runs
+    cover every directory — same contract as ``process_skill_paths``: the
+    cursor advances only after the selected window completes, and under the
+    window no artifact-window cursor is read or written.
     *checkpoint* is the resource governor's cooperative throttle/abort hook,
     called once per skill directory.
     """
     candidates: list[tuple[str, Path, str, bool]] = []
     seen_skill_dirs: set[str] = set()
+    complete = True
 
     for home in (Path.home(), *extra_home_roots):
         for rel_dir, tool in _GLOBAL_SKILL_DIRS:
-            for skills_root in _expand_global_skill_dirs(home, rel_dir):
+            try:
+                skills_roots = _expand_global_skill_dirs(home, rel_dir)
+            except OSError as error:
+                complete = False
+                if scan_status is not None:
+                    scan_status.mark_incomplete("global_skill_root_read_failed")
+                logger.warning(
+                    "global_skill_root_expansion_failed",
+                    path=str(home / rel_dir),
+                    error=str(error),
+                )
+                continue
+            for skills_root in skills_roots:
                 if not skills_root.is_dir():
                     continue
                 try:
                     entries = sorted(skills_root.iterdir())
-                except OSError:
+                except OSError as error:
+                    complete = False
+                    if scan_status is not None:
+                        scan_status.mark_incomplete("global_skill_root_read_failed")
+                    logger.warning(
+                        "global_skill_root_enumeration_failed",
+                        path=str(skills_root),
+                        error=str(error),
+                    )
                     continue
                 for entry in entries:
                     if entry.is_dir():
-                        if find_skill_marker(entry) is None:
+                        if find_skill_marker(entry, scan_status) is None:
                             continue
                         is_loose_file = False
                     elif (
                         entry.suffix.lower() == ".md"
                         and entry.is_file()
-                        and _loose_md_is_structural_skill(entry)
+                        and _loose_md_is_structural_skill(entry, scan_status)
                     ):
                         # Loose markdown directly under a known skill root:
                         # a skill authored without its wrapping directory.
@@ -892,17 +1001,23 @@ def scan_global_skills(
                     seen_skill_dirs.add(entry_key)
                     candidates.append((entry_key, entry, tool, is_loose_file))
 
+    candidate_paths = sorted(
+        {_reported_candidate_path(key) for key, _entry, _tool, _is_loose in candidates}
+    )
     total_found = len(candidates)
+    limit = per_run_window(total_found)
     new_cursor: str | None = None
-    if total_found > MAX_SKILL_ARTIFACTS_PER_RUN:
+    if total_found > limit:
+        # The candidate inventory above stays full for removal reconciliation;
+        # only the processed artifact window loses absence authority.
+        if scan_status is not None:
+            scan_status.mark_incomplete("global_skill_scan_capped")
         by_key = {
             key: (entry, tool, is_loose_file)
             for key, entry, tool, is_loose_file in candidates
         }
         cursor = scan_state.load_cursor(_GLOBAL_ROTATION_CATEGORY, state_path)
-        window, new_cursor = scan_state.rotation_window(
-            sorted(by_key), cursor, MAX_SKILL_ARTIFACTS_PER_RUN
-        )
+        window, new_cursor = scan_state.rotation_window(sorted(by_key), cursor, limit)
         candidates = [(key, *by_key[key]) for key in window]
         logger.warning(
             "global_skill_scan_window_rotated",
@@ -916,9 +1031,19 @@ def scan_global_skills(
         if checkpoint is not None:
             checkpoint()
         artifact = (
-            _scan_loose_skill_md_file(entry, scope="global", tool=tool)
+            _scan_loose_skill_md_file(
+                entry,
+                scope="global",
+                tool=tool,
+                scan_status=scan_status,
+            )
             if is_loose_file
-            else _scan_skill_md_dir(entry, scope="global", tool=tool)
+            else _scan_skill_md_dir(
+                entry,
+                scope="global",
+                tool=tool,
+                scan_status=scan_status,
+            )
         )
         if artifact:
             results.append(artifact)
@@ -927,7 +1052,11 @@ def scan_global_skills(
         scan_state.save_cursor(_GLOBAL_ROTATION_CATEGORY, new_cursor, state_path)
 
     logger.info("Global skill scan complete", found=len(results))
-    return strip_duplicate_skill_files(results)
+    return SkillPhaseScan(
+        artifacts=strip_duplicate_skill_files(results),
+        candidate_paths=candidate_paths,
+        complete=complete,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -974,7 +1103,26 @@ def process_skill_paths(
     *,
     checkpoint: Callable[[], None] | None = None,
     state_path: Path | None = None,
+    scan_status: ScanCompletionStatus | None = None,
 ) -> list[DiscoveredSkillArtifact]:
+    """Process pre-crawled paths and return project-level skill artifacts."""
+    return process_skill_paths_with_candidates(
+        found_paths,
+        extra_home_roots=extra_home_roots,
+        checkpoint=checkpoint,
+        state_path=state_path,
+        scan_status=scan_status,
+    ).artifacts
+
+
+def process_skill_paths_with_candidates(
+    found_paths: list[Path],
+    extra_home_roots: Sequence[Path] = (),
+    *,
+    checkpoint: Callable[[], None] | None = None,
+    state_path: Path | None = None,
+    scan_status: ScanCompletionStatus | None = None,
+) -> SkillPhaseScan:
     """Process pre-crawled paths and return project-level skill artifacts.
 
     Only SKILL.md files are recognised. Each SKILL.md triggers a scan of its
@@ -983,19 +1131,20 @@ def process_skill_paths(
     Paths under known global skill directories are excluded; those are
     handled separately by ``scan_global_skills``.
 
-    At most ``MAX_SKILL_ARTIFACTS_PER_RUN`` directories are processed per run.
-    When the candidate set exceeds the cap, a rotation cursor persisted at
-    *state_path* (default ``~/.runlayer/scan-state.json``) picks this run's
-    window so successive runs cover every directory. The cursor advances only
-    after the selected window completes, so aborted windows are retried. Under
-    the cap, no artifact-window cursor is read or written and input order is
-    preserved.
+    The adaptive per-run window targets rotation across 48 scheduled runs
+    (~12h at a 15-minute cadence), subject to its bounds; retained file content
+    memory is bounded separately. When the candidate set exceeds this window,
+    a rotation cursor persisted at *state_path* (default
+    ``~/.runlayer/scan-state.json``) picks this run's slice. The cursor advances
+    only after the selected window completes, so aborted windows are retried.
+    Under the window, no artifact-window cursor is read or written and input
+    order is preserved.
     *checkpoint* is the resource governor's cooperative throttle/abort hook,
     called once per skill directory.
     """
     candidates: list[tuple[str, Path]] = []
     seen_skill_dirs: set[str] = set()
-    global_prefixes = _get_global_skill_path_prefixes(extra_home_roots)
+    global_prefixes = _get_global_skill_path_prefixes(extra_home_roots, scan_status)
 
     for fpath in found_paths:
         if not is_skill_marker_name(fpath.name):
@@ -1010,13 +1159,17 @@ def process_skill_paths(
         seen_skill_dirs.add(dir_key)
         candidates.append((dir_key, fpath))
 
+    candidate_paths = sorted({_reported_candidate_path(key) for key, _ in candidates})
     total_found = len(candidates)
+    limit = per_run_window(total_found)
     new_cursor: str | None = None
-    if total_found > MAX_SKILL_ARTIFACTS_PER_RUN:
+    if total_found > limit:
+        if scan_status is not None:
+            scan_status.mark_incomplete("project_skill_scan_capped")
         marker_by_key = dict(candidates)
         cursor = scan_state.load_cursor(_ROTATION_CATEGORY, state_path)
         window, new_cursor = scan_state.rotation_window(
-            sorted(marker_by_key), cursor, MAX_SKILL_ARTIFACTS_PER_RUN
+            sorted(marker_by_key), cursor, limit
         )
         candidates = [(key, marker_by_key[key]) for key in window]
         logger.warning(
@@ -1046,6 +1199,7 @@ def process_skill_paths(
             scope=scope,
             tool=tool,
             project_path=project_root,
+            scan_status=scan_status,
         )
         if artifact:
             results.append(artifact)
@@ -1054,11 +1208,15 @@ def process_skill_paths(
         scan_state.save_cursor(_ROTATION_CATEGORY, new_cursor, state_path)
 
     logger.info("Project skill scan complete", found=len(results))
-    return strip_duplicate_skill_files(results)
+    return SkillPhaseScan(
+        artifacts=strip_duplicate_skill_files(results),
+        candidate_paths=candidate_paths,
+    )
 
 
 def _get_global_skill_path_prefixes(
     extra_home_roots: Sequence[Path] = (),
+    scan_status: ScanCompletionStatus | None = None,
 ) -> set[Path]:
     """Resolved paths that ``scan_global_skills`` owns.
 
@@ -1068,8 +1226,18 @@ def _get_global_skill_path_prefixes(
     prefixes: set[Path] = set()
     for home in (Path.home(), *extra_home_roots):
         for rel_dir, _ in _GLOBAL_SKILL_DIRS:
-            for skills_root in _expand_global_skill_dirs(home, rel_dir):
-                prefixes.add(skills_root.resolve())
+            try:
+                skills_roots = _expand_global_skill_dirs(home, rel_dir)
+            except OSError:
+                if scan_status is not None:
+                    scan_status.mark_incomplete("global_skill_root_read_failed")
+                continue
+            for skills_root in skills_roots:
+                try:
+                    prefixes.add(skills_root.resolve())
+                except OSError:
+                    if scan_status is not None:
+                        scan_status.mark_incomplete("global_skill_root_read_failed")
     return prefixes
 
 

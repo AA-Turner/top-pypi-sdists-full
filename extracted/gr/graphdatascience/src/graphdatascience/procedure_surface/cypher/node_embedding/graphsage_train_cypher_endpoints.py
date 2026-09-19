@@ -1,14 +1,14 @@
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
-from graphdatascience.procedure_surface.api.model.graphsage_model import GraphSageModelV2
+from graphdatascience.procedure_surface.api.node_embedding.graphsage_model import GraphSageModel
 from graphdatascience.procedure_surface.api.node_embedding.graphsage_train_endpoints import (
     GraphSageTrainEndpoints,
     GraphSageTrainResult,
 )
 from graphdatascience.procedure_surface.cypher.estimation_utils import estimate_algorithm
-from graphdatascience.procedure_surface.cypher.model_api_cypher import ModelApiCypher
+from graphdatascience.procedure_surface.cypher.model.model_catalog_cypher_endpoints import ModelCatalogCypherEndpoints
 from graphdatascience.procedure_surface.cypher.node_embedding.graphsage_predict_cypher_endpoints import (
     GraphSagePredictCypherEndpoints,
 )
@@ -22,7 +22,7 @@ class GraphSageTrainCypherEndpoints(GraphSageTrainEndpoints):
 
     def __call__(
         self,
-        G: GraphV2,
+        G: Graph,
         model_name: str,
         feature_properties: list[str],
         *,
@@ -50,7 +50,7 @@ class GraphSageTrainCypherEndpoints(GraphSageTrainEndpoints):
         batch_size: int = 100,
         relationship_weight_property: str | None = None,
         random_seed: int | None = None,
-    ) -> tuple[GraphSageModelV2, GraphSageTrainResult]:
+    ) -> tuple[GraphSageModel, GraphSageTrainResult]:
         config = ConfigConverter.convert_to_gds_config(
             model_name=model_name,
             feature_properties=feature_properties,
@@ -87,15 +87,15 @@ class GraphSageTrainCypherEndpoints(GraphSageTrainEndpoints):
             endpoint="gds.beta.graphSage.train", params=params, logging=log_progress
         ).iloc[0]
 
-        return GraphSageModelV2(
+        return GraphSageModel(
             name=model_name,
-            model_api=ModelApiCypher(self._query_runner),
+            catalog=ModelCatalogCypherEndpoints(self._query_runner),
             predict_endpoints=GraphSagePredictCypherEndpoints(self._query_runner),
-        ), GraphSageTrainResult(**result.to_dict())
+        ), GraphSageTrainResult(**result)
 
     def estimate(
         self,
-        G: GraphV2,
+        G: Graph,
         model_name: str,
         feature_properties: list[str],
         *,

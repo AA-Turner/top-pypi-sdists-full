@@ -25,7 +25,7 @@ glib = [ "pygobject" ]
 # Floors below are the oldest releases without known CVEs (only the IOLoop/reactor APIs are used by urwid,
 # but the extras pull the whole distribution into the user environment).
 tornado = [ "tornado>=6.5.8" ]
-trio = [ "exceptiongroup; python_version<'3.11'", "trio>=0.24.0" ]
+trio = [ "exceptiongroup; python_version<'3.11'", "trio>=0.31.0" ]
 # 26.4.0 requires CPython 3.9.12+, so the unconditional floor stays at 24.7.0.
 twisted = [ "twisted>=24.7.0", "twisted>=26.4.0; python_full_version>='3.9.12'" ]
 # `zmq` on PyPI is an abandoned 2015 placeholder ("You are probably looking for pyzmq") with no dependencies:
@@ -287,11 +287,10 @@ generate_python_version_classifiers = false
 table_format = "long"
 
 [tool.mypy]
-disallow_untyped_defs = true
+strict = true
 show_error_context = true
 show_column_numbers = true
 pretty = true
-show_error_codes = true
 [[tool.mypy.overrides]]
 module = "urwid.display.curses"
 disable_error_code = [
@@ -318,6 +317,15 @@ disable_error_code = [
 [[tool.mypy.overrides]]
 module = [ "gi.*", "serial.*", "trio.*" ]
 ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
+module = "twisted_serve_ssh"
+disable_error_code = [
+  "misc",
+  # twisted and zope.interface ship no type stubs, so every call into them is "untyped" to mypy,
+  # and zope.interface.Interface's metaclass magic isn't something mypy's plugin-free checker understands.
+  "no-untyped-call",
+]
 
 [tool.pytest.ini_options]
 minversion = "6.0"

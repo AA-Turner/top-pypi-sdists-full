@@ -6,12 +6,16 @@ from ..core.client_wrapper import AsyncClientWrapper, SyncClientWrapper
 from ..core.request_options import RequestOptions
 from ..requests.chat_completion_request_message import ChatCompletionRequestMessageParams
 from ..requests.chat_completion_tool import ChatCompletionToolParams
+from ..requests.chat_stream_options import ChatStreamOptionsParams
+from ..requests.response_format import ResponseFormatParams
 from ..requests.stop_configuration import StopConfigurationParams
 from ..requests.tool_choice_option import ToolChoiceOptionParams
 from ..types.chat_completion_chunk import ChatCompletionChunk
 from ..types.create_chat_completion_response import CreateChatCompletionResponse
+from ..types.create_chat_completion_v2response import CreateChatCompletionV2Response
 from ..types.reasoning_effort import ReasoningEffort
 from ..types.sarvam_model_ids import SarvamModelIds
+from ..types.v2model_ids import V2ModelIds
 from .raw_client import AsyncRawChatClient, RawChatClient
 
 # this is used as the default value for optional parameters
@@ -49,9 +53,9 @@ class ChatClient:
         seed: typing.Optional[int] = ...,
         frequency_penalty: typing.Optional[float] = ...,
         presence_penalty: typing.Optional[float] = ...,
-        wiki_grounding: typing.Optional[bool] = ...,
         tools: typing.Optional[typing.Sequence[ChatCompletionToolParams]] = ...,
         tool_choice: typing.Optional[ToolChoiceOptionParams] = ...,
+        response_format: typing.Optional[ResponseFormatParams] = ...,
         request_options: typing.Optional[RequestOptions] = ...,
     ) -> typing.Iterator[ChatCompletionChunk]: ...
 
@@ -71,9 +75,9 @@ class ChatClient:
         seed: typing.Optional[int] = ...,
         frequency_penalty: typing.Optional[float] = ...,
         presence_penalty: typing.Optional[float] = ...,
-        wiki_grounding: typing.Optional[bool] = ...,
         tools: typing.Optional[typing.Sequence[ChatCompletionToolParams]] = ...,
         tool_choice: typing.Optional[ToolChoiceOptionParams] = ...,
+        response_format: typing.Optional[ResponseFormatParams] = ...,
         request_options: typing.Optional[RequestOptions] = ...,
     ) -> CreateChatCompletionResponse: ...
 
@@ -92,9 +96,9 @@ class ChatClient:
         seed: typing.Optional[int] = OMIT,
         frequency_penalty: typing.Optional[float] = OMIT,
         presence_penalty: typing.Optional[float] = OMIT,
-        wiki_grounding: typing.Optional[bool] = OMIT,
         tools: typing.Optional[typing.Sequence[ChatCompletionToolParams]] = OMIT,
         tool_choice: typing.Optional[ToolChoiceOptionParams] = OMIT,
+        response_format: typing.Optional[ResponseFormatParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Union[CreateChatCompletionResponse, typing.Iterator[ChatCompletionChunk]]:
         """
@@ -149,14 +153,15 @@ class ChatClient:
             whether they appear in the text so far, increasing the model's likelihood
             to talk about new topics.
 
-        wiki_grounding : typing.Optional[bool]
-            If set to true, the model response will be wiki grounded.
 
         tools : typing.Optional[typing.Sequence[ChatCompletionToolParams]]
             A list of tools the model may call. Currently, only functions are supported as a tool.
 
         tool_choice : typing.Optional[ToolChoiceOptionParams]
             Controls which (if any) tool is called by the model.
+
+        response_format : typing.Optional[ResponseFormatParams]
+            Controls text, JSON object, or JSON Schema output.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -203,9 +208,9 @@ class ChatClient:
                 seed=seed,
                 frequency_penalty=frequency_penalty,
                 presence_penalty=presence_penalty,
-                wiki_grounding=wiki_grounding,
                 tools=tools,
                 tool_choice=tool_choice,
+                response_format=response_format,
                 request_options=request_options,
             )
 
@@ -222,12 +227,147 @@ class ChatClient:
             seed=seed,
             frequency_penalty=frequency_penalty,
             presence_penalty=presence_penalty,
-            wiki_grounding=wiki_grounding,
             tools=tools,
             tool_choice=tool_choice,
+            response_format=response_format,
             request_options=request_options,
         )
         return _response.data
+
+    @typing.overload
+    def completions_v2(
+        self,
+        *,
+        messages: typing.Sequence[ChatCompletionRequestMessageParams],
+        model: V2ModelIds,
+        temperature: typing.Optional[float] = ...,
+        top_p: typing.Optional[float] = ...,
+        reasoning_effort: typing.Optional[ReasoningEffort] = ...,
+        max_tokens: typing.Optional[int] = ...,
+        stream: typing.Literal[True],
+        stop: typing.Optional[StopConfigurationParams] = ...,
+        n: typing.Optional[int] = ...,
+        seed: typing.Optional[int] = ...,
+        frequency_penalty: typing.Optional[float] = ...,
+        presence_penalty: typing.Optional[float] = ...,
+        tools: typing.Optional[typing.Sequence[ChatCompletionToolParams]] = ...,
+        tool_choice: typing.Optional[ToolChoiceOptionParams] = ...,
+        response_format: typing.Optional[ResponseFormatParams] = ...,
+        extra_body: typing.Optional[typing.Dict[str, typing.Any]] = ...,
+        top_k: typing.Optional[int] = ...,
+        min_p: typing.Optional[float] = ...,
+        repetition_penalty: typing.Optional[float] = ...,
+        parallel_tool_calls: typing.Optional[bool] = ...,
+        stream_options: typing.Optional[ChatStreamOptionsParams] = ...,
+        request_options: typing.Optional[RequestOptions] = ...,
+    ) -> typing.Iterator[ChatCompletionChunk]: ...
+
+    @typing.overload
+    def completions_v2(
+        self,
+        *,
+        messages: typing.Sequence[ChatCompletionRequestMessageParams],
+        model: V2ModelIds,
+        temperature: typing.Optional[float] = ...,
+        top_p: typing.Optional[float] = ...,
+        reasoning_effort: typing.Optional[ReasoningEffort] = ...,
+        max_tokens: typing.Optional[int] = ...,
+        stream: typing.Optional[typing.Literal[False]] = ...,
+        stop: typing.Optional[StopConfigurationParams] = ...,
+        n: typing.Optional[int] = ...,
+        seed: typing.Optional[int] = ...,
+        frequency_penalty: typing.Optional[float] = ...,
+        presence_penalty: typing.Optional[float] = ...,
+        tools: typing.Optional[typing.Sequence[ChatCompletionToolParams]] = ...,
+        tool_choice: typing.Optional[ToolChoiceOptionParams] = ...,
+        response_format: typing.Optional[ResponseFormatParams] = ...,
+        extra_body: typing.Optional[typing.Dict[str, typing.Any]] = ...,
+        top_k: typing.Optional[int] = ...,
+        min_p: typing.Optional[float] = ...,
+        repetition_penalty: typing.Optional[float] = ...,
+        parallel_tool_calls: typing.Optional[bool] = ...,
+        stream_options: typing.Optional[ChatStreamOptionsParams] = ...,
+        request_options: typing.Optional[RequestOptions] = ...,
+    ) -> CreateChatCompletionV2Response: ...
+
+    def completions_v2(
+        self,
+        *,
+        messages: typing.Sequence[ChatCompletionRequestMessageParams],
+        model: V2ModelIds,
+        temperature: typing.Optional[float] = OMIT,
+        top_p: typing.Optional[float] = OMIT,
+        reasoning_effort: typing.Optional[ReasoningEffort] = OMIT,
+        max_tokens: typing.Optional[int] = OMIT,
+        stream: typing.Optional[bool] = OMIT,
+        stop: typing.Optional[StopConfigurationParams] = OMIT,
+        n: typing.Optional[int] = OMIT,
+        seed: typing.Optional[int] = OMIT,
+        frequency_penalty: typing.Optional[float] = OMIT,
+        presence_penalty: typing.Optional[float] = OMIT,
+        tools: typing.Optional[typing.Sequence[ChatCompletionToolParams]] = OMIT,
+        tool_choice: typing.Optional[ToolChoiceOptionParams] = OMIT,
+        response_format: typing.Optional[ResponseFormatParams] = OMIT,
+        extra_body: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        top_k: typing.Optional[int] = OMIT,
+        min_p: typing.Optional[float] = OMIT,
+        repetition_penalty: typing.Optional[float] = OMIT,
+        parallel_tool_calls: typing.Optional[bool] = OMIT,
+        stream_options: typing.Optional[ChatStreamOptionsParams] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.Union[CreateChatCompletionV2Response, typing.Iterator[ChatCompletionChunk]]:
+        """Create a V2 chat completion, optionally streamed as SSE chunks."""
+        if stream is True:
+            return self._raw_client.completions_v2(
+                messages=messages,
+                model=model,
+                temperature=temperature,
+                top_p=top_p,
+                reasoning_effort=reasoning_effort,
+                max_tokens=max_tokens,
+                stream=True,
+                stop=stop,
+                n=n,
+                seed=seed,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
+                tools=tools,
+                tool_choice=tool_choice,
+                response_format=response_format,
+                extra_body=extra_body,
+                top_k=top_k,
+                min_p=min_p,
+                repetition_penalty=repetition_penalty,
+                parallel_tool_calls=parallel_tool_calls,
+                stream_options=stream_options,
+                request_options=request_options,
+            )
+
+        response = self._raw_client.completions_v2(
+            messages=messages,
+            model=model,
+            temperature=temperature,
+            top_p=top_p,
+            reasoning_effort=reasoning_effort,
+            max_tokens=max_tokens,
+            stream=stream,
+            stop=stop,
+            n=n,
+            seed=seed,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+            tools=tools,
+            tool_choice=tool_choice,
+            response_format=response_format,
+            extra_body=extra_body,
+            top_k=top_k,
+            min_p=min_p,
+            repetition_penalty=repetition_penalty,
+            parallel_tool_calls=parallel_tool_calls,
+            stream_options=stream_options,
+            request_options=request_options,
+        )
+        return response.data
 
 
 class AsyncChatClient:
@@ -261,9 +401,9 @@ class AsyncChatClient:
         seed: typing.Optional[int] = ...,
         frequency_penalty: typing.Optional[float] = ...,
         presence_penalty: typing.Optional[float] = ...,
-        wiki_grounding: typing.Optional[bool] = ...,
         tools: typing.Optional[typing.Sequence[ChatCompletionToolParams]] = ...,
         tool_choice: typing.Optional[ToolChoiceOptionParams] = ...,
+        response_format: typing.Optional[ResponseFormatParams] = ...,
         request_options: typing.Optional[RequestOptions] = ...,
     ) -> typing.AsyncIterator[ChatCompletionChunk]: ...
 
@@ -283,9 +423,9 @@ class AsyncChatClient:
         seed: typing.Optional[int] = ...,
         frequency_penalty: typing.Optional[float] = ...,
         presence_penalty: typing.Optional[float] = ...,
-        wiki_grounding: typing.Optional[bool] = ...,
         tools: typing.Optional[typing.Sequence[ChatCompletionToolParams]] = ...,
         tool_choice: typing.Optional[ToolChoiceOptionParams] = ...,
+        response_format: typing.Optional[ResponseFormatParams] = ...,
         request_options: typing.Optional[RequestOptions] = ...,
     ) -> CreateChatCompletionResponse: ...
 
@@ -304,9 +444,9 @@ class AsyncChatClient:
         seed: typing.Optional[int] = OMIT,
         frequency_penalty: typing.Optional[float] = OMIT,
         presence_penalty: typing.Optional[float] = OMIT,
-        wiki_grounding: typing.Optional[bool] = OMIT,
         tools: typing.Optional[typing.Sequence[ChatCompletionToolParams]] = OMIT,
         tool_choice: typing.Optional[ToolChoiceOptionParams] = OMIT,
+        response_format: typing.Optional[ResponseFormatParams] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> typing.Union[CreateChatCompletionResponse, typing.AsyncIterator[ChatCompletionChunk]]:
         """
@@ -361,14 +501,15 @@ class AsyncChatClient:
             whether they appear in the text so far, increasing the model's likelihood
             to talk about new topics.
 
-        wiki_grounding : typing.Optional[bool]
-            If set to true, the model response will be wiki grounded.
 
         tools : typing.Optional[typing.Sequence[ChatCompletionToolParams]]
             A list of tools the model may call. Currently, only functions are supported as a tool.
 
         tool_choice : typing.Optional[ToolChoiceOptionParams]
             Controls which (if any) tool is called by the model.
+
+        response_format : typing.Optional[ResponseFormatParams]
+            Controls text, JSON object, or JSON Schema output.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -419,9 +560,9 @@ class AsyncChatClient:
                 seed=seed,
                 frequency_penalty=frequency_penalty,
                 presence_penalty=presence_penalty,
-                wiki_grounding=wiki_grounding,
                 tools=tools,
                 tool_choice=tool_choice,
+                response_format=response_format,
                 request_options=request_options,
             )
 
@@ -438,9 +579,144 @@ class AsyncChatClient:
             seed=seed,
             frequency_penalty=frequency_penalty,
             presence_penalty=presence_penalty,
-            wiki_grounding=wiki_grounding,
             tools=tools,
             tool_choice=tool_choice,
+            response_format=response_format,
             request_options=request_options,
         )
         return _response.data
+
+    @typing.overload
+    async def completions_v2(
+        self,
+        *,
+        messages: typing.Sequence[ChatCompletionRequestMessageParams],
+        model: V2ModelIds,
+        temperature: typing.Optional[float] = ...,
+        top_p: typing.Optional[float] = ...,
+        reasoning_effort: typing.Optional[ReasoningEffort] = ...,
+        max_tokens: typing.Optional[int] = ...,
+        stream: typing.Literal[True],
+        stop: typing.Optional[StopConfigurationParams] = ...,
+        n: typing.Optional[int] = ...,
+        seed: typing.Optional[int] = ...,
+        frequency_penalty: typing.Optional[float] = ...,
+        presence_penalty: typing.Optional[float] = ...,
+        tools: typing.Optional[typing.Sequence[ChatCompletionToolParams]] = ...,
+        tool_choice: typing.Optional[ToolChoiceOptionParams] = ...,
+        response_format: typing.Optional[ResponseFormatParams] = ...,
+        extra_body: typing.Optional[typing.Dict[str, typing.Any]] = ...,
+        top_k: typing.Optional[int] = ...,
+        min_p: typing.Optional[float] = ...,
+        repetition_penalty: typing.Optional[float] = ...,
+        parallel_tool_calls: typing.Optional[bool] = ...,
+        stream_options: typing.Optional[ChatStreamOptionsParams] = ...,
+        request_options: typing.Optional[RequestOptions] = ...,
+    ) -> typing.AsyncIterator[ChatCompletionChunk]: ...
+
+    @typing.overload
+    async def completions_v2(
+        self,
+        *,
+        messages: typing.Sequence[ChatCompletionRequestMessageParams],
+        model: V2ModelIds,
+        temperature: typing.Optional[float] = ...,
+        top_p: typing.Optional[float] = ...,
+        reasoning_effort: typing.Optional[ReasoningEffort] = ...,
+        max_tokens: typing.Optional[int] = ...,
+        stream: typing.Optional[typing.Literal[False]] = ...,
+        stop: typing.Optional[StopConfigurationParams] = ...,
+        n: typing.Optional[int] = ...,
+        seed: typing.Optional[int] = ...,
+        frequency_penalty: typing.Optional[float] = ...,
+        presence_penalty: typing.Optional[float] = ...,
+        tools: typing.Optional[typing.Sequence[ChatCompletionToolParams]] = ...,
+        tool_choice: typing.Optional[ToolChoiceOptionParams] = ...,
+        response_format: typing.Optional[ResponseFormatParams] = ...,
+        extra_body: typing.Optional[typing.Dict[str, typing.Any]] = ...,
+        top_k: typing.Optional[int] = ...,
+        min_p: typing.Optional[float] = ...,
+        repetition_penalty: typing.Optional[float] = ...,
+        parallel_tool_calls: typing.Optional[bool] = ...,
+        stream_options: typing.Optional[ChatStreamOptionsParams] = ...,
+        request_options: typing.Optional[RequestOptions] = ...,
+    ) -> CreateChatCompletionV2Response: ...
+
+    async def completions_v2(
+        self,
+        *,
+        messages: typing.Sequence[ChatCompletionRequestMessageParams],
+        model: V2ModelIds,
+        temperature: typing.Optional[float] = OMIT,
+        top_p: typing.Optional[float] = OMIT,
+        reasoning_effort: typing.Optional[ReasoningEffort] = OMIT,
+        max_tokens: typing.Optional[int] = OMIT,
+        stream: typing.Optional[bool] = OMIT,
+        stop: typing.Optional[StopConfigurationParams] = OMIT,
+        n: typing.Optional[int] = OMIT,
+        seed: typing.Optional[int] = OMIT,
+        frequency_penalty: typing.Optional[float] = OMIT,
+        presence_penalty: typing.Optional[float] = OMIT,
+        tools: typing.Optional[typing.Sequence[ChatCompletionToolParams]] = OMIT,
+        tool_choice: typing.Optional[ToolChoiceOptionParams] = OMIT,
+        response_format: typing.Optional[ResponseFormatParams] = OMIT,
+        extra_body: typing.Optional[typing.Dict[str, typing.Any]] = OMIT,
+        top_k: typing.Optional[int] = OMIT,
+        min_p: typing.Optional[float] = OMIT,
+        repetition_penalty: typing.Optional[float] = OMIT,
+        parallel_tool_calls: typing.Optional[bool] = OMIT,
+        stream_options: typing.Optional[ChatStreamOptionsParams] = OMIT,
+        request_options: typing.Optional[RequestOptions] = None,
+    ) -> typing.Union[CreateChatCompletionV2Response, typing.AsyncIterator[ChatCompletionChunk]]:
+        """Create a V2 chat completion, optionally streamed as SSE chunks."""
+        if stream is True:
+            return await self._raw_client.completions_v2(
+                messages=messages,
+                model=model,
+                temperature=temperature,
+                top_p=top_p,
+                reasoning_effort=reasoning_effort,
+                max_tokens=max_tokens,
+                stream=True,
+                stop=stop,
+                n=n,
+                seed=seed,
+                frequency_penalty=frequency_penalty,
+                presence_penalty=presence_penalty,
+                tools=tools,
+                tool_choice=tool_choice,
+                response_format=response_format,
+                extra_body=extra_body,
+                top_k=top_k,
+                min_p=min_p,
+                repetition_penalty=repetition_penalty,
+                parallel_tool_calls=parallel_tool_calls,
+                stream_options=stream_options,
+                request_options=request_options,
+            )
+
+        response = await self._raw_client.completions_v2(
+            messages=messages,
+            model=model,
+            temperature=temperature,
+            top_p=top_p,
+            reasoning_effort=reasoning_effort,
+            max_tokens=max_tokens,
+            stream=stream,
+            stop=stop,
+            n=n,
+            seed=seed,
+            frequency_penalty=frequency_penalty,
+            presence_penalty=presence_penalty,
+            tools=tools,
+            tool_choice=tool_choice,
+            response_format=response_format,
+            extra_body=extra_body,
+            top_k=top_k,
+            min_p=min_p,
+            repetition_penalty=repetition_penalty,
+            parallel_tool_calls=parallel_tool_calls,
+            stream_options=stream_options,
+            request_options=request_options,
+        )
+        return response.data

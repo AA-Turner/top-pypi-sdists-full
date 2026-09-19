@@ -133,6 +133,7 @@ class AgentWorkspace:
                 connector_id=info.id,
                 name=info.name,
                 credentials=self._credentials,
+                workspace_id=self.workspace_id,
             )
             for info in (
                 AgentConnectorInfo.model_validate(record)
@@ -154,22 +155,6 @@ class AgentWorkspace:
                 info=info,
             )
             for info in _skills.iter_skills(
-                credentials=self._credentials,
-                workspace_id=self.workspace_id,
-            )
-        ]
-
-    def search_skills(self, query: str) -> list[AgentSkill]:
-        """Search skills by keyword, returning all matching skills across pages."""
-        return [
-            AgentSkill(
-                skill_id=info.id,
-                credentials=self._credentials,
-                workspace_id=self.workspace_id,
-                info=info,
-            )
-            for info in _skills.iter_skill_search(
-                query,
                 credentials=self._credentials,
                 workspace_id=self.workspace_id,
             )
@@ -225,7 +210,11 @@ class AgentWorkspace:
         )
 
         if lookup.connector_id and not lookup.name:
-            return AgentConnector(connector_id=lookup.connector_id, credentials=self._credentials)
+            return AgentConnector(
+                connector_id=lookup.connector_id,
+                credentials=self._credentials,
+                workspace_id=self.workspace_id,
+            )
 
         connectors = self.list_connectors()
         if lookup.connector_id:

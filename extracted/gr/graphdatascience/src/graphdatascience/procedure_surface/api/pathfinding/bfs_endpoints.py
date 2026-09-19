@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -15,7 +15,7 @@ class BFSEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         target_nodes: int | list[int] | None = None,
         max_depth: int = -1,
@@ -36,7 +36,7 @@ class BFSEndpoints(ABC):
            Graph object to use
         source_node
             Node id to use as the starting point.
-        target_nodes : int | list[int], default=[]
+        target_nodes
             A single target node or a list of target nodes for the BFS computation.
         max_depth
             The maximum depth of the search.
@@ -57,7 +57,7 @@ class BFSEndpoints(ABC):
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             DataFrame with sourceNode and nodeIds columns.
         """
         pass
@@ -65,7 +65,7 @@ class BFSEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_relationship_type: str,
         source_node: int,
         target_nodes: int | list[int] = [],
@@ -89,7 +89,7 @@ class BFSEndpoints(ABC):
             Name of the relationship type to store the results in.
         source_node
             Node id to use as the starting point.
-        target_nodes : int | list[int], default=[]
+        target_nodes
             A single target node or a list of target nodes for the BFS computation.
         max_depth
             The maximum depth of the search.
@@ -118,7 +118,7 @@ class BFSEndpoints(ABC):
     @abstractmethod
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         target_nodes: int | list[int] = [],
         max_depth: int = -1,
@@ -139,7 +139,7 @@ class BFSEndpoints(ABC):
            Graph object to use
         source_node
             Node id to use as the starting point.
-        target_nodes : int | list[int], default=[]
+        target_nodes
             A single target node or a list of target nodes for the BFS computation.
         max_depth
             The maximum depth of the search.
@@ -168,7 +168,7 @@ class BFSEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         source_node: int,
         target_nodes: int | list[int] = [],
         max_depth: int = -1,
@@ -185,7 +185,7 @@ class BFSEndpoints(ABC):
            Graph object to use or a dictionary representing the graph dimensions.
         source_node
             Node id to use as the starting point.
-        target_nodes : int | list[int], default=[]
+        target_nodes
             A single target node or a list of target nodes for the BFS computation.
         max_depth
             The maximum depth of the search.

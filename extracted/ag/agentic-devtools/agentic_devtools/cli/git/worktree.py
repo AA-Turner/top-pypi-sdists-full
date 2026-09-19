@@ -4,8 +4,8 @@ Implements FR-001, FR-002, and FR-010 of the worktree setup feature:
 
 - Parse ``git worktree list --porcelain`` output into structured entries.
 - Detect an existing worktree for a normalized issue key using both a porcelain
-  scan (branch issue-key segment match) and the conventional filesystem path
-  ``../{normalized-issue-key}/``.
+  scan (branch issue-key segment match) and the configured conventional
+  filesystem path.
 - Distinguish a valid resume from a corrupt/stale directory (FR-010).
 - Create a worktree by thin-wrapping
   :func:`agentic_devtools.cli.workflows.worktree_setup.create_worktree` (no
@@ -25,6 +25,7 @@ from typing import Literal
 
 from agentic_devtools.cli.git.branch_naming import build_branch_name, normalize_issue_key
 from agentic_devtools.cli.git.core import GitError, run_git_capture, run_git_safe
+from agentic_devtools.cli.git.worktree_paths import resolve_worktree_path, validate_worktree_folder_setting
 from agentic_devtools.cli.workflows.worktree_setup import create_worktree as _cli_create_worktree
 from agentic_devtools.models.git_results import BlockedCategory, BlockedState, SetupResult
 
@@ -172,7 +173,7 @@ def find_issue_worktree(
 
 
 def check_conventional_path(repo_root: str, issue_key: str) -> Path | None:
-    """Return the conventional ``../{normalized-issue-key}/`` path if it exists.
+    """Return the configured conventional worktree path if it exists.
 
     Args:
         repo_root: The main repository root directory.
@@ -182,8 +183,7 @@ def check_conventional_path(repo_root: str, issue_key: str) -> Path | None:
         The resolved conventional worktree :class:`~pathlib.Path` when it exists on
         disk, otherwise ``None``.
     """
-    normalized_key = normalize_issue_key(issue_key)
-    candidate = Path(repo_root).parent / normalized_key
+    candidate = Path(resolve_worktree_path(repo_root, issue_key).worktree_path)
     if candidate.exists():
         return candidate
     return None
@@ -251,6 +251,13 @@ def detect_existing_worktree(
     """
     if expected_path is not None and not require_porcelain:
         raise ValueError("expected_path requires require_porcelain=True")
+
+    # Validate the configured `worktree_folder` setting up front so an invalid value
+    # (e.g. `false`) is rejected even when a registered worktree already exists and
+    # the porcelain scan below returns before ever reaching the conventional-path
+    # resolution that would otherwise perform this validation. The registered
+    # porcelain path (if any) remains authoritative regardless of this result.
+    validate_worktree_folder_setting(repo_root)
 
     # 1. Porcelain scan (authoritative — takes precedence over the filesystem path).
     porcelain = run_git_safe(["worktree", "list", "--porcelain"], cwd=repo_root)

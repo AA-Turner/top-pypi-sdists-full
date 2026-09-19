@@ -27,7 +27,7 @@
 //!   2. ROOTS each admitted canonical's transport binding (reachability only) so
 //!      `knows_peer(canonical)` is true. It authors NO consent:
 //!      `consent:replication` is an explicit owner act — the agent's setup wizard
-//!      POSTs `/v1/federation/consent` (owner-gated, so necessarily AFTER the
+//!      POSTs `/v1/federation/peering` (owner-gated, so necessarily AFTER the
 //!      owner claim) when the owner opts into sharing. A pure server makes no
 //!      traces and never auto-consents to replicate them.
 //!   3. Starts (or, post-#312, receives the already-composed) ONE
@@ -515,11 +515,10 @@ async fn gather_delivery_status(
     let trace_plane = match &engine {
         Some(eng) => {
             let node = node_key_id.clone();
-            match eng
-                .federation_directory()
-                .list_live_consent_grants_by(&node)
-                .await
-            {
+            // The rows that stand for THIS machine — its own plus its stewards'
+            // rows naming it (CIRISServer#601); a reader keyed by the node alone
+            // reported an empty trace plane once the owner signed the grant.
+            match crate::peer::live_consent_grants_for_machine(eng, &node).await {
                 Ok(grants) => {
                     let mut prefixes: Vec<String> = Vec::new();
                     let mut audiences: Vec<String> = Vec::new();
@@ -699,7 +698,7 @@ async fn gather_delivery_status(
 
                     let hint = if grants.is_empty() {
                         "NO live self-authored consent:replication grant — nothing will ever be \
-                         promoted or offered. Author one (POST /v1/federation/consent) before \
+                         promoted or offered. Author one (POST /v1/federation/peering) before \
                          expecting any trace to cross."
                     } else if !covers_trace {
                         "grant(s) present but NONE cover `trace:` — promote_consented_backlog \
@@ -849,6 +848,15 @@ async fn gather_delivery_status(
         .iter()
         .any(|p| p["knows_peer"] == json!(true) && p["kex_present"] == json!(false));
 
+    // Every grantor a consent row for this node may be authored under (owner
+    // first, machine keys as legacy) — awaited here: this future is already
+    // driven by the held runtime, and a nested block_on panics (CIRISServer#599).
+    let consent_grantors = match engine.as_ref() {
+        Some(e) => crate::peer::consent_grantors_for(e, &node_key_id)
+            .await
+            .unwrap_or_default(),
+        None => Vec::new(),
+    };
     json!({
         "delivery_started": started,
         // Held-pending-claim is NOT "not started": the node is healthy and waiting
@@ -857,6 +865,9 @@ async fn gather_delivery_status(
         "waiting_for_claim": crate::federation_delivery::is_waiting_for_claim(),
         "edge_up": true,
         "node_key_id": node_key_id,
+        // Every grantor a consent row for this node may be authored under — owner
+        // first, machine keys as legacy — the set the reconciler reads (CIRISServer#599).
+        "consent_grantor_key_ids": consent_grantors,
         "transport_present": edge.reticulum_transport().is_some(),
         "canonical_targets": targets,
         "peers": peers,
@@ -1151,7 +1162,7 @@ pub fn round_diagnostics_json(
 /// TEST-ANCHOR-FENCED consent author (mesh-repro traceflow E2E): author this
 /// node's `consent:replication` grant for `peer_key_id` WITHOUT the HTTP owner
 /// gate. The harness agent is a bare embedded boot — no serve stack, no owner
-/// session — so it cannot reach the owner-gated `POST /v1/federation/consent`.
+/// session — so it cannot reach the owner-gated `POST /v1/federation/peering`.
 /// REFUSED unless `CIRIS_TESTING_MODE=true`: production consent is exclusively
 /// the explicit owner act over HTTP. Returns the grant attestation_id.
 #[cfg(feature = "python")]
@@ -1182,15 +1193,15 @@ pub fn analyze_consent_stance(
     let (rt, _controller) = HELD
         .get()
         .context("analyze_consent_stance: federation delivery not started")?;
+    // The subject is the MACHINE being analyzed — the engine's own key, which is
+    // the agent on a split home — read through persist's by-principals fold
+    // (v44.6.0): the humans standing behind it, on rows that name it, plus its
+    // own legacy rows (CIRISServer#601 item 5). No alias, no author walk.
     let subject = match subject_key_id {
         Some(s) => s.to_string(),
-        // The node's DERIVED federation key id — the attester `emit_attestation_self`
-        // stamps. Resolving against an alias asks a different question and answers
-        // `unspecified` for a perfectly consented pair (the 0.5.138 identity-fork
-        // class, in miniature).
         None => rt.block_on(engine.local_derived_key_id())?,
     };
-    let stance = rt.block_on(engine.federation_directory().resolve_scoped_consent(
+    let stance = rt.block_on(engine.resolve_scoped_consent_by_principals(
         attester_key_id,
         &subject,
         ANALYZE_CONSENT_SCOPE,
@@ -1214,7 +1225,7 @@ pub fn analyze_consent_stance(
 /// "The substrate trusts, the server (user) consents." 0.5.146 stopped the
 /// substrate boot-authoring a replication grant, which is right — a node must not
 /// consent on its owner's behalf. But the owner-gated route that replaces it,
-/// `POST /v1/federation/consent` (`federation_admin.rs`), is mounted at
+/// `POST /v1/federation/peering` (`federation_admin.rs`), is mounted at
 /// `compose.rs` inside `serve_with_adapter`, and the embedded agent boots through
 /// `start_and_hold`, which mounts NO HTTP router. So in the fold there was no
 /// path by which consent could exist AT ALL: every trace stayed at
@@ -1289,7 +1300,7 @@ pub fn author_consent_embedded(
     // SCORING node's own corpus. The grant this function just authored does not
     // supply it — different dimension, different edge direction.
     //
-    // This mirrors `POST /v1/federation/consent`, which has taken an `analyze`
+    // This mirrors `POST /v1/federation/peering`, which has taken an `analyze`
     // flag since #331 ask 1. Until now the fold could not author the row under
     // ANY argument, because the parameter did not exist here — so the two
     // consent paths were asymmetric, and the one every embedded agent must use
@@ -1333,6 +1344,26 @@ pub fn author_consent_embedded(
         None
     };
 
+    // Split home: the agent must be an occurrence of its human before its
+    // consent can resolve to the person (CIRISServer#601 items 7–8). Non-fatal.
+    match rt.block_on(crate::node_key::anchor_agent_to_owner(&engine)) {
+        Ok(Some(pair)) => tracing::info!(bilateral_pair_id = %pair, "agent anchored to owner"),
+        Ok(None) => {}
+        Err(e) => tracing::warn!(error = %e, "agent login ceremony failed (non-fatal)"),
+    }
+    // Any grant a machine key authored before the claim (or under 0.5.203–0.5.209)
+    // is re-signed by the owner now that one exists (CIRISServer#599). Non-fatal.
+    match if crate::peer::owner_authored_consent_enabled() {
+        rt.block_on(crate::node_key::migrate_consent_to_owner(&engine))
+    } else {
+        Ok(Vec::new())
+    } {
+        Ok(moved) if !moved.is_empty() => {
+            tracing::info!(peers = ?moved, "machine-authored consent re-signed by the owner")
+        }
+        Ok(_) => {}
+        Err(e) => tracing::warn!(error = %e, "consent re-sign as owner failed (non-fatal)"),
+    }
     tracing::info!(
         peer_key_id,
         attestation_id = %grant.attestation_id,
@@ -1350,7 +1381,7 @@ pub fn author_consent_testing(peer_key_id: &str, prefixes: &[String]) -> Result<
     if std::env::var("CIRIS_TESTING_MODE").as_deref() != Ok("true") {
         anyhow::bail!(
             "author_consent_testing refused: CIRIS_TESTING_MODE is not 'true' — production \
-             consent is the owner-gated POST /v1/federation/consent only"
+             consent is the owner-gated POST /v1/federation/peering only"
         );
     }
     let engine: Arc<Engine> = ciris_persist::ffi::pyo3::current_rust_engine()
@@ -1453,7 +1484,7 @@ pub const DEFAULT_DELIVERY_CADENCE_SECS: u64 =
 /// Prime the admitted canonical peers for REACHABILITY: read the baked canonical
 /// record(s) and ROOT each admitted canonical's transport binding so
 /// `knows_peer(canonical)` is true. Authors NO consent — `consent:replication`
-/// is an explicit owner act (`POST /v1/federation/consent`); rooting only makes
+/// is an explicit owner act (`POST /v1/federation/peering`); rooting only makes
 /// the canonical dialable, it moves nothing until an owner consent grant exists.
 /// Returns the admitted canonical `key_id`s. Shared by first-boot start
 /// ([`run_federation_delivery`]) AND the post-restart reprime
@@ -1488,7 +1519,7 @@ async fn prime_canonicals(
     // 3. Determine which baked canonicals are ADMITTED (have a federation_keys
     //    row) so step 3b can ROOT a transport path to them. This authors NO
     //    consent. `consent:replication` is ALWAYS an explicit owner act — authored
-    //    via `POST /v1/federation/consent` by the agent's setup wizard when the
+    //    via `POST /v1/federation/peering` by the agent's setup wizard when the
     //    owner opts into sharing (e.g. "Send traces to CIRIS L3C"). A pure server
     //    generates no traces and so never auto-consents to replicate them; rooting
     //    here is pure REACHABILITY ("this node CAN dial the canonical") and moves
@@ -1496,7 +1527,19 @@ async fn prime_canonicals(
     //    reads that grant via `list_consent_peers` and converges the runtime to it.
     let directory = engine.federation_directory();
     let mut admitted_targets: Vec<String> = Vec::with_capacity(canonical_key_ids.len());
+    // Never ourselves: a node that is itself a canonical hint must not become
+    // its own peer (CIRISServer#607 — every inbound link would attribute to us
+    // and the responder would reply to our own key). Same rule as compose's
+    // boot primes (`own_key_ids`).
+    let own_key = edge.signer_key_id().to_string();
     for canonical in &canonical_key_ids {
+        if canonical == &own_key || crate::node_key::actor_identity() == Some(canonical.as_str()) {
+            tracing::info!(
+                canonical = %canonical,
+                "federation delivery: this node IS that canonical — not priming itself (CIRISServer#607)"
+            );
+            continue;
+        }
         match directory.lookup_public_key(canonical).await {
             Ok(Some(_)) => admitted_targets.push(canonical.clone()),
             Ok(None) => tracing::warn!(
@@ -1631,7 +1674,7 @@ pub async fn run_federation_delivery(
     // 4. Start (or receive — single composition, #312) the ONE ReplicationRuntime
     //    over the shared transport. No seed set: a canonical enters the REPLICATION
     //    topology only once an owner has authored a consent:replication grant to it
-    //    (POST /v1/federation/consent, post-claim); rooting above just makes it
+    //    (POST /v1/federation/peering, post-claim); rooting above just makes it
     //    dialable. The runtime's one hot path reads that CEG consent state back.
     let runtime = crate::compose::start_replication_runtime(&engine, &edge, &node_key_id)
         .await?
@@ -1776,7 +1819,7 @@ pub async fn run_federation_delivery(
                                  Rooting is not enough: a canonical becomes a \
                                  REPLICATION peer only once an owner authors a \
                                  `consent:replication` grant to it (POST \
-                                 /v1/federation/consent, after the claim). If a \
+                                 /v1/federation/peering, after the claim). If a \
                                  grant does exist, it is not being read back as \
                                  live — check it is not withdrawn, that its \
                                  audience covers the peer, and that the peer key \

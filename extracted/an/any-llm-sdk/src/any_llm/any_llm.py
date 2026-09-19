@@ -10,6 +10,7 @@ from typing import IO, TYPE_CHECKING, Any, ClassVar, Literal, TypeVar, cast, ove
 from openresponses_types import ResponseResource
 from pydantic import BaseModel
 
+from any_llm._files import FilesMixin
 from any_llm.constants import INSIDE_NOTEBOOK, LLMProvider, get_provider_tier
 from any_llm.exceptions import (
     ContentFilterFinishReasonError,
@@ -49,7 +50,7 @@ from any_llm.types.responses import (
     ResponsesParams,
     ResponseStreamEvent,
 )
-from any_llm.utils.aio import async_coro_to_sync_iter, async_iter_to_sync_iter, run_async_in_sync
+from any_llm.utils.aio import aclose_quietly, async_coro_to_sync_iter, async_iter_to_sync_iter, run_async_in_sync
 from any_llm.utils.exception_handler import handle_exceptions
 from any_llm.utils.structured_output import (
     build_parsed_message,
@@ -71,7 +72,7 @@ if TYPE_CHECKING:
     from any_llm.types.rerank import RerankResponse
 
 
-class AnyLLM(ABC):
+class AnyLLM(FilesMixin, ABC):
     """Provider for the LLM."""
 
     # === Provider-specific configuration (to be overridden by subclasses) ===
@@ -527,6 +528,8 @@ class AnyLLM(ABC):
             audio_transcription=cls.SUPPORTS_AUDIO_TRANSCRIPTION,
             audio_speech=cls.SUPPORTS_AUDIO_SPEECH,
             rerank=cls.SUPPORTS_RERANK,
+            files=bool(cls.SUPPORTED_FILE_OPERATIONS),
+            file_operations=tuple(sorted(cls.SUPPORTED_FILE_OPERATIONS)),
             messages=cls.SUPPORTS_MESSAGES,
             class_name=cls.__name__,
         )
@@ -1073,7 +1076,11 @@ class AnyLLM(ABC):
             state = StreamingState()
 
             def usage_delta(stop_reason: StopReason | None) -> MessageDeltaEvent:
-                input_tokens, cache_read = split_cached_input_tokens(state.input_tokens, state.cache_read_input_tokens)
+                input_tokens, cache_read = split_cached_input_tokens(
+                    state.input_tokens,
+                    state.cache_read_input_tokens,
+                    state.cache_creation_input_tokens,
+                )
                 return MessageDeltaEvent(
                     type="message_delta",
                     delta=MessageDelta(stop_reason=stop_reason),
@@ -1081,6 +1088,7 @@ class AnyLLM(ABC):
                         output_tokens=state.output_tokens,
                         input_tokens=input_tokens,
                         cache_read_input_tokens=cache_read,
+                        cache_creation_input_tokens=state.cache_creation_input_tokens,
                     ),
                 )
 
@@ -1095,6 +1103,9 @@ class AnyLLM(ABC):
                 if state.started:
                     yield usage_delta(None)
                 raise
+            finally:
+                await aclose_quietly(result)
+
             # Emit the closing events after the full stream is consumed so trailing-chunk usage is included.
             if state.started:
                 for stop_event in close_open_blocks(state):

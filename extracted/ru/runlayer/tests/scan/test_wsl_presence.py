@@ -1,9 +1,15 @@
+import errno
 import os
+import stat
 from pathlib import Path
+from types import SimpleNamespace
+from unittest import mock
 
 from runlayer_cli.scan import wsl_presence
 from runlayer_cli.scan.clients import InstallProbe, MCPClientDefinition
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.device import DiscoveredWSLDistro
+from runlayer_cli.scan.wsl_limits import MAX_WSL_HOMES
 from runlayer_cli.scan.wsl_presence import scan_wsl_cli_binaries
 
 
@@ -14,6 +20,25 @@ def _client(name: str, binary: str) -> MCPClientDefinition:
         paths=[],
         install_probe=InstallProbe(cli_binaries=[binary]),
     )
+
+
+def test_file_predicate_uses_regular_file_stat() -> None:
+    path = mock.MagicMock(spec=Path)
+    path.stat.return_value = SimpleNamespace(st_mode=stat.S_IFREG)
+    path.is_file.side_effect = AssertionError("Path.is_file must not be called")
+
+    assert wsl_presence._safe_is_file(path) is True
+    path.is_file.assert_not_called()
+
+
+def test_file_predicate_definite_absence_remains_complete() -> None:
+    for error_number in (errno.ENOENT, errno.ENOTDIR, errno.EBADF, errno.ELOOP):
+        path = mock.MagicMock(spec=Path)
+        path.stat.side_effect = OSError(error_number, "absent")
+        status = ScanCompletionStatus()
+
+        assert wsl_presence._safe_is_file(path, status) is False
+        assert status.complete is True
 
 
 def test_scans_user_root_and_system_bin_roots(
@@ -74,7 +99,7 @@ def test_skips_stopped_distros(monkeypatch) -> None:
     assert findings == []
 
 
-def test_caps_user_homes_per_distro_and_keeps_root_first(
+def test_uses_helper_bounded_homes_and_propagates_cap(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -93,15 +118,22 @@ def test_caps_user_homes_per_distro_and_keeps_root_first(
         "get_wsl_distro_root",
         lambda _distro: distro_root,
     )
+
+    def get_wsl_user_homes(_distro, *, scan_status):
+        scan_status.mark_incomplete("wsl_home_discovery_capped")
+        return homes[:MAX_WSL_HOMES]
+
     monkeypatch.setattr(
         wsl_presence,
         "get_wsl_user_homes",
-        lambda _distro: homes,
+        get_wsl_user_homes,
     )
+    status = ScanCompletionStatus()
 
     findings = scan_wsl_cli_binaries(
         [_client("claude_code", "claude")],
         [DiscoveredWSLDistro(name="Ubuntu", wsl_version=2, is_running=True)],
+        scan_status=status,
     )
 
     assert [finding.context.user for finding in findings] == [
@@ -110,6 +142,7 @@ def test_caps_user_homes_per_distro_and_keeps_root_first(
         "user-1",
         "user-2",
     ]
+    assert status.reasons == ["wsl_home_discovery_capped"]
 
 
 def test_uses_single_time_budget_across_distros(monkeypatch) -> None:
@@ -124,7 +157,7 @@ def test_uses_single_time_budget_across_distros(monkeypatch) -> None:
     )
     monkeypatch.setattr(wsl_presence, "get_wsl_user_homes", lambda _distro: [])
 
-    def check_candidate(path: Path) -> bool:
+    def check_candidate(path: Path, *_args) -> bool:
         checked_distros.append(path.parts[1])
         now[0] += 2.0
         return False
@@ -144,6 +177,176 @@ def test_uses_single_time_budget_across_distros(monkeypatch) -> None:
     )
 
     assert set(checked_distros) == {"Distro-0", "Distro-1", "Distro-2"}
+
+
+def test_binary_scan_ignores_expired_deadline_after_last_runnable_distro(
+    monkeypatch,
+) -> None:
+    clock = 0.0
+    roots: list[str] = []
+    status = ScanCompletionStatus()
+
+    def get_root(distro: str) -> Path:
+        roots.append(distro)
+        return Path("/") / distro
+
+    def check_candidate(_path: Path, *_args) -> bool:
+        nonlocal clock
+        clock = 1.0
+        return True
+
+    monkeypatch.setattr(wsl_presence.time, "monotonic", lambda: clock)
+    monkeypatch.setattr(wsl_presence, "WSL_PRESENCE_TIME_BUDGET_S", 1.0)
+    monkeypatch.setattr(wsl_presence, "_SYSTEM_BIN_ROOTS", ())
+    monkeypatch.setattr(wsl_presence, "get_wsl_distro_root", get_root)
+    monkeypatch.setattr(
+        wsl_presence,
+        "get_wsl_user_homes",
+        lambda _distro, **_kwargs: [],
+    )
+    monkeypatch.setattr(wsl_presence, "_safe_is_file", check_candidate)
+
+    findings = scan_wsl_cli_binaries(
+        [_client("claude_code", "claude")],
+        [
+            DiscoveredWSLDistro(name="Ubuntu", wsl_version=2, is_running=True),
+            DiscoveredWSLDistro(name="Debian", wsl_version=2, is_running=False),
+            DiscoveredWSLDistro(
+                name="docker-desktop",
+                wsl_version=2,
+                is_running=True,
+            ),
+        ],
+        scan_status=status,
+    )
+
+    assert [finding.context.distro for finding in findings] == ["Ubuntu"]
+    assert roots == ["Ubuntu"]
+    assert status.reasons == []
+
+
+def test_binary_scan_marks_expired_deadline_before_next_runnable_distro(
+    monkeypatch,
+) -> None:
+    clock = 0.0
+    roots: list[str] = []
+    status = ScanCompletionStatus()
+
+    def get_root(distro: str) -> Path:
+        roots.append(distro)
+        return Path("/") / distro
+
+    def check_candidate(_path: Path, *_args) -> bool:
+        nonlocal clock
+        clock = 1.0
+        return True
+
+    monkeypatch.setattr(wsl_presence.time, "monotonic", lambda: clock)
+    monkeypatch.setattr(wsl_presence, "WSL_PRESENCE_TIME_BUDGET_S", 1.0)
+    monkeypatch.setattr(wsl_presence, "_SYSTEM_BIN_ROOTS", ())
+    monkeypatch.setattr(wsl_presence, "get_wsl_distro_root", get_root)
+    monkeypatch.setattr(
+        wsl_presence,
+        "get_wsl_user_homes",
+        lambda _distro, **_kwargs: [],
+    )
+    monkeypatch.setattr(wsl_presence, "_safe_is_file", check_candidate)
+
+    findings = scan_wsl_cli_binaries(
+        [_client("claude_code", "claude")],
+        [
+            DiscoveredWSLDistro(name="Ubuntu", wsl_version=2, is_running=True),
+            DiscoveredWSLDistro(name="Debian", wsl_version=2, is_running=False),
+            DiscoveredWSLDistro(
+                name="docker-desktop",
+                wsl_version=2,
+                is_running=True,
+            ),
+            DiscoveredWSLDistro(name="Fedora", wsl_version=2, is_running=True),
+        ],
+        scan_status=status,
+    )
+
+    assert [finding.context.distro for finding in findings] == ["Ubuntu"]
+    assert roots == ["Ubuntu"]
+    assert status.reasons == ["wsl_binary_scan_timed_out"]
+
+
+def test_binary_distro_cap_ignores_skippable_rows(monkeypatch) -> None:
+    monkeypatch.setattr(wsl_presence, "MAX_WSL_DISTROS", 1)
+    monkeypatch.setattr(
+        wsl_presence,
+        "get_wsl_distro_root",
+        lambda distro: Path("/") / distro,
+    )
+    monkeypatch.setattr(
+        wsl_presence,
+        "get_wsl_user_homes",
+        lambda _distro, **_kwargs: [],
+    )
+    status = ScanCompletionStatus()
+
+    findings = scan_wsl_cli_binaries(
+        [_client("claude_code", "claude")],
+        [
+            DiscoveredWSLDistro(name="Ubuntu", wsl_version=2, is_running=True),
+            DiscoveredWSLDistro(name="Stopped", wsl_version=2, is_running=False),
+            DiscoveredWSLDistro(
+                name="docker-desktop",
+                wsl_version=2,
+                is_running=True,
+            ),
+        ],
+        scan_status=status,
+    )
+
+    assert findings == []
+    assert status.reasons == []
+
+
+def test_candidate_cap_marks_wsl_presence_incomplete(monkeypatch) -> None:
+    monkeypatch.setattr(wsl_presence, "MAX_WSL_BINARY_CANDIDATES_PER_DISTRO", 1)
+    monkeypatch.setattr(
+        wsl_presence,
+        "get_wsl_distro_root",
+        lambda _distro: Path("/Ubuntu"),
+    )
+    monkeypatch.setattr(wsl_presence, "get_wsl_user_homes", lambda _distro, **_: [])
+    monkeypatch.setattr(wsl_presence, "_safe_is_file", lambda *_args: False)
+    status = ScanCompletionStatus()
+
+    scan_wsl_cli_binaries(
+        [_client("claude_code", "claude")],
+        [DiscoveredWSLDistro(name="Ubuntu", wsl_version=2, is_running=True)],
+        scan_status=status,
+    )
+
+    assert status.reasons == ["wsl_binary_candidate_capped"]
+
+
+def test_binary_access_error_marks_wsl_presence_incomplete(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(
+        wsl_presence,
+        "get_wsl_distro_root",
+        lambda _distro: Path("/Ubuntu"),
+    )
+    monkeypatch.setattr(wsl_presence, "get_wsl_user_homes", lambda _distro, **_: [])
+    monkeypatch.setattr(
+        Path,
+        "stat",
+        lambda _path: (_ for _ in ()).throw(PermissionError(errno.EACCES, "denied")),
+    )
+    status = ScanCompletionStatus()
+
+    scan_wsl_cli_binaries(
+        [_client("claude_code", "claude")],
+        [DiscoveredWSLDistro(name="Ubuntu", wsl_version=2, is_running=True)],
+        scan_status=status,
+    )
+
+    assert "wsl_binary_access_failed" in status.reasons
 
 
 def test_wsl_presence_caps_nvm_version_listing(

@@ -57,6 +57,14 @@ class NamespaceWideTableRowCount(_message.Message):
     row_count_estimate: int
     def __init__(self, namespace: _Optional[str] = ..., row_count_estimate: _Optional[int] = ...) -> None: ...
 
+class NamespaceWideTableConfigFingerprint(_message.Message):
+    __slots__ = ("namespace", "config_fingerprint")
+    NAMESPACE_FIELD_NUMBER: _ClassVar[int]
+    CONFIG_FINGERPRINT_FIELD_NUMBER: _ClassVar[int]
+    namespace: str
+    config_fingerprint: int
+    def __init__(self, namespace: _Optional[str] = ..., config_fingerprint: _Optional[int] = ...) -> None: ...
+
 class SnowflakeOfflineStorageDetails(_message.Message):
     __slots__ = ("account", "warehouse", "database", "schema")
     ACCOUNT_FIELD_NUMBER: _ClassVar[int]
@@ -97,6 +105,7 @@ class GetMetricsResponse(_message.Message):
         "namespace_observed_at_ranges",
         "namespace_wide_table_row_counts",
         "wide_table_layouts",
+        "namespace_wide_table_config_fingerprints",
     )
     SKINNY_TABLES_BYTES_FIELD_NUMBER: _ClassVar[int]
     WIDE_TABLES_BYTES_FIELD_NUMBER: _ClassVar[int]
@@ -106,6 +115,7 @@ class GetMetricsResponse(_message.Message):
     NAMESPACE_OBSERVED_AT_RANGES_FIELD_NUMBER: _ClassVar[int]
     NAMESPACE_WIDE_TABLE_ROW_COUNTS_FIELD_NUMBER: _ClassVar[int]
     WIDE_TABLE_LAYOUTS_FIELD_NUMBER: _ClassVar[int]
+    NAMESPACE_WIDE_TABLE_CONFIG_FINGERPRINTS_FIELD_NUMBER: _ClassVar[int]
     skinny_tables_bytes: int
     wide_tables_bytes: int
     wide_mapping_table_bytes: int
@@ -114,6 +124,9 @@ class GetMetricsResponse(_message.Message):
     namespace_observed_at_ranges: _containers.RepeatedCompositeFieldContainer[NamespaceObservedAtRange]
     namespace_wide_table_row_counts: _containers.RepeatedCompositeFieldContainer[NamespaceWideTableRowCount]
     wide_table_layouts: _containers.RepeatedCompositeFieldContainer[WideTableLayout]
+    namespace_wide_table_config_fingerprints: _containers.RepeatedCompositeFieldContainer[
+        NamespaceWideTableConfigFingerprint
+    ]
     def __init__(
         self,
         skinny_tables_bytes: _Optional[int] = ...,
@@ -124,4 +137,7 @@ class GetMetricsResponse(_message.Message):
         namespace_observed_at_ranges: _Optional[_Iterable[_Union[NamespaceObservedAtRange, _Mapping]]] = ...,
         namespace_wide_table_row_counts: _Optional[_Iterable[_Union[NamespaceWideTableRowCount, _Mapping]]] = ...,
         wide_table_layouts: _Optional[_Iterable[_Union[WideTableLayout, _Mapping]]] = ...,
+        namespace_wide_table_config_fingerprints: _Optional[
+            _Iterable[_Union[NamespaceWideTableConfigFingerprint, _Mapping]]
+        ] = ...,
     ) -> None: ...

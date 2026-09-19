@@ -3,7 +3,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.community.louvain_endpoints import (
     LouvainEndpoints,
     LouvainMutateResult,
@@ -28,7 +28,7 @@ class LouvainCypherEndpoints(LouvainEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         tolerance: float = 0.0001,
         max_levels: int = 10,
@@ -68,13 +68,13 @@ class LouvainCypherEndpoints(LouvainEndpoints):
 
         cypher_result = self._query_runner.call_procedure(
             endpoint="gds.louvain.mutate", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return LouvainMutateResult(**cypher_result.to_dict())
+        return LouvainMutateResult(**cypher_result)
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         tolerance: float = 0.0001,
         max_levels: int = 10,
         include_intermediate_communities: bool = False,
@@ -112,13 +112,13 @@ class LouvainCypherEndpoints(LouvainEndpoints):
 
         cypher_result = self._query_runner.call_procedure(
             endpoint="gds.louvain.stats", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return LouvainStatsResult(**cypher_result.to_dict())
+        return LouvainStatsResult(**cypher_result)
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         tolerance: float = 0.0001,
         max_levels: int = 10,
         include_intermediate_communities: bool = False,
@@ -160,7 +160,7 @@ class LouvainCypherEndpoints(LouvainEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         tolerance: float = 0.0001,
         max_levels: int = 10,
@@ -204,13 +204,13 @@ class LouvainCypherEndpoints(LouvainEndpoints):
 
         result = self._query_runner.call_procedure(
             endpoint="gds.louvain.write", params=params, logging=log_progress
-        ).squeeze()  # type: ignore
+        ).iloc[0]  # type: ignore
 
-        return LouvainWriteResult(**result.to_dict())
+        return LouvainWriteResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         tolerance: float = 0.0001,
         max_levels: int = 10,
         include_intermediate_communities: bool = False,

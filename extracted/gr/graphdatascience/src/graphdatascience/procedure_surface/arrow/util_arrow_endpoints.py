@@ -1,0 +1,55 @@
+from __future__ import annotations
+
+from typing import Any
+
+from neo4j.graph import Node
+
+from graphdatascience.error.cypher_warning_handler import filter_id_func_deprecation_warning
+from graphdatascience.error.standalone_session_error import NotAvailableInStandaloneSessions
+from graphdatascience.graph.graph_api import Graph
+from graphdatascience.procedure_surface.api.util_endpoints import UtilEndpoints
+from graphdatascience.procedure_surface.utils.node_matching import find_node_id as _find_node_id
+from graphdatascience.query_runner.query_mode import QueryMode
+from graphdatascience.query_runner.query_runner import QueryRunner
+from graphdatascience.query_runner.query_type import QueryType
+
+
+class UtilArrowEndpoints(UtilEndpoints):
+    def __init__(self, db_query_runner: QueryRunner | None):
+        self._db_query_runner = db_query_runner
+
+    def _require_db(self) -> QueryRunner:
+        if self._db_query_runner is None:
+            raise NotAvailableInStandaloneSessions("Util endpoints")
+        return self._db_query_runner
+
+    def find_node_id(self, labels: list[str] | None = None, properties: dict[str, Any] | None = None) -> int:
+        return _find_node_id(self._require_db(), labels, properties)
+
+    @filter_id_func_deprecation_warning()
+    def as_node(self, node_id: int) -> Node:
+        result = self._require_db().run_retryable_cypher(
+            "MATCH (n) WHERE id(n) = $nodeId RETURN n",
+            QueryType.USER_TRANSPILED,
+            {"nodeId": node_id},
+            mode=QueryMode.READ,
+        )
+        return result.iloc[0, 0]  # type: ignore
+
+    @filter_id_func_deprecation_warning()
+    def as_nodes(self, node_ids: list[int]) -> list[Node]:
+        result = self._require_db().run_retryable_cypher(
+            "MATCH (n) WHERE id(n) IN $nodeIds RETURN collect(n)",
+            QueryType.USER_TRANSPILED,
+            {"nodeIds": node_ids},
+            mode=QueryMode.READ,
+        )
+        return result.iloc[0, 0]  # type: ignore
+
+    def node_property(self, G: Graph, node_id: int, property_key: str, node_label: str = "*") -> Any:
+        raise NotImplementedError(
+            "`node_property` is not available in AGA sessions. "
+            "Stream the node properties once and filter on the client side instead, e.g.:\n"
+            "    df = gds.graph.node_properties.stream(G, [property_key])\n"
+            "    df.loc[df['nodeId'] == node_id, 'propertyValue']"
+        )

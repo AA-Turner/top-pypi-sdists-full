@@ -3,7 +3,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.centrality.articulationpoints_endpoints import (
     ArticulationPointsEndpoints,
     ArticulationPointsMutateResult,
@@ -14,7 +14,7 @@ from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, AL
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.job_handle import JobHandle
 from graphdatascience.procedure_surface.arrow.node_property_endpoints import NodePropertyEndpointsHelper
-from graphdatascience.query_runner.protocol.write_protocols import WriteProtocol
+from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
 class ArticulationPointsArrowEndpoints(ArticulationPointsEndpoints):
@@ -32,7 +32,7 @@ class ArticulationPointsArrowEndpoints(ArticulationPointsEndpoints):
 
     def compute(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -56,7 +56,7 @@ class ArticulationPointsArrowEndpoints(ArticulationPointsEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -85,7 +85,7 @@ class ArticulationPointsArrowEndpoints(ArticulationPointsEndpoints):
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
         sudo: bool = False,
@@ -113,7 +113,7 @@ class ArticulationPointsArrowEndpoints(ArticulationPointsEndpoints):
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
         sudo: bool = False,
@@ -122,15 +122,22 @@ class ArticulationPointsArrowEndpoints(ArticulationPointsEndpoints):
         concurrency: int | None = None,
         job_id: str | None = None,
     ) -> DataFrame:
-        raise NotImplementedError(
-            "Stream mode is not supported for ArticulationPoints arrow endpoints. "
-            "The result columns cannot be preserved with the current implementation. "
-            "Use cypher endpoints for stream functionality."
+        config = self._node_property_endpoints.create_base_config(
+            G,
+            concurrency=concurrency,
+            job_id=job_id,
+            log_progress=log_progress,
+            node_labels=node_labels,
+            relationship_types=relationship_types,
+            sudo=sudo,
+            username=username,
         )
+
+        return self._node_property_endpoints.run_job_and_stream("v2/centrality.articulationPoints", G, config)
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -165,7 +172,7 @@ class ArticulationPointsArrowEndpoints(ArticulationPointsEndpoints):
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
         concurrency: int | None = None,

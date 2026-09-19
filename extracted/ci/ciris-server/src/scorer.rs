@@ -1304,16 +1304,15 @@ async fn score_and_emit(
     // Fail-closed is preserved in every arm — nothing is emitted unless the fold
     // returns `Granted`. What changes is what the instrument SAYS about the two
     // ways it can fail to.
-    let stance = engine
-        .federation_directory()
-        .resolve_scoped_consent(
-            node_key_id,
-            attested_key_id,
-            ciris_persist::federation::admission::ANALYZE_CONSENT_SCOPE,
-            None,
-            now,
-        )
-        .await;
+    // Consent is by humans (CIRISServer#599): the subject's STEWARD — the owner
+    // the subject's owner-binding names — is asked first; the subject itself is
+    // the legacy fallback (grants authored by a machine key before 0.5.210). A
+    // split-key home's AGENT key carries no owner-binding of its own today (the
+    // binding names the node), so for those the steward hop needs the substrate
+    // to link agent → host node → owner (CIRISPersist, filed with #599); until
+    // then such an agent scores only on a legacy machine-authored grant.
+    let stance =
+        resolve_analyze_stance_via_steward(engine, node_key_id, attested_key_id, now).await;
     match stance {
         Ok(ConsentState::Granted) => {}
         Ok(declined) => return Ok(ScoreOutcome::NotConsented { stance: declined }),
@@ -1850,4 +1849,26 @@ mod coalescing_tests {
              still true. Narrow SCORE_COALESCE_MAX or widen the validity — deliberately, together."
         );
     }
+}
+
+/// The CC#46 `analyze` stance for `subject` through persist's by-principals
+/// fold (v44.6.0, CIRISPersist#857): the subject's own rows plus its stewards'
+/// rows that name it — the owner-binding for a node, the login ceremony's
+/// occurrence anchor for an agent (CIRISServer#601 items 5 and 8). Combine rule
+/// is persist's: any revoked → revoked; else any granted → granted.
+async fn resolve_analyze_stance_via_steward(
+    engine: &Engine,
+    attester_key_id: &str,
+    subject_key_id: &str,
+    now: chrono::DateTime<chrono::Utc>,
+) -> Result<ciris_persist::federation::hard_case::ConsentState, ciris_persist::federation::Error> {
+    engine
+        .resolve_scoped_consent_by_principals(
+            attester_key_id,
+            subject_key_id,
+            ciris_persist::federation::admission::ANALYZE_CONSENT_SCOPE,
+            None,
+            now,
+        )
+        .await
 }

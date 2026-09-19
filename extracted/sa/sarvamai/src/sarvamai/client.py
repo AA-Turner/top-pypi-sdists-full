@@ -13,12 +13,13 @@ from .environment import SarvamAIEnvironment
 
 if typing.TYPE_CHECKING:
     from .chat.client import AsyncChatClient, ChatClient
+    from .chat_completion.client import AsyncChatCompletionClient, ChatCompletionClient
     from .doc_ai.client import AsyncDocAiClient, DocAiClient
     from .document_intelligence.client import AsyncDocumentIntelligenceClient, DocumentIntelligenceClient
     from .document_translation.client import AsyncDocumentTranslationClient, DocumentTranslationClient
     from .dubbing.client import AsyncDubbingClient, DubbingClient
-    from .open_source_models.client import AsyncOpenSourceModelsClient, OpenSourceModelsClient
     from .pronunciation_dictionary.client import AsyncPronunciationDictionaryClient, PronunciationDictionaryClient
+    from .responses.client import AsyncResponsesClient, ResponsesClient
     from .speech_to_text.client import AsyncSpeechToTextClient, SpeechToTextClient
     from .speech_to_text_job.client import AsyncSpeechToTextJobClient, SpeechToTextJobClient
     from .speech_to_text_realtime_streaming.client import (
@@ -117,7 +118,8 @@ class SarvamAI:
         self._speech_to_text_translate_job: typing.Optional[SpeechToTextTranslateJobClient] = None
         self._document_intelligence: typing.Optional[DocumentIntelligenceClient] = None
         self._doc_ai: typing.Optional[DocAiClient] = None
-        self._open_source_models: typing.Optional[OpenSourceModelsClient] = None
+        self._responses: typing.Optional[ResponsesClient] = None
+        self._chat_completion: typing.Optional[ChatCompletionClient] = None
         self._speech_to_text_streaming: typing.Optional[SpeechToTextStreamingClient] = None
         self._speech_to_text_translate_streaming: typing.Optional[SpeechToTextTranslateStreamingClient] = None
         self._speech_to_text_realtime_streaming: typing.Optional[SpeechToTextRealtimeStreamingClient] = None
@@ -212,12 +214,20 @@ class SarvamAI:
         return self._doc_ai
 
     @property
-    def open_source_models(self):
-        if self._open_source_models is None:
-            from .open_source_models.client import OpenSourceModelsClient  # noqa: E402
+    def responses(self):
+        if self._responses is None:
+            from .responses.client import ResponsesClient  # noqa: E402
 
-            self._open_source_models = OpenSourceModelsClient(client_wrapper=self._client_wrapper)
-        return self._open_source_models
+            self._responses = ResponsesClient(client_wrapper=self._client_wrapper)
+        return self._responses
+
+    @property
+    def chat_completion(self):
+        if self._chat_completion is None:
+            from .chat_completion.client import ChatCompletionClient  # noqa: E402
+
+            self._chat_completion = ChatCompletionClient(client_wrapper=self._client_wrapper)
+        return self._chat_completion
 
     @property
     def speech_to_text_streaming(self):
@@ -337,7 +347,8 @@ class AsyncSarvamAI:
         self._speech_to_text_translate_job: typing.Optional[AsyncSpeechToTextTranslateJobClient] = None
         self._document_intelligence: typing.Optional[AsyncDocumentIntelligenceClient] = None
         self._doc_ai: typing.Optional[AsyncDocAiClient] = None
-        self._open_source_models: typing.Optional[AsyncOpenSourceModelsClient] = None
+        self._responses: typing.Optional[AsyncResponsesClient] = None
+        self._chat_completion: typing.Optional[AsyncChatCompletionClient] = None
         self._speech_to_text_streaming: typing.Optional[AsyncSpeechToTextStreamingClient] = None
         self._speech_to_text_translate_streaming: typing.Optional[AsyncSpeechToTextTranslateStreamingClient] = None
         self._speech_to_text_realtime_streaming: typing.Optional[AsyncSpeechToTextRealtimeStreamingClient] = None
@@ -434,12 +445,20 @@ class AsyncSarvamAI:
         return self._doc_ai
 
     @property
-    def open_source_models(self):
-        if self._open_source_models is None:
-            from .open_source_models.client import AsyncOpenSourceModelsClient  # noqa: E402
+    def responses(self):
+        if self._responses is None:
+            from .responses.client import AsyncResponsesClient  # noqa: E402
 
-            self._open_source_models = AsyncOpenSourceModelsClient(client_wrapper=self._client_wrapper)
-        return self._open_source_models
+            self._responses = AsyncResponsesClient(client_wrapper=self._client_wrapper)
+        return self._responses
+
+    @property
+    def chat_completion(self):
+        if self._chat_completion is None:
+            from .chat_completion.client import AsyncChatCompletionClient  # noqa: E402
+
+            self._chat_completion = AsyncChatCompletionClient(client_wrapper=self._client_wrapper)
+        return self._chat_completion
 
     @property
     def speech_to_text_streaming(self):

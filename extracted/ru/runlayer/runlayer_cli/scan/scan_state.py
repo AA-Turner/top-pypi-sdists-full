@@ -27,6 +27,7 @@ from pathlib import Path
 import structlog
 
 from runlayer_cli.paths import get_runlayer_dir
+from runlayer_cli.safe_parse import parse_json
 
 logger = structlog.get_logger(__name__)
 
@@ -47,9 +48,10 @@ def _resolve_state_path(state_path: Path | None) -> Path:
 
 def _load_state(path: Path) -> dict:
     try:
-        raw = json.loads(path.read_text(encoding="utf-8"))
+        text = path.read_text(encoding="utf-8")
     except (OSError, ValueError):
         return {}
+    raw = parse_json(text)["value"]
     if not isinstance(raw, dict) or raw.get("version") != _STATE_VERSION:
         return {}
     return raw

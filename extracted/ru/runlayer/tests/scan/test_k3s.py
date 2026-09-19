@@ -770,8 +770,9 @@ def test_k3s_collector_uses_inspected_pid_for_proc_reads(
         deadline=time.monotonic() + 10,
     )
 
-    assert archive is not None
-    assert _extract_copied_file(archive) == b"{}"
+    assert archive.status == "success"
+    assert archive.archive is not None
+    assert _extract_copied_file(archive.archive) == b"{}"
 
 
 def test_pid_matches_container_guards_recycled_and_exited_pids(tmp_path):
@@ -887,7 +888,8 @@ def test_k3s_collector_skips_reads_when_pid_recycled(monkeypatch, tmp_path):
         deadline=time.monotonic() + 10,
     )
 
-    assert archive is None
+    assert archive.status == "failed"
+    assert archive.failure_reason == "container_artifact_proc_copy_failed"
     assert walked.files == {}
 
 

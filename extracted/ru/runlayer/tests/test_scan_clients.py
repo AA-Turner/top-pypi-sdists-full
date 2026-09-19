@@ -7,6 +7,7 @@ from pathlib import Path
 from unittest import mock
 
 
+from runlayer_cli.scan import clients as clients_module
 from runlayer_cli.scan.clients import (
     ConfigPath,
     ExtensionsPath,
@@ -19,6 +20,7 @@ from runlayer_cli.scan.clients import (
     get_client_by_name,
     get_clients_with_project_configs,
 )
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.config_parser import parse_config_file
 from runlayer_cli.scan.device import DiscoveredWSLDistro, WSLDistroInventory
 
@@ -1262,13 +1264,144 @@ class TestLinuxPlatformPaths:
 class TestWindowsWSLCrossScan:
     """Test Windows-host -> WSL-distro config path resolution."""
 
-    def setup_method(self):
-        _is_windows_with_wsl.cache_clear()
-        _wsl_homes.cache_clear()
+    def test_wsl_home_enumeration_is_cached_across_path_templates(
+        self,
+        monkeypatch,
+    ):
+        cached_homes = getattr(clients_module, "_cached_wsl_homes", None)
+        if cached_homes is not None:
+            cached_homes.cache_clear()
+        get_homes = mock.Mock(return_value=[Path(R"\\wsl.localhost\Ubuntu\home\alex")])
+        monkeypatch.setattr(clients_module.platform, "system", lambda: "Windows")
+        monkeypatch.setattr(
+            clients_module,
+            "list_wsl_distros",
+            lambda *, scan_status=None: ["Ubuntu"],
+        )
+        monkeypatch.setattr(
+            clients_module,
+            "get_wsl_distro_inventory",
+            lambda: WSLDistroInventory(
+                distros=(
+                    DiscoveredWSLDistro(
+                        name="Ubuntu",
+                        wsl_version=2,
+                        is_running=True,
+                    ),
+                ),
+                success=True,
+            ),
+        )
+        monkeypatch.setattr(clients_module, "get_wsl_user_homes", get_homes)
 
-    def teardown_method(self):
-        _is_windows_with_wsl.cache_clear()
-        _wsl_homes.cache_clear()
+        try:
+            _resolve_wsl_linux_paths("~/.cursor/mcp.json")
+            _resolve_wsl_linux_paths("~/.claude.json")
+        finally:
+            cached_homes = getattr(clients_module, "_cached_wsl_homes", None)
+            if cached_homes is not None:
+                cached_homes.cache_clear()
+
+        assert get_homes.call_count == 1
+
+    def test_status_aware_wsl_home_enumeration_reuses_cached_reasons(
+        self,
+        monkeypatch,
+    ):
+        clients_module._cached_wsl_homes.cache_clear()
+        get_homes = mock.Mock(return_value=[Path(R"\\wsl.localhost\Ubuntu\home\alex")])
+
+        def homes_with_reason(
+            distro: str,
+            *,
+            scan_status: ScanCompletionStatus | None = None,
+        ) -> list[Path]:
+            assert distro == "Ubuntu"
+            assert scan_status is not None
+            scan_status.mark_incomplete("wsl_home_discovery_partial")
+            return get_homes(distro)
+
+        monkeypatch.setattr(clients_module.platform, "system", lambda: "Windows")
+        monkeypatch.setattr(
+            clients_module,
+            "get_wsl_distro_inventory",
+            lambda: WSLDistroInventory(
+                distros=(
+                    DiscoveredWSLDistro(
+                        name="Ubuntu",
+                        wsl_version=2,
+                        is_running=True,
+                    ),
+                ),
+                success=True,
+            ),
+        )
+        monkeypatch.setattr(
+            clients_module,
+            "get_wsl_user_homes",
+            homes_with_reason,
+        )
+
+        try:
+            statuses = [ScanCompletionStatus() for _ in range(3)]
+            results = [_wsl_homes(status) for status in statuses]
+        finally:
+            clients_module._cached_wsl_homes.cache_clear()
+
+        expected = [Path(R"\\wsl.localhost\Ubuntu\home\alex")]
+        assert results == [expected, expected, expected]
+        assert get_homes.call_count == 1
+        assert [status.reasons for status in statuses] == [
+            ["wsl_home_discovery_partial"]
+        ] * 3
+
+    def test_stopped_and_docker_distro_home_errors_do_not_mark_incomplete(
+        self,
+        monkeypatch,
+    ):
+        inventory = WSLDistroInventory(
+            distros=(
+                DiscoveredWSLDistro(name="Ubuntu", wsl_version=2, is_running=False),
+                DiscoveredWSLDistro(
+                    name="docker-desktop",
+                    wsl_version=2,
+                    is_running=True,
+                ),
+            ),
+            success=True,
+        )
+        get_homes = mock.Mock()
+
+        def homes_with_error(
+            distro: str,
+            *,
+            scan_status: ScanCompletionStatus | None = None,
+        ) -> list[Path]:
+            get_homes(distro)
+            if scan_status is not None:
+                scan_status.mark_incomplete("wsl_home_access_failed")
+            return []
+
+        clients_module._cached_wsl_homes.cache_clear()
+        monkeypatch.setattr(clients_module.platform, "system", lambda: "Windows")
+        monkeypatch.setattr(
+            clients_module,
+            "get_wsl_distro_inventory",
+            lambda: inventory,
+        )
+        monkeypatch.setattr(
+            clients_module,
+            "get_wsl_user_homes",
+            homes_with_error,
+        )
+
+        try:
+            status = ScanCompletionStatus()
+            assert _wsl_homes(status) == []
+            assert status.reasons == []
+            get_homes.assert_called_once_with("Ubuntu")
+        finally:
+            clients_module._cached_wsl_homes.cache_clear()
 
     def test_resolve_wsl_linux_paths_expands_per_home(self):
         homes = [
@@ -1360,12 +1493,18 @@ class TestWindowsWSLCrossScan:
             success=False,
         )
         with mock.patch(
-            "runlayer_cli.scan.device.get_wsl_distro_inventory",
+            "runlayer_cli.scan.clients.get_wsl_distro_inventory",
             return_value=incomplete,
         ):
-            assert _is_windows_with_wsl() is False
-            assert _wsl_homes() == []
-            assert _resolve_wsl_linux_paths("~/.cursor/mcp.json") == []
+            clients_module._cached_wsl_homes.cache_clear()
+            try:
+                status = ScanCompletionStatus()
+                assert _is_windows_with_wsl() is False
+                assert _wsl_homes(status) == []
+                assert _resolve_wsl_linux_paths("~/.cursor/mcp.json") == []
+                assert status.reasons == ["wsl_distro_inventory_failed"]
+            finally:
+                clients_module._cached_wsl_homes.cache_clear()
 
 
 class TestKimiCodeClientDefinition:

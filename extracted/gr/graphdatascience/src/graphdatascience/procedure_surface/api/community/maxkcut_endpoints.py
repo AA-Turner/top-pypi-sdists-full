@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -15,7 +15,7 @@ class MaxKCutEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         *,
         concurrency: int | None = None,
@@ -66,7 +66,7 @@ class MaxKCutEndpoints(ABC):
             Disable the memory guard.
         username
             As an administrator, impersonate a different user for accessing their graphs.
-        vns_max_neighborhood_order : int | None, default=0
+        vns_max_neighborhood_order
             The maximum neighborhood order for the Variable Neighborhood Search. Higher values may
             lead to better results but increase computation time.
 
@@ -79,7 +79,7 @@ class MaxKCutEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         iterations: int = 8,
@@ -129,13 +129,13 @@ class MaxKCutEndpoints(ABC):
             Disable the memory guard.
         username
             As an administrator, impersonate a different user for accessing their graphs.
-        vns_max_neighborhood_order : int | None, default=0
+        vns_max_neighborhood_order
             The maximum neighborhood order for the Variable Neighborhood Search. Higher values may
             lead to better results but increase computation time.
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             A DataFrame with columns:
             - nodeId: The node identifier
             - communityId: The community assignment for the node
@@ -144,7 +144,7 @@ class MaxKCutEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         *,
         concurrency: int | None = None,
         iterations: int = 8,
@@ -179,7 +179,7 @@ class MaxKCutEndpoints(ABC):
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
         relationship_weight_property
             Name of the property to be used as weights.
-        vns_max_neighborhood_order : int | None, default=0
+        vns_max_neighborhood_order
             The maximum neighborhood order for the Variable Neighborhood Search
 
         Returns

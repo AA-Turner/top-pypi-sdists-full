@@ -10,7 +10,7 @@
 //! # Example
 //! ```rust ignore
 //! let table = open_table(Url::from_directory_path("/abs/path/to/table").unwrap())?;
-//! let (table, metrics) = DeltaOps(table)
+//! let (table, metrics) = table
 //!     .merge(source, col("target.id").eq(col("source.id")))
 //!     .with_source_alias("source")
 //!     .with_target_alias("target")
@@ -235,7 +235,7 @@ impl MergeBuilder {
     /// #Example
     /// ```rust ignore
     /// let table = open_table(Url::from_directory_path("/abs/path/to/table").unwrap())?;
-    /// let (table, metrics) = DeltaOps(table)
+    /// let (table, metrics) = table
     ///     .merge(source, col("target.id").eq(col("source.id")))
     ///     .with_source_alias("source")
     ///     .with_target_alias("target")
@@ -273,7 +273,7 @@ impl MergeBuilder {
     /// #Example
     /// ```rust ignore
     /// let table = open_table(Url::from_directory_path("/abs/path/to/table").unwrap())?;
-    /// let (table, metrics) = DeltaOps(table)
+    /// let (table, metrics) = table
     ///     .merge(source, col("target.id").eq(col("source.id")))
     ///     .with_source_alias("source")
     ///     .with_target_alias("target")
@@ -306,7 +306,7 @@ impl MergeBuilder {
     /// #Example
     /// ```rust ignore
     /// let table = open_table(Url::from_directory_path("/abs/path/to/table").unwrap())?;
-    /// let (table, metrics) = DeltaOps(table)
+    /// let (table, metrics) = table
     ///     .merge(source, col("target.id").eq(col("source.id")))
     ///     .with_source_alias("source")
     ///     .with_target_alias("target")
@@ -341,7 +341,7 @@ impl MergeBuilder {
     /// #Example
     /// ```rust ignore
     /// let table = open_table(Url::from_directory_path("/abs/path/to/table").unwrap())?;
-    /// let (table, metrics) = DeltaOps(table)
+    /// let (table, metrics) = table
     ///     .merge(source, col("target.id").eq(col("source.id")))
     ///     .with_source_alias("source")
     ///     .with_target_alias("target")
@@ -373,7 +373,7 @@ impl MergeBuilder {
     /// #Example
     /// ```rust ignore
     /// let table = open_table(Url::from_directory_path("/abs/path/to/table").unwrap())?;
-    /// let (table, metrics) = DeltaOps(table)
+    /// let (table, metrics) = table
     ///     .merge(source, col("target.id").eq(col("source.id")))
     ///     .with_source_alias("source")
     ///     .with_target_alias("target")
@@ -1953,6 +1953,8 @@ mod tests {
     use crate::writer::test_utils::datafusion::{get_data, get_data_sorted};
     use crate::writer::test_utils::get_arrow_schema;
     use crate::writer::test_utils::get_delta_schema;
+    use crate::writer::test_utils::get_delta_schema_non_null_id;
+    use crate::writer::test_utils::get_non_null_arrow_schema;
     use crate::writer::test_utils::setup_table_with_configuration;
     use crate::{DeltaTable, DeltaTableConfig};
     use arrow::datatypes::Schema as ArrowSchema;
@@ -1961,6 +1963,7 @@ mod tests {
     use arrow_schema::Field;
     use dashmap::DashSet;
     use datafusion::assert_batches_sorted_eq;
+    use datafusion::common::tree_node::TreeNodeRecursion;
     use datafusion::common::{Column, ScalarValue, TableReference, ToDFSchema};
     use datafusion::datasource::provider_as_source;
     use datafusion::logical_expr::Expr;
@@ -1969,7 +1972,10 @@ mod tests {
     use datafusion::logical_expr::expr::Placeholder;
     use datafusion::logical_expr::lit;
     use datafusion::logical_expr::{Extension, LogicalPlan, LogicalPlanBuilder};
+    use datafusion::physical_expr::PhysicalExpr;
+    use datafusion::physical_expr::expressions::Column as PhysicalColumn;
     use datafusion::physical_plan::ExecutionPlan;
+    use datafusion::physical_plan::empty::EmptyExec;
     use datafusion::physical_plan::metrics::ExecutionPlanMetricsSet;
     use datafusion::physical_plan::metrics::MetricBuilder;
     use datafusion::physical_plan::{collect, displayable};
@@ -1989,8 +1995,8 @@ mod tests {
         DataFusionMixins, DeltaScanNext, PATH_COLUMN, resolve_file_column_name,
     };
 
-    use super::barrier::MergeBarrier;
-    use super::validation::MergeValidation;
+    use super::barrier::{MergeBarrier, MergeBarrierExec};
+    use super::validation::{MergeValidation, MergeValidationExec};
     use super::{
         DELETE_COLUMN, MatchParticipationClass, MergeMetrics, OPERATION_COLUMN, OperationType,
         SOURCE_COLUMN, TARGET_COLUMN, TARGET_COPY_COLUMN, TARGET_DELETE_COLUMN,
@@ -2002,6 +2008,58 @@ mod tests {
     pub(crate) async fn setup_table(partitions: Option<Vec<&str>>) -> DeltaTable {
         let table_schema = get_delta_schema();
 
+        let table = DeltaTable::new_in_memory()
+            .create()
+            .with_columns(table_schema.fields().cloned())
+            .with_partition_columns(partitions.unwrap_or_default())
+            .await
+            .unwrap();
+        assert_eq!(table.version(), Some(0));
+        table
+    }
+
+    #[test]
+    fn merge_execs_visit_owned_distribution_expression() {
+        let input: Arc<dyn ExecutionPlan> =
+            Arc::new(EmptyExec::new(Arc::new(ArrowSchema::new(vec![
+                Field::new("path", ArrowDataType::Utf8, false),
+            ]))));
+        let expression: Arc<dyn PhysicalExpr> = Arc::new(PhysicalColumn::new("path", 0));
+        let plans: [Arc<dyn ExecutionPlan>; 2] = [
+            Arc::new(MergeBarrierExec::new(
+                Arc::clone(&input),
+                Arc::new("path".to_string()),
+                Arc::clone(&expression),
+            )),
+            Arc::new(MergeValidationExec::new(
+                input,
+                Arc::clone(&expression),
+                Arc::new("path".to_string()),
+                Arc::new("row_ordinal".to_string()),
+            )),
+        ];
+
+        for plan in plans {
+            let mut visits = 0;
+            plan.apply_expressions(&mut |visited| {
+                assert!(Arc::ptr_eq(visited, &expression));
+                visits += 1;
+                Ok(TreeNodeRecursion::Continue)
+            })
+            .expect("apply_expressions failed");
+            assert_eq!(
+                visits,
+                1,
+                "{} must expose its owned expression",
+                plan.name()
+            );
+        }
+    }
+
+    pub(crate) async fn setup_table_with_non_null_column(
+        partitions: Option<Vec<&str>>,
+    ) -> DeltaTable {
+        let table_schema = get_delta_schema_non_null_id();
         let table = DeltaTable::new_in_memory()
             .create()
             .with_columns(table_schema.fields().cloned())
@@ -2058,6 +2116,65 @@ mod tests {
             "| D  | 100   | 2021-02-02 |",
             "+----+-------+------------+",
         ];
+        let actual = get_data(&table).await;
+        assert_batches_sorted_eq!(&expected, &actual);
+    }
+
+    #[tokio::test]
+    async fn test_merge_non_null() {
+        let schema = get_non_null_arrow_schema();
+        let table = setup_table_with_non_null_column(Some(vec!["modified"])).await;
+        let table = write_data(table, &schema).await;
+        assert_eq!(table.version(), Some(1));
+        assert_eq!(table.snapshot().unwrap().log_data().num_files(), 2);
+
+        let ctx = SessionContext::new();
+        let null_schema = get_arrow_schema(&None);
+        let batch = RecordBatch::try_new(
+            Arc::clone(&null_schema),
+            vec![
+                Arc::new(arrow::array::StringArray::from(vec!["A"])),
+                Arc::new(arrow::array::Int32Array::from(vec![999])),
+                Arc::new(arrow::array::StringArray::from(vec!["2021-02-01"])),
+            ],
+        )
+        .unwrap();
+        let source = ctx.read_batch(batch).unwrap();
+
+        let predicate = col("target.id")
+            .eq(col("source.id"))
+            .and(col("target.modified").eq(col("source.modified")));
+
+        let (table, metrics) = table
+            .merge(source, predicate)
+            .with_source_alias("source")
+            .with_target_alias("target")
+            .with_merge_schema(true)
+            .when_matched_update(|update| {
+                update
+                    .update("id", col("source.id"))
+                    .update("value", col("source.value"))
+            })
+            .unwrap()
+            .await
+            .unwrap();
+
+        assert_eq!(metrics.num_target_files_scanned, 1);
+        assert_eq!(metrics.num_target_files_skipped_during_scan, 1);
+
+        let expected = vec![
+            "+----+-------+------------+",
+            "| id | value | modified   |",
+            "+----+-------+------------+",
+            "| A  | 999   | 2021-02-01 |",
+            "| B  | 10    | 2021-02-01 |",
+            "| C  | 10    | 2021-02-02 |",
+            "| D  | 100   | 2021-02-02 |",
+            "+----+-------+------------+",
+        ];
+        let schema = table.snapshot().unwrap().schema();
+        let id_field = schema.field("id").unwrap();
+        assert!(!id_field.is_nullable());
         let actual = get_data(&table).await;
         assert_batches_sorted_eq!(&expected, &actual);
     }
@@ -2602,9 +2719,9 @@ mod tests {
         );
     }
 
-    fn retained_row_index_delta_scan_child<'a>(
-        plan: &'a Arc<dyn ExecutionPlan>,
-    ) -> &'a Arc<dyn ExecutionPlan> {
+    fn retained_row_index_delta_scan_child(
+        plan: &Arc<dyn ExecutionPlan>,
+    ) -> &Arc<dyn ExecutionPlan> {
         let mut scan_children = Vec::new();
         collect_retained_row_index_scan_inputs(plan, &mut scan_children);
 

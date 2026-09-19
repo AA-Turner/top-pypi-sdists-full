@@ -1722,8 +1722,40 @@ def release_propagate(  # noqa: PLR0912, PLR0915 — a pipeline; the decisions a
         # never touched would undo somebody else's deliberate state.
         from coord.agent_update import cli_initiator  # noqa: PLC0415
 
+        # #3364: narrow further, to the hosts the RED GATE ITSELF names.
+        # `--rollback-on-red` used to revert every host this run updated
+        # the moment ANY of them went red — four hosts that rolled and
+        # verified clean, reverted because a fifth could not roll at all.
+        # A host that rolled and verified is not part of the failure just
+        # because a sibling host's roll was; partial fleet convergence is
+        # strictly better than reverting everyone plus the fifth's own
+        # damage. `blocking_hosts` is `None` when the gate cannot attribute
+        # to specific hosts (a fleet-wide finding) — that must fail toward
+        # rolling back every updated host, the previous (safe) behavior,
+        # never toward rolling back none of them.
+        implicated = gate.blocking_hosts
+        targets = (
+            updated_hosts if implicated is None
+            else [h for h in updated_hosts if h in implicated]
+        )
+        spared = [h for h in updated_hosts if h not in targets]
+        if spared:
+            record.spared_rollback = spared
+            _out(
+                "  spared (rolled and verified, not named by the red gate): "
+                + ", ".join(spared)
+            )
+
+        # #3365: the version each targeted host was on BEFORE this run's
+        # forward roll — i.e. exactly the version a rollback puts it back
+        # on. `before` is the pre-roll verify sweep already paid for in
+        # step 3, so this is a read, not a new probe. Passed through so
+        # `_wait_agent_back` can assert on that version rather than on mere
+        # liveness — see its docstring for why liveness alone lied here.
+        pre_roll_versions = _python_lane_versions(before, targets, record.target_version)
+
         down: list[str] = []
-        for host in updated_hosts:
+        for host in targets:
             machine = by_name.get(host)
             if machine is None:
                 continue
@@ -1732,6 +1764,7 @@ def release_propagate(  # noqa: PLR0912, PLR0915 — a pipeline; the decisions a
                 initiator=cli_initiator(
                     f"coord release propagate -> {machine.name} rollback (red gate)"
                 ),
+                expected_version=pre_roll_versions.get(host),
             )
             record.rolled_back.append(f"{host}: {detail}")
             if not ok:
@@ -2911,33 +2944,97 @@ def _get(url: str, *, timeout: float) -> tuple[int | None, dict]:
     return resp.status_code, (body if isinstance(body, dict) else {})
 
 
-def _wait_agent_back(machine, *, agent_port: int, timeout: float) -> tuple[bool, str]:
-    """Poll ``/health`` until the agent answers again. ``(back, version)``.
+def _wait_agent_back(
+    machine, *, agent_port: int, timeout: float,
+    expected_version: str | None = None, require_change: bool = True,
+) -> tuple[bool, str]:
+    """Poll ``/health`` until the agent answers again ON THE POST-ROLLBACK
+    VERSION — never on the first 200, which may still be the not-yet-re-execed
+    OLD process. ``(back, version)``.
 
     A rollback re-execs the agent process, and #2052 fault 1 is what happens
     when that re-exec does not take: precision's ``coord-agent`` went
     ``inactive (dead)`` at the moment of the rollback and stayed there until
     a human noticed. "The POST was accepted" is therefore not an outcome —
     the outcome is whether the service is serving again.
+
+    #3365: "serving again" turned out not to be a strong enough condition
+    either. Between the accepted ``POST /rollback`` and the re-exec actually
+    taking, the OLD process is still listening and answers 200 with the
+    *pre-rollback* version — a liveness signal indistinguishable from success
+    at the moment it's observed. Reporting the first 200's version asserted
+    the opposite of what happened: four hosts rolled back to 0.5.479 all
+    reported "serving again on v0.5.482", the version they'd just been rolled
+    away from. Liveness alone cannot tell "the new process is up" from "the
+    old process hasn't gone down yet" — both are a 200 — so this now asserts
+    on version identity instead, the same fix #1568 made for the forward
+    ``/update`` wait (:func:`coord.commands.agent_ops._wait_agents_updated`):
+
+    * When the caller knows the destination version — the rollback path in
+      ``coord release propagate`` reads it straight out of the pre-roll
+      ``before`` snapshot, the same version this host is rolling back TO —
+      pass it as *expected_version* and this polls until ``/health`` reports
+      exactly that, never returning True for anything else. The version
+      printed by the caller is then the version verified, by construction.
+    * When the caller has no such snapshot (``coord release rollback``, the
+      manual break-glass command, has no forward-roll record to read a
+      target version from) AND *require_change* is left at its default
+      ``True``, the first 200 seen is recorded as a baseline to RULE OUT
+      rather than proof of success — it is exactly the reading a still-live
+      old process would produce — and this waits for a *different* version
+      to show up before returning True. A process that never re-execs keeps
+      answering the same baseline version for the whole window and
+      correctly times out False, instead of the old bug's instant (wrong)
+      True on the first answer.
+    * *require_change* exists for :func:`_rollback_host`'s retry-after-SSH-
+      escalation call. That escalation only ever runs after a FULL prior
+      window of nothing but non-200s — the ambiguity above (an old process
+      that never went away) cannot apply, because the polling already
+      proved for one whole ``timeout`` that nothing was answering. Reusing
+      the version-change requirement there would demand a signal
+      (a version DIFFERENT from a baseline that was never even set) this
+      call has no way to produce, and wrongly fail a host a hard
+      ``systemctl --user restart`` genuinely revived.
     """
     import time  # noqa: PLC0415
 
     deadline = time.time() + max(timeout, 1.0)
     poll = min(2.0, max(timeout / 10, 0.05))
+    baseline: str | None = None  # only used when expected_version is None
+    last_version = "?"
     while True:
         status, body = _get(f"http://{machine.host}:{agent_port}/health", timeout=3.0)
         if status == 200:
-            return True, str(body.get("version") or "?")
+            version = str(body.get("version") or "?")
+            last_version = version
+            if expected_version is not None:
+                if version == expected_version:
+                    return True, version
+            elif not require_change:
+                return True, version
+            elif baseline is None:
+                baseline = version
+            elif version != baseline:
+                return True, version
         if time.time() >= deadline:
-            return False, "?"
+            return False, last_version
         time.sleep(poll)
 
 
 def _rollback_host(
-    machine, *, agent_port: int, timeout: float = 90.0, initiator: str | None = None
+    machine, *, agent_port: int, timeout: float = 90.0, initiator: str | None = None,
+    expected_version: str | None = None,
 ) -> tuple[bool, str]:
     """POST /rollback — back to the previous blue/green generation (#1241) —
     and then put the service back on its feet.
+
+    #3365: *expected_version*, when the caller has one (the pre-roll version
+    read for this host before the forward roll that's now being undone —
+    see the ``coord release propagate`` rollback loop), is threaded straight
+    through to :func:`_wait_agent_back` so the wait asserts on THAT version
+    rather than on mere liveness. Without it, ``_wait_agent_back`` falls
+    back to its own baseline-diff check — see its docstring — rather than
+    this function inventing a second version-identity scheme.
 
     #2052 fault 1: "a rollback that stops a service and does not restore it
     leaves the fleet worse off than the failed roll did." This used to return
@@ -2947,6 +3044,20 @@ def _rollback_host(
     coord-agent`` (#404/#1568 — ``os.execv`` self-restart does not always
     take under systemd), and only then gives up — loudly, naming the host as
     DOWN rather than reporting a tidy "rolling back".
+
+    #3364: the agent answering ``/health`` again is not the end of the job
+    either. ``POST /rollback`` (``agent_app.py``'s ``rollback`` handler)
+    flips ``~/.coord-venv`` back and re-execs the AGENT — and, same gap
+    #2069 closed for the forward ``/update`` path, nothing about that
+    restarts ``coord-serve``/``coord-web``/``coord-drive-queue``. Left as
+    they were, those siblings keep running out of the slot the rollback
+    just deactivated — permanently orphaned on the slot the next ``/update``
+    must delete and rebuild, which is exactly the #2121 occupied-slot
+    deadlock this issue is about. So a confirmed agent restart here also
+    triggers the same ``_restart_sibling_services`` call `_roll_python` uses,
+    and a sibling that fails to come back on the reverted slot fails this
+    rollback's own verdict — "the venv flipped back" is not "the host is
+    back", same reasoning as #2095 for the forward roll.
 
     #2121: *initiator* names this call on the target host's audit trail, the
     same as ``_roll_python``'s own ``/update`` POST a few lines up — both are
@@ -2968,9 +3079,26 @@ def _rollback_host(
     if status != 202:
         return False, str(body.get("error") or f"HTTP {status}")
 
-    back, version = _wait_agent_back(machine, agent_port=agent_port, timeout=timeout)
+    def _back_on_target(note: str) -> tuple[bool, str]:
+        """The agent answered ``/health`` on the reverted slot — re-home the
+        siblings onto it too (#3364) before this counts as done."""
+        sib_ok, sib_detail, _sib_failed = _restart_sibling_services(
+            machine, agent_port=agent_port
+        )
+        if sib_ok is False:
+            return False, f"{note}, but {sib_detail}"
+        # True (nothing failed) and None (this agent predates
+        # /restart-services — no channel to have restarted anything
+        # through) both still count as a rollback success: neither is a
+        # service THIS call took down.
+        return True, f"{note}; {sib_detail}"
+
+    back, version = _wait_agent_back(
+        machine, agent_port=agent_port, timeout=timeout,
+        expected_version=expected_version,
+    )
     if back:
-        return True, f"rolled back; agent is serving again on v{version}"
+        return _back_on_target(f"rolled back; agent is serving again on v{version}")
 
     # The re-exec did not take. This is the documented systemd stall, and it
     # has a documented fix — apply it rather than handing the operator a
@@ -2978,10 +3106,11 @@ def _rollback_host(
     escalated = _escalate_restart(machine)
     if escalated:
         back, version = _wait_agent_back(
-            machine, agent_port=agent_port, timeout=min(timeout, 60.0)
+            machine, agent_port=agent_port, timeout=min(timeout, 60.0),
+            expected_version=expected_version, require_change=False,
         )
         if back:
-            return True, (
+            return _back_on_target(
                 f"rolled back; agent needed an SSH `systemctl --user restart "
                 f"coord-agent` but is serving again on v{version}"
             )

@@ -35,7 +35,11 @@ class CreateChatCompletionV2Response(UniversalBaseModel):
     """
 
     service_tier: typing.Optional[str] = None
-    system_fingerprint: typing.Optional[str] = None
+    system_fingerprint: typing.Optional[str] = pydantic.Field(default=None)
+    """
+    OpenAI-compatible backend fingerprint when available. Always `null` on `glm5.3`.
+    """
+
     usage: typing.Optional[CompletionUsage] = None
 
     if IS_PYDANTIC_V2:

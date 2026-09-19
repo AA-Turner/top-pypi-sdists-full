@@ -35,4 +35,8 @@ class CreateChatCompletionV2ResponseParams(typing_extensions.TypedDict):
 
     service_tier: typing_extensions.NotRequired[str]
     system_fingerprint: typing_extensions.NotRequired[str]
+    """
+    OpenAI-compatible backend fingerprint when available. Always `null` on `glm5.3`.
+    """
+
     usage: typing_extensions.NotRequired[CompletionUsageParams]

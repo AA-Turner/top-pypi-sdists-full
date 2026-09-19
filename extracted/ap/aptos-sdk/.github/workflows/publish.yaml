@@ -1,0 +1,90 @@
+name: "Publish aptos-sdk to PyPI"
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (build only, no publish)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Test before publish
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/python-setup
+        with:
+          pyproject_directory: .
+
+      - name: Run unit tests
+        run: uv run python -m unittest discover -s aptos_sdk/ -p '*.py' -t ..
+
+      - name: Run BDD tests
+        run: uv run behave
+
+  build:
+    name: Build distribution
+    needs: test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd
+        with:
+          persist-credentials: false
+
+      - uses: ./.github/actions/python-setup
+
+      - name: Verify release tag matches package version
+        if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && (inputs.dry_run == false || inputs.dry_run == 'false'))
+        run: |
+          if [[ "${{ github.event_name }}" == "release" ]]; then
+            TAG="${{ github.event.release.tag_name }}"
+          elif [[ "${{ github.ref }}" =~ ^refs/tags/v ]]; then
+            TAG="${GITHUB_REF#refs/tags/}"
+          else
+            echo "::error::Manual publish must be dispatched from a version tag (refs/tags/v*), got ${{ github.ref }}"
+            exit 1
+          fi
+          VERSION=$(python -c "import pathlib, tomllib; print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])")
+          if [[ "v${VERSION}" != "${TAG}" ]]; then
+            echo "::error::Release tag ${TAG} does not match pyproject.toml version ${VERSION} (expected v${VERSION})"
+            exit 1
+          fi
+
+      - name: Build package
+        run: uv build
+
+      - name: Upload build artifacts
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02
+        with:
+          name: dist
+          path: dist/
+
+  publish-pypi:
+    name: Publish to PyPI
+    needs: build
+    if: github.event_name == 'release' || (github.event_name == 'workflow_dispatch' && (inputs.dry_run == false || inputs.dry_run == 'false'))
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download build artifacts
+        uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093
+        with:
+          name: dist
+          path: dist/
+
+      - name: Publish to PyPI via trusted publishing
+        # v1.14.2 — Twine 7 accepts hatchling Metadata-Version 2.5
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33

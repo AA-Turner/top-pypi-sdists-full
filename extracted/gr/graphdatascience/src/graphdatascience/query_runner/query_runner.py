@@ -1,16 +1,18 @@
 from abc import ABC, abstractmethod
 from typing import Any
 
+import neo4j
 from pandas import DataFrame
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.query_runner.graph_constructor import GraphConstructor
 from graphdatascience.query_runner.query_mode import QueryMode
 from graphdatascience.query_runner.query_type import QueryType
-from graphdatascience.server_version.server_version import ServerVersion
+from graphdatascience.versions import ServerVersion
 
 
 class QueryRunner(ABC):
+    hosted_in_aura: bool = False
+
     @abstractmethod
     def call_procedure(
         self,
@@ -32,6 +34,7 @@ class QueryRunner(ABC):
     ) -> Any:
         pass
 
+    # only use for user defined queries, and queries changing the GDS in-memory state
     @abstractmethod
     def run_cypher(
         self,
@@ -73,16 +76,10 @@ class QueryRunner(ABC):
         pass
 
     @abstractmethod
-    def set_bookmarks(self, bookmarks: Any | None) -> None:
+    def set_bookmarks(self, bookmarks: neo4j.Bookmarks | None) -> None:
         pass
 
     def close(self) -> None:
-        pass
-
-    @abstractmethod
-    def create_graph_constructor(
-        self, graph_name: str, concurrency: int, undirected_relationship_types: list[str] | None
-    ) -> GraphConstructor:
         pass
 
     @abstractmethod
@@ -90,11 +87,11 @@ class QueryRunner(ABC):
         pass
 
     @abstractmethod
-    def bookmarks(self) -> Any | None:
+    def bookmarks(self) -> neo4j.Bookmarks | None:
         pass
 
     @abstractmethod
-    def last_bookmarks(self) -> Any | None:
+    def last_bookmarks(self) -> neo4j.Bookmarks | None:
         pass
 
     @abstractmethod

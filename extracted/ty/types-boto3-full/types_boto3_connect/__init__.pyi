@@ -57,6 +57,7 @@ Usage::
         ListRoutingProfilesPaginator,
         ListRulesPaginator,
         ListSecurityKeysPaginator,
+        ListSecurityProfileAIAgentsPaginator,
         ListSecurityProfileApplicationsPaginator,
         ListSecurityProfileFlowModulesPaginator,
         ListSecurityProfilePermissionsPaginator,
@@ -147,6 +148,7 @@ Usage::
     list_routing_profiles_paginator: ListRoutingProfilesPaginator = client.get_paginator("list_routing_profiles")
     list_rules_paginator: ListRulesPaginator = client.get_paginator("list_rules")
     list_security_keys_paginator: ListSecurityKeysPaginator = client.get_paginator("list_security_keys")
+    list_security_profile_ai_agents_paginator: ListSecurityProfileAIAgentsPaginator = client.get_paginator("list_security_profile_ai_agents")
     list_security_profile_applications_paginator: ListSecurityProfileApplicationsPaginator = client.get_paginator("list_security_profile_applications")
     list_security_profile_flow_modules_paginator: ListSecurityProfileFlowModulesPaginator = client.get_paginator("list_security_profile_flow_modules")
     list_security_profile_permissions_paginator: ListSecurityProfilePermissionsPaginator = client.get_paginator("list_security_profile_permissions")
@@ -237,6 +239,7 @@ from .paginator import (
     ListRoutingProfilesPaginator,
     ListRulesPaginator,
     ListSecurityKeysPaginator,
+    ListSecurityProfileAIAgentsPaginator,
     ListSecurityProfileApplicationsPaginator,
     ListSecurityProfileFlowModulesPaginator,
     ListSecurityProfilePermissionsPaginator,
@@ -329,6 +332,7 @@ __all__ = (
     "ListRoutingProfilesPaginator",
     "ListRulesPaginator",
     "ListSecurityKeysPaginator",
+    "ListSecurityProfileAIAgentsPaginator",
     "ListSecurityProfileApplicationsPaginator",
     "ListSecurityProfileFlowModulesPaginator",
     "ListSecurityProfilePermissionsPaginator",

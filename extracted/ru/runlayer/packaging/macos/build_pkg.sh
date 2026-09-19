@@ -84,6 +84,7 @@ mkdir -p "$BUILD_DIR/payload/usr/local/bin"
 mkdir -p "$BUILD_DIR/payload/Library/LaunchAgents"
 mkdir -p "$BUILD_DIR/payload/Library/LaunchDaemons"
 mkdir -p "$BUILD_DIR/payload/Library/Google/Chrome/NativeMessagingHosts"
+mkdir -p "$BUILD_DIR/payload/Library/Microsoft/Edge/NativeMessagingHosts"
 mkdir -p "$BUILD_DIR/payload/Library/Application Support/Mozilla/NativeMessagingHosts"
 mkdir -p "$BUILD_DIR/scripts"
 
@@ -150,6 +151,8 @@ cp "$SCRIPT_DIR/com.runlayer.aiwatch.update.plist" \
     "$BUILD_DIR/payload/Library/LaunchDaemons/com.runlayer.aiwatch.update.plist"
 cp "$SCRIPT_DIR/com.runlayer.aiwatch.native-messaging-host.json" \
     "$BUILD_DIR/payload/Library/Google/Chrome/NativeMessagingHosts/com.runlayer.aiwatch.json"
+cp "$SCRIPT_DIR/com.runlayer.aiwatch.native-messaging-host.json" \
+    "$BUILD_DIR/payload/Library/Microsoft/Edge/NativeMessagingHosts/com.runlayer.aiwatch.json"
 cp "$SCRIPT_DIR/com.runlayer.aiwatch.firefox-native-messaging-host.json" \
     "$BUILD_DIR/payload/Library/Application Support/Mozilla/NativeMessagingHosts/com.runlayer.aiwatch.json"
 

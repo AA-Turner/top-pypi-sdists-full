@@ -9,6 +9,7 @@ from dataclasses import dataclass
 
 from . import asymmetric_crypto, asymmetric_crypto_wrapper, ed25519
 from .bcs import Deserializer, Serializer
+from .errors import InvalidKeyError
 
 
 class AuthKeyScheme:
@@ -16,9 +17,9 @@ class AuthKeyScheme:
     MultiEd25519: bytes = b"\x01"
     SingleKey: bytes = b"\x02"
     MultiKey: bytes = b"\x03"
-    DeriveObjectAddressFromGuid: bytes = b"\xFD"
-    DeriveObjectAddressFromSeed: bytes = b"\xFE"
-    DeriveResourceAccountAddress: bytes = b"\xFF"
+    DeriveObjectAddressFromGuid: bytes = b"\xfd"
+    DeriveObjectAddressFromSeed: bytes = b"\xfe"
+    DeriveResourceAccountAddress: bytes = b"\xff"
 
 
 class ParseAddressError(Exception):
@@ -82,8 +83,8 @@ class AccountAddress:
         """
         return all(b == 0 for b in self.address[:-1]) and self.address[-1] < 0b10000
 
-    @staticmethod
-    def from_str(address: str) -> AccountAddress:
+    @classmethod
+    def from_str(cls, address: str) -> AccountAddress:
         """
         NOTE: This function has strict parsing behavior. For relaxed behavior, please use
         `from_string_relaxed` function.
@@ -116,7 +117,7 @@ class AccountAddress:
         if not address.startswith("0x"):
             raise RuntimeError("Hex string must start with a leading 0x.")
 
-        out = AccountAddress.from_str_relaxed(address)
+        out = cls.from_str_relaxed(address)
 
         # Check if the address is in LONG form. If it is not, this is only allowed for
         # special addresses, in which case we check it is in proper SHORT form.
@@ -143,8 +144,8 @@ class AccountAddress:
 
         return out
 
-    @staticmethod
-    def from_str_relaxed(address: str) -> AccountAddress:
+    @classmethod
+    def from_str_relaxed(cls, address: str) -> AccountAddress:
         """
         NOTE: This function has relaxed parsing behavior. For strict behavior, please use
         the `from_string` function. Where possible, use `from_string` rather than this
@@ -180,25 +181,23 @@ class AccountAddress:
         # Assert the address is at least one hex char long.
         if len(addr) < 1:
             raise RuntimeError(
-                "Hex string is too short, must be 1 to 64 chars long, excluding the "
-                "leading 0x."
+                "Hex string is too short, must be 1 to 64 chars long, excluding the leading 0x."
             )
 
         # Assert the address is at most 64 hex chars long.
         if len(addr) > 64:
             raise RuntimeError(
-                "Hex string is too long, must be 1 to 64 chars long, excluding the "
-                "leading 0x."
+                "Hex string is too long, must be 1 to 64 chars long, excluding the leading 0x."
             )
 
         if len(addr) < AccountAddress.LENGTH * 2:
             pad = "0" * (AccountAddress.LENGTH * 2 - len(addr))
             addr = pad + addr
 
-        return AccountAddress(bytes.fromhex(addr))
+        return cls(bytes.fromhex(addr))
 
-    @staticmethod
-    def from_key(key: asymmetric_crypto.PublicKey) -> AccountAddress:
+    @classmethod
+    def from_key(cls, key: asymmetric_crypto.PublicKey) -> AccountAddress:
         hasher = hashlib.sha3_256()
         hasher.update(key.to_crypto_bytes())
 
@@ -211,55 +210,51 @@ class AccountAddress:
         elif isinstance(key, asymmetric_crypto_wrapper.MultiPublicKey):
             hasher.update(AuthKeyScheme.MultiKey)
         else:
-            raise Exception("Unsupported asymmetric_crypto.PublicKey key type.")
+            raise InvalidKeyError("Unsupported asymmetric_crypto.PublicKey key type.")
 
-        return AccountAddress(hasher.digest())
+        return cls(hasher.digest())
 
-    @staticmethod
-    def for_resource_account(creator: AccountAddress, seed: bytes) -> AccountAddress:
+    @classmethod
+    def for_resource_account(cls, creator: AccountAddress, seed: bytes) -> AccountAddress:
         hasher = hashlib.sha3_256()
         hasher.update(creator.address)
         hasher.update(seed)
         hasher.update(AuthKeyScheme.DeriveResourceAccountAddress)
-        return AccountAddress(hasher.digest())
+        return cls(hasher.digest())
 
-    @staticmethod
-    def for_guid_object(creator: AccountAddress, creation_num: int) -> AccountAddress:
+    @classmethod
+    def for_guid_object(cls, creator: AccountAddress, creation_num: int) -> AccountAddress:
         hasher = hashlib.sha3_256()
         serializer = Serializer()
         serializer.u64(creation_num)
         hasher.update(serializer.output())
         hasher.update(creator.address)
         hasher.update(AuthKeyScheme.DeriveObjectAddressFromGuid)
-        return AccountAddress(hasher.digest())
+        return cls(hasher.digest())
 
-    @staticmethod
-    def for_named_object(creator: AccountAddress, seed: bytes) -> AccountAddress:
+    @classmethod
+    def for_named_object(cls, creator: AccountAddress, seed: bytes) -> AccountAddress:
         hasher = hashlib.sha3_256()
         hasher.update(creator.address)
         hasher.update(seed)
         hasher.update(AuthKeyScheme.DeriveObjectAddressFromSeed)
-        return AccountAddress(hasher.digest())
+        return cls(hasher.digest())
 
-    @staticmethod
+    @classmethod
     def for_named_token(
-        creator: AccountAddress, collection_name: str, token_name: str
+        cls, creator: AccountAddress, collection_name: str, token_name: str
     ) -> AccountAddress:
         collection_bytes = collection_name.encode()
         token_bytes = token_name.encode()
-        return AccountAddress.for_named_object(
-            creator, collection_bytes + b"::" + token_bytes
-        )
+        return cls.for_named_object(creator, collection_bytes + b"::" + token_bytes)
 
-    @staticmethod
-    def for_named_collection(
-        creator: AccountAddress, collection_name: str
-    ) -> AccountAddress:
-        return AccountAddress.for_named_object(creator, collection_name.encode())
+    @classmethod
+    def for_named_collection(cls, creator: AccountAddress, collection_name: str) -> AccountAddress:
+        return cls.for_named_object(creator, collection_name.encode())
 
-    @staticmethod
-    def deserialize(deserializer: Deserializer) -> AccountAddress:
-        return AccountAddress(deserializer.fixed_bytes(AccountAddress.LENGTH))
+    @classmethod
+    def deserialize(cls, deserializer: Deserializer) -> AccountAddress:
+        return cls(deserializer.fixed_bytes(AccountAddress.LENGTH))
 
     def serialize(self, serializer: Serializer):
         serializer.fixed_bytes(self.address)
@@ -403,9 +398,7 @@ class Test(unittest.TestCase):
         expected = AccountAddress.from_str_relaxed(
             "e20d1f22a5400ba7be0f515b7cbd00edc42dbcc31acc01e31128b2b5ddb3c56e"
         )
-        actual = AccountAddress.for_named_token(
-            base_address, "bob's collection", "bob's token"
-        )
+        actual = AccountAddress.for_named_token(base_address, "bob's collection", "bob's token")
         self.assertEqual(actual, expected)
 
     def test_to_standard_string(self):
@@ -543,17 +536,11 @@ class Test(unittest.TestCase):
 
         # Demonstrate that padding zeroes are allowed for 0x0f.
         self.assertEqual(
-            str(
-                AccountAddress.from_str_relaxed(ADDRESS_F_PADDED_SHORT_FORM.shortWith0x)
-            ),
+            str(AccountAddress.from_str_relaxed(ADDRESS_F_PADDED_SHORT_FORM.shortWith0x)),
             ADDRESS_F.shortWith0x,
         )
         self.assertEqual(
-            str(
-                AccountAddress.from_str_relaxed(
-                    ADDRESS_F_PADDED_SHORT_FORM.shortWithout0x
-                )
-            ),
+            str(AccountAddress.from_str_relaxed(ADDRESS_F_PADDED_SHORT_FORM.shortWithout0x)),
             ADDRESS_F.shortWith0x,
         )
 
@@ -591,30 +578,18 @@ class Test(unittest.TestCase):
             str(AccountAddress.from_str(ADDRESS_ZERO.longWith0x)),
             ADDRESS_ZERO.shortWith0x,
         )
-        self.assertRaises(
-            RuntimeError, AccountAddress.from_str, ADDRESS_ZERO.longWithout0x
-        )
+        self.assertRaises(RuntimeError, AccountAddress.from_str, ADDRESS_ZERO.longWithout0x)
         self.assertEqual(
             str(AccountAddress.from_str(ADDRESS_ZERO.shortWith0x)),
             ADDRESS_ZERO.shortWith0x,
         )
-        self.assertRaises(
-            RuntimeError, AccountAddress.from_str, ADDRESS_ZERO.shortWithout0x
-        )
+        self.assertRaises(RuntimeError, AccountAddress.from_str, ADDRESS_ZERO.shortWithout0x)
 
         # Demonstrate that only LONG and SHORT are accepted for 0xf.
-        self.assertEqual(
-            str(AccountAddress.from_str(ADDRESS_F.longWith0x)), ADDRESS_F.shortWith0x
-        )
-        self.assertRaises(
-            RuntimeError, AccountAddress.from_str, ADDRESS_F.longWithout0x
-        )
-        self.assertEqual(
-            str(AccountAddress.from_str(ADDRESS_F.shortWith0x)), ADDRESS_F.shortWith0x
-        )
-        self.assertRaises(
-            RuntimeError, AccountAddress.from_str, ADDRESS_F.shortWithout0x
-        )
+        self.assertEqual(str(AccountAddress.from_str(ADDRESS_F.longWith0x)), ADDRESS_F.shortWith0x)
+        self.assertRaises(RuntimeError, AccountAddress.from_str, ADDRESS_F.longWithout0x)
+        self.assertEqual(str(AccountAddress.from_str(ADDRESS_F.shortWith0x)), ADDRESS_F.shortWith0x)
+        self.assertRaises(RuntimeError, AccountAddress.from_str, ADDRESS_F.shortWithout0x)
 
         # Demonstrate that padding zeroes are not allowed for 0x0f.
         self.assertRaises(
@@ -632,21 +607,13 @@ class Test(unittest.TestCase):
         self.assertEqual(
             str(AccountAddress.from_str(ADDRESS_TEN.longWith0x)), ADDRESS_TEN.longWith0x
         )
-        self.assertRaises(
-            RuntimeError, AccountAddress.from_str, ADDRESS_TEN.longWithout0x
-        )
-        self.assertRaises(
-            RuntimeError, AccountAddress.from_str, ADDRESS_TEN.shortWith0x
-        )
-        self.assertRaises(
-            RuntimeError, AccountAddress.from_str, ADDRESS_TEN.shortWithout0x
-        )
+        self.assertRaises(RuntimeError, AccountAddress.from_str, ADDRESS_TEN.longWithout0x)
+        self.assertRaises(RuntimeError, AccountAddress.from_str, ADDRESS_TEN.shortWith0x)
+        self.assertRaises(RuntimeError, AccountAddress.from_str, ADDRESS_TEN.shortWithout0x)
 
         # Demonstrate that only LONG format is accepted for other addresses.
         self.assertEqual(
             str(AccountAddress.from_str(ADDRESS_OTHER.longWith0x)),
             ADDRESS_OTHER.longWith0x,
         )
-        self.assertRaises(
-            RuntimeError, AccountAddress.from_str, ADDRESS_OTHER.longWithout0x
-        )
+        self.assertRaises(RuntimeError, AccountAddress.from_str, ADDRESS_OTHER.longWithout0x)

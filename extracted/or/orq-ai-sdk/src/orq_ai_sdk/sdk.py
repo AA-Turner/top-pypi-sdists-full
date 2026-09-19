@@ -54,7 +54,6 @@ if TYPE_CHECKING:
     from orq_ai_sdk.sessions import Sessions
     from orq_ai_sdk.skills import Skills
     from orq_ai_sdk.smartrouters import SmartRouters
-    from orq_ai_sdk.telemetry_sdk import TelemetrySDK
     from orq_ai_sdk.tools import Tools
     from orq_ai_sdk.traces import Traces
     from orq_ai_sdk.webhooks import Webhooks
@@ -85,7 +84,6 @@ class Orq(BaseSDK):
     pii: "Pii"
     logs: "Logs"
     reporting: "Reporting"
-    telemetry: "TelemetrySDK"
     traces: "Traces"
     models: "Models"
     policies: "Policies"
@@ -132,7 +130,6 @@ class Orq(BaseSDK):
         "pii": ("orq_ai_sdk.pii", "Pii"),
         "logs": ("orq_ai_sdk.logs", "Logs"),
         "reporting": ("orq_ai_sdk.reporting", "Reporting"),
-        "telemetry": ("orq_ai_sdk.telemetry_sdk", "TelemetrySDK"),
         "traces": ("orq_ai_sdk.traces", "Traces"),
         "models": ("orq_ai_sdk.models_", "Models"),
         "policies": ("orq_ai_sdk.policies", "Policies"),

@@ -383,11 +383,13 @@ pub fn screenshot_annotated(region: Option<Rect>, groups: &[Locator]) -> Result<
     // the coordinate-space origin. Assuming (0, 0) drew every box a monitor's
     // width out of place and reported nothing, because the shifted rects still
     // landed inside the wider image.
+    let backend = screenshot_backend()?;
     let (shot, origin) = match region {
-        Some(rect) => (screenshot_region(rect)?, Point::new(rect.x, rect.y)),
-        None => screenshot_backend()?.capture_full()?,
+        Some(rect) => (backend.capture_region(rect)?, Point::new(rect.x, rect.y)),
+        None => backend.capture_full()?,
     };
-    let drawn = draw_and_reconcile(&shot, origin, &annotations, &mut legend, &mut omitted)?;
+    let (drawn, skipped) = shot.annotate(&annotations, origin)?;
+    reconcile_skipped(&shot, &annotations, skipped, &mut legend, &mut omitted)?;
 
     Ok(Annotated::for_capture(drawn, legend, omitted, truncated))
 }
@@ -411,25 +413,18 @@ pub fn screenshot_annotated(region: Option<Rect>, groups: &[Locator]) -> Result<
 ///
 /// Split out from [`screenshot_annotated`] so the reconciliation is testable
 /// against a synthetic [`Screenshot`], with no display and no permissions.
+#[cfg(test)]
 fn draw_and_reconcile(
     shot: &Screenshot,
-    origin: Point,
-    annotations: &[screenshot::Annotation],
+    physical_annotations: &[screenshot::Annotation],
     legend: &mut Vec<LegendEntry>,
     omitted: &mut Vec<Omission>,
 ) -> Result<Screenshot> {
-    let (drawn, skipped) = shot.annotate(annotations, origin)?;
-    // The same clamp `Rect::to_physical` applies internally: a non-finite or
-    // non-positive scale is identity, never garbage.
-    let scale = if shot.scale.is_finite() && shot.scale > 0.0 {
-        f64::from(shot.scale)
-    } else {
-        1.0
-    };
+    let (drawn, skipped) = shot.annotate_physical(physical_annotations)?;
     // Descending, so each removal cannot shift an index still to be removed.
     for i in skipped.iter().rev() {
         let entry = legend.remove(*i);
-        let physical = entry.bounds.to_physical(scale);
+        let physical = physical_annotations[*i].rect;
         let reason = if physical.width == 0 || physical.height == 0 {
             OmissionReason::ZeroArea
         } else {
@@ -443,6 +438,38 @@ fn draw_and_reconcile(
         ));
     }
     Ok(drawn)
+}
+
+fn reconcile_skipped(
+    shot: &Screenshot,
+    annotations: &[screenshot::Annotation],
+    skipped: Vec<usize>,
+    legend: &mut Vec<LegendEntry>,
+    omitted: &mut Vec<Omission>,
+) -> Result<()> {
+    for i in skipped.iter().rev() {
+        let entry = legend.remove(*i);
+        let rect = annotations[*i].rect;
+        let mapped_zero_area = if shot.mapping_available() {
+            let parts = shot.desktop_rect_to_image(rect)?;
+            !parts.is_empty() && parts.iter().all(|part| part.width == 0 || part.height == 0)
+        } else {
+            let physical = rect.to_physical(f64::from(shot.scale));
+            physical.width == 0 || physical.height == 0
+        };
+        let reason = if rect.width == 0 || rect.height == 0 || mapped_zero_area {
+            OmissionReason::ZeroArea
+        } else {
+            OmissionReason::OutsideCapture
+        };
+        omitted.push(Omission::new(
+            entry.selector,
+            entry.role,
+            entry.name,
+            reason,
+        ));
+    }
+    Ok(())
 }
 
 /// One matched element, with everything both a legend entry and an omission
@@ -718,10 +745,11 @@ mod app_ext {
         /// `timeout` elapses. Pass `Duration::ZERO` for a single attempt with
         /// no waiting. Unlike [`find`](Self::find) with a `|d| d.states.focused`
         /// predicate, this queries the platform foreground mechanism directly,
-        /// so on Windows it returns the exact foreground window even when the
-        /// process owns several top-level windows. See [`App::foreground_with`]
-        /// for the full contract and [`by_name`](Self::by_name) for retry
-        /// semantics.
+        /// so the result is the foreground *process*'s Application node — not
+        /// the exact window holding the foreground; on Windows that is the
+        /// process's synthesized node even when it owns several top-level
+        /// windows. See [`App::foreground_with`] for the full contract and
+        /// [`by_name`](Self::by_name) for retry semantics.
         fn foreground(timeout: Duration) -> Result<Self>;
         /// List all running applications using the global singleton provider.
         fn list() -> Result<Vec<Self>>;
@@ -882,6 +910,31 @@ mod annotated_tests {
         )
     }
 
+    fn map_uniform(
+        shot: &Screenshot,
+        origin: Point,
+        annotations: &[screenshot::Annotation],
+    ) -> Vec<screenshot::Annotation> {
+        let scale = if shot.scale.is_finite() && shot.scale > 0.0 {
+            f64::from(shot.scale)
+        } else {
+            1.0
+        };
+        annotations
+            .iter()
+            .map(|annotation| {
+                let translated = Rect {
+                    x: annotation.rect.x.saturating_sub(origin.x),
+                    y: annotation.rect.y.saturating_sub(origin.y),
+                    width: annotation.rect.width,
+                    height: annotation.rect.height,
+                };
+                screenshot::Annotation::new(translated.to_physical(scale), annotation.tag.clone())
+                    .color(annotation.color)
+            })
+            .collect()
+    }
+
     // ── A two-application desktop ────────────────────────────────────────
     //
     // The shared mock has exactly one application, which is why every
@@ -996,6 +1049,31 @@ mod annotated_tests {
 
         fn list_shell_surfaces(&self) -> Result<Vec<(ShellSurfaceKind, ElementData)>> {
             Ok(Vec::new())
+        }
+
+        fn activate(&self, _: &ElementData) -> Result<()> {
+            Err(unsupported_in_fixture())
+        }
+        fn minimize(&self, _: &ElementData) -> Result<()> {
+            Err(unsupported_in_fixture())
+        }
+        fn maximize(&self, _: &ElementData) -> Result<()> {
+            Err(unsupported_in_fixture())
+        }
+        fn enter_fullscreen(&self, _: &ElementData) -> Result<()> {
+            Err(unsupported_in_fixture())
+        }
+        fn restore(&self, _: &ElementData) -> Result<()> {
+            Err(unsupported_in_fixture())
+        }
+        fn close(&self, _: &ElementData) -> Result<()> {
+            Err(unsupported_in_fixture())
+        }
+        fn move_to(&self, _: &ElementData, _: i32, _: i32) -> Result<()> {
+            Err(unsupported_in_fixture())
+        }
+        fn resize_to(&self, _: &ElementData, _: u32, _: u32) -> Result<()> {
+            Err(unsupported_in_fixture())
         }
 
         // This fixture is a tree reader, not an action target: every mutating
@@ -1446,14 +1524,9 @@ mod annotated_tests {
 
         // A capture covering only the first button's column.
         let shot = blank(60, 60);
-        let drawn = draw_and_reconcile(
-            &shot,
-            Point::new(100, 50),
-            &annotations,
-            &mut legend,
-            &mut omitted,
-        )
-        .expect("a well-formed capture must annotate");
+        let physical = map_uniform(&shot, Point::new(100, 50), &annotations);
+        let drawn = draw_and_reconcile(&shot, &physical, &mut legend, &mut omitted)
+            .expect("a well-formed capture must annotate");
 
         assert_eq!(drawn.width, 60);
         assert_eq!(legend.len(), 1, "only the visible button keeps its entry");
@@ -1473,14 +1546,9 @@ mod annotated_tests {
         let (annotations, mut legend, mut omitted) = plan_annotations(&out);
 
         let shot = blank(400, 300);
-        let drawn = draw_and_reconcile(
-            &shot,
-            Point::new(100, 50),
-            &annotations,
-            &mut legend,
-            &mut omitted,
-        )
-        .expect("annotate");
+        let physical = map_uniform(&shot, Point::new(100, 50), &annotations);
+        let drawn =
+            draw_and_reconcile(&shot, &physical, &mut legend, &mut omitted).expect("annotate");
 
         assert_eq!(legend.len(), 2);
         assert!(omitted.is_empty());
@@ -1498,14 +1566,8 @@ mod annotated_tests {
         assert_eq!(annotations.len(), 1, "1x1 logical is drawable on its face");
 
         let shot = blank_scaled(40, 40, 0.25);
-        draw_and_reconcile(
-            &shot,
-            Point::new(0, 0),
-            &annotations,
-            &mut legend,
-            &mut omitted,
-        )
-        .expect("annotate");
+        let physical = map_uniform(&shot, Point::new(0, 0), &annotations);
+        draw_and_reconcile(&shot, &physical, &mut legend, &mut omitted).expect("annotate");
 
         assert!(legend.is_empty());
         assert_eq!(omitted.len(), 1);
@@ -1524,14 +1586,8 @@ mod annotated_tests {
         let (annotations, mut legend, mut omitted) = plan_annotations(&planned);
 
         let shot = blank(40, 40);
-        draw_and_reconcile(
-            &shot,
-            Point::new(0, 0),
-            &annotations,
-            &mut legend,
-            &mut omitted,
-        )
-        .expect("annotate");
+        let physical = map_uniform(&shot, Point::new(0, 0), &annotations);
+        draw_and_reconcile(&shot, &physical, &mut legend, &mut omitted).expect("annotate");
 
         assert_eq!(legend.len(), 1);
         assert_eq!(legend[0].index, 2);

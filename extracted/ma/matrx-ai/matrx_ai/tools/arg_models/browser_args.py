@@ -146,6 +146,24 @@ class BrowserDismissHandoffArgs(BaseModel):
     profile_id: str = _PROFILE_FIELD_DEFAULT
 
 
+class BrowserListProfilesArgs(BaseModel):
+    """List the acting user's own cloud browsers so a NAMED one can be opened.
+
+    A person may hold as many browsers as they want (D-28), and until this
+    existed the tool had no way to learn their names: "use my work browser"
+    could only be guessed at. Call this when the person names a browser, then
+    pass the returned ``profile_id`` to ``navigate``.
+
+    ``profile_id`` is kept for S6 uniformity (every variant carries it) and is
+    ignored here — the listing is always the acting user's own browsers.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    action: Literal["list_profiles"]
+    profile_id: str = _PROFILE_FIELD_DEFAULT
+
+
 CloudBrowserVariant = Annotated[
     BrowserNavigateArgs
     | BrowserClickArgs
@@ -156,7 +174,8 @@ CloudBrowserVariant = Annotated[
     | BrowserScrollArgs
     | BrowserScreenshotArgs
     | BrowserCloseArgs
-    | BrowserDismissHandoffArgs,
+    | BrowserDismissHandoffArgs
+    | BrowserListProfilesArgs,
     Field(discriminator="action"),
 ]
 

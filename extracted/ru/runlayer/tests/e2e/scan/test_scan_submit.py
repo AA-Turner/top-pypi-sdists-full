@@ -10,7 +10,7 @@ from tests.e2e.conftest import strip_ansi
 
 from runlayer_cli.main import app
 from runlayer_cli.scan.client_presence import DetectedClient
-from runlayer_cli.scan.service import ScanResult
+from runlayer_cli.scan.service import ScanResult, ScanSubmissionResult
 
 pytestmark = pytest.mark.no_backend_e2e
 
@@ -26,6 +26,14 @@ def _invoke_scan(runner, httpserver, **extra_args):
     args = ["scan", "--no-projects", "--secret", "rl_org_test", "--host", host]
     for k, v in extra_args.items():
         args.extend([f"--{k}", str(v)])
+    httpserver.expect_request(
+        "/api/v1/ai-watch/scan-manifest", method="POST"
+    ).respond_with_json(
+        {
+            "entries_reconciled": 0,
+            "installations_updated": 0,
+        }
+    )
     return runner.invoke(app, args)
 
 
@@ -134,12 +142,13 @@ def test_scan_submit_detected_client_without_mcp_config(
             "display_name": "Cursor",
             "client_version": "1.0.0",
             "detected_via": ["app"],
+            "evidence_origin": "static",
             "config_paths": [],
         }
     ]
 
 
-def test_scan_submit_with_findings_skips_detect_checkin(
+def test_scan_submit_with_findings_records_detect_checkin(
     runner, scan_home, httpserver, monkeypatch
 ):
     detect_checkins = []
@@ -176,7 +185,7 @@ def test_scan_submit_with_findings_skips_detect_checkin(
     result = _invoke_scan(runner, httpserver)
 
     assert result.exit_code == 0, strip_ansi(result.output)
-    assert detect_checkins == []
+    assert len(detect_checkins) == 1
 
 
 def test_scan_no_findings_records_detect_checkin(runner, httpserver, monkeypatch):
@@ -192,10 +201,17 @@ def test_scan_no_findings_records_detect_checkin(runner, httpserver, monkeypatch
         configurations=[],
     )
     detect_checkins = []
+    submitted_results = []
 
     monkeypatch.setattr(
         "runlayer_cli.commands.scan.scan_all_clients",
         lambda **_kwargs: empty_result,
+    )
+    monkeypatch.setattr(
+        "runlayer_cli.commands.scan.submit_scan_results",
+        lambda _client, scan_result, **_kwargs: (
+            submitted_results.append(scan_result) or ScanSubmissionResult()
+        ),
     )
     monkeypatch.setattr(
         "runlayer_cli.aiwatch_checkin.submit_detect_checkin",
@@ -217,6 +233,7 @@ def test_scan_no_findings_records_detect_checkin(runner, httpserver, monkeypatch
         "No AI clients, MCP servers, skills, plugins, agents, processes, "
         "or containers found." in strip_ansi(result.output)
     )
+    assert submitted_results == [empty_result]
     assert detect_checkins == [empty_result]
 
 
@@ -452,11 +469,11 @@ def test_scan_submission_failure_is_not_reported_as_unsupported(
     )
     monkeypatch.setattr(
         "runlayer_cli.scan.service.submit_discovered_skills",
-        lambda client, skills, scan_result=None, artifact_cache=None: "failed",
+        lambda client, skills, scan_result=None, **_kwargs: "failed",
     )
     monkeypatch.setattr(
         "runlayer_cli.scan.service.submit_discovered_plugins",
-        lambda client, plugins, scan_result=None, artifact_cache=None: "success",
+        lambda client, plugins, scan_result=None, **_kwargs: "success",
     )
 
     result = _invoke_scan(runner, httpserver)
@@ -476,11 +493,11 @@ def test_scan_skills_unsupported_exits_2(runner, scan_home, httpserver, monkeypa
     )
     monkeypatch.setattr(
         "runlayer_cli.scan.service.submit_discovered_skills",
-        lambda client, skills, scan_result=None, artifact_cache=None: "unsupported",
+        lambda client, skills, scan_result=None, **_kwargs: "unsupported",
     )
     monkeypatch.setattr(
         "runlayer_cli.scan.service.submit_discovered_plugins",
-        lambda client, plugins, scan_result=None, artifact_cache=None: "success",
+        lambda client, plugins, scan_result=None, **_kwargs: "success",
     )
 
     result = _invoke_scan(runner, httpserver)
@@ -496,11 +513,11 @@ def test_scan_plugins_failed_exits_3(runner, scan_home, httpserver, monkeypatch)
     )
     monkeypatch.setattr(
         "runlayer_cli.scan.service.submit_discovered_skills",
-        lambda client, skills, scan_result=None, artifact_cache=None: "success",
+        lambda client, skills, scan_result=None, **_kwargs: "success",
     )
     monkeypatch.setattr(
         "runlayer_cli.scan.service.submit_discovered_plugins",
-        lambda client, plugins, scan_result=None, artifact_cache=None: "failed",
+        lambda client, plugins, scan_result=None, **_kwargs: "failed",
     )
 
     result = _invoke_scan(runner, httpserver)
@@ -516,11 +533,11 @@ def test_scan_failed_outranks_unsupported(runner, scan_home, httpserver, monkeyp
     )
     monkeypatch.setattr(
         "runlayer_cli.scan.service.submit_discovered_skills",
-        lambda client, skills, scan_result=None, artifact_cache=None: "unsupported",
+        lambda client, skills, scan_result=None, **_kwargs: "unsupported",
     )
     monkeypatch.setattr(
         "runlayer_cli.scan.service.submit_discovered_plugins",
-        lambda client, plugins, scan_result=None, artifact_cache=None: "failed",
+        lambda client, plugins, scan_result=None, **_kwargs: "failed",
     )
 
     result = _invoke_scan(runner, httpserver)
@@ -535,18 +552,18 @@ def test_scan_server_network_error_exits_3(runner, scan_home, httpserver, monkey
     monkeypatch.setattr("runlayer_cli.api.RunlayerClient.submit_mcp_watch_scan", _boom)
     monkeypatch.setattr(
         "runlayer_cli.scan.service.submit_discovered_skills",
-        lambda client, skills, scan_result=None, artifact_cache=None: "success",
+        lambda client, skills, scan_result=None, **_kwargs: "success",
     )
     monkeypatch.setattr(
         "runlayer_cli.scan.service.submit_discovered_plugins",
-        lambda client, plugins, scan_result=None, artifact_cache=None: "success",
+        lambda client, plugins, scan_result=None, **_kwargs: "success",
     )
 
     result = _invoke_scan(runner, httpserver)
     out = strip_ansi(result.output)
 
     assert result.exit_code == 3, out
-    assert "Could not submit servers; scan may be incomplete" in out
+    assert "Could not submit servers and clients; scan may be incomplete" in out
 
 
 # ── Submit 5xx (HTTP status error) must fail, not silent-green ───────
@@ -638,7 +655,7 @@ def test_scan_server_500_still_submits_skills_and_plugins(
     out = strip_ansi(result.output)
 
     assert result.exit_code == 3, out
-    assert "Could not submit servers; scan may be incomplete" in out
+    assert "Could not submit servers and clients; scan may be incomplete" in out
     assert len(skill_submits) >= 1
     assert len(plugin_submits) >= 1
 
@@ -775,4 +792,4 @@ def test_scan_server_error(runner, scan_home, httpserver):
     out = strip_ansi(result.output)
 
     assert result.exit_code == 3, out
-    assert "Could not submit servers; scan may be incomplete" in out
+    assert "Could not submit servers and clients; scan may be incomplete" in out

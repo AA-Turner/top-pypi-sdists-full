@@ -1,4 +1,5 @@
 import unittest, uuid
+from unittest.mock import MagicMock
 from io import BytesIO
 from packaging.specifiers import SpecifierSet
 from pathlib import Path
@@ -15,7 +16,7 @@ from build123d.exporters3d import export_stl
 from build123d.objects_part import Box, Cylinder
 from build123d.objects_sketch import Rectangle
 from build123d.operations_part import extrude
-from build123d.topology import Compound, Solid
+from build123d.topology import Compound, Part, Solid
 from build123d.geometry import Axis, Color, Location, Vector, VectorLike
 from build123d.mesher import Mesher
 
@@ -55,6 +56,8 @@ class TestProperties(unittest.TestCase):
 
     def test_units(self):
         for unit in Unit:
+            if unit in [Unit.G, Unit.KG, Unit.LB]:
+                continue
             filename = temp_3mf_file()
             exporter = Mesher(unit=unit)
             exporter.add_shape(Solid.make_box(1, 1, 1))
@@ -165,6 +168,26 @@ class TestAddShape(DirectApiTestCase):
         self.assertTupleAlmostEquals(tuple(box.color), (0, 0, 1, 1), 5)
         self.assertTupleAlmostEquals(tuple(cone.color), (1, 0, 0, 1), 5)
 
+    def test_add_colored_base_part_objects(self):
+        """Parent colors survive 3MF export of BasePartObject wrappers."""
+        parts = [Box(1, 1, 1), Box(1, 1, 1).locate(Location((2, 0, 0)))]
+        expected_colors = [Color("red"), Color(0, 0, 1, 0.25)]
+        for part, color in zip(parts, expected_colors):
+            part.color = color
+
+        exporter = Mesher()
+        exporter.add_shape(parts)
+        filename = temp_3mf_file()
+        exporter.write(filename)
+
+        importer = Mesher()
+        imported_parts = importer.read(filename)
+        self.assertEqual(importer.mesh_count, 2)
+        for imported_part, expected_color in zip(imported_parts, expected_colors):
+            self.assertTupleAlmostEquals(
+                tuple(imported_part.color), tuple(expected_color), 2
+            )
+
     def test_add_compound(self):
         exporter = Mesher()
         box = Solid.make_box(1, 1, 1)
@@ -176,6 +199,53 @@ class TestAddShape(DirectApiTestCase):
         importer = Mesher()
         shapes = importer.read(filename)
         self.assertEqual(importer.mesh_count, 2)
+
+    def test_add_labeled_compounds(self):
+        labels = ["A", "B", "C"]
+        for use_assembly in (False, True):
+            with self.subTest(use_assembly=use_assembly):
+                parts = [
+                    Box(1, 1, 1).locate(Location((index * 2, 0, 0)))
+                    for index in range(3)
+                ]
+                for part, label in zip(parts, labels):
+                    part.label = label
+
+                input_shape = Compound(children=parts) if use_assembly else parts
+                exporter = Mesher()
+                exporter.add_shape(input_shape)
+                filename = temp_3mf_file()
+                exporter.write(filename)
+
+                importer = Mesher()
+                importer.read(filename)
+                self.assertEqual(
+                    [
+                        properties["name"]
+                        for properties in importer.get_mesh_properties()
+                    ],
+                    labels,
+                )
+
+    def test_add_labeled_part(self):
+        part = Part(
+            Compound(
+                [
+                    Box(1, 1, 1),
+                    Box(1, 1, 1).locate(Location((2, 0, 0))),
+                ]
+            ).wrapped,
+            label="assembly",
+        )
+        exporter = Mesher()
+        exporter.add_shape(part)
+        filename = temp_3mf_file()
+        exporter.write(filename)
+
+        importer = Mesher()
+        importer.read(filename)
+        self.assertEqual(importer.mesh_count, 1)
+        self.assertEqual(importer.get_mesh_properties()[0]["name"], "assembly")
 
 
 class TestErrorChecking(unittest.TestCase):
@@ -254,6 +324,17 @@ def test_in_memory_mesher_invalid_file_type():
     exporter.add_shape(Solid.make_box(1, 1, 1))
     with pytest.raises(ValueError, match="Unknown file format"):
         exporter.write_stream(stream, "obj")  # type: ignore[arg-type]
+
+
+class TestInvalidMesh(unittest.TestCase):
+    def test_invalid_3mf_mesh(self):
+        mesher = Mesher()
+        mesh = MagicMock()
+        mesh.IsValid.return_value = False
+        mesher.model = MagicMock()
+        mesher.model.AddMeshObject.return_value = mesh
+        with self.assertRaisesRegex(RuntimeError, "3mf mesh is invalid"):
+            mesher.add_shape(Solid.make_box(1, 1, 1))
 
 
 if __name__ == "__main__":

@@ -57,9 +57,11 @@ from runlayer_cli.hook_install.clients import (
 from runlayer_cli.hook_install.console_user import reown_to_console_user
 from runlayer_cli.hook_install.paths import (
     InstallScope,
+    codex_toml_file_name,
     ManagedPathError,
     enterprise_claude_code_dir,
     enterprise_cline_cli_dir,
+    enterprise_codex_dir,
     enterprise_gemini_cli_dir,
     enterprise_devin_cli_dir,
     enterprise_grok_cli_dir,
@@ -87,6 +89,10 @@ from runlayer_cli.hook_install.safe_fs import (
     path_has_link_or_reparse_point,
 )
 from runlayer_cli.mdm_config import AIWatchMode
+from runlayer_cli.plugins.constants import (
+    CODEX_TOOL_EXPOSURE_HEADER,
+    RUNLAYER_PLUGIN_ID,
+)
 from runlayer_cli.scan.clients import get_client_by_name
 from runlayer_cli.symbols import FAIL, OK, WARN
 from runlayer_cli.macos_test_device_config import (
@@ -259,11 +265,9 @@ def _get_enterprise_claude_code_dir() -> Path:
 
 
 def _get_enterprise_codex_dir() -> Path:
-    """Get platform-specific enterprise Codex config directory."""
-    system = plat.system()
-    if system == "Windows":
-        return Path.home() / ".codex"
-    return Path("/etc/codex")
+    """Codex System layer dir — shared with ``hook_install.paths`` so the
+    operator and AI Watch ``--mdm`` paths converge on the same files."""
+    return enterprise_codex_dir()
 
 
 def _get_enterprise_windsurf_dir() -> Path:
@@ -1069,9 +1073,9 @@ def _set_codex_hooks_feature_enabled(config_path: Path) -> None:
 
 
 def _codex_config_file_path(config_dir: Path, mdm: bool) -> Path:
-    """Get the Codex config file path for the chosen layer."""
-    file_name = "managed_config.toml" if mdm else "config.toml"
-    return config_dir / file_name
+    """Codex TOML for the chosen layer; shares the filename rule with the
+    AI Watch writer (``hook_install.paths.codex_toml_file_name``)."""
+    return config_dir / codex_toml_file_name(mdm=mdm)
 
 
 def _migrate_user_to_enterprise(client: Client) -> None:
@@ -3510,10 +3514,19 @@ def _build_codex_server_entry(spec: InstallServerSpec) -> dict[str, Any]:
             "args": ["runlayer", "run", spec.server_id, "--host", spec.host],
         }
     entry: dict[str, Any] = {"url": spec.proxy_url}
-    if spec.headers:
-        entry["http_headers"] = spec.headers
-    if spec.is_dynamic_plugin:
-        entry["omit_tools_from"] = ["deferred"]
+    client_routed_plugin = (
+        spec.server_id == RUNLAYER_PLUGIN_ID or spec.is_dynamic_plugin
+    )
+    headers = dict(spec.headers or {})
+    if client_routed_plugin:
+        headers = {
+            key: value
+            for key, value in headers.items()
+            if key.lower() != CODEX_TOOL_EXPOSURE_HEADER.lower()
+        }
+        headers[CODEX_TOOL_EXPOSURE_HEADER] = "client-default"
+    if headers:
+        entry["http_headers"] = headers
     return entry
 
 

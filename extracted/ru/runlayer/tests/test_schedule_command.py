@@ -327,6 +327,10 @@ class TestUvToolCleanup:
         with (
             patch.object(schedule_mod, "uv_tool_cleanup_completed", return_value=False),
             patch.object(schedule_mod, "RunlayerClient", return_value=client),
+            patch(
+                "runlayer_cli.scan.device.get_or_create_device_id",
+                return_value="dev-123",
+            ),
             patch.object(
                 schedule_mod, "cleanup_uv_tool", return_value=False
             ) as cleanup,
@@ -334,6 +338,8 @@ class TestUvToolCleanup:
         ):
             schedule_mod._run_uv_tool_cleanup(_CONFIGURED)
 
+        # The live fetch carries the same device identity as check-in.
+        client.get_aiwatch_config.assert_called_once_with(device_id="dev-123")
         if enabled:
             cleanup.assert_called_once_with()
             write_marker.assert_called_once_with()

@@ -83,20 +83,16 @@ class AccountSequenceNumber:
                 await self._initialize()
             # If there are more than self._maximum_in_flight in flight, wait for a slot.
             # Or at least check to see if there is a slot and exit if in non-blocking mode.
-            if (
-                self._current_number - self._last_uncommitted_number
-                >= self._maximum_in_flight
-            ):
+            if self._current_number - self._last_uncommitted_number >= self._maximum_in_flight:
                 await self._update()
-                if (
-                    self._current_number - self._last_uncommitted_number
-                    >= self._maximum_in_flight
-                ):
+                if self._current_number - self._last_uncommitted_number >= self._maximum_in_flight:
                     if not block:
                         return None
                     await self._resync(
-                        lambda acn: acn._current_number - acn._last_uncommitted_number
-                        >= acn._maximum_in_flight
+                        lambda acn: (
+                            acn._current_number - acn._last_uncommitted_number
+                            >= acn._maximum_in_flight
+                        )
                     )
 
             next_number = self._current_number
@@ -117,9 +113,7 @@ class AccountSequenceNumber:
         """
         async with self._lock:
             await self._update()
-            await self._resync(
-                lambda acn: acn._last_uncommitted_number != acn._current_number
-            )
+            await self._resync(lambda acn: acn._last_uncommitted_number != acn._current_number)
 
     async def _resync(self, check: Callable[[AccountSequenceNumber], bool]):
         """Forces a resync with the upstream, this should be called within the lock"""
@@ -128,7 +122,7 @@ class AccountSequenceNumber:
         while check(self):
             ledger_time = await self._client.current_timestamp()
             if ledger_time - start_time > self._maximum_wait_time:
-                logging.warn(
+                logging.warning(
                     f"Waited over {self._maximum_wait_time} seconds for a transaction to commit, resyncing {self._account}"
                 )
                 failed = True
@@ -141,10 +135,8 @@ class AccountSequenceNumber:
         for seq_num in range(self._last_uncommitted_number + 1, self._current_number):
             while True:
                 try:
-                    result = (
-                        await self._client.account_transaction_sequence_number_status(
-                            self._account, seq_num
-                        )
+                    result = await self._client.account_transaction_sequence_number_status(
+                        self._account, seq_num
                     )
                     if result:
                         break
@@ -171,15 +163,24 @@ class Test(unittest.IsolatedAsyncioTestCase):
         * Ensure that none is returned if the call for next_sequence_number would block
         * Ensure that synchronize completes if the value matches on-chain
         """
+        # Use addCleanup for each patcher so they're stopped even if the test fails
+        # partway through. patcher.stop() is idempotent so the explicit mid-test
+        # stop() calls (needed to swap return values) are still safe.
+        timestamp_patcher = unittest.mock.patch(
+            "aptos_sdk.async_client.RestClient.current_timestamp", return_value=0.0
+        )
+        timestamp_patcher.start()
+        self.addCleanup(timestamp_patcher.stop)
+
         patcher = unittest.mock.patch(
             "aptos_sdk.async_client.RestClient.account_sequence_number", return_value=0
         )
         patcher.start()
+        self.addCleanup(patcher.stop)
 
-        rest_client = RestClient("https://fullnode.devnet.aptoslabs.com/v1")
-        account_sequence_number = AccountSequenceNumber(
-            rest_client, AccountAddress.from_str("0xf")
-        )
+        # Use a placeholder URL — the test never makes a real HTTP call.
+        rest_client = RestClient("http://localhost:65535")
+        account_sequence_number = AccountSequenceNumber(rest_client, AccountAddress.from_str("0xf"))
         last_seq_num = 0
         for seq_num in range(5):
             last_seq_num = await account_sequence_number.next_sequence_number()
@@ -190,14 +191,13 @@ class Test(unittest.IsolatedAsyncioTestCase):
             "aptos_sdk.async_client.RestClient.account_sequence_number", return_value=5
         )
         patcher.start()
+        self.addCleanup(patcher.stop)
 
         for seq_num in range(AccountSequenceNumber._maximum_in_flight):
             last_seq_num = await account_sequence_number.next_sequence_number()
             self.assertEqual(last_seq_num, seq_num + 5)
 
-        self.assertEqual(
-            await account_sequence_number.next_sequence_number(block=False), None
-        )
+        self.assertEqual(await account_sequence_number.next_sequence_number(block=False), None)
         next_sequence_number = last_seq_num + 1
         patcher.stop()
         patcher = unittest.mock.patch(
@@ -205,7 +205,9 @@ class Test(unittest.IsolatedAsyncioTestCase):
             return_value=next_sequence_number,
         )
         patcher.start()
+        self.addCleanup(patcher.stop)
 
         self.assertNotEqual(account_sequence_number._current_number, last_seq_num)
         await account_sequence_number.synchronize()
         self.assertEqual(account_sequence_number._current_number, next_sequence_number)
+        # addCleanup handles teardown — no explicit stops needed here.

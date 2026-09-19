@@ -41,6 +41,12 @@ class TestVersionsApi(unittest.TestCase):
         """
         pass
 
+    def test_v2_list_supported_offline_openshift_versions(self):
+        """Test case for v2_list_supported_offline_openshift_versions
+
+        """
+        pass
+
     def test_v2_list_supported_openshift_versions(self):
         """Test case for v2_list_supported_openshift_versions
 

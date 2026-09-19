@@ -27,6 +27,7 @@ from matrx_scraper.ai_browser.session import (
     BrowserSessionManager,
     get_browser_session_manager,
 )
+from matrx_scraper.ai_browser.humanize import HumanInput
 from matrx_scraper.ai_browser.url_guard import (
     UnsafeUrlError,
     guard_landing,
@@ -366,6 +367,7 @@ async def click(
     *,
     wait_after_ms: int = 0,
     timeout_ms: int = 10_000,
+    human: bool = False,
     mgr: BrowserSessionManager | None = None,
 ) -> ClickResult:
     if not selector:
@@ -381,7 +383,10 @@ async def click(
             success=False, session_id=session_id, error_type="not_found", error_message=err
         )
     try:
-        await session.page.click(selector, timeout=timeout_ms)
+        # ``human`` shapes the pointer events like a person's (humanize.py);
+        # when the target has no box to aim at, the plain click is the fallback.
+        if not (human and await HumanInput(session.page).click(selector, timeout_ms=timeout_ms)):
+            await session.page.click(selector, timeout=timeout_ms)
         if wait_after_ms > 0:
             await session.page.wait_for_timeout(wait_after_ms)
         # A click is a navigation the pre-gate never saw — a link to an
@@ -423,6 +428,7 @@ async def fill(
     value: str,
     *,
     timeout_ms: int = 10_000,
+    human: bool = False,
     mgr: BrowserSessionManager | None = None,
 ) -> FillResult:
     if not selector:
@@ -438,7 +444,12 @@ async def fill(
             success=False, session_id=session_id, error_type="not_found", error_message=err
         )
     try:
-        await session.page.fill(selector, value, timeout=timeout_ms)
+        # A person cannot set a field's value in one event; ``human`` clears
+        # and retypes it keystroke by keystroke. Fields no keyboard can drive
+        # (date/colour pickers, zero-size inputs) keep Playwright's fill.
+        typed = human and await _human_fill(session.page, selector, value, timeout_ms)
+        if not typed:
+            await session.page.fill(selector, value, timeout=timeout_ms)
         return FillResult(
             success=True, session_id=session_id, selector=selector, value=value[:ECHO_CAP]
         )
@@ -451,6 +462,16 @@ async def fill(
         )
 
 
+async def _human_fill(page: Any, selector: str, value: str, timeout_ms: int) -> bool:
+    """Human-shaped ``fill``: only for fields a keyboard can drive."""
+    kind = await page.locator(selector).first.evaluate(
+        "el => (el.tagName === 'INPUT' ? (el.type || 'text') : el.tagName.toLowerCase())"
+    )
+    if kind in {"date", "time", "datetime-local", "month", "week", "color", "range", "file", "select"}:
+        return False
+    return await HumanInput(page).type_text(selector, value, clear_first=True, timeout_ms=timeout_ms)
+
+
 async def type_text(
     session_id: str,
     selector: str,
@@ -459,6 +480,7 @@ async def type_text(
     clear_first: bool = False,
     press_enter: bool = False,
     timeout_ms: int = 10_000,
+    human: bool = False,
     mgr: BrowserSessionManager | None = None,
 ) -> TypeResult:
     if not selector:
@@ -474,12 +496,22 @@ async def type_text(
             success=False, session_id=session_id, error_type="not_found", error_message=err
         )
     try:
-        if clear_first:
-            await session.page.fill(selector, text, timeout=timeout_ms)
-        else:
-            await session.page.type(selector, text, timeout=timeout_ms)
+        hi = HumanInput(session.page) if human else None
+        typed = False
+        if hi is not None:
+            typed = await hi.type_text(
+                selector, text, clear_first=clear_first, timeout_ms=timeout_ms
+            )
+        if not typed:
+            if clear_first:
+                await session.page.fill(selector, text, timeout=timeout_ms)
+            else:
+                await session.page.type(selector, text, timeout=timeout_ms)
         if press_enter:
-            await session.page.keyboard.press("Enter")
+            if hi is not None:
+                await hi.press_enter()
+            else:
+                await session.page.keyboard.press("Enter")
             await session.page.wait_for_load_state("load", timeout=15_000)
         # Enter submits a form, which navigates — same unseen-navigation hole
         # as click.
@@ -888,6 +920,7 @@ async def scroll(
     direction: str = "down",
     pixels: int = 500,
     selector: str | None = None,
+    human: bool = False,
     mgr: BrowserSessionManager | None = None,
 ) -> ScrollResult:
     if direction not in ("up", "down", "top", "bottom"):
@@ -919,7 +952,13 @@ async def scroll(
                 error_type="not_found",
                 error_message=f"No element matches the scroll selector: {selector}",
             )
-        if selector:
+        if human and direction in ("up", "down"):
+            # Wheel notches over the region, the way a hand scrolls; top/bottom
+            # jumps stay programmatic (a person would press Home/End anyway).
+            await HumanInput(session.page).scroll_by(
+                -pixels if direction == "up" else pixels, over_selector=selector
+            )
+        elif selector:
             await session.page.evaluate(
                 "([sel, dir, px]) => {"
                 " const el = document.querySelector(sel);"

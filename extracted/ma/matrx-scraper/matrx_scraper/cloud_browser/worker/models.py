@@ -6,6 +6,12 @@ field, ``EvalJsResult.value``, lives in ``commands.py`` and carries the
 carry defaults so a typed refusal (``ok=False`` + ``error``) is still constructible
 of the correct response type — the envelope is always complete, the success payload
 is only meaningful when ``ok`` is True.
+
+Protocol version: **S2 v1.1** (v1 frozen 2026-08-18; v1.1 additive 2026-09-18 adds
+``LaunchPolicy.egress`` and two control-plane-authored fields on ``CommandResponse``
+— see ``common-docs/systems/platform/residential-egress/FEATURE.md``). Additive only:
+an omitted optional field keeps the older worker's default, which is why
+``HttpBrowserWorkerClient._post`` serialises with ``exclude_none=True``.
 """
 
 from __future__ import annotations
@@ -341,6 +347,32 @@ class DisplayConfig(BaseModel):
     dpi: int = 96
 
 
+class EgressPolicy(BaseModel):
+    """Residential egress — this run leaves through the PERSON'S OWN computer.
+
+    Contract: ``common-docs/systems/platform/residential-egress/FEATURE.md``
+    § "When we are blocked — Cloud browser". The control plane mints the ticket
+    and hands the worker the two facts it needs to open consumer WebSockets
+    against the gateway, plus the plain name the result announces.
+
+    🚨 This is NOT ``LaunchPolicy.proxy``. ``proxy`` is a caller-supplied remote
+    address and is gated by ``guard_proxy`` at the bootstrap handler; this is a
+    control-plane-issued grant whose adapter binds a LOOPBACK port inside the
+    worker, so the public-routability gate would refuse every residential
+    launch. The adapter's own remote (the gateway) is public and authenticated
+    by the ticket.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    #: Bearer ``mxt_<ticket_id>_<secret>``. Never logged, never echoed.
+    ticket: str = Field(repr=False)
+    #: ``wss://…/egress/consume`` — the consumer leg of the v1 wire protocol.
+    consume_url: str
+    #: "Arman's MacBook Pro" — the words the run's result uses.
+    device_name: str
+
+
 class LaunchPolicy(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -356,6 +388,21 @@ class LaunchPolicy(BaseModel):
     locale: str | None = None
     timezone_id: str | None = None
     proxy: str | None = None
+    # Proxy credentials ride the policy, never the URL (a URL is logged; these
+    # never are). Both or neither.
+    proxy_username: str | None = Field(default=None, repr=False)
+    proxy_password: str | None = Field(default=None, repr=False)
+    #: Residential egress (S2 v1.1, additive 2026-09-18). When set, the worker
+    #: starts an ``EgressAdapter`` before ``launch_persistent_context`` and
+    #: launches through its loopback proxy. Mutually exclusive with ``proxy``
+    #: in practice — the control plane never sets both.
+    egress: EgressPolicy | None = Field(default=None, repr=False)
+    # CB-013 — the identity a site sees. ``humanize_input`` shapes pointer/key
+    # events like a person's (ai_browser/humanize.py). The WebGL pair answers
+    # WEBGL_debug_renderer_info; None = the worker image's value, "" = honest.
+    humanize_input: bool = True
+    webgl_vendor: str | None = None
+    webgl_renderer: str | None = None
     allow_eval_js: bool = False
     allow_downloads: bool = True
     trace_enabled: bool = False
@@ -416,12 +463,50 @@ class CommandRequest(WorkerCallEnvelope):
     command: BrowserCommand
 
 
+class CommandEgress(BaseModel):
+    """How this command reached the internet — announced, never hidden.
+
+    🚨 CONTROL-PLANE authored (S2 v1.1, additive 2026-09-18). The worker never
+    sets it: only the Browser Manager knows that a blocked page was retried
+    through the person's own computer. It rides the command reply because that
+    is where the agent and the panel read the answer, and rule 5 of
+    ``common-docs/systems/platform/residential-egress/FEATURE.md`` says a page
+    fetched through a person's computer always says so.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    kind: Literal["residential"] = "residential"
+    device_name: str
+    device_id: str | None = None
+    #: The plain sentence the agent repeats to the person.
+    note: str | None = None
+
+
+class CommandEgressUnavailable(BaseModel):
+    """Why the blocked page could NOT be retried through a person's computer.
+
+    Also control-plane authored. Never a dead end: the reason is one of the
+    contract's (`no_computer`, `offline`, `paused`, `org_forbids`, `feature_off`,
+    `no_acting_user`, `unavailable`) and the message is the remedy in words.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str
+    message: str
+
+
 class CommandResponse(WorkerReplyEnvelope):
     result: BrowserCommandResult | None = None
     active_page_id: str | None = None
     page_inventory_revision: int = 0
     human_required: HumanRequiredSignal | None = None
     event_facts: ActionEventFacts | None = None
+    # Residential egress — filled by the Browser Manager after the worker
+    # answered, never by the worker itself.
+    egress: CommandEgress | None = None
+    egress_unavailable: CommandEgressUnavailable | None = None
 
 
 # ── observe (S2 §5.4) ──

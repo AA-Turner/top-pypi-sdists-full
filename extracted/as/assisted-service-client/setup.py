@@ -5,7 +5,7 @@ setuptools.setup(
     name="assisted-service-client",
     description="AssistedInstall",
     setup_requires=[],
-    version="2.55.0.post161",
+    version="2.55.0.post168",
     author="RedHat",
     author_email="UNKNOWN",
     url="https://github.com/openshift/assisted-service",
@@ -195,6 +195,7 @@ Class | Method | HTTP request | Description
 *OperatorsApi* | [**v2_report_monitored_operator_status**](docs/OperatorsApi.md#v2_report_monitored_operator_status) | **PUT** /v2/clusters/{cluster_id}/monitored-operators | 
 *VersionsApi* | [**v2_list_component_versions**](docs/VersionsApi.md#v2_list_component_versions) | **GET** /v2/component-versions | 
 *VersionsApi* | [**v2_list_release_sources**](docs/VersionsApi.md#v2_list_release_sources) | **GET** /v2/release-sources | 
+*VersionsApi* | [**v2_list_supported_offline_openshift_versions**](docs/VersionsApi.md#v2_list_supported_offline_openshift_versions) | **GET** /v2/offline-openshift-versions | 
 *VersionsApi* | [**v2_list_supported_openshift_versions**](docs/VersionsApi.md#v2_list_supported_openshift_versions) | **GET** /v2/openshift-versions | 
 
 

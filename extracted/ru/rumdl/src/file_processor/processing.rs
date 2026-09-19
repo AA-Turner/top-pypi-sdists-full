@@ -16,7 +16,7 @@ use rumdl_lib::code_block_tools::processor::ProcessorError;
 use super::discovery::{AuxiliaryExecutionPlan, RuleSets, resolve_display_path, to_display_path};
 use super::embedded::{
     check_embedded_markdown_blocks, format_embedded_markdown_blocks, has_fenced_code_blocks,
-    should_lint_embedded_markdown,
+    should_format_embedded_markdown, should_lint_embedded_markdown,
 };
 use super::fix_reporting::reconcile_fixed_warnings;
 
@@ -110,30 +110,7 @@ pub fn is_rule_cli_fixable_in(
         .is_none_or(|r| r.fix_capability() != FixCapability::Unfixable)
 }
 
-/// The rules a document reconfigures, built with the settings it asks for.
-///
-/// A rule's fix capability can depend on its settings, and an inline
-/// `rumdl-configure-file` comment changes those settings for one file. The fixer
-/// already runs the reconfigured rule, so whatever reports what a run fixed has to
-/// read the capability from the same instance. Empty for the documents that carry
-/// no inline configuration, which is nearly all of them.
-pub fn rules_reconfigured_by_document(
-    rules: &[Box<dyn Rule>],
-    config: &rumdl_config::Config,
-    content: &str,
-) -> Vec<Box<dyn Rule>> {
-    let inline_config = rumdl_lib::inline_config::InlineConfig::from_content(content);
-    if inline_config.get_all_rule_configs().is_empty() {
-        return Vec::new();
-    }
-
-    let merged = config.merge_with_inline_config(&inline_config);
-    rules
-        .iter()
-        .filter(|rule| inline_config.get_rule_config(rule.name()).is_some())
-        .filter_map(|rule| rumdl_lib::rules::create_rule_by_name(rule.name(), &merged))
-        .collect()
-}
+pub use rumdl_lib::rules::rules_reconfigured_by_document;
 
 #[allow(clippy::too_many_arguments)]
 pub fn process_file_with_formatter(
@@ -200,7 +177,7 @@ pub fn process_file_with_formatter(
         };
     }
 
-    if rumdl_lib::merge_conflict::detect(&content).is_some() {
+    if rumdl_lib::merge_conflict::detect_configured(&content, config, Some(Path::new(file_path))).is_some() {
         if !output_format.is_batch() {
             let formatted = formatter.format_warnings_with_content(&all_warnings, &display_path, &content);
             if fix_mode == crate::FixMode::Check {
@@ -282,40 +259,34 @@ pub fn process_file_with_formatter(
         }
     }
 
-    // Format and output warnings (show diagnostics unless silent)
-    if !silent && fix_mode == crate::FixMode::Check {
-        if diff {
-            // In diff mode, only show warnings for unfixable issues
-            let unfixable_warnings: Vec<_> = all_warnings.iter().filter(|w| w.fix.is_none()).cloned().collect();
-
-            if !unfixable_warnings.is_empty() {
-                let formatted = formatter.format_warnings_with_content(&unfixable_warnings, &display_path, &content);
-                if !formatted.is_empty() {
-                    output_writer.writeln(&formatted).unwrap_or_else(|e| {
-                        eprintln!("Error writing output: {e}");
-                    });
+    // Format and output warnings (show diagnostics unless silent). A diff lists
+    // the findings it leaves unfixed, which are known once its fixes are made. A
+    // format with no room for a diff lists every finding here, whichever command
+    // previews it.
+    let lists_every_finding = if diff {
+        !output_format.carries_diff()
+    } else {
+        fix_mode == crate::FixMode::Check
+    };
+    if !silent && lists_every_finding {
+        // In check mode, show all warnings with [*] for fixable issues
+        // Strip fix from warnings where the rule is not CLI-fixable (e.g., LSP-only fixes)
+        let display_warnings: Vec<_> = all_warnings
+            .iter()
+            .map(|w| {
+                let rule_name = w.rule_name.as_deref().unwrap_or("");
+                if !is_rule_cli_fixable_in(&rule_sets.document, &document_rules, config, rule_name) {
+                    LintWarning { fix: None, ..w.clone() }
+                } else {
+                    w.clone()
                 }
-            }
-        } else {
-            // In check mode, show all warnings with [*] for fixable issues
-            // Strip fix from warnings where the rule is not CLI-fixable (e.g., LSP-only fixes)
-            let display_warnings: Vec<_> = all_warnings
-                .iter()
-                .map(|w| {
-                    let rule_name = w.rule_name.as_deref().unwrap_or("");
-                    if !is_rule_cli_fixable_in(&rule_sets.document, &document_rules, config, rule_name) {
-                        LintWarning { fix: None, ..w.clone() }
-                    } else {
-                        w.clone()
-                    }
-                })
-                .collect();
-            let formatted = formatter.format_warnings_with_content(&display_warnings, &display_path, &content);
-            if !formatted.is_empty() {
-                output_writer.writeln(&formatted).unwrap_or_else(|e| {
-                    eprintln!("Error writing output: {e}");
-                });
-            }
+            })
+            .collect();
+        let formatted = formatter.format_warnings_with_content(&display_warnings, &display_path, &content);
+        if !formatted.is_empty() {
+            output_writer.writeln(&formatted).unwrap_or_else(|e| {
+                eprintln!("Error writing output: {e}");
+            });
         }
     }
 
@@ -347,14 +318,10 @@ pub fn process_file_with_formatter(
 
         let content_changed = document_changed || blocks_formatted > 0;
 
-        if content_changed {
-            let diff_output = formatter::generate_diff(&original_content, &content, &display_path);
-            output_writer.writeln(&diff_output).unwrap_or_else(|e| {
-                eprintln!("Error writing diff output: {e}");
-            });
-        }
-
-        let summary_issues_fixed = if total_warnings > 0 {
+        // Which findings the diff resolves, read from the document it produces:
+        // a rule can fix without attaching a fix to its finding, and one
+        // configured as unfixable attaches a fix the run never applies.
+        let reconciliation = (total_warnings > 0).then(|| {
             let remaining_warnings = remaining_after_fixes(
                 &content,
                 file_path,
@@ -363,10 +330,41 @@ pub fn process_file_with_formatter(
                 &all_warnings,
                 content_changed,
             );
-            reconcile_fixed_warnings(&all_warnings, &remaining_warnings).fixed_count()
-        } else {
-            blocks_formatted
-        };
+            reconcile_fixed_warnings(&all_warnings, &remaining_warnings, &original_content, &content)
+        });
+
+        if !silent
+            && fix_mode == crate::FixMode::Check
+            && output_format.carries_diff()
+            && let Some(reconciliation) = &reconciliation
+        {
+            let unfixed = reconciliation.unfixed(&all_warnings);
+            if !unfixed.is_empty() {
+                let formatted = formatter.format_warnings_with_content(&unfixed, &display_path, &original_content);
+                if !formatted.is_empty() {
+                    output_writer.writeln(&formatted).unwrap_or_else(|e| {
+                        eprintln!("Error writing output: {e}");
+                    });
+                }
+            }
+        }
+
+        if content_changed && output_format.carries_diff() {
+            // The diff runs from the bytes on disk to the bytes a fix would write,
+            // line endings included, so applying it produces what `fmt` writes. It
+            // ends in a newline, so consecutive files' diffs concatenate into one
+            // patch the way `diff -u` and `git diff` print them.
+            let on_disk = line_ending_map.restore(&original_content);
+            let fixed = rumdl_lib::utils::normalize_line_ending(&content, original_line_ending);
+            let diff_output = formatter::generate_diff(&on_disk, &fixed, &display_path);
+            output_writer.write(&diff_output).unwrap_or_else(|e| {
+                eprintln!("Error writing diff output: {e}");
+            });
+        }
+
+        // Formatting-only changes are not lint findings. Count resolved warnings
+        // separately from changed files so summaries cannot say "1/0 issues".
+        let summary_issues_fixed = reconciliation.map_or(0, |reconciliation| reconciliation.fixed_count());
 
         // Don't actually write the file in diff mode, but report how many would be fixed
         return FileProcessResult {
@@ -386,6 +384,7 @@ pub fn process_file_with_formatter(
             config_warning: inline_config_warning,
         };
     } else if fix_mode != crate::FixMode::Check {
+        let original_content = content.clone();
         // Apply fixes using Fix Coordinator
         let document_changed = apply_document_fixes(
             &filtered_rule_sets.document,
@@ -438,7 +437,7 @@ pub fn process_file_with_formatter(
                 has_issues: false,
                 issues_found: 0,
                 content_changed,
-                summary_issues_fixed: blocks_formatted,
+                summary_issues_fixed: 0,
                 fixable_issues: 0,
                 // The document itself was clean, so a tool that could not run is
                 // the only thing this file has to report. Without it a JSON or
@@ -461,7 +460,7 @@ pub fn process_file_with_formatter(
             content_changed,
         );
 
-        let reconciliation = reconcile_fixed_warnings(&all_warnings, &remaining_warnings);
+        let reconciliation = reconcile_fixed_warnings(&all_warnings, &remaining_warnings, &original_content, &content);
         let summary_issues_fixed = reconciliation.fixed_count();
 
         // Show fix results in streaming output
@@ -692,12 +691,10 @@ fn apply_auxiliary_fixes(
     let mut blocks_formatted = 0;
     let mut tool_failures = Vec::new();
 
-    // Format embedded markdown blocks (recursive formatting). This is opt-in
-    // via code-block-tools (`[code-block-tools.languages.markdown] lint = ["rumdl"]`)
-    // and gated identically to the check path, so `--fix` never rewrites the
-    // contents of a markdown code block that `check` did not report on.
+    // Formatting is opt-in through the format slot. The legacy lint = ["rumdl"]
+    // setting also enables it, preserving existing configurations.
     // `embedded_markdown` respects per-file-ignores for the embedded content.
-    if !rule_sets.embedded_markdown.is_empty() && should_lint_embedded_markdown(&config.code_block_tools) {
+    if !rule_sets.embedded_markdown.is_empty() && should_format_embedded_markdown(&config.code_block_tools) {
         blocks_formatted += format_embedded_markdown_blocks(content, &rule_sets.embedded_markdown, config);
     }
 
@@ -707,7 +704,7 @@ fn apply_auxiliary_fixes(
             &config.code_block_tools,
             config.get_flavor_for_file(Path::new(file_path)),
         );
-        match processor.format(content) {
+        match processor.format_with_config(content, config, Some(Path::new(file_path))) {
             Ok(output) => {
                 if output.content != *content {
                     *content = output.content;
@@ -985,7 +982,7 @@ pub fn process_file_with_index(
         };
 
     // Do this before normalization, caching, parsing, or invoking external tools.
-    if let Some(conflict) = rumdl_lib::merge_conflict::detect(&content) {
+    if let Some(conflict) = rumdl_lib::merge_conflict::detect_configured(&content, config, Some(Path::new(file_path))) {
         return ProcessFileResult {
             warnings: vec![conflict],
             total_warnings: 1,
@@ -1138,11 +1135,12 @@ pub fn process_file_with_index(
                     (
                         rumdl_lib::time_function!(
                             "cache hit: build file index",
-                            rumdl_lib::build_file_index_only(
+                            rumdl_lib::build_file_index_only_with_config(
                                 &content,
                                 &rule_sets.document,
                                 flavor,
                                 Some(std::path::PathBuf::from(file_path)),
+                                config,
                             )
                         ),
                         false,

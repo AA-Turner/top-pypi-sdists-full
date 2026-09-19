@@ -5,7 +5,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.job_handle import JobHandle
@@ -16,8 +16,7 @@ from graphdatascience.procedure_surface.api.pathfinding.steiner_tree_endpoints i
     SteinerTreeWriteResult,
 )
 from graphdatascience.procedure_surface.arrow.relationship_endpoints_helper import RelationshipEndpointsHelper
-from graphdatascience.procedure_surface.arrow.stream_result_mapper import map_steiner_tree_stream_result
-from graphdatascience.query_runner.protocol.write_protocols import WriteProtocol
+from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
 class SteinerTreeArrowEndpoints(SteinerTreeEndpoints):
@@ -33,7 +32,7 @@ class SteinerTreeArrowEndpoints(SteinerTreeEndpoints):
 
     def compute(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         target_nodes: list[int],
         *,
@@ -67,7 +66,7 @@ class SteinerTreeArrowEndpoints(SteinerTreeEndpoints):
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         target_nodes: list[int],
         relationship_weight_property: str | None = None,
@@ -97,13 +96,11 @@ class SteinerTreeArrowEndpoints(SteinerTreeEndpoints):
             jobId=job_id,
         )
 
-        result = self._endpoints_helper.run_job_and_stream("v2/pathfinding.steinerTree", G, config)
-        map_steiner_tree_stream_result(result)
-        return result
+        return self._endpoints_helper.run_job_and_stream("v2/pathfinding.steinerTree", G, config)
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         target_nodes: list[int],
         relationship_weight_property: str | None = None,
@@ -138,7 +135,7 @@ class SteinerTreeArrowEndpoints(SteinerTreeEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_relationship_type: str,
         mutate_property: str,
         source_node: int,
@@ -181,7 +178,7 @@ class SteinerTreeArrowEndpoints(SteinerTreeEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_relationship_type: str,
         write_property: str,
         source_node: int,
@@ -229,7 +226,7 @@ class SteinerTreeArrowEndpoints(SteinerTreeEndpoints):
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         source_node: int,
         target_nodes: list[int],
         relationship_weight_property: str | None = None,

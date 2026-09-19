@@ -13,7 +13,6 @@ from hypothesis.errors import InvalidArgument, Unsatisfiable
 from schemathesis.config import GenerationConfig
 from schemathesis.core import NOT_SET
 from schemathesis.core.errors import (
-    InfiniteRecursiveReference,
     InvalidSchema,
     RefResolutionError,
     UnresolvableReference,
@@ -39,7 +38,7 @@ from schemathesis.specs.openapi._hypothesis import (
     openapi_cases,
     snapped_float32_clone,
 )
-from schemathesis.specs.openapi.adapter.parameters import OpenApiBody, OpenApiParameterSet
+from schemathesis.specs.openapi.adapter.parameters import OpenApiBody, OpenApiParameter, OpenApiParameterSet
 from schemathesis.specs.openapi.formats import format_lengths_for
 
 if TYPE_CHECKING:
@@ -172,7 +171,7 @@ _RENDERED_LOCATIONS = (
 def get_strategies_from_examples(
     operation: OpenApiOperation,
     extra_data_source: OpenApiExtraDataSource | None = None,
-    fill_missing_from_pool: bool = False,
+    fill_missing: bool = False,
     **kwargs: Any,
 ) -> list[SearchStrategy[Case]]:
     """Build strategies from schema examples, augmented with pool values where available."""
@@ -224,16 +223,82 @@ def get_strategies_from_examples(
         ]
     elif schema_combos:
         all_combos = schema_combos
-    elif pool_combos and fill_missing_from_pool:
+    elif pool_combos and fill_missing:
         all_combos = [{k: dict(v) if isinstance(v, dict) else v for k, v in combo.items()} for combo in pool_combos]
     else:
         all_combos = []
+
+    all_combos = _with_defaults(operation, all_combos, fill_missing=fill_missing)
 
     return [
         openapi_cases(operation=operation, phase=TestPhase.EXAMPLES, **merge_kwargs(combo, kwargs)).map(
             serialize_components
         )
         for combo in all_combos
+    ]
+
+
+def _with_defaults(
+    operation: OpenApiOperation, combos: list[dict[str, Any]], *, fill_missing: bool
+) -> list[dict[str, Any]]:
+    """Fill what the combos leave unset with schema defaults; a required parameter's default counts as an example."""
+    parameter_defaults: dict[str, dict[str, Any]] = {}
+    has_required_default = False
+    for parameter, value in _iter_parameter_defaults(operation):
+        parameter_defaults.setdefault(parameter.location.container_name, {})[parameter.name] = value
+        has_required_default = has_required_default or parameter.is_required
+    if not (combos or fill_missing or has_required_default):
+        return combos
+    needs_body = not combos or any("body" not in combo for combo in combos)
+    body_default = (
+        next(_extract_body_examples_from_schemas(operation, defaults_as_examples=True), None) if needs_body else None
+    )
+    if not combos:
+        if not (has_required_default or parameter_defaults or body_default is not None):
+            return combos
+        combos = [{}]
+    filled = []
+    for combo in combos:
+        # Pool values may back the combo's containers, so defaults go into copies.
+        result = dict(combo)
+        for container, values in parameter_defaults.items():
+            result[container] = {**values, **combo.get(container, {})}
+        if "body" not in result and body_default is not None:
+            result.update(body=body_default.value, media_type=body_default.media_type)
+        filled.append(result)
+    return filled
+
+
+def _iter_parameter_defaults(operation: OpenApiOperation) -> Generator[tuple[OpenApiParameter, Any], None, None]:
+    for parameter in operation.iter_parameters():
+        try:
+            schema = parameter.validation_schema
+        except TypeError:
+            # Invalid schema (e.g., non-string pattern value)
+            continue
+        # A recursive schema stays behind a `$ref`, so its default goes unseen and a value is generated instead.
+        if (
+            isinstance(schema, dict)
+            and "default" in schema
+            and _example_is_valid(schema["default"], _make_example_validator(schema))
+        ):
+            yield parameter, schema["default"]
+
+
+def _expanded_definitions(definition: dict[str, Any], *, merge_ref_siblings: bool) -> list[dict[str, Any] | bool]:
+    """Every subschema the definition's own schema expands to, or nothing when it declares no schema."""
+    if "schema" not in definition:
+        return []
+    schema = definition["schema"]
+    resolver = make_root_resolver(schema)
+    return [
+        expanded_schema
+        for expanded_schema, _, _ in _expand_subschemas(
+            schema=schema,
+            resolver=resolver,
+            reference_path=(),
+            merge_ref_siblings=merge_ref_siblings,
+        )
     ]
 
 
@@ -244,24 +309,8 @@ def extract_top_level(
     merge_ref_siblings = operation.schema.adapter.ref_siblings
     responses = list(operation.responses.iter_examples())
     for parameter in operation.iter_parameters():
-        if "schema" in parameter.definition:
-            schema = parameter.definition["schema"]
-            resolver = make_root_resolver(schema)
-            reference_path: tuple[str, ...] = ()
-            definitions = [
-                parameter.definition,
-                *[
-                    expanded_schema
-                    for expanded_schema, _, _ in _expand_subschemas(
-                        schema=schema,
-                        resolver=resolver,
-                        reference_path=reference_path,
-                        merge_ref_siblings=merge_ref_siblings,
-                    )
-                ],
-            ]
-        else:
-            definitions = [parameter.definition]
+        expanded = _expanded_definitions(parameter.definition, merge_ref_siblings=merge_ref_siblings)
+        definitions = [parameter.definition, *expanded]
         param_validator: jsonschema_rs.Validator | None = _make_example_validator(parameter.validation_schema)
         for definition in definitions:
             if definition is parameter.definition:
@@ -273,8 +322,8 @@ def extract_top_level(
                 # - A oneOf/anyOf branch example is validated against the branch (not the full
                 #   combined schema, which would reject strings valid for multiple branches).
                 validator = _make_example_validator(definition)
-            # Open API 2 also supports `example`
-            for example_keyword in {"example", parameter.adapter.example_keyword}:
+            # Both keywords are accepted in every version, like body examples
+            for example_keyword in dict.fromkeys((parameter.adapter.example_keyword, "example", "x-example")):
                 if isinstance(definition, dict) and example_keyword in definition:
                     value = definition[example_keyword]
                     if _example_is_valid(value, validator):
@@ -283,33 +332,23 @@ def extract_top_level(
                             name=parameter.name,
                             value=value,
                         )
-        if parameter.adapter.examples_container_keyword in parameter.definition:
-            for value in extract_inner_examples(
-                parameter.definition[parameter.adapter.examples_container_keyword], operation.schema
-            ):
-                if _example_is_valid(value, param_validator):
-                    yield ParameterExample(
-                        container=parameter.location.container_name, name=parameter.name, value=value
-                    )
-        if "schema" in parameter.definition:
-            schema = parameter.definition["schema"]
-            resolver = make_root_resolver(schema)
-            reference_path = ()
-            for expanded_schema, _, _ in _expand_subschemas(
-                schema=schema,
-                resolver=resolver,
-                reference_path=reference_path,
-                merge_ref_siblings=merge_ref_siblings,
-            ):
-                if (
-                    isinstance(expanded_schema, dict)
-                    and parameter.adapter.examples_container_keyword in expanded_schema
-                ):
-                    for value in expanded_schema[parameter.adapter.examples_container_keyword]:
-                        if _example_survives_float32(value, expanded_schema):
-                            yield ParameterExample(
-                                container=parameter.location.container_name, name=parameter.name, value=value
-                            )
+        container_keywords = dict.fromkeys((parameter.adapter.examples_container_keyword, "examples", "x-examples"))
+        for container_keyword in container_keywords:
+            if container_keyword in parameter.definition:
+                for value in extract_inner_examples(parameter.definition[container_keyword], operation.schema):
+                    if _example_is_valid(value, param_validator):
+                        yield ParameterExample(
+                            container=parameter.location.container_name, name=parameter.name, value=value
+                        )
+        for expanded_schema in expanded:
+            if not isinstance(expanded_schema, dict):
+                continue
+            for container_keyword in container_keywords:
+                for value in expanded_schema.get(container_keyword, []):
+                    if _example_survives_float32(value, expanded_schema):
+                        yield ParameterExample(
+                            container=parameter.location.container_name, name=parameter.name, value=value
+                        )
         for value in find_matching_in_responses(responses, parameter.name):
             if _example_is_valid(value, param_validator):
                 yield ParameterExample(container=parameter.location.container_name, name=parameter.name, value=value)
@@ -322,27 +361,11 @@ def extract_top_level(
             body.validation_schema, snap_float32=False
         )
 
-        if "schema" in body.definition:
-            schema = body.definition["schema"]
-            resolver = make_root_resolver(schema)
-            reference_path = ()
-            definitions = [
-                body.definition,
-                *[
-                    expanded_schema
-                    for expanded_schema, _, _ in _expand_subschemas(
-                        schema=schema,
-                        resolver=resolver,
-                        reference_path=reference_path,
-                        merge_ref_siblings=merge_ref_siblings,
-                    )
-                ],
-            ]
-        else:
-            definitions = [body.definition]
+        expanded = _expanded_definitions(body.definition, merge_ref_siblings=merge_ref_siblings)
+        definitions = [body.definition, *expanded]
         for definition in definitions:
             # Open API 2 also supports `example`
-            for example_keyword in {"example", body.adapter.example_keyword}:
+            for example_keyword in dict.fromkeys((body.adapter.example_keyword, "example")):
                 if isinstance(definition, dict) and example_keyword in definition:
                     value = definition[example_keyword]
                     if (
@@ -364,28 +387,19 @@ def extract_top_level(
             ):
                 if _example_is_valid(value, body_validator):
                     yield BodyExample(value=value, media_type=body.media_type)
-        if "schema" in body.definition:
-            schema = body.definition["schema"]
-            resolver = make_root_resolver(schema)
-            reference_path = ()
-            for expanded_schema, _, _ in _expand_subschemas(
-                schema=schema,
-                resolver=resolver,
-                reference_path=reference_path,
-                merge_ref_siblings=merge_ref_siblings,
-            ):
-                if isinstance(expanded_schema, dict) and body.adapter.examples_container_keyword in expanded_schema:
-                    for value in expanded_schema[body.adapter.examples_container_keyword]:
-                        if _example_is_valid(value, declared_validator) and _example_survives_float32(
-                            value, expanded_schema
-                        ):
-                            yield BodyExample(value=value, media_type=body.media_type)
-                        else:
-                            completed = _completed_body_example(
-                                value, body.validation_schema, declared_validator, operation
-                            )
-                            if completed is not None:
-                                yield BodyExample(value=completed, media_type=body.media_type)
+        for expanded_schema in expanded:
+            if isinstance(expanded_schema, dict) and body.adapter.examples_container_keyword in expanded_schema:
+                for value in expanded_schema[body.adapter.examples_container_keyword]:
+                    if _example_is_valid(value, declared_validator) and _example_survives_float32(
+                        value, expanded_schema
+                    ):
+                        yield BodyExample(value=value, media_type=body.media_type)
+                    else:
+                        completed = _completed_body_example(
+                            value, body.validation_schema, declared_validator, operation
+                        )
+                        if completed is not None:
+                            yield BodyExample(value=completed, media_type=body.media_type)
 
 
 @overload
@@ -453,92 +467,131 @@ def _expand_subschemas(
     merge_ref_siblings: bool,
 ) -> Generator[tuple[dict[str, Any] | bool, tuple[str, ...], Resolver], None, None]:
     """Expand schema and all its subschemas."""
-    try:
-        schema, current_path, current_resolver = _resolve_bundled(
-            schema,
-            resolver,
-            reference_path,
-            merge_ref_siblings=merge_ref_siblings,
-        )
-    except InfiniteRecursiveReference:
-        return
+    schema, current_path, current_resolver = _resolve_bundled(
+        schema,
+        resolver,
+        reference_path,
+        merge_ref_siblings=merge_ref_siblings,
+    )
 
     yield schema, current_path, current_resolver
 
     if isinstance(schema, dict):
-        # For anyOf/oneOf, yield each alternative with the same path
-        for key in ("anyOf", "oneOf"):
-            if key in schema:
-                for subschema in schema[key]:
-                    # Each alternative starts with the current path
-                    yield subschema, current_path, current_resolver
+        yield from _expand_composition(
+            schema=schema,
+            resolver=current_resolver,
+            reference_path=current_path,
+            merge_ref_siblings=merge_ref_siblings,
+        )
 
-        # For allOf, merge all alternatives
-        if schema.get("allOf"):
-            subschema = deepclone(schema["allOf"][0])
-            try:
-                subschema, expanded_path, expanded_resolver = _resolve_bundled(
-                    subschema,
-                    current_resolver,
-                    current_path,
-                    merge_ref_siblings=merge_ref_siblings,
-                )
-            except InfiniteRecursiveReference:
-                return
-            # Clone after resolving to avoid mutating the original schema when merging
-            if isinstance(subschema, dict):
-                subschema = deepclone(subschema)
 
-            for sub in schema["allOf"][1:]:
-                if isinstance(sub, dict):
-                    try:
-                        sub, _, _ = _resolve_bundled(
-                            sub,
-                            current_resolver,
-                            current_path,
-                            merge_ref_siblings=merge_ref_siblings,
-                        )
-                    except InfiniteRecursiveReference:
-                        return
-                    for key, value in sub.items():
-                        if key == "properties":
-                            subschema.setdefault("properties", {}).update(value)
-                        elif key == "required":
-                            subschema.setdefault("required", []).extend(value)
-                        elif key == "examples":
-                            subschema.setdefault("examples", []).extend(value)
-                        elif key == "example":
-                            subschema.setdefault("examples", []).append(value)
-                        else:
-                            subschema[key] = value
+def _expand_composition(
+    *,
+    schema: dict[str, Any],
+    resolver: Resolver,
+    reference_path: tuple[str, ...],
+    merge_ref_siblings: bool,
+) -> Generator[tuple[dict[str, Any] | bool, tuple[str, ...], Resolver], None, None]:
+    """Expand the composition keywords of an already resolved schema."""
+    # An alternative may be composed itself, and its examples live at any depth
+    for key in ("anyOf", "oneOf"):
+        for subschema in schema.get(key, []):
+            yield from _expand_subschemas(
+                schema=subschema,
+                resolver=resolver,
+                reference_path=reference_path,
+                merge_ref_siblings=merge_ref_siblings,
+            )
 
-            # Merge parent schema's fields with the merged allOf result
-            # Parent's fields take precedence as they are more specific
-            parent_has_example = "example" in schema or "examples" in schema
+    if schema.get("allOf"):
+        merged, merged_path, merged_resolver = _merge_all_of(
+            schema=schema,
+            resolver=resolver,
+            reference_path=reference_path,
+            merge_ref_siblings=merge_ref_siblings,
+        )
+        yield merged, merged_path, merged_resolver
+        yield from _expand_composition(
+            schema=merged,
+            resolver=merged_resolver,
+            reference_path=merged_path,
+            merge_ref_siblings=merge_ref_siblings,
+        )
 
-            # If parent has examples, remove examples from merged allOf to avoid duplicates
-            # The parent's examples were already yielded from the parent schema itself
-            if parent_has_example:
-                subschema.pop("example", None)
-                subschema.pop("examples", None)
 
-            for key, value in schema.items():
-                if key in ("allOf", "example", "examples", BUNDLE_STORAGE_KEY):
-                    # Skip the allOf itself, we already processed it
-                    # Skip parent's examples - they were already yielded
-                    # Skip bundled schemas too to avoid infinite recursion
-                    continue
-                elif key == "properties":
-                    # Merge parent properties (parent overrides allOf)
-                    subschema.setdefault("properties", {}).update(value)
+def _merge_all_of(
+    *,
+    schema: dict[str, Any],
+    resolver: Resolver,
+    reference_path: tuple[str, ...],
+    merge_ref_siblings: bool,
+) -> tuple[dict[str, Any], tuple[str, ...], Resolver]:
+    """Merge all `allOf` members into a single schema, with the parent's own keywords on top."""
+    first, expanded_path, expanded_resolver = _resolve_bundled(
+        schema["allOf"][0],
+        resolver,
+        reference_path,
+        merge_ref_siblings=merge_ref_siblings,
+    )
+    # Clone after resolving to avoid mutating the original schema when merging
+    merged: dict[str, Any] = cast("dict[str, Any]", deepclone(first)) if isinstance(first, dict) else {}
+
+    for sub in schema["allOf"][1:]:
+        if isinstance(sub, dict):
+            sub, _, _ = _resolve_bundled(
+                sub,
+                resolver,
+                reference_path,
+                merge_ref_siblings=merge_ref_siblings,
+            )
+            for key, value in sub.items():
+                if key == "properties":
+                    merged.setdefault("properties", {}).update(value)
                 elif key == "required":
-                    # Extend required list
-                    subschema.setdefault("required", []).extend(value)
+                    merged.setdefault("required", []).extend(value)
+                elif key == "examples":
+                    merged.setdefault("examples", []).extend(value)
+                elif key == "example":
+                    merged.setdefault("examples", []).append(value)
                 else:
-                    # For other fields, parent value overrides
-                    subschema[key] = value
+                    merged[key] = value
 
-            yield subschema, expanded_path, expanded_resolver
+    # Merge parent schema's fields with the merged allOf result
+    # Parent's fields take precedence as they are more specific
+    parent_has_example = "example" in schema or "examples" in schema
+
+    # If parent has examples, remove examples from merged allOf to avoid duplicates
+    # The parent's examples were already yielded from the parent schema itself
+    if parent_has_example:
+        merged.pop("example", None)
+        merged.pop("examples", None)
+
+    for key, value in schema.items():
+        if key in ("allOf", "example", "examples", BUNDLE_STORAGE_KEY):
+            # Skip the allOf itself, we already processed it
+            # Skip parent's examples - they were already yielded
+            # Skip bundled schemas too to avoid infinite recursion
+            continue
+        elif key == "properties":
+            # Merge parent properties (parent overrides allOf)
+            merged.setdefault("properties", {}).update(value)
+        elif key == "required":
+            # Extend required list
+            merged.setdefault("required", []).extend(value)
+        else:
+            # For other fields, parent value overrides
+            merged[key] = value
+
+    if merged.get("allOf"):
+        # A member may inherit through `allOf` itself, and its properties belong in the same merge
+        return _merge_all_of(
+            schema=merged,
+            resolver=expanded_resolver,
+            reference_path=expanded_path,
+            merge_ref_siblings=merge_ref_siblings,
+        )
+
+    return merged, expanded_path, expanded_resolver
 
 
 def _unpack_example_object(example: dict[str, Any], schema: OpenApiSchema) -> Generator[Any, None, None]:
@@ -593,19 +646,29 @@ def extract_from_schemas(
         if isinstance(schema, bool):
             continue
         resolver = make_root_resolver(schema)
-        reference_path: tuple[str, ...] = ()
         bundle_storage = schema.get(BUNDLE_STORAGE_KEY)
-        for value in extract_from_schema(
-            operation=operation,
-            schema=schema,
-            example_keyword=parameter.adapter.example_keyword,
-            examples_container_keyword=parameter.adapter.examples_container_keyword,
-            resolver=resolver,
-            reference_path=reference_path,
-            bundle_storage=bundle_storage,
-            merge_ref_siblings=merge_ref_siblings,
-        ):
-            yield ParameterExample(container=parameter.location.container_name, name=parameter.name, value=value)
+        for example_keyword, examples_container_keyword in (("example", "examples"), ("x-example", "x-examples")):
+            walk = ExampleWalk(
+                operation=operation,
+                example_keyword=example_keyword,
+                examples_container_keyword=examples_container_keyword,
+                bundle_storage=bundle_storage,
+                merge_ref_siblings=merge_ref_siblings,
+            )
+            for value in extract_from_schema(
+                walk,
+                schema=schema,
+                resolver=resolver,
+                reference_path=(),
+            ):
+                yield ParameterExample(container=parameter.location.container_name, name=parameter.name, value=value)
+    yield from _extract_body_examples_from_schemas(operation, defaults_as_examples=False)
+
+
+def _extract_body_examples_from_schemas(
+    operation: OpenApiOperation, *, defaults_as_examples: bool
+) -> Generator[BodyExample, None, None]:
+    merge_ref_siblings = operation.schema.adapter.ref_siblings
     for alternative in operation.body:
         body = cast(OpenApiBody, alternative)
         try:
@@ -619,16 +682,19 @@ def extract_from_schemas(
         resolver = make_root_resolver(schema)
         bundle_storage = schema.get(BUNDLE_STORAGE_KEY)
         for example_keyword, examples_container_keyword in (("example", "examples"), ("x-example", "x-examples")):
-            reference_path = ()
-            for value in extract_from_schema(
+            walk = ExampleWalk(
                 operation=operation,
-                schema=schema,
                 example_keyword=example_keyword,
                 examples_container_keyword=examples_container_keyword,
-                resolver=resolver,
-                reference_path=reference_path,
                 bundle_storage=bundle_storage,
                 merge_ref_siblings=merge_ref_siblings,
+                defaults_as_examples=defaults_as_examples,
+            )
+            for value in extract_from_schema(
+                walk,
+                schema=schema,
+                resolver=resolver,
+                reference_path=(),
             ):
                 if _example_is_valid(value, body_validator):
                     yield BodyExample(value=value, media_type=body.media_type)
@@ -691,18 +757,7 @@ def _completed_body_example(
         # `is_valid` tolerates a value outside the JSON types, but listing its errors raises on one.
         return None
     config = operation.schema.config.generation_for(operation=operation, phase="examples")
-    try:
-        generated = _generate_single_example(
-            validation_schema, config, operation.schema.adapter.jsonschema_validator_cls
-        )
-    except (
-        InvalidArgument,
-        Unsatisfiable,
-        RefResolutionError,
-        jsonschema_rs.ValidationError,
-        jsonschema_rs.ReferencingError,
-    ):
-        return None
+    generated = _generate_single_example(validation_schema, config, operation.schema.adapter.jsonschema_validator_cls)
     if not isinstance(generated, dict):
         return None
     merged = _deep_merge(generated, value)
@@ -718,61 +773,97 @@ def _example_is_valid(value: object, validator: jsonschema_rs.Validator | None) 
         return True
 
 
+def _with_bundle_storage(schema: dict[str, Any], bundle_storage: dict[str, Any] | None) -> dict[str, Any]:
+    if bundle_storage is not None and BUNDLE_STORAGE_KEY not in schema:
+        return {**schema, BUNDLE_STORAGE_KEY: bundle_storage}
+    return schema
+
+
+@dataclass(slots=True)
+class ExampleWalk:
+    """What stays the same while one schema is walked for examples.
+
+    Only the schema, its resolver and the references already followed change as the walk descends.
+    """
+
+    operation: OpenApiOperation
+    example_keyword: str
+    examples_container_keyword: str
+    bundle_storage: dict[str, Any] | None
+    merge_ref_siblings: bool
+    defaults_as_examples: bool = False
+
+    def expand(
+        self, schema: dict[str, Any] | bool, resolver: Resolver, reference_path: tuple[str, ...]
+    ) -> Generator[tuple[dict[str, Any] | bool, tuple[str, ...], Resolver], None, None]:
+        yield from _expand_subschemas(
+            schema=schema,
+            resolver=resolver,
+            reference_path=reference_path,
+            merge_ref_siblings=self.merge_ref_siblings,
+        )
+
+
+def _own_examples(walk: ExampleWalk, schema: dict[str, Any]) -> Generator[Any, None, None]:
+    validation_schema = _with_bundle_storage(schema, walk.bundle_storage)
+
+    if walk.example_keyword in schema:
+        candidate = schema[walk.example_keyword]
+        if is_valid(candidate, validation_schema):
+            yield candidate
+
+    container = schema.get(walk.examples_container_keyword)
+    if isinstance(container, list):
+        for candidate in container:
+            if is_valid(candidate, validation_schema):
+                yield candidate
+
+
 def _yield_examples_from_properties(
+    walk: ExampleWalk,
     *,
-    operation: APIOperation,
     properties: dict[str, Any],
-    example_keyword: str,
-    examples_container_keyword: str,
+    required: set[str],
     resolver: Resolver,
     current_path: tuple[str, ...],
-    bundle_storage: dict[str, Any] | None,
-    merge_ref_siblings: bool,
 ) -> Generator[Any, None, None]:
     variants: dict[str, list[Any]] = {}
     to_generate: dict[str, Any] = {}
+    defaults: dict[str, Any] = {}
 
     for name, subschema in properties.items():
+        if isinstance(subschema, dict) and subschema.get("$ref") in current_path:
+            # The cycle is cut here, so there is no example to take. Only a required property is filled in,
+            # and from its own schema - an empty one would draw `null` and invalidate the whole body.
+            if name in required:
+                to_generate[name] = subschema
+            continue
         values: list[Any] = []
-        for expanded_schema, expanded_path, expanded_resolver in _expand_subschemas(
-            schema=subschema,
-            resolver=resolver,
-            reference_path=current_path,
-            merge_ref_siblings=merge_ref_siblings,
-        ):
+        for expanded_schema, expanded_path, expanded_resolver in walk.expand(subschema, resolver, current_path):
             if isinstance(expanded_schema, bool):
                 to_generate[name] = expanded_schema
                 continue
 
-            if bundle_storage is not None and BUNDLE_STORAGE_KEY not in expanded_schema:
-                validation_schema = {**expanded_schema, BUNDLE_STORAGE_KEY: bundle_storage}
-            else:
-                validation_schema = expanded_schema
-
-            if example_keyword in expanded_schema:
-                candidate = expanded_schema[example_keyword]
-                if is_valid(candidate, validation_schema):
-                    values.append(candidate)
-
-            if examples_container_keyword in expanded_schema and isinstance(
-                expanded_schema[examples_container_keyword], list
+            if (
+                "default" in expanded_schema
+                and name not in defaults
+                and is_valid(expanded_schema["default"], _with_bundle_storage(expanded_schema, walk.bundle_storage))
             ):
-                for candidate in expanded_schema[examples_container_keyword]:
-                    if is_valid(candidate, validation_schema):
-                        values.append(candidate)
+                defaults[name] = expanded_schema["default"]
 
-            values.extend(
-                extract_from_schema(
-                    operation=operation,
-                    schema=expanded_schema,
-                    example_keyword=example_keyword,
-                    examples_container_keyword=examples_container_keyword,
-                    resolver=expanded_resolver,
-                    reference_path=expanded_path,
-                    bundle_storage=bundle_storage,
-                    merge_ref_siblings=merge_ref_siblings,
-                )
-            )
+            values.extend(_own_examples(walk, expanded_schema))
+            # A composed property reaches the same nested examples through itself and through each of its alternatives
+            seen = {_combo_dedup_key(value) for value in values}
+            for value in extract_from_schema(
+                walk,
+                schema=expanded_schema,
+                resolver=expanded_resolver,
+                reference_path=expanded_path,
+            ):
+                key = _combo_dedup_key(value)
+                if key not in seen:
+                    seen.add(key)
+                    values.append(value)
 
             if not values:
                 to_generate[name] = expanded_schema
@@ -780,26 +871,18 @@ def _yield_examples_from_properties(
 
             variants[name] = values
 
-    if variants:
+    if variants or (walk.defaults_as_examples and defaults):
+        # A documented default is often the only value a server is known to accept, so it beats a generated one.
+        for name, value in defaults.items():
+            variants.setdefault(name, [value])
+        operation = walk.operation
         config = operation.schema.config.generation_for(operation=operation, phase="examples")
         for name, subschema in to_generate.items():
             if name in variants:
                 continue
-            if bundle_storage is not None:
-                subschema = dict(subschema)
-                subschema[BUNDLE_STORAGE_KEY] = bundle_storage
-            try:
-                generated = _generate_single_example(
-                    subschema, config, operation.schema.adapter.jsonschema_validator_cls
-                )
-            except (
-                InvalidArgument,
-                Unsatisfiable,
-                RefResolutionError,
-                jsonschema_rs.ValidationError,
-                jsonschema_rs.ReferencingError,
-            ):
-                continue
+            if isinstance(subschema, dict):
+                subschema = _with_bundle_storage(subschema, walk.bundle_storage)
+            generated = _generate_single_example(subschema, config, operation.schema.adapter.jsonschema_validator_cls)
             if generated is NOT_SET or not is_valid(generated, subschema):
                 continue
             variants[name] = [generated]
@@ -812,16 +895,13 @@ def _yield_examples_from_properties(
 
 
 def _yield_examples_per_branch(
+    walk: ExampleWalk,
     *,
-    operation: APIOperation,
     parent_properties: dict[str, Any],
+    required: set[str],
     branches: list[dict[str, Any]],
-    example_keyword: str,
-    examples_container_keyword: str,
     resolver: Resolver,
     current_path: tuple[str, ...],
-    bundle_storage: dict[str, Any] | None,
-    merge_ref_siblings: bool,
 ) -> Generator[Any, None, None]:
     # Identify which properties are claimed by at least one branch
     branch_prop_sets: list[set[str]] = []
@@ -848,57 +928,44 @@ def _yield_examples_per_branch(
                 active[name] = sub
 
         yield from _yield_examples_from_properties(
-            operation=operation,
+            walk,
             properties=active,
-            example_keyword=example_keyword,
-            examples_container_keyword=examples_container_keyword,
+            required=required | set(branch.get("required", [])),
             resolver=resolver,
             current_path=current_path,
-            bundle_storage=bundle_storage,
-            merge_ref_siblings=merge_ref_siblings,
         )
 
 
 def extract_from_schema(
+    walk: ExampleWalk,
     *,
-    operation: OpenApiOperation,
     schema: dict[str, Any],
-    example_keyword: str,
-    examples_container_keyword: str,
     resolver: Resolver,
     reference_path: tuple[str, ...],
-    bundle_storage: dict[str, Any] | None,
-    merge_ref_siblings: bool,
 ) -> Generator[Any, None, None]:
     """Extract all examples from a single schema definition."""
-    # This implementation supports only `properties` and `items`
-    try:
-        schema, current_path, current_resolver = _resolve_bundled(
-            schema,
-            resolver,
-            reference_path,
-            merge_ref_siblings=merge_ref_siblings,
-        )
-    except InfiniteRecursiveReference:
-        return
+    # This implementation supports only `properties`, `items`, and their `allOf` / `oneOf` / `anyOf` compositions
+    schema, current_path, current_resolver = _resolve_bundled(
+        schema,
+        resolver,
+        reference_path,
+        merge_ref_siblings=walk.merge_ref_siblings,
+    )
 
-    # If schema has allOf, we need to get merged properties from allOf items
-    # This handles cases where parent has properties alongside allOf
     properties_to_process = schema.get("properties", {})
 
-    if "allOf" in schema and "properties" in schema:
-        # Get the merged allOf schema which includes properties from all allOf items
-        for expanded_schema, _, _ in _expand_subschemas(
+    if schema.get("allOf"):
+        merged, merged_path, merged_resolver = _merge_all_of(
             schema=schema,
             resolver=current_resolver,
             reference_path=current_path,
-            merge_ref_siblings=merge_ref_siblings,
-        ):
-            if expanded_schema is not schema and isinstance(expanded_schema, dict):
-                # This is the merged allOf result with combined properties
-                if "properties" in expanded_schema:
-                    properties_to_process = expanded_schema["properties"]
-                break
+            merge_ref_siblings=walk.merge_ref_siblings,
+        )
+        if "properties" in merged:
+            properties_to_process = merged["properties"]
+            # Keep the references consumed by the merge on the path, otherwise a cycle running only
+            # through `allOf` members is never recognized.
+            current_path, current_resolver = merged_path, merged_resolver
 
     # Required fields absent from `properties` have no annotated example; add them
     # with a non-null schema so that a value is generated for each.
@@ -912,56 +979,59 @@ def extract_from_schema(
 
     if properties_to_process:
         # Detect top-level oneOf/anyOf branches for per-branch generation
-        branches: list[dict[str, Any]] | None = None
-        for keyword in ("oneOf", "anyOf"):
-            raw = schema.get(keyword)
-            if raw:
-                branches = [b for b in raw if isinstance(b, dict)]
-                break
+        branches = [
+            branch for keyword in ("oneOf", "anyOf") for branch in schema.get(keyword, []) if isinstance(branch, dict)
+        ]
 
         if branches:
-            for value in _yield_examples_per_branch(
-                operation=operation,
+            values = _yield_examples_per_branch(
+                walk,
                 parent_properties=properties_to_process,
+                required=required,
                 branches=branches,
-                example_keyword=example_keyword,
-                examples_container_keyword=examples_container_keyword,
                 resolver=current_resolver,
                 current_path=current_path,
-                bundle_storage=bundle_storage,
-                merge_ref_siblings=merge_ref_siblings,
-            ):
-                if all(f in value for f in required):
-                    yield value
+            )
         else:
-            for value in _yield_examples_from_properties(
-                operation=operation,
+            values = _yield_examples_from_properties(
+                walk,
                 properties=properties_to_process,
-                example_keyword=example_keyword,
-                examples_container_keyword=examples_container_keyword,
+                required=required,
                 resolver=current_resolver,
                 current_path=current_path,
-                bundle_storage=bundle_storage,
-                merge_ref_siblings=merge_ref_siblings,
-            ):
-                if all(f in value for f in required):
-                    yield value
+            )
+        for value in values:
+            if all(f in value for f in required):
+                yield value
 
     elif "items" in schema and isinstance(schema["items"], dict):
         # Each inner value should be wrapped in an array, respecting minItems
         min_items = schema.get("minItems", 1)
         length = max(min_items, 1)
+        for expanded_schema, _, _ in walk.expand(schema["items"], current_resolver, current_path):
+            if isinstance(expanded_schema, dict):
+                for value in _own_examples(walk, expanded_schema):
+                    yield [value] * length
         for value in extract_from_schema(
-            operation=operation,
+            walk,
             schema=schema["items"],
-            example_keyword=example_keyword,
-            examples_container_keyword=examples_container_keyword,
             resolver=current_resolver,
             reference_path=current_path,
-            bundle_storage=bundle_storage,
-            merge_ref_siblings=merge_ref_siblings,
         ):
             yield [value] * length
+
+    else:
+        # A purely composed schema carries its property examples inside each alternative
+        for keyword in ("oneOf", "anyOf"):
+            for branch in schema.get(keyword, []):
+                if not isinstance(branch, dict):
+                    continue
+                yield from extract_from_schema(
+                    walk,
+                    schema=branch,
+                    resolver=current_resolver,
+                    reference_path=current_path,
+                )
 
 
 def _generate_single_example(
@@ -979,9 +1049,16 @@ def _generate_single_example(
             format_lengths=format_lengths_for(formats),
             alphabet=Alphabet(allow_x00=generation_config.allow_x00, codec=generation_config.codec),
         )
-    except InvalidSchema:
+        return examples.generate_one(strategy)
+    except (
+        InvalidSchema,
+        InvalidArgument,
+        Unsatisfiable,
+        RefResolutionError,
+        jsonschema_rs.ValidationError,
+        jsonschema_rs.ReferencingError,
+    ):
         return NOT_SET
-    return examples.generate_one(strategy)
 
 
 def produce_combinations(examples: list[Example]) -> Generator[dict[str, Any], None, None]:

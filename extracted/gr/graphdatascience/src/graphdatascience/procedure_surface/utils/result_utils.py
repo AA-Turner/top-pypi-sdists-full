@@ -1,10 +1,15 @@
 from functools import reduce
+from typing import Any, cast
 
 from pandas import DataFrame
 
 from graphdatascience.query_runner.query_mode import QueryMode
 from graphdatascience.query_runner.query_runner import QueryRunner
 from graphdatascience.query_runner.query_type import QueryType
+
+
+def single_row(df: DataFrame) -> dict[str, Any]:
+    return cast("dict[str, Any]", df.iloc[0].to_dict())
 
 
 def transpose_property_columns(result: DataFrame, list_node_labels: bool) -> DataFrame:
@@ -16,6 +21,22 @@ def transpose_property_columns(result: DataFrame, list_node_labels: bool) -> Dat
         labels_df.set_index("nodeId", inplace=True)
 
         wide_result = wide_result.join(labels_df, on="nodeId")
+    wide_result = wide_result.reset_index()
+    wide_result.columns.name = None
+
+    return wide_result
+
+
+def transpose_relationship_property_columns(result: DataFrame, relationship_properties: list[str]) -> DataFrame:
+    """Reshape a long-format Cypher relationship stream into one column per property, matching the Arrow output."""
+    if len(relationship_properties) == 1:
+        return result.rename(columns={"propertyValue": relationship_properties[0]})
+
+    wide_result = result.pivot(
+        index=["sourceNodeId", "targetNodeId", "relationshipType"],
+        columns="relationshipProperty",
+        values="propertyValue",
+    )
     wide_result = wide_result.reset_index()
     wide_result.columns.name = None
 

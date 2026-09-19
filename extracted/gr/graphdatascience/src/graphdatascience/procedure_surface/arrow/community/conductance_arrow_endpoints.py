@@ -1,11 +1,10 @@
 from pandas import DataFrame
 
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.community.conductance_endpoints import ConductanceEndpoints
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.job_handle import JobHandle
-from graphdatascience.procedure_surface.arrow.stream_result_mapper import map_conductance_stream_result
 from graphdatascience.procedure_surface.arrow.table_endpoints_helper import TableEndpointsHelper
 
 
@@ -19,7 +18,7 @@ class ConductanceArrowEndpoints(ConductanceEndpoints):
 
     def compute(
         self,
-        G: GraphV2,
+        G: Graph,
         community_property: str,
         *,
         concurrency: int | None = None,
@@ -46,7 +45,7 @@ class ConductanceArrowEndpoints(ConductanceEndpoints):
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         community_property: str,
         *,
         concurrency: int | None = None,
@@ -70,7 +69,4 @@ class ConductanceArrowEndpoints(ConductanceEndpoints):
             relationship_weight_property=relationship_weight_property,
         )
 
-        result = self._endpoints_helper.run_job_and_stream("v2/community.conductance", G, config)
-        map_conductance_stream_result(result)
-
-        return result
+        return self._endpoints_helper.run_job_and_stream("v2/community.conductance", G, config)

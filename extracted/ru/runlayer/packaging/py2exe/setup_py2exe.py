@@ -84,6 +84,7 @@ setup(
                 "runlayer_cli.scan.containers.tar_walk",
                 "runlayer_cli.scan.device",
                 "runlayer_cli.scan.service",
+                "runlayer_cli.scan.skill_presence",
                 "runlayer_cli.scan.skill_scanner",
                 "runlayer_cli.scan.windows_users",
                 "runlayer_cli.scan.plugin_scanner",

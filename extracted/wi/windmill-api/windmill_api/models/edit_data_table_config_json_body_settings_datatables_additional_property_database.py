@@ -13,10 +13,12 @@ T = TypeVar("T", bound="EditDataTableConfigJsonBodySettingsDatatablesAdditionalP
 
 @_attrs_define
 class EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyDatabase:
-    """
-    Attributes:
-        resource_type (EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyDatabaseResourceType):
-        resource_path (Union[Unset, str]):
+    """Set on an entry that owns its database. Absent on a fork's entry, which points at another workspace's data table
+    instead.
+
+        Attributes:
+            resource_type (EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyDatabaseResourceType):
+            resource_path (Union[Unset, str]):
     """
 
     resource_type: EditDataTableConfigJsonBodySettingsDatatablesAdditionalPropertyDatabaseResourceType

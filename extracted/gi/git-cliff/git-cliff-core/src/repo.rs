@@ -1,5 +1,6 @@
+use std::collections::{HashMap, HashSet};
 use std::io;
-use std::path::{self, Path, PathBuf};
+use std::path::{Path, PathBuf};
 use std::result::Result as StdResult;
 use std::sync::LazyLock;
 
@@ -28,6 +29,11 @@ static TAG_SIGNATURE_REGEX: LazyLock<Regex> = LazyLock::new(|| {
 
 /// Name of the cache file for changed files.
 const CHANGED_FILES_CACHE: &str = "changed_files_cache";
+
+/// Name of the file listing commit hashes for `git blame` to ignore.
+///
+/// <https://git-scm.com/docs/git-blame#Documentation/git-blame.txt---ignore-revs-fileltfilegt>
+const GIT_BLAME_IGNORE_REVS_FILE: &str = ".git-blame-ignore-revs";
 
 /// Wrapper for [`Repository`] type from git2.
 ///
@@ -210,6 +216,37 @@ impl Repository {
         Ok(commits)
     }
 
+    /// Filters out commits listed in the repository's `.git-blame-ignore-revs`
+    /// file, as well as commits that only modify that file.
+    ///
+    /// Mirrors the file `git blame --ignore-revs-file` reads: one commit
+    /// hash per line, blank lines and `#`-comments ignored. Hashes may be
+    /// abbreviated. Does nothing if the file does not exist.
+    pub fn filter_git_blame_ignore_revs(&self, commits: &mut Vec<Commit<'_>>) {
+        let Ok(root) = self.root_path() else {
+            return;
+        };
+        let Ok(contents) = std::fs::read_to_string(root.join(GIT_BLAME_IGNORE_REVS_FILE)) else {
+            return;
+        };
+        let ignored_ids: Vec<&str> = contents
+            .lines()
+            .map(str::trim)
+            .filter(|line| !line.is_empty() && !line.starts_with('#'))
+            .collect();
+        if ignored_ids.is_empty() {
+            return;
+        }
+        commits.retain(|commit| {
+            let id = commit.id().to_string();
+            if ignored_ids.iter().any(|ignored| id.starts_with(ignored)) {
+                return false;
+            }
+            let changed_files = self.commit_changed_files(commit);
+            !(changed_files.len() == 1 && changed_files[0] == Path::new(GIT_BLAME_IGNORE_REVS_FILE))
+        });
+    }
+
     /// Returns diff statistics for a single commit.
     ///
     /// # Errors
@@ -294,7 +331,9 @@ impl Repository {
     /// It removes the leading `./` and adds `**` to the end if the pattern is a
     /// directory.
     fn normalize_pattern(pattern: Pattern) -> Pattern {
-        let star_added = if pattern.as_str().ends_with(path::MAIN_SEPARATOR) {
+        // glob patterns and git's diff paths always use '/', whatever the host
+        // OS, so this must not be `path::MAIN_SEPARATOR`
+        let star_added = if pattern.as_str().ends_with('/') {
             Pattern::new(&format!("{pattern}**")).expect("failed to add '**' to the end of glob")
         } else {
             pattern
@@ -367,12 +406,11 @@ impl Repository {
 
         // Check the cache first.
         {
-            if let Ok(result) = cacache::read_sync(&self.changed_files_cache_path, &cache_key) {
-                if let Ok((files, _)) =
+            if let Ok(result) = cacache::read_sync(&self.changed_files_cache_path, &cache_key) &&
+                let Ok((files, _)) =
                     bincode::decode_from_slice(&result, bincode::config::standard())
-                {
-                    return files;
-                }
+            {
+                return files;
             }
         }
 
@@ -479,6 +517,7 @@ impl Repository {
                 name: tag.name().unwrap_or_default().to_owned(),
                 message: tag
                     .message()
+                    .unwrap_or_default()
                     .map(|msg| TAG_SIGNATURE_REGEX.replace(msg, "").trim().to_owned()),
             },
             _ => Tag {
@@ -491,10 +530,10 @@ impl Repository {
     /// Returns the commit object of the given ID.
     #[must_use]
     pub fn find_commit(&self, id: &str) -> Option<Commit<'_>> {
-        if let Ok(oid) = Oid::from_str(id) {
-            if let Ok(commit) = self.inner.find_commit(oid) {
-                return Some(commit);
-            }
+        if let Ok(oid) = Oid::from_str(id) &&
+            let Ok(commit) = self.inner.find_commit(oid)
+        {
+            return Some(commit);
         }
         None
     }
@@ -527,6 +566,7 @@ impl Repository {
         for name in tag_names
             .iter()
             .flatten()
+            .flatten()
             .filter(|tag_name| pattern.as_ref().is_none_or(|pat| pat.is_match(tag_name)))
             .map(String::from)
         {
@@ -541,10 +581,11 @@ impl Repository {
                     message: None,
                 }));
             } else if let Some(tag) = obj.as_tag() {
-                if let Some(commit) = tag
-                    .target()
+                // Use peel to resolve nested tags to the final commit
+                if let Some(commit) = obj
+                    .peel(git2::ObjectType::Commit)
                     .ok()
-                    .and_then(|target| target.into_commit().ok())
+                    .and_then(|o| o.into_commit().ok())
                 {
                     if use_branch_tags && !self.should_include_tag(&head_commit, &commit)? {
                         continue;
@@ -553,18 +594,69 @@ impl Repository {
                         name: tag.name().map(String::from).unwrap_or(name),
                         message: tag
                             .message()
+                            .ok()
+                            .flatten()
                             .map(|msg| TAG_SIGNATURE_REGEX.replace(msg, "").trim().to_owned()),
                     }));
                 }
             }
         }
         if !topo_order {
-            tags.sort_by(|a, b| a.0.time().seconds().cmp(&b.0.time().seconds()));
+            tags.sort_by_key(|a| a.0.time().seconds());
         }
         Ok(tags
             .into_iter()
             .map(|(a, b)| (a.id().to_string(), b))
             .collect())
+    }
+
+    /// Maps each commit id to the id of the tag that "owns" it.
+    ///
+    /// A commit is owned by the earliest tag (in `tags` order, which must be
+    /// oldest to newest) whose commit can reach it, i.e. the tag whose
+    /// `previous_tag..tag` range contains it. This assigns commits to releases
+    /// by graph reachability rather than by their position in the linearized
+    /// log, which can interleave diverged-then-merged branches
+    ///
+    /// Only tags whose commit id is in `boundary_ids` (the commits actually in
+    /// the walk) are considered. Commits not reachable from any such tag are
+    /// absent from the map and should be treated as unreleased.
+    ///
+    /// # Returns
+    ///
+    /// A map from each owned commit id to the commit id of its owning tag.
+    /// Commits that are not reachable from a considered tag are omitted.
+    pub fn commit_tag_ownership(
+        &self,
+        tags: &IndexMap<String, Tag>,
+        boundary_ids: &HashSet<Oid>,
+    ) -> Result<HashMap<Oid, String>> {
+        let mut ownership = HashMap::new();
+        // Only tags that are part of the walked history can act as boundaries.
+        let tag_ids: Vec<(Oid, &String)> = tags
+            .keys()
+            .filter_map(|id| Oid::from_str(id).ok().map(|oid| (oid, id)))
+            .filter(|(oid, _)| boundary_ids.contains(oid))
+            .collect();
+        for (index, (tag_oid, tag_id)) in tag_ids.iter().enumerate() {
+            let mut revwalk = self.inner.revwalk()?;
+            revwalk.push(*tag_oid)?;
+            // Hide all previous (older) tags so that this walk only yields the
+            // commits belonging to this tag's release range.
+            for (prev_oid, _) in &tag_ids[..index] {
+                // Ignore errors from hiding unrelated histories.
+                let _ = revwalk.hide(*prev_oid);
+            }
+            for oid in revwalk.filter_map(StdResult::ok) {
+                if boundary_ids.contains(&oid) {
+                    ownership.entry(oid).or_insert_with(|| (*tag_id).clone());
+                    if ownership.len() == boundary_ids.len() {
+                        return Ok(ownership);
+                    }
+                }
+            }
+        }
+        Ok(ownership)
     }
 
     /// Returns the remote of the upstream repository.
@@ -581,17 +673,19 @@ impl Repository {
             if branch.is_head() {
                 let upstream = &self.inner.branch_upstream_remote(&format!(
                     "refs/heads/{}",
-                    &branch.name()?.ok_or_else(|| Error::RepoError(String::from(
+                    branch.name()?.ok_or_else(|| Error::RepoError(String::from(
                         "branch name is not valid"
                     )))?
                 ))?;
-                let upstream_name = upstream.as_str().ok_or_else(|| {
-                    Error::RepoError(String::from("name of the upstream remote is not valid"))
+                let upstream_name = upstream.as_str().map_err(|err| {
+                    Error::RepoError(format!("name of the upstream remote is not valid: {err}"))
                 })?;
                 let origin = &self.inner.find_remote(upstream_name)?;
                 let url = origin
                     .url()
-                    .ok_or_else(|| Error::RepoError(String::from("failed to get the remote URL")))?
+                    .map_err(|err| {
+                        Error::RepoError(format!("failed to get the remote URL: {err}"))
+                    })?
                     .to_string();
                 tracing::trace!("Upstream URL: {url}");
                 return find_remote(&url);
@@ -638,6 +732,7 @@ fn url_path_segments(url: &str) -> Result<Remote> {
         token: None,
         is_custom: false,
         api_url: None,
+        http_timeout: std::time::Duration::from_secs(30),
         native_tls: None,
     })
 }
@@ -669,6 +764,7 @@ fn ssh_path_segments(url: &str) -> Result<Remote> {
         token: None,
         is_custom: false,
         api_url: None,
+        http_timeout: std::time::Duration::from_secs(30),
         native_tls: None,
     })
 }
@@ -810,6 +906,42 @@ mod test {
     }
 
     #[test]
+    fn git_nested_tags() -> Result<()> {
+        let (repo, temp_dir) = create_temp_repo();
+        let path = temp_dir.path();
+
+        let commit = create_commit_with_files(&repo, vec![("initial.txt", "initial content")]);
+
+        Command::new("git")
+            .args(["tag", "-a", "v1.0.0-staging", "--no-sign", "-m", "s"])
+            .current_dir(path)
+            .output()?;
+
+        // nested tag: v1.0.0-stable -> v1.0.0-staging -> commit
+        Command::new("git")
+            .args([
+                "tag",
+                "-a",
+                "v1.0.0-stable",
+                "--no-sign",
+                "-m",
+                "s",
+                "v1.0.0-staging",
+            ])
+            .current_dir(path)
+            .output()?;
+
+        let tags = repo.tags(&Some(Regex::new("v1.0.0-stable")?), false, false)?;
+        assert_eq!(
+            tags.get(&commit.id().to_string())
+                .expect("nested tag should resolve to commit")
+                .name,
+            "v1.0.0-stable"
+        );
+        Ok(())
+    }
+
+    #[test]
     fn git_upstream_remote() -> Result<()> {
         let repository = get_repository()?;
         let remote = repository.upstream_remote()?;
@@ -820,6 +952,7 @@ mod test {
                 token: None,
                 is_custom: false,
                 api_url: remote.api_url.clone(),
+                http_timeout: std::time::Duration::from_secs(30),
                 native_tls: None,
             },
             remote
@@ -961,7 +1094,7 @@ mod test {
         assert!(result.is_err());
         if let Err(error) = result {
             assert!(
-                format!("{error:?}").contains(
+                error.to_string().contains(
                     format!("could not find repository at '{}'", path.display()).as_str()
                 )
             );
@@ -1031,7 +1164,7 @@ mod test {
         assert!(result.is_err());
         if let Err(error) = result {
             assert!(
-                format!("{error:?}").contains(
+                error.to_string().contains(
                     format!("could not find repository at '{}'", path.display()).as_str()
                 )
             );
@@ -1067,6 +1200,76 @@ mod test {
             .head()
             .and_then(|head| head.peel_to_commit())
             .expect("failed to get the last commit")
+    }
+
+    #[test]
+    fn filter_git_blame_ignore_revs_removes_listed_and_ignore_file_only_commits() {
+        let (repo, _temp_dir) = create_temp_repo();
+
+        let normal_commit_1 = create_commit_with_files(&repo, vec![("file1.txt", "content1")]);
+        let ignored_commit = create_commit_with_files(&repo, vec![("file2.txt", "content2")]);
+        let normal_commit_2 = create_commit_with_files(&repo, vec![("file3.txt", "content3")]);
+
+        // A commit that only adds/updates the ignore file itself should also
+        // be filtered out, regardless of whether it lists itself.
+        let ignore_file_contents = format!("# comment\n{}\n", ignored_commit.id());
+        let ignore_file_commit = create_commit_with_files(&repo, vec![(
+            ".git-blame-ignore-revs",
+            ignore_file_contents.as_str(),
+        )]);
+
+        let mut commits = repo
+            .commits(None, None, None, false)
+            .expect("failed to get commits");
+        assert_eq!(commits.len(), 4, "sanity check before filtering");
+
+        repo.filter_git_blame_ignore_revs(&mut commits);
+
+        let remaining_ids: Vec<_> = commits.iter().map(git2::Commit::id).collect();
+        assert!(remaining_ids.contains(&normal_commit_1.id()));
+        assert!(remaining_ids.contains(&normal_commit_2.id()));
+        assert!(
+            !remaining_ids.contains(&ignored_commit.id()),
+            "commit listed in .git-blame-ignore-revs should be filtered out"
+        );
+        assert!(
+            !remaining_ids.contains(&ignore_file_commit.id()),
+            "commit that only touches .git-blame-ignore-revs should be filtered out"
+        );
+        assert_eq!(commits.len(), 2);
+    }
+
+    #[test]
+    fn filter_git_blame_ignore_revs_is_a_no_op_without_the_file() {
+        let (repo, _temp_dir) = create_temp_repo();
+        create_commit_with_files(&repo, vec![("file1.txt", "content1")]);
+
+        let mut commits = repo
+            .commits(None, None, None, false)
+            .expect("failed to get commits");
+        let before = commits.len();
+
+        repo.filter_git_blame_ignore_revs(&mut commits);
+
+        assert_eq!(
+            commits.len(),
+            before,
+            "no .git-blame-ignore-revs file present"
+        );
+    }
+
+    #[test]
+    fn test_normalize_pattern() {
+        let normalize = |input: &str| {
+            Repository::normalize_pattern(Pattern::new(input).expect("valid pattern"))
+                .as_str()
+                .to_string()
+        };
+
+        assert_eq!(normalize("dir/"), "dir/**");
+        assert_eq!(normalize("./dir/"), "dir/**");
+        assert_eq!(normalize("./file.txt"), "file.txt");
+        assert_eq!(normalize("dir/file.txt"), "dir/file.txt");
     }
 
     #[test]

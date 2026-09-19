@@ -112,6 +112,11 @@ DEFAULT_RETRY_ERRORS: tuple[str, ...] = (
 #     database deadline. The full operation payload was durably captured after
 #     the transaction was cancelled, so replay is the required completion of a
 #     transient infrastructure failure, not a blind retry of ambiguous SQL.
+#   * QueryTimeoutError — the failed transaction has already rolled back and
+#     its operation was captured on a fresh connection. A fresh replay is the
+#     bounded recovery path for temporary relation-lock or database-load
+#     contention; a persistent failure reaches the existing five-attempt
+#     quarantine boundary.
 RECOVERABLE_RETRY_ERRORS: tuple[str, ...] = (
     "ForeignKeyViolationError",
     "InterfaceError: cannot perform operation: another operation is in progress",
@@ -119,6 +124,7 @@ RECOVERABLE_RETRY_ERRORS: tuple[str, ...] = (
     DIRECT_WRITE_PRESERVED_MARKER,
     IMMUTABLE_WRITE_PRESERVED_MARKER,
     "commit hard-deadline",
+    "QueryTimeoutError",
 )
 
 

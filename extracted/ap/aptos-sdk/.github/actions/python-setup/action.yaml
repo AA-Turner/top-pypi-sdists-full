@@ -1,0 +1,37 @@
+name: "Python setup"
+description: |
+  Runs an opinionated and unified python setup action. It does the following:
+  * Installs python
+  * Installs uv
+  * Installs a specified project, if given
+inputs:
+  pyproject_directory:
+    description: "Optional path to a project with pyproject.toml"
+    required: false
+  python_version:
+    description: "Python version to install"
+    required: false
+    default: "3.12"
+
+runs:
+  using: composite
+  steps:
+    - name: Setup python
+      uses: actions/setup-python@a26af69be951a213d495a4c3e4e4022e16d87065
+      with:
+        python-version: ${{ inputs.python_version }}
+
+    - name: Install uv
+      uses: astral-sh/setup-uv@e58605a9b6da7c637471fab8847a5e5a6b8df081
+      with:
+        enable-cache: true
+        cache-dependency-glob: "**/uv.lock"
+
+    - name: Setup AikidoSec Safe Chain
+      uses: aptos-labs/actions/aikidosec-safe-chain@528ef7ad9427a8c0720ea3eea790a9190d6e377d
+
+    - name: Install project
+      if: inputs.pyproject_directory != ''
+      run: uv sync --extra dev
+      shell: bash
+      working-directory: ${{ inputs.pyproject_directory }}

@@ -32,6 +32,7 @@ from typing import Any
 import structlog
 
 from runlayer_cli.paths import get_runlayer_dir
+from runlayer_cli.safe_parse import parse_json
 
 logger = structlog.get_logger(__name__)
 
@@ -172,7 +173,7 @@ class ArtifactCache:
                 encoded = handle.read(ARTIFACT_CACHE_MAX_FILE_BYTES + 1)
             if len(encoded) > ARTIFACT_CACHE_MAX_FILE_BYTES:
                 return self._integrity_miss("file_too_large")
-            raw = json.loads(encoded.decode("utf-8"))
+            text = encoded.decode("utf-8")
         except FileNotFoundError:
             return {}
         except ValueError:
@@ -181,6 +182,10 @@ class ArtifactCache:
             logger.warning("artifact_cache_load_failed", exc_info=True)
             return {}
 
+        outcome = parse_json(text)
+        if outcome["error"] is not None:
+            return self._integrity_miss("invalid_json")
+        raw = outcome["value"]
         if not isinstance(raw, dict):
             return self._integrity_miss("invalid_payload")
         if raw.get("version") != _CACHE_VERSION:

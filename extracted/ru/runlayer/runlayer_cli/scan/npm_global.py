@@ -2,8 +2,8 @@
 
 from __future__ import annotations
 
-import json
 import os
+import stat
 from collections.abc import Callable
 from dataclasses import dataclass
 from itertools import islice
@@ -11,7 +11,9 @@ from pathlib import Path, PurePosixPath, PureWindowsPath
 from string import Template, ascii_letters, digits
 from typing import Iterable, Literal, Mapping, Protocol, cast
 
+from runlayer_cli.scan.completeness import CompletionStatusSink
 from runlayer_cli.scan.hidden_space_sweep import scan_hidden_spaces
+from runlayer_cli.safe_parse import parse_json
 from runlayer_cli.scan.scanner_primitives import (
     SymlinkFollowPolicy,
     commit_approved_links,
@@ -20,6 +22,8 @@ from runlayer_cli.scan.scanner_primitives import (
     is_link_or_reparse,
     is_real_directory,
     is_regular_file,
+    link_or_reparse_status_or_raise,
+    mark_path_unresolved_if_present,
     read_bounded,
     resolve_approved_path,
     resolve_relative_components,
@@ -111,15 +115,44 @@ def _npmrc_prefix(
     *,
     home: Path,
     environment: Mapping[str, str],
+    scan_status: CompletionStatusSink | None = None,
 ) -> Path | None:
-    if is_link_or_reparse(path) or not is_regular_file(path):
+    try:
+        link_status = link_or_reparse_status_or_raise(path)
+    except FileNotFoundError:
+        return None
+    except OSError:
+        if scan_status is not None:
+            scan_status.mark_incomplete("client_npmrc_classification_failed")
+        return None
+    if link_status:
+        if scan_status is not None:
+            scan_status.mark_incomplete("client_npmrc_symlink_skipped")
+        return None
+    try:
+        file_stat = path.stat()
+    except FileNotFoundError:
+        return None
+    except OSError:
+        if scan_status is not None:
+            scan_status.mark_incomplete("client_npmrc_stat_failed")
+        return None
+    if not stat.S_ISREG(file_stat.st_mode):
+        return None
+    if file_stat.st_size > MAX_NPMRC_BYTES:
+        if scan_status is not None:
+            scan_status.mark_incomplete("client_npmrc_oversized")
         return None
     raw = read_bounded(path, max_bytes=MAX_NPMRC_BYTES)
     if raw is None:
+        if scan_status is not None:
+            scan_status.mark_incomplete("client_npmrc_read_failed")
         return None
     try:
         content = raw.decode()
     except UnicodeDecodeError:
+        if scan_status is not None:
+            scan_status.mark_incomplete("client_npmrc_parse_failed")
         return None
 
     prefix: Path | None = None
@@ -164,13 +197,17 @@ def _path_prefixes(
     home: Path,
     system: str,
     environment: Mapping[str, str],
+    scan_status: CompletionStatusSink | None = None,
 ) -> tuple[Path, ...]:
     value = environment_value(environment, "PATH", system=system)
     if not value:
         return ()
     separator = ";" if system == "Windows" else ":"
     prefixes: list[Path] = []
-    for entry in value.split(separator)[:MAX_PATH_ENTRIES]:
+    entries = value.split(separator)
+    if len(entries) > MAX_PATH_ENTRIES and scan_status is not None:
+        scan_status.mark_incomplete("client_npm_path_entries_capped")
+    for entry in entries[:MAX_PATH_ENTRIES]:
         path = _absolute_path(entry, home=home, environment=environment)
         if path is None:
             continue
@@ -180,9 +217,11 @@ def _path_prefixes(
             prefix = path.parent
         else:
             continue
-        prefixes.append(prefix)
         if len(prefixes) == MAX_PATH_PREFIXES:
+            if scan_status is not None:
+                scan_status.mark_incomplete("client_npm_path_prefixes_capped")
             break
+        prefixes.append(prefix)
     return tuple(prefixes)
 
 
@@ -192,6 +231,7 @@ def _bounded_child_dirs(
     name_prefix: str = "",
     checkpoint: Callable[[], None] | None = None,
     windows_system_context: bool = False,
+    scan_status: CompletionStatusSink | None = None,
 ) -> list[Path]:
     children: list[Path] = []
     resolved_root = resolved_directory_candidate(
@@ -205,6 +245,8 @@ def _bounded_child_dirs(
         with os.scandir(resolved_root) as entries:
             for index, entry in enumerate(islice(entries, MAX_MANAGER_ENTRIES + 1)):
                 if index == MAX_MANAGER_ENTRIES:
+                    if scan_status is not None:
+                        scan_status.mark_incomplete("client_npm_manager_entries_capped")
                     break
                 if checkpoint is not None:
                     checkpoint()
@@ -218,9 +260,15 @@ def _bounded_child_dirs(
                     if not entry.is_dir(follow_symlinks=False):
                         continue
                 except OSError:
+                    if scan_status is not None:
+                        scan_status.mark_incomplete(
+                            "client_npm_manager_entry_stat_failed"
+                        )
                     continue
                 children.append(path)
     except OSError:
+        if scan_status is not None:
+            scan_status.mark_incomplete("client_npm_manager_root_read_failed")
         return []
     children.sort(key=lambda path: path.name)
     return children
@@ -233,6 +281,7 @@ def _node_manager_prefixes(
     environment: Mapping[str, str],
     checkpoint: Callable[[], None] | None = None,
     windows_system_context: bool = False,
+    scan_status: CompletionStatusSink | None = None,
 ) -> tuple[Path, ...]:
     roots: list[tuple[Path, str, str | None]] = []
 
@@ -293,13 +342,12 @@ def _node_manager_prefixes(
 
     prefixes: list[Path] = []
     for root, name_prefix, child_suffix in roots:
-        if len(prefixes) == MAX_MANAGER_PREFIXES:
-            break
         children = _bounded_child_dirs(
             root,
             name_prefix=name_prefix,
             checkpoint=checkpoint,
             windows_system_context=windows_system_context,
+            scan_status=scan_status,
         )
         for child in children:
             candidate = child / child_suffix if child_suffix else child
@@ -324,8 +372,10 @@ def _node_manager_prefixes(
             ):
                 continue
             prefixes.append(candidate)
-            if len(prefixes) == MAX_MANAGER_PREFIXES:
-                break
+            if len(prefixes) > MAX_MANAGER_PREFIXES:
+                if scan_status is not None:
+                    scan_status.mark_incomplete("client_npm_manager_prefixes_capped")
+                return tuple(prefixes[:MAX_MANAGER_PREFIXES])
     return tuple(prefixes)
 
 
@@ -372,6 +422,7 @@ def resolve_npm_global_roots(
     package_names: Iterable[str] = (),
     checkpoint: Callable[[], None] | None = None,
     windows_system_context: bool = False,
+    scan_status: CompletionStatusSink | None = None,
 ) -> tuple[NpmGlobalRoot, ...]:
     """Return bounded candidate prefixes in deterministic precedence order."""
     layout: Literal["unix", "windows"] = "windows" if system == "Windows" else "unix"
@@ -399,10 +450,18 @@ def resolve_npm_global_roots(
             npmrc_path,
             home=home,
             environment=environment,
+            scan_status=scan_status,
         )
         if npmrc_prefix is not None:
             candidates.append(npmrc_prefix)
-    candidates.extend(_path_prefixes(home=home, system=system, environment=environment))
+    candidates.extend(
+        _path_prefixes(
+            home=home,
+            system=system,
+            environment=environment,
+            scan_status=scan_status,
+        )
+    )
     candidates.extend(
         _node_manager_prefixes(
             home=home,
@@ -410,6 +469,7 @@ def resolve_npm_global_roots(
             environment=environment,
             checkpoint=checkpoint,
             windows_system_context=windows_system_context,
+            scan_status=scan_status,
         )
     )
     candidates.extend(
@@ -444,10 +504,12 @@ def resolve_npm_global_roots(
             continue
         seen.add(key)
         roots.append(NpmGlobalRoot(prefix=candidate, layout=layout))
-        if len(roots) == MAX_PREFIXES:
-            break
+        if len(roots) > MAX_PREFIXES:
+            if scan_status is not None:
+                scan_status.mark_incomplete("client_npm_roots_capped")
+            return tuple(roots[:MAX_PREFIXES])
 
-    if system == "Windows" and len(roots) < MAX_PREFIXES:
+    if system == "Windows" and len(roots) <= MAX_PREFIXES:
         for wsl_home in islice(wsl_homes, MAX_WSL_HOMES_TOTAL):
             if checkpoint is not None:
                 checkpoint()
@@ -457,6 +519,7 @@ def resolve_npm_global_roots(
                 wsl_home / ".npmrc",
                 home=wsl_home,
                 environment=wsl_environment,
+                scan_status=scan_status,
             )
             if npmrc_prefix is not None:
                 wsl_candidates.append(npmrc_prefix)
@@ -476,6 +539,7 @@ def resolve_npm_global_roots(
                     environment=wsl_environment,
                     checkpoint=checkpoint,
                     windows_system_context=windows_system_context,
+                    scan_status=scan_status,
                 )
             )
             wsl_candidates.extend(
@@ -494,8 +558,10 @@ def resolve_npm_global_roots(
                     continue
                 seen.add(key)
                 roots.append(NpmGlobalRoot(prefix=candidate, layout="unix"))
-                if len(roots) == MAX_PREFIXES:
-                    return tuple(roots)
+                if len(roots) > MAX_PREFIXES:
+                    if scan_status is not None:
+                        scan_status.mark_incomplete("client_npm_roots_capped")
+                    return tuple(roots[:MAX_PREFIXES])
     return tuple(roots)
 
 
@@ -595,10 +661,7 @@ def validate_npm_manifest(
     """Validate exact package identity without executing package code."""
     if not raw or len(raw) > MAX_MANIFEST_BYTES:
         return None
-    try:
-        manifest = json.loads(raw)
-    except (UnicodeDecodeError, json.JSONDecodeError):
-        return None
+    manifest = parse_json(raw)["value"]
     if not isinstance(manifest, dict) or manifest.get("name") != package.name:
         return None
     version = _valid_version(manifest.get("version"))
@@ -617,6 +680,7 @@ def _read_valid_package(
     *,
     policy: SymlinkFollowPolicy,
     approved_links: dict[str, Path],
+    scan_status: CompletionStatusSink | None = None,
 ) -> NpmGlobalPackage | None:
     components = _package_components(package.name)
     if components is None:
@@ -629,6 +693,11 @@ def _read_valid_package(
         max_components=MAX_PREFIX_COMPONENTS,
     )
     if resolved_prefix is None or not is_real_directory(resolved_prefix):
+        mark_path_unresolved_if_present(
+            root.prefix,
+            scan_status,
+            "client_npm_prefix_resolution_failed",
+        )
         return None
     if root.layout == "unix":
         node_modules = resolve_relative_components(
@@ -649,6 +718,18 @@ def _read_valid_package(
     else:
         node_modules = resolved_prefix
     if node_modules is None or not is_real_directory(node_modules):
+        node_modules_path = (
+            resolved_prefix / "lib" / "node_modules"
+            if root.layout == "unix"
+            else resolved_prefix / "node_modules"
+            if root.layout == "windows"
+            else resolved_prefix
+        )
+        mark_path_unresolved_if_present(
+            node_modules_path,
+            scan_status,
+            "client_npm_node_modules_resolution_failed",
+        )
         return None
     policy.add_scan_area(node_modules, 0)
 
@@ -660,6 +741,11 @@ def _read_valid_package(
         max_components=MAX_PREFIX_COMPONENTS,
     )
     if package_dir is None or not is_real_directory(package_dir):
+        mark_path_unresolved_if_present(
+            node_modules.joinpath(*components),
+            scan_status,
+            "client_npm_package_resolution_failed",
+        )
         return None
     if not _contained_path(package_dir, node_modules):
         policy.add_scan_area(package_dir, 0)
@@ -673,10 +759,17 @@ def _read_valid_package(
         follow_final_symlink=False,
     )
     if manifest_path is None or not is_regular_file(manifest_path):
+        mark_path_unresolved_if_present(
+            package_dir / "package.json",
+            scan_status,
+            "client_npm_manifest_classification_failed",
+        )
         return None
 
     raw = read_bounded(manifest_path, max_bytes=MAX_MANIFEST_BYTES)
     if raw is None:
+        if scan_status is not None:
+            scan_status.mark_incomplete("client_npm_manifest_read_failed")
         return None
     manifest = validate_npm_manifest(raw, package)
     if manifest is None:
@@ -691,6 +784,11 @@ def _read_valid_package(
         follow_final_symlink=False,
     )
     if target_path is None or not is_regular_file(target_path):
+        mark_path_unresolved_if_present(
+            package_dir.joinpath(*manifest.bin_target.parts),
+            scan_status,
+            "client_npm_bin_classification_failed",
+        )
         return None
     return NpmGlobalPackage(
         package_name=package.name,
@@ -709,34 +807,52 @@ def scan_npm_global_packages(
     node_modules_paths: Iterable[Path] = (),
     discover_hidden: bool = True,
     checkpoint: Callable[[], None] | None = None,
+    scan_status: CompletionStatusSink | None = None,
 ) -> dict[str, NpmGlobalPackage]:
     """Return first validated hit per exact allowlisted package identity."""
     package_list = tuple(packages)
     if not package_list:
         return {}
     windows_system = is_windows_system_context()
-    wsl_home_list = tuple(islice(wsl_homes, MAX_WSL_HOMES_TOTAL))
-    discovered_node_modules = list(islice(node_modules_paths, MAX_NODE_MODULES_PATHS))
+    bounded_wsl_homes = tuple(islice(wsl_homes, MAX_WSL_HOMES_TOTAL + 1))
+    if len(bounded_wsl_homes) > MAX_WSL_HOMES_TOTAL and scan_status is not None:
+        scan_status.mark_incomplete("client_npm_wsl_homes_capped")
+    wsl_home_list = bounded_wsl_homes[:MAX_WSL_HOMES_TOTAL]
+    bounded_node_modules = list(islice(node_modules_paths, MAX_NODE_MODULES_PATHS + 1))
+    if len(bounded_node_modules) > MAX_NODE_MODULES_PATHS and scan_status is not None:
+        scan_status.mark_incomplete("client_npm_node_modules_capped")
+    discovered_node_modules = bounded_node_modules[:MAX_NODE_MODULES_PATHS]
     if discover_hidden:
-        discovered_node_modules.extend(
-            scan_hidden_spaces(
-                home=home,
-                system=system,
+        hidden_result = scan_hidden_spaces(
+            home=home,
+            system=system,
+            include_files=False,
+            temp_roots=(),
+            checkpoint=checkpoint,
+        )
+        discovered_node_modules.extend(hidden_result.node_modules_paths)
+        if (
+            hidden_result.truncated or hidden_result.node_modules_paths_truncated
+        ) and scan_status is not None:
+            scan_status.mark_incomplete("client_npm_hidden_scan_truncated")
+        for wsl_home in wsl_home_list:
+            hidden_result = scan_hidden_spaces(
+                home=wsl_home,
+                system="Linux",
                 include_files=False,
                 temp_roots=(),
                 checkpoint=checkpoint,
-            ).node_modules_paths
-        )
-        for wsl_home in wsl_home_list:
-            discovered_node_modules.extend(
-                scan_hidden_spaces(
-                    home=wsl_home,
-                    system="Linux",
-                    include_files=False,
-                    temp_roots=(),
-                    checkpoint=checkpoint,
-                ).node_modules_paths
             )
+            discovered_node_modules.extend(hidden_result.node_modules_paths)
+            if (
+                hidden_result.truncated or hidden_result.node_modules_paths_truncated
+            ) and scan_status is not None:
+                scan_status.mark_incomplete("client_npm_hidden_scan_truncated")
+    if (
+        len(discovered_node_modules) > MAX_NODE_MODULES_PATHS
+        and scan_status is not None
+    ):
+        scan_status.mark_incomplete("client_npm_node_modules_capped")
     resolved_roots = resolve_npm_global_roots(
         home=home,
         system=system,
@@ -745,6 +861,7 @@ def scan_npm_global_packages(
         package_names=(package.name for package in package_list),
         checkpoint=checkpoint,
         windows_system_context=windows_system,
+        scan_status=scan_status,
     )
     roots = (
         *resolved_roots,
@@ -785,8 +902,11 @@ def scan_npm_global_packages(
                     package,
                     policy=symlink_policy,
                     approved_links=attempt_links,
+                    scan_status=scan_status,
                 )
             except Exception:
+                if scan_status is not None:
+                    scan_status.mark_incomplete("client_npm_package_probe_failed")
                 finding = None
             if finding is not None and commit_approved_links(
                 committed_links,

@@ -318,8 +318,21 @@ async def _create_single_kind(
         "created_by": user_id,
         "metadata": metadata,
     }
-    if org_id:
-        payload["organization_id"] = org_id
+    if not org_id:
+        # THE REQUEST CONTEXT IS CARRIED, NEVER REBUILT: a kind definition is
+        # org platform data, so it is born in the organization this tool call
+        # acts in — read off the carried context by the caller, never omitted.
+        # Until 2026-09-17 the key was simply left out of the payload and the
+        # database's personal-org backstop stamped the AGENT's owner, so an
+        # org's own kinds appeared in one person's private workspace and every
+        # admin of that org was refused the edit.
+        raise ValueError(
+            f"kind_create({slug!r}): this call carries no organization, so the kind "
+            "definition has no tenant. A tool call inherits the organization the "
+            "boundary admitted; a platform mint names the system organization "
+            "explicitly. Fix the caller — nothing here picks a tenant."
+        )
+    payload["organization_id"] = org_id
     kd = await KindDefinition.create_item(**payload)
 
     KindExample = get_db_model("KindExample")

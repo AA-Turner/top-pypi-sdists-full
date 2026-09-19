@@ -5,7 +5,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.pathfinding.single_source_bellman_ford_endpoints import (
@@ -25,7 +25,7 @@ class BellmanFordCypherEndpoints(SingleSourceBellmanFordEndpoints):
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         relationship_weight_property: str | None = None,
         relationship_types: list[str] = ALL_TYPES,
@@ -67,7 +67,7 @@ class BellmanFordCypherEndpoints(SingleSourceBellmanFordEndpoints):
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         relationship_weight_property: str | None = None,
         relationship_types: list[str] = ALL_TYPES,
@@ -94,11 +94,11 @@ class BellmanFordCypherEndpoints(SingleSourceBellmanFordEndpoints):
 
         result = self._query_runner.call_procedure("gds.bellmanFord.stats", params=params, logging=log_progress).iloc[0]
 
-        return BellmanFordStatsResult(**result.to_dict())
+        return BellmanFordStatsResult(**result)
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_relationship_type: str,
         source_node: int,
         mutate_negative_cycles: bool = False,
@@ -131,11 +131,11 @@ class BellmanFordCypherEndpoints(SingleSourceBellmanFordEndpoints):
             0
         ]
 
-        return BellmanFordMutateResult(**result.to_dict())
+        return BellmanFordMutateResult(**result)
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_relationship_type: str,
         source_node: int,
         write_node_ids: bool = False,
@@ -172,11 +172,11 @@ class BellmanFordCypherEndpoints(SingleSourceBellmanFordEndpoints):
 
         result = self._query_runner.call_procedure("gds.bellmanFord.write", params=params, logging=log_progress).iloc[0]
 
-        return BellmanFordWriteResult(**result.to_dict())
+        return BellmanFordWriteResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         source_node: int,
         relationship_weight_property: str | None = None,
         relationship_types: list[str] = ALL_TYPES,

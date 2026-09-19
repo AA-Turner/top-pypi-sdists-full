@@ -3,7 +3,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.pathfinding.dfs_endpoints import (
@@ -22,7 +22,7 @@ class DFSCypherEndpoints(DFSEndpoints):
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         target_nodes: int | list[int] | None = None,
         max_depth: int = -1,
@@ -54,7 +54,7 @@ class DFSCypherEndpoints(DFSEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_relationship_type: str,
         source_node: int,
         target_nodes: int | list[int] | None = None,
@@ -84,15 +84,15 @@ class DFSCypherEndpoints(DFSEndpoints):
         params = CallParameters(graph_name=G.name(), config=config)
         params.ensure_job_id_in_config()
 
-        result = self._query_runner.call_procedure(
-            endpoint="gds.dfs.mutate", params=params, logging=log_progress
-        ).squeeze()
+        result = self._query_runner.call_procedure(endpoint="gds.dfs.mutate", params=params, logging=log_progress).iloc[
+            0
+        ]
 
-        return DFSMutateResult(**result.to_dict())
+        return DFSMutateResult(**result)
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         target_nodes: int | list[int] | None = None,
         max_depth: int = -1,
@@ -120,15 +120,15 @@ class DFSCypherEndpoints(DFSEndpoints):
         params = CallParameters(graph_name=G.name(), config=config)
         params.ensure_job_id_in_config()
 
-        result = self._query_runner.call_procedure(
-            endpoint="gds.dfs.stats", params=params, logging=log_progress
-        ).squeeze()
+        result = self._query_runner.call_procedure(endpoint="gds.dfs.stats", params=params, logging=log_progress).iloc[
+            0
+        ]
 
-        return DFSStatsResult(**result.to_dict())
+        return DFSStatsResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         source_node: int,
         target_nodes: int | list[int] | None = None,
         max_depth: int = -1,

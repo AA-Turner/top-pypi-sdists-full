@@ -1,4 +1,12 @@
-"""Installed-client detection for hook configuration."""
+"""Installed-client detection for hook configuration.
+
+Consulted only where ``clients.presence_gates_install`` says so: console-home
+clients in every scope, and every client in ``--user`` scope. Enterprise-dir
+clients (``clients.ENTERPRISE_DIR_CLIENTS``) in MDM scope are written and
+checked unconditionally — the probe can miss a real install (e.g. Cursor.app
+outside ``/Applications`` with no ``cursor`` CLI), and a root-owned file an
+absent client never reads costs nothing.
+"""
 
 from __future__ import annotations
 

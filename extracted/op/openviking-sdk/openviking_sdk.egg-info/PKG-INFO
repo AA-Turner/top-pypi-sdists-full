@@ -1,8 +1,15 @@
 Metadata-Version: 2.4
 Name: openviking-sdk
-Version: 0.1.11
+Version: 0.1.12
 Summary: Lightweight Python HTTP SDK for OpenViking
-Requires-Python: >=3.10
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 Requires-Dist: httpx>=0.25.0
 
@@ -20,7 +27,7 @@ pip install openviking-sdk
 
 Requirements:
 
-- Python 3.10+
+- Python 3.8+
 - A reachable OpenViking HTTP server, for example `http://127.0.0.1:1933`
 
 ## Package Name vs Import Name

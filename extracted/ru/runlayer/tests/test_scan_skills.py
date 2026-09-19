@@ -1,17 +1,21 @@
 """Tests for skill discovery in scan (SKILL.md directories only)."""
 
+import datetime
 import os
 from pathlib import Path
 from unittest import mock
+import uuid
 
 import httpx
 import pytest
 
-from runlayer_cli.scan import file_collector
+from runlayer_cli.scan import file_collector, skill_scanner
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.file_collector import MAX_SINGLE_FILE_BYTES
 from runlayer_cli.scan.skill_scanner import (
     ARTIFACT_SKILL_MD,
     DiscoveredSkillArtifact,
+    SkillPhaseScan,
     SkillFile,
     _collect_files_safe,
     _infer_home_client_tool,
@@ -20,7 +24,9 @@ from runlayer_cli.scan.skill_scanner import (
     _scan_skill_md_dir,
     build_skill_artifact_from_files,
     process_skill_paths,
+    process_skill_paths_with_candidates,
     scan_global_skills,
+    scan_global_skills_with_candidates,
     strip_duplicate_skill_files,
 )
 from runlayer_cli.scan.plugin_scanner import DiscoveredPluginArtifact, PluginFile
@@ -790,6 +796,20 @@ class TestProcessSkillPaths:
         assert results[0].name == "deploy"
         assert results[0].project_path == str(tmp_path / "project")
 
+    def test_candidate_path_matches_artifact_payload_after_prefix_strip(
+        self, tmp_path, monkeypatch
+    ):
+        skill_dir = tmp_path / "project" / ".agents" / "skills" / "deploy"
+        skill_dir.mkdir(parents=True)
+        marker = skill_dir / "SKILL.md"
+        marker.write_text("---\nname: deploy\ndescription: Deploy helper\n---\n")
+        monkeypatch.setenv("RUNLAYER_STRIP_PATH_PREFIX", str(tmp_path.resolve()))
+
+        result = process_skill_paths_with_candidates([marker])
+
+        assert result.candidate_paths == ["/project/.agents/skills/deploy"]
+        assert result.candidate_paths[0] == result.artifacts[0].to_api_payload()["path"]
+
     def test_non_skill_files_ignored(self, tmp_path):
         """AGENTS.md, CLAUDE.md, .cursorrules etc. are no longer treated as skills."""
         project = tmp_path / "project"
@@ -829,8 +849,10 @@ class TestProcessSkillPaths:
         marker = skill_dir / "SKILL.md"
         marker.write_text("---\nname: dup\n---\n")
 
-        results = process_skill_paths([marker, marker])
-        assert len(results) == 1
+        result = process_skill_paths_with_candidates([marker, marker])
+
+        assert len(result.artifacts) == 1
+        assert result.candidate_paths == [str(skill_dir.resolve())]
 
     @pytest.mark.parametrize("marker_name", ["skill.md", "Skill.md", "SKILL.MD"])
     def test_case_variant_skill_md_discovered(self, tmp_path, marker_name):
@@ -871,6 +893,199 @@ class TestProcessSkillPaths:
         f = tmp_path / "random.txt"
         f.write_text("nope")
         assert process_skill_paths([f]) == []
+
+    def test_rotation_cap_marks_project_skill_scan_incomplete(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        markers = []
+        for name in ("one", "two"):
+            skill_dir = tmp_path / name
+            skill_dir.mkdir()
+            marker = skill_dir / "SKILL.md"
+            marker.write_text(f"---\nname: {name}\n---\n# {name}")
+            markers.append(marker)
+        monkeypatch.setattr(
+            "runlayer_cli.scan.skill_scanner.MAX_SKILL_ARTIFACTS_PER_RUN",
+            1,
+        )
+        status = ScanCompletionStatus()
+
+        results = process_skill_paths(
+            markers,
+            state_path=tmp_path / "scan-state.json",
+            scan_status=status,
+        )
+
+        assert len(results) == 1
+        assert status.reasons == ["project_skill_scan_capped"]
+
+    def test_existing_unreadable_marker_marks_skill_scan_incomplete(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        marker = tmp_path / "SKILL.md"
+        marker.write_text("---\nname: hidden\ndescription: hidden\n---\nbody")
+        monkeypatch.setattr(
+            "runlayer_cli.scan.skill_scanner._read_bounded_text",
+            lambda _path: None,
+        )
+        status = ScanCompletionStatus()
+
+        assert process_skill_paths([marker], scan_status=status) == []
+        assert status.reasons == ["skill_marker_read_failed"]
+
+    def test_vanished_marker_keeps_skill_scan_complete(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        from runlayer_cli.scan.skill_scanner import _read_bounded_text as real_read
+
+        marker = tmp_path / "SKILL.md"
+        marker.write_text("---\nname: hidden\ndescription: hidden\n---\nbody")
+
+        def racing_read(path: Path, **kwargs):
+            # Marker deleted between crawl and read.
+            path.unlink()
+            return real_read(path, **kwargs)
+
+        monkeypatch.setattr(
+            "runlayer_cli.scan.skill_scanner._read_bounded_text",
+            racing_read,
+        )
+        status = ScanCompletionStatus()
+
+        assert process_skill_paths([marker], scan_status=status) == []
+        assert status.complete
+        assert status.reasons == []
+
+    def test_vanished_skill_dir_keeps_skill_scan_complete(self, tmp_path):
+        from runlayer_cli.scan.skill_scanner import find_skill_marker
+
+        status = ScanCompletionStatus()
+
+        assert find_skill_marker(tmp_path / "gone", status) is None
+        assert status.complete
+        assert status.reasons == []
+
+    def test_existing_unreadable_loose_skill_marks_scan_incomplete(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        marker = tmp_path / ".agents" / "skills" / "deploy.md"
+        marker.parent.mkdir(parents=True)
+        marker.write_text("---\nname: deploy\ndescription: deploy\n---\nbody")
+        monkeypatch.setattr(
+            "runlayer_cli.scan.skill_scanner._read_bounded_text",
+            lambda _path: None,
+        )
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        status = ScanCompletionStatus()
+
+        assert scan_global_skills(scan_status=status) == []
+        assert status.reasons == ["skill_marker_read_failed"]
+
+    def test_unreadable_global_skill_glob_marks_scan_incomplete(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(
+            "runlayer_cli.scan.skill_scanner._GLOBAL_SKILL_DIRS",
+            [("*", "test")],
+        )
+
+        def fail_glob(_home, _pattern):
+            raise OSError("unreadable home")
+
+        monkeypatch.setattr(Path, "glob", fail_glob)
+        status = ScanCompletionStatus()
+
+        assert scan_global_skills(scan_status=status) == []
+        assert status.reasons == ["global_skill_root_read_failed"]
+
+    def test_unresolvable_global_skill_prefix_marks_scan_incomplete(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        global_root = tmp_path / ".agents" / "skills"
+        real_resolve = Path.resolve
+        monkeypatch.setattr(Path, "home", lambda: tmp_path)
+        monkeypatch.setattr(
+            skill_scanner,
+            "_GLOBAL_SKILL_DIRS",
+            [(".agents/skills", "test")],
+        )
+
+        def resolve(path, *args, **kwargs):
+            if path == global_root:
+                raise OSError("unresolvable root")
+            return real_resolve(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "resolve", resolve)
+        status = ScanCompletionStatus()
+
+        assert process_skill_paths([], scan_status=status) == []
+        assert status.reasons == ["global_skill_root_read_failed"]
+
+
+class TestSkillScanCompatibilityWrappers:
+    def test_process_wrapper_returns_richer_artifacts(self):
+        phase = SkillPhaseScan(artifacts=[], candidate_paths=["/candidate"])
+        found_paths = [Path("/project/skill/SKILL.md")]
+        extra_home_roots = [Path("/wsl/home")]
+        checkpoint = mock.Mock()
+        state_path = Path("/state.json")
+
+        with mock.patch(
+            "runlayer_cli.scan.skill_scanner.process_skill_paths_with_candidates",
+            return_value=phase,
+        ) as richer_scan:
+            result = process_skill_paths(
+                found_paths,
+                extra_home_roots,
+                checkpoint=checkpoint,
+                state_path=state_path,
+            )
+
+        assert result is phase.artifacts
+        richer_scan.assert_called_once_with(
+            found_paths,
+            extra_home_roots=extra_home_roots,
+            checkpoint=checkpoint,
+            state_path=state_path,
+            scan_status=None,
+        )
+
+    def test_global_wrapper_returns_richer_artifacts(self):
+        phase = SkillPhaseScan(artifacts=[], candidate_paths=["/candidate"])
+        extra_home_roots = [Path("/wsl/home")]
+        checkpoint = mock.Mock()
+        state_path = Path("/state.json")
+
+        with mock.patch(
+            "runlayer_cli.scan.skill_scanner.scan_global_skills_with_candidates",
+            return_value=phase,
+        ) as richer_scan:
+            result = scan_global_skills(
+                extra_home_roots,
+                checkpoint=checkpoint,
+                state_path=state_path,
+            )
+
+        assert result is phase.artifacts
+        richer_scan.assert_called_once_with(
+            extra_home_roots=extra_home_roots,
+            checkpoint=checkpoint,
+            state_path=state_path,
+            scan_status=None,
+        )
 
 
 def test_same_identifier_container_mirror_keeps_files_on_host_only():
@@ -987,6 +1202,7 @@ class TestScanGlobalSkills:
 
         assert scan_global_skills() == []
 
+    @mock.patch("runlayer_cli.scan.skill_scanner.MIN_SKILL_ARTIFACTS_PER_RUN", 2)
     @mock.patch("runlayer_cli.scan.skill_scanner.MAX_SKILL_ARTIFACTS_PER_RUN", 2)
     @mock.patch("runlayer_cli.scan.skill_scanner.Path.home")
     def test_frontmatter_junk_does_not_consume_rotation_slots(
@@ -995,8 +1211,8 @@ class TestScanGlobalSkills:
         """Loose files enter the rotation window only with full skill structure.
 
         Planted frontmatter-only junk must not occupy
-        MAX_SKILL_ARTIFACTS_PER_RUN slots shared with real skills, which would
-        delay their discovery across successive runs.
+        adaptive per-run slots shared with real skills, which would delay their
+        discovery across successive runs.
         """
         mock_home.return_value = tmp_path
 
@@ -1171,12 +1387,37 @@ class TestScanGlobalSkills:
         marker.parent.mkdir(parents=True)
         marker.write_text("---\nname: cowork-skill\n---\n")
 
-        assert process_skill_paths([marker]) == []
+        result = process_skill_paths_with_candidates([marker])
+
+        assert result.artifacts == []
+        assert result.candidate_paths == []
 
     @mock.patch("runlayer_cli.scan.skill_scanner.Path.home")
     def test_empty_home(self, mock_home, tmp_path):
         mock_home.return_value = tmp_path
         assert scan_global_skills() == []
+
+    @mock.patch("runlayer_cli.scan.skill_scanner.Path.home")
+    def test_unreadable_global_root_marks_inventory_incomplete(
+        self, mock_home, tmp_path, monkeypatch
+    ):
+        mock_home.return_value = tmp_path
+        skills_root = tmp_path / ".claude" / "skills"
+        skills_root.mkdir(parents=True)
+        real_iterdir = Path.iterdir
+
+        def guarded_iterdir(path):
+            if path == skills_root:
+                raise PermissionError("denied")
+            return real_iterdir(path)
+
+        monkeypatch.setattr(Path, "iterdir", guarded_iterdir)
+
+        result = scan_global_skills_with_candidates()
+
+        assert result.artifacts == []
+        assert result.candidate_paths == []
+        assert result.complete is False
 
 
 class TestSubmitDiscoveredSkills:
@@ -1736,6 +1977,16 @@ class TestSubmitDiscoveredSkills:
         scan_result.username = "alice"
         scan_result.org_device_id = None
         scan_result.serial_number = None
+        scan_result.scan_session_id = uuid.UUID("00000000-0000-4000-8000-000000000001")
+        scan_result.scan_started_at = datetime.datetime(
+            2026,
+            9,
+            3,
+            12,
+            34,
+            56,
+            tzinfo=datetime.timezone.utc,
+        )
 
         submit_discovered_skills(client, [skill], scan_result)
         payload = client.submit_skill.call_args[0][0]
@@ -1743,6 +1994,8 @@ class TestSubmitDiscoveredSkills:
         assert payload["hostname"] == "my-host"
         assert payload["os"] == "darwin"
         assert payload["username"] == "alice"
+        assert payload["scan_session_id"] == ("00000000-0000-4000-8000-000000000001")
+        assert payload["scan_started_at"] == "2026-09-03T12:34:56+00:00"
 
     @pytest.mark.parametrize(
         "lookup",
@@ -1765,7 +2018,9 @@ class TestSubmitDiscoveredSkills:
             files=[SkillFile(title="SKILL.md", content="# known")],
         )
 
-        submit_discovered_skills(client, [skill])
+        result = submit_discovered_skills(client, [skill])
+
+        assert result == "success"
         client.submit_skill.assert_called_once()
         payload = client.submit_skill.call_args[0][0]
         assert payload["files"] == []
@@ -1847,6 +2102,16 @@ class TestSubmitDiscoveredSkills:
         scan_result.username = "bob"
         scan_result.org_device_id = None
         scan_result.serial_number = None
+        scan_result.scan_session_id = uuid.UUID("00000000-0000-4000-8000-000000000001")
+        scan_result.scan_started_at = datetime.datetime(
+            2026,
+            9,
+            3,
+            12,
+            34,
+            56,
+            tzinfo=datetime.timezone.utc,
+        )
 
         submit_discovered_skills(client, [skill], scan_result)
         client.submit_skill.assert_called_once()
@@ -1885,7 +2150,10 @@ class TestSubmitDiscoveredSkills:
             identifier="abc123",
         )
 
-        submit_discovered_skills(client, [skill])
+        result = submit_discovered_skills(client, [skill])
+
+        assert result == "unsupported"
+        client.submit_skill.assert_not_called()
 
     def test_handles_api_error_gracefully(self):
         client = mock.MagicMock()
@@ -2859,6 +3127,16 @@ class TestSubmitDiscoveredPluginsFileStripping:
         scan_result.username = "charlie"
         scan_result.org_device_id = None
         scan_result.serial_number = None
+        scan_result.scan_session_id = uuid.UUID("00000000-0000-4000-8000-000000000001")
+        scan_result.scan_started_at = datetime.datetime(
+            2026,
+            9,
+            3,
+            12,
+            34,
+            56,
+            tzinfo=datetime.timezone.utc,
+        )
 
         submit_discovered_plugins(client, [plugin], scan_result)
         client.submit_plugin.assert_called_once()
@@ -2868,6 +3146,8 @@ class TestSubmitDiscoveredPluginsFileStripping:
         assert payload["hostname"] == "box3"
         assert payload["os"] == "windows"
         assert payload["username"] == "charlie"
+        assert payload["scan_session_id"] == ("00000000-0000-4000-8000-000000000001")
+        assert payload["scan_started_at"] == "2026-09-03T12:34:56+00:00"
 
     def test_skips_plugin_without_identifier(self):
         client = mock.MagicMock()

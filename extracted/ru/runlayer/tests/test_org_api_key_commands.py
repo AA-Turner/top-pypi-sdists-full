@@ -1055,3 +1055,74 @@ class TestMDMManagedOrgKeyFallback:
                     implicit_org_key_label="ai_watch_mdm",
                     interactive_login_on_missing=False,
                 )
+
+
+class TestManagedHostWins:
+    """``managed_host_wins`` (the ``scan`` contract, ENG-6620): the MDM ``Host``
+    outranks the YAML ``default_host`` so a user login against another tenant
+    cannot redirect the device's scan check-in; explicit ``--host`` still wins."""
+
+    MANAGED = {"host": "https://prod.example.com", "org_api_key": "rl_org_prod"}
+
+    def _make_ctx(self, *, host=None):
+        ctx = typer.Context(typer.main.get_command(app))
+        ctx.ensure_object(dict)
+        ctx.obj["host"] = host
+        return ctx
+
+    def _user_config(self) -> Config:
+        return Config(
+            default_host="https://other.example.com",
+            hosts={
+                "other.example.com": {
+                    "url": "https://other.example.com",
+                    "secret": "rl_user_other",
+                }
+            },
+        )
+
+    def _resolve(self, ctx, *, managed_host_wins: bool):
+        return resolve_credentials(
+            ctx,
+            require_auth=True,
+            allow_org_key=True,
+            implicit_org_key_label="ai_watch_mdm",
+            interactive_login_on_missing=False,
+            managed_host_wins=managed_host_wins,
+        )
+
+    def test_managed_host_beats_user_default_host(self):
+        with (
+            patch("runlayer_cli.config.load_config", return_value=self._user_config()),
+            patch("runlayer_cli.config.read_managed_config", return_value=self.MANAGED),
+        ):
+            creds = self._resolve(self._make_ctx(), managed_host_wins=True)
+        assert creds == {"host": "https://prod.example.com", "secret": "rl_org_prod"}
+
+    def test_default_keeps_user_default_host(self):
+        """Interactive commands keep today's precedence."""
+        with (
+            patch("runlayer_cli.config.load_config", return_value=self._user_config()),
+            patch("runlayer_cli.config.read_managed_config", return_value=self.MANAGED),
+        ):
+            creds = self._resolve(self._make_ctx(), managed_host_wins=False)
+        assert creds == {"host": "https://other.example.com", "secret": "rl_user_other"}
+
+    def test_explicit_host_still_wins_and_org_key_stays_home(self):
+        with (
+            patch("runlayer_cli.config.load_config", return_value=self._user_config()),
+            patch("runlayer_cli.config.read_managed_config", return_value=self.MANAGED),
+        ):
+            creds = self._resolve(
+                self._make_ctx(host="https://other.example.com"),
+                managed_host_wins=True,
+            )
+        assert creds == {"host": "https://other.example.com", "secret": "rl_user_other"}
+
+    def test_unmanaged_device_unchanged(self):
+        with (
+            patch("runlayer_cli.config.load_config", return_value=self._user_config()),
+            patch("runlayer_cli.config.read_managed_config", return_value={}),
+        ):
+            creds = self._resolve(self._make_ctx(), managed_host_wins=True)
+        assert creds == {"host": "https://other.example.com", "secret": "rl_user_other"}

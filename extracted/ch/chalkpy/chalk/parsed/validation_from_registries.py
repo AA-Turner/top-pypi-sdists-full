@@ -274,6 +274,27 @@ def validate_materialized_feature_view_from_registries(
                 f"MaterializedFeatureView for namespace '{view.namespace}' lists feature '{fqn}' in "
                 + "'features', but only scalar features can be materialized."
             )
+            continue
+
+        # A wide table is built from the offline store, so a feature that never reaches it has
+        # nothing to materialize from. Rejecting here matters because the request is otherwise
+        # honored halfway: the feature stays in the selection, so reads do not route it to the
+        # observation tables, but it is denied a wide column -- and the query fails looking for a
+        # mapping that was never going to exist. Mirrors `is_offline_store_eligible` in
+        # chalk_offline_store, which is the rule the wide layout actually applies.
+        if not feature.store_offline:
+            errors.append(
+                f"MaterializedFeatureView for namespace '{view.namespace}' lists feature '{fqn}' in "
+                + "'features', but that feature sets 'store_offline=False' and so is never written "
+                + "to the offline store. Remove it from 'features', or set 'store_offline=True'."
+            )
+            continue
+
+        if feature.is_distance_pseudofeature or feature.is_singleton:
+            errors.append(
+                f"MaterializedFeatureView for namespace '{view.namespace}' lists feature '{fqn}' in "
+                + "'features', but that feature is synthesized by Chalk and is not stored offline."
+            )
 
     return errors
 

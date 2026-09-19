@@ -7,6 +7,7 @@ from concurrent.futures import ProcessPoolExecutor
 import io
 import os
 import random
+import socket
 import requests
 import time
 import sys
@@ -1149,6 +1150,25 @@ def test_errors_cause_preservings(monkeypatch, s3):
     assert exc.value.__cause__ is None
 
 
+def test_listing_retries_transient_errors(monkeypatch, s3):
+    # a transient error on a listing page is retried like any other call (#982)
+    expected = s3.find(test_bucket_name)
+    original = type(s3.s3).list_objects_v2
+    calls = []
+
+    async def list_objects_v2(self, *args, **kwargs):
+        calls.append(kwargs)
+        if len(calls) == 1:
+            raise socket.timeout
+        return await original(self, *args, **kwargs)
+
+    monkeypatch.setattr(type(s3.s3), "list_objects_v2", list_objects_v2)
+    s3.invalidate_cache()
+
+    assert s3.find(test_bucket_name) == expected
+    assert len(calls) == 2
+
+
 def test_local_expiry_check(s3):
     s3 = S3FileSystem(
         local_expiry_check=True,
@@ -2074,9 +2094,73 @@ def test_requester_pays(s3):
     fn = test_bucket_name + "/myfile"
     s3 = S3FileSystem(requester_pays=True, client_kwargs={"endpoint_url": endpoint_uri})
     assert s3.req_kw["RequestPayer"] == "requester"
+    put_kwargs = s3._get_s3_method_kwargs(
+        s3.s3.put_object, Bucket=test_bucket_name, Key="myfile"
+    )
+    assert put_kwargs["RequestPayer"] == "requester"
+    list_kwargs = s3._get_s3_method_kwargs(
+        s3.s3.list_objects_v2, Bucket=test_bucket_name, MaxKeys=1
+    )
+    assert list_kwargs["RequestPayer"] == "requester"
+    assert "RequestPayer" not in s3._get_s3_method_kwargs(s3.s3.list_buckets)
     s3.touch(fn)
     with s3.open(fn, "rb") as f:
         assert f.req_kw["RequestPayer"] == "requester"
+
+
+@pytest.mark.parametrize(
+    "filesystem_requester_pays,file_requester_pays,expected",
+    [(False, True, True), (True, False, False)],
+)
+@pytest.mark.parametrize("method", ["get_object", "put_object"])
+def test_requester_pays_per_file_override(
+    filesystem_requester_pays,
+    file_requester_pays,
+    expected,
+    method,
+):
+    fn = test_bucket_name + "/myfile"
+    s3 = S3FileSystem(
+        requester_pays=filesystem_requester_pays,
+        client_kwargs={"endpoint_url": endpoint_uri},
+        skip_instance_cache=True,
+    )
+    f = s3fs.core.S3File(s3, fn, mode="rb", requester_pays=file_requester_pays, size=0)
+    request_kwargs = s3._get_s3_method_kwargs(
+        getattr(s3.s3, method),
+        f.s3_additional_kwargs,
+        f._request_payer_kw,
+        Bucket=test_bucket_name,
+        Key="myfile",
+    )
+    f.close()
+
+    assert ("RequestPayer" in request_kwargs) is expected
+    if expected:
+        assert request_kwargs["RequestPayer"] == "requester"
+
+
+def test_requester_pays_makedirs_uses_object_listing():
+    class MetadataRestrictedS3FileSystem(S3FileSystem):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, **kwargs)
+            self.calls = []
+
+        async def _call_s3(self, method, *akwarglist, **kwargs):
+            self.calls.append(method)
+            if method == "list_objects_v2":
+                return {"Contents": []}
+            raise PermissionError("Bucket metadata is not accessible")
+
+    s3 = MetadataRestrictedS3FileSystem(
+        requester_pays=True,
+        client_kwargs={"endpoint_url": endpoint_uri},
+        skip_instance_cache=True,
+    )
+    s3.makedirs("requester-pays-bucket/checkpoints/run", exist_ok=True)
+
+    assert s3.calls == ["head_bucket", "get_bucket_location", "list_objects_v2"]
+    assert "create_bucket" not in s3.calls
 
 
 def test_credentials():
@@ -2991,10 +3075,13 @@ def test_exist_after_delete(s3):
 # condition: True if running on botocore < 1.36.0
 # The below tests for exclusive writes will fail on older versions of botocore.
 old_botocore = version.parse(botocore.__version__) < version.parse("1.36.0")
+old_moto = version.parse(moto.__version__) < version.parse("5.1.11")
 
 
 @pytest.mark.xfail(
-    reason="moto doesn't support IfNoneMatch for MPU when object created via MPU"
+    old_moto,
+    reason="moto<5.1.11 doesn't support IfNoneMatch for MPU when object created via MPU",
+    strict=True,
 )
 def test_pipe_exclusive_big(s3):
     chunksize = 5 * 2**20  # minimum allowed
@@ -3034,7 +3121,9 @@ def test_pipe_exclusive_big_after_small(s3):
 
 
 @pytest.mark.xfail(
-    reason="moto doesn't support IfNoneMatch for MPU when object created via MPU"
+    old_moto,
+    reason="moto<5.1.11 doesn't support IfNoneMatch for MPU when object created via MPU",
+    strict=True,
 )
 def test_put_exclusive_big(s3, tmpdir):
     chunksize = 5 * 2**20  # minimum allowed

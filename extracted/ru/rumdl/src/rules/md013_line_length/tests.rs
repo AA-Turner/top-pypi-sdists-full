@@ -9869,3 +9869,1591 @@ fn test_md013_standalone_link_line_is_left_alone_where_it_should_be() {
         );
     }
 }
+
+/// MD013 with one sentence per line and no line-length limit, which is the
+/// configuration the CJK sentence cases below are reported under.
+fn sentence_per_line_rule() -> MD013LineLength {
+    MD013LineLength::from_config_struct(MD013Config {
+        line_length: crate::types::LineLength::new(0),
+        reflow: true,
+        reflow_mode: ReflowMode::SentencePerLine,
+        ..Default::default()
+    })
+}
+
+/// The same configuration with `require_sentence_capital` off, under which a
+/// sentence may open with any character.
+fn relaxed_sentence_per_line_rule() -> MD013LineLength {
+    MD013LineLength::from_config_struct(MD013Config {
+        line_length: crate::types::LineLength::new(0),
+        reflow: true,
+        reflow_mode: ReflowMode::SentencePerLine,
+        require_sentence_capital: false,
+        ..Default::default()
+    })
+}
+
+/// Format `content` the way `rumdl fmt` does under `rule`.
+fn fix_under(rule: &MD013LineLength, content: &str) -> String {
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    rule.fix(&ctx).unwrap()
+}
+
+/// The MD013 messages `rumdl check` prints for `content` under `rule`.
+fn messages_under(rule: &MD013LineLength, content: &str) -> Vec<String> {
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    rule.check(&ctx).unwrap().into_iter().map(|w| w.message).collect()
+}
+
+/// The MD013 messages `rumdl check` prints for `content` under it.
+fn sentence_per_line_messages(content: &str) -> Vec<String> {
+    messages_under(&sentence_per_line_rule(), content)
+}
+
+/// The message `check` prints for a line holding `n` sentences.
+fn sentence_message(n: usize) -> String {
+    format!("Line contains {n} sentences (one sentence per line required)")
+}
+
+/// Rewrite `content` and assert the result renders to the same HTML, then
+/// return it.
+///
+/// Moving a line break is a layout change, so the rendering is the invariant
+/// every case below holds: what the reflow produces has to mean what the author
+/// wrote. ASCII whitespace is removed from both renderings, because a soft line
+/// break renders as a newline where a space rendered as a space. The parse
+/// reads wider than the one `text_reflow` consults, since it enables definition
+/// lists as well, so a rewrite that changes what a reader's parser sees is
+/// caught even where the reflow's own parse says nothing.
+///
+/// Strikethrough and definition lists are enabled because the reflow reads both
+/// as markup. Plain CommonMark renders a definition-list marker as text, which
+/// hides a marker the rewrite moved or absorbed.
+fn sentence_per_line_fix_preserving_rendering(content: &str) -> String {
+    fix_preserving_rendering_under(&sentence_per_line_rule(), content)
+}
+
+/// [`sentence_per_line_fix_preserving_rendering`] under `rule`.
+fn fix_preserving_rendering_under(rule: &MD013LineLength, content: &str) -> String {
+    let render = |text: &str| {
+        let mut options = pulldown_cmark::Options::empty();
+        options.insert(pulldown_cmark::Options::ENABLE_STRIKETHROUGH);
+        options.insert(pulldown_cmark::Options::ENABLE_DEFINITION_LIST);
+        let mut html = String::new();
+        pulldown_cmark::html::push_html(&mut html, pulldown_cmark::Parser::new_ext(text, options));
+        html.retain(|c| !c.is_ascii_whitespace());
+        html
+    };
+    let fixed = fix_under(rule, content);
+    assert_eq!(
+        render(content),
+        render(&fixed),
+        "rendering changed for input: {content:?}"
+    );
+    fixed
+}
+
+/// A bracket closing a CJK sentence belongs to the sentence it ends, so the
+/// break lands after it. The ASCII rows pin that the ASCII branch is untouched:
+/// it still needs a space after the terminator, so `(Done.)` ends nothing.
+#[test]
+fn cjk_sentence_keeps_its_closing_bracket() {
+    let cases = [
+        ("（已经完成。） Next sentence.", "（已经完成。）\nNext sentence."),
+        ("(已经完成。) Next sentence.", "(已经完成。)\nNext sentence."),
+        ("（“已经完成。”） Next sentence.", "（“已经完成。”）\nNext sentence."),
+        ("「已经完成。」 Next sentence.", "「已经完成。」\nNext sentence."),
+        ("【已经完成。】继续执行。", "【已经完成。】\n继续执行。"),
+        ("[已经完成。] Next sentence.", "[已经完成。]\nNext sentence."),
+        ("（已经完成。）后句开始。", "（已经完成。）\n后句开始。"),
+        // The halfwidth corner bracket and the two vertical presentation forms
+        // enclose an aside the same way their fullwidth spellings do.
+        (
+            "\u{FF62}已经完成。\u{FF63} Next sentence.",
+            "\u{FF62}已经完成。\u{FF63}\nNext sentence.",
+        ),
+        (
+            "\u{FE41}已经完成。\u{FE42} Next sentence.",
+            "\u{FE41}已经完成。\u{FE42}\nNext sentence.",
+        ),
+        (
+            "\u{FE43}已经完成。\u{FE44} Next sentence.",
+            "\u{FE43}已经完成。\u{FE44}\nNext sentence.",
+        ),
+        // A remainder holding nothing but the closer is not a sentence.
+        ("（已经完成。）", "（已经完成。）"),
+        // Correct already: a closing quote is consumed the same way.
+        ("“已经完成。” Next sentence.", "“已经完成。”\nNext sentence."),
+        ("(Done.) Next sentence.", "(Done.) Next sentence."),
+        // Two source lines: the part builder ends the first one on its closer,
+        // and neither line is joined into the other.
+        ("（已经完成。）\n后句开始。", "（已经完成。）\n后句开始。"),
+    ];
+
+    for (input, expected) in cases {
+        assert_eq!(
+            sentence_per_line_fix_preserving_rendering(input),
+            expected,
+            "input: {input}"
+        );
+    }
+}
+
+/// `check` counts the same sentences the rewrite produces, so a closer does not
+/// open a sentence of its own. Every one-line input above is counted here.
+#[test]
+fn cjk_closing_bracket_does_not_open_a_sentence() {
+    let cases = [
+        ("（已经完成。） Next sentence.", 2),
+        ("(已经完成。) Next sentence.", 2),
+        ("（“已经完成。”） Next sentence.", 2),
+        ("「已经完成。」 Next sentence.", 2),
+        ("【已经完成。】继续执行。", 2),
+        ("[已经完成。] Next sentence.", 2),
+        ("（已经完成。）后句开始。", 2),
+        ("\u{FF62}已经完成。\u{FF63} Next sentence.", 2),
+        ("\u{FE41}已经完成。\u{FE42} Next sentence.", 2),
+        ("\u{FE43}已经完成。\u{FE44} Next sentence.", 2),
+        ("“已经完成。” Next sentence.", 2),
+        // One sentence each, so nothing is reported.
+        ("（已经完成。）", 1),
+        ("(Done.) Next sentence.", 1),
+    ];
+
+    for (input, sentences) in cases {
+        let expected = if sentences > 1 {
+            vec![sentence_message(sentences)]
+        } else {
+            Vec::new()
+        };
+        assert_eq!(sentence_per_line_messages(input), expected, "input: {input}");
+    }
+}
+
+/// A colon alone on a line is a definition-list marker, so the text that
+/// trails the closer stays on the line it came from, byte for byte. The closer
+/// still travels with the sentence it ends.
+///
+/// A CJK sentence runs into the next one with no whitespace between them, so a
+/// break here is written into the text rather than over a space. Folding the
+/// marker back would write a space the author never typed, which leaves
+/// refusing the break as the only way back to the source.
+#[test]
+fn a_sentence_boundary_leaves_no_definition_list_marker_alone() {
+    for input in [
+        "- 使用例を見られます (ヒント: この方法です！):",
+        "右寄せ文字列を意味する。):",
+    ] {
+        assert_eq!(
+            sentence_per_line_fix_preserving_rendering(input),
+            input,
+            "input: {input}"
+        );
+    }
+}
+
+/// A colon alone on a line the author wrote is a definition-list marker with an
+/// empty definition, and the reflow leaves it where it is.
+///
+/// The fold that keeps a marker off the start of a line only ever repairs a
+/// break the split itself made, so it has to be blind to a marker that opens a
+/// block of its own. Absorbing one into the term above it turns a definition
+/// list into a plain paragraph.
+#[test]
+fn a_definition_list_marker_the_author_wrote_stays_on_its_own_line() {
+    for input in ["文章です。\n:", "Done!\n:", "完成。\n:"] {
+        assert_eq!(
+            sentence_per_line_fix_preserving_rendering(input),
+            input,
+            "input: {input}"
+        );
+    }
+}
+
+/// An indented marker is a marker up to the indentation a parse allows it, and
+/// prose past that.
+///
+/// A definition may be indented three columns; the fourth makes the line a lazy
+/// continuation of the paragraph above it, which is prose and reflows as prose.
+/// Inside a list item the count runs from the item's content, so a marker two
+/// columns into a `- ` item may itself be indented three more.
+#[test]
+fn an_indented_definition_list_marker_stays_on_its_own_line() {
+    for input in [
+        "文章です。\n :",
+        "文章です。\n  :",
+        "文章です。\n   :",
+        "- 項目です。\n  :",
+        "- 項目です。\n     :",
+        "Term\n  : definition",
+    ] {
+        assert_eq!(
+            sentence_per_line_fix_preserving_rendering(input),
+            input,
+            "input: {input}"
+        );
+    }
+
+    // Four columns of indentation is past the marker, so the colon is prose the
+    // paragraph takes back.
+    assert_eq!(
+        sentence_per_line_fix_preserving_rendering("文章です。\n    :"),
+        "文章です。 :"
+    );
+
+    // Four columns past a list item's content is prose as well, and the item
+    // keeps the line where the author put it.
+    assert_eq!(
+        sentence_per_line_fix_preserving_rendering("- 項目です。\n      :"),
+        "- 項目です。\n      :"
+    );
+}
+
+/// A colon opening a line is a definition-list marker whether or not a space
+/// follows it.
+///
+/// The definition-list extensions read the colon, not the space: `:text` opens
+/// a definition exactly as `: text` does. So a line the author opened with one
+/// is a block of its own, and a line the split would open with one is a cut the
+/// rewrite must not make. A colon anywhere else on the line is ordinary text.
+#[test]
+fn a_line_opening_with_a_colon_is_a_definition_list_marker() {
+    for input in [
+        // Splitting here would turn the second sentence into a definition.
+        "（完成。）:次の文。",
+        // Written as a definition list, joined into a paragraph before.
+        "Term\n:definition without a space",
+        "Look at this.\n:smile: nice one.",
+        // A colon inside a line defines nothing.
+        "First one. :smile: second one.",
+    ] {
+        assert_eq!(
+            sentence_per_line_fix_preserving_rendering(input),
+            input,
+            "input: {input}"
+        );
+    }
+}
+
+/// Semantic line breaks take sentence boundaries first, so they land after the
+/// closer too.
+#[test]
+fn cjk_closing_bracket_under_semantic_line_breaks() {
+    let config = MD013Config {
+        line_length: crate::types::LineLength::new(40),
+        reflow: true,
+        reflow_mode: ReflowMode::SemanticLineBreaks,
+        ..Default::default()
+    };
+    let rule = MD013LineLength::from_config_struct(config);
+    let content = "（已经完成。） Next sentence.";
+    let ctx = LintContext::new(content, MarkdownFlavor::Standard, None);
+    assert_eq!(rule.fix(&ctx).unwrap(), "（已经完成。）\nNext sentence.");
+    assert_eq!(
+        sentence_per_line_fix_preserving_rendering(content),
+        "（已经完成。）\nNext sentence."
+    );
+}
+
+/// A delimiter run glued between a CJK sentence ender and a character that is
+/// neither whitespace nor the end of the text is markup the parse cannot place:
+/// CommonMark reads `**已经完成。**继续执行。` as literal asterisks. A line
+/// break after such a run makes it right-flanking and turns the text into strong
+/// emphasis, so the reflow moves it to neither side of a break and the paragraph
+/// stays as written.
+#[test]
+fn cjk_sentence_with_a_non_closing_emphasis_run_is_left_alone() {
+    let cases = [
+        "1. **已经完成。**继续执行。",
+        "**已经完成。**继续执行。",
+        "__已经完成。__继续执行。",
+        "~~已经完成。~~继续执行。",
+        // A zero-width joiner follows the run. It is not whitespace, and the
+        // parse matches the run to nothing.
+        "**已经完成。**\u{200D}继续执行。",
+        // Nothing opens a span anywhere, so the run closes nothing even though
+        // a comma follows it.
+        "已经完成。**，继续执行。",
+    ];
+
+    for input in cases {
+        assert_eq!(
+            sentence_per_line_fix_preserving_rendering(input),
+            input,
+            "input: {input}"
+        );
+    }
+}
+
+/// A run the parse reads as closing a span travels with the sentence it ends,
+/// whatever follows it, and a run that opens one stays with the sentence that
+/// follows. The ASCII rows pin that the ASCII branch is untouched.
+#[test]
+fn cjk_sentence_with_a_closing_emphasis_run_still_splits() {
+    let cases = [
+        // The parse matches the run, so what follows it decides nothing.
+        ("**已经完成。**，继续执行。", "**已经完成。**\n，继续执行。"),
+        ("**已经完成。**·继续执行。", "**已经完成。**\n·继续执行。"),
+        ("**已经完成。**💜继续执行。", "**已经完成。**\n💜继续执行。"),
+        // U+FE57, a CJK compatibility form.
+        ("**已经完成。**﹗继续执行。", "**已经完成。**\n﹗继续执行。"),
+        // A guillemet is a closing quote, so it goes with the sentence too.
+        ("**已经完成。**»继续执行。", "**已经完成。**»\n继续执行。"),
+        ("1. **已经完成。** 继续执行。", "1. **已经完成。**\n   继续执行。"),
+        // A closing run of one delimiter character followed by an opening run
+        // of another. `**_` is two delimiter runs, not one.
+        ("**已经完成。**_继续_", "**已经完成。**\n_继续_"),
+        ("**完成。**_继续。_", "**完成。**\n_继续。_"),
+        ("*完成。*_继续。_", "*完成。*\n_继续。_"),
+        // Two closers stacked, consumed together.
+        ("_*完成。*_ 继续。", "_*完成。*_\n继续。"),
+        // The run after the ender opens a span the parse matched, so the
+        // sentence before it ends and the span moves to the next line whole.
+        ("已经完成。**继续执行。**", "已经完成。\n**继续执行。**"),
+        ("已经完成。*继续*执行。", "已经完成。\n*继续*执行。"),
+        ("name__Important.__Next", "name__Important.__Next"),
+        ("Done.**Next sentence.**", "Done.**Next sentence.**"),
+    ];
+
+    for (input, expected) in cases {
+        assert_eq!(
+            sentence_per_line_fix_preserving_rendering(input),
+            expected,
+            "input: {input}"
+        );
+    }
+}
+
+/// Which delimiter run opens a span and which closes one is read off the whole
+/// paragraph, not off the part of it still waiting to be split.
+///
+/// `*第一句。第二句。*，*（第三句。）*` holds two sibling spans. Once the first
+/// sentence is on its own line the rest carries the run closing the first span
+/// with nothing left to open it, and read on its own that rest parses as one
+/// span from `*，*`, which puts the break in front of the closer and nests the
+/// spans inside each other.
+#[test]
+fn a_sentence_boundary_reads_the_delimiter_roles_of_the_whole_paragraph() {
+    let input = "*第一句。第二句。*，*（第三句。）*";
+    assert_eq!(
+        sentence_per_line_fix_preserving_rendering(input),
+        "*第一句。\n第二句。*\n，*（第三句。）*"
+    );
+    assert_eq!(sentence_per_line_messages(input), vec![sentence_message(3)]);
+}
+
+/// A sentence boundary falling inside a delimiter run is no boundary.
+///
+/// `***` is one delimiter run of three asterisks, which the parse divides
+/// between the span it closes and the span it opens. Whether a run matches at
+/// all depends on its whole length: `**（完成。）***（继续）**。` renders as
+/// strong text followed by emphasis, and a break between the two halves leaves
+/// an opening run of one facing a closing run of two, which sum to three and so
+/// match nothing, turning the markup into literal asterisks. No cut inside such
+/// a run keeps that arithmetic, so the line stays whole and holds one sentence.
+#[test]
+fn a_sentence_boundary_inside_a_delimiter_run_is_not_a_split_point() {
+    for input in ["**（完成。）***（继续）**。", "*完成。***（继续。）**"] {
+        assert_eq!(
+            sentence_per_line_fix_preserving_rendering(input),
+            input,
+            "input: {input}"
+        );
+        assert!(sentence_per_line_messages(input).is_empty(), "input: {input}");
+    }
+}
+
+/// A cut in front of a delimiter run is taken only when the emphasis survives
+/// it.
+///
+/// Whether a run opens a span, closes one or does both is decided by the
+/// characters on either side of it, and a line break is one of them. The run in
+/// `（完成。）**(foo*)**` follows a bracket and precedes a letter, so it can do
+/// both jobs, and the rule of three is what keeps the inner asterisk from
+/// pairing; opening a line the run can only open, the rule of three no longer
+/// applies and the text turns into nested emphasis. The other rows have the
+/// same shape and pair the same way on either side of the break, so they split.
+#[test]
+fn a_cut_in_front_of_a_delimiter_run_keeps_the_emphasis_it_had() {
+    let input = "（完成。）**(foo*)**";
+    assert_eq!(sentence_per_line_fix_preserving_rendering(input), input);
+    assert!(sentence_per_line_messages(input).is_empty());
+
+    for (input, expected) in [
+        ("（完成。）**「次」**", "（完成。）\n**「次」**"),
+        ("（完成。）*（次。）*", "（完成。）\n*（次。）*"),
+        ("**Done.** Next one.", "**Done.**\nNext one."),
+        ("Done. **Next one.** End here.", "Done.\n**Next one.**\nEnd here."),
+    ] {
+        assert_eq!(
+            sentence_per_line_fix_preserving_rendering(input),
+            expected,
+            "input: {input}"
+        );
+    }
+}
+
+/// `check` reads the same boundaries the rewrite does, so a paragraph the
+/// rewrite leaves alone is not reported either.
+#[test]
+fn a_non_closing_emphasis_run_reports_no_sentence_warning() {
+    for input in [
+        "1. **已经完成。**继续执行。",
+        "**已经完成。**继续执行。",
+        "**已经完成。**\u{200D}继续执行。",
+        "已经完成。**，继续执行。",
+    ] {
+        assert!(sentence_per_line_messages(input).is_empty(), "input: {input}");
+    }
+
+    for input in [
+        "已经完成。**继续执行。**",
+        "**已经完成。**_继续_",
+        "**已经完成。**💜继续执行。",
+    ] {
+        assert_eq!(
+            sentence_per_line_messages(input),
+            vec![sentence_message(2)],
+            "input: {input}"
+        );
+    }
+}
+
+/// Whatever whitespace stands between two sentences, the line being assembled
+/// stays the paragraph's own bytes.
+///
+/// Which delimiter runs open a span and which close one is read off a single
+/// parse of the paragraph and found again by position. A line built any other
+/// way would be missed there and read on its own, where a run that closes a
+/// span opened in an already emitted sentence reads as opening one, and the
+/// break lands on the wrong side of it.
+#[test]
+fn a_line_being_assembled_is_the_paragraphs_own_text() {
+    for (input, expected) in [
+        (
+            "*第一句。第二句。*，  *（第三句。）*",
+            "*第一句。\n第二句。*\n，  *（第三句。）*",
+        ),
+        ("One. Two.  *Three. Four.*  Five.", "One.\nTwo.\n*Three.\nFour.*\nFive."),
+        ("One.\tTwo.\t*Three. Four.*", "One.\tTwo.\n*Three.\nFour.*"),
+    ] {
+        assert_eq!(
+            sentence_per_line_fix_preserving_rendering(input),
+            expected,
+            "input: {input:?}"
+        );
+    }
+}
+
+/// The cut a CJK sentence ends at is read once, footnote references included,
+/// and the reflow takes the cut the boundary check validated.
+///
+/// A footnote reference glued to the ender belongs to the sentence, and so does
+/// whatever closes the sentence after it: a bracket, or a delimiter run the
+/// parse reads as a closer. Two asterisks after `[^1]` in the first row close
+/// the span with their first character and leave the second literal, a run no
+/// cut can move, so the line stays whole.
+#[test]
+fn a_cjk_sentence_ending_in_a_footnote_takes_the_cut_that_was_checked() {
+    for input in ["*完成。[^1]**\n\n[^1]: note\n", "*完成。[^1]*\n\n[^1]: note\n"] {
+        assert_eq!(
+            sentence_per_line_fix_preserving_rendering(input),
+            input,
+            "input: {input:?}"
+        );
+        assert!(
+            sentence_per_line_messages(input).is_empty(),
+            "one sentence reported as more: {input:?}"
+        );
+    }
+    for (input, expected) in [
+        (
+            "*完成。次の文。[^1]*\n\n[^1]: note\n",
+            "*完成。\n次の文。[^1]*\n\n[^1]: note\n",
+        ),
+        // A control: the bracket after the footnote closes the sentence, so the
+        // cut lands after it.
+        (
+            "（完成。[^1]）次の文。\n\n[^1]: note\n",
+            "（完成。[^1]）\n次の文。\n\n[^1]: note\n",
+        ),
+    ] {
+        assert_eq!(
+            sentence_per_line_fix_preserving_rendering(input),
+            expected,
+            "input: {input:?}"
+        );
+        assert_eq!(
+            sentence_per_line_messages(input),
+            vec![sentence_message(2)],
+            "input: {input:?}"
+        );
+    }
+}
+
+/// A bracket after a CJK ender opens a footnote reference only when the parse
+/// reads one there. `[^1](url)` is an inline link whose text happens to read
+/// like a label, and a link opens the next sentence whole, so the cut lands in
+/// front of it. A footnote reference stays glued to the sentence it follows.
+/// `normalize` at 40 columns leaves either line alone, since it fits.
+#[test]
+fn a_link_after_a_cjk_ender_is_not_read_as_a_footnote_reference() {
+    let normalize = MD013LineLength::from_config_struct(MD013Config {
+        line_length: crate::types::LineLength::new(40),
+        reflow: true,
+        reflow_mode: ReflowMode::Normalize,
+        ..Default::default()
+    });
+    for (label, input, expected) in [
+        (
+            "an inline link whose text reads like a label",
+            "（完成。）[^1](url)继续。\n",
+            "（完成。）\n[^1](url)继续。\n",
+        ),
+        (
+            "a footnote reference, the control",
+            "（完成。）[^1]继续。\n",
+            "（完成。）[^1]\n继续。\n",
+        ),
+    ] {
+        assert_eq!(
+            sentence_per_line_fix_preserving_rendering(input),
+            expected,
+            "{label}: {input:?}"
+        );
+        assert_eq!(
+            sentence_per_line_messages(input),
+            vec![sentence_message(2)],
+            "{label}: {input:?}"
+        );
+        assert_eq!(
+            fix_under(&normalize, input),
+            input,
+            "{label} under normalize: {input:?}"
+        );
+    }
+}
+
+/// A line under construction is split with the structure of its paragraph,
+/// never with a parse of the line on its own.
+///
+/// A tail opening with three backticks is a fenced code block in a document
+/// of its own, and the link after them is gone from that parse: the sentence
+/// ender inside the link reads as a sentence end, and the cut lands inside the
+/// link. In the paragraph's parse the backticks are text and the link is a
+/// link, so the ender is atomic and the line stays whole, both when the cut in
+/// front of the backticks is refused (CJK, strict mode) and when it is taken
+/// and the tail folds back onto the line above (ASCII, relaxed mode).
+#[test]
+fn a_tail_is_split_with_the_structure_of_its_paragraph() {
+    let input = "（完成。） ```[下一句。](url)";
+    assert_eq!(
+        sentence_per_line_fix_preserving_rendering(input),
+        input,
+        "input: {input:?}"
+    );
+    assert!(
+        sentence_per_line_messages(input).is_empty(),
+        "one sentence reported as more: {input:?}"
+    );
+    let relaxed = relaxed_sentence_per_line_rule();
+    for input in ["Done. ```[Read this. Now](url) more.", "Done. ```[Read this. Now](url)"] {
+        assert_eq!(
+            fix_preserving_rendering_under(&relaxed, input),
+            input,
+            "input: {input:?}"
+        );
+        assert!(
+            messages_under(&relaxed, input).is_empty(),
+            "one sentence reported as more: {input:?}"
+        );
+    }
+    // A control: with a closed code span between the closer and the link, a
+    // parse of the tail on its own reads the link as a link too.
+    let control = "（完成。） `x` [下一句。](url)";
+    assert_eq!(
+        sentence_per_line_fix_preserving_rendering(control),
+        "（完成。）\n`x` [下一句。](url)"
+    );
+    assert_eq!(sentence_per_line_messages(control), vec![sentence_message(2)]);
+}
+
+/// A definition needs a term on the line before it in the same block, so the
+/// first line of a paragraph, of a list item's content or of a blockquote's
+/// content is prose whatever it starts with: it is split like any prose, and
+/// the colon leading it stays at the head of the block's first emitted line.
+/// That holds whichever way a parser reads the block, since a loose
+/// definition after a paragraph and a blank line keeps its own paragraph and
+/// only whitespace inside it moves. A colon-led line with a line of its block
+/// before it opens a definition, and the block is left as the author wrote
+/// it, because joining its lines would flatten the definition list into prose.
+#[test]
+fn a_colon_leading_the_first_line_of_a_block_is_prose() {
+    for (input, expected) in [
+        (
+            ":warning: First sentence. Second sentence.",
+            ":warning: First sentence.\nSecond sentence.",
+        ),
+        (
+            "- :warning: First sentence. Second sentence.",
+            "- :warning: First sentence.\n  Second sentence.",
+        ),
+        (
+            "> :warning: First sentence. Second sentence.",
+            "> :warning: First sentence.\n> Second sentence.",
+        ),
+        (
+            "Term\n\n:warning: First sentence. Second sentence.",
+            "Term\n\n:warning: First sentence.\nSecond sentence.",
+        ),
+        (
+            "# Heading\n\n:warning: First sentence. Second sentence.",
+            "# Heading\n\n:warning: First sentence.\nSecond sentence.",
+        ),
+        (
+            "- item\n\n:warning: First sentence. Second sentence.",
+            "- item\n\n:warning: First sentence.\nSecond sentence.",
+        ),
+    ] {
+        assert_eq!(
+            sentence_per_line_fix_preserving_rendering(input),
+            expected,
+            "input: {input:?}"
+        );
+        assert_eq!(
+            sentence_per_line_messages(input),
+            vec![sentence_message(2)],
+            "input: {input:?}"
+        );
+    }
+    // The first line of a later paragraph inside a list item is prose too. The
+    // item's message counts the item's lines, so only its presence is checked.
+    let later_paragraph = "- term\n\n  :warning: First sentence. Second sentence.";
+    assert_eq!(
+        sentence_per_line_fix_preserving_rendering(later_paragraph),
+        "- term\n\n  :warning: First sentence.\n  Second sentence."
+    );
+    assert_eq!(sentence_per_line_messages(later_paragraph).len(), 1);
+    for input in [
+        "Term\n:warning: First sentence. Second sentence.",
+        ":warning: First sentence.\n:note: Second sentence.",
+        "- term\n  :warning: First sentence. Second sentence.",
+        "> Term\n> :warning: First sentence. Second sentence.",
+        "Term\n:definition without a space",
+        "Look at this.\n:smile: nice one.",
+        // The split never leaves a colon at the head of a later line.
+        "（完成。）:次の文。",
+    ] {
+        assert_eq!(
+            sentence_per_line_fix_preserving_rendering(input),
+            input,
+            "input: {input:?}"
+        );
+        assert!(
+            sentence_per_line_messages(input).is_empty(),
+            "a definition list reported as prose: {input:?}"
+        );
+    }
+}
+
+/// Whether a line break beside a delimiter run changes what the run can do is
+/// read off the characters on either side of the break. A break replacing
+/// whitespace changes nothing, since a space and a line break are both
+/// whitespace to the flanking rule. A break written between a terminator or
+/// closer and a run that a letter or digit follows leaves the run opening and
+/// not closing, as it did. Those cuts are taken without a parse of the broken
+/// paragraph, and a cut touching a run that punctuation follows still asks that
+/// parse. The rows hold on both paths and are each other's controls: a row
+/// that splits shows the cut is taken, a row left whole shows the parse still
+/// refuses a break that would pair the runs differently.
+#[test]
+fn a_break_beside_a_delimiter_run_is_parsed_only_where_it_can_change_the_run() {
+    for (input, expected) in [
+        // The run after the closer is followed by a letter.
+        ("（完成。）**次**", "（完成。）\n**次**"),
+        // The break replaces a space.
+        ("*完成。* 次", "*完成。*\n次"),
+        // The run after the closer is followed by punctuation, and the parse
+        // of the broken text reads the same spans.
+        ("（完成。）**「次」**", "（完成。）\n**「次」**"),
+        ("（完成。）_「次」_", "（完成。）\n_「次」_"),
+    ] {
+        assert_eq!(
+            sentence_per_line_fix_preserving_rendering(input),
+            expected,
+            "input: {input:?}"
+        );
+        assert_eq!(
+            sentence_per_line_messages(input),
+            vec![sentence_message(2)],
+            "input: {input:?}"
+        );
+    }
+    // At the head of a line the run can only open, the rule of three no
+    // longer keeps the shorter run inside the span from pairing with it, and
+    // the text renders as different emphasis.
+    for input in ["（完成。）**(foo*)**", "（完成。）__(foo_)__"] {
+        assert_eq!(
+            sentence_per_line_fix_preserving_rendering(input),
+            input,
+            "input: {input:?}"
+        );
+        assert!(
+            sentence_per_line_messages(input).is_empty(),
+            "a refused cut reported as a sentence boundary: {input:?}"
+        );
+    }
+}
+
+/// A `$` inside a code span neither opens nor closes a math span. The
+/// structure a line is split with is read off its whole paragraph, so two
+/// code spans each holding a `$`, or a `$` in prose followed by one in a code
+/// span, would otherwise fold the prose between them into one math span and
+/// hide every sentence end inside it. A real math span keeps its ender atomic.
+#[test]
+fn a_dollar_sign_inside_a_code_span_opens_no_math_span() {
+    for (input, expected) in [
+        (
+            "Lines all start with `$`. You need the `$` character. Done.",
+            "Lines all start with `$`.\nYou need the `$` character.\nDone.",
+        ),
+        (
+            "Set `$x` first. Then `$y` next. Done.",
+            "Set `$x` first.\nThen `$y` next.\nDone.",
+        ),
+        (
+            "Pass $2 as the second argument. Then run `echo $x` to see it. Done.",
+            "Pass $2 as the second argument.\nThen run `echo $x` to see it.\nDone.",
+        ),
+    ] {
+        assert_eq!(
+            sentence_per_line_fix_preserving_rendering(input),
+            expected,
+            "input: {input:?}"
+        );
+        assert_eq!(
+            sentence_per_line_messages(input),
+            vec![sentence_message(3)],
+            "input: {input:?}"
+        );
+    }
+    let quoted = "> Lines all start with `$`. You need the `$` character. Done.";
+    assert_eq!(
+        sentence_per_line_fix_preserving_rendering(quoted),
+        "> Lines all start with `$`.\n> You need the `$` character.\n> Done.",
+        "input: {quoted:?}"
+    );
+    assert_eq!(sentence_per_line_messages(quoted).len(), 1, "input: {quoted:?}");
+    // Control: a math span holds its own ender, whichever text the structure
+    // is read off.
+    let math = "Solve $a. b$ first. Done.";
+    assert_eq!(
+        sentence_per_line_fix_preserving_rendering(math),
+        "Solve $a. b$ first.\nDone.",
+        "input: {math:?}"
+    );
+    assert_eq!(
+        sentence_per_line_messages(math),
+        vec![sentence_message(2)],
+        "input: {math:?}"
+    );
+}
+
+/// The three reflow modes a whole-line display-math expression has to survive:
+/// no line-length limit for the two sentence modes, and 40 columns for
+/// `normalize`, which is narrow enough that the prose around the expression
+/// joins.
+fn display_math_reflow_rules() -> Vec<(&'static str, MD013LineLength)> {
+    vec![
+        (
+            "sentence-per-line",
+            MD013LineLength::from_config_struct(MD013Config {
+                line_length: crate::types::LineLength::new(0),
+                reflow: true,
+                reflow_mode: ReflowMode::SentencePerLine,
+                ..Default::default()
+            }),
+        ),
+        (
+            "normalize at 40",
+            MD013LineLength::from_config_struct(MD013Config {
+                line_length: crate::types::LineLength::new(40),
+                reflow: true,
+                reflow_mode: ReflowMode::Normalize,
+                ..Default::default()
+            }),
+        ),
+        (
+            "semantic-line-breaks",
+            MD013LineLength::from_config_struct(MD013Config {
+                line_length: crate::types::LineLength::new(0),
+                reflow: true,
+                reflow_mode: ReflowMode::SemanticLineBreaks,
+                ..Default::default()
+            }),
+        ),
+    ]
+}
+
+/// A source line that is one whole `$$ ... $$` expression renders as a display
+/// block: centred, on a line of its own. The same expression sharing a line
+/// with prose renders inline, or is not read as math at all. Reflow therefore
+/// keeps such a line on its own line, in every mode and in every container,
+/// and reflows the prose around it within its own paragraph.
+///
+/// Each row gives the expected output per mode, so a row where the prose does
+/// move is a positive control that the reflow ran at all.
+#[test]
+fn a_whole_line_display_math_expression_keeps_its_own_line() {
+    for (label, input, expected) in [
+        (
+            "between two sentences",
+            "Before.\n$$ x = 1 $$\nAfter.\n",
+            ["Before.\n$$ x = 1 $$\nAfter.\n"; 3],
+        ),
+        (
+            "on the paragraph's first line",
+            "$$ x = 1 $$\nAfter one.\nAfter two.\n",
+            [
+                "$$ x = 1 $$\nAfter one.\nAfter two.\n",
+                "$$ x = 1 $$\nAfter one. After two.\n",
+                "$$ x = 1 $$\nAfter one.\nAfter two.\n",
+            ],
+        ),
+        (
+            "on the paragraph's last line",
+            "Before one.\nBefore two.\n$$ x = 1 $$\n",
+            [
+                "Before one.\nBefore two.\n$$ x = 1 $$\n",
+                "Before one. Before two.\n$$ x = 1 $$\n",
+                "Before one.\nBefore two.\n$$ x = 1 $$\n",
+            ],
+        ),
+        (
+            "two expressions in a row",
+            "Before.\n$$ x = 1 $$\n$$ y = 2 $$\nAfter.\n",
+            ["Before.\n$$ x = 1 $$\n$$ y = 2 $$\nAfter.\n"; 3],
+        ),
+        (
+            "in a list item",
+            "- Before.\n  $$ x = 1 $$\n  After.\n",
+            ["- Before.\n  $$ x = 1 $$\n  After.\n"; 3],
+        ),
+        (
+            "in a nested list item",
+            "- Outer.\n  - Before.\n    $$ x = 1 $$\n    After.\n",
+            ["- Outer.\n  - Before.\n    $$ x = 1 $$\n    After.\n"; 3],
+        ),
+        (
+            "in a blockquote",
+            "> Before.\n> $$ x = 1 $$\n> After.\n",
+            ["> Before.\n> $$ x = 1 $$\n> After.\n"; 3],
+        ),
+        (
+            "in a list item, with prose that moves",
+            "- Before.\n  $$ x = 1 $$\n  After one. After two.\n",
+            [
+                "- Before.\n  $$ x = 1 $$\n  After one.\n  After two.\n",
+                "- Before.\n  $$ x = 1 $$\n  After one. After two.\n",
+                "- Before.\n  $$ x = 1 $$\n  After one.\n  After two.\n",
+            ],
+        ),
+        (
+            "in a nested list item, with prose that moves",
+            "- Outer.\n  - Before.\n    $$ x = 1 $$\n    After one. After two.\n",
+            [
+                "- Outer.\n  - Before.\n    $$ x = 1 $$\n    After one.\n    After two.\n",
+                "- Outer.\n  - Before.\n    $$ x = 1 $$\n    After one. After two.\n",
+                "- Outer.\n  - Before.\n    $$ x = 1 $$\n    After one.\n    After two.\n",
+            ],
+        ),
+        (
+            "in a blockquote, with prose that moves",
+            "> Before.\n> $$ x = 1 $$\n> After one. After two.\n",
+            [
+                "> Before.\n> $$ x = 1 $$\n> After one.\n> After two.\n",
+                "> Before.\n> $$ x = 1 $$\n> After one. After two.\n",
+                "> Before.\n> $$ x = 1 $$\n> After one.\n> After two.\n",
+            ],
+        ),
+        (
+            "on a list marker line",
+            "- $$ x = 1 $$\n  After one. After two.\n",
+            [
+                "- $$ x = 1 $$\n  After one.\n  After two.\n",
+                "- $$ x = 1 $$\n  After one. After two.\n",
+                "- $$ x = 1 $$\n  After one.\n  After two.\n",
+            ],
+        ),
+        (
+            "on an ordered list marker line",
+            "1. $$ x = 1 $$\n   After one. After two.\n",
+            [
+                "1. $$ x = 1 $$\n   After one.\n   After two.\n",
+                "1. $$ x = 1 $$\n   After one. After two.\n",
+                "1. $$ x = 1 $$\n   After one.\n   After two.\n",
+            ],
+        ),
+        (
+            "in a list item inside a blockquote",
+            "> - Before.\n>   $$ x = 1 $$\n>   After one. After two.\n",
+            [
+                "> - Before.\n>   $$ x = 1 $$\n>   After one.\n>   After two.\n",
+                "> - Before.\n>   $$ x = 1 $$\n>   After one. After two.\n",
+                "> - Before.\n>   $$ x = 1 $$\n>   After one.\n>   After two.\n",
+            ],
+        ),
+        (
+            "in an ordered list item inside a blockquote",
+            "> 1. Before.\n>    $$ x = 1 $$\n>    After one. After two.\n",
+            [
+                "> 1. Before.\n>    $$ x = 1 $$\n>    After one.\n>    After two.\n",
+                "> 1. Before.\n>    $$ x = 1 $$\n>    After one. After two.\n",
+                "> 1. Before.\n>    $$ x = 1 $$\n>    After one.\n>    After two.\n",
+            ],
+        ),
+        (
+            "on a marker line inside a blockquote",
+            "> - $$ x = 1 $$\n>   After one. After two.\n",
+            [
+                "> - $$ x = 1 $$\n>   After one.\n>   After two.\n",
+                "> - $$ x = 1 $$\n>   After one. After two.\n",
+                "> - $$ x = 1 $$\n>   After one.\n>   After two.\n",
+            ],
+        ),
+        (
+            "on the last line of a list item inside a blockquote",
+            "> - Before one. Before two.\n>   $$ x = 1 $$\n",
+            [
+                "> - Before one.\n>   Before two.\n>   $$ x = 1 $$\n",
+                "> - Before one. Before two.\n>   $$ x = 1 $$\n",
+                "> - Before one.\n>   Before two.\n>   $$ x = 1 $$\n",
+            ],
+        ),
+        (
+            "carrying a two-space hard break",
+            "Before.\n$$ x = 1 $$  \nAfter.\n",
+            ["Before.\n$$ x = 1 $$  \nAfter.\n"; 3],
+        ),
+        (
+            "carrying a backslash hard break",
+            "Before.\n$$ x = 1 $$\\\nAfter.\n",
+            ["Before.\n$$ x = 1 $$\\\nAfter.\n"; 3],
+        ),
+        (
+            "with CRLF line endings",
+            "Before.\r\n$$ x = 1 $$\r\nAfter.\r\n",
+            ["Before.\r\n$$ x = 1 $$\r\nAfter.\r\n"; 3],
+        ),
+        (
+            "with CRLF line endings, with prose that moves",
+            "Before one. Before two.\r\n$$ x = 1 $$\r\nAfter one. After two.\r\n",
+            [
+                "Before one.\r\nBefore two.\r\n$$ x = 1 $$\r\nAfter one.\r\nAfter two.\r\n",
+                "Before one. Before two.\r\n$$ x = 1 $$\r\nAfter one. After two.\r\n",
+                "Before one.\r\nBefore two.\r\n$$ x = 1 $$\r\nAfter one.\r\nAfter two.\r\n",
+            ],
+        ),
+        (
+            "on a marker line padded with two spaces",
+            "-  $$ x = 1 $$\n   After one. After two.\n",
+            [
+                "-  $$ x = 1 $$\n   After one.\n   After two.\n",
+                "-  $$ x = 1 $$\n   After one. After two.\n",
+                "-  $$ x = 1 $$\n   After one.\n   After two.\n",
+            ],
+        ),
+        (
+            "on a marker line padded with three spaces",
+            "-   $$ x = 1 $$\n    After one. After two.\n",
+            [
+                "-   $$ x = 1 $$\n    After one.\n    After two.\n",
+                "-   $$ x = 1 $$\n    After one. After two.\n",
+                "-   $$ x = 1 $$\n    After one.\n    After two.\n",
+            ],
+        ),
+        (
+            "on an ordered marker line padded with two spaces",
+            "1.  $$ x = 1 $$\n    After one. After two.\n",
+            [
+                "1.  $$ x = 1 $$\n    After one.\n    After two.\n",
+                "1.  $$ x = 1 $$\n    After one. After two.\n",
+                "1.  $$ x = 1 $$\n    After one.\n    After two.\n",
+            ],
+        ),
+        (
+            "on a marker line padded with two spaces, with prose that joins",
+            "-  $$ x = 1 $$\n   After one.\n   After two.\n",
+            [
+                "-  $$ x = 1 $$\n   After one.\n   After two.\n",
+                "- $$ x = 1 $$\n  After one. After two.\n",
+                "-  $$ x = 1 $$\n   After one.\n   After two.\n",
+            ],
+        ),
+        (
+            "prose on a marker line padded with two spaces, the control",
+            "-  Before. Also here.\n",
+            [
+                "-  Before.\n  Also here.\n",
+                "-  Before. Also here.\n",
+                "-  Before.\n  Also here.\n",
+            ],
+        ),
+        (
+            "prose on a marker line padded with two spaces that joins, the control",
+            "-  Before.\n   Also here.\n",
+            [
+                "-  Before.\n   Also here.\n",
+                "- Before. Also here.\n",
+                "-  Before.\n   Also here.\n",
+            ],
+        ),
+        (
+            "on a marker line padded with two spaces, carrying a two-space hard break",
+            "-  $$ x = 1 $$  \n   After one. After two.\n",
+            [
+                "-  $$ x = 1 $$  \n   After one.\n   After two.\n",
+                "-  $$ x = 1 $$  \n   After one. After two.\n",
+                "-  $$ x = 1 $$  \n   After one.\n   After two.\n",
+            ],
+        ),
+        (
+            "on a marker line padded with two spaces, carrying a backslash hard break",
+            "-  $$ x = 1 $$\\\n   After one. After two.\n",
+            [
+                "-  $$ x = 1 $$\\\n   After one.\n   After two.\n",
+                "-  $$ x = 1 $$\\\n   After one. After two.\n",
+                "-  $$ x = 1 $$\\\n   After one.\n   After two.\n",
+            ],
+        ),
+        (
+            "on a marker line padded with two spaces, with CRLF line endings",
+            "-  $$ x = 1 $$\r\n   After one. After two.\r\n",
+            [
+                "-  $$ x = 1 $$\r\n   After one.\r\n   After two.\r\n",
+                "-  $$ x = 1 $$\r\n   After one. After two.\r\n",
+                "-  $$ x = 1 $$\r\n   After one.\r\n   After two.\r\n",
+            ],
+        ),
+    ] {
+        for ((mode, rule), expected) in display_math_reflow_rules().iter().zip(expected) {
+            assert_eq!(fix_under(rule, input), expected, "{label} in {mode}: {input:?}");
+            assert_eq!(
+                fix_under(rule, expected),
+                expected,
+                "{label} in {mode} moves again: {expected:?}"
+            );
+        }
+    }
+}
+
+/// `check` reports what `fmt` rewrites and reports nothing when `fmt` leaves the
+/// content alone, in the containers where a display-math line needs its own
+/// handling: the marker line of a list item, and a list item inside a
+/// blockquote.
+#[test]
+fn display_math_in_a_container_reports_exactly_what_the_fix_rewrites() {
+    for (label, input, expected) in [
+        (
+            "on a list marker line, prose to split",
+            "- $$ x = 1 $$\n  After one. After two.\n",
+            vec![sentence_message(2)],
+        ),
+        (
+            "on a list marker line, nothing to split",
+            "- $$ x = 1 $$\n  After one.\n",
+            Vec::new(),
+        ),
+        (
+            "in a list item inside a blockquote, prose to split",
+            "> - Before.\n>   $$ x = 1 $$\n>   After one. After two.\n",
+            vec!["List item should have one sentence per line (found 2 sentences)".to_string()],
+        ),
+        (
+            "in a list item inside a blockquote, nothing to split",
+            "> - Before.\n>   $$ x = 1 $$\n>   After one.\n",
+            Vec::new(),
+        ),
+        (
+            "on a marker line inside a blockquote, nothing to split",
+            "> - $$ x = 1 $$\n>   After one.\n",
+            Vec::new(),
+        ),
+    ] {
+        assert_eq!(sentence_per_line_messages(input), expected, "{label}: {input:?}");
+    }
+}
+
+/// A three-line paragraph whose middle line is a whole display-math expression
+/// is already one sentence per line, so `check` reports nothing to fix.
+#[test]
+fn a_whole_line_display_math_expression_reports_no_sentence_warning() {
+    assert_eq!(
+        sentence_per_line_messages("Before.\n$$ x = 1 $$\nAfter.\n"),
+        Vec::<String>::new()
+    );
+}
+
+/// Only a line that is the whole expression is pulled out. An expression
+/// sharing its line with prose renders inline, wherever on the line it sits,
+/// so the line reflows as ordinary prose, and so does a line that opens with
+/// one expression and closes with another, since the prose between them is
+/// outside both. A multi-line `$$` block keeps the lines it already has. A
+/// whole-line expression may end in a hard break or sit in a blockquote and
+/// is still the whole line.
+#[test]
+fn display_math_sharing_a_line_with_prose_reflows_as_prose() {
+    for (label, input, expected) in [
+        (
+            "expression embedded in a sentence",
+            "Before. $$ x = 1 $$ After.\n",
+            [
+                "Before. $$ x = 1 $$ After.\n",
+                "Before. $$ x = 1 $$ After.\n",
+                "Before.\n$$ x = 1 $$ After.\n",
+            ],
+        ),
+        (
+            "expression at the head of a prose line",
+            "$$ x $$ First sentence. Second sentence.\n",
+            [
+                "$$ x $$ First sentence.\nSecond sentence.\n",
+                "$$ x $$ First sentence. Second sentence.\n",
+                "$$ x $$ First sentence.\nSecond sentence.\n",
+            ],
+        ),
+        (
+            "expression at the head of the first line, prose on both lines",
+            "$$ x $$ y\nAfter one. After two.\n",
+            [
+                "$$ x $$ y After one.\nAfter two.\n",
+                "$$ x $$ y After one. After two.\n",
+                "$$ x $$ y After one.\nAfter two.\n",
+            ],
+        ),
+        (
+            "expression at the head of a list item's prose",
+            "- $$ x $$ First one. Second one.\n",
+            [
+                "- $$ x $$ First one.\n  Second one.\n",
+                "- $$ x $$ First one. Second one.\n",
+                "- $$ x $$ First one.\n  Second one.\n",
+            ],
+        ),
+        (
+            "multi-line block between two sentences",
+            "Before.\n$$\nx = 1\n$$\nAfter.\n",
+            ["Before.\n$$\nx = 1\n$$\nAfter.\n"; 3],
+        ),
+        (
+            "whole-line expression in a blockquote, the control",
+            "> $$ x $$\n> After one. After two.\n",
+            [
+                "> $$ x $$\n> After one.\n> After two.\n",
+                "> $$ x $$\n> After one. After two.\n",
+                "> $$ x $$\n> After one.\n> After two.\n",
+            ],
+        ),
+        (
+            "whole-line expression ending in a backslash hard break, the control",
+            "$$ x $$\\\nAfter one. After two.\n",
+            [
+                "$$ x $$\\\nAfter one.\nAfter two.\n",
+                "$$ x $$\\\nAfter one. After two.\n",
+                "$$ x $$\\\nAfter one.\nAfter two.\n",
+            ],
+        ),
+        (
+            "whole-line expression ending in a two-space hard break, the control",
+            "$$ x $$  \nAfter one. After two.\n",
+            [
+                "$$ x $$  \nAfter one.\nAfter two.\n",
+                "$$ x $$  \nAfter one. After two.\n",
+                "$$ x $$  \nAfter one.\nAfter two.\n",
+            ],
+        ),
+        (
+            "prose between two expressions",
+            "$$x$$ First sentence. Second sentence. $$y$$\n",
+            [
+                "$$x$$ First sentence.\nSecond sentence.\n$$y$$\n",
+                "$$x$$ First sentence. Second sentence.\n$$y$$\n",
+                "$$x$$ First sentence.\nSecond sentence.\n$$y$$\n",
+            ],
+        ),
+        (
+            "two expressions joined by prose, the control",
+            "$$ x $$ and $$ y $$\n",
+            ["$$ x $$ and $$ y $$\n"; 3],
+        ),
+        (
+            "a run of three delimiters before prose, the control",
+            "$$x$$y$$ First one. Second one.\n",
+            [
+                "$$x$$y$$ First one.\nSecond one.\n",
+                "$$x$$y$$ First one. Second one.\n",
+                "$$x$$y$$ First one.\nSecond one.\n",
+            ],
+        ),
+        (
+            "whole-line expression alone, the control",
+            "$$ x $$\n",
+            ["$$ x $$\n"; 3],
+        ),
+    ] {
+        for ((mode, rule), expected) in display_math_reflow_rules().iter().zip(expected) {
+            assert_eq!(fix_under(rule, input), expected, "{label} in {mode}: {input:?}");
+            assert_eq!(
+                fix_under(rule, expected),
+                expected,
+                "{label} in {mode} moves again: {expected:?}"
+            );
+        }
+    }
+}
+
+/// A `$$ ... $$` line that sits inside a code span opened on an earlier line
+/// is code, whatever it looks like: a renderer shows it verbatim, inline, as
+/// part of the span. So it is no display block and no paragraph boundary,
+/// and the paragraph runs through it and joins as one. Cutting the paragraph
+/// in front of it leaves the span's opener without its closer in the first
+/// piece, and the sentence reflow then writes line breaks (and, in semantic
+/// line breaks mode, a space) inside the span, which changes the rendered
+/// code. The same holds when the `$$` line is the one that OPENS the span: a
+/// span that closes on a later line still joins the two lines into one code
+/// run, whichever line it starts on.
+///
+/// The shape is covered in every container the reflow handles on its own
+/// path: a paragraph, a list item, a quoted paragraph, a quoted list item, a
+/// paragraph opened under a hard break, an ordered item whose marker cannot
+/// interrupt a paragraph and so sits inside the span, a `$$` line that opens
+/// the span itself (plain, CJK, list item, blockquote), and a `$$` line whose
+/// own expression holds the unclosed backtick. The last two rows are
+/// controls: a span closed before the `$$` line leaves the line a display
+/// block, and a span opened and closed on the `$$` line itself does too.
+#[test]
+fn a_math_line_inside_a_code_span_is_code_not_a_display_block() {
+    for (label, input, expected, warnings) in [
+        (
+            "paragraph, CJK sentences inside the span",
+            "Use `第一句。第二句。\n$$ x $$\nend`.\n",
+            ["Use `第一句。第二句。 $$ x $$ end`.\n"; 3],
+            [1, 1, 1],
+        ),
+        (
+            "paragraph, ASCII sentences inside the span",
+            "Use `first one. second one.\n$$ x $$\nend`.\n",
+            [
+                "Use `first one. second one. $$ x $$ end`.\n",
+                "Use\n`first one. second one. $$ x $$ end`.\n",
+                "Use `first one. second one. $$ x $$ end`.\n",
+            ],
+            [1, 1, 1],
+        ),
+        (
+            "list item",
+            "- Use `第一句。第二句。\n  $$ x $$\n  end`.\n",
+            [
+                "- Use `第一句。第二句。\n  $$ x $$\n  end`.\n",
+                "- Use `第一句。第二句。 $$ x $$ end`.\n",
+                "- Use `第一句。第二句。 $$ x $$ end`.\n",
+            ],
+            [0, 1, 1],
+        ),
+        (
+            "quoted paragraph",
+            "> Use `第一句。第二句。\n> $$ x $$\n> end`.\n",
+            ["> Use `第一句。第二句。 $$ x $$ end`.\n"; 3],
+            [1, 1, 1],
+        ),
+        (
+            "quoted list item",
+            "> - Use `第一句。第二句。\n>   $$ x $$\n>   end`.\n",
+            ["> - Use `第一句。第二句。 $$ x $$ end`.\n"; 3],
+            [1, 1, 1],
+        ),
+        (
+            "paragraph opened under a hard break inside the span",
+            "Use `one  \n$$ x $$\nend`.\n",
+            ["Use `one  \n$$ x $$ end`.\n"; 3],
+            [1, 1, 1],
+        ),
+        (
+            "ordered item that cannot interrupt the paragraph holding the span",
+            "Use `one\n2. $$ x $$\n   end`.\n",
+            [
+                "Use `one\n2. $$ x $$\n   end`.\n",
+                "Use `one\n2. $$ x $$ end`.\n",
+                "Use `one\n2. $$ x $$ end`.\n",
+            ],
+            [0, 1, 1],
+        ),
+        (
+            "span closed before the line, the control",
+            "Use `code`.\n$$ x $$\n第一句。第二句。\n",
+            [
+                "Use `code`.\n$$ x $$\n第一句。\n第二句。\n",
+                "Use `code`.\n$$ x $$\n第一句。第二句。\n",
+                "Use `code`.\n$$ x $$\n第一句。 第二句。\n",
+            ],
+            [1, 0, 1],
+        ),
+        (
+            "the $$ line opens the span, CJK sentences after it closes",
+            "$$ `a $$\n第一句。第二句。 more` end.\n",
+            ["$$ `a $$ 第一句。第二句。 more` end.\n"; 3],
+            [1, 1, 1],
+        ),
+        (
+            "the $$ line opens the span, ASCII sentences after it closes",
+            "$$ `a $$\nfirst one. second one. more` end.\n",
+            [
+                "$$ `a $$ first one. second one. more` end.\n",
+                "$$ `a $$ first one. second one. more`\nend.\n",
+                "$$ `a $$ first one. second one. more` end.\n",
+            ],
+            [1, 1, 1],
+        ),
+        (
+            "the $$ line opens the span, inside a list item",
+            "- Before one. Before two.\n  $$ `a $$\n  第一句。第二句。 more` end.\n",
+            [
+                "- Before one.\n  Before two.\n  $$ `a $$ 第一句。第二句。 more` end.\n",
+                "- Before one. Before two. $$ `a $$\n  第一句。第二句。 more` end.\n",
+                "- Before one.\n  Before two.\n  $$ `a $$ 第一句。第二句。 more` end.\n",
+            ],
+            [1, 1, 1],
+        ),
+        (
+            "the $$ line opens the span, inside a blockquote",
+            "> Before one. Before two.\n> $$ `a $$\n> 第一句。第二句。 more` end.\n",
+            [
+                "> Before one.\n> Before two.\n> $$ `a $$ 第一句。第二句。 more` end.\n",
+                "> Before one. Before two. $$ `a $$\n> 第一句。第二句。 more` end.\n",
+                "> Before one.\n> Before two.\n> $$ `a $$ 第一句。第二句。 more` end.\n",
+            ],
+            [1, 1, 1],
+        ),
+        (
+            "the $$ line's own expression holds the unclosed backtick",
+            "Intro one. Intro two.\n$$ \\text{see `code} $$\nmore` here. Another one.\n",
+            [
+                "Intro one.\nIntro two.\n$$ \\text{see `code} $$ more` here.\nAnother one.\n",
+                "Intro one. Intro two.\n$$ \\text{see `code} $$ more` here.\nAnother one.\n",
+                "Intro one.\nIntro two.\n$$ \\text{see `code} $$ more` here.\nAnother one.\n",
+            ],
+            [1, 1, 1],
+        ),
+        (
+            "span opened and closed on the $$ line itself, the control",
+            "Intro one. Intro two.\n$$ \\text{see `code`} $$\nMore here. Another one.\n",
+            [
+                "Intro one.\nIntro two.\n$$ \\text{see `code`} $$\nMore here.\nAnother one.\n",
+                "Intro one. Intro two.\n$$ \\text{see `code`} $$\nMore here. Another one.\n",
+                "Intro one.\nIntro two.\n$$ \\text{see `code`} $$\nMore here.\nAnother one.\n",
+            ],
+            [2, 0, 2],
+        ),
+    ] {
+        for (((mode, rule), expected), warnings) in display_math_reflow_rules().iter().zip(expected).zip(warnings) {
+            assert_eq!(
+                messages_under(rule, input).len(),
+                warnings,
+                "{label} in {mode} warnings: {input:?}"
+            );
+            assert_eq!(fix_under(rule, input), expected, "{label} in {mode}: {input:?}");
+            assert_eq!(
+                fix_under(rule, expected),
+                expected,
+                "{label} in {mode} moves again: {expected:?}"
+            );
+        }
+    }
+}
+
+/// `check` counts the sentences of a line an expression shares with prose the
+/// way it counts any prose line, since the fix reflows that line as prose.
+#[test]
+fn display_math_sharing_a_line_with_prose_reports_its_sentences() {
+    let across_two_lines = "Paragraph should have one sentence per line (found 2 sentences across 2 lines)".to_string();
+    for (label, input, expected) in [
+        (
+            "expression at the head of a prose line",
+            "$$ x $$ First sentence. Second sentence.\n",
+            vec![sentence_message(2)],
+        ),
+        (
+            "expression at the head of the first line, prose on both lines",
+            "$$ x $$ y\nAfter one. After two.\n",
+            vec![across_two_lines.clone()],
+        ),
+        (
+            "expression at the head of a list item's prose",
+            "- $$ x $$ First one. Second one.\n",
+            vec![sentence_message(2)],
+        ),
+        (
+            "whole-line expression in a blockquote, the control",
+            "> $$ x $$\n> After one. After two.\n",
+            vec![across_two_lines.clone()],
+        ),
+        (
+            "whole-line expression ending in a backslash hard break, the control",
+            "$$ x $$\\\nAfter one. After two.\n",
+            vec![sentence_message(2)],
+        ),
+        (
+            "prose between two expressions",
+            "$$x$$ First sentence. Second sentence. $$y$$\n",
+            vec![sentence_message(2)],
+        ),
+        (
+            "two expressions joined by prose, the control",
+            "$$ x $$ and $$ y $$\n",
+            Vec::new(),
+        ),
+        (
+            "a run of three delimiters before prose, the control",
+            "$$x$$y$$ First one. Second one.\n",
+            vec![sentence_message(2)],
+        ),
+        ("whole-line expression alone, the control", "$$ x $$\n", Vec::new()),
+    ] {
+        assert_eq!(sentence_per_line_messages(input), expected, "{label}: {input:?}");
+    }
+}
+
+/// A single trailing space at the end of a source line is a soft break: a
+/// renderer shows one space there, so the line the fix joins carries one space
+/// too, whatever the next line starts with. Two or more trailing spaces, or a
+/// backslash, are a hard break and stay as written.
+#[test]
+fn a_soft_break_after_a_trailing_space_joins_with_one_space() {
+    let rule = sentence_per_line_rule();
+    for (label, input, expected) in [
+        (
+            "a plain word after the break",
+            "First done. Matches \nare possible here.\n",
+            "First done.\nMatches are possible here.\n",
+        ),
+        (
+            "an emphasis span after the break",
+            "First done. Matches \n_are possible_ here.\n",
+            "First done.\nMatches _are possible_ here.\n",
+        ),
+        (
+            "a code span after the break",
+            "First done. Matches \n`are` possible here.\n",
+            "First done.\nMatches `are` possible here.\n",
+        ),
+        (
+            "CRLF, a plain word after the break",
+            "First done. Matches \r\nare possible here.\r\n",
+            "First done.\r\nMatches are possible here.\r\n",
+        ),
+        (
+            "CRLF, an emphasis span after the break",
+            "First done. Matches \r\n_are possible_ here.\r\n",
+            "First done.\r\nMatches _are possible_ here.\r\n",
+        ),
+        (
+            "a two-space hard break",
+            "First done. Matches  \nare possible here.\n",
+            "First done.\nMatches  \nare possible here.\n",
+        ),
+        (
+            "a backslash hard break",
+            "First done. Matches\\\nare possible here.\n",
+            "First done.\nMatches\\\nare possible here.\n",
+        ),
+    ] {
+        assert_eq!(fix_under(&rule, input), expected, "{label}: {input:?}");
+    }
+}
+
+/// What a renderer shows for the whitespace at a soft break depends on where
+/// the break sits. Outside a code span it drops the ASCII spaces and tabs
+/// ending the line and shows the break as one space, so the join writes one
+/// space there. Inside a code span it keeps every character and shows the
+/// break itself as one space, so the line's own trailing space stays and the
+/// join adds the one for the break. A no-break space is content to a renderer
+/// wherever it sits, and stays too. The sentence modes then cut the joined
+/// line and `normalize` at 40 columns keeps it whole, so every mode writes the
+/// same joined bytes.
+#[test]
+fn a_soft_break_keeps_the_whitespace_a_renderer_shows() {
+    for (label, input, expected) in [
+        (
+            "a trailing space inside a code span",
+            "Use `a \nb` here. Another sentence.\n",
+            [
+                "Use `a  b` here.\nAnother sentence.\n",
+                "Use `a  b` here. Another sentence.\n",
+                "Use `a  b` here.\nAnother sentence.\n",
+            ],
+        ),
+        (
+            "a no-break space before the break",
+            "Use a\u{00A0}\nb here. Second one.\n",
+            [
+                "Use a\u{00A0} b here.\nSecond one.\n",
+                "Use a\u{00A0} b here. Second one.\n",
+                "Use a\u{00A0} b here.\nSecond one.\n",
+            ],
+        ),
+        (
+            "a no-break space inside a code span",
+            "Use `a\u{00A0}\nb` here. Second one.\n",
+            [
+                "Use `a\u{00A0} b` here.\nSecond one.\n",
+                "Use `a\u{00A0} b` here. Second one.\n",
+                "Use `a\u{00A0} b` here.\nSecond one.\n",
+            ],
+        ),
+        (
+            "an ideographic space before the break",
+            "Use a\u{3000}\nb here. Second one.\n",
+            [
+                "Use a\u{3000} b here.\nSecond one.\n",
+                "Use a\u{3000} b here. Second one.\n",
+                "Use a\u{3000} b here.\nSecond one.\n",
+            ],
+        ),
+        (
+            "a trailing space outside a code span, the control",
+            "Use a \nb here. Second one.\n",
+            [
+                "Use a b here.\nSecond one.\n",
+                "Use a b here. Second one.\n",
+                "Use a b here.\nSecond one.\n",
+            ],
+        ),
+        (
+            "a trailing tab outside a code span",
+            "Use a\t\nb here. Second one.\n",
+            [
+                "Use a b here.\nSecond one.\n",
+                "Use a b here. Second one.\n",
+                "Use a b here.\nSecond one.\n",
+            ],
+        ),
+        (
+            "a trailing space after a backtick that opens no code span",
+            "Use `a \nb here. Second one.\n",
+            [
+                "Use `a b here.\nSecond one.\n",
+                "Use `a b here. Second one.\n",
+                "Use `a b here.\nSecond one.\n",
+            ],
+        ),
+    ] {
+        for ((mode, rule), expected) in display_math_reflow_rules().iter().zip(expected) {
+            assert_eq!(fix_under(rule, input), expected, "{label} in {mode}: {input:?}");
+            assert_eq!(
+                fix_under(rule, expected),
+                expected,
+                "{label} in {mode} moves again: {expected:?}"
+            );
+        }
+    }
+}

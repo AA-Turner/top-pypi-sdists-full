@@ -171,6 +171,13 @@ def _match_family(name: str, families: list[DeclaredFamily]) -> DeclaredFamily |
     return best
 
 
+def is_owned(db: DbTool, owner_executors: set[str]) -> bool:
+    """Whether this DB tool belongs to the current validator host."""
+    return bool(set(db.executors) & owner_executors) or (
+        not db.executors and db.source_kind == "native"
+    )
+
+
 def validate(
     code: dict[str, DeclaredTool],
     db_rows: list[dict[str, Any]],
@@ -212,20 +219,8 @@ def validate(
             continue
         db_by_name[dt.name] = dt
 
-    def _is_owned(db: DbTool) -> bool:
-        if set(db.executors) & owner_executors:
-            return True
-        # A native row with NO executor binding at all runs server-side by
-        # routing policy (``ToolRegistry.resolve_executor_binding`` → "server"),
-        # so its implementation can only live in this repo's @tool registry.
-        # Treat it as owned: otherwise a deleted / never-registered declaration
-        # for such a row is invisible to this gate and only surfaces when a
-        # request drops the tool at pre-flight (the 2026-09-12 ``memory``
-        # incident — 31 native rows were unbound and unwatched).
-        return not db.executors and db.source_kind == "native"
-
-    report.db_count = sum(1 for d in db_by_name.values() if _is_owned(d))
-    report.external_count = sum(1 for d in db_by_name.values() if not _is_owned(d))
+    report.db_count = sum(1 for d in db_by_name.values() if is_owned(d, owner_executors))
+    report.external_count = sum(1 for d in db_by_name.values() if not is_owned(d, owner_executors))
     report.code_count = len(code)
 
     # ── Direction 1: every code tool must have a matching, correct DB row ──
@@ -309,7 +304,7 @@ def validate(
 
     # ── Direction 2: every locally-owned DB tool must have code ──
     for name, db in db_by_name.items():
-        if not _is_owned(db):
+        if not is_owned(db, owner_executors):
             continue
         if db.validation_exempt or not db.is_active:
             if db.validation_exempt:

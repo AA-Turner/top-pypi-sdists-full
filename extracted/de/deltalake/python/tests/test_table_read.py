@@ -6,7 +6,6 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from threading import Barrier, Thread
 from typing import Any
-from unittest.mock import Mock
 from urllib.parse import urlparse
 
 import pytest
@@ -15,9 +14,8 @@ from arro3.core import Field as ArrowField
 
 from deltalake import DeltaTable
 from deltalake._util import encode_partition_value
-from deltalake.exceptions import DeltaError, DeltaProtocolError
+from deltalake.exceptions import DeltaError
 from deltalake.query import QueryBuilder
-from deltalake.table import ProtocolVersions
 from deltalake.writer import write_deltalake
 
 S3_SIMPLE_TABLE_FILES = [
@@ -590,8 +588,6 @@ def test_without_files_update_preserves_get_add_actions_error(tmp_path: Path):
 
 
 def assert_correct_files(dt: DeltaTable, partition_filters, expected_paths):
-    from urllib.parse import urlparse
-
     table_path = urlparse(dt.table_uri).path
     absolute_paths = [os.path.join(table_path, path) for path in expected_paths]
     assert dt.file_uris(partition_filters) == absolute_paths
@@ -672,6 +668,269 @@ def test_get_files_partitioned_table():
     )
 
 
+PARTITIONED_TABLE_PATHS = {
+    (2020, 1, 1): (
+        "year=2020/month=1/day=1/part-00000-8eafa330-3be9-4a39-ad78-fd13c2027c7e.c000.snappy.parquet"
+    ),
+    (2020, 2, 3): (
+        "year=2020/month=2/day=3/part-00000-94d16827-f2fd-42cd-a060-f67ccc63ced9.c000.snappy.parquet"
+    ),
+    (2020, 2, 5): (
+        "year=2020/month=2/day=5/part-00000-89cdd4c8-2af7-4add-8ea3-3990b2f027b5.c000.snappy.parquet"
+    ),
+    (2021, 4, 5): (
+        "year=2021/month=4/day=5/part-00000-c5856301-3439-4032-a6fc-22b7bc92bebb.c000.snappy.parquet"
+    ),
+    (2021, 12, 4): (
+        "year=2021/month=12/day=4/part-00000-6dc763c0-3e8b-4d52-b19e-1f92af3fbb25.c000.snappy.parquet"
+    ),
+    (2021, 12, 20): (
+        "year=2021/month=12/day=20/part-00000-9275fdf4-3961-4184-baa0-1c8a2bb98104.c000.snappy.parquet"
+    ),
+}
+
+
+def _partitioned_table_uris(*keys: tuple[int, int, int]) -> set[str]:
+    root = Path.cwd().parent / "crates/test/tests/data/delta-0.8.0-partitioned"
+    return {(root / PARTITIONED_TABLE_PATHS[key]).as_posix() for key in keys}
+
+
+def test_file_uris_dnf_filters():
+    dt = DeltaTable("../crates/test/tests/data/delta-0.8.0-partitioned")
+
+    # a flat conjunction and its single-element DNF spelling are equivalent
+    flat = dt.file_uris([("day", "=", "3")])
+    nested = dt.file_uris([[("day", "=", "3")]])
+    assert flat == nested
+    assert set(flat) == _partitioned_table_uris((2020, 2, 3))
+
+    dnf = [
+        [("year", "=", "2020"), ("month", "=", "2")],
+        [("year", "=", "2021"), ("month", "=", "12")],
+    ]
+    assert set(dt.file_uris(dnf)) == _partitioned_table_uris(
+        (2020, 2, 3), (2020, 2, 5), (2021, 12, 4), (2021, 12, 20)
+    )
+
+    # primitive values work in DNF form too
+    dnf = [[("year", "=", 2020)], [("month", "=", 12)]]
+    assert set(dt.file_uris(dnf)) == _partitioned_table_uris(
+        (2020, 1, 1), (2020, 2, 3), (2020, 2, 5), (2021, 12, 4), (2021, 12, 20)
+    )
+
+    # tuple filters via the new parameter match the deprecated positional form
+    assert dt.file_uris(file_pruning_predicate=dnf) == dt.file_uris(dnf)
+
+
+def test_file_uris_predicate_equals_dnf():
+    dt = DeltaTable("../crates/test/tests/data/delta-0.8.0-partitioned")
+
+    dnf = [
+        [("year", "=", "2020"), ("month", "=", "2")],
+        [("year", "=", "2021"), ("month", "=", "12")],
+    ]
+    predicate = "(year = 2020 AND month = 2) OR (year = 2021 AND month = 12)"
+    assert set(dt.file_uris(file_pruning_predicate=predicate)) == set(dt.file_uris(dnf))
+    assert set(
+        dt.file_uris(file_pruning_predicate=predicate)
+    ) == _partitioned_table_uris(
+        (2020, 2, 3), (2020, 2, 5), (2021, 12, 4), (2021, 12, 20)
+    )
+
+
+def test_file_uris_predicate_operators():
+    dt = DeltaTable("../crates/test/tests/data/delta-0.8.0-partitioned")
+
+    for predicate, filters in [
+        ("year >= 2021", [("year", ">=", "2021")]),
+        ("day != 3", [("day", "!=", "3")]),
+        ("day IN (3, 20)", [("day", "in", ["3", "20"])]),
+        ("day NOT IN (3, 20)", [("day", "not in", ["3", "20"])]),
+    ]:
+        assert set(dt.file_uris(file_pruning_predicate=predicate)) == set(
+            dt.file_uris(filters)
+        ), predicate
+
+    assert set(dt.file_uris(file_pruning_predicate="month BETWEEN 2 AND 4")) == set(
+        dt.file_uris([("month", ">=", "2"), ("month", "<=", "4")])
+    )
+    assert set(dt.file_uris(file_pruning_predicate="NOT (year = 2020)")) == set(
+        dt.file_uris([("year", "!=", "2020")])
+    )
+
+
+def test_legacy_filter_params_warn():
+    dt = DeltaTable("../crates/test/tests/data/delta-0.8.0-partitioned")
+
+    with pytest.warns(DeprecationWarning, match="partition_filters"):
+        legacy = dt.file_uris([("year", "=", "2021")])
+    assert legacy == dt.file_uris(file_pruning_predicate=[("year", "=", "2021")])
+
+    with pytest.warns(DeprecationWarning, match="partition_filters"):
+        dt.partitions(partition_filters=[("year", "=", "2021")])
+
+
+@pytest.mark.pyarrow
+def test_legacy_dataset_partitions_param_warns():
+    dt = DeltaTable("../crates/test/tests/data/delta-0.8.0-partitioned")
+
+    with pytest.warns(DeprecationWarning, match="partitions"):
+        dt.to_pyarrow_dataset(partitions=[("year", "=", "2021")])
+
+
+@pytest.mark.pyarrow
+def test_dataframe_partitions_param_warns_with_filters_hint():
+    dt = DeltaTable("../crates/test/tests/data/delta-0.8.0-partitioned")
+
+    # the dataframe methods have no file_pruning_predicate, so their warning
+    # must point at `filters`
+    with pytest.warns(DeprecationWarning, match="use `filters`"):
+        legacy = dt.to_pyarrow_table(partitions=[("year", "=", "2021")])
+    assert (
+        legacy.num_rows == dt.to_pyarrow_table(filters=[("year", "=", "2021")]).num_rows
+    )
+
+
+def test_file_uris_filter_errors():
+    dt = DeltaTable("../crates/test/tests/data/delta-0.8.0-partitioned")
+
+    with pytest.raises(ValueError, match="deprecated"):
+        dt.file_uris([("year", "=", "2020")], file_pruning_predicate="year = 2020")
+
+    with pytest.raises(ValueError, match="empty conjunction"):
+        dt.file_uris([[("year", "=", "2020")], []])
+
+    with pytest.raises(ValueError, match="not a mix"):
+        dt.file_uris([("year", "=", "2020"), [("month", "=", "2")]])
+
+    with pytest.raises(Exception, match="nope"):
+        dt.file_uris(file_pruning_predicate="nope = 1")
+
+    with pytest.raises(Exception, match="file skipping"):
+        dt.file_uris(file_pruning_predicate="year LIKE '20%'")
+
+
+def test_partitions_predicate():
+    dt = DeltaTable("../crates/test/tests/data/delta-0.8.0-partitioned")
+
+    expected = [
+        {"day": "5", "month": "4", "year": "2021"},
+        {"day": "20", "month": "12", "year": "2021"},
+        {"day": "4", "month": "12", "year": "2021"},
+    ]
+    actual = dt.partitions(file_pruning_predicate="year >= 2021")
+    assert len(actual) == len(expected)
+    for partition in expected:
+        assert partition in actual
+
+    dnf = [[("year", "=", "2020")], [("month", "=", "12")]]
+    by_dnf = dt.partitions(dnf)
+    by_predicate = dt.partitions(file_pruning_predicate="year = 2020 OR month = 12")
+    assert len(by_dnf) == len(by_predicate) == 5
+    for partition in by_dnf:
+        assert partition in by_predicate
+
+
+@pytest.mark.pyarrow
+def test_data_column_predicate_superset(tmp_path: Path):
+    import pyarrow as pa
+
+    write_deltalake(tmp_path, pa.table({"value": [1, 5, 10]}))
+    write_deltalake(tmp_path, pa.table({"value": [100, 200, 300]}), mode="append")
+    dt = DeltaTable(tmp_path)
+
+    all_files = set(dt.file_uris())
+    assert len(all_files) == 2
+    low_files = set(dt.file_uris(file_pruning_predicate="value <= 10"))
+    high_files = set(dt.file_uris(file_pruning_predicate="value >= 100"))
+    assert len(low_files) == len(high_files) == 1
+    assert low_files | high_files == all_files
+
+    # tuple filters work on data columns too
+    assert set(dt.file_uris([("value", ">=", 100)])) == high_files
+
+    # a predicate straddling both files' ranges retains both
+    assert set(dt.file_uris(file_pruning_predicate="value > 5")) == all_files
+
+    # stats can only prove absence: no row equals 7, but the file whose
+    # min/max range covers 7 is still returned
+    assert set(dt.file_uris(file_pruning_predicate="value = 7")) == low_files
+    # ...while a value outside every range prunes everything
+    assert dt.file_uris(file_pruning_predicate="value > 1000") == []
+
+
+@pytest.mark.pandas
+@pytest.mark.pyarrow
+def test_to_pandas_filters_prune_and_filter_exactly(tmp_path: Path):
+    import pyarrow as pa
+
+    write_deltalake(tmp_path, pa.table({"value": [1, 5, 10]}))
+    write_deltalake(tmp_path, pa.table({"value": [100, 200, 300]}), mode="append")
+    dt = DeltaTable(tmp_path)
+
+    # filters prune files through fragment stats and then filter rows exactly
+    exact = dt.to_pandas(filters=[("value", ">=", 150)])
+    assert sorted(exact["value"]) == [200, 300]
+
+    # file pruning alone returns whole surviving files: go through the dataset
+    superset = (
+        dt.to_pyarrow_dataset(file_pruning_predicate="value >= 150")
+        .to_table()
+        .to_pandas()
+    )
+    assert sorted(superset["value"]) == [100, 200, 300]
+
+
+@pytest.mark.pyarrow
+def test_dataset_predicate_prunes_fragments():
+    dt = DeltaTable("../crates/test/tests/data/delta-0.8.0-partitioned")
+
+    dataset = dt.to_pyarrow_dataset(file_pruning_predicate="year = 2021")
+    assert len(dataset.files) == 3
+    assert dataset.to_table().num_rows == 4
+
+    with pytest.raises(ValueError, match="deprecated"):
+        dt.to_pyarrow_dataset(
+            partitions=[("year", "=", "2021")], file_pruning_predicate="year = 2021"
+        )
+
+
+@pytest.mark.pyarrow
+def test_predicate_no_stats_table(tmp_path: Path):
+    import pyarrow as pa
+
+    config = {"delta.dataSkippingNumIndexedCols": "0"}
+    write_deltalake(tmp_path, pa.table({"value": [1, 5, 10]}), configuration=config)
+    write_deltalake(tmp_path, pa.table({"value": [100, 200, 300]}), mode="append")
+    dt = DeltaTable(tmp_path)
+
+    # without stats nothing can be proven absent, so every file is retained
+    assert len(dt.file_uris(file_pruning_predicate="value >= 100")) == 2
+
+
+def test_predicate_column_mapped_table():
+    # Spark-written name-mode fixture: partitioned by "Company Very Short",
+    # stats and partition values stored under physical col-<uuid> names.
+    dt = DeltaTable("../crates/test/tests/data/table_with_column_mapping")
+
+    assert len(dt.file_uris()) == 2
+    by_predicate = dt.file_uris(file_pruning_predicate="\"Company Very Short\" = 'BME'")
+    by_filters = dt.file_uris([("Company Very Short", "=", "BME")])
+    assert len(by_predicate) == 1
+    assert by_predicate == by_filters
+
+    # stats-based skipping resolves the mapping too: only the BME file's
+    # min/max range covers this value
+    assert (
+        dt.file_uris(file_pruning_predicate="\"Super Name\" = 'Timothy Lamb'")
+        == by_predicate
+    )
+
+    assert dt.partitions(file_pruning_predicate="\"Company Very Short\" = 'BME'") == [
+        {"Company Very Short": "BME"}
+    ]
+
+
 @pytest.mark.pandas
 @pytest.mark.pyarrow
 def test_delta_table_to_pandas():
@@ -744,21 +1003,6 @@ def test_delta_table_with_filters():
         == len(dt.to_pandas(filters=filter_expr))
         == data.num_rows
     )
-
-
-@pytest.mark.pyarrow
-def test_writer_fails_on_protocol():
-    import pytest
-
-    table_path = "../crates/test/tests/data/simple_table"
-    dt = DeltaTable(table_path)
-    dt.protocol = Mock(return_value=ProtocolVersions(2, 1, None, None))
-    with pytest.raises(DeltaProtocolError):
-        dt.to_pyarrow_dataset()
-    with pytest.raises(DeltaProtocolError):
-        dt.to_pyarrow_table()
-    with pytest.raises(DeltaProtocolError):
-        dt.to_pandas()
 
 
 class ExcPassThroughThread(Thread):
@@ -1029,6 +1273,27 @@ def test_partitions_filtering_partitioned_table():
     assert len(expected) == len(actual)
     for partition in expected:
         partition in actual
+
+
+def test_partitions_filtering_with_primitive_values():
+    table_path = "../crates/test/tests/data/partition-type-primitives"
+    dt = DeltaTable(table_path)
+
+    def partition_set(filters):
+        return {frozenset(p.items()) for p in dt.partitions(filters)}
+
+    by_int = partition_set([("year", "=", 2020)])
+    assert by_int
+    assert by_int == partition_set([("year", "=", "2020")])
+    assert all(dict(p)["year"] == "2020" for p in by_int)
+
+    by_bool = partition_set([("is_active", "=", True)])
+    assert by_bool
+    assert by_bool == partition_set([("is_active", "=", "true")])
+
+    by_date = partition_set([("event_date", "=", date(2023, 1, 1))])
+    assert by_date
+    assert by_date == partition_set([("event_date", "=", "2023-01-01")])
 
 
 @pytest.mark.pyarrow
@@ -1498,49 +1763,19 @@ def test_deletion_vectors_table_with_deletion_logs():
     dt = DeltaTable(table_path)
 
     vectors = dt.deletion_vectors().read_all()
-    assert vectors.num_rows > 0
-
-    add_actions = dt.get_add_actions(flatten=True)
-    table_root = Path(table_path).resolve()
-    add_paths = add_actions["path"].to_pylist()
-    add_num_records = add_actions["num_records"].to_pylist()
-    num_records_by_file_path: dict[str, int] = {}
-    for add_path, num_records in zip(add_paths, add_num_records, strict=True):
-        file_path = (table_root / add_path).resolve().as_posix()
-        assert file_path not in num_records_by_file_path
-        num_records_by_file_path[file_path] = num_records
-
-    found_deleted_row = False
-    known_file_suffix = (
+    assert vectors.num_rows == 1
+    filepath = vectors["filepath"].to_pylist()[0]
+    assert Path(urlparse(filepath).path).name == (
         "part-00000-cb251d5e-b665-437a-a9a7-fbfc5137c77d.c000.snappy.parquet"
     )
-    known_file_mask = None
-    known_file_num_records = None
+    expected_mask = [True] * 100
+    expected_mask[2] = expected_mask[79] = False
+    assert vectors["selection_vector"].to_pylist() == [expected_mask]
 
-    for filepath, mask in zip(
-        vectors["filepath"].to_pylist(),
-        vectors["selection_vector"].to_pylist(),
-        strict=True,
-    ):
-        file_path = Path(urlparse(filepath).path).as_posix()
-        assert file_path in num_records_by_file_path
-
-        num_records = num_records_by_file_path[file_path]
-        filename = Path(file_path).name
-        assert len(mask) == num_records
-
-        if False in mask:
-            found_deleted_row = True
-        if filename == known_file_suffix:
-            known_file_mask = mask
-            known_file_num_records = num_records
-
-    assert found_deleted_row
-    assert known_file_mask is not None
-    assert known_file_num_records is not None
-    assert len(known_file_mask) == known_file_num_records
-    assert False in known_file_mask
-    assert known_file_mask[-1] is True
+    con = QueryBuilder()
+    con.register("test", dt)
+    df = con.execute("SELECT * FROM test").read_all()
+    assert len(df) == 98
 
 
 @pytest.mark.pandas
@@ -1580,3 +1815,36 @@ def test_read_bool_stats_in_polars(tmp_path):
         assert pdf.schema["max.b"] is not None, (
             "The boolean column stats should be there"
         )
+
+
+# <https://github.com/delta-io/delta-rs/issues/1947>
+@pytest.mark.pyarrow
+def test_read_table_with_void_column(tmp_path):
+    import pyarrow as pa
+
+    data = pa.table(
+        {
+            "id": pa.array([1, 2, 3], pa.int32()),
+            "v": pa.nulls(3, pa.null()),
+        }
+    )
+    write_deltalake(str(tmp_path), data)
+
+    dt = DeltaTable(str(tmp_path))
+    # void columns are preserved in the Delta metadata schema
+    assert json.loads(dt.schema().to_json())["fields"] == [
+        {"name": "id", "type": "integer", "nullable": True, "metadata": {}},
+        {"name": "v", "type": "void", "nullable": True, "metadata": {}},
+    ]
+
+    # schema().to_arrow() must not raise "Invalid data type for Arrow: void"
+    arrow_schema = dt.schema().to_arrow()
+    assert arrow_schema.field(0).name == "id"
+    assert arrow_schema.field(0).type == pa.int32()
+    assert arrow_schema.field(1).name == "v"
+    assert arrow_schema.field(1).type == pa.null()
+
+    # reads synthesize the void column as all-null (kernel null-on-read semantics)
+    expected = {"id": [1, 2, 3], "v": [None, None, None]}
+    assert dt.to_pyarrow_table().to_pydict() == expected
+    assert dt.to_pyarrow_dataset().to_table().to_pydict() == expected

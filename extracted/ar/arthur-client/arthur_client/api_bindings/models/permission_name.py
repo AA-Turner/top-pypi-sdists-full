@@ -244,6 +244,7 @@ class PermissionName(str, Enum):
     DISCOVERY_SOURCE_CONFIG_READ = 'discovery_source_config_read'
     DISCOVERY_SOURCE_CONFIG_UPDATE = 'discovery_source_config_update'
     DISCOVERY_SOURCE_CONFIG_DELETE = 'discovery_source_config_delete'
+    ORGANIZATION_TRIGGER_DISCOVERY_SCAN = 'organization_trigger_discovery_scan'
 
     @classmethod
     def from_json(cls, json_str: str) -> Self:

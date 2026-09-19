@@ -141,6 +141,30 @@ def get_project_config_value(key: str) -> str | None:
     return str(value)
 
 
+def get_effective_project_config_raw_value(
+    key: str,
+    *,
+    git_root: Path | None = None,
+    default: Any = None,
+) -> Any:
+    """Return a raw value from the effective project config without string coercion.
+
+    Honors ``config_mode`` exactly like :func:`get_effective_project_config_value`,
+    but preserves JSON types so callers can distinguish booleans, numbers, strings,
+    explicit ``null``, and a caller-supplied *default* value for missing keys.
+
+    Args:
+        key: Top-level project-config key to resolve.
+        git_root: Optional repository root whose ``project.json`` should be read.
+        default: Value returned when *key* is absent from the effective config.
+
+    Raises:
+        ValueError: When the stored ``config_mode`` is invalid.
+    """
+    config = load_effective_project_config(git_root=git_root)
+    return config.get(key, default)
+
+
 def get_available_models() -> list[str]:
     """Return the cached top-level ``availableModels`` inventory.
 

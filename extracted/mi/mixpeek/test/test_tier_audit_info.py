@@ -45,7 +45,8 @@ class TestTierAuditInfo(unittest.TestCase):
                 balanced = True,
                 notes = [
                     ''
-                    ]
+                    ],
+                durability = 'confirmed'
             )
         else:
             return TierAuditInfo(

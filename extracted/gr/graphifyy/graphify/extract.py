@@ -2546,9 +2546,91 @@ def extract_scala(path: Path) -> dict:
     return _extract_generic(path, _SCALA_CONFIG)
 
 
+_PHP_SCRIPT_RE = re.compile(
+    r"<script\b(?:\"[^\"]*\"|'[^']*'|[^>\"'])*>([\s\S]*?)</script\s*>",
+    re.IGNORECASE,
+)
+
+
+def _php_mask_to_script_blocks(src: str) -> tuple[str, bool]:
+    """Blank everything outside inline ``<script>`` bodies, keeping line numbers.
+
+    tree-sitter-php treats non-PHP spans (including inline ``<script>`` blocks)
+    as opaque text, so JS declared there is invisible to the PHP grammar (#2320).
+    Mirrors :func:`_vue_mask_non_script`'s approach: replace every character
+    outside a script body with a space (preserving ``\\r``/``\\n`` so source
+    locations still line up), leaving only the script content for a JS parse.
+    A ``<script src="…"></script>`` with no body masks to an empty region,
+    which parses as empty JS and contributes nothing — no special-casing needed.
+    Returns ``(masked_source, had_script)``; the caller skips the JS pass
+    entirely when ``had_script`` is False.
+    """
+    def _blank(s: str) -> str:
+        return re.sub(r"[^\r\n]", " ", s)
+
+    out: list[str] = []
+    pos = 0
+    had_script = False
+    for m in _PHP_SCRIPT_RE.finditer(src):
+        had_script = True
+        out.append(_blank(src[pos:m.start(1)]))  # everything up to and including <script ...>
+        out.append(m.group(1))                    # script body, verbatim
+        out.append(_blank(src[m.end(1):m.end()]))  # </script> and any trailing part of the match
+        pos = m.end()
+    if not had_script:
+        return src, False
+    out.append(_blank(src[pos:]))
+    return "".join(out), True
+
+
 def extract_php(path: Path) -> dict:
-    """Extract classes, functions, methods, namespace uses, and calls from a .php file."""
-    return _extract_generic(path, _PHP_CONFIG)
+    """Extract classes, functions, methods, namespace uses, and calls from a .php file.
+
+    Also parses any inline ``<script>`` blocks as JavaScript (#2320): the PHP
+    grammar sees those spans as opaque markup, so a page mixing PHP with
+    client-side JS previously indexed only its PHP half. The JS pass masks
+    everything else to blanks (preserving line numbers) and reuses the same
+    file node id, so JS symbols land under the one file node like any other
+    PHP symbol; a same-name PHP/JS collision (rare — different languages,
+    same file) is resolved by keeping the PHP node, since PHP is the file's
+    primary language, and dropping every JS edge that touches the id the
+    dropped JS node would have used, so no edge from the discarded symbol
+    is left to silently attach to the unrelated PHP node sharing its id.
+    """
+    result = _extract_generic(path, _PHP_CONFIG)
+    try:
+        src = path.read_text(encoding="utf-8", errors="replace")
+        masked, had_script = _php_mask_to_script_blocks(src)
+        if not had_script:
+            return result
+        js_result = _extract_generic(path, _JS_CONFIG, source_override=masked.encode("utf-8"))
+        # The file node itself always collides by construction -- both passes
+        # derive its id from the same path, on purpose, so JS symbols can
+        # land under the one PHP file node. That expected collision must not
+        # be treated as a dropped-symbol collision below, or every JS edge
+        # sourced from the file node (i.e. every top-level JS symbol's own
+        # `contains` edge) would be discarded along with it.
+        file_node_id = result["nodes"][0]["id"] if result.get("nodes") else None
+        existing_ids = {n["id"] for n in result.get("nodes", [])}
+        colliding_ids: set = set()
+        for n in js_result.get("nodes", []):
+            if n["id"] in existing_ids:
+                if n["id"] != file_node_id:
+                    colliding_ids.add(n["id"])
+                continue
+            result.setdefault("nodes", []).append(n)
+            existing_ids.add(n["id"])
+        for e in js_result.get("edges", []):
+            # A JS node dropped above for colliding with an existing PHP
+            # node id must not leave its edges behind -- otherwise an edge
+            # meant for the dropped JS symbol silently attaches to the
+            # unrelated retained PHP node that happens to share its id.
+            if e.get("source") in colliding_ids or e.get("target") in colliding_ids:
+                continue
+            result.setdefault("edges", []).append(e)
+    except Exception:
+        pass
+    return result
 
 
 # One level of balanced parens (e.g. `Foo #(Bar #(int))`) — bounded so malformed
@@ -3793,6 +3875,23 @@ def _resolve_cpp_member_calls(
             enclosing_type.setdefault(tgt, src)
             method_index[(src, _key(tnode.get("label", "")))] = tgt
 
+    # Qualified label ("Class::method()") -> node id(s), for a Foo::bar() call
+    # whose callee exists ONLY as this fallback shape with no `defines`/`method`
+    # edge to its class at all (#2348). A macro-heavy class body (Unreal's
+    # UCLASS()/GENERATED_BODY()) can defeat the bundled grammar's error recovery
+    # badly enough that the in-class declaration is never parsed as a member;
+    # the out-of-line .cpp definition then has nothing to attach to, so the
+    # extractor falls back to a qualified-labeled node contained by its FILE
+    # instead of a bare-labeled one contained by its class. method_index can
+    # never find that node (it only indexes defines/method targets), so this is
+    # a second-chance lookup by the exact qualified label, still guarded by
+    # exactly-one-candidate.
+    qualified_method_nids: dict[str, list[str]] = {}
+    for n in all_nodes:
+        label = str(n.get("label", ""))
+        if n.get("source_file") and label.endswith("()") and "::" in label:
+            qualified_method_nids.setdefault(label, []).append(n["id"])
+
     all_raw_calls: list[dict] = []
     for result in per_file:
         all_raw_calls.extend(result.get("raw_calls", []))
@@ -3813,6 +3912,7 @@ def _resolve_cpp_member_calls(
         if rc.get("lang") != "cpp":
             continue
         # Determine the receiver's type and the resulting confidence.
+        qualified_fallback_label: str | None = None
         if receiver == "this":
             # this->bar(): receiver is the caller's own enclosing class.
             type_nid = enclosing_type.get(caller)
@@ -3821,6 +3921,7 @@ def _resolve_cpp_member_calls(
             type_qualified = True
         elif receiver[:1].isupper():
             # Foo::bar(): the type is named explicitly in source.
+            qualified_fallback_label = f"{receiver}::{callee}()"
             type_defs = type_def_nids.get(_key(receiver), [])
             if not type_defs:
                 # Declared nowhere here, which in a multi-repo setup usually means
@@ -3852,6 +3953,10 @@ def _resolve_cpp_member_calls(
             type_nid = type_defs[0]
             type_qualified = False
         method_nid = method_index.get((type_nid, _key(callee)))
+        if method_nid is None and qualified_fallback_label is not None:
+            candidates = qualified_method_nids.get(qualified_fallback_label, [])
+            if len(candidates) == 1:
+                method_nid = candidates[0]
         target = method_nid or type_nid
         relation = "calls" if method_nid else "references"
         if target == caller or (caller, target) in existing_pairs:
@@ -4753,6 +4858,11 @@ def _resolve_rust_self_member_calls(
 
     Only `self.` receivers are handled: a non-self receiver needs local type
     inference this pass does not attempt, left for a future extension.
+
+    Simple unbounded generic impls use a persisted owner/arity marker instead
+    of their parameter-spelling-sensitive labels (`Bucket<T>` vs `Bucket<U>`).
+    That path additionally requires exactly one bare declaration and never
+    falls back to bare-label pooling when marker context is missing.
     """
     raw = [
         rc
@@ -4765,9 +4875,13 @@ def _resolve_rust_self_member_calls(
 
     node_by_id: dict[str, dict] = {n.get("id"): n for n in all_nodes}
     nids_by_label: dict[str, list[str]] = {}
+    nids_by_rust_impl_key: dict[str, list[str]] = {}
     for n in all_nodes:
         if str(n.get("source_file") or "").endswith(".rs"):
             nids_by_label.setdefault(n.get("label", ""), []).append(n.get("id"))
+            impl_key = n.get("_rust_impl_key")
+            if isinstance(impl_key, str) and impl_key:
+                nids_by_rust_impl_key.setdefault(impl_key, []).append(n.get("id"))
 
     # Pooling methods across every same-labeled node is safe when they are all
     # impl blocks for ONE real type spread across files, but not when the bare
@@ -4782,9 +4896,20 @@ def _resolve_rust_self_member_calls(
     # -- however many files its impl blocks are spread across -- is safe to
     # pool, which is the split-impl-block shape this pass exists for.
     declared_type_count: dict[str, int] = {}
+    generic_declared_type_count: dict[str, int] = {}
     contains_targets = {e.get("target") for e in all_edges if e.get("relation") == "contains"}
     for label, nids in nids_by_label.items():
         declared_type_count[label] = sum(1 for nid in nids if nid in contains_targets)
+        generic_declared_type_count[label] = sum(
+            count
+            for nid in nids
+            if isinstance(
+                count := node_by_id.get(nid, {}).get("_rust_declaration_count"),
+                int,
+            )
+            and not isinstance(count, bool)
+            and count > 0
+        )
 
     # (impl/type node id, bare method name) -> method node id(s), from `method`
     # edges. A set, not a single overwritten value: two distinct method nodes
@@ -4814,10 +4939,20 @@ def _resolve_rust_self_member_calls(
         caller = rc["caller_nid"]
         callee = rc["callee"]
         self_type = rc["rust_self_type"]
-        if declared_type_count.get(self_type, 0) >= 2:
-            continue  # the type name itself is ambiguous -- two unrelated types share it
+        impl_key = rc.get("rust_self_impl_key")
+        if isinstance(impl_key, str) and impl_key:
+            # A generic owner/arity marker proves family identity only with one
+            # declaration in the corpus. Never fall back to bare-label pooling
+            # when persisted marker context is absent or ambiguous.
+            if generic_declared_type_count.get(self_type, 0) != 1:
+                continue
+            owner_nids = nids_by_rust_impl_key.get(impl_key, [])
+        else:
+            if declared_type_count.get(self_type, 0) >= 2:
+                continue  # two unrelated types share this bare name
+            owner_nids = nids_by_label.get(self_type, [])
         candidates: set[str] = set()
-        for nid in nids_by_label.get(self_type, []):
+        for nid in owner_nids:
             candidates |= method_index.get((nid, callee), set())
         if len(candidates) != 1:  # zero or ambiguous -> no edge (god-node guard)
             continue
@@ -4910,6 +5045,92 @@ def _resolve_elixir_import_targets(
         e["target"] = target_nid
 
 
+def _resolve_kotlin_member_calls(
+    per_file: list[dict],
+    all_nodes: list[dict],
+    all_edges: list[dict],
+) -> None:
+    """Resolve Kotlin object/class-qualified member calls across files (#1698).
+
+    ``Receiver.method()`` (exactly two navigation segments, a capitalized
+    receiver — an object singleton or a class/companion member) resolves
+    in-file through the engine's own bare-name lookup, so a call reaches
+    ``raw_calls`` here only when that lookup already failed: the receiver and
+    the callee are declared in different files. The shared cross-file pass
+    skips every ``is_member_call`` unconditionally (a bare method name like
+    ``log`` collides across the corpus and inflates god-nodes, #543/#1219),
+    and Kotlin deliberately never stamps ``member_receiver`` for this shape
+    either (see ``extractors/engine.py``), so nothing else can ever answer it.
+
+    Guarded by exactly-one-candidate at both steps, the same god-node guard
+    ``_resolve_kotlin_qualified_calls`` uses just above: a receiver name
+    matching 2+ declared types, or a method name matching 2+ methods of the
+    matched type, yields no edge. The receiver names the type explicitly in
+    source, so a unique match is EXTRACTED (mirrors the type-qualified case
+    in ``_resolve_swift_member_calls``, #1356).
+    """
+    raw = [
+        rc
+        for result in per_file
+        for rc in result.get("raw_calls", [])
+        if rc.get("lang") == "kotlin" and rc.get("kotlin_object_receiver")
+        and rc.get("callee") and rc.get("caller_nid")
+    ]
+    if not raw:
+        return
+
+    node_by_id: dict[str, dict] = {n.get("id"): n for n in all_nodes}
+    methods_by_type: dict[str, list[str]] = {}
+    for e in all_edges:
+        if e.get("relation") == "method":
+            methods_by_type.setdefault(e.get("source"), []).append(e.get("target"))
+
+    # Receiver name -> declaring type node ids, scoped to Kotlin-sourced
+    # definitions only (a same-named type in another language must not
+    # answer a Kotlin call). len != 1 is the god-node guard.
+    types_by_name: dict[str, list[str]] = {}
+    for n in all_nodes:
+        if not n.get("_callable_class"):
+            continue
+        sf = str(n.get("source_file") or "")
+        if not sf.endswith((".kt", ".kts")):
+            continue
+        name = str(n.get("label", ""))
+        if name:
+            types_by_name.setdefault(name, []).append(n["id"])
+
+    existing_pairs = {(e.get("source"), e.get("target")) for e in all_edges}
+    for rc in raw:
+        receiver = rc["kotlin_object_receiver"]
+        callee = rc["callee"]
+        caller = rc["caller_nid"]
+        type_nids = types_by_name.get(receiver, [])
+        if len(type_nids) != 1:
+            continue
+        wanted = f".{callee}"
+        candidates = [
+            m for m in methods_by_type.get(type_nids[0], [])
+            if str(node_by_id.get(m, {}).get("label", "")).strip("()") == wanted
+        ]
+        if len(candidates) != 1:
+            continue
+        tgt = candidates[0]
+        if tgt == caller or (caller, tgt) in existing_pairs:
+            continue
+        existing_pairs.add((caller, tgt))
+        all_edges.append({
+            "source": caller,
+            "target": tgt,
+            "relation": "calls",
+            "context": "call",
+            "confidence": "EXTRACTED",  # the receiver names the type explicitly in source
+            "confidence_score": 1.0,
+            "source_file": rc.get("source_file", ""),
+            "source_location": rc.get("source_location"),
+            "weight": 1.0,
+        })
+
+
 # Kotlin import-target resolution runs EARLY (directly in extract(), before the
 # shared call pass builds its import-evidence index) — registering it in the
 # tail registry would rewrite the targets after promotion already read them.
@@ -4996,6 +5217,14 @@ register_language_resolver(
 register_language_resolver(
     LanguageResolver(
         "kotlin_qualified_calls", frozenset({".kt", ".kts"}), _resolve_kotlin_qualified_calls
+    )
+)
+# Kotlin object/class-qualified member calls resolved across files (#1698):
+# `Receiver.method()` where the receiver's object/class is declared in another
+# file. Same god-node guard as kotlin_qualified_calls; runs in the tail registry.
+register_language_resolver(
+    LanguageResolver(
+        "kotlin_member_calls", frozenset({".kt", ".kts"}), _resolve_kotlin_member_calls
     )
 )
 # C# qualified construction (#2997): `new A.B.Cache()` arrives as the bare name,

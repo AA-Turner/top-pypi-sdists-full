@@ -3,7 +3,7 @@ from pandas import DataFrame
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
 from graphdatascience.arrow_client.v2.data_mapper_utils import deserialize_single
 from graphdatascience.arrow_client.v2.job_client import JobClient
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.catalog.node_properties_endpoints import (
     NodePropertiesDropResult,
     NodePropertiesEndpoints,
@@ -13,11 +13,12 @@ from graphdatascience.procedure_surface.api.catalog.node_properties_endpoints im
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS
 from graphdatascience.procedure_surface.api.write_job_handle import WriteJobHandle
 from graphdatascience.procedure_surface.arrow.node_property_endpoints import NodePropertyEndpointsHelper
+from graphdatascience.procedure_surface.arrow.stream_result_mapper import apply_stream_mapper
 from graphdatascience.procedure_surface.utils.config_converter import ConfigConverter
 from graphdatascience.procedure_surface.utils.result_utils import join_db_node_properties
-from graphdatascience.query_runner.protocol.write_protocols import WriteProtocol
 from graphdatascience.query_runner.query_runner import QueryRunner
 from graphdatascience.query_runner.termination_flag import TerminationFlag
+from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
 class NodePropertiesArrowEndpoints(NodePropertiesEndpoints):
@@ -39,7 +40,7 @@ class NodePropertiesArrowEndpoints(NodePropertiesEndpoints):
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         node_properties: str | list[str],
         *,
         list_node_labels: bool | None = False,
@@ -71,7 +72,9 @@ class NodePropertiesArrowEndpoints(NodePropertiesEndpoints):
         )
 
         job_id = JobClient.run_job(self._arrow_client, "v2/graph.nodeProperties.stream", config)
-        result = JobClient.stream_results(self._arrow_client, G.name(), job_id)
+        result = apply_stream_mapper(
+            "v2/graph.nodeProperties.stream", JobClient.stream_results(self._arrow_client, G.name(), job_id)
+        )
 
         if has_db_properties:
             return join_db_node_properties(result, db_node_properties, self._query_runner)  # type: ignore
@@ -80,7 +83,7 @@ class NodePropertiesArrowEndpoints(NodePropertiesEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         node_properties: str | list[str] | dict[str, str],
         *,
         node_labels: list[str] = ALL_LABELS,
@@ -130,17 +133,17 @@ class NodePropertiesArrowEndpoints(NodePropertiesEndpoints):
 
     def drop(
         self,
-        G: GraphV2,
+        G: Graph,
         node_properties: list[str],
         *,
-        fail_if_missing: bool | None = True,
+        fail_if_missing: bool = True,
         concurrency: int | None = None,
         username: str | None = None,
     ) -> NodePropertiesDropResult:
         config = ConfigConverter.convert_to_gds_config(
             graph_name=G.name(),
             node_properties=node_properties,
-            # fail_if_missing=fail_if_missing, TODO: Enable once this is fixed in the session
+            fail_if_missing=fail_if_missing,
             concurrency=concurrency,
             username=username,
         )

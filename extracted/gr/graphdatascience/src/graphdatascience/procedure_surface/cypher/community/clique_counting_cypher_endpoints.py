@@ -2,7 +2,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.community.clique_counting_endpoints import (
     CliqueCountingEndpoints,
     CliqueCountingMutateResult,
@@ -29,7 +29,7 @@ class CliqueCountingCypherEndpoints(CliqueCountingEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         *,
         concurrency: int | None = None,
@@ -56,13 +56,13 @@ class CliqueCountingCypherEndpoints(CliqueCountingEndpoints):
 
         cypher_result = self._query_runner.call_procedure(
             endpoint="gds.cliqueCounting.mutate", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return CliqueCountingMutateResult(**cypher_result.to_dict())
+        return CliqueCountingMutateResult(**cypher_result)
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         concurrency: int | None = None,
         job_id: str | None = None,
         log_progress: bool = True,
@@ -86,13 +86,13 @@ class CliqueCountingCypherEndpoints(CliqueCountingEndpoints):
 
         cypher_result = self._query_runner.call_procedure(
             endpoint="gds.cliqueCounting.stats", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return CliqueCountingStatsResult(**cypher_result.to_dict())
+        return CliqueCountingStatsResult(**cypher_result)
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         concurrency: int | None = None,
         job_id: str | None = None,
         log_progress: bool = True,
@@ -120,7 +120,7 @@ class CliqueCountingCypherEndpoints(CliqueCountingEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         concurrency: int | None = None,
         job_id: str | None = None,
@@ -148,13 +148,13 @@ class CliqueCountingCypherEndpoints(CliqueCountingEndpoints):
 
         result = self._query_runner.call_procedure(
             endpoint="gds.cliqueCounting.write", params=params, logging=log_progress
-        ).squeeze()  # type: ignore
+        ).iloc[0]  # type: ignore
 
-        return CliqueCountingWriteResult(**result.to_dict())
+        return CliqueCountingWriteResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         concurrency: int | None = None,
         node_labels: list[str] = ALL_LABELS,
         relationship_types: list[str] = ALL_TYPES,

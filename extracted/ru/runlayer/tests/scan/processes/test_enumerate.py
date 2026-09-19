@@ -8,8 +8,10 @@ are thin best-effort wrappers, but a parser regression silently drops findings.
 
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.processes import enumerate as enumerate_module
 from runlayer_cli.scan.processes.enumerate import (
     ListenerSocket,
@@ -83,6 +85,21 @@ class TestBindScopeFromHexIp:
     def test_malformed_hex_defaults_exposed(self):
         # Never raise; unknown shapes fail safe toward "exposed".
         assert bind_scope_from_hex_ip("zzz") == "all_interfaces"
+
+
+def test_missing_optional_ipv6_listener_table_keeps_completeness(
+    monkeypatch,
+) -> None:
+    def read_proc_table(path: Path) -> str:
+        if path.name == "tcp6":
+            raise FileNotFoundError(path)
+        return ""
+
+    monkeypatch.setattr(Path, "read_text", read_proc_table)
+    status = ScanCompletionStatus()
+
+    assert enumerate_module._listeners_linux(scan_status=status) == []
+    assert status.reasons == []
 
 
 # ---------------------------------------------------------------------------
@@ -315,6 +332,101 @@ class TestParseNetstat:
 
 
 # ---------------------------------------------------------------------------
+# Runner completeness
+# ---------------------------------------------------------------------------
+def test_ps_command_failure_returns_findings_with_incomplete_status(monkeypatch):
+    status = ScanCompletionStatus()
+    monkeypatch.setattr(enumerate_module, "_run", lambda *_args, **_kwargs: None)
+
+    assert _enumerate_ps(1, status) == []
+    assert status.complete is False
+    assert status.reasons == ["process_table_command_failed"]
+
+
+def _windows_process_output(pids: list[int]) -> str:
+    return json.dumps(
+        [
+            {
+                "ProcessId": pid,
+                "ParentProcessId": 1,
+                "Name": f"process-{pid}.exe",
+                "CommandLine": f"process-{pid}.exe",
+            }
+            for pid in pids
+        ]
+    )
+
+
+def _install_linux_proc_candidates(monkeypatch, pids: list[int]) -> None:
+    monkeypatch.setattr(
+        Path,
+        "iterdir",
+        lambda _path: [Path(f"/proc/{pid}") for pid in pids],
+    )
+    monkeypatch.setattr(
+        enumerate_module,
+        "_read_linux_pid",
+        lambda _entry, pid: ProcessCandidate(pid=pid),
+    )
+
+
+def test_linux_proc_exact_cap_keeps_complete_status(monkeypatch):
+    monkeypatch.setattr(enumerate_module, "MAX_CANDIDATES", 2)
+    _install_linux_proc_candidates(monkeypatch, [10, 20])
+    status = ScanCompletionStatus()
+
+    candidates = enumerate_module._enumerate_linux_proc(status)
+
+    assert [candidate.pid for candidate in candidates] == [10, 20]
+    assert status.complete is True
+    assert status.reasons == []
+
+
+def test_linux_proc_cap_plus_one_truncates_and_marks_incomplete(monkeypatch):
+    monkeypatch.setattr(enumerate_module, "MAX_CANDIDATES", 2)
+    _install_linux_proc_candidates(monkeypatch, [10, 20, 30])
+    status = ScanCompletionStatus()
+
+    candidates = enumerate_module._enumerate_linux_proc(status)
+
+    assert [candidate.pid for candidate in candidates] == [10, 20]
+    assert status.complete is False
+    assert status.reasons == ["process_candidate_scan_capped"]
+
+
+def test_windows_enumerator_exact_cap_keeps_complete_status(monkeypatch):
+    monkeypatch.setattr(enumerate_module, "MAX_CANDIDATES", 2)
+    monkeypatch.setattr(
+        enumerate_module,
+        "_run",
+        lambda *_args, **_kwargs: _windows_process_output([20, 10]),
+    )
+    status = ScanCompletionStatus()
+
+    candidates = enumerate_module._enumerate_windows_processes(1, status)
+
+    assert [candidate.pid for candidate in candidates] == [20, 10]
+    assert status.complete is True
+    assert status.reasons == []
+
+
+def test_windows_enumerator_cap_plus_one_truncates_and_marks_incomplete(monkeypatch):
+    monkeypatch.setattr(enumerate_module, "MAX_CANDIDATES", 2)
+    monkeypatch.setattr(
+        enumerate_module,
+        "_run",
+        lambda *_args, **_kwargs: _windows_process_output([30, 10, 20]),
+    )
+    status = ScanCompletionStatus()
+
+    candidates = enumerate_module._enumerate_windows_processes(1, status)
+
+    assert [candidate.pid for candidate in candidates] == [30, 10]
+    assert status.complete is False
+    assert status.reasons == ["process_candidate_scan_capped"]
+
+
+# ---------------------------------------------------------------------------
 # Union by pid
 # ---------------------------------------------------------------------------
 class TestUnionByPid:
@@ -356,3 +468,28 @@ class TestUnionByPid:
         ]
         merged = union_by_pid(procs, listeners)
         assert merged[0].listening_ports == [3000]
+
+
+def test_run_replaces_undecodable_bytes_instead_of_raising(monkeypatch):
+    """A process whose argv is not valid UTF-8 must not empty the whole channel (ISS-16).
+
+    ``subprocess.run(text=True)`` decodes strictly; a single stray byte raised
+    ``UnicodeDecodeError`` (not a ``SubprocessError``) out of ``_run``.
+    """
+    import subprocess as subprocess_module
+
+    def fake_run(cmd, **kwargs):
+        text = kwargs.get("text") or kwargs.get("encoding") or kwargs.get("errors")
+        assert text, "expected text mode"
+        raw = b"1 0 root Mon Jan  1 00:00:00 2024 node \xff\xfeagent\n"
+        if kwargs.get("errors") != "replace":
+            raw.decode(kwargs.get("encoding") or "utf-8")  # raises like CPython
+        stdout = raw.decode(kwargs.get("encoding") or "utf-8", "replace")
+        return subprocess_module.CompletedProcess(cmd, 0, stdout=stdout, stderr="")
+
+    monkeypatch.setattr(enumerate_module.subprocess, "run", fake_run)
+
+    output = enumerate_module._run(["ps"], timeout=5)
+
+    assert output is not None
+    assert "agent" in output

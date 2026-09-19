@@ -53,16 +53,6 @@ class BlockingError(Exception):
         super().__init__(f"Blocking call to {func}")
 
 
-def _blocking_error(func: Callable[..., Any]) -> BlockingError:
-    if inspect.isbuiltin(func):
-        msg = f"Blocking call to {func.__qualname__} ({func.__self__})"
-    elif inspect.ismethoddescriptor(func):
-        msg = f"Blocking call to {func}"
-    else:
-        msg = f"Blocking call to {func.__module__}.{func.__qualname__}"
-    return BlockingError(msg)
-
-
 _T = TypeVar("_T")
 
 blockbuster_skip: ContextVar[bool] = ContextVar("blockbuster_skip")
@@ -316,6 +306,7 @@ def _get_os_wrapped_functions(
         can_block_functions=[
             ("<frozen importlib._bootstrap>", {"_find_and_load"}),
             ("linecache.py", {"checkcache", "updatecache"}),
+            ("<frozen linecache>", {"checkcache", "updatecache"}),
             ("coverage/control.py", {"_should_trace"}),
             ("coverage/python.py", {"get_python_source"}),
             ("asyncio/unix_events.py", {"create_unix_server", "_stop_serving"}),
@@ -371,7 +362,9 @@ def _get_os_wrapped_functions(
         excluded_modules=excluded_modules,
     )
 
-    if platform.python_implementation() != "CPython" or sys.version_info >= (3, 9):
+    if platform.python_implementation() != "CPython" or (
+        (3, 9) <= sys.version_info < (3, 15)
+    ):
         with os.scandir() as scandir_it:
             functions["os.scandir"] = BlockBusterFunction(
                 type(scandir_it),
@@ -456,6 +449,14 @@ def _get_io_wrapped_functions(
             file.fileno()
         except io.UnsupportedOperation:
             return not file.isatty()
+        except AttributeError:
+            # The wrapped raw object implements neither `fileno` nor `isatty`,
+            # so nothing is left to prove the read won't hit the disk: treat any
+            # file reaching this branch as blocking. That is correct for a
+            # `tarfile.ExFileObject`, which reads through to the enclosing
+            # archive, and is the deliberate default for any other file type
+            # that lands here.
+            pass
         return False
 
     def file_write_exclude(file: io.IOBase, *_: Any, **__: Any) -> bool:

@@ -218,6 +218,7 @@ def test_scan_accepts_command_level_options():
         containers_scanned=False,
         wsl_distros=[],
         wsl_scanned=False,
+        resource_limit_exceeded=None,
     )
     with patch(
         "runlayer_cli.commands.scan.scan_all_clients",

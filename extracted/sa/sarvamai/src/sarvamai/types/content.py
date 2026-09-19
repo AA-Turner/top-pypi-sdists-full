@@ -2,6 +2,6 @@
 
 import typing
 
-from .content_one_item import ContentOneItem
+from .response_input_content_part import ResponseInputContentPart
 
-Content = typing.Union[str, typing.List[ContentOneItem]]
+Content = typing.Union[str, typing.List[ResponseInputContentPart]]

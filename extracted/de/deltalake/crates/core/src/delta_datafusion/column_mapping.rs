@@ -24,7 +24,8 @@ use datafusion::physical_expr::EquivalenceProperties;
 use datafusion::physical_plan::execution_plan::CardinalityEffect;
 use datafusion::physical_plan::statistics::{ChildStats, StatisticsArgs};
 use datafusion::physical_plan::{
-    DisplayAs, DisplayFormatType, ExecutionPlan, PhysicalExpr, PlanProperties,
+    ChildrenPropertiesMode, DisplayAs, DisplayFormatType, ExecutionPlan, PhysicalExpr,
+    PlanProperties, ReplaceChildrenOptions,
 };
 use delta_kernel::schema::{
     DataType as KernelDataType, SchemaRef as KernelSchemaRef, StructField, StructType,
@@ -182,9 +183,10 @@ impl ExecutionPlan for ColumnMappingExec {
         vec![&self.input]
     }
 
-    fn with_new_children(
+    fn replace_children(
         self: Arc<Self>,
         mut children: Vec<Arc<dyn ExecutionPlan>>,
+        options: ReplaceChildrenOptions,
     ) -> Result<Arc<dyn ExecutionPlan>> {
         if children.len() != 1 {
             return Err(DataFusionError::Internal(format!(
@@ -192,11 +194,31 @@ impl ExecutionPlan for ColumnMappingExec {
                 children.len()
             )));
         }
+        let input = children.remove(0);
+        let properties = match options.children_properties {
+            ChildrenPropertiesMode::Keep => Arc::clone(&self.properties),
+            ChildrenPropertiesMode::Recompute => Arc::new(PlanProperties::new(
+                EquivalenceProperties::new(Arc::clone(&self.physical_schema)),
+                input.properties().partitioning.clone(),
+                input.properties().emission_type,
+                input.properties().boundedness,
+            )),
+        };
         Ok(Arc::new(Self {
-            input: children.remove(0),
-            physical_schema: self.physical_schema.clone(),
-            properties: self.properties.clone(),
+            input,
+            physical_schema: Arc::clone(&self.physical_schema),
+            properties,
         }))
+    }
+
+    fn with_new_children(
+        self: Arc<Self>,
+        children: Vec<Arc<dyn ExecutionPlan>>,
+    ) -> Result<Arc<dyn ExecutionPlan>> {
+        self.replace_children(
+            children,
+            ReplaceChildrenOptions::new(ChildrenPropertiesMode::Recompute),
+        )
     }
 
     fn execute(
@@ -236,12 +258,10 @@ impl ExecutionPlan for ColumnMappingExec {
 
     fn apply_expressions(
         &self,
-        expr_rewriter: &mut dyn FnMut(
+        _expr_rewriter: &mut dyn FnMut(
             &Arc<dyn PhysicalExpr>,
         ) -> Result<TreeNodeRecursion, DataFusionError>,
     ) -> Result<TreeNodeRecursion, DataFusionError> {
-        // Traverse child execution plan with the expression rewriter
-        self.input.apply_expressions(expr_rewriter)?;
         Ok(TreeNodeRecursion::Continue)
     }
 }
@@ -476,6 +496,7 @@ mod tests {
     use arrow_array::types::Int32Type;
     use arrow_array::{Int32Array, ListArray, StringArray, StringViewArray, StructArray};
     use arrow_buffer::OffsetBuffer;
+    use datafusion::physical_plan::empty::EmptyExec;
     use delta_kernel::schema::ArrayType;
 
     use super::*;
@@ -680,6 +701,92 @@ mod tests {
         assert_eq!(out.schema().field(0).name(), "col-id");
         assert_eq!(out.schema().field(1).name(), "_change_type");
         assert_eq!(field_id(out.schema().field(1)), None);
+    }
+
+    /// `ColumnMappingExec` owns no `PhysicalExpr` fields, so `apply_expressions` must be a
+    /// no-op that invokes the closure zero times. The DataFusion tree walker recurses into
+    /// children automatically; delegating to `self.input.apply_expressions()` would
+    /// double-visit child expressions and violate the shallow-visit contract documented in
+    /// [`ExecutionPlan::apply_expressions`].
+    #[test]
+    fn apply_expressions_must_not_visit_child_expressions() {
+        use datafusion::physical_plan::PhysicalExpr;
+        use datafusion::physical_plan::empty::EmptyExec;
+        use datafusion::physical_plan::expressions::lit;
+        use datafusion::physical_plan::filter::FilterExec;
+
+        // Build a FilterExec that owns one predicate expression (lit(true)).
+        let schema = Arc::new(Schema::new(vec![Field::new("id", DataType::Int32, true)]));
+        let empty: Arc<dyn ExecutionPlan> = Arc::new(EmptyExec::new(schema.clone()));
+        let predicate: Arc<dyn PhysicalExpr> = lit(true);
+        let filter = Arc::new(FilterExec::try_new(predicate, empty).unwrap());
+
+        // Wrap the FilterExec in a ColumnMappingExec using a minimal single-field schema.
+        let kernel_schema =
+            StructType::try_new([column_mapping_test_field("id", "col-id", 1)]).unwrap();
+        let cm_exec =
+            ColumnMappingExec::try_new(filter, &kernel_schema, ColumnMappingMode::Name).unwrap();
+
+        // Call apply_expressions on the wrapper node only — NOT the whole tree.
+        // A correct shallow implementation visits 0 expressions (this node owns none).
+        // The buggy implementation delegates to the child FilterExec and visits its predicate,
+        // yielding a count of 1.
+        let mut visited = 0usize;
+        cm_exec
+            .apply_expressions(&mut |_expr| {
+                visited += 1;
+                Ok(datafusion::common::tree_node::TreeNodeRecursion::Continue)
+            })
+            .unwrap();
+
+        assert_eq!(
+            visited, 0,
+            "ColumnMappingExec owns no expressions; apply_expressions must be a no-op \
+             (got {visited} visits — the child FilterExec's predicate is being visited \
+             by the wrapper, violating the DataFusion shallow-visit contract)"
+        );
+    }
+
+    #[test]
+    fn replace_children_preserves_property_cache_and_schema() {
+        let logical_schema = logical_kernel_schema();
+        let logical_arrow_schema = logical_batch().schema();
+        let one_partition = EmptyExec::new(Arc::clone(&logical_arrow_schema));
+        let same_properties_input: Arc<dyn ExecutionPlan> = Arc::new(one_partition.clone());
+        let one_partition_input: Arc<dyn ExecutionPlan> = Arc::new(one_partition);
+        let two_partition_input: Arc<dyn ExecutionPlan> =
+            Arc::new(EmptyExec::new(logical_arrow_schema).with_partitions(2));
+        assert!(Arc::ptr_eq(
+            one_partition_input.properties(),
+            same_properties_input.properties()
+        ));
+
+        let mapped = ColumnMappingExec::try_new(
+            one_partition_input,
+            &logical_schema,
+            ColumnMappingMode::Name,
+        )
+        .expect("ColumnMappingExec::try_new failed");
+        let original_properties = Arc::clone(mapped.properties());
+        let original_schema = mapped.schema();
+
+        let keep = Arc::clone(&mapped)
+            .replace_children(
+                vec![same_properties_input],
+                ReplaceChildrenOptions::new(ChildrenPropertiesMode::Keep),
+            )
+            .expect("Keep mode rejected matching child properties");
+        assert!(Arc::ptr_eq(&original_properties, keep.properties()));
+
+        let recompute = mapped
+            .replace_children(
+                vec![two_partition_input],
+                ReplaceChildrenOptions::new(ChildrenPropertiesMode::Recompute),
+            )
+            .expect("Recompute mode rejected changed child properties");
+        assert!(!Arc::ptr_eq(&original_properties, recompute.properties()));
+        assert_eq!(recompute.properties().partitioning.partition_count(), 2);
+        assert_eq!(recompute.schema(), original_schema);
     }
 
     #[test]

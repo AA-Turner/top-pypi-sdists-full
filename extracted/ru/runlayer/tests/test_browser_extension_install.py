@@ -9,6 +9,7 @@ import pytest
 
 from runlayer_cli.hook_install import browser_extension as bx
 from runlayer_cli.hook_install import browser_policy as browser_policy
+from runlayer_cli.hook_install import console_user
 from runlayer_cli.mdm_config import AIWatchMode, ManagedConfig
 
 EXT_ID = "a" * 32
@@ -34,6 +35,7 @@ BASE_MANAGED: ManagedConfig = {
 @pytest.fixture(autouse=True)
 def _darwin(monkeypatch):
     monkeypatch.setattr(bx.platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(console_user, "find_console_user_home", lambda: None)
 
 
 def _install(managed: ManagedConfig, tmp_path):
@@ -102,6 +104,21 @@ def test_skips_without_extension_id(tmp_path):
     assert not result.written
     assert "BrowserExtensionId" in (result.skipped_reason or "")
     assert not (tmp_path / "managed").exists()
+
+
+@pytest.mark.parametrize(
+    ("reason", "report"),
+    [
+        (None, False),
+        ("", False),
+        ("no BrowserExtensionId in managed config", False),
+        ("macOS only", True),
+        ("managed BrowserExtensionUpdateUrl required", True),
+    ],
+)
+def test_skip_reporting_requires_an_actionable_reason(reason, report):
+    result = bx.BrowserExtensionResult(written=False, skipped_reason=reason)
+    assert bx.should_report_browser_extension_skip(result) is report
 
 
 def test_recognizes_current_and_legacy_runlayer_update_urls():
@@ -276,16 +293,24 @@ def test_install_survives_managed_preferences_rebuild(tmp_path, monkeypatch):
     assert ok, detail
 
 
-def test_removed_policy_refreshes_managed_preferences_for_console_user(
+def test_removed_policy_publishes_without_rebuilding_managed_preferences(
     tmp_path, monkeypatch
 ):
     _seed_stale_runlayer_artifacts(tmp_path)
     commands = _capture_policy_refresh(monkeypatch, tmp_path)
+    publications = []
+    monkeypatch.setattr(
+        "runlayer_cli.managed_policy_publication.publish_managed_policy",
+        publications.append,
+    )
 
     result = _install({"host": "https://h", "org_api_key": "k"}, tmp_path)
 
     assert result.written
-    assert commands == [["/usr/bin/mcxrefresh", "-n", "alice"]]
+    assert commands == []
+    assert len(publications) == 1
+    assert bx.chrome_policy_plist_path(tmp_path / "managed") in publications[0]
+    assert bx.policy_plist_path(EXT_ID, tmp_path / "managed") in publications[0]
 
 
 def test_preserves_existing_chrome_policy(tmp_path):

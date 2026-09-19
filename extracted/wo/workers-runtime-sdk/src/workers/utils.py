@@ -126,6 +126,25 @@ def import_from_javascript(module_name: str) -> Any:
         raise
 
 
+# Directory, relative to the worker bundle root, that `pywrangler sync` vendors Python packages
+# into. wrangler registers `.js`/`.mjs` files found under `python_modules/workers/` as ES modules
+# (everything else in `python_modules/` is opaque data), which is what lets them be imported via
+# `import_from_javascript`.
+_SDK_JS_MODULE_PREFIX = "python_modules/workers/"
+
+
+async def import_sdk_javascript_module_async(name: str) -> Any:
+    """
+    Asynchronous function to import an sdk js module
+
+    This does not rely on JSPI, so it also works with Pyodide 0.26.0a2.
+    """
+    try:
+        return await _pyodide_entrypoint_helper.doAnImport(_SDK_JS_MODULE_PREFIX + name)
+    except JsException as e:
+        raise ImportError(f"Failed to import '{name}': {e}") from e
+
+
 @contextmanager
 def patch_env(
     d: dict[str, Any] | Sequence[tuple[str, Any]] | None = None, **kwds: dict[str, Any]
@@ -144,15 +163,30 @@ def _to_python_exception(exc: JsException) -> Exception:
         return exc
 
 
+_NON_RETRYABLE_ERROR_NAME = "NonRetryableError"
+
+
 def _from_js_error(exc: JsException) -> Exception:
     # convert into Python exception after a full round trip
     # Python - JS - Python
     message = exc.message or ""
 
+    # A NonRetryableError raised inside a workflow step is translated by the
+    # runtime into a JS error named "NonRetryableError" before it reaches the
+    # Workflows engine, which is how the engine knows not to retry the step.
+    # When the engine rethrows it back to us the name either survives, or is
+    # folded into the message as a prefix.
+    if getattr(exc, "name", None) == _NON_RETRYABLE_ERROR_NAME:
+        return NonRetryableError(message)
+    if message == _NON_RETRYABLE_ERROR_NAME:
+        return NonRetryableError()
+    if message.startswith(_NON_RETRYABLE_ERROR_NAME + ": "):
+        return NonRetryableError(message[len(_NON_RETRYABLE_ERROR_NAME) + 2 :])
+
     # A Python exception that escaped to JS is a Pyodide `PythonError` whose
     # message is the formatted traceback. Depending on how it was serialized
     # over RPC it either keeps its name or arrives as a plain `Error` with
-    # "PythonError: " folded into the message.
+    # "PythonError: " folded into the message
     if getattr(exc, "name", None) != "PythonError" and not message.startswith(
         "PythonError"
     ):

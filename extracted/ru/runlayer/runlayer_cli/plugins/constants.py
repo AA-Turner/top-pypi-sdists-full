@@ -1,0 +1,2 @@
+RUNLAYER_PLUGIN_ID = "a9d3ab20-4f5f-4d7b-a7b2-7b2b6f1d0d44"
+CODEX_TOOL_EXPOSURE_HEADER = "X-Runlayer-Tool-Exposure"

@@ -3,10 +3,10 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
-from graphdatascience.procedure_surface.api.model.node_regression_model import NodeRegressionModelV2
 from graphdatascience.procedure_surface.api.pipeline.node_regression_metric import NodeRegressionMetric
+from graphdatascience.procedure_surface.api.pipeline.node_regression_model import NodeRegressionModel
 from graphdatascience.procedure_surface.api.pipeline.node_regression_pipeline import NodeRegressionPipeline
 from graphdatascience.procedure_surface.api.pipeline.node_regression_pipeline_results import (
     NodeRegressionPipelineInfoResult,
@@ -59,6 +59,25 @@ class NodeRegressionPipelineEndpoints(ABC):
         pass
 
     @abstractmethod
+    def get_model(self, model_name: str) -> NodeRegressionModel:
+        """
+        Retrieve an existing node regression model by name.
+
+        Returns the same model object as the ``train`` method of a node regression pipeline.
+
+        Parameters
+        ----------
+        model_name
+            Name of the model.
+
+        Returns
+        -------
+        NodeRegressionModel
+            The reconstructed model object.
+        """
+        pass
+
+    @abstractmethod
     def add_node_property(self, pipeline_name: str, task_name: str, **config: Any) -> NodeRegressionPipelineInfoResult:
         """
         Add a node property step to the pipeline.
@@ -80,7 +99,9 @@ class NodeRegressionPipelineEndpoints(ABC):
         pass
 
     @abstractmethod
-    def select_features(self, pipeline_name: str, node_properties: str | list[str]) -> NodeRegressionPipelineInfoResult:
+    def select_features(
+        self, pipeline_name: str, feature_properties: str | list[str]
+    ) -> NodeRegressionPipelineInfoResult:
         """
         Select the node properties used as input features.
 
@@ -88,7 +109,7 @@ class NodeRegressionPipelineEndpoints(ABC):
         ----------
         pipeline_name
             Name of the pipeline.
-        node_properties
+        feature_properties
             One or more node properties to use as features.
 
         Returns
@@ -224,7 +245,7 @@ class NodeRegressionPipelineEndpoints(ABC):
     @abstractmethod
     def train(
         self,
-        G: GraphV2,
+        G: Graph,
         pipeline_name: str,
         *,
         metrics: list[str | NodeRegressionMetric],
@@ -239,7 +260,7 @@ class NodeRegressionPipelineEndpoints(ABC):
         sudo: bool = False,
         concurrency: int | None = None,
         job_id: str | None = None,
-    ) -> tuple[NodeRegressionModelV2, NodeRegressionPipelineTrainResult]:
+    ) -> tuple[NodeRegressionModel, NodeRegressionPipelineTrainResult]:
         """
         Train a node regression model from the given pipeline.
 
@@ -276,7 +297,7 @@ class NodeRegressionPipelineEndpoints(ABC):
 
         Returns
         -------
-        tuple[NodeRegressionModelV2, NodeRegressionPipelineTrainResult]
+        tuple[NodeRegressionModel, NodeRegressionPipelineTrainResult]
             The trained model and the corresponding training result.
         """
         pass

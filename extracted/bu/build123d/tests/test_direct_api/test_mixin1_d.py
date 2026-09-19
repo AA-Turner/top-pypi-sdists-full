@@ -26,6 +26,7 @@ license:
 
 """
 
+import copy
 import math
 import unittest
 from unittest.mock import patch
@@ -400,6 +401,18 @@ class TestMixin1D(unittest.TestCase):
         # self.assertTrue(offset_edge.geom_type == GeomType.LINE)
         # self.assertAlmostEqual(offset_edge.position_at(0).X, 3)
 
+    def test_offset_2d_builder_failure(self):
+        """Verify that OCCT offset failures are reported before reading Shape()."""
+        with patch("build123d.topology.one_d.BRepOffsetAPI_MakeOffset") as builder:
+            offset_builder = builder.return_value
+            offset_builder.IsDone.return_value = False
+            offset_builder.Shape.side_effect = ValueError("Null TopoDS_Shape object")
+
+            with self.assertRaisesRegex(RuntimeError, "2D offset failed.*0.1"):
+                Wire.make_rect(1, 1).offset_2d(0.1)
+
+            offset_builder.Shape.assert_not_called()
+
     def test_common_plane(self):
         # Straight and circular lines
         l = Edge.make_line((0, 0, 0), (5, 0, 0))
@@ -442,9 +455,17 @@ class TestMixin1D(unittest.TestCase):
         edge = Edge.make_line((0, 0), (1, 1))
         self.assertAlmostEqual(edge.volume, 0, 5)
 
+    def test_edge_mass(self):
+        edge = Edge.make_line((0, 0), (1, 1))
+        self.assertAlmostEqual(edge.mass(), 0, 5)
+
     def test_wire_volume(self):
         wire = Wire.make_rect(1, 1)
         self.assertAlmostEqual(wire.volume, 0, 5)
+
+    def test_wire_mass(self):
+        wire = Wire.make_rect(1, 1)
+        self.assertAlmostEqual(wire.mass(), 0, 5)
 
     def test_edges(self):
         box = Solid.make_box(1, 1, 1)
@@ -468,6 +489,44 @@ class TestMixin1D(unittest.TestCase):
             self.assertEqual(e.topo_parent, phone_case_f)
         phone_case_ff = fillet(perimeter, 1)
         self.assertLess(phone_case_ff.volume, phone_case_f.volume)
+
+    def test_edges_topo_path(self):
+        """An extracted shape records the whole route it was selected by, so
+        an edge knows the face it was picked off as well as the solid."""
+        box = Solid.make_box(1, 1, 1)
+        face = box.faces().sort_by(Axis.X)[-1]
+        edge = face.edges().sort_by(Axis.Y)[0]
+        self.assertEqual(len(edge.topo_path), 2)
+        self.assertEqual(edge.topo_parent, box)
+        self.assertEqual(edge.topo_owner, face)
+        self.assertEqual(face.topo_parent, box)
+        self.assertEqual(face.topo_owner, box)
+
+        vertex = edge.vertices()[0]
+        self.assertEqual([type(s) for s in vertex.topo_path], [Solid, Face, Edge])
+        self.assertEqual(vertex.topo_parent, box)
+        self.assertEqual(vertex.topo_owner, edge)
+
+    def test_topo_path_survives_copying(self):
+        """Provenance points outside the copy, so it is carried by reference
+        rather than duplicated along with the shape."""
+        box = Solid.make_box(1, 1, 1)
+        edge = box.faces().sort_by(Axis.X)[-1].edges()[0]
+        for duplicate in (copy.copy(edge), copy.deepcopy(edge)):
+            self.assertEqual(len(duplicate.topo_path), 2)
+            self.assertTrue(
+                all(a is b for a, b in zip(duplicate.topo_path, edge.topo_path))
+            )
+
+    def test_topo_parent_assignment_replaces_the_path(self):
+        box = Solid.make_box(1, 1, 1)
+        edge = box.faces().sort_by(Axis.X)[-1].edges()[0]
+        edge.topo_parent = box
+        self.assertEqual(edge.topo_path, (box,))
+        self.assertEqual(edge.topo_owner, box)
+        edge.topo_parent = None
+        self.assertEqual(edge.topo_path, ())
+        self.assertIsNone(edge.topo_owner)
 
     def test_is_closed(self):
         self.assertTrue(Edge.make_circle(1).is_closed)

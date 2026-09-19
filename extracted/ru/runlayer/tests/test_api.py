@@ -125,6 +125,33 @@ class TestSubmitMcpWatchScan:
             assert result == {"unsupported": True}
             assert mock_post.call_count == 2
 
+    def test_scan_upload_uses_explicit_generous_timeout(self):
+        """A full-fleet manifest can be MBs; httpx's 5s default dropped whole scans (ISS-02)."""
+        mock_post = MagicMock(return_value=_mock_response(200, {}))
+
+        with patch("httpx.Client") as mock_httpx:
+            mock_httpx.return_value.__enter__ = MagicMock(
+                return_value=MagicMock(post=mock_post)
+            )
+            mock_httpx.return_value.__exit__ = MagicMock(return_value=False)
+
+            self._make_client().submit_mcp_watch_scan({"device_id": "test"})
+
+        assert mock_httpx.call_args.kwargs["timeout"] == 120.0
+
+    def test_checkin_uses_explicit_timeout(self):
+        mock_post = MagicMock(return_value=_mock_response(200, {}))
+
+        with patch("httpx.Client") as mock_httpx:
+            mock_httpx.return_value.__enter__ = MagicMock(
+                return_value=MagicMock(post=mock_post)
+            )
+            mock_httpx.return_value.__exit__ = MagicMock(return_value=False)
+
+            self._make_client().submit_aiwatch_checkin({"device_id": "test"})
+
+        assert mock_httpx.call_args.kwargs["timeout"] == 30.0
+
 
 class TestBatchArtifactLookup:
     def _make_client(self) -> RunlayerClient:
@@ -239,6 +266,23 @@ class TestGetAIWatchConfig:
         assert result == self.config
         assert mock_httpx.call_args.kwargs["timeout"] == 10.0
         assert mock_get.call_args.args[0].endswith("/api/v1/ai-watch/config")
+        assert mock_get.call_args.kwargs["params"] == {}
+
+    def test_sends_device_id_and_nothing_else(self):
+        """Only ``device_id`` rides the fetch: user→policy mapping happens at
+        check-in, so a username here would be a spoofable identity input."""
+        mock_get = MagicMock(return_value=_mock_response(200, self.config))
+
+        with patch("httpx.Client") as mock_httpx:
+            mock_httpx.return_value.__enter__ = MagicMock(
+                return_value=MagicMock(get=mock_get)
+            )
+            mock_httpx.return_value.__exit__ = MagicMock(return_value=False)
+
+            result = self._make_client().get_aiwatch_config(device_id="dev-123")
+
+        assert result == self.config
+        assert mock_get.call_args.kwargs["params"] == {"device_id": "dev-123"}
 
     def test_returns_none_when_endpoint_is_unsupported(self):
         mock_get = MagicMock(return_value=_mock_response(404))
@@ -303,6 +347,85 @@ class TestSubmitAgents:
 
         assert result == {"unsupported": True}
         assert mock_post.call_count == 1
+
+
+class TestSubmitSkillRemovals:
+    def _make_client(self) -> RunlayerClient:
+        return RunlayerClient(hostname="https://example.com", secret="test-key")
+
+    def test_chunks_sums_counts_and_includes_device_context(self):
+        path_hashes = [f"{index:032x}" for index in range(1001)]
+        device_context = {
+            "device_id": "device-1",
+            "hostname": "workstation",
+            "username": "alice",
+        }
+        mock_post = MagicMock(
+            side_effect=[
+                _mock_response(200, {"removed": 800}),
+                _mock_response(200, {"removed": 1}),
+            ]
+        )
+
+        with patch("httpx.Client") as mock_httpx:
+            mock_httpx.return_value.__enter__ = MagicMock(
+                return_value=MagicMock(post=mock_post)
+            )
+            mock_httpx.return_value.__exit__ = MagicMock(return_value=False)
+
+            result = self._make_client().submit_skill_removals(
+                path_hashes,
+                device_context,
+            )
+
+        assert result == {"removed": 801}
+        assert mock_post.call_count == 2
+        assert all(
+            call.args[0].endswith("/api/v1/ai-watch/skills/removed")
+            for call in mock_post.call_args_list
+        )
+        assert mock_post.call_args_list[0].kwargs["json"] == {
+            "path_hashes": path_hashes[:1000],
+            **device_context,
+        }
+        assert mock_post.call_args_list[1].kwargs["json"] == {
+            "path_hashes": path_hashes[1000:],
+            **device_context,
+        }
+
+    def test_empty_input_returns_without_http(self):
+        with patch("httpx.Client") as mock_httpx:
+            result = self._make_client().submit_skill_removals(
+                [],
+                {"device_id": "device-1"},
+            )
+
+        assert result == {"removed": 0}
+        mock_httpx.assert_not_called()
+
+    def test_any_404_returns_unsupported_and_stops(self):
+        path_hashes = [f"{index:032x}" for index in range(2001)]
+        mock_post = MagicMock(
+            side_effect=[
+                _mock_response(200, {"removed": 1000}),
+                _mock_response(404),
+                _mock_response(200, {"removed": 1}),
+            ]
+        )
+
+        with patch("httpx.Client") as mock_httpx:
+            mock_httpx.return_value.__enter__ = MagicMock(
+                return_value=MagicMock(post=mock_post)
+            )
+            mock_httpx.return_value.__exit__ = MagicMock(return_value=False)
+
+            result = self._make_client().submit_skill_removals(
+                path_hashes,
+                {"device_id": "device-1"},
+            )
+
+        assert result == {"unsupported": True}
+        assert mock_post.call_count == 2
 
 
 class TestTrackCommandEvents:

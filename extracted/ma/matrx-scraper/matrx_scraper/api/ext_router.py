@@ -16,6 +16,23 @@ from matrx_connect import AppContext, context_dep
 from matrx_orm import Count, F
 from pydantic import BaseModel, Field
 
+# ``confirm_request_organization`` first ships in matrx-connect 0.1.116 (this
+# package's floor). The import is guarded because CI's dependency-floor test
+# reads PUBLISHED tags as truth and the symbol ships in the same change as its
+# first use here: a stale matrx-connect refuses every organization-scoped call
+# by name instead of failing to import the router. The sibling-floor guard
+# keeps our own deployment on the floor.
+try:
+    from matrx_connect.service_auth import confirm_request_organization
+except ImportError:  # pragma: no cover — matrx-connect < 0.1.116
+
+    def confirm_request_organization(ctx: AppContext, claimed: str | None = None) -> str:  # type: ignore[misc]
+        raise RuntimeError(
+            "the installed matrx-connect does not export confirm_request_organization; "
+            "upgrade matrx-connect to >= 0.1.117 (the floor this package declares)."
+        )
+
+
 from matrx_scraper._ext import get_ext, has_ext
 from matrx_scraper.db.models_scraper import ScrapeRetryQueue
 from matrx_scraper.orchestrator import scrape_many
@@ -83,11 +100,21 @@ async def batch_scrape(
     request: BatchScrapeRequest,
     ctx: AppContext = Depends(context_dep),
 ) -> BatchScrapeResponse:
+    # The organization this batch acts in — the admitted one, and only it,
+    # resolved HERE at the boundary and carried down. This lane runs uncached
+    # today, so nothing lands in `scraper.scrape_parsed_page` from it; the
+    # moment it is given a cache, the org-scoped write already has its tenant
+    # instead of discovering it needs one at the INSERT.
+    organization_id = confirm_request_organization(ctx)
     start = time.monotonic()
     results = await scrape_many(
         request.urls,
         use_proxy=request.use_proxy,
         fast=request.fast,
+        organization_id=organization_id,
+        # WHO this batch is for: only this person's own home computer may be
+        # used to retry a page the site blocked.
+        acting_user_id=ctx.user_id,
     )
     elapsed = round((time.monotonic() - start) * 1000, 1)
     return BatchScrapeResponse(
@@ -110,6 +137,10 @@ async def content_save(
     if not has_ext("cache"):
         raise HTTPException(status_code=503, detail="Cache backend not configured")
 
+    # Saved extension/desktop content lands in `scraper.scrape_parsed_page`,
+    # which is org-scoped: the admitted organization is the one it is stored
+    # under, resolved at the boundary and passed explicitly.
+    organization_id = confirm_request_organization(ctx)
     cache = get_ext("cache")
     url_info = get_url_info(request.url)
     await cache.set(
@@ -119,6 +150,7 @@ async def content_save(
         content=request.content,
         content_type=request.content_type,
         char_count=request.char_count,
+        organization_id=organization_id,
     )
     return {"status": "saved", "page_name": url_info.unique_page_name}
 

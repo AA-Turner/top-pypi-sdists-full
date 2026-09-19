@@ -10,7 +10,7 @@ Usage::
     ```python
     from mypy_boto3_appintegrations.literals import ApplicationTypeType
 
-    data: ApplicationTypeType = "MCP_SERVER"
+    data: ApplicationTypeType = "A2A_SERVER"
     ```
 """
 
@@ -24,6 +24,7 @@ else:
 __all__ = (
     "AppIntegrationsServiceServiceName",
     "ApplicationTypeType",
+    "AuthTypeType",
     "ContactHandlingScopeType",
     "ExecutionModeType",
     "ExecutionStatusType",
@@ -39,7 +40,8 @@ __all__ = (
     "ServiceName",
 )
 
-ApplicationTypeType = Literal["MCP_SERVER", "SERVICE", "STANDARD"]
+ApplicationTypeType = Literal["A2A_SERVER", "MCP_SERVER", "SERVICE", "STANDARD"]
+AuthTypeType = Literal["API_KEY"]
 ContactHandlingScopeType = Literal["CROSS_CONTACTS", "PER_CONTACT"]
 ExecutionModeType = Literal["ON_DEMAND", "SCHEDULED"]
 ExecutionStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]

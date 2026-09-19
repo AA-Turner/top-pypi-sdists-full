@@ -24,8 +24,10 @@ from runlayer_sdk.hook_transport import (
 
 from runlayer_cli import regex_safe
 from runlayer_cli.api import USER_AGENT
-from runlayer_cli.config import load_config, normalize_url
+from runlayer_cli.config import _get_mdm_managed_org_api_key, load_config
+from runlayer_cli.hook import host_override
 from runlayer_cli.mdm_config import read_managed_config
+from runlayer_cli.safe_parse import parse_json
 from runlayer_cli.tls import http_client
 
 if sys.platform == "win32":
@@ -674,10 +676,10 @@ def transcript_line_events(
     stream_state: dict[str, Any] | None = None,
     client_name: str | None = None,
 ) -> list[tuple[str, dict[str, Any]]]:
-    try:
-        entry = json.loads(line)
-    except json.JSONDecodeError:
-        return []
+    # Transcript lines are client-written, so decode exception-complete: a
+    # deep-nested line raises RecursionError, not JSONDecodeError, and must be
+    # rejected on its own without taking the streaming loop down.
+    entry = parse_json(line)["value"]
     if not isinstance(entry, dict):
         return []
 
@@ -753,10 +755,7 @@ def transcript_line_events(
 
 
 def transcript_line_is_terminal(line: str) -> bool:
-    try:
-        entry = json.loads(line)
-    except json.JSONDecodeError:
-        return False
+    entry = parse_json(line)["value"]
     return isinstance(entry, dict) and entry.get("type") in (
         "result",
         "session_end",
@@ -776,23 +775,22 @@ def _buffer_is_complete_json_line(buffer: str) -> bool:
     candidate = buffer.strip()
     if not candidate:
         return False
-    try:
-        json.loads(candidate)
-    except json.JSONDecodeError:
-        return False
-    return True
+    return parse_json(candidate)["error"] is None
 
 
 class _HTTPEventPoster:
     def __init__(self, *, debug: bool) -> None:
         config = load_config()
         managed = read_managed_config()
-        raw_host = config.default_host or managed.get("host")
-        host = normalize_url(raw_host) if raw_host else None
-        # Mirror relay._load_credentials: prefer the org API key (the single AI
-        # Watch key) so streamed events authenticate the same way as other
-        # hooks; per-user secret remains the fallback.
-        org_api_key = managed.get("org_api_key")
+        # Mirror relay._load_credentials: the managed host wins over a user
+        # ``default_host`` (streamed events must land where the rest of the
+        # session's hooks do), and the org API key (the single AI Watch key)
+        # is released only for that managed host; per-user secret remains the
+        # fallback.
+        host = host_override.resolve_hook_host(config, managed)["host"]
+        org_api_key = (
+            _get_mdm_managed_org_api_key(host, managed=managed) if host else None
+        )
         secret = org_api_key or (config.get_secret_for_host(host) if host else None)
         if not host or not secret:
             raise RuntimeError("missing Runlayer hook credentials")

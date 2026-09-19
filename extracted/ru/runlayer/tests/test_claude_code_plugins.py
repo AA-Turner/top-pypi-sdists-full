@@ -9,6 +9,7 @@ from runlayer_cli.scan.claude_code_plugins import (
     scan_claude_code_plugins,
 )
 from runlayer_cli.scan.config_parser import compute_config_hash
+from tests.hostile_inputs import DEEP_NESTING
 
 
 def _write_installed_plugins(path: Path, plugins: dict) -> Path:
@@ -195,6 +196,11 @@ class TestScanClaudeCodePlugins:
         bad_file.write_text("{invalid json")
         result = scan_claude_code_plugins(bad_file)
         assert result == []
+
+    def test_deeply_nested_json(self, tmp_path: Path):
+        bad_file = tmp_path / "installed_plugins.json"
+        bad_file.write_text(DEEP_NESTING)
+        assert scan_claude_code_plugins(bad_file) == []
 
     def test_non_dict_top_level(self, tmp_path: Path):
         """Returns empty list when top-level JSON is not a dict."""

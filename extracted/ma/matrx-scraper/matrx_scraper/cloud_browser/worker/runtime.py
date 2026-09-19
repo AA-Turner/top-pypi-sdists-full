@@ -52,6 +52,7 @@ import httpx
 from matrx_scraper.ai_browser import actions as A
 from matrx_scraper.ai_browser.session import BrowserSession, BrowserSessionManager
 from matrx_scraper.ai_browser.url_guard import guard_proxy, install_egress_guard
+from matrx_scraper.utils.proxy import playwright_proxy
 from matrx_scraper.cloud_browser.profile_archive_policy import (
     is_profile_archive_path_excluded as _checkpoint_path_is_excluded,
 )
@@ -59,6 +60,13 @@ from matrx_scraper.cloud_browser.worker import commands as C
 from matrx_scraper.cloud_browser.worker import models as M
 from matrx_scraper.cloud_browser.worker.auth import TokenVerifier
 from matrx_scraper.cloud_browser.worker.errors import WorkerProtocolError
+from matrx_scraper.cloud_browser.worker.identity import (
+    IGNORED_DEFAULT_ARGS,
+    STEALTH_ARGS,
+    BrowserIdentity,
+    resolve_identity,
+    webgl_init_script,
+)
 from matrx_scraper.cloud_browser.worker.profile_lock import ProfileLock, ProfileLockError
 from matrx_scraper.cloud_browser.worker.sanitize import (
     cap_label,
@@ -291,6 +299,7 @@ class BrowserWorker:
         self._user_data_dir: str = ""
         self.chromium_version: str = "unknown"
         self.launch_args: list[str] = []
+        self.identity: BrowserIdentity | None = None
 
         # Fencing / ordering
         self.fencing_token: str = ""
@@ -324,6 +333,20 @@ class BrowserWorker:
         # Playwright
         self._pw: Any = None
         self._context: Any = None
+        # Residential egress (contract: common-docs/systems/platform/
+        # residential-egress/FEATURE.md). The adapter is a loopback CONNECT
+        # proxy that tunnels every TCP connection to the gateway and out through
+        # the person's own computer. It outlives a single Playwright context:
+        # the live-checkpoint path closes and RELAUNCHES the context, and
+        # restarting the adapter there would need a ticket that may already have
+        # expired. Its life is the bootstrapped run — closed by ``_kill_context``
+        # and by ``shutdown``, and replaced when a bootstrap arrives with a
+        # different ticket.
+        self._egress_adapter: Any = None
+        self._egress_ticket: str | None = None
+        #: The plain name of the computer the run is leaving through, for the
+        #: control plane's announcement. None = ordinary datacenter egress.
+        self.egress_device_name: str | None = None
         self._session_mgr = BrowserSessionManager()
         self._session: BrowserSession | None = None
 
@@ -793,6 +816,13 @@ class BrowserWorker:
             )
 
         # Proxy gate (an internal proxy is refused, exactly as create() does).
+        #
+        # 🚨 This gates ``policy.proxy`` — the CALLER-SUPPLIED remote address —
+        # and nothing else. ``policy.egress`` is deliberately NOT gated here:
+        # its adapter binds ``127.0.0.1:<ephemeral>`` inside this worker, so the
+        # public-routability check would refuse every residential launch. The
+        # grant is the control plane's, the adapter's own remote is the public
+        # gateway, and the ticket is what authorizes it.
         try:
             await guard_proxy(request.policy.proxy)
         except Exception:
@@ -1014,12 +1044,63 @@ class BrowserWorker:
             self._context = None
             self._pw = None
 
+    async def _ensure_egress_adapter(self, policy: M.LaunchPolicy) -> str | None:
+        """Start (or reuse) the residential-egress adapter for this policy.
+
+        Returns the loopback proxy URL to launch through, or None for ordinary
+        datacenter egress. Idempotent across the live-checkpoint relaunch — the
+        same ticket keeps the same adapter — and it replaces the adapter when a
+        bootstrap arrives carrying a DIFFERENT ticket.
+
+        A failure to start is a LAUNCH failure, never a silent fall-through to
+        the datacenter address the site just blocked: falling back would send
+        the very request the person lent their computer for straight back out
+        of the exit that is refused, and nothing would say so.
+        """
+        egress = policy.egress
+        if egress is None:
+            if self._egress_adapter is not None:
+                await self._close_egress_adapter()
+            return None
+        if self._egress_adapter is not None and self._egress_ticket == egress.ticket:
+            return str(self._egress_adapter.proxy_url)
+        if self._egress_adapter is not None:
+            await self._close_egress_adapter()
+        # Lazy: the adapter pulls in the consumer WebSocket leg, and a worker
+        # that never uses residential egress must not pay for it at import.
+        from matrx_scraper.egress_adapter import EgressAdapter
+
+        adapter = await EgressAdapter.start(egress.ticket, egress.consume_url)
+        self._egress_adapter = adapter
+        self._egress_ticket = egress.ticket
+        self.egress_device_name = egress.device_name
+        logger.info(
+            "Cloud Browser leaving through the person's own computer: device=%s",
+            egress.device_name,
+        )
+        return str(adapter.proxy_url)
+
+    async def _close_egress_adapter(self) -> None:
+        adapter, self._egress_adapter = self._egress_adapter, None
+        self._egress_ticket = None
+        self.egress_device_name = None
+        if adapter is None:
+            return
+        try:
+            await adapter.close()
+        except Exception:
+            logger.exception("residential egress adapter did not close cleanly")
+
     async def _launch_context(
         self, policy: M.LaunchPolicy, display: M.DisplayConfig | None
     ) -> bool:
         from playwright.async_api import async_playwright
 
         headless = self.run_mode == "automation_only"
+        # CB-013: the identity this launch presents (binary, timezone, locale,
+        # graphics, input shaping). Policy > image environment > defaults.
+        identity = resolve_identity(policy, chromium_fallback=_resolve_chromium_executable())
+        self.identity = identity
         # D-5 cookie scheme: launch Chromium keyring-free so cookies use the basic
         # (obfuscated-file) store rather than a system keyring the worker can't reach.
         args = [
@@ -1028,6 +1109,8 @@ class BrowserWorker:
             "--password-store=basic",
             "--use-mock-keychain",
             "--disable-features=Translate",
+            f"--lang={identity.locale}",
+            *STEALTH_ARGS,
         ]
         if not headless:
             args += [
@@ -1039,36 +1122,67 @@ class BrowserWorker:
         if not headless and self._xvfb_display:
             os.environ["DISPLAY"] = self._xvfb_display
         os.environ.setdefault("PLAYWRIGHT_BROWSERS_PATH", "/opt/pw-browsers")
+        # Chrome reads the process TZ for anything the CDP override does not
+        # reach; keep the two in agreement.
+        os.environ["TZ"] = identity.timezone_id
 
         self._pw = await async_playwright().start()
         launch_kwargs: dict[str, Any] = {
             "user_data_dir": self._user_data_dir,
             "headless": headless,
             "args": args,
-            "ignore_default_args": ["--enable-automation"],
+            "ignore_default_args": list(IGNORED_DEFAULT_ARGS),
             "accept_downloads": policy.allow_downloads,
+            "locale": identity.locale,
+            "timezone_id": identity.timezone_id,
         }
-        # Pin the full Chromium binary when a pre-provisioned one is present but the
-        # bundled headless-shell revision is absent — the deployment image ships the
-        # browser under PLAYWRIGHT_BROWSERS_PATH, and the full binary runs headless
-        # via --headless=new. Falls through to Playwright's default when none is found.
-        exe = _resolve_chromium_executable()
-        if exe is not None:
-            launch_kwargs["executable_path"] = exe
+        # Google Chrome when the image ships it; otherwise the full Chromium binary
+        # under PLAYWRIGHT_BROWSERS_PATH (headless via --headless=new); otherwise
+        # Playwright's default. Which one is announced in the log.
+        if identity.executable_path is not None:
+            launch_kwargs["executable_path"] = identity.executable_path
         if policy.viewport:
             launch_kwargs["viewport"] = policy.viewport
         elif not headless:
-            launch_kwargs["viewport"] = None
+            # A headed browser's page must be the window, and screen.* must be the
+            # X screen. ``viewport=None`` is Playwright's DEFAULT (1280×720 with an
+            # emulated 1280×720 screen) — that is exactly the screen/window
+            # mismatch a site reads as emulation. ``no_viewport`` disables it.
+            launch_kwargs["no_viewport"] = True
         if policy.user_agent:
             launch_kwargs["user_agent"] = policy.user_agent
-        if policy.locale:
-            launch_kwargs["locale"] = policy.locale
-        if policy.timezone_id:
-            launch_kwargs["timezone_id"] = policy.timezone_id
-        if policy.proxy:
-            launch_kwargs["proxy"] = {"server": policy.proxy}
+        # Residential egress wins when the control plane granted one: the run
+        # leaves through the person's own computer for its whole life.
+        egress_proxy_url = await self._ensure_egress_adapter(policy)
+        if egress_proxy_url is not None:
+            launch_kwargs["proxy"] = {"server": egress_proxy_url}
+        elif policy.proxy:
+            # ``playwright_proxy`` is the ONE translation: Playwright strips a
+            # URL's ``user:password@`` from ``server`` WITHOUT moving it into
+            # username/password, so a credentialed proxy URL silently launched
+            # unauthenticated here. Explicit policy credentials still win.
+            proxy: dict[str, str] = playwright_proxy(policy.proxy)
+            if policy.proxy_username is not None and policy.proxy_password is not None:
+                proxy["username"] = policy.proxy_username
+                proxy["password"] = policy.proxy_password
+            launch_kwargs["proxy"] = proxy
+        logger.info(
+            "Cloud Browser launch identity: binary=%s timezone=%s locale=%s webgl=%s humanize=%s headless=%s",
+            identity.binary_kind,
+            identity.timezone_id,
+            identity.locale,
+            "patched" if identity.webgl_renderer else "honest",
+            identity.humanize_input,
+            headless,
+        )
 
         self._context = await self._pw.chromium.launch_persistent_context(**launch_kwargs)
+        webgl_script = webgl_init_script(identity.webgl_vendor, identity.webgl_renderer)
+        if webgl_script is not None:
+            # Context-level: every page, popup and iframe of this run, before any
+            # site script runs. Failure here is a launch failure, not a silent
+            # regression to SwiftShader.
+            await self._context.add_init_script(webgl_script)
         try:
             self.chromium_version = (
                 self._context.browser.version if self._context.browser else "unknown"
@@ -1564,6 +1678,8 @@ class BrowserWorker:
         return result, self._active_page_id, result_class, human_required
 
     async def _run_action(self, name: str, cmd: Any, rid: str, mgr: BrowserSessionManager) -> Any:
+        # CB-013: pointer and key events shaped like a person's, per run policy.
+        human = bool(self._policy.humanize_input) if self._policy is not None else False
         if name == "navigate":
             return await A.navigate(
                 cmd.url,
@@ -1579,10 +1695,13 @@ class BrowserWorker:
                 cmd.selector,
                 wait_after_ms=cmd.wait_after_ms,
                 timeout_ms=cmd.timeout_ms,
+                human=human,
                 mgr=mgr,
             )
         if name == "fill":
-            return await A.fill(rid, cmd.selector, cmd.value, timeout_ms=cmd.timeout_ms, mgr=mgr)
+            return await A.fill(
+                rid, cmd.selector, cmd.value, timeout_ms=cmd.timeout_ms, human=human, mgr=mgr
+            )
         if name == "type_text":
             return await A.type_text(
                 rid,
@@ -1591,6 +1710,7 @@ class BrowserWorker:
                 clear_first=cmd.clear_first,
                 press_enter=cmd.press_enter,
                 timeout_ms=cmd.timeout_ms,
+                human=human,
                 mgr=mgr,
             )
         if name == "select_option":
@@ -1625,7 +1745,12 @@ class BrowserWorker:
             return await A.eval_js(rid, cmd.expression, allow_eval_js=True, mgr=mgr)
         if name == "scroll":
             return await A.scroll(
-                rid, direction=cmd.direction, pixels=cmd.pixels, selector=cmd.selector, mgr=mgr
+                rid,
+                direction=cmd.direction,
+                pixels=cmd.pixels,
+                selector=cmd.selector,
+                human=human,
+                mgr=mgr,
             )
         if name == "get_html":
             return await A.get_html(rid, cap=cmd.cap, mgr=mgr)
@@ -2361,6 +2486,10 @@ class BrowserWorker:
         self.queue_state = "closed"
         self._closed_reason = "worker_shutting_down"
         self.health = "stopped"
+        # The clean-stop paths above close the context without going through
+        # ``_kill_context``; the person's computer must stop carrying this run's
+        # streams the moment the run is over, on EVERY exit.
+        await self._close_egress_adapter()
 
         return M.ShutdownResponse(
             **self._reply_kwargs(),
@@ -2387,6 +2516,7 @@ class BrowserWorker:
             pass
         self._context = None
         self._pw = None
+        await self._close_egress_adapter()
 
     # ── events ──────────────────────────────────────────────────────────────
 

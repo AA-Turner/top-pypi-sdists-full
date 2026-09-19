@@ -606,6 +606,238 @@ async def test_sync_plugins_create_409_retry_finds_shared_resource(
     client.update_plugin.assert_called_once()
 
 
+def _oauth_401() -> httpx.HTTPStatusError:
+    response = httpx.Response(
+        401,
+        request=httpx.Request("GET", "http://test/api/v1/proxy/srv/tools"),
+        json={"detail": "OAuth authorization required. Please authorize this server first."},
+    )
+    return httpx.HTTPStatusError(
+        "Client error '401 Unauthorized'", request=response.request, response=response
+    )
+
+
+def _forbidden_403() -> httpx.HTTPStatusError:
+    response = httpx.Response(
+        403,
+        request=httpx.Request("GET", "http://test/api/v1/skills/skill-4"),
+        json={"detail": "Access denied"},
+    )
+    return httpx.HTTPStatusError(
+        "Client error '403 Forbidden'", request=response.request, response=response
+    )
+
+
+def _shared_plugin_client(identifier: str, extra_skill: bool = False) -> MagicMock:
+    """Client where the plugin exists but is shared (CAN_EDIT), not owned.
+
+    Mirrors backend semantics after the cache isolation change: the owned-only
+    default listing hides the plugin, and live connector tool discovery
+    (GET /proxy/{id}/tools) 401s because the pushing service account has no
+    OAuth grant on the connector.
+    """
+    client = _client()
+    client.list_server_tools.side_effect = _oauth_401()
+
+    skills = [
+        PluginSkillRef(id="skill-1", name="code-review"),
+        PluginSkillRef(id="skill-2", name="review-suite"),
+        PluginSkillRef(id="skill-3", name="ticket-triage"),
+    ]
+    if extra_skill:
+        skills.append(PluginSkillRef(id="skill-4", name="stale-remote"))
+    shared_plugin = PluginDetail(
+        id="plugin-1",
+        name="review-suite",
+        path="review-suite",
+        namespace=NAMESPACE,
+        description="Review, triage, hooks, agents, and connector coverage",
+        identifier=identifier,
+        can_edit=True,
+        is_owned_by_me=False,
+        servers=[
+            {
+                "id": "12345678-1234-1234-1234-123456789abc",
+                "tools": [{"name": "search"}, {"name": "create_ticket"}],
+            }
+        ],
+        skills=skills,
+        created_at=_ts(),
+        updated_at=_ts(),
+    )
+
+    def _list_plugins(namespace=None, *, filter="created_by_me", query=None):
+        if filter == "created_by_me":
+            return []
+        return [shared_plugin]
+
+    client.list_plugins_detailed.side_effect = _list_plugins
+    shared_skills = [
+        MagicMock(id="skill-1", path="review-suite/code-review"),
+        MagicMock(id="skill-2", path="review-suite/__root__"),
+        MagicMock(id="skill-3", path="review-suite/ticket-triage"),
+    ]
+
+    def _list_skills(namespace=None, *, filter="created_by_me", query=None):
+        # Shared skills are likewise invisible to the owned-only listing.
+        if filter == "created_by_me":
+            return []
+        return shared_skills
+
+    client.list_skills.side_effect = _list_skills
+    # The stale skill-4 is not shared with the caller at all: any live
+    # lookup 403s, like the real backend (plugin access does not cascade
+    # to its skills).
+    client.get_skill.side_effect = _forbidden_403()
+    return client
+
+
+_SHARED_SKILL_IDS_BY_PATH = {
+    "review-suite/code-review": "skill-1",
+    "review-suite/__root__": "skill-2",
+    "review-suite/ticket-triage": "skill-3",
+}
+
+
+@pytest.mark.asyncio
+async def test_sync_plugins_dry_run_finds_shared_plugin_before_connector_discovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--dry-run must reuse a shared plugin's saved connector tool selections.
+
+    Repro for the Opendoor CI publish outage: the shared plugin is invisible to
+    the owned-only listing, so the CLI treated it as new and rediscovered
+    connector tools live, which 401s on OAuth connectors. A dry run of an
+    unchanged plugin must not need an OAuth grant at all.
+    """
+    plugin_root = _copy_fixture(tmp_path)
+    client = _shared_plugin_client(compute_plugin_identifier(plugin_root))
+    monkeypatch.setattr(
+        "runlayer_cli.plugins.sync_engine.sync_discovered_skills",
+        AsyncMock(return_value=SyncResult(ids_by_path=_SHARED_SKILL_IDS_BY_PATH)),
+    )
+
+    result = await sync_plugins(tmp_path, client, namespace=NAMESPACE, dry_run=True)
+
+    assert result.errors == []
+    assert result.unchanged == 1
+    client.list_server_tools.assert_not_called()
+    client.get_skill.assert_not_called()
+    client.create_plugin.assert_not_called()
+    client.update_plugin.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_sync_plugins_dry_run_tolerates_inaccessible_stale_shared_skill(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A stale remote skill the caller cannot read must not fail the dry run.
+
+    The real push detaches it without ever reading it, so the dry run reports
+    the plugin as updated instead of erroring on the get_skill 403.
+    """
+    plugin_root = _copy_fixture(tmp_path)
+    client = _shared_plugin_client(
+        compute_plugin_identifier(plugin_root), extra_skill=True
+    )
+    monkeypatch.setattr(
+        "runlayer_cli.plugins.sync_engine.sync_discovered_skills",
+        AsyncMock(return_value=SyncResult(ids_by_path=_SHARED_SKILL_IDS_BY_PATH)),
+    )
+
+    result = await sync_plugins(tmp_path, client, namespace=NAMESPACE, dry_run=True)
+
+    assert result.errors == []
+    assert result.updated == 1
+    client.list_server_tools.assert_not_called()
+    client.update_plugin.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_sync_plugins_push_finds_shared_plugin_before_connector_discovery(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A real push updates the shared plugin without live tool discovery.
+
+    The shared plugin carries one stale remote skill: the update must detach it
+    (skill_ids from the local tree) but never delete_skill it — stale-skill
+    deletion stays scoped to owned plugins, exactly today's behavior.
+    """
+    plugin_root = _copy_fixture(tmp_path)
+    client = _shared_plugin_client(
+        compute_plugin_identifier(plugin_root), extra_skill=True
+    )
+    monkeypatch.setattr(
+        "runlayer_cli.plugins.sync_engine.sync_discovered_skills",
+        AsyncMock(return_value=SyncResult(ids_by_path=_SHARED_SKILL_IDS_BY_PATH)),
+    )
+
+    result = await sync_plugins(tmp_path, client, namespace=NAMESPACE)
+
+    assert result.errors == []
+    assert result.updated == 1
+    client.list_server_tools.assert_not_called()
+    client.create_plugin.assert_not_called()
+    client.update_plugin.assert_called_once()
+    kwargs = client.update_plugin.call_args.kwargs
+    assert kwargs["servers"] == [
+        PluginServerRef(
+            server_id="12345678-1234-1234-1234-123456789abc",
+            tool_names=["search", "create_ticket"],
+        )
+    ]
+    assert sorted(kwargs["skill_ids"]) == ["skill-1", "skill-2", "skill-3"]
+    client.delete_skill.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_sync_plugins_prune_never_deletes_shared_plugins(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """--prune deletes only owned remote-only plugins, never shared ones."""
+    client = _client()
+    owned_plugin = PluginDetail(
+        id="owned-1",
+        name="owned-old",
+        path="owned-old",
+        namespace=NAMESPACE,
+        is_owned_by_me=True,
+        servers=[],
+        skills=[],
+        created_at=_ts(),
+        updated_at=_ts(),
+    )
+    shared_plugin = PluginDetail(
+        id="shared-1",
+        name="shared-keep",
+        path="shared-keep",
+        namespace=NAMESPACE,
+        can_edit=True,
+        is_owned_by_me=False,
+        servers=[],
+        skills=[],
+        created_at=_ts(),
+        updated_at=_ts(),
+    )
+
+    def _list_plugins(namespace=None, *, filter="created_by_me", query=None):
+        if filter == "created_by_me":
+            return [owned_plugin]
+        return [owned_plugin, shared_plugin]
+
+    client.list_plugins_detailed.side_effect = _list_plugins
+    monkeypatch.setattr(
+        "runlayer_cli.plugins.sync_engine.sync_discovered_skills",
+        AsyncMock(return_value=SyncResult()),
+    )
+
+    result = await sync_plugins(tmp_path, client, namespace=NAMESPACE, prune=True)
+
+    assert result.errors == []
+    assert result.deleted == 1
+    client.delete_plugin.assert_called_once_with("owned-1")
+
+
 @pytest.mark.asyncio
 async def test_sync_plugins_prunes_removed_child_skill_without_global_prune(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch

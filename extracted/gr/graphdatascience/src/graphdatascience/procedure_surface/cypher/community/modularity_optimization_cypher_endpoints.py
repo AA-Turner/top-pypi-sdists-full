@@ -3,7 +3,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.community.modularity_optimization_endpoints import (
     ModularityOptimizationEndpoints,
     ModularityOptimizationMutateResult,
@@ -27,7 +27,7 @@ class ModularityOptimizationCypherEndpoints(ModularityOptimizationEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         *,
         batch_size: int = 10000,
@@ -67,15 +67,13 @@ class ModularityOptimizationCypherEndpoints(ModularityOptimizationEndpoints):
         )
         params.ensure_job_id_in_config()
 
-        result = self._query_runner.call_procedure(
-            endpoint="gds.modularityOptimization.mutate", params=params
-        ).squeeze()
+        result = self._query_runner.call_procedure(endpoint="gds.modularityOptimization.mutate", params=params).iloc[0]
 
         return ModularityOptimizationMutateResult(**result)
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         batch_size: int = 10000,
         concurrency: int | None = None,
@@ -113,13 +111,13 @@ class ModularityOptimizationCypherEndpoints(ModularityOptimizationEndpoints):
         )
         params.ensure_job_id_in_config()
 
-        result = self._query_runner.call_procedure(endpoint="gds.modularityOptimization.stats", params=params).squeeze()
+        result = self._query_runner.call_procedure(endpoint="gds.modularityOptimization.stats", params=params).iloc[0]
 
         return ModularityOptimizationStatsResult(**result)
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         batch_size: int = 10000,
         concurrency: int | None = None,
@@ -165,7 +163,7 @@ class ModularityOptimizationCypherEndpoints(ModularityOptimizationEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         *,
         batch_size: int = 10000,
@@ -209,13 +207,13 @@ class ModularityOptimizationCypherEndpoints(ModularityOptimizationEndpoints):
         )
         params.ensure_job_id_in_config()
 
-        result = self._query_runner.call_procedure(endpoint="gds.modularityOptimization.write", params=params).squeeze()
+        result = self._query_runner.call_procedure(endpoint="gds.modularityOptimization.write", params=params).iloc[0]
 
         return ModularityOptimizationWriteResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         *,
         batch_size: int = 10000,
         concurrency: int | None = None,

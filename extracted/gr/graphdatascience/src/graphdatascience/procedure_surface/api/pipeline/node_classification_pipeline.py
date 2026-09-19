@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
-from graphdatascience.procedure_surface.api.model.node_classification_model import NodeClassificationModelV2
+from graphdatascience.procedure_surface.api.pipeline.node_classification_model import NodeClassificationModel
 from graphdatascience.procedure_surface.api.pipeline.node_classification_pipeline_protocol import (
     NodeClassificationPipelineOps,
     NodeClassificationPipelineTrainer,
@@ -18,13 +18,14 @@ from graphdatascience.procedure_surface.api.pipeline.pipeline_catalog_protocol i
     PipelineCatalogEntryProtocol,
     PipelineCatalogProtocol,
 )
+from graphdatascience.procedure_surface.api.pipeline.pipeline_info_mapping import to_pipeline_info
 
 
 class NodeClassificationPipeline:
     """
     Represents a node classification training pipeline.
 
-    Construct this using :func:`gds.v2.pipeline.node_classification.create()`.
+    Construct this using `gds.v2.pipeline.node_classification.create()`.
     """
 
     def __init__(
@@ -272,6 +273,13 @@ class NodeClassificationPipeline:
         """
         return self._ops.configure_auto_tuning(self._name, max_trials=max_trials)
 
+    def details(self) -> NodeClassificationPipelineInfoResult:
+        """Return the stored configuration of the pipeline (feature steps, split, parameter space)."""
+        entry = self._catalog.get(self._name)
+        return NodeClassificationPipelineInfoResult.model_validate(
+            to_pipeline_info(entry, feature_key="featureProperties")
+        )
+
     def exists(self) -> bool:
         """Return whether the pipeline exists."""
         return self._catalog.exists(self._name) is not None
@@ -282,7 +290,7 @@ class NodeClassificationPipeline:
 
     def train(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         metrics: list[str],
         model_name: str,
@@ -296,7 +304,7 @@ class NodeClassificationPipeline:
         sudo: bool = False,
         concurrency: int | None = None,
         job_id: str | None = None,
-    ) -> tuple[NodeClassificationModelV2, NodeClassificationPipelineTrainResult]:
+    ) -> tuple[NodeClassificationModel, NodeClassificationPipelineTrainResult]:
         """
         Train a node classification model from this pipeline.
 
@@ -331,7 +339,7 @@ class NodeClassificationPipeline:
 
         Returns
         -------
-        tuple[NodeClassificationModelV2, NodeClassificationPipelineTrainResult]
+        tuple[NodeClassificationModel, NodeClassificationPipelineTrainResult]
             The trained model and the corresponding training result.
         """
         return self._trainer.train(
@@ -353,7 +361,7 @@ class NodeClassificationPipeline:
 
     def train_estimate(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         metrics: list[str],
         model_name: str,

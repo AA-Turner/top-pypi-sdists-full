@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import tracemalloc
 
+from runlayer_cli.scan.agents import discover as discover_module
 from runlayer_cli.scan.agents.discover import MAX_FILE_BYTES, _read_text, discover
 
 
@@ -132,3 +133,68 @@ def test_separate_manifest_dirs_are_separate_units(tmp_path):
 
     names = {u.name for u in units}
     assert names == {"a", "b"}
+
+
+def test_deadline_reports_skipped_source_content(monkeypatch, tmp_path):
+    project = tmp_path / "project"
+    project.mkdir()
+    (project / "first.py").write_text("first")
+    (project / "second.py").write_text("second")
+    clock = 0.0
+    reads: list[str] = []
+    deadline_exhausted: list[None] = []
+    real_read_text = discover_module._read_text
+
+    def read_then_expire(path):
+        nonlocal clock
+        reads.append(path.name)
+        text = real_read_text(path)
+        clock = 2.0
+        return text
+
+    monkeypatch.setattr(discover_module, "_DEADLINE_CHECK_EVERY", 1)
+    monkeypatch.setattr(discover_module, "_read_text", read_then_expire)
+    monkeypatch.setattr(discover_module.time, "monotonic", lambda: clock)
+
+    units = discover(
+        project,
+        deadline=1.0,
+        on_deadline_exhausted=lambda: deadline_exhausted.append(None),
+    )
+
+    assert len(units) == 1
+    assert len(reads) == 1
+    assert len(units[0].sources) == 1
+    assert deadline_exhausted == [None]
+
+
+def test_finished_walk_crossing_deadline_does_not_report_exhaustion(
+    monkeypatch,
+    tmp_path,
+):
+    project = tmp_path / "project"
+    project.mkdir()
+    manifest = project / "pyproject.toml"
+    manifest.write_text("[project]\nname='project'\n")
+    clock = 0.0
+    deadline_exhausted: list[None] = []
+    real_parse_manifest = discover_module.parse_manifest
+
+    def parse_then_expire(path):
+        nonlocal clock
+        info = real_parse_manifest(path)
+        clock = 2.0
+        return info
+
+    monkeypatch.setattr(discover_module, "_DEADLINE_CHECK_EVERY", 1)
+    monkeypatch.setattr(discover_module, "parse_manifest", parse_then_expire)
+    monkeypatch.setattr(discover_module.time, "monotonic", lambda: clock)
+
+    units = discover(
+        project,
+        deadline=1.0,
+        on_deadline_exhausted=lambda: deadline_exhausted.append(None),
+    )
+
+    assert [unit.root for unit in units] == [project]
+    assert deadline_exhausted == []

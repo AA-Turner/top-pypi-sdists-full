@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -15,7 +15,7 @@ class BetweennessEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         sampling_size: int | None = None,
         sampling_seed: int | None = None,
@@ -42,9 +42,9 @@ class BetweennessEndpoints(ABC):
            Graph object to use
         mutate_property
             Name of the node property to store the results in.
-        sampling_size : int | None, default=None
+        sampling_size
             Number of source nodes to consider for computing centrality scores.
-        sampling_seed : int | None, default=None
+        sampling_seed
             Seed value for the random number generator that selects source nodes.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -72,7 +72,7 @@ class BetweennessEndpoints(ABC):
     @abstractmethod
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         sampling_size: int | None = None,
         sampling_seed: int | None = None,
         relationship_types: list[str] = ALL_TYPES,
@@ -96,9 +96,9 @@ class BetweennessEndpoints(ABC):
         ----------
         G
            Graph object to use
-        sampling_size : int | None, default=None
+        sampling_size
             Number of source nodes to consider for computing centrality scores.
-        sampling_seed : int | None, default=None
+        sampling_seed
             Seed value for the random number generator that selects source nodes.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -126,7 +126,7 @@ class BetweennessEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         sampling_size: int | None = None,
         sampling_seed: int | None = None,
         relationship_types: list[str] = ALL_TYPES,
@@ -145,9 +145,9 @@ class BetweennessEndpoints(ABC):
         ----------
         G
            Graph object to use
-        sampling_size : int | None, default=None
+        sampling_size
             The number of nodes to use for sampling.
-        sampling_seed : int | None, default=None
+        sampling_seed
             The seed value for sampling randomization
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -168,14 +168,14 @@ class BetweennessEndpoints(ABC):
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             DataFrame with nodeId and score columns containing betweenness centrality results
         """
 
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         sampling_size: int | None = None,
         sampling_seed: int | None = None,
@@ -203,9 +203,9 @@ class BetweennessEndpoints(ABC):
            Graph object to use
         write_property
             Name of the node property to store the results in.
-        sampling_size : int | None, default=None
+        sampling_size
             Number of source nodes to consider for computing centrality scores.
-        sampling_seed : int | None, default=None
+        sampling_seed
             Seed value for the random number generator that selects source nodes.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -233,7 +233,7 @@ class BetweennessEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         sampling_size: int | None = None,
         sampling_seed: int | None = None,
         relationship_types: list[str] = ALL_TYPES,
@@ -248,9 +248,9 @@ class BetweennessEndpoints(ABC):
         ----------
         G
            Graph object to use or a dictionary representing the graph dimensions.
-        sampling_size : int | None, default=None
+        sampling_size
             The number of nodes to use for sampling.
-        sampling_seed : int | None, default=None
+        sampling_seed
             The seed value for sampling randomization
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.

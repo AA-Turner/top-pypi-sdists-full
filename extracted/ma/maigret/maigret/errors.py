@@ -72,6 +72,11 @@ COMMON_ERRORS = {
         'Just a moment: bot redirect challenge', 'Cloudflare'
     ),
     'SlardarWAF': CheckError('Bot protection', 'WAF challenge'),
+    # Anubis proof-of-work interstitial: serves HTTP 200 on every path, so
+    # without this marker every username reads as claimed (joyreactor.cc).
+    '/.within.website/x/': CheckError('Bot protection', 'Anubis challenge'),
+    # Same shape, different vendor: HTTP 202 + a JS proof-of-work (fixya.com).
+    'window.POW_CHALLENGE_DATA': CheckError('Bot protection', 'PoW challenge'),
     '<title>Vercel Security Checkpoint</title>': CheckError(
         'Bot protection', 'Vercel'
     ),
@@ -79,6 +84,12 @@ COMMON_ERRORS = {
         'Captcha', 'Google rate-limit / captcha'
     ),
     'id="gs_captcha_f"': CheckError('Captcha', 'Google rate-limit / captcha'),
+    # Google reCAPTCHA interstitial: answers HTTP 200 on every path, so on a
+    # status_code site every username reads as claimed (linkedin.com). Matches
+    # the challenge page itself, not a login form that merely embeds a widget.
+    'google.com/recaptcha/challengepage/': CheckError(
+        'Captcha', 'Google reCAPTCHA interstitial'
+    ),
 }
 
 PROXY_RECOMMENDATION = (

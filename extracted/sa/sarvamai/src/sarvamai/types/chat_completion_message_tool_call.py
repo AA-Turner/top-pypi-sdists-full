@@ -10,7 +10,7 @@ from .function_call import FunctionCall
 class ChatCompletionMessageToolCall(UniversalBaseModel):
     id: str = pydantic.Field()
     """
-    The ID of the tool call.
+    Tool call id (for example `call-<uuid>`).
     """
 
     type: typing.Literal["function"] = pydantic.Field(default="function")

@@ -117,6 +117,7 @@ __all__ = (
     "NotebookExportStatusType",
     "NotebookRunStatusType",
     "NotebookStatusType",
+    "NotebookTypeType",
     "NotificationResourceTypeType",
     "NotificationRoleType",
     "NotificationTypeType",
@@ -392,6 +393,7 @@ NotebookRunStatusType = Literal[
     "FAILED", "QUEUED", "RUNNING", "STARTING", "STOPPED", "STOPPING", "SUCCEEDED"
 ]
 NotebookStatusType = Literal["ACTIVE", "ARCHIVED", "SYNC_FAILED", "SYNC_IN_PROGRESS"]
+NotebookTypeType = Literal["DATA", "SQL"]
 NotificationResourceTypeType = Literal["PROJECT"]
 NotificationRoleType = Literal[
     "DOMAIN_OWNER", "PROJECT_CONTRIBUTOR", "PROJECT_OWNER", "PROJECT_SUBSCRIBER", "PROJECT_VIEWER"

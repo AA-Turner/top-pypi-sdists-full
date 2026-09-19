@@ -3,7 +3,7 @@
 
 import copy
 from functools import singledispatch
-from typing import Union
+from typing import Any, Union
 
 import jax
 import jax.numpy as jnp
@@ -63,8 +63,11 @@ from numpyro.distributions.transforms import (
 )
 from numpyro.distributions.truncated import (
     LeftTruncatedDistribution,
+    LeftTruncatedGamma,
     RightTruncatedDistribution,
+    RightTruncatedGamma,
     TwoSidedTruncatedDistribution,
+    TwoSidedTruncatedGamma,
 )
 
 
@@ -77,7 +80,7 @@ def vmap_over(d: Union[Distribution, Transform, Constraint], **kwargs):
 def _vmap_over_affine_transform(
     dist: AffineTransform, loc=None, scale=None, domain=None
 ):
-    dist_axes = copy.copy(dist)
+    dist_axes: Any = copy.copy(dist)
     dist_axes.loc = loc
     dist_axes.scale = scale
     dist_axes._domain = domain
@@ -86,14 +89,14 @@ def _vmap_over_affine_transform(
 
 @vmap_over.register
 def _vmap_over_greater_than(dist: constraints._GreaterThan, lower_bound=None):
-    axes = copy.copy(dist)
+    axes: Any = copy.copy(dist)
     axes.lower_bound = lower_bound
     return axes
 
 
 @vmap_over.register
 def _vmap_over_less_than(dist: constraints._LessThan, upper_bound=None):
-    axes = copy.copy(dist)
+    axes: Any = copy.copy(dist)
     axes.upper_bound = upper_bound
     return axes
 
@@ -102,7 +105,7 @@ def _vmap_over_less_than(dist: constraints._LessThan, upper_bound=None):
 def _vmap_over_interval(
     dist: constraints._Interval, lower_bound=None, upper_bound=None
 ):
-    axes = copy.copy(dist)
+    axes: Any = copy.copy(dist)
     axes.lower_bound = lower_bound
     axes.upper_bound = upper_bound
     return axes
@@ -112,7 +115,7 @@ def _vmap_over_interval(
 def _vmap_over_integer_interval(
     dist: constraints._IntegerInterval, lower_bound=None, upper_bound=None
 ):
-    dist_axes = copy.copy(dist)
+    dist_axes: Any = copy.copy(dist)
     dist_axes.lower_bound = lower_bound
     dist_axes.upper_bound = upper_bound
     return dist_axes
@@ -125,7 +128,7 @@ def _vmap_over_corr_cholesky_transform(dist: CorrCholeskyTransform):
 
 @vmap_over.register
 def _vmap_over_power_transform(dist: PowerTransform, exponent=None):
-    axes = copy.copy(dist)
+    axes: Any = copy.copy(dist)
     axes.exponent = exponent
     return axes
 
@@ -400,6 +403,32 @@ def _vmap_over_right_truncated_distribution(
 
 
 @vmap_over.register
+def _vmap_over_left_truncated_gamma(dist: LeftTruncatedGamma, low=None):
+    dist_axes = _default_vmap_over(dist, low=low)
+    dist_axes.base_dist = None
+    dist_axes._support = vmap_over(dist._support, lower_bound=low)
+    return dist_axes
+
+
+@vmap_over.register
+def _vmap_over_right_truncated_gamma(dist: RightTruncatedGamma, high=None):
+    dist_axes = _default_vmap_over(dist, high=high)
+    dist_axes.base_dist = None
+    dist_axes._support = vmap_over(dist._support, lower_bound=None, upper_bound=high)
+    return dist_axes
+
+
+@vmap_over.register
+def _vmap_over_two_sided_truncated_gamma(
+    dist: TwoSidedTruncatedGamma, low=None, high=None
+):
+    dist_axes = _default_vmap_over(dist, low=low, high=high)
+    dist_axes.base_dist = None
+    dist_axes._support = vmap_over(dist._support, lower_bound=low, upper_bound=high)
+    return dist_axes
+
+
+@vmap_over.register
 def _vmap_over_beta_binomial(
     dist: BetaBinomial, concentration1=None, concentration0=None, total_count=None
 ):
@@ -514,7 +543,7 @@ def _default_promote_batch_shape(d: Distribution):
         attr_batch_ndim = max(0, jnp.ndim(attr) - attr_event_dim)
         attr_batch_shapes.append(jnp.shape(attr)[:attr_batch_ndim])
     resolved_batch_shape = jnp.broadcast_shapes(*attr_batch_shapes)
-    new_self = copy.deepcopy(d)
+    new_self = copy.copy(d)
     new_self._batch_shape = resolved_batch_shape
     return new_self
 
@@ -525,7 +554,10 @@ def _promote_batch_shape_expanded(d: ExpandedDistribution):
         : len(d.batch_shape) - len(d.base_dist.batch_shape)
     ]
 
-    new_self = copy.deepcopy(d)
+    # shallow copies are enough here: the only in-place updates below are to the
+    # `_batch_shape` attributes of these two fresh copies, not to shared data
+    new_self = copy.copy(d)
+    new_self.base_dist = copy.copy(d.base_dist)
 
     # new dimensions coming from a vmap or numpyro scan/enum operation
     promoted_base_dist = promote_batch_shape(new_self.base_dist)

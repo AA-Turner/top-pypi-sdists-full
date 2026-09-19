@@ -25,6 +25,7 @@ from runlayer_cli.hook_install.clients import (
     hook_command_for_client,
     iter_supported_clients,
     powershell_hook_command,
+    presence_gates_install,
 )
 from runlayer_cli.hook_install.paths import (
     InstallScope,
@@ -86,7 +87,11 @@ def check_client(
     """
     if include_pipeline is None:
         include_pipeline = resolve_include_pipeline(False)
-    if not client_is_installed(client, scope=scope):
+    # Same gate as install_client: enterprise-dir clients in MDM scope are
+    # always evaluated so a never-written file reports MISSING, not hidden.
+    if presence_gates_install(client, scope) and not client_is_installed(
+        client, scope=scope
+    ):
         return InstalledClient(client, ClientStatus.CLIENT_NOT_INSTALLED)
 
     config_path = config_path_for(client, scope)

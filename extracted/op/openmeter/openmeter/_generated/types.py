@@ -43,6 +43,7 @@ if TYPE_CHECKING:
         PricePaymentTerm,
         ProRatingMode,
         RemovePhaseShifting,
+        SubscriptionCostBasisMode,
         TaxBehavior,
         TieredPriceMode,
         WindowSize,
@@ -1432,6 +1433,9 @@ class CustomSubscriptionChange(TypedDict, total=False):
      normalized according to the billing cadence to the nearest recurrence before start time. If not
      provided, the previous subscription billing anchor will be used.
     :vartype billing_anchor: str
+    :ivar cost_basis_mode: Controls how custom-currency cost bases are selected for the new
+     subscription. Known values are: "dynamic" and "pinned".
+    :vartype cost_basis_mode: Union[str, "SubscriptionCostBasisMode"]
     :ivar custom_plan: The custom plan description which defines the Subscription. Required.
     :vartype custom_plan: "CustomPlanInput"
     """
@@ -1444,6 +1448,9 @@ class CustomSubscriptionChange(TypedDict, total=False):
     """The billing anchor of the subscription. The provided date will be normalized according to the
      billing cadence to the nearest recurrence before start time. If not provided, the previous
      subscription billing anchor will be used."""
+    costBasisMode: Union[str, "SubscriptionCostBasisMode"]
+    """Controls how custom-currency cost bases are selected for the new subscription. Known values
+     are: \"dynamic\" and \"pinned\"."""
     customPlan: Required["CustomPlanInput"]
     """The custom plan description which defines the Subscription. Required."""
 
@@ -1451,6 +1458,9 @@ class CustomSubscriptionChange(TypedDict, total=False):
 class CustomSubscriptionCreate(TypedDict, total=False):
     """Create custom.
 
+    :ivar cost_basis_mode: Controls how custom-currency cost bases are selected for the new
+     subscription. Known values are: "dynamic" and "pinned".
+    :vartype cost_basis_mode: Union[str, "SubscriptionCostBasisMode"]
     :ivar custom_plan: The custom plan description which defines the Subscription. Required.
     :vartype custom_plan: "CustomPlanInput"
     :ivar timing: Timing configuration for the change, when the change should take effect. The
@@ -1468,6 +1478,9 @@ class CustomSubscriptionCreate(TypedDict, total=False):
     :vartype billing_anchor: str
     """
 
+    costBasisMode: Union[str, "SubscriptionCostBasisMode"]
+    """Controls how custom-currency cost bases are selected for the new subscription. Known values
+     are: \"dynamic\" and \"pinned\"."""
     customPlan: Required["CustomPlanInput"]
     """The custom plan description which defines the Subscription. Required."""
     timing: "_unions.SubscriptionTiming"
@@ -2992,36 +3005,49 @@ class MeterUpdate(TypedDict, total=False):
 class MigrateRequest(TypedDict, total=False):
     """MigrateRequest.
 
-    :ivar timing: Timing configuration for the migration, when the migration should take effect. If
-     not supported by the subscription, 400 will be returned. Is either a Union[str,
-     "_models.SubscriptionTimingEnum"] type or a datetime.datetime type.
+    :ivar timing: When the migration takes effect: immediately, at the next billing cycle, or at an
+     explicit billing-aligned timestamp. In-place migrations may be scheduled into a later phase
+     when the current and target phase timelines match. The target plan reference is saved
+     immediately; changed items take effect at the requested time. Past or unsupported times return
+     an error. Is either a Union[str, "_models.SubscriptionTimingEnum"] type or a datetime.datetime
+     type.
     :vartype timing: "_unions.SubscriptionTiming"
-    :ivar target_version: The version of the plan to migrate to. If not provided, the subscription
-     will migrate to the latest version of the current plan.
+    :ivar target_version: A strictly later version of the current plan to migrate to. If not
+     provided, the subscription will migrate to the latest version of the current plan.
     :vartype target_version: int
-    :ivar starting_phase: The key of the phase to start the subscription in. If not provided, the
-     subscription will start in the first phase of the plan.
+    :ivar starting_phase: Explicitly replace the subscription, starting in this target plan phase.
+     Providing this field always selects replacement, even if the phase matches the current one.
+     Replacement may produce billing adjustments and does not transfer addons. Omit it to migrate in
+     place; incompatible phase timelines then return an error.
     :vartype starting_phase: str
-    :ivar billing_anchor: The billing anchor of the subscription. The provided date will be
-     normalized according to the billing cadence to the nearest recurrence before start time. If not
-     provided, the previous subscription billing anchor will be used.
+    :ivar billing_anchor: The anchor used with the plan's billing cadence to calculate billing
+     periods. If startingPhase is omitted and this anchor is omitted or equal to the existing one,
+     migration preserves the current subscription. Providing a different anchor ends the current
+     subscription and creates a replacement. The supplied anchor is preserved; it may be before or
+     after the replacement's start time.
     :vartype billing_anchor: str
     """
 
     timing: "_unions.SubscriptionTiming"
-    """Timing configuration for the migration, when the migration should take effect. If not supported
-     by the subscription, 400 will be returned. Is either a Union[str,
-     \"_models.SubscriptionTimingEnum\"] type or a datetime.datetime type."""
+    """When the migration takes effect: immediately, at the next billing cycle, or at an explicit
+     billing-aligned timestamp. In-place migrations may be scheduled into a later phase when the
+     current and target phase timelines match. The target plan reference is saved immediately;
+     changed items take effect at the requested time. Past or unsupported times return an error. Is
+     either a Union[str, \"_models.SubscriptionTimingEnum\"] type or a datetime.datetime type."""
     targetVersion: int
-    """The version of the plan to migrate to. If not provided, the subscription will migrate to the
-     latest version of the current plan."""
+    """A strictly later version of the current plan to migrate to. If not provided, the subscription
+     will migrate to the latest version of the current plan."""
     startingPhase: str
-    """The key of the phase to start the subscription in. If not provided, the subscription will start
-     in the first phase of the plan."""
+    """Explicitly replace the subscription, starting in this target plan phase. Providing this field
+     always selects replacement, even if the phase matches the current one. Replacement may produce
+     billing adjustments and does not transfer addons. Omit it to migrate in place; incompatible
+     phase timelines then return an error."""
     billingAnchor: str
-    """The billing anchor of the subscription. The provided date will be normalized according to the
-     billing cadence to the nearest recurrence before start time. If not provided, the previous
-     subscription billing anchor will be used."""
+    """The anchor used with the plan's billing cadence to calculate billing periods. If startingPhase
+     is omitted and this anchor is omitted or equal to the existing one, migration preserves the
+     current subscription. Providing a different anchor ends the current subscription and creates a
+     replacement. The supplied anchor is preserved; it may be before or after the replacement's
+     start time."""
 
 
 class NotificationChannelWebhookCreateRequest(TypedDict, total=False):
@@ -3457,6 +3483,9 @@ class PlanSubscriptionChange(TypedDict, total=False):
     :ivar settlement_mode: The settlement mode of the subscription. Known values are:
      "credit_then_invoice" and "credit_only".
     :vartype settlement_mode: Union[str, "BillingSettlementMode"]
+    :ivar cost_basis_mode: Controls how custom-currency cost bases are selected for the new
+     subscription. Known values are: "dynamic" and "pinned".
+    :vartype cost_basis_mode: Union[str, "SubscriptionCostBasisMode"]
     """
 
     timing: Required["_unions.SubscriptionTiming"]
@@ -3483,6 +3512,9 @@ class PlanSubscriptionChange(TypedDict, total=False):
     settlementMode: Union[str, "BillingSettlementMode"]
     """The settlement mode of the subscription. Known values are: \"credit_then_invoice\" and
      \"credit_only\"."""
+    costBasisMode: Union[str, "SubscriptionCostBasisMode"]
+    """Controls how custom-currency cost bases are selected for the new subscription. Known values
+     are: \"dynamic\" and \"pinned\"."""
 
 
 class PlanSubscriptionCreate(TypedDict, total=False):
@@ -3504,6 +3536,9 @@ class PlanSubscriptionCreate(TypedDict, total=False):
     :ivar settlement_mode: The settlement mode of the subscription. Known values are:
      "credit_then_invoice" and "credit_only".
     :vartype settlement_mode: Union[str, "BillingSettlementMode"]
+    :ivar cost_basis_mode: Controls how custom-currency cost bases are selected for the new
+     subscription. Known values are: "dynamic" and "pinned".
+    :vartype cost_basis_mode: Union[str, "SubscriptionCostBasisMode"]
     :ivar timing: Timing configuration for the change, when the change should take effect. The
      default is immediate. Is either a Union[str, "_models.SubscriptionTimingEnum"] type or a
      datetime.datetime type.
@@ -3535,6 +3570,9 @@ class PlanSubscriptionCreate(TypedDict, total=False):
     settlementMode: Union[str, "BillingSettlementMode"]
     """The settlement mode of the subscription. Known values are: \"credit_then_invoice\" and
      \"credit_only\"."""
+    costBasisMode: Union[str, "SubscriptionCostBasisMode"]
+    """Controls how custom-currency cost bases are selected for the new subscription. Known values
+     are: \"dynamic\" and \"pinned\"."""
     timing: "_unions.SubscriptionTiming"
     """Timing configuration for the change, when the change should take effect. The default is
      immediate. Is either a Union[str, \"_models.SubscriptionTimingEnum\"] type or a

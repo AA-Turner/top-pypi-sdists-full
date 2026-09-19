@@ -2,16 +2,17 @@
 
 from __future__ import annotations
 
-import json
 import os
 import platform
+import signal
 import shutil
 import subprocess
 import threading
 import time
 from collections.abc import Iterator
+from dataclasses import dataclass
 from pathlib import Path, PureWindowsPath
-from typing import IO, Callable, Protocol, TypedDict, TypeVar
+from typing import IO, Callable, Generic, Literal, Protocol, TypedDict, TypeVar
 
 import structlog
 
@@ -30,18 +31,23 @@ from runlayer_cli.scan.containers.inspect_parse import (
     parse_image_config_metadata,
     parse_image_digests,
 )
+from runlayer_cli.scan.containers.collector import FileCopyResult
+from runlayer_cli.scan.container_limits import (
+    SCAN_BASE_TIME_BUDGET_S,
+    SCAN_MAX_TIME_BUDGET_S,
+    SCAN_PER_CONTAINER_TIME_BUDGET_S,
+)
 from runlayer_cli.scan.file_collector import MAX_SINGLE_FILE_BYTES
+from runlayer_cli.safe_parse import parse_json
 
 SUBPROCESS_TIMEOUT_S = 10
-SCAN_BASE_TIME_BUDGET_S = 30
-SCAN_PER_CONTAINER_TIME_BUDGET_S = 10
-SCAN_MAX_TIME_BUDGET_S = 300
 MAX_INSPECT_BYTES = 5 * 1024 * 1024
 MAX_PS_BYTES = 256 * 1024
 MAX_IMAGE_LIST_BYTES = 1024 * 1024
 MAX_IMAGE_INSPECT_BATCH = 64
 MAX_DOCKER_CP_ARCHIVE_BYTES = MAX_SINGLE_FILE_BYTES + 64 * 1024
 _READ_CHUNK_BYTES = 64 * 1024
+_MAX_DOCKER_COPY_STDERR_BYTES = 8 * 1024
 
 logger = structlog.get_logger(__name__)
 
@@ -65,11 +71,27 @@ class _OutputSink(Protocol[_OUTPUT]):
     def finish(self, returncode: int | None) -> _OUTPUT | None: ...
 
 
+@dataclass(frozen=True)
+class _RunWithSinkResult(Generic[_OUTPUT]):
+    output: _OUTPUT | None = None
+    returncode: int | None = None
+    stderr: bytes = b""
+    failure: Literal["spawn", "timeout", "wait", "drain"] | None = None
+
+
+def _read_available(stream: IO[bytes], max_bytes: int) -> bytes:
+    read1 = getattr(stream, "read1", None)
+    if callable(read1):
+        return read1(max_bytes)
+    return stream.read(max_bytes)
+
+
 class _BoundedBytesSink:
     def __init__(self, max_output: int) -> None:
         self.max_output = max_output
         self.output = bytearray()
         self.failed = False
+        self.limit_exceeded = False
 
     def fail(self) -> None:
         self.failed = True
@@ -77,7 +99,7 @@ class _BoundedBytesSink:
     def consume(self, stdout: IO[bytes], terminate: Callable[[], None]) -> None:
         while True:
             try:
-                chunk = stdout.read(_READ_CHUNK_BYTES)
+                chunk = _read_available(stdout, _READ_CHUNK_BYTES)
             except (OSError, ValueError):
                 self.failed = True
                 return
@@ -85,6 +107,7 @@ class _BoundedBytesSink:
                 return
             if len(self.output) + len(chunk) > self.max_output:
                 self.failed = True
+                self.limit_exceeded = True
                 terminate()
                 return
             self.output.extend(chunk)
@@ -124,7 +147,7 @@ class _BoundedUtf8LineSink:
 
             read_size = min(_READ_CHUNK_BYTES, self.max_output - self.bytes_read)
             try:
-                chunk = stdout.read(read_size)
+                chunk = _read_available(stdout, read_size)
             except (OSError, ValueError):
                 self.failed = True
                 return
@@ -166,22 +189,21 @@ def _run_with_sink(
     *,
     timeout: float,
     sink: _OutputSink[_OUTPUT],
-) -> _OUTPUT | None:
+    max_stderr: int | None = None,
+) -> _RunWithSinkResult[_OUTPUT]:
     """Run one bounded subprocess lifecycle and delegate stdout consumption."""
     try:
         process = subprocess.Popen(
             cmd,
             stdout=subprocess.PIPE,
-            stderr=subprocess.DEVNULL,
+            stderr=subprocess.PIPE if max_stderr is not None else subprocess.DEVNULL,
+            start_new_session=os.name != "nt",
         )
     except OSError:
-        return None
+        return _RunWithSinkResult(failure="spawn")
 
     def _terminate_producer() -> None:
-        try:
-            process.kill()
-        except OSError:
-            pass
+        _kill_process(process)
 
     def _consume_stdout() -> None:
         stdout = process.stdout
@@ -190,38 +212,79 @@ def _run_with_sink(
             return
         sink.consume(stdout, _terminate_producer)
 
+    stderr_output = bytearray()
+
+    def _consume_stderr() -> None:
+        stderr = process.stderr
+        if stderr is None or max_stderr is None:
+            return
+        while True:
+            try:
+                chunk = _read_available(stderr, _READ_CHUNK_BYTES)
+            except (OSError, ValueError):
+                return
+            if not chunk:
+                return
+            remaining = max_stderr - len(stderr_output)
+            if remaining > 0:
+                stderr_output.extend(chunk[:remaining])
+
     reader = threading.Thread(target=_consume_stdout, daemon=True)
     reader.start()
-    wait_failed = False
+    stderr_reader = (
+        threading.Thread(target=_consume_stderr, daemon=True)
+        if max_stderr is not None
+        else None
+    )
+    if stderr_reader is not None:
+        stderr_reader.start()
+    failure: Literal["timeout", "wait", "drain"] | None = None
+    returncode: int | None = None
     try:
         try:
-            process.wait(timeout=max(timeout, 0.05))
+            returncode = process.wait(timeout=max(timeout, 0.05))
         except subprocess.TimeoutExpired:
-            wait_failed = True
+            failure = "timeout"
             _kill_and_reap(process)
         except OSError:
-            wait_failed = True
+            failure = "wait"
             _kill_and_reap(process)
 
-        reader.join(timeout=1)
-        if reader.is_alive() and process.stdout is not None:
-            try:
-                process.stdout.close()
-            except (OSError, ValueError):
-                pass
-            reader.join(timeout=1)
+        streams_and_readers = [(process.stdout, reader)]
+        if stderr_reader is not None:
+            streams_and_readers.append((process.stderr, stderr_reader))
+        for stream, stream_reader in streams_and_readers:
+            stream_reader.join(timeout=1)
+            if stream_reader.is_alive() and stream is not None:
+                try:
+                    stream.close()
+                except (OSError, ValueError):
+                    pass
+                stream_reader.join(timeout=1)
 
-        if wait_failed or reader.is_alive():
-            return None
-        return sink.finish(process.returncode)
+        if failure is None and any(
+            stream_reader.is_alive() for _, stream_reader in streams_and_readers
+        ):
+            failure = "drain"
+        output = None if failure is not None else sink.finish(returncode)
+        return _RunWithSinkResult(
+            output=output,
+            returncode=returncode,
+            stderr=bytes(stderr_output),
+            failure=failure,
+        )
     finally:
-        # Close the PIPE read-end deterministically on every path — including
-        # the happy path — instead of leaking the fd until the Popen is GC'd.
-        if process.stdout is not None:
-            try:
-                process.stdout.close()
-            except (OSError, ValueError):
-                pass
+        poll = getattr(process, "poll", None)
+        if (poll() if poll is not None else process.returncode) is None:
+            _kill_and_reap(process)
+        # Close PIPE read-ends deterministically on every path — including the
+        # happy path — instead of leaking fds until the Popen is GC'd.
+        for stream in (process.stdout, process.stderr):
+            if stream is not None:
+                try:
+                    stream.close()
+                except (OSError, ValueError):
+                    pass
 
 
 def _run_bytes(
@@ -231,10 +294,81 @@ def _run_bytes(
     max_output: int,
 ) -> bytes | None:
     """Run a command with hard time/output caps, returning stdout on success."""
-    return _run_with_sink(
+    result = _run_with_sink(
         cmd,
         timeout=timeout,
         sink=_BoundedBytesSink(max_output),
+    )
+    return result.output
+
+
+def _run_file_copy(
+    cmd: list[str],
+    *,
+    timeout: float,
+    max_output: int,
+) -> FileCopyResult:
+    """Run ``docker cp`` with bounded output and classify definite absence."""
+    sink = _BoundedBytesSink(max_output)
+    result = _run_with_sink(
+        cmd,
+        timeout=timeout,
+        sink=sink,
+        max_stderr=_MAX_DOCKER_COPY_STDERR_BYTES,
+    )
+    if result.failure == "spawn":
+        return FileCopyResult(
+            status="failed",
+            failure_reason="container_artifact_copy_spawn_failed",
+        )
+    if result.failure == "timeout":
+        return FileCopyResult(
+            status="failed",
+            failure_reason="container_artifact_copy_timed_out",
+        )
+    if sink.limit_exceeded:
+        return FileCopyResult(
+            status="failed",
+            failure_reason="container_artifact_copy_limit_exceeded",
+        )
+    if result.failure is not None or result.returncode is None:
+        return FileCopyResult(
+            status="failed",
+            failure_reason="container_artifact_copy_wait_failed",
+        )
+    if result.returncode == 0 and result.output is not None:
+        return FileCopyResult(status="success", archive=result.output)
+    if result.returncode == 0:
+        return FileCopyResult(
+            status="failed",
+            failure_reason="container_artifact_copy_wait_failed",
+        )
+
+    absent = _docker_copy_path_absent(result.stderr)
+    return FileCopyResult(
+        status="absent" if absent else "failed",
+        failure_reason=(None if absent else "container_artifact_copy_nonzero"),
+    )
+
+
+def _docker_copy_path_absent(stderr: bytes) -> bool:
+    message = stderr.decode("utf-8", errors="replace").casefold()
+    return any(
+        not any(
+            marker in line
+            for marker in ("dial unix ", "dial tcp ", "connect:", "connection refused")
+        )
+        and (
+            "could not find the file" in line
+            or (
+                any(marker in line for marker in ("lstat ", "stat ", "failed to copy "))
+                and any(
+                    phrase in line
+                    for phrase in ("no such file or directory", "does not exist")
+                )
+            )
+        )
+        for line in message.splitlines()
     )
 
 
@@ -246,7 +380,7 @@ def _run_bounded_utf8_lines(
     max_lines: int,
 ) -> _BoundedLineOutput | None:
     """Return complete UTF-8 lines, terminating the producer at either cap."""
-    return _run_with_sink(
+    result = _run_with_sink(
         cmd,
         timeout=timeout,
         sink=_BoundedUtf8LineSink(
@@ -254,6 +388,7 @@ def _run_bounded_utf8_lines(
             max_lines=max_lines,
         ),
     )
+    return result.output
 
 
 def _run_text(
@@ -273,7 +408,14 @@ def _run_text(
 
 def _kill_process(process: subprocess.Popen[bytes]) -> None:
     try:
-        if process.poll() is None:
+        killed_group = False
+        if os.name != "nt":
+            try:
+                os.killpg(process.pid, signal.SIGKILL)
+                killed_group = True
+            except (AttributeError, OSError):
+                pass
+        if not killed_group:
             process.kill()
     except OSError:
         pass
@@ -392,16 +534,42 @@ def _find_docker_cli() -> str | None:
     return docker
 
 
+# ``ps --filter status=`` vocabularies differ per runtime, and podman/nerdctl
+# reject values they do not know (the whole ``ps`` exits nonzero, so discovery
+# for that runtime silently returns nothing). Each runtime gets only the
+# statuses it documents; Docker's is the default for unknown runtimes since
+# every other supported CLI advertises Docker compatibility.
+_RUNNING_STATUS_FILTERS: dict[str, tuple[str, ...]] = {
+    "docker": ("running", "paused", "restarting"),
+    "podman": ("running", "paused"),
+    "nerdctl": ("running", "paused", "pausing"),
+}
+_STOPPED_STATUS_FILTERS: dict[str, tuple[str, ...]] = {
+    "docker": ("created", "exited", "dead", "removing"),
+    "podman": ("created", "exited", "stopped"),
+    "nerdctl": ("created", "stopped"),
+}
+
+
+def _status_filter_args(statuses: tuple[str, ...]) -> list[str]:
+    args: list[str] = []
+    for status in statuses:
+        args.extend(("--filter", f"status={status}"))
+    return args
+
+
 def _discover_container_ids(
     *,
     docker: str,
     deadline: float,
     subprocess_timeout: float,
+    runtime: str = "docker",
 ) -> DockerPSInventory | None:
     """List running container IDs and inventory quality metadata."""
     timeout = _remaining_timeout(deadline, subprocess_timeout)
     if timeout is None:
         return None
+    statuses = _RUNNING_STATUS_FILTERS.get(runtime, _RUNNING_STATUS_FILTERS["docker"])
     output = _run_text(
         [
             docker,
@@ -409,12 +577,7 @@ def _discover_container_ids(
             "--last",
             str(MAX_CONTAINERS + 1),
             "--no-trunc",
-            "--filter",
-            "status=running",
-            "--filter",
-            "status=paused",
-            "--filter",
-            "status=restarting",
+            *_status_filter_args(statuses),
             "--format",
             "{{json .}}",
         ],
@@ -438,11 +601,13 @@ def _discover_stopped_container_ids(
     docker: str,
     deadline: float,
     subprocess_timeout: float,
+    runtime: str = "docker",
 ) -> DockerPSInventory | None:
     """List bounded non-running container IDs."""
     timeout = _remaining_timeout(deadline, subprocess_timeout)
     if timeout is None:
         return None
+    statuses = _STOPPED_STATUS_FILTERS.get(runtime, _STOPPED_STATUS_FILTERS["docker"])
     command = [
         docker,
         "ps",
@@ -450,14 +615,7 @@ def _discover_stopped_container_ids(
         "--last",
         str(MAX_CONTAINERS + 1),
         "--no-trunc",
-        "--filter",
-        "status=created",
-        "--filter",
-        "status=exited",
-        "--filter",
-        "status=dead",
-        "--filter",
-        "status=removing",
+        *_status_filter_args(statuses),
         "--format",
         "{{json .}}",
     ]
@@ -476,7 +634,49 @@ def _inspect_inventory(
     host_home: Path,
     running: bool,
 ) -> list[DiscoveredContainer] | None:
-    """Inspect and fail-closed validate a discovered container inventory."""
+    """Inspect a discovered container inventory.
+
+    One batched ``inspect`` first. It exits nonzero when any ID vanished
+    between ``ps`` and ``inspect`` (and the fail-closed parse rejects a batch
+    where one container changed state), which used to discard every surviving
+    container's artifacts. On batch failure fall back to one ``inspect`` per
+    ID so survivors are still collected; the caller compares the returned set
+    against the discovered IDs and withholds inventory authority when short.
+    """
+    containers = _inspect_batch(
+        docker=docker,
+        container_ids=container_ids,
+        deadline=deadline,
+        subprocess_timeout=subprocess_timeout,
+        host_home=host_home,
+        running=running,
+    )
+    if containers is None and len(container_ids) > 1:
+        logger.warning(
+            "Batched container inspect failed; inspecting per container",
+            container_count=len(container_ids),
+        )
+        containers = _inspect_each(
+            docker=docker,
+            container_ids=container_ids,
+            deadline=deadline,
+            subprocess_timeout=subprocess_timeout,
+            host_home=host_home,
+            running=running,
+        )
+    return containers
+
+
+def _inspect_batch(
+    *,
+    docker: str,
+    container_ids: list[str],
+    deadline: float,
+    subprocess_timeout: float,
+    host_home: Path,
+    running: bool,
+) -> list[DiscoveredContainer] | None:
+    """Inspect ``container_ids`` in one call; None unless every ID parsed."""
     timeout = _remaining_timeout(deadline, subprocess_timeout)
     if timeout is None:
         return None
@@ -488,10 +688,10 @@ def _inspect_inventory(
     if output is None:
         return None
 
-    try:
-        rows = json.loads(output)
-    except (TypeError, ValueError):
+    outcome = parse_json(output)
+    if outcome["error"] is not None:
         return None
+    rows = outcome["value"]
     if not isinstance(rows, list) or not rows:
         return None
 
@@ -501,6 +701,37 @@ def _inspect_inventory(
         host_home=host_home,
         running=running,
     )
+
+
+def _inspect_each(
+    *,
+    docker: str,
+    container_ids: list[str],
+    deadline: float,
+    subprocess_timeout: float,
+    host_home: Path,
+    running: bool,
+) -> list[DiscoveredContainer] | None:
+    """Inspect each ID on its own, keeping the ones that still resolve.
+
+    Returns None only when nothing resolved, so a fully vanished inventory
+    reads the same as a failed inspect to the caller.
+    """
+    containers: list[DiscoveredContainer] = []
+    for container_id in container_ids:
+        if _remaining_timeout(deadline, subprocess_timeout) is None:
+            break
+        parsed = _inspect_batch(
+            docker=docker,
+            container_ids=[container_id],
+            deadline=deadline,
+            subprocess_timeout=subprocess_timeout,
+            host_home=host_home,
+            running=running,
+        )
+        if parsed is not None:
+            containers.extend(parsed)
+    return containers or None
 
 
 def _inspect_containers(

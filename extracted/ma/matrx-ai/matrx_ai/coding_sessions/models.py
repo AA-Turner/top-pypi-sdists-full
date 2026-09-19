@@ -35,6 +35,7 @@ class BridgeAction(StrEnum):
     SEND = "send"
     DIAGNOSE = "diagnose"
     REPROJECT = "reproject"
+    DELETE_NATIVE_STREAM = "delete_native_stream"
 
 
 IMPLEMENTED_ACTIONS: frozenset[BridgeAction] = frozenset(
@@ -44,6 +45,7 @@ IMPLEMENTED_ACTIONS: frozenset[BridgeAction] = frozenset(
         BridgeAction.LOAD_NATIVE,
         BridgeAction.LIST_NATIVE,
         BridgeAction.DELETE,
+        BridgeAction.DELETE_NATIVE_STREAM,
         BridgeAction.HEALTH,
         BridgeAction.CAPABILITIES,
         BridgeAction.HANDOFF,
@@ -340,6 +342,42 @@ class BridgeRequest(BaseModel):
     silently did nothing on them would be the quietest possible lie."""
     target: BridgeSendTarget | None = None
     """Who receives the turn. Required by ``send``; never defaulted."""
+    agent_id: Annotated[str, Field(min_length=1, max_length=128)] | None = None
+    """WHICH AI Matrx agent answers this ``send``. Valid for ``send`` only.
+
+    Added for lane XT-07b, and it is what lets a coding host that already HAS a
+    chosen agent stop running its own dispatch client. Without it, every reply
+    was answered by whatever the ``coding_session.conversation_responder``
+    mandate resolved — right for "I typed into a mirrored transcript", and wrong
+    for VS Code's ``@matrx``, where the person picked the agent in the tool and
+    the chat says that agent is answering. Routing a chosen-agent host through a
+    responder-only verb substitutes the agent silently, which is the same class
+    of defect the responder itself was built to end. Proven on production
+    2026-09-18: conversation ``817f3926-f611-4412-a3c7-334b42afeae2`` turn 2 was
+    answered by "Coding Session Responder" while the tool named another agent.
+
+    An agent DEFINITION id — the id every AI Matrx agent picker yields. A pinned
+    version is deliberately not expressible here: it would be a second field
+    with its own vocabulary and no coding host picks versions. Access is the
+    canonical ``iam.has_access_for(user, 'agent', id, 'viewer')`` answer, so an
+    agent the caller cannot see is refused before anything is charged. Omitted,
+    the mandate ladder resolves the responder exactly as before.
+    """
+    editor_state: dict[str, JsonValue] | None = None
+    """The caller's live editor snapshot for THIS turn. Valid for ``send`` only.
+
+    A coding host's other reason to run its own client was that the bridge had
+    nowhere to put the editor's state — the active file, the selection and that
+    file's diagnostics, which are what make an answer about the code the person
+    is looking at. It rides the platform's own per-turn CONTEXT channel (never
+    variables, never appended as prose onto the turn: ``IdeState``'s
+    ``ephemeral_context_entries``), so a fresh selection on turn five is not the
+    value that was true on turn one.
+
+    Validated at the aidream edge against the ``IdeState`` shape every other
+    client already sends; a payload that is not that shape is refused by name
+    rather than silently dropped.
+    """
     client_request_id: Annotated[str, Field(min_length=1, max_length=200)] | None = None
     """The caller's own replay identity for ONE paid dispatch (plan-attack F10).
 
@@ -358,6 +396,7 @@ class BridgeRequest(BaseModel):
             BridgeAction.APPEND_NATIVE,
             BridgeAction.LOAD_NATIVE,
             BridgeAction.DELETE,
+            BridgeAction.DELETE_NATIVE_STREAM,
             # Both sync-truth verbs answer ABOUT one provider session, so the
             # id is the whole input. Without it there is nothing to diagnose
             # and nothing to re-project.
@@ -475,6 +514,16 @@ class BridgeRequest(BaseModel):
                     "replay identity is structural (the deterministic offer id), and the entry "
                     "ledger's is provider_entry_id"
                 )
+            if self.agent_id is not None:
+                raise ValueError(
+                    "agent_id is only valid for send: it names who ANSWERS a turn, and every "
+                    "other action carries provider entries rather than a turn"
+                )
+            if self.editor_state is not None:
+                raise ValueError(
+                    "editor_state is only valid for send: it is the context of the turn being "
+                    "sent, and a snapshot attached to anything else would silently do nothing"
+                )
         if self.action is BridgeAction.LOAD_NATIVE and self.conversation is not None:
             raise ValueError("load_native resolves its persisted binding; omit conversation")
         if self.action is BridgeAction.CAPABILITIES and self.conversation is not None:
@@ -494,6 +543,13 @@ class BridgeProjectionReceipt(BaseModel):
     status: ProjectionStatus
     normalized_message_id: UUID | None = None
     normalized_tool_call_id: UUID | None = None
+    #: The CHILD conversation a subagent event landed on. A coding tool's
+    #: subagent is mirrored as a child conversation of the parent coding
+    #: session's conversation, so every receipt for a subagent event
+    #: (``SubagentStart``, ``SubagentStop``, and the parent's ``PostToolUse``
+    #: for the Agent tool) names the conversation it wrote to or labelled.
+    #: None for every other event.
+    subagent_conversation_id: UUID | None = None
     error_code: str | None = None
     detail: str | None = None
 
@@ -896,6 +952,14 @@ class BridgeSendResult(BaseModel):
     used_platform_default: bool = False
     """True when no agent is chosen for coding-conversation replies and the
     platform's default chat agent stood in — announced, never silent."""
+    responder_source: Literal["caller", "mandate", "platform_default"] = "mandate"
+    """WHERE the answering agent came from, so a host can never misreport it.
+
+    ``caller`` — the send named ``agent_id`` and that agent answered, which is
+    what a host with its own agent picker must be able to say truthfully.
+    ``mandate`` — ``coding_session.conversation_responder`` resolved it.
+    ``platform_default`` — nothing was bound and the default chat agent stood in;
+    ``used_platform_default`` is true for exactly this case."""
     user_message_id: UUID | None = None
     answer_message_id: UUID | None = None
     answer: Annotated[str, Field(max_length=32_000)] = ""
@@ -1085,6 +1149,40 @@ class BridgeReprojection(BaseModel):
     diagnosis: BridgeDiagnosis
 
 
+class BridgePinDivergence(BaseModel):
+    """The provider's star and the AI Matrx favorite disagreed — say so.
+
+    A coding session's pin exists on both sides: the provider's own star (what a
+    ``SessionMetadata`` observation reports, mirrored into the binding's
+    ``provider_pinned`` metadata) and the AI Matrx favorite
+    (``platform.user_entity_state.is_favorite``, the row every star in the app
+    reads and writes). They are TWO facts, and until 2026-09-18 the server
+    compared the provider's own echo against itself — so a divergence looked
+    like agreement and could never heal.
+
+    Which side wins a conflict is an ORG KNOB (``effective_setting`` key
+    ``coding_session_provider_pin_wins``, default: the provider wins, because
+    the coding agent is where the pin is made — Arman, 2026-09-18). Whatever the
+    knob says, the disagreement is REPORTED: it is never silently dropped, and
+    the identity list carries both values so a screen can show it.
+    """
+
+    model_config = ConfigDict(extra="forbid")
+
+    schema_version: int = 1
+    #: What the provider itself reported about its own star in this observation.
+    provider_pinned: bool
+    #: The owner's REAL AI Matrx favorite at the moment of the observation, or
+    #: None when that state could not be read at all (never a defaulted False).
+    ai_matrx_is_favorite: bool | None = None
+    #: Which side the org's knob gives the last word.
+    authority: Literal["provider", "ai_matrx"]
+    #: Whether the favorite was actually written to match the provider. False
+    #: under ``ai_matrx`` authority — the report is then the ONLY signal, which
+    #: is exactly why it exists.
+    mirrored: bool
+
+
 class BridgeResponse(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -1113,6 +1211,26 @@ class BridgeResponse(BaseModel):
     diagnosis: BridgeDiagnosis | None = None
     reprojection: BridgeReprojection | None = None
     deleted: bool = False
+    #: The stream keys this provider session holds, on HEALTH and on
+    #: DELETE_NATIVE_STREAM. ABSENT on every other verb — `None` means "not
+    #: asked" and `[]` means "asked, and this session has no streams", which is
+    #: a distinction the store depends on. Optional so the response door's
+    #: `response_model_exclude_none` leaves every existing envelope unchanged.
+    #: The Claude Agent SDK's SessionStore
+    #: contract needs this to answer list_subkeys and to decide whether a stream
+    #: exists before loading it, and until 2026-09-18 it was reachable ONLY
+    #: through an in-process store seam — which is precisely what stopped a
+    #: credential-free hosted box from being a client of this door the way the
+    #: Matrx Local engine already is.
+    stream_keys: list[str] | None = None
+    #: How many raw entries a DELETE_NATIVE_STREAM removed. Reported, not
+    #: assumed: a stream delete that matched nothing says 0.
+    deleted_entries: int | None = None
+    #: Set when a ``SessionMetadata`` pin observation disagreed with the REAL AI
+    #: Matrx favorite. None means "they agreed" or "no pin was observed" —
+    #: never "we did not look". Additive and optional, so an older client that
+    #: ignores it is unaffected.
+    pin_divergence: BridgePinDivergence | None = None
     hook_specific_output: dict[str, JsonValue] | None = Field(
         default=None,
         serialization_alias="hookSpecificOutput",

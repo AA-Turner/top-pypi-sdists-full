@@ -6,7 +6,8 @@ change without breaking the launcher. Sweep the same bounded bin-directory
 set the CLI candidate probe uses (plus ``PATH`` entries) and classify each
 symlink by where it resolves:
 
-* the resolved target's basename is a known CLI binary name, or
+* the resolved target is executable and its basename is a known CLI binary
+  name, or
 * the resolved target lands inside an allowlisted ``node_modules/<pkg>/``
   whose ``package.json`` validates against the exact package identity.
 
@@ -27,18 +28,16 @@ from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from runlayer_cli.scan import symlink_identity
 from runlayer_cli.scan.cli_binaries import posix_bin_roots
 from runlayer_cli.scan.npm_global import (
     MAX_MANIFEST_BYTES,
     NpmPackageSpec,
     validate_npm_manifest,
 )
-from runlayer_cli.scan.scanner_primitives import is_regular_file, read_bounded
+from runlayer_cli.scan.scanner_primitives import read_bounded
 
-MAX_SWEPT_DIRS = 64
 MAX_PATH_DIRS = 32
-MAX_ENTRIES_PER_DIR = 4096
-MAX_RESOLVED_SYMLINKS = 4096
 
 
 @dataclass(frozen=True)
@@ -145,51 +144,50 @@ def sweep_shim_identities(
     ]
     if include_host_dirs:
         directories.extend(_path_environment_dirs(environment))
-    seen_dirs: set[str] = set()
-    swept = 0
-    resolved_symlinks = 0
+    budget = symlink_identity.SymlinkIdentityScanBudget()
 
     for directory in directories:
-        if swept >= MAX_SWEPT_DIRS or resolved_symlinks >= MAX_RESOLVED_SYMLINKS:
+        if budget.directory_capacity_reached or budget.candidate_capacity_reached:
             break
         try:
-            dir_key = os.path.realpath(directory)
+            dir_key = symlink_identity.canonical_path_key(directory)
         except OSError:
             continue
-        if dir_key in seen_dirs:
-            continue
-        seen_dirs.add(dir_key)
         try:
             entries = os.scandir(directory)
         except OSError:
             continue
-        swept += 1
         with entries:
+            if not budget.claim_directory(dir_key):
+                continue
             inspected = 0
             for entry in entries:
                 if checkpoint is not None:
                     checkpoint()
-                inspected += 1
-                if (
-                    inspected > MAX_ENTRIES_PER_DIR
-                    or resolved_symlinks >= MAX_RESOLVED_SYMLINKS
-                ):
+                if not budget.claim_entry(directory_entries=inspected):
                     break
+                inspected += 1
                 try:
                     if not entry.is_symlink():
                         continue
                 except OSError:
                     continue
-                resolved_symlinks += 1
+                if not budget.claim_candidate():
+                    break
                 shim = Path(entry.path)
-                try:
-                    target = Path(os.path.realpath(entry.path, strict=True))
-                except OSError:
+                resolved = symlink_identity.resolve_posix_symlink_identity(
+                    shim,
+                    known_basenames=known_basenames,
+                    checkpoint=checkpoint,
+                )
+                if resolved is None:
                     continue
-                if target == shim or not is_regular_file(target):
-                    continue
-                if target.name in known_basenames:
-                    by_basename.setdefault(target.name, []).append(
+                target = resolved.target_path
+                if resolved.executable_basename is not None:
+                    by_basename.setdefault(
+                        resolved.executable_basename,
+                        [],
+                    ).append(
                         ShimFinding(
                             shim_path=shim,
                             target_path=target,

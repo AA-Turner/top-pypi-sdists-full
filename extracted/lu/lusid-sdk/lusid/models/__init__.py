@@ -278,6 +278,7 @@ from lusid.models.compliance_rule_result_detail import ComplianceRuleResultDetai
 from lusid.models.compliance_rule_result_portfolio_detail import ComplianceRuleResultPortfolioDetail
 from lusid.models.compliance_rule_result_v2 import ComplianceRuleResultV2
 from lusid.models.compliance_rule_template import ComplianceRuleTemplate
+from lusid.models.compliance_rule_template_entity import ComplianceRuleTemplateEntity
 from lusid.models.compliance_rule_upsert_request import ComplianceRuleUpsertRequest
 from lusid.models.compliance_rule_upsert_response import ComplianceRuleUpsertResponse
 from lusid.models.compliance_run_configuration import ComplianceRunConfiguration
@@ -1058,6 +1059,8 @@ from lusid.models.portfolio_settlement_instruction_adjustment import PortfolioSe
 from lusid.models.portfolio_trade_ticket import PortfolioTradeTicket
 from lusid.models.portfolio_transaction import PortfolioTransaction
 from lusid.models.portfolio_transaction_adjustment import PortfolioTransactionAdjustment
+from lusid.models.portfolio_transaction_dataset import PortfolioTransactionDataset
+from lusid.models.portfolio_transaction_result import PortfolioTransactionResult
 from lusid.models.portfolio_type import PortfolioType
 from lusid.models.portfolio_weight import PortfolioWeight
 from lusid.models.portfolio_without_href import PortfolioWithoutHref
@@ -1984,6 +1987,7 @@ __all__ = [
     "ComplianceRuleResultPortfolioDetail",
     "ComplianceRuleResultV2",
     "ComplianceRuleTemplate",
+    "ComplianceRuleTemplateEntity",
     "ComplianceRuleUpsertRequest",
     "ComplianceRuleUpsertResponse",
     "ComplianceRunConfiguration",
@@ -2764,6 +2768,8 @@ __all__ = [
     "PortfolioTradeTicket",
     "PortfolioTransaction",
     "PortfolioTransactionAdjustment",
+    "PortfolioTransactionDataset",
+    "PortfolioTransactionResult",
     "PortfolioType",
     "PortfolioWeight",
     "PortfolioWithoutHref",

@@ -4,10 +4,11 @@ from typing import Any
 
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
 from graphdatascience.arrow_client.v2.job_client import JobClient
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
+from graphdatascience.model.model_catalog_protocol import ModelCatalogProtocol
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
-from graphdatascience.procedure_surface.api.model.node_classification_model import NodeClassificationModelV2
+from graphdatascience.procedure_surface.api.pipeline.node_classification_model import NodeClassificationModel
 from graphdatascience.procedure_surface.api.pipeline.node_classification_pipeline_results import (
     NodeClassificationPipelineTrainResult,
 )
@@ -17,7 +18,6 @@ from graphdatascience.procedure_surface.api.pipeline.node_classification_predict
 from graphdatascience.procedure_surface.api.pipeline.node_classification_train_endpoints import (
     NodeClassificationPipelineTrainEndpoints,
 )
-from graphdatascience.procedure_surface.arrow.model_api_arrow import ModelApiArrow
 from graphdatascience.procedure_surface.arrow.node_property_endpoints import NodePropertyEndpointsHelper
 from graphdatascience.procedure_surface.utils.config_converter import ConfigConverter
 
@@ -26,12 +26,12 @@ class NodeClassificationTrainArrowEndpoints(NodeClassificationPipelineTrainEndpo
     def __init__(
         self,
         arrow_client: AuthenticatedArrowClient,
-        model_api: ModelApiArrow,
+        catalog: ModelCatalogProtocol,
         predict_endpoints: NodeClassificationPipelinePredictEndpoints,
         show_progress: bool = True,
     ) -> None:
         self._arrow_client = arrow_client
-        self._model_api = model_api
+        self._model_catalog = catalog
         self._predict_endpoints = predict_endpoints
         self._show_progress = show_progress
         self._node_property_endpoints = NodePropertyEndpointsHelper(
@@ -42,7 +42,7 @@ class NodeClassificationTrainArrowEndpoints(NodeClassificationPipelineTrainEndpo
 
     def __call__(
         self,
-        G: GraphV2,
+        G: Graph,
         pipeline_name: str,
         *,
         metrics: list[str],
@@ -57,7 +57,7 @@ class NodeClassificationTrainArrowEndpoints(NodeClassificationPipelineTrainEndpo
         sudo: bool = False,
         concurrency: int | None = None,
         job_id: str | None = None,
-    ) -> tuple[NodeClassificationModelV2, NodeClassificationPipelineTrainResult]:
+    ) -> tuple[NodeClassificationModel, NodeClassificationPipelineTrainResult]:
         config = ConfigConverter.convert_to_gds_config(
             graph_name=G.name(),
             metrics=metrics,
@@ -83,9 +83,9 @@ class NodeClassificationTrainArrowEndpoints(NodeClassificationPipelineTrainEndpo
         )
         result = JobClient.get_summary(self._arrow_client, result_job_id)
         return (
-            NodeClassificationModelV2(
+            NodeClassificationModel(
                 model_name,
-                self._model_api,
+                self._model_catalog,
                 predict_endpoints=self._predict_endpoints,
             ),
             NodeClassificationPipelineTrainResult(**result),
@@ -93,7 +93,7 @@ class NodeClassificationTrainArrowEndpoints(NodeClassificationPipelineTrainEndpo
 
     def estimate(
         self,
-        G: GraphV2,
+        G: Graph,
         pipeline_name: str,
         *,
         metrics: list[str],

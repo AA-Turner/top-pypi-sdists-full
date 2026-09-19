@@ -13,6 +13,8 @@ Usage::
     client = RemoteBrowserClient(
         base_url="https://scraper.app.matrxserver.com",
         auth_token=os.environ["MATRX_SCRAPER_TOKEN"],
+        organization_id=organization_id,   # required — carried, never rebuilt
+        acting_user_id=user_id,
     )
     nav = await client.navigate("https://example.com")
     print(nav.session_id, nav.title)
@@ -29,6 +31,13 @@ Configuration via env vars (read by ``RemoteBrowserClient.from_env()``):
     A real user-login token also works. (NOT a plain "admin token" — the scraper
     only honors this value via the approved-server handshake in
     ``matrx_scraper/server/service_auth.py``.)
+
+🚨 **The organization rides every call.** The scraper admits a service call only
+WITH ``X-Organization-Id`` (``matrx_connect.service_auth``), so this client
+requires ``organization_id`` and REFUSES to send without one rather than firing
+a call the far side will reject — the same refusal aidream's scraper transport
+makes. Pass the organization the work belongs to; it is never defaulted here.
+Law: ``common-docs/policies/context-is-carried-never-rebuilt.md`` rule 1.
 """
 
 from __future__ import annotations
@@ -78,6 +87,7 @@ class RemoteBrowserClient:
         *,
         auth_token: str | None = None,
         acting_user_id: str | None = None,
+        organization_id: str | None = None,
         timeout: httpx.Timeout | None = None,
         client: httpx.AsyncClient | None = None,
     ) -> None:
@@ -90,6 +100,9 @@ class RemoteBrowserClient:
         # user to attribute the work to — the scraper acts as THIS user. Optional:
         # ephemeral browser sessions that own no rows can omit it.
         self._acting_user_id = acting_user_id
+        # The tenant every call acts in. Required on the wire by the scraper;
+        # kept here so the refusal happens BEFORE a doomed request leaves.
+        self._organization_id = (organization_id or "").strip() or None
         self._timeout = timeout or _DEFAULT_TIMEOUT
         self._client = client
         self._owns_client = client is None
@@ -100,6 +113,7 @@ class RemoteBrowserClient:
         *,
         base_url_override: str | None = None,
         acting_user_id: str | None = None,
+        organization_id: str | None = None,
     ) -> RemoteBrowserClient | None:
         """Build a client from MATRX_SCRAPER_URL + MATRX_SCRAPER_TOKEN.
 
@@ -112,7 +126,12 @@ class RemoteBrowserClient:
         if not base_url:
             return None
         token = os.environ.get("MATRX_SCRAPER_TOKEN", "").strip() or None
-        return cls(base_url=base_url, auth_token=token, acting_user_id=acting_user_id)
+        return cls(
+            base_url=base_url,
+            auth_token=token,
+            acting_user_id=acting_user_id,
+            organization_id=organization_id,
+        )
 
     async def _ensure_client(self) -> httpx.AsyncClient:
         if self._client is None:
@@ -132,7 +151,17 @@ class RemoteBrowserClient:
         await self.aclose()
 
     def _headers(self) -> dict[str, str]:
-        h: dict[str, str] = {"Accept": "application/json"}
+        if not self._organization_id:
+            raise BrowserClientError(
+                "This browser call names no organization, and the scraper admits "
+                "none without one (X-Organization-Id). Construct "
+                "RemoteBrowserClient with organization_id=<the organization this "
+                "work belongs to>; it is never defaulted."
+            )
+        h: dict[str, str] = {
+            "Accept": "application/json",
+            "X-Organization-Id": self._organization_id,
+        }
         if self._auth_token:
             h["Authorization"] = f"Bearer {self._auth_token}"
         if self._acting_user_id:

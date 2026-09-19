@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from pathlib import Path
-from typing import TYPE_CHECKING, Callable, Protocol
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Callable, Literal, Protocol
 
 if TYPE_CHECKING:
     from runlayer_cli.scan.containers.inspect_parse import (
@@ -11,6 +12,13 @@ if TYPE_CHECKING:
         DockerPSInventory,
     )
     from runlayer_cli.scan.containers.tar_walk import _TarWalkResult
+
+
+@dataclass(frozen=True)
+class FileCopyResult:
+    status: Literal["success", "absent", "failed"]
+    archive: bytes | None = None
+    failure_reason: str | None = None
 
 
 class ContainerRuntimeCollector(Protocol):
@@ -51,7 +59,7 @@ class ContainerRuntimeCollector(Protocol):
         container: DiscoveredContainer,
         path: str,
         deadline: float,
-    ) -> bytes | None: ...
+    ) -> FileCopyResult: ...
 
     def copy_tree(
         self,

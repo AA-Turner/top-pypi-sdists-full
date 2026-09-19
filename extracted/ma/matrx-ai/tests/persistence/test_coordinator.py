@@ -27,6 +27,8 @@ from matrx_ai.persistence.coordinator import (
 )
 from matrx_ai.persistence.registry import register_table
 
+_LANE_ORG = "88888888-8888-4888-8888-888888888888"
+
 
 class _FakeFK:
     def __init__(self, related_model):
@@ -851,7 +853,19 @@ async def test_child_scope_pins_owner_before_delayed_task_inherits(monkeypatch):
     late_boundaries = []
     release = asyncio.Event()
     monkeypatch.setattr(queue_helpers, "get_current_lane", lambda: lane)
-    monkeypatch.setattr(queue_helpers, "_resolve_app_context", lambda: None)
+    # The lane-drain behaviour under test is orthogonal to tenancy, but an
+    # org-scoped INSERT is refused without an organization (2026-09-17), so the
+    # ambient request carries the one a real caller would.
+    monkeypatch.setattr(
+        queue_helpers,
+        "_resolve_app_context",
+        lambda: SimpleNamespace(
+            organization_id=_LANE_ORG,
+            request_id="r-lane",
+            user_id="u-lane",
+            conversation_id=None,
+        ),
+    )
     monkeypatch.setattr(queue_helpers, "_ensure_cx_registered", lambda: None)
     monkeypatch.setattr(
         queue_helpers,
@@ -945,7 +959,19 @@ async def test_first_write_after_lane_drain_uses_one_shot_and_captures(
     one_shots = []
 
     monkeypatch.setattr(queue_helpers, "get_current_lane", lambda: lane)
-    monkeypatch.setattr(queue_helpers, "_resolve_app_context", lambda: None)
+    # The lane-drain behaviour under test is orthogonal to tenancy, but an
+    # org-scoped INSERT is refused without an organization (2026-09-17), so the
+    # ambient request carries the one a real caller would.
+    monkeypatch.setattr(
+        queue_helpers,
+        "_resolve_app_context",
+        lambda: SimpleNamespace(
+            organization_id=_LANE_ORG,
+            request_id="r-lane",
+            user_id="u-lane",
+            conversation_id=None,
+        ),
+    )
     monkeypatch.setattr(queue_helpers, "_ensure_cx_registered", lambda: None)
     monkeypatch.setattr(
         queue_helpers,
@@ -973,17 +999,18 @@ async def test_first_write_after_lane_drain_uses_one_shot_and_captures(
             queue_helpers.queue_message_create(id="m-1", conversation_id="c-1")
             == "late-op"
         )
-        assert captures == [
-            (
-                lane_phase,
-                None,
-                {
-                    "table": "chat.message",
-                    "op_type": "insert",
-                    "primary_key": ("id", "m-1"),
-                },
-            )
-        ]
+        # The ambient context is no longer None: an org-scoped INSERT is refused
+        # without an organization (2026-09-17), so a real late write carries one
+        # and the capture records the context it was made under.
+        assert len(captures) == 1
+        captured_phase, captured_ctx, captured_detail = captures[0]
+        assert captured_phase == lane_phase
+        assert captured_ctx.organization_id == _LANE_ORG
+        assert captured_detail == {
+            "table": "chat.message",
+            "op_type": "insert",
+            "primary_key": ("id", "m-1"),
+        }
         assert queue_helpers.queue_message_update("m-1", role="assistant") == "late-op"
         assert len(captures) == 1
         assert one_shots == [

@@ -614,7 +614,7 @@ fn invalid_pyproject_toml_option_unknown_field() -> Result<()> {
         |
       2 | unknown = "field"
         | ^^^^^^^
-      unknown field `unknown`, expected one of `required-version`, `system-certs`, `native-tls`, `offline`, `no-cache`, `cache-dir`, `preview`, `preview-features`, `python-preference`, `python-downloads`, `concurrent-downloads`, `concurrent-builds`, `concurrent-installs`, `index`, `index-url`, `extra-index-url`, `no-index`, `find-links`, `index-strategy`, `keyring-provider`, `http-proxy`, `https-proxy`, `no-proxy`, `allow-insecure-host`, `resolution`, `prerelease`, `prerelease-package`, `fork-strategy`, `dependency-metadata`, `config-settings`, `config-settings-package`, `no-build-isolation`, `no-build-isolation-package`, `extra-build-dependencies`, `extra-build-variables`, `exclude-newer`, `exclude-newer-package`, `link-mode`, `compile-bytecode`, `no-sources`, `no-sources-package`, `upgrade`, `upgrade-package`, `reinstall`, `reinstall-package`, `no-build`, `no-build-package`, `no-binary`, `no-binary-package`, `torch-backend`, `python-install-mirror`, `pypy-install-mirror`, `python-downloads-json-url`, `publish-url`, `trusted-publishing`, `check-url`, `add-bounds`, `audit`, `pip`, `cache-keys`, `override-dependencies`, `exclude-dependencies`, `constraint-dependencies`, `build-constraint-dependencies`, `environments`, `required-environments`, `conflicts`, `workspace`, `sources`, `managed`, `package`, `default-groups`, `dependency-groups`, `dev-dependencies`, `build-backend`
+      unknown field `unknown`, expected one of `required-version`, `system-certs`, `native-tls`, `offline`, `no-cache`, `cache-dir`, `preview`, `preview-features`, `python-preference`, `python-downloads`, `concurrent-downloads`, `concurrent-builds`, `concurrent-installs`, `index`, `index-url`, `extra-index-url`, `no-index`, `find-links`, `index-strategy`, `keyring-provider`, `http-proxy`, `https-proxy`, `no-proxy`, `allow-insecure-host`, `resolution`, `prerelease`, `prerelease-package`, `fork-strategy`, `dependency-metadata`, `config-settings`, `config-settings-package`, `no-build-isolation`, `no-build-isolation-package`, `extra-build-dependencies`, `extra-build-variables`, `exclude-newer`, `exclude-newer-package`, `link-mode`, `compile-bytecode`, `no-sources`, `no-sources-package`, `upgrade`, `upgrade-package`, `reinstall`, `reinstall-package`, `no-build`, `no-build-package`, `no-binary`, `no-binary-package`, `torch-backend`, `python-install-mirror`, `pypy-install-mirror`, `python-downloads-json-url`, `publish-url`, `trusted-publishing`, `check-url`, `add-bounds`, `audit`, `pip`, `cache-keys`, `override-dependencies`, `exclude-dependencies`, `constraint-dependencies`, `build-constraint-dependencies`, `environments`, `required-environments`, `minimum-libc-version`, `conflicts`, `workspace`, `sources`, `managed`, `package`, `default-groups`, `dependency-groups`, `dev-dependencies`, `build-backend`
 
     Resolved in [TIME]
     Checked in [TIME]
@@ -1163,6 +1163,70 @@ async fn install_remote_requirements_txt() -> Result<()> {
     );
 
     context.assert_command("import flask").success();
+
+    Ok(())
+}
+
+/// Install a package from a relative include in a remote `requirements.txt`.
+#[tokio::test]
+async fn install_remote_requirements_txt_with_relative_include() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let server = MockServer::start().await;
+
+    Mock::given(method("GET"))
+        .and(path("/nested/requirements.txt"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("-r child.txt"))
+        .mount(&server)
+        .await;
+    Mock::given(method("GET"))
+        .and(path("/nested/child.txt"))
+        .respond_with(ResponseTemplate::new(200).set_body_string("iniconfig"))
+        .mount(&server)
+        .await;
+
+    uv_snapshot!(context.pip_install()
+        .arg("-r")
+        .arg(format!("{}/nested/requirements.txt", server.uri())), @"
+    exit_code: 0 (success)
+    ----- stderr -----
+    Resolved 1 package in [TIME]
+    Prepared 1 package in [TIME]
+    Installed 1 package in [TIME]
+     + iniconfig==2.0.0
+    "
+    );
+
+    context.assert_command("import iniconfig").success();
+
+    Ok(())
+}
+
+/// Avoid exposing expanded environment variables from remote requirements files.
+#[tokio::test]
+async fn install_remote_requirements_txt_redacts_nested_url() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+    let server = MockServer::start().await;
+
+    Mock::given(method("GET"))
+        .and(path("/requirements.txt"))
+        .respond_with(
+            ResponseTemplate::new(200).set_body_string(
+                "-r https://user/name:${UV_TEST_SECRET}@example.com/requirements.txt",
+            ),
+        )
+        .mount(&server)
+        .await;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("-r")
+        .arg(format!("{}/requirements.txt", server.uri()))
+        .env("UV_TEST_SECRET", "super-secret"), @r"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: Invalid requirements input in `http://[LOCALHOST]/requirements.txt` at position 0: ambiguous user/pass authority in URL (not percent-encoded?): https:***@example.com/requirements.txt
+      cause: ambiguous user/pass authority in URL (not percent-encoded?): https:***@example.com/requirements.txt
+    "
+    );
 
     Ok(())
 }
@@ -13839,6 +13903,102 @@ fn pep_751_hash_mismatch() -> Result<()> {
     Installed 1 package in [TIME]
      + iniconfig==2.0.0 (from file://[TEMP_DIR]/iniconfig-2.0.0-py3-none-any.whl)
     ");
+
+    Ok(())
+}
+
+#[test]
+fn pep_751_rejects_mismatched_wheel_identity() -> Result<()> {
+    let context = uv_test::test_context!("3.12");
+
+    let pylock_toml = context.temp_dir.child("pylock.toml");
+    pylock_toml.write_str(
+        r#"
+        lock-version = "1.0"
+        created-by = "uv"
+
+        [[packages]]
+        name = "different"
+        version = "2.0.0"
+        wheels = [{ url = "https://example.com/iniconfig-2.0.0-py3-none-any.whl", hashes = { sha256 = "0000000000000000000000000000000000000000000000000000000000000000" } }]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--preview")
+        .arg("-r")
+        .arg("pylock.toml"), @r#"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: Wheel filename `iniconfig-2.0.0-py3-none-any.whl` does not match package name `different`
+    "#);
+
+    pylock_toml.write_str(
+        r#"
+        lock-version = "1.0"
+        created-by = "uv"
+
+        [[packages]]
+        name = "iniconfig"
+        version = "1.0.0"
+        archive = { url = "https://example.com/iniconfig-2.0.0-py3-none-any.whl", hashes = { sha256 = "0000000000000000000000000000000000000000000000000000000000000000" } }
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--preview")
+        .arg("-r")
+        .arg("pylock.toml"), @r#"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: Wheel filename `iniconfig-2.0.0-py3-none-any.whl` does not match package version `1.0.0`
+    "#);
+
+    // An incompatible wheel must still be validated before falling back to the sdist.
+    pylock_toml.write_str(
+        r#"
+        lock-version = "1.0"
+        created-by = "uv"
+
+        [[packages]]
+        name = "iniconfig"
+        version = "2.0.0"
+        sdist = { url = "https://example.com/iniconfig-2.0.0.tar.gz", hashes = { sha256 = "0000000000000000000000000000000000000000000000000000000000000000" } }
+        wheels = [{ url = "https://example.com/different-2.0.0-cp39-cp39-any.whl", hashes = { sha256 = "0000000000000000000000000000000000000000000000000000000000000000" } }]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--preview")
+        .arg("-r")
+        .arg("pylock.toml"), @r#"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: Wheel filename `different-2.0.0-cp39-cp39-any.whl` does not match package name `iniconfig`
+    "#);
+
+    // A malformed wheel must not be ignored merely because an sdist is available.
+    pylock_toml.write_str(
+        r#"
+        lock-version = "1.0"
+        created-by = "uv"
+
+        [[packages]]
+        name = "iniconfig"
+        version = "2.0.0"
+        sdist = { url = "https://example.com/iniconfig-2.0.0.tar.gz", hashes = { sha256 = "0000000000000000000000000000000000000000000000000000000000000000" } }
+        wheels = [{ url = "https://example.com/invalid.whl", hashes = { sha256 = "0000000000000000000000000000000000000000000000000000000000000000" } }]
+        "#,
+    )?;
+
+    uv_snapshot!(context.filters(), context.pip_install()
+        .arg("--preview")
+        .arg("-r")
+        .arg("pylock.toml"), @r#"
+    exit_code: 2 (failure)
+    ----- stderr -----
+    error: The wheel filename "invalid.whl" is invalid: Must have a version
+    "#);
 
     Ok(())
 }

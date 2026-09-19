@@ -12,11 +12,11 @@ from pyarrow.types import is_dictionary
 from pydantic import BaseModel
 
 from graphdatascience.arrow_client.arrow_endpoint_version import ArrowEndpointVersion
+from graphdatascience.arrow_client.arrow_table_utils import table_from_pandas
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient, ConnectionInfo
 from graphdatascience.arrow_client.v1.data_mapper_utils import deserialize_single
 
 from ...procedure_surface.arrow.error_handler import handle_flight_error
-from ...semantic_version.semantic_version import SemanticVersion
 from ..progress_callback import ProgressCallback
 
 
@@ -29,7 +29,7 @@ class GdsArrowClient:
 
         Parameters
         ----------
-        flight_client : AuthenticatedArrowClient
+        flight_client
             The authenticated flight client to use for communication with the GDS server. Ownership of the client is transferred to this GdsArrowClient.
         """
         self._flight_client = flight_client
@@ -50,21 +50,21 @@ class GdsArrowClient:
         Parameters
         ----------
         graph_name
-            The name of the graph
+            Name of the graph to be created
         database
-            The name of the database to which the graph belongs
+            Name of the database to which the graph belongs
         node_properties
-            The name of the node properties to retrieve
+            Name of the node properties to retrieve
         node_labels
             A list of node labels to filter the nodes
         list_node_labels
             A flag that indicates whether the node labels should be included in the result
         concurrency
-            The number of threads used on the server side when serving the data
+            Number of threads used on the server side when serving the data
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             The requested node property as a DataFrame
         """
         config: dict[str, Any] = {
@@ -94,15 +94,15 @@ class GdsArrowClient:
         Parameters
         ----------
         graph_name
-            The name of the graph
+            Name of the graph to be created
         database
-            The name of the database to which the graph belongs
+            Name of the database to which the graph belongs
         concurrency
-            The number of threads used on the server side when serving the data
+            Number of threads used on the server side when serving the data
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             The requested nodes as a DataFrame
         """
         return self._get_data(graph_name, database, "gds.graph.nodeLabels.stream", concurrency, {})
@@ -119,18 +119,18 @@ class GdsArrowClient:
 
         Parameters
         ----------
-        graph_name : str
-            The name of the graph
-        database : str
-            The name of the database to which the graph belongs
-        relationship_types : list[str]
-            The name of the relationship types to retrieve
-        concurrency : int | None
-            The number of threads used on the server side when serving the data
+        graph_name
+            Name of the graph to be created
+        database
+            Name of the database to which the graph belongs
+        relationship_types
+            Name of the relationship types to retrieve
+        concurrency
+            Number of threads used on the server side when serving the data
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             The requested relationships as a DataFrame
         """
         return self._get_data(
@@ -155,19 +155,19 @@ class GdsArrowClient:
         Parameters
         ----------
         graph_name
-            The name of the graph
+            Name of the graph
         database
-            The name of the database to which the graph belongs
+            Name of the database to which the graph belongs
         relationship_properties
-            The name of the relationship properties to retrieve
+            Name of the relationship properties to retrieve
         relationship_types
-            The name of the relationship types to retrieve
+            Name of the relationship types to retrieve
         concurrency
-            The number of threads used on the server side when serving the data
+            Number of threads used on the server side when serving the data
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             The requested relationships as a DataFrame
         """
         config: dict[str, Any] = {}
@@ -198,15 +198,15 @@ class GdsArrowClient:
 
         Parameters
         ----------
-        graph_name : str
+        graph_name
             The name used to identify the graph in the catalog and the import process
         database: str
             The name of the database from which the graph will be accessible
-        undirected_relationship_types : list[str] | None
+        undirected_relationship_types
             A list of relationship types that should be treated as undirected
-        inverse_indexed_relationship_types : list[str] | None
+        inverse_indexed_relationship_types
             A list of relationship types that should be indexed in reverse direction as well
-        concurrency : int | None
+        concurrency
             The number of threads used on the server side when importing the graph
         """
 
@@ -239,15 +239,15 @@ class GdsArrowClient:
 
         Parameters
         ----------
-        graph_name : str
+        graph_name
             The name used to identify the graph in the catalog and the import process
         database: str
             The name of the database from which the graph will be accessible
-        undirected_relationship_types : list[str] | None
+        undirected_relationship_types
             A list of relationship types that should be treated as undirected
-        inverse_indexed_relationship_types : list[str] | None
+        inverse_indexed_relationship_types
             A list of relationship types that should be indexed in reverse direction as well
-        concurrency : int | None
+        concurrency
             The number of threads used on the server side when importing the graph
         """
 
@@ -285,13 +285,13 @@ class GdsArrowClient:
         ----------
         database: str
             The name used to identify the database and the import process
-        id_type : str | None
+        id_type
             Sets the node id type used in the input data. Can be either `INTEGER` or `STRING` (default is `INTEGER`)
-        id_property : str | None
+        id_property
             The node property key which stores the node id of the input data (default is `originalId`)
         db_format
             Database format. Valid values standard, aligned, high_limit or block (default is controlled by the db setting `db.db_format`)
-        concurrency : int | None
+        concurrency
             The number of threads used on the server side when importing the graph
         force: bool
             Force deletes any existing database files prior to the import (default is False)
@@ -325,7 +325,7 @@ class GdsArrowClient:
 
         Parameters
         ----------
-        graph_name : str
+        graph_name
             The name of the import process
 
         Returns
@@ -343,11 +343,12 @@ class GdsArrowClient:
 
         Parameters
         ----------
-        graph_name : str
+        graph_name
             The name of the import process
 
          Returns
-        -------
+         -------
+         RelationshipLoadDoneResult
         RelationshipLoadDoneResult
             A result object containing the name of the import process and the number of relationships loaded
         """
@@ -361,7 +362,7 @@ class GdsArrowClient:
 
         Parameters
         ----------
-        graph_name : str
+        graph_name
             The name of the import process
 
         Returns
@@ -377,7 +378,7 @@ class GdsArrowClient:
 
         Parameters
         ----------
-        graph_name : str
+        graph_name
             The name of the import process
         """
         self._send_action("ABORT", {"name": graph_name})
@@ -394,13 +395,13 @@ class GdsArrowClient:
 
         Parameters
         ----------
-        graph_name : str
+        graph_name
             The name of the import process
-        node_data : pyarrow.Table | Iterable[pyarrow.RecordBatch] | DataFrame
+        node_data
             The node data to upload
-        batch_size : int
+        batch_size
             The number of rows per batch
-        progress_callback : ProgressCallback
+        progress_callback
             A callback function that is called with the number of rows uploaded after each batch
         """
         self._upload_data(graph_name, "node", node_data, batch_size, progress_callback)
@@ -442,7 +443,7 @@ class GdsArrowClient:
         ----------
         graph_name
             The name of the import process
-        triplet_data : pyarrow.Table | Iterable[pyarrow.RecordBatch] | DataFrame
+        triplet_data
             The triplet data to upload
         batch_size
             The number of rows per batch
@@ -487,11 +488,13 @@ class GdsArrowClient:
         batch_size: int,
         progress_callback: ProgressCallback,
     ) -> None:
+        batches: list[RecordBatch]
         match data:
             case pyarrow.Table():
                 batches = data.to_batches(batch_size)
             case pandas.DataFrame():
-                batches = pyarrow.Table.from_pandas(data).to_batches(batch_size)
+                batches = table_from_pandas(data).to_batches(batch_size)
+
             case _:
                 batches = data
 
@@ -562,11 +565,7 @@ class GdsArrowClient:
         except Exception as e:
             handle_flight_error(e)
         arrow_table = self._sanitize_arrow_table(arrow_table)
-        if SemanticVersion.from_string(pandas.__version__) >= SemanticVersion(2, 0, 0):
-            return arrow_table.to_pandas(types_mapper=pandas.ArrowDtype)  # type: ignore
-        else:
-            arrow_table = self._sanitize_arrow_table(arrow_table)
-            return arrow_table.to_pandas()  # type: ignore
+        return arrow_table.to_pandas(types_mapper=pandas.ArrowDtype)  # type: ignore
 
     def __enter__(self) -> GdsArrowClient:
         return self

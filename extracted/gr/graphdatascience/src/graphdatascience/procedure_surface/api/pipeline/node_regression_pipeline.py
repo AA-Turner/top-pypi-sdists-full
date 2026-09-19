@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from typing import Any
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
-from graphdatascience.procedure_surface.api.model.node_regression_model import NodeRegressionModelV2
 from graphdatascience.procedure_surface.api.pipeline.node_regression_metric import NodeRegressionMetric
+from graphdatascience.procedure_surface.api.pipeline.node_regression_model import NodeRegressionModel
 from graphdatascience.procedure_surface.api.pipeline.node_regression_pipeline_protocol import (
     NodeRegressionPipelineOps,
     NodeRegressionPipelineTrainer,
@@ -18,6 +18,7 @@ from graphdatascience.procedure_surface.api.pipeline.pipeline_catalog_protocol i
     PipelineCatalogEntryProtocol,
     PipelineCatalogProtocol,
 )
+from graphdatascience.procedure_surface.api.pipeline.pipeline_info_mapping import to_pipeline_info
 
 
 class NodeRegressionPipeline:
@@ -201,6 +202,11 @@ class NodeRegressionPipeline:
         """
         return self._ops.configure_auto_tuning(self._name, max_trials=max_trials)
 
+    def details(self) -> NodeRegressionPipelineInfoResult:
+        """Return the stored configuration of the pipeline (feature steps, split, parameter space)."""
+        entry = self._catalog.get(self._name)
+        return NodeRegressionPipelineInfoResult.model_validate(to_pipeline_info(entry, feature_key="featureProperties"))
+
     def exists(self) -> bool:
         """Return whether the pipeline exists."""
         return self._catalog.exists(self._name) is not None
@@ -211,7 +217,7 @@ class NodeRegressionPipeline:
 
     def train(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         metrics: list[str | NodeRegressionMetric],
         model_name: str,
@@ -225,7 +231,7 @@ class NodeRegressionPipeline:
         sudo: bool = False,
         concurrency: int | None = None,
         job_id: str | None = None,
-    ) -> tuple[NodeRegressionModelV2, NodeRegressionPipelineTrainResult]:
+    ) -> tuple[NodeRegressionModel, NodeRegressionPipelineTrainResult]:
         """
         Train a node regression model from this pipeline.
 
@@ -260,7 +266,7 @@ class NodeRegressionPipeline:
 
         Returns
         -------
-        tuple[NodeRegressionModelV2, NodeRegressionPipelineTrainResult]
+        tuple[NodeRegressionModel, NodeRegressionPipelineTrainResult]
             The trained model and the corresponding training result.
         """
         return self._trainer.train(

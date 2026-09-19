@@ -1309,6 +1309,11 @@ def _annotation_pagination_params(api_key, *, limit, after=None, show_empty=None
 
 
 def _annotation_administration_response(response):
+    return _json_response_or_raise(response)
+
+
+def _json_response_or_raise(response):
+    """Return the JSON body of a 2xx response; raise ``RoboflowError`` with the HTTP status otherwise."""
     if not 200 <= response.status_code < 300:
         message = response.text
         try:
@@ -1321,6 +1326,124 @@ def _annotation_administration_response(response):
             pass
         raise RoboflowError(message, status_code=response.status_code)
     return response.json()
+
+
+# ---------------------------------------------------------------------------
+# Hosted auto-label endpoints
+# ---------------------------------------------------------------------------
+
+
+def _autolabel_response(response):
+    return _json_response_or_raise(response)
+
+
+def list_autolabel_models(api_key, workspace_url):
+    """Fetch the foundation-model catalog for hosted auto-labeling.
+
+    Calls ``GET /:workspace/autolabel/models``. Returns ``{models: [...]}``
+    where each entry carries ``id``, ``name``, ``guidance``, ``ontologyFormat``,
+    ``creditsPerImage``, ``isDefault`` and per-workspace ``available`` (with an
+    ``unavailableReason`` when the plan blocks a model).
+    """
+    response = requests.get(
+        f"{API_URL}/{workspace_url}/autolabel/models",
+        params={"api_key": api_key},
+    )
+    return _autolabel_response(response)
+
+
+def preview_autolabel(
+    api_key,
+    workspace_url,
+    project_url,
+    *,
+    model_type,
+    image,
+    ontology=None,
+    confidence_threshold=None,
+):
+    """Preview one image with a foundation model before starting a job.
+
+    Calls ``POST /:workspace/:project/autolabel/preview``. Free: no job is
+    created and no credits are spent. ``image`` is
+    ``{"type": "url" | "base64", "value": ...}`` and ``ontology`` is keyed by
+    prompt: ``{"kitten": "cat"}`` labels prompt matches as class ``cat``.
+    Returns
+    ``{model, predictions, summary, blockErrors?}``.
+    """
+    payload = {"modelType": model_type, "image": image}
+    if ontology is not None:
+        payload["ontology"] = ontology
+    if confidence_threshold is not None:
+        payload["confidenceThreshold"] = confidence_threshold
+    response = requests.post(
+        f"{API_URL}/{workspace_url}/{project_url}/autolabel/preview",
+        params={"api_key": api_key},
+        json=payload,
+    )
+    return _autolabel_response(response)
+
+
+def start_autolabel_job(
+    api_key,
+    workspace_url,
+    project_url,
+    *,
+    batch_id,
+    model_type,
+    ontology=None,
+    num_images_to_label=None,
+    default_confidence=None,
+    confidence_thresholds=None,
+    run_nms=None,
+    reviewer_email=None,
+    model_options=None,
+    preserve_existing_annotations=None,
+):
+    """Start a hosted auto-label job over a batch.
+
+    Calls ``POST /:workspace/:project/autolabel``. ``model_type`` is sent
+    as-is: a catalog id from ``list_autolabel_models`` (for example
+    ``gpt-6-astra-boxes`` or ``sam3-rle``) or ``custom_roboflow`` with the
+    Roboflow model id in ``model_options["modelId"]``. ``ontology`` is keyed
+    by prompt: ``{"kitten": "cat"}`` labels prompt matches as class ``cat``.
+    The backend fans
+    ``default_confidence`` out across the ontology when
+    ``confidence_thresholds`` is omitted and defaults ``num_images_to_label``
+    to the whole batch. ``preserve_existing_annotations`` keeps annotations
+    already on the images and only adds new ones; the server default (False)
+    replaces them. Returns ``{jobId, annotationJobId, message}``.
+    """
+    payload = {"batchId": batch_id, "modelType": model_type}
+    optional = {
+        "ontology": ontology,
+        "numImagesToLabel": num_images_to_label,
+        "defaultConfidence": default_confidence,
+        "confidenceThresholds": confidence_thresholds,
+        "runNMS": run_nms,
+        "reviewerEmail": reviewer_email,
+        "modelOptions": model_options,
+        "preserveExistingAnnotations": preserve_existing_annotations,
+    }
+    payload.update({key: value for key, value in optional.items() if value is not None})
+    response = requests.post(
+        f"{API_URL}/{workspace_url}/{project_url}/autolabel",
+        params={"api_key": api_key},
+        json=payload,
+    )
+    return _autolabel_response(response)
+
+
+def get_autolabel_job(api_key, workspace_url, job_id):
+    """Fetch per-subjob status and progress for a hosted auto-label job.
+
+    Calls ``GET /:workspace/autolabel/jobs/:jobId``.
+    """
+    response = requests.get(
+        f"{API_URL}/{workspace_url}/autolabel/jobs/{job_id}",
+        params={"api_key": api_key},
+    )
+    return _autolabel_response(response)
 
 
 # ---------------------------------------------------------------------------
@@ -1707,6 +1830,148 @@ def get_video_job_status(api_key, job_id):
     response = requests.get(f"{API_URL}/videoinfer", params={"api_key": api_key, "job_id": job_id})
     if response.status_code != 200:
         raise RoboflowError(response.text)
+    return response.json()
+
+
+# ---------------------------------------------------------------------------
+# Batch Processing (Asset Library orchestration)
+# ---------------------------------------------------------------------------
+
+BATCH_PROCESSING_REQUEST_TIMEOUT = (10, 60)
+
+
+def _batch_processing_jobs_url(workspace_url, suffix=""):
+    return f"{API_URL}/batch-processing/v1/external/{workspace_url}/jobs{suffix}"
+
+
+def _asset_library_batch_processing_url(workspace_url):
+    return f"{API_URL}/batch-processing/v1/external/{workspace_url}/asset-library/jobs"
+
+
+def _batch_processing_headers(api_key):
+    return {"Authorization": f"Bearer {api_key}"}
+
+
+def _batch_processing_request(request, *args, **kwargs):
+    """Make a Batch Processing request with CLI-safe transport errors."""
+    try:
+        return request(*args, **kwargs)
+    except RequestException as exc:
+        raise RoboflowError(str(exc)) from exc
+
+
+def _raise_for_batch_processing_response(response):
+    message = response.text
+    try:
+        body = response.json()
+        if isinstance(body, dict):
+            error = body.get("error")
+            if isinstance(error, dict):
+                message = error.get("message") or error.get("hint") or message
+            elif error:
+                message = str(error)
+            else:
+                message = body.get("message") or message
+    except (TypeError, ValueError):
+        pass
+    raise RoboflowError(message, status_code=response.status_code)
+
+
+def create_asset_library_batch_job(
+    api_key,
+    workspace_url,
+    *,
+    workflow_id,
+    idempotency_key,
+    image_ids=None,
+    query=None,
+    machine_type="cpu",
+    display_name=None,
+):
+    """Queue a published Workflow over an exact Asset Library selection."""
+    payload = {
+        "workflowId": workflow_id,
+        "idempotencyKey": idempotency_key,
+        "machineType": machine_type,
+    }
+    if image_ids is not None:
+        payload["imageIds"] = image_ids
+    if query is not None:
+        payload["query"] = query
+    if display_name:
+        payload["displayName"] = display_name
+    response = _batch_processing_request(
+        requests.post,
+        _asset_library_batch_processing_url(workspace_url),
+        headers=_batch_processing_headers(api_key),
+        json=payload,
+        timeout=BATCH_PROCESSING_REQUEST_TIMEOUT,
+    )
+    if response.status_code != 202:
+        _raise_for_batch_processing_response(response)
+    return response.json()
+
+
+def list_batch_processing_jobs(api_key, workspace_url, *, page_size=10, next_page_token=None, search=None):
+    """List durable Batch Processing jobs in a workspace."""
+    params = {"pageSize": page_size}
+    if next_page_token:
+        params["nextPageToken"] = next_page_token
+    if search:
+        params["search"] = search
+    response = _batch_processing_request(
+        requests.get,
+        _batch_processing_jobs_url(workspace_url),
+        headers=_batch_processing_headers(api_key),
+        params=params,
+        timeout=BATCH_PROCESSING_REQUEST_TIMEOUT,
+    )
+    if response.status_code != 200:
+        _raise_for_batch_processing_response(response)
+    return response.json()
+
+
+def get_batch_processing_job(api_key, workspace_url, job_id):
+    """Get current metadata for one Batch Processing job."""
+    encoded = quote(job_id, safe="")
+    response = _batch_processing_request(
+        requests.get,
+        _batch_processing_jobs_url(workspace_url, f"/{encoded}"),
+        headers=_batch_processing_headers(api_key),
+        timeout=BATCH_PROCESSING_REQUEST_TIMEOUT,
+    )
+    if response.status_code != 200:
+        _raise_for_batch_processing_response(response)
+    return response.json()
+
+
+def abort_batch_processing_job(api_key, workspace_url, job_id):
+    """Abort one Batch Processing job."""
+    encoded = quote(job_id, safe="")
+    response = _batch_processing_request(
+        requests.post,
+        _batch_processing_jobs_url(workspace_url, f"/{encoded}/abort"),
+        headers=_batch_processing_headers(api_key),
+        json={},
+        timeout=BATCH_PROCESSING_REQUEST_TIMEOUT,
+    )
+    if response.status_code != 200:
+        _raise_for_batch_processing_response(response)
+    return response.json()
+
+
+def restart_batch_processing_job(api_key, workspace_url, job_id):
+    """Restart one Batch Processing job with its existing configuration."""
+    encoded = quote(job_id, safe="")
+    response = _batch_processing_request(
+        requests.post,
+        _batch_processing_jobs_url(workspace_url, f"/{encoded}/restart"),
+        headers=_batch_processing_headers(api_key),
+        json={},
+        timeout=BATCH_PROCESSING_REQUEST_TIMEOUT,
+    )
+    if response.status_code != 200:
+        _raise_for_batch_processing_response(response)
     return response.json()
 
 

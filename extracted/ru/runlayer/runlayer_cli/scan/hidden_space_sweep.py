@@ -40,6 +40,7 @@ MAX_ENTRIES = 10_000
 MAX_DEPTH = 6
 MAX_FILES = 10_000
 MAX_FOLLOWED_SYMLINK_TARGETS = 64
+MAX_LAUNCHER_DIRECTORIES = 256
 MAX_NODE_MODULES_PATHS = 256
 # G5-only output cap; reaching it does not stop the shared G1/G3 traversal.
 MAX_PYTHON_ENV_ROOTS = 16
@@ -59,6 +60,13 @@ _KNOWN_BENIGN_DOT_DIRS = frozenset(
 )
 
 
+@dataclass(frozen=True)
+class HiddenLauncherDirectory:
+    """A bin directory admitted by the bounded hidden-space traversal."""
+
+    path: Path
+
+
 @dataclass
 class HiddenSpaceScanResult:
     """Paths discovered during one shared hidden-space traversal.
@@ -74,6 +82,8 @@ class HiddenSpaceScanResult:
     python_env_roots_truncated: bool = False
     truncated: bool = False
     file_targets: dict[Path, Path] = field(default_factory=dict)
+    launcher_directories: list[HiddenLauncherDirectory] = field(default_factory=list)
+    launcher_directories_truncated: bool = False
 
 
 @dataclass
@@ -84,6 +94,7 @@ class _SweepBudget:
     deadline: float | None = None
     discovery_truncated: bool = False
     root_selection_truncated: bool = False
+    walk_error: bool = False
     truncated: bool = False
 
 
@@ -187,6 +198,20 @@ def _record_python_env(path: Path, *, result: HiddenSpaceScanResult) -> None:
         result.python_env_roots.append(path)
     else:
         result.python_env_roots_truncated = True
+
+
+def _record_launcher_directory(
+    path: Path,
+    *,
+    result: HiddenSpaceScanResult,
+) -> None:
+    directory = HiddenLauncherDirectory(path=path)
+    if directory in result.launcher_directories:
+        return
+    if len(result.launcher_directories) < MAX_LAUNCHER_DIRECTORIES:
+        result.launcher_directories.append(directory)
+    else:
+        result.launcher_directories_truncated = True
 
 
 def _python_env_from_site_packages(path: Path) -> Path | None:
@@ -320,6 +345,8 @@ def _candidate_directories(
                     candidate_path = entry_path
                     if followed:
                         target = symlink_policy.inspect(entry_path)
+                        if target is None and entry.name.casefold() == "bin":
+                            target = symlink_policy.inspect_covered_link(entry_path)
                         if target is None:
                             yield None
                             continue
@@ -365,8 +392,10 @@ def _candidate_directories(
                         followed=followed,
                     )
                 except OSError:
+                    budget.discovery_truncated = True
                     yield None
     except OSError:
+        budget.discovery_truncated = True
         return
 
 
@@ -489,6 +518,12 @@ def _discover_roots(
             base.anchor, path
         ):
             return
+        if (
+            candidate.followed
+            and candidate.source_name.casefold() == "bin"
+            and is_real_directory(path)
+        ):
+            _record_launcher_directory(path, result=result)
         key = realpath_key(path)
         if key in selected_roots:
             return
@@ -516,7 +551,7 @@ def _discover_roots(
     drain_round_robin(
         iterators,
         visit=collect,
-        should_stop=lambda: budget.discovery_truncated or _deadline_expired(budget),
+        should_stop=lambda: _deadline_expired(budget),
     )
     return roots
 
@@ -532,6 +567,8 @@ def _classify_walk_directory(
 ) -> _WalkNode | None:
     """Record terminal directory types or return the next bounded walk node."""
     candidate_name = candidate.name.casefold()
+    if name == "bin" or candidate_name == "bin":
+        _record_launcher_directory(candidate, result=result)
     if name == "node_modules" or candidate_name == "node_modules":
         _record_node_modules(candidate, result=result)
         return None
@@ -574,6 +611,8 @@ def _classify_walk_entry(
         candidate = path
         if followed:
             target = symlink_policy.inspect(path)
+            if target is None and name == "bin":
+                target = symlink_policy.inspect_covered_link(path)
             if target is None:
                 return _WalkEntryResult()
             candidate = target
@@ -632,6 +671,7 @@ def _classify_walk_entry(
         symlink_policy.mark_visited(candidate)
         return _WalkEntryResult(output=candidate)
     except OSError:
+        budget.walk_error = True
         return _WalkEntryResult()
 
 
@@ -656,6 +696,8 @@ def _walk_root(
             continue
         seen_directories.add(key)
         symlink_policy.mark_visited(directory)
+        if directory.name.casefold() == "bin":
+            _record_launcher_directory(directory, result=result)
         if directory.name.casefold() == "node_modules":
             _record_node_modules(directory, result=result)
             continue
@@ -700,6 +742,7 @@ def _walk_root(
                     yielded_entry = True
                     yield classified.output
         except OSError:
+            budget.walk_error = True
             continue
 
         if not yielded_entry:
@@ -832,7 +875,10 @@ def scan_hidden_spaces(
     result.truncated = (
         budget.discovery_truncated
         or budget.root_selection_truncated
+        or budget.walk_error
         or budget.truncated
+        or result.launcher_directories_truncated
+        or symlink_policy.follow_budget_exhausted
     )
 
     # Preserve the linked home prefix; deeper follows outside it report realpaths.
@@ -852,6 +898,12 @@ def scan_hidden_spaces(
         for logical_path, target in logical_files
         if logical_path != target
     }
+    result.launcher_directories = [
+        HiddenLauncherDirectory(
+            path=logical_home_path(directory.path),
+        )
+        for directory in result.launcher_directories
+    ]
     result.node_modules_paths = [
         logical_home_path(path) for path in result.node_modules_paths
     ]

@@ -1,6 +1,7 @@
 use std::path::{Path, PathBuf};
 use std::str::FromStr;
 use std::sync::LazyLock;
+use std::time::Duration;
 use std::{fmt, fs};
 
 use etcetera::{BaseStrategy, choose_base_strategy};
@@ -11,7 +12,8 @@ use serde::{Deserialize, Serialize};
 
 use crate::embed::EmbeddedConfig;
 use crate::error::Result;
-use crate::{CONFIG_FILES, DEFAULT_CONFIG, command, error};
+use crate::template::Template;
+use crate::{CONFIG_FILES, DEFAULT_CONFIG, command, error, statistics};
 
 /// Default initial tag.
 const DEFAULT_INITIAL_TAG: &str = "0.1.0";
@@ -63,10 +65,13 @@ pub struct Config {
 }
 
 /// Changelog configuration.
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ChangelogConfig {
     /// Changelog header.
     pub header: Option<String>,
+    /// Marker written after a dynamic changelog header.
+    #[serde(default = "default_header_marker")]
+    pub header_marker: String,
     /// Changelog body, template.
     pub body: String,
     /// Changelog footer.
@@ -75,10 +80,37 @@ pub struct ChangelogConfig {
     pub trim: bool,
     /// Always render the body template.
     pub render_always: bool,
+    /// Format the rendered changelog as Markdown.
+    ///
+    /// Only takes effect when the output is Markdown (stdout or a `.md`
+    /// file). Defaults to `false`, in which case the output is left exactly
+    /// as the templates rendered it.
+    #[serde(default)]
+    pub format: bool,
     /// Changelog postprocessors.
     pub postprocessors: Vec<TextProcessor>,
     /// Output file path.
     pub output: Option<PathBuf>,
+}
+
+fn default_header_marker() -> String {
+    String::from("<!-- git-cliff: end of header -->")
+}
+
+impl Default for ChangelogConfig {
+    fn default() -> Self {
+        Self {
+            header: None,
+            header_marker: default_header_marker(),
+            body: String::new(),
+            footer: None,
+            trim: false,
+            render_always: false,
+            format: false,
+            postprocessors: Vec::new(),
+            output: None,
+        }
+    }
 }
 
 /// Git configuration
@@ -129,6 +161,8 @@ pub struct GitConfig {
     /// Regex to count matched tags.
     #[serde(with = "serde_regex", default)]
     pub count_tags: Option<Regex>,
+    /// Limit the number of tags to process.
+    pub limit_tags: Option<usize>,
     /// Include only the tags that belong to the current branch.
     pub use_branch_tags: bool,
     /// Order releases topologically instead of chronologically.
@@ -274,7 +308,7 @@ impl RemoteConfig {
 }
 
 /// A single remote.
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Remote {
     /// Owner of the remote.
     pub owner: String,
@@ -288,6 +322,9 @@ pub struct Remote {
     pub is_custom: bool,
     /// Remote API URL.
     pub api_url: Option<String>,
+    /// HTTP request timeout.
+    #[serde(default = "default_http_timeout", with = "humantime_serde")]
+    pub http_timeout: Duration,
     /// Whether to use native TLS.
     pub native_tls: Option<bool>,
 }
@@ -295,6 +332,26 @@ pub struct Remote {
 /// Returns `true` for serde's `default` attribute.
 fn default_true() -> bool {
     true
+}
+
+fn default_http_timeout() -> Duration {
+    Duration::from_secs(30)
+}
+
+/// This is implemented manually to avoid deriving a zero [`Remote::http_timeout`]
+/// which would make every request time out immediately.
+impl Default for Remote {
+    fn default() -> Self {
+        Self {
+            owner: String::new(),
+            repo: String::new(),
+            token: None,
+            is_custom: false,
+            api_url: None,
+            http_timeout: default_http_timeout(),
+            native_tls: None,
+        }
+    }
 }
 
 impl fmt::Display for Remote {
@@ -315,10 +372,7 @@ impl Remote {
         Self {
             owner: owner.into(),
             repo: repo.into(),
-            token: None,
-            is_custom: false,
-            api_url: None,
-            native_tls: None,
+            ..Default::default()
         }
     }
 
@@ -386,6 +440,15 @@ pub struct Bump {
     /// `commit type` according to the spec is only `[a-zA-Z]+`
     pub custom_minor_increment_regex: Option<String>,
 
+    /// Configure a regex pattern for commit types that should not increment.
+    ///
+    /// This will check only the type of the commit against the given pattern.
+    ///
+    /// ### Note
+    ///
+    /// `commit type` according to the spec is only `[a-zA-Z]+`
+    pub no_increment_regex: Option<String>,
+
     /// Force to always bump in major, minor or patch.
     pub bump_type: Option<BumpType>,
 }
@@ -428,6 +491,9 @@ pub struct CommitParser {
     pub scope: Option<String>,
     /// Whether to skip this commit group.
     pub skip: Option<bool>,
+    /// Whether to keep parsing with the following parsers after this one
+    /// matches, letting a commit be processed by multiple parsers in order.
+    pub r#continue: Option<bool>,
     /// Field name of the commit to match the regex against.
     pub field: Option<String>,
     /// Regex for matching the field value.
@@ -452,10 +518,10 @@ impl TextProcessor {
     pub fn replace(&self, rendered: &mut String, command_envs: Vec<(&str, &str)>) -> Result<()> {
         if let Some(text) = &self.replace {
             *rendered = self.pattern.replace_all(rendered, text).to_string();
-        } else if let Some(command) = &self.replace_command {
-            if self.pattern.is_match(rendered) {
-                *rendered = command::run(command, Some(rendered.clone()), command_envs)?;
-            }
+        } else if let Some(command) = &self.replace_command &&
+            self.pattern.is_match(rendered)
+        {
+            *rendered = command::run(command, Some(rendered.clone()), command_envs)?;
         }
         Ok(())
     }
@@ -492,11 +558,10 @@ impl Config {
     pub fn load(path: &Path) -> Result<Config> {
         if MANIFEST_INFO
             .iter()
-            .any(|v| path.file_name() == v.path.file_name())
+            .any(|v| path.file_name() == v.path.file_name()) &&
+            let Some(contents) = Self::read_from_manifest()?
         {
-            if let Some(contents) = Self::read_from_manifest()? {
-                return contents.parse();
-            }
+            return contents.parse();
         }
 
         // Adding sources one after another overwrites the previous values.
@@ -550,6 +615,39 @@ impl Config {
             let path = dir.join(file);
             if path.is_file() { Some(path) } else { None }
         })
+    }
+
+    /// Returns whether per-commit diff statistics are used by a changelog
+    /// template or commit parser.
+    pub fn uses_commit_statistics(&self) -> Result<bool> {
+        if self
+            .git
+            .commit_parsers
+            .iter()
+            .filter_map(|parser| parser.field.as_deref())
+            .any(|field| field.starts_with("statistics."))
+        {
+            return Ok(true);
+        }
+
+        let trim = self.changelog.trim;
+        let body_template = Template::new("body", self.changelog.body.clone(), trim)?;
+        if body_template.contains_variable(statistics::TEMPLATE_VARIABLES) {
+            return Ok(true);
+        }
+        if let Some(header) = &self.changelog.header {
+            let header_template = Template::new("header", header.clone(), trim)?;
+            if header_template.contains_variable(statistics::TEMPLATE_VARIABLES) {
+                return Ok(true);
+            }
+        }
+        if let Some(footer) = &self.changelog.footer {
+            let footer_template = Template::new("footer", footer.clone(), trim)?;
+            if footer_template.contains_variable(statistics::TEMPLATE_VARIABLES) {
+                return Ok(true);
+            }
+        }
+        Ok(false)
     }
 }
 
@@ -633,6 +731,54 @@ mod test {
         assert!(!Remote::new("", "test").is_set());
         assert!(!Remote::new("test", "").is_set());
         assert!(!Remote::new("", "").is_set());
+        assert_eq!(Duration::from_secs(30), remote1.http_timeout);
+    }
+
+    #[test]
+    fn parse_changelog_header_marker() -> Result<()> {
+        let config: Config = r#"
+            [changelog]
+            header_marker = "<!-- custom header boundary -->"
+        "#
+        .parse()?;
+
+        assert_eq!(
+            "<!-- custom header boundary -->",
+            config.changelog.header_marker
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn default_remote_http_timeout() -> Result<()> {
+        assert_eq!(default_http_timeout(), Remote::default().http_timeout);
+
+        // remotes that are not present in the configuration file are still
+        // expected to have a usable timeout.
+        let config = Config::from_str(
+            r#"
+                [changelog]
+                body = "test"
+            "#,
+        )?;
+        assert_eq!(default_http_timeout(), config.remote.github.http_timeout);
+        assert_eq!(default_http_timeout(), config.remote.gitlab.http_timeout);
+        Ok(())
+    }
+
+    #[test]
+    fn parse_remote_http_timeout() -> Result<()> {
+        let config = Config::from_str(
+            r#"
+                [remote.github]
+                owner = "orhun"
+                repo = "git-cliff"
+                http_timeout = "60s"
+            "#,
+        )?;
+
+        assert_eq!(Duration::from_secs(60), config.remote.github.http_timeout);
+        Ok(())
     }
 
     #[test]
@@ -656,6 +802,23 @@ mod test {
             Config::retrieve_project_config_path(dir.path()),
             Some(dir.path().join("cliff.toml")),
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn detects_commit_statistics_usage_in_templates() -> Result<()> {
+        let mut config = EmbeddedConfig::parse()?;
+        assert!(!config.uses_commit_statistics()?);
+
+        config.changelog.body = String::from(
+            "{% for commit in commits %}{{ commit.statistics.files_changed }}{% endfor %}",
+        );
+        assert!(config.uses_commit_statistics()?);
+
+        config.changelog.body = String::from("{{ version }}");
+        config.changelog.footer = Some(String::from("{{ commit.statistics.additions }}"));
+        assert!(config.uses_commit_statistics()?);
 
         Ok(())
     }

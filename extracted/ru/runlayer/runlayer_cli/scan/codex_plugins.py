@@ -23,6 +23,7 @@ from runlayer_cli.scan.config_parser import (
 from runlayer_cli.scan.plugin_scanner import (
     _version_sort_key,
     compute_plugin_identifier,
+    mark_plugin_scan_incomplete,
 )
 
 logger = structlog.get_logger(__name__)
@@ -111,6 +112,7 @@ def _discover_codex_plugins(
                     break  # use first version dir with an mcp config
 
     except OSError as e:
+        mark_plugin_scan_incomplete("codex_plugin_cache_enumeration_failed")
         logger.warning(
             "Failed to scan Codex plugin cache",
             path=str(plugin_cache_base),
@@ -139,12 +141,14 @@ def scan_codex_plugins(
         elif platform.system() == "Windows":
             profile = os.environ.get("USERPROFILE")
             if not profile:
+                mark_plugin_scan_incomplete("codex_plugin_home_resolution_failed")
                 return []
             plugin_cache_base = Path(profile) / ".codex" / "plugins" / "cache"
         else:
             try:
                 plugin_cache_base = Path.home() / ".codex" / "plugins" / "cache"
             except RuntimeError:
+                mark_plugin_scan_incomplete("codex_plugin_home_resolution_failed")
                 return []
 
     plugins = _discover_codex_plugins(plugin_cache_base)

@@ -3,7 +3,7 @@ from __future__ import annotations
 from pandas import DataFrame
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.pipeline.node_classification_predict_endpoints import (
     NodeClassificationPipelinePredictEndpoints,
@@ -20,7 +20,7 @@ class NodeClassificationPredictCypherEndpoints(NodeClassificationPipelinePredict
 
     def estimate(
         self,
-        G: GraphV2,
+        G: Graph,
         model_name: str,
         *,
         relationship_types: list[str] | None = None,
@@ -46,12 +46,12 @@ class NodeClassificationPredictCypherEndpoints(NodeClassificationPipelinePredict
         result = self._query_runner.call_procedure(
             endpoint="gds.beta.pipeline.nodeClassification.predict.stream.estimate",
             params=params,
-        ).squeeze()
+        ).iloc[0]
         return EstimationResult.from_cypher(result.to_dict())
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         model_name: str,
         *,
         relationship_types: list[str] | None = None,
@@ -82,7 +82,7 @@ class NodeClassificationPredictCypherEndpoints(NodeClassificationPipelinePredict
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         model_name: str,
         mutate_property: str,
         *,
@@ -111,12 +111,12 @@ class NodeClassificationPredictCypherEndpoints(NodeClassificationPipelinePredict
         params.ensure_job_id_in_config()
         result = self._query_runner.call_procedure(
             endpoint="gds.beta.pipeline.nodeClassification.predict.mutate", params=params
-        ).squeeze()
-        return NodeClassificationPipelinePredictMutateResult(**result.to_dict())
+        ).iloc[0]
+        return NodeClassificationPipelinePredictMutateResult(**result)
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         model_name: str,
         write_property: str,
         *,
@@ -147,5 +147,5 @@ class NodeClassificationPredictCypherEndpoints(NodeClassificationPipelinePredict
         params.ensure_job_id_in_config()
         result = self._query_runner.call_procedure(
             endpoint="gds.beta.pipeline.nodeClassification.predict.write", params=params
-        ).squeeze()
-        return NodeClassificationPipelinePredictWriteResult(**result.to_dict())
+        ).iloc[0]
+        return NodeClassificationPipelinePredictWriteResult(**result)

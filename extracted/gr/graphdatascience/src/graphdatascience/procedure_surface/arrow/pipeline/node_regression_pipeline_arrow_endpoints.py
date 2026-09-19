@@ -5,10 +5,10 @@ from typing import Any
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
 from graphdatascience.arrow_client.v2.data_mapper_utils import deserialize_single
 from graphdatascience.arrow_client.v2.job_client import JobClient
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
-from graphdatascience.procedure_surface.api.model.node_regression_model import NodeRegressionModelV2
 from graphdatascience.procedure_surface.api.pipeline.node_regression_metric import NodeRegressionMetric
+from graphdatascience.procedure_surface.api.pipeline.node_regression_model import NodeRegressionModel
 from graphdatascience.procedure_surface.api.pipeline.node_regression_pipeline import NodeRegressionPipeline
 from graphdatascience.procedure_surface.api.pipeline.node_regression_pipeline_endpoints import (
     NodeRegressionPipelineEndpoints,
@@ -22,7 +22,7 @@ from graphdatascience.procedure_surface.api.pipeline.node_regression_predict_end
 )
 from graphdatascience.procedure_surface.api.pipeline.parameter_space_config import convert_to_parameter_space_config
 from graphdatascience.procedure_surface.api.pipeline.pipeline_catalog_protocol import PipelineCatalogProtocol
-from graphdatascience.procedure_surface.arrow.model_api_arrow import ModelApiArrow
+from graphdatascience.procedure_surface.arrow.model.model_catalog_arrow_endpoints import ModelCatalogArrowEndpoints
 from graphdatascience.procedure_surface.arrow.pipeline.node_regression_predict_arrow_endpoints import (
     NodeRegressionPredictArrowEndpoints,
 )
@@ -49,7 +49,7 @@ class NodeRegressionPipelineArrowEndpoints(NodeRegressionPipelineEndpoints):
             arrow_client,
             show_progress=show_progress,
         )
-        self._model_api = ModelApiArrow(arrow_client)
+        self._model_catalog = ModelCatalogArrowEndpoints(arrow_client)
 
     @property
     def predict(self) -> NodeRegressionPipelinePredictEndpoints:
@@ -63,16 +63,24 @@ class NodeRegressionPipelineArrowEndpoints(NodeRegressionPipelineEndpoints):
         )
 
     def get(self, pipeline_name: str) -> NodeRegressionPipeline:
-        pipeline_info = self._pipeline_catalog.exists(pipeline_name)
-        if not pipeline_info:
-            raise ValueError(f"No pipeline named '{pipeline_name}' exists")
-        if pipeline_info.pipeline_type != "Node regression training pipeline":
+        entry = self._pipeline_catalog.get(pipeline_name)
+        if entry.pipeline_type != "Node regression training pipeline":
             raise ValueError(f"Pipeline '{pipeline_name}' is not a node regression pipeline")
         return NodeRegressionPipeline(
-            pipeline_info.pipeline_name,
+            entry.pipeline_name,
             self,
             self,
             self._pipeline_catalog,
+        )
+
+    def get_model(self, model_name: str) -> NodeRegressionModel:
+        details = self._model_catalog.get(model_name)
+        if details.model_type != "NodeRegression":
+            raise ValueError(f"Model '{model_name}' is not a node regression model")
+        return NodeRegressionModel(
+            details.model_name,
+            self._model_catalog,
+            predict_endpoints=self._predict,
         )
 
     def add_node_property(self, pipeline_name: str, task_name: str, **config: Any) -> NodeRegressionPipelineInfoResult:
@@ -178,7 +186,7 @@ class NodeRegressionPipelineArrowEndpoints(NodeRegressionPipelineEndpoints):
 
     def train(
         self,
-        G: GraphV2,
+        G: Graph,
         pipeline_name: str,
         *,
         metrics: list[str | NodeRegressionMetric],
@@ -193,7 +201,7 @@ class NodeRegressionPipelineArrowEndpoints(NodeRegressionPipelineEndpoints):
         sudo: bool = False,
         concurrency: int | None = None,
         job_id: str | None = None,
-    ) -> tuple[NodeRegressionModelV2, NodeRegressionPipelineTrainResult]:
+    ) -> tuple[NodeRegressionModel, NodeRegressionPipelineTrainResult]:
         config = ConfigConverter.convert_to_gds_config(
             graph_name=G.name(),
             metrics=[metric.value if isinstance(metric, NodeRegressionMetric) else metric for metric in metrics],
@@ -219,9 +227,9 @@ class NodeRegressionPipelineArrowEndpoints(NodeRegressionPipelineEndpoints):
         )
         result = JobClient.get_summary(self._arrow_client, result_job_id)
         return (
-            NodeRegressionModelV2(
+            NodeRegressionModel(
                 model_name,
-                self._model_api,
+                self._model_catalog,
                 predict_endpoints=self._predict,
             ),
             NodeRegressionPipelineTrainResult(**result),

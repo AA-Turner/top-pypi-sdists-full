@@ -3,17 +3,7 @@
 # Copyright (C) 2023 Benjamin Thomas Schwertfeger
 # https://github.com/btschwertfeger
 #
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# SPDX-License-Identifier: Apache-2.0
 #
 
 """Module that implements the base classes for all Spot and Futures clients"""
@@ -45,6 +35,15 @@ from kraken.utils.utils import deprecated
 def defined(value: Any) -> bool:  # noqa: ANN401
     """Returns ``True`` if ``value`` is not ``None``"""
     return value is not None
+
+
+def _resolve_timeout(timeout: int, default: int, class_timeout: int) -> int:
+    """
+    Resolves the timeout to use for a request: the explicitly passed
+    ``timeout`` if it deviates from the ``request`` method's ``default``,
+    otherwise the client's ``TIMEOUT`` class attribute.
+    """
+    return class_timeout if timeout == default else timeout
 
 
 def ensure_string(parameter_name: str) -> Callable:
@@ -376,7 +375,7 @@ class SpotClient:
             extra_params=extra_params,
         )
 
-        timeout: int = self.TIMEOUT if timeout != 10 else timeout  # type: ignore[no-redef]
+        timeout = _resolve_timeout(timeout, 10, self.TIMEOUT)
         self.__check_renew_session()
 
         if method in {"GET", "DELETE"}:
@@ -605,7 +604,7 @@ class SpotAsyncClient(SpotClient):
             query_str=query_str,
             extra_params=extra_params,
         )
-        timeout: int = self.TIMEOUT if timeout != 10 else timeout  # type: ignore[no-redef]
+        timeout = _resolve_timeout(timeout, 10, self.TIMEOUT)
         await self.__check_renew_session()
 
         if method in {"GET", "DELETE"}:
@@ -884,7 +883,7 @@ class FuturesClient:
             auth=auth,
             extra_params=extra_params,
         )
-        timeout: int = self.TIMEOUT if timeout == 10 else timeout  # type: ignore[no-redef]
+        timeout = _resolve_timeout(timeout, 10, self.TIMEOUT)
         self.__check_renew_session()
 
         if method in {"GET", "DELETE"}:
@@ -1083,7 +1082,7 @@ class FuturesAsyncClient(FuturesClient):
             auth=auth,
         )
 
-        timeout = self.TIMEOUT if timeout != 10 else timeout
+        timeout = _resolve_timeout(timeout, 10, self.TIMEOUT)
         await self.__check_renew_session()
 
         if method in {"GET", "DELETE"}:

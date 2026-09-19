@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -15,7 +15,7 @@ class LeidenEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         *,
         concurrency: int | None = None,
@@ -48,15 +48,15 @@ class LeidenEndpoints(ABC):
             Number of concurrent threads to use.
         consecutive_ids
             Use consecutive IDs for the components.
-        gamma : float, default=1.0
+        gamma
             The gamma parameter for the Leiden algorithm
-        include_intermediate_communities : bool, default=False
+        include_intermediate_communities
             Whether to include intermediate communities
         job_id
             Identifier for the computation.
         log_progress
             Display progress logging.
-        max_levels : int, default=10
+        max_levels
             The maximum number of levels
         node_labels
             Filter the graph using the given node labels. Nodes with any of the given labels will be included.
@@ -70,7 +70,7 @@ class LeidenEndpoints(ABC):
             Name of the property to be used to for the initial value of a node.
         sudo
             Disable the memory guard.
-        theta : float, default=0.01
+        theta
             The theta parameter for the Leiden algorithm
         tolerance
             Minimum change in scores between iterations.
@@ -86,7 +86,7 @@ class LeidenEndpoints(ABC):
     @abstractmethod
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         consecutive_ids: bool = False,
@@ -116,15 +116,15 @@ class LeidenEndpoints(ABC):
             Number of concurrent threads to use.
         consecutive_ids
             Use consecutive IDs for the components.
-        gamma : float, default=1.0
+        gamma
             The gamma parameter for the Leiden algorithm
-        include_intermediate_communities : bool, default=False
+        include_intermediate_communities
             Whether to include intermediate communities
         job_id
             Identifier for the computation.
         log_progress
             Display progress logging.
-        max_levels : int, default=10
+        max_levels
             The maximum number of levels
         node_labels
             Filter the graph using the given node labels. Nodes with any of the given labels will be included.
@@ -138,7 +138,7 @@ class LeidenEndpoints(ABC):
             Name of the property to be used to for the initial value of a node.
         sudo
             Disable the memory guard.
-        theta : float, default=0.01
+        theta
             The theta parameter for the Leiden algorithm
         tolerance
             Minimum change in scores between iterations.
@@ -154,7 +154,7 @@ class LeidenEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         consecutive_ids: bool = False,
@@ -185,15 +185,15 @@ class LeidenEndpoints(ABC):
             Number of concurrent threads to use.
         consecutive_ids
             Use consecutive IDs for the components.
-        gamma : float, default=1.0
+        gamma
             The gamma parameter for the Leiden algorithm
-        include_intermediate_communities : bool, default=False
+        include_intermediate_communities
             Whether to include intermediate communities
         job_id
             Identifier for the computation.
         log_progress
             Display progress logging.
-        max_levels : int, default=10
+        max_levels
             The maximum number of levels
         min_community_size
             Minimum size for communities to be included in results.
@@ -209,7 +209,7 @@ class LeidenEndpoints(ABC):
             Name of the property to be used to for the initial value of a node.
         sudo
             Disable the memory guard.
-        theta : float, default=0.01
+        theta
             The theta parameter for the Leiden algorithm
         tolerance
             Minimum change in scores between iterations.
@@ -218,14 +218,14 @@ class LeidenEndpoints(ABC):
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             A DataFrame with columns: nodeId, communityId, intermediateCommunityIds
         """
 
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         *,
         concurrency: int | None = None,
@@ -260,15 +260,15 @@ class LeidenEndpoints(ABC):
             Number of concurrent threads to use.
         consecutive_ids
             Use consecutive IDs for the components.
-        gamma : float, default=1.0
+        gamma
             The gamma parameter for the Leiden algorithm
-        include_intermediate_communities : bool, default=False
+        include_intermediate_communities
             Whether to include intermediate communities
         job_id
             Identifier for the computation.
         log_progress
             Display progress logging.
-        max_levels : int, default=10
+        max_levels
             The maximum number of levels
         min_community_size
             Minimum size for communities to be included in results.
@@ -284,7 +284,7 @@ class LeidenEndpoints(ABC):
             Name of the property to be used to for the initial value of a node.
         sudo
             Disable the memory guard.
-        theta : float, default=0.01
+        theta
             The theta parameter for the Leiden algorithm
         tolerance
             Minimum change in scores between iterations.
@@ -300,7 +300,7 @@ class LeidenEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         *,
         concurrency: int | None = None,
         consecutive_ids: bool = False,
@@ -326,11 +326,11 @@ class LeidenEndpoints(ABC):
             Number of concurrent threads to use.
         consecutive_ids
             Use consecutive IDs for the components.
-        gamma : float, default=1.0
+        gamma
             The gamma parameter for the Leiden algorithm
-        include_intermediate_communities : bool, default=False
+        include_intermediate_communities
             Whether to include intermediate communities
-        max_levels : int, default=10
+        max_levels
             The maximum number of levels
         node_labels
             Filter the graph using the given node labels. Nodes with any of the given labels will be included.
@@ -342,7 +342,7 @@ class LeidenEndpoints(ABC):
             Name of the property to be used as weights.
         seed_property
             Name of the property to be used to for the initial value of a node.
-        theta : float, default=0.01
+        theta
             The theta parameter for the Leiden algorithm
         tolerance
             Minimum change in scores between iterations.

@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_connect.literals import AccessTypeType
+    from mypy_boto3_connect.literals import AIAgentTypeType
 
-    data: AccessTypeType = "ALLOW"
+    data: AIAgentTypeType = "THIRD_PARTY"
     ```
 """
 
@@ -22,6 +22,7 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "AIAgentTypeType",
     "AccessTypeType",
     "ActionTypeType",
     "AgentAvailabilityTimerType",
@@ -166,6 +167,7 @@ __all__ = (
     "ListRoutingProfilesPaginatorName",
     "ListRulesPaginatorName",
     "ListSecurityKeysPaginatorName",
+    "ListSecurityProfileAIAgentsPaginatorName",
     "ListSecurityProfileApplicationsPaginatorName",
     "ListSecurityProfileFlowModulesPaginatorName",
     "ListSecurityProfilePermissionsPaginatorName",
@@ -313,6 +315,7 @@ __all__ = (
     "WorkspaceFontFamilyType",
 )
 
+AIAgentTypeType = Literal["THIRD_PARTY"]
 AccessTypeType = Literal["ALLOW"]
 ActionTypeType = Literal[
     "ASSIGN_CONTACT_CATEGORY",
@@ -697,6 +700,7 @@ ListRoutingProfileQueuesPaginatorName = Literal["list_routing_profile_queues"]
 ListRoutingProfilesPaginatorName = Literal["list_routing_profiles"]
 ListRulesPaginatorName = Literal["list_rules"]
 ListSecurityKeysPaginatorName = Literal["list_security_keys"]
+ListSecurityProfileAIAgentsPaginatorName = Literal["list_security_profile_ai_agents"]
 ListSecurityProfileApplicationsPaginatorName = Literal["list_security_profile_applications"]
 ListSecurityProfileFlowModulesPaginatorName = Literal["list_security_profile_flow_modules"]
 ListSecurityProfilePermissionsPaginatorName = Literal["list_security_profile_permissions"]
@@ -1705,6 +1709,7 @@ PaginatorName = Literal[
     "list_routing_profiles",
     "list_rules",
     "list_security_keys",
+    "list_security_profile_ai_agents",
     "list_security_profile_applications",
     "list_security_profile_flow_modules",
     "list_security_profile_permissions",

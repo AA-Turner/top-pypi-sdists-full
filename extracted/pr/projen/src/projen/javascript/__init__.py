@@ -21916,6 +21916,7 @@ class UpgradeDependencies(
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
         include: typing.Optional[typing.Sequence[builtins.str]] = None,
         include_deprecated_versions: typing.Optional[builtins.bool] = None,
+        pull_request_description: typing.Optional[builtins.str] = None,
         pull_request_title: typing.Optional[builtins.str] = None,
         satisfy_peer_dependencies: typing.Optional[builtins.bool] = None,
         semantic_commit: typing.Optional[builtins.str] = None,
@@ -21932,6 +21933,7 @@ class UpgradeDependencies(
         :param exclude: (experimental) List of package names to exclude during the upgrade. Default: - Nothing is excluded.
         :param include: (experimental) List of package names to include during the upgrade. Default: - Everything is included.
         :param include_deprecated_versions: (experimental) Include deprecated packages. By default, deprecated versions will be excluded from upgrades. Default: false
+        :param pull_request_description: (experimental) Description of dependency upgrade pull requests. Also included in the commit message. Trailing whitespace is removed and a period is appended if there is no final period. Empty or whitespace-only strings produce a single period before the workflow details. Default: "Upgrades project dependencies."
         :param pull_request_title: (experimental) Title of the pull request to use (should be all lower-case). Default: "upgrade dependencies"
         :param satisfy_peer_dependencies: (experimental) Check peer dependencies of installed packages and filter updates to compatible versions. By default, the upgrade workflow will adhere to version constraints from peer dependencies. Sometimes this is not desirable and can be disabled. Default: true
         :param semantic_commit: (experimental) The semantic commit type. Default: 'chore'
@@ -21952,6 +21954,7 @@ class UpgradeDependencies(
             exclude=exclude,
             include=include,
             include_deprecated_versions=include_deprecated_versions,
+            pull_request_description=pull_request_description,
             pull_request_title=pull_request_title,
             satisfy_peer_dependencies=satisfy_peer_dependencies,
             semantic_commit=semantic_commit,
@@ -22045,6 +22048,7 @@ class UpgradeDependencies(
         "exclude": "exclude",
         "include": "include",
         "include_deprecated_versions": "includeDeprecatedVersions",
+        "pull_request_description": "pullRequestDescription",
         "pull_request_title": "pullRequestTitle",
         "satisfy_peer_dependencies": "satisfyPeerDependencies",
         "semantic_commit": "semanticCommit",
@@ -22064,6 +22068,7 @@ class UpgradeDependenciesOptions:
         exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
         include: typing.Optional[typing.Sequence[builtins.str]] = None,
         include_deprecated_versions: typing.Optional[builtins.bool] = None,
+        pull_request_description: typing.Optional[builtins.str] = None,
         pull_request_title: typing.Optional[builtins.str] = None,
         satisfy_peer_dependencies: typing.Optional[builtins.bool] = None,
         semantic_commit: typing.Optional[builtins.str] = None,
@@ -22080,6 +22085,7 @@ class UpgradeDependenciesOptions:
         :param exclude: (experimental) List of package names to exclude during the upgrade. Default: - Nothing is excluded.
         :param include: (experimental) List of package names to include during the upgrade. Default: - Everything is included.
         :param include_deprecated_versions: (experimental) Include deprecated packages. By default, deprecated versions will be excluded from upgrades. Default: false
+        :param pull_request_description: (experimental) Description of dependency upgrade pull requests. Also included in the commit message. Trailing whitespace is removed and a period is appended if there is no final period. Empty or whitespace-only strings produce a single period before the workflow details. Default: "Upgrades project dependencies."
         :param pull_request_title: (experimental) Title of the pull request to use (should be all lower-case). Default: "upgrade dependencies"
         :param satisfy_peer_dependencies: (experimental) Check peer dependencies of installed packages and filter updates to compatible versions. By default, the upgrade workflow will adhere to version constraints from peer dependencies. Sometimes this is not desirable and can be disabled. Default: true
         :param semantic_commit: (experimental) The semantic commit type. Default: 'chore'
@@ -22100,6 +22106,7 @@ class UpgradeDependenciesOptions:
             check_type(argname="argument exclude", value=exclude, expected_type=type_hints["exclude"])
             check_type(argname="argument include", value=include, expected_type=type_hints["include"])
             check_type(argname="argument include_deprecated_versions", value=include_deprecated_versions, expected_type=type_hints["include_deprecated_versions"])
+            check_type(argname="argument pull_request_description", value=pull_request_description, expected_type=type_hints["pull_request_description"])
             check_type(argname="argument pull_request_title", value=pull_request_title, expected_type=type_hints["pull_request_title"])
             check_type(argname="argument satisfy_peer_dependencies", value=satisfy_peer_dependencies, expected_type=type_hints["satisfy_peer_dependencies"])
             check_type(argname="argument semantic_commit", value=semantic_commit, expected_type=type_hints["semantic_commit"])
@@ -22118,6 +22125,8 @@ class UpgradeDependenciesOptions:
             self._values["include"] = include
         if include_deprecated_versions is not None:
             self._values["include_deprecated_versions"] = include_deprecated_versions
+        if pull_request_description is not None:
+            self._values["pull_request_description"] = pull_request_description
         if pull_request_title is not None:
             self._values["pull_request_title"] = pull_request_title
         if satisfy_peer_dependencies is not None:
@@ -22192,6 +22201,21 @@ class UpgradeDependenciesOptions:
         '''
         result = self._values.get("include_deprecated_versions")
         return typing.cast(typing.Optional[builtins.bool], result)
+
+    @builtins.property
+    def pull_request_description(self) -> typing.Optional[builtins.str]:
+        '''(experimental) Description of dependency upgrade pull requests.
+
+        Also included in the commit message. Trailing whitespace is removed and a
+        period is appended if there is no final period. Empty or whitespace-only
+        strings produce a single period before the workflow details.
+
+        :default: "Upgrades project dependencies."
+
+        :stability: experimental
+        '''
+        result = self._values.get("pull_request_description")
+        return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def pull_request_title(self) -> typing.Optional[builtins.str]:
@@ -31296,6 +31320,7 @@ def _typecheckingstub__497e18a2c8dc3200cff8b21dfad7c418d29517aa6d67e2a2555ee78fa
     exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
     include: typing.Optional[typing.Sequence[builtins.str]] = None,
     include_deprecated_versions: typing.Optional[builtins.bool] = None,
+    pull_request_description: typing.Optional[builtins.str] = None,
     pull_request_title: typing.Optional[builtins.str] = None,
     satisfy_peer_dependencies: typing.Optional[builtins.bool] = None,
     semantic_commit: typing.Optional[builtins.str] = None,
@@ -31327,6 +31352,7 @@ def _typecheckingstub__0f7b896c11469470869bc4bfc86c9bb13fd308223e316ba71124c00b5
     exclude: typing.Optional[typing.Sequence[builtins.str]] = None,
     include: typing.Optional[typing.Sequence[builtins.str]] = None,
     include_deprecated_versions: typing.Optional[builtins.bool] = None,
+    pull_request_description: typing.Optional[builtins.str] = None,
     pull_request_title: typing.Optional[builtins.str] = None,
     satisfy_peer_dependencies: typing.Optional[builtins.bool] = None,
     semantic_commit: typing.Optional[builtins.str] = None,

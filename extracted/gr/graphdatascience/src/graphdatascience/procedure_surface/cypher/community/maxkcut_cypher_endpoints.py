@@ -3,7 +3,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.community.maxkcut_endpoints import (
     MaxKCutEndpoints,
     MaxKCutMutateResult,
@@ -21,7 +21,7 @@ class MaxKCutCypherEndpoints(MaxKCutEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         *,
         concurrency: int | None = None,
@@ -56,13 +56,13 @@ class MaxKCutCypherEndpoints(MaxKCutEndpoints):
         params = CallParameters(graph_name=G.name(), config=config)
         params.ensure_job_id_in_config()
 
-        result = self._query_runner.call_procedure(endpoint="gds.maxkcut.mutate", params=params).squeeze()
+        result = self._query_runner.call_procedure(endpoint="gds.maxkcut.mutate", params=params).iloc[0]
 
-        return MaxKCutMutateResult(**result.to_dict())
+        return MaxKCutMutateResult(**result)
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         iterations: int = 8,
@@ -103,7 +103,7 @@ class MaxKCutCypherEndpoints(MaxKCutEndpoints):
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         *,
         concurrency: int | None = None,
         iterations: int = 8,

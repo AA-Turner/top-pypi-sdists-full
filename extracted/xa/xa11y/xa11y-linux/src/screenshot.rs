@@ -15,16 +15,20 @@
 //! physical before reading pixels.
 
 use std::collections::HashMap;
+use std::io::Read as _;
 use std::sync::Mutex;
 
 use x11rb::connection::Connection;
 use x11rb::protocol::xproto::{ConnectionExt as _, ImageFormat};
 use x11rb::rust_connection::RustConnection;
-use zbus::blocking::Connection as ZbusConnection;
-use zbus::blocking::Proxy;
+use zbus::blocking::{Connection as ZbusConnection, MessageIterator, Proxy};
+use zbus::message::Type as MessageType;
 use zbus::zvariant::{OwnedObjectPath, OwnedValue, Value};
+use zbus::MatchRule;
 
-use xa11y_core::{Error, Point, Rect, Result, Screenshot, ScreenshotProvider};
+use xa11y_core::{CaptureMapping, Error, Point, Rect, Result, Screenshot, ScreenshotProvider};
+
+use crate::session::{select_backend, DesktopBackend};
 
 /// Choose the Linux screenshot backend based on session environment.
 pub struct LinuxScreenshot {
@@ -49,46 +53,42 @@ struct X11Backend {
 
 impl LinuxScreenshot {
     pub fn new() -> Result<Self> {
-        let display_set = std::env::var_os("DISPLAY").is_some();
-        let wayland = std::env::var_os("WAYLAND_DISPLAY").is_some();
-
-        if display_set {
-            let (conn, screen_num) =
-                RustConnection::connect(None).map_err(|e| Error::Platform {
+        match select_backend("XA11Y_LINUX_SCREENSHOT_BACKEND", "screenshot capture")? {
+            DesktopBackend::X11 => {
+                let (conn, screen_num) =
+                    RustConnection::connect(None).map_err(|e| Error::Platform {
+                        code: -1,
+                        message: format!("X11 connect: {e}"),
+                    })?;
+                let screen = conn
+                    .setup()
+                    .roots
+                    .get(screen_num)
+                    .ok_or_else(|| Error::Platform {
+                        code: -1,
+                        message: "X server reported no screens".into(),
+                    })?;
+                let root = screen.root;
+                let root_width = screen.width_in_pixels;
+                let root_height = screen.height_in_pixels;
+                Ok(Self {
+                    backend: Backend::X11(Box::new(X11Backend {
+                        conn: Mutex::new(conn),
+                        root,
+                        root_width,
+                        root_height,
+                    })),
+                })
+            }
+            DesktopBackend::Wayland => {
+                let conn = ZbusConnection::session().map_err(|e| Error::Platform {
                     code: -1,
-                    message: format!("X11 connect: {e}"),
+                    message: format!("session bus connect for Wayland screenshot portal: {e}"),
                 })?;
-            let screen = conn
-                .setup()
-                .roots
-                .get(screen_num)
-                .ok_or_else(|| Error::Platform {
-                    code: -1,
-                    message: "X server reported no screens".into(),
-                })?;
-            let root = screen.root;
-            let root_width = screen.width_in_pixels;
-            let root_height = screen.height_in_pixels;
-            Ok(Self {
-                backend: Backend::X11(Box::new(X11Backend {
-                    conn: Mutex::new(conn),
-                    root,
-                    root_width,
-                    root_height,
-                })),
-            })
-        } else if wayland {
-            let conn = ZbusConnection::session().map_err(|e| Error::Platform {
-                code: -1,
-                message: format!("session bus connect: {e}"),
-            })?;
-            Ok(Self {
-                backend: Backend::Wayland { conn },
-            })
-        } else {
-            Err(Error::Unsupported {
-                feature: "screenshot (no DISPLAY or WAYLAND_DISPLAY set)".into(),
-            })
+                Ok(Self {
+                    backend: Backend::Wayland { conn },
+                })
+            }
         }
     }
 
@@ -179,6 +179,34 @@ impl LinuxScreenshot {
         let mut options: HashMap<&str, Value> = HashMap::new();
         options.insert("interactive", Value::Bool(false));
         options.insert("modal", Value::Bool(false));
+        let handle_token = portal_handle_token()?;
+        options.insert("handle_token", Value::from(handle_token.as_str()));
+
+        // Portal responses can arrive before the method call returns. Register
+        // the signal match first, then select the response whose path matches
+        // the handle returned by Screenshot. `handle_token` also makes every
+        // request path unique; without it, repeated captures can collide in
+        // portal backends that export one object per request.
+        let response_rule = MatchRule::builder()
+            .msg_type(MessageType::Signal)
+            .interface("org.freedesktop.portal.Request")
+            .map_err(|e| Error::Platform {
+                code: -1,
+                message: format!("portal Response match interface: {e}"),
+            })?
+            .member("Response")
+            .map_err(|e| Error::Platform {
+                code: -1,
+                message: format!("portal Response match member: {e}"),
+            })?
+            .build();
+        let mut responses =
+            MessageIterator::for_match_rule(response_rule, conn, Some(8)).map_err(|e| {
+                Error::Platform {
+                    code: -1,
+                    message: format!("subscribe to portal Response: {e}"),
+                }
+            })?;
 
         let request_path: OwnedObjectPath =
             proxy
@@ -188,28 +216,26 @@ impl LinuxScreenshot {
                     message: format!("portal Screenshot call: {e}"),
                 })?;
 
-        let request = Proxy::new(
-            conn,
-            "org.freedesktop.portal.Desktop",
-            &request_path,
-            "org.freedesktop.portal.Request",
-        )
-        .map_err(|e| Error::Platform {
-            code: -1,
-            message: format!("portal Request proxy: {e}"),
-        })?;
-
-        // Block for Response(response: u, results: a{sv}). First signal wins.
-        let mut signals = request
-            .receive_signal("Response")
-            .map_err(|e| Error::Platform {
-                code: -1,
-                message: format!("receive_signal: {e}"),
-            })?;
-        let msg = signals.next().ok_or_else(|| Error::Platform {
-            code: -1,
-            message: "portal Response signal channel closed".into(),
-        })?;
+        // Block for Response(response: u, results: a{sv}) on this request.
+        let msg = loop {
+            let msg = responses
+                .next()
+                .ok_or_else(|| Error::Platform {
+                    code: -1,
+                    message: "portal Response signal channel closed".into(),
+                })?
+                .map_err(|e| Error::Platform {
+                    code: -1,
+                    message: format!("receive portal Response: {e}"),
+                })?;
+            if msg
+                .header()
+                .path()
+                .is_some_and(|path| path.as_str() == request_path.as_str())
+            {
+                break msg;
+            }
+        };
         let (response, results): (u32, HashMap<String, OwnedValue>) =
             msg.body().deserialize().map_err(|e| Error::Platform {
                 code: -1,
@@ -249,6 +275,28 @@ impl LinuxScreenshot {
     }
 }
 
+/// Generate a valid, per-call portal request token. Portal request paths are
+/// public on the session bus, so use kernel entropy rather than a predictable
+/// process-local counter as recommended by the portal protocol.
+fn portal_handle_token() -> Result<String> {
+    let mut entropy = [0_u8; 16];
+    std::fs::File::open("/dev/urandom")
+        .and_then(|mut file| file.read_exact(&mut entropy))
+        .map_err(|e| Error::Platform {
+            code: e.raw_os_error().unwrap_or(-1) as i64,
+            message: format!("generate portal handle token: {e}"),
+        })?;
+
+    const HEX: &[u8; 16] = b"0123456789abcdef";
+    let mut token = String::with_capacity(6 + entropy.len() * 2);
+    token.push_str("xa11y_");
+    for byte in entropy {
+        token.push(HEX[(byte >> 4) as usize] as char);
+        token.push(HEX[(byte & 0x0f) as usize] as char);
+    }
+    Ok(token)
+}
+
 impl ScreenshotProvider for LinuxScreenshot {
     fn capture_full(&self) -> Result<(Screenshot, Point)> {
         // Captured pixels are physical; stamp the physical-to-logical ratio so
@@ -260,6 +308,13 @@ impl ScreenshotProvider for LinuxScreenshot {
             Backend::Wayland { conn } => self.capture_wayland(conn, None),
         }?;
         shot.scale = scale as f32;
+        let (width, height, shot_scale) = (shot.width, shot.height, shot.scale);
+        shot = shot.with_mapping(CaptureMapping::single(
+            Point::new(0, 0),
+            width,
+            height,
+            shot_scale,
+        ));
         // Both paths start at the coordinate-space origin, so unlike Windows
         // and macOS there is no offset to subtract: X11 reads the root window,
         // whose top-left is (0, 0) by definition, and the portal hands back the
@@ -281,6 +336,13 @@ impl ScreenshotProvider for LinuxScreenshot {
             Backend::Wayland { conn } => self.capture_wayland(conn, Some(phys)),
         }?;
         shot.scale = scale as f32;
+        let (width, height, shot_scale) = (shot.width, shot.height, shot.scale);
+        shot = shot.with_mapping(CaptureMapping::single(
+            Point::new(rect.x, rect.y),
+            width,
+            height,
+            shot_scale,
+        ));
         Ok(shot)
     }
 }

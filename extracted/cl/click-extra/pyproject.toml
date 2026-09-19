@@ -4,7 +4,7 @@ requires = ["uv-build>=0.8"]
 
 [project]
 name = "click-extra"
-version = "9.3.0"
+version = "9.3.1"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
@@ -108,7 +108,7 @@ yaml = ["pyyaml>=6.0.3"]
 
 [project.urls]
 Changelog = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
-Download = "https://github.com/kdeldycke/click-extra/releases/tag/v9.3.0"
+Download = "https://github.com/kdeldycke/click-extra/releases/tag/v9.3.1"
 Funding = "https://github.com/sponsors/kdeldycke"
 Homepage = "https://github.com/kdeldycke/click-extra"
 Issues = "https://github.com/kdeldycke/click-extra/issues"
@@ -320,6 +320,7 @@ addopts = [
     "--durations=10",
     "--import-mode=importlib",
 ]
+faulthandler_timeout = "300"
 markers = [
     "network: Tests that require network access (excluded with -m 'not network').",
     "once: Tests that only need to run once, not across the full CI matrix.",
@@ -336,7 +337,7 @@ fail_under = 70
 precision = 2
 
 [tool.bumpversion]
-current_version = "9.3.0"
+current_version = "9.3.1"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.dev(?P<dev>\d+))?'
 serialize = [
     "{major}.{minor}.{patch}.dev{dev}",

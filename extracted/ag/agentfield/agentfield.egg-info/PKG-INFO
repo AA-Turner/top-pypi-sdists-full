@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agentfield
-Version: 0.1.138
+Version: 0.1.139
 Summary: Python SDK for the AgentField control plane
 Author: AgentField Maintainers
 License: Apache-2.0
@@ -62,6 +62,8 @@ Requires-Dist: freezegun<2,>=1.2; extra == "dev"
 Requires-Dist: syrupy<6,>=5; extra == "dev"
 Requires-Dist: hypothesis<7,>=6.88; extra == "dev"
 Requires-Dist: pytest-socket<0.8,>=0.6; extra == "dev"
+Requires-Dist: mypy==1.18.2; extra == "dev"
+Requires-Dist: types-requests==2.33.0.20260906; extra == "dev"
 
 # AgentField Python SDK
 
@@ -276,3 +278,8 @@ and CI do not rely on pytest's predictable default temp directory layout.
 ## License
 
 Distributed under the Apache 2.0 License. See the project root `LICENSE` for details.
+
+## Realtime session turn detection
+
+See [session turn detection and interruption](../../docs/session-turn-detection.md)
+for VAD configuration, defaults, validation, and the WebRTC connection flow.

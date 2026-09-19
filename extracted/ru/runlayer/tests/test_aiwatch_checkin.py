@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 import httpx
@@ -12,6 +11,7 @@ import structlog
 
 from runlayer_cli import aiwatch_checkin
 from runlayer_cli.hook_install import Client, ClientStatus, InstalledClient
+from runlayer_cli.scan.service import ScanResult
 from runlayer_cli.skills.device_sync import SyncReport
 
 
@@ -27,17 +27,18 @@ def _device_ctx() -> aiwatch_checkin.DeviceContext:
     }
 
 
-def _scan_result() -> SimpleNamespace:
-    return SimpleNamespace(
+def _scan_result() -> ScanResult:
+    return ScanResult(
         device_id="device-1",
         hostname="host-1",
         os="darwin",
         os_version="15.0",
         username="user-1",
         org_device_id=None,
-        serial_number="SERIAL123",
-        tools=[],
+        scan_duration_ms=1,
         collector_version="1.2.3",
+        configurations=[],
+        serial_number="SERIAL123",
     )
 
 
@@ -208,6 +209,90 @@ def test_submit_detect_checkin_retries_transient_network_error() -> None:
         aiwatch_checkin.submit_detect_checkin(client, _scan_result())
 
     assert client.submit_aiwatch_checkin.call_count == 2
+
+
+@pytest.mark.parametrize(
+    (
+        "enabled",
+        "host_containers_scanned",
+        "failure_reason",
+        "expected_detail",
+    ),
+    [
+        pytest.param(
+            False,
+            False,
+            None,
+            {
+                "enabled": False,
+                "host_containers_scanned": False,
+                "failure_reason": None,
+            },
+            id="disabled",
+        ),
+        pytest.param(
+            True,
+            True,
+            None,
+            {
+                "enabled": True,
+                "host_containers_scanned": True,
+                "failure_reason": None,
+            },
+            id="clean",
+        ),
+        pytest.param(
+            True,
+            False,
+            "Container runtime unavailable or access denied",
+            {
+                "enabled": True,
+                "host_containers_scanned": False,
+                "failure_reason": "Container runtime unavailable or access denied",
+            },
+            id="unavailable",
+        ),
+        pytest.param(
+            True,
+            False,
+            None,
+            {
+                "enabled": True,
+                "host_containers_scanned": False,
+                "failure_reason": "Container inventory incomplete",
+            },
+            id="failed_without_reason",
+        ),
+        pytest.param(
+            True,
+            False,
+            "\x00 \t\n",
+            {
+                "enabled": True,
+                "host_containers_scanned": False,
+                "failure_reason": "Container inventory incomplete",
+            },
+            id="failed_with_unprintable_reason",
+        ),
+    ],
+)
+def test_submit_detect_checkin_includes_container_detail(
+    enabled: bool,
+    host_containers_scanned: bool,
+    failure_reason: str | None,
+    expected_detail: dict[str, object],
+) -> None:
+    client = Mock()
+    result = _scan_result()
+    result.container_scan_requested = enabled
+    result.containers_scanned = host_containers_scanned
+    result.container_scan_error = failure_reason
+
+    aiwatch_checkin.submit_detect_checkin(client, result)
+
+    payload = client.submit_aiwatch_checkin.call_args.args[0]
+    assert payload["status"] == "ok"
+    assert payload["container_detail"] == expected_detail
 
 
 def test_submit_detect_checkin_swallows_persistent_failure_and_warns() -> None:
@@ -889,3 +974,103 @@ def test_detect_checkin_payload_carries_serial_number() -> None:
 
     payload = client.submit_aiwatch_checkin.call_args.args[0]
     assert payload["serial_number"] == "SERIAL123"
+
+
+_HOOK_HOST_DETAIL = {
+    "user_host": "https://staging.example.com",
+    "managed_host": "https://prod.example.com",
+    "last_seen_at": "2026-09-16T12:00:00+00:00",
+}
+
+
+def _managed_client() -> Mock:
+    """Check-in client pointed at the marker's managed host (the scan default)."""
+    client = Mock()
+    client.base_url = _HOOK_HOST_DETAIL["managed_host"]
+    return client
+
+
+def test_detect_checkin_carries_hook_host_detail_from_marker() -> None:
+    client = _managed_client()
+    with patch(
+        "runlayer_cli.hook.host_override.read_marker", return_value=_HOOK_HOST_DETAIL
+    ):
+        aiwatch_checkin.submit_detect_checkin(client, _scan_result())
+
+    payload = client.submit_aiwatch_checkin.call_args.args[0]
+    assert payload["hook_host_detail"] == _HOOK_HOST_DETAIL
+
+
+def test_detect_checkin_tolerates_trailing_slash_on_destination() -> None:
+    client = _managed_client()
+    client.base_url = _HOOK_HOST_DETAIL["managed_host"] + "/"
+    with patch(
+        "runlayer_cli.hook.host_override.read_marker", return_value=_HOOK_HOST_DETAIL
+    ):
+        aiwatch_checkin.submit_detect_checkin(client, _scan_result())
+
+    payload = client.submit_aiwatch_checkin.call_args.args[0]
+    assert payload["hook_host_detail"] == _HOOK_HOST_DETAIL
+
+
+def test_detect_checkin_withholds_hook_host_detail_from_other_destination() -> None:
+    """An explicit ``--host`` / ``RUNLAYER_HOST`` can still send the scan
+    check-in elsewhere; the marker describes hooks bound for the managed host,
+    so a different destination (e.g. the user's own tenant) must not get it."""
+    client = Mock()
+    client.base_url = _HOOK_HOST_DETAIL["user_host"]
+    with patch(
+        "runlayer_cli.hook.host_override.read_marker", return_value=_HOOK_HOST_DETAIL
+    ):
+        aiwatch_checkin.submit_detect_checkin(client, _scan_result())
+
+    payload = client.submit_aiwatch_checkin.call_args.args[0]
+    assert "hook_host_detail" in payload
+    assert payload["hook_host_detail"] is None
+
+
+def test_detect_checkin_sends_null_hook_host_detail_without_marker() -> None:
+    """Explicit ``None`` so the backend clears a stale tenant-side record."""
+    client = _managed_client()
+    with patch("runlayer_cli.hook.host_override.read_marker", return_value=None):
+        aiwatch_checkin.submit_detect_checkin(client, _scan_result())
+
+    payload = client.submit_aiwatch_checkin.call_args.args[0]
+    assert "hook_host_detail" in payload
+    assert payload["hook_host_detail"] is None
+
+
+def test_detect_error_checkin_carries_hook_host_detail() -> None:
+    """The marker is independent of scan outcome: a failed scan must not
+    clear the tenant-side record (the backend rewrites it on every Detect
+    check-in, ``None`` included)."""
+    client = _managed_client()
+    with patch(
+        "runlayer_cli.hook.host_override.read_marker", return_value=_HOOK_HOST_DETAIL
+    ):
+        aiwatch_checkin.submit_detect_error_checkin(
+            client, ctx=_device_ctx(), error_message="scan blew up"
+        )
+
+    payload = client.submit_aiwatch_checkin.call_args.args[0]
+    assert payload["status"] == "error"
+    assert payload["hook_host_detail"] == _HOOK_HOST_DETAIL
+
+
+def test_non_detect_checkins_do_not_carry_hook_host_detail() -> None:
+    """Only the Detect carrier reports the marker."""
+    client = Mock()
+    with patch(
+        "runlayer_cli.hook.host_override.read_marker", return_value=_HOOK_HOST_DETAIL
+    ):
+        aiwatch_checkin._submit_simple_checkin(
+            client,
+            feature="enforce",
+            status="disabled",
+            ctx=_device_ctx(),
+            tools=[],
+            log_event="x",
+        )
+
+    payload = client.submit_aiwatch_checkin.call_args.args[0]
+    assert "hook_host_detail" not in payload

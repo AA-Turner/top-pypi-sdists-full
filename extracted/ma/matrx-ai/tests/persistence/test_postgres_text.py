@@ -51,7 +51,13 @@ async def test_queue_helper_sanitizes_message_before_coordinator(
     monkeypatch.setattr(
         queue_helpers,
         "_resolve_app_context",
-        lambda: SimpleNamespace(request_id="r-1", user_id="u-1", conversation_id="c-1"),
+        lambda: SimpleNamespace(
+            request_id="r-1",
+            user_id="u-1",
+            conversation_id="c-1",
+            # an org-scoped INSERT is refused without one (2026-09-17)
+            organization_id="77777777-7777-4777-8777-777777777777",
+        ),
     )
     monkeypatch.setattr(
         "matrx_connect.streaming.error_capture.capture_error",

@@ -1,6 +1,6 @@
 [package]
 name = "uv-configuration"
-version = "0.0.83"
+version = "0.0.84"
 description = "This is an internal component crate of uv"
 edition = { workspace = true }
 rust-version = { workspace = true }
@@ -21,6 +21,7 @@ uv-auth = { workspace = true }
 uv-cache = { workspace = true }
 uv-cache-info = { workspace = true }
 uv-distribution-types = { workspace = true }
+uv-fs = { workspace = true }
 uv-git = { workspace = true }
 uv-normalize = { workspace = true }
 uv-pep440 = { workspace = true }

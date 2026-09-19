@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -46,7 +46,7 @@ class SteinerTreeEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         target_nodes: list[int],
         relationship_weight_property: str | None = None,
@@ -69,13 +69,13 @@ class SteinerTreeEndpoints(ABC):
            Graph object to use
         source_node
             Node id to use as the starting point.
-        target_nodes : list[int]
+        target_nodes
             List of target node IDs.
         relationship_weight_property
             Name of the property to be used as weights.
-        delta : float, default=2.0
+        delta
             The delta parameter for the shortest path computation used internally.
-        apply_rerouting : bool, default=False
+        apply_rerouting
             Whether to apply rerouting optimization to improve the tree.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -94,7 +94,7 @@ class SteinerTreeEndpoints(ABC):
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             A DataFrame containing the edges in the computed Steiner tree.
         """
         ...
@@ -102,7 +102,7 @@ class SteinerTreeEndpoints(ABC):
     @abstractmethod
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         target_nodes: list[int],
         relationship_weight_property: str | None = None,
@@ -125,13 +125,13 @@ class SteinerTreeEndpoints(ABC):
            Graph object to use
         source_node
             Node id to use as the starting point.
-        target_nodes : list[int]
+        target_nodes
             List of target node IDs.
         relationship_weight_property
             Name of the property to be used as weights.
-        delta : float, default=2.0
+        delta
             The delta parameter for the shortest path computation used internally.
-        apply_rerouting : bool, default=False
+        apply_rerouting
             Whether to apply rerouting optimization to improve the tree.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -158,7 +158,7 @@ class SteinerTreeEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_relationship_type: str,
         mutate_property: str,
         source_node: int,
@@ -187,13 +187,13 @@ class SteinerTreeEndpoints(ABC):
             Name of the node property to store the results in.
         source_node
             Node id to use as the starting point.
-        target_nodes : list[int]
+        target_nodes
             List of target node IDs.
         relationship_weight_property
             Name of the property to be used as weights.
-        delta : float, default=2.0
+        delta
             The delta parameter for the shortest path computation used internally.
-        apply_rerouting : bool, default=False
+        apply_rerouting
             Whether to apply rerouting optimization to improve the tree.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -220,7 +220,7 @@ class SteinerTreeEndpoints(ABC):
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_relationship_type: str,
         write_property: str,
         source_node: int,
@@ -244,19 +244,19 @@ class SteinerTreeEndpoints(ABC):
         ----------
         G
            Graph object to use
-        write_relationship_type : str
+        write_relationship_type
             Name of the relationship type to store the results in.
         write_property
             Name of the node property to store the results in.
         source_node
             Node id to use as the starting point.
-        target_nodes : list[int]
+        target_nodes
             List of target node IDs.
         relationship_weight_property
             Name of the property to be used as weights.
-        delta : float, default=2.0
+        delta
             The delta parameter for the shortest path computation used internally.
-        apply_rerouting : bool, default=False
+        apply_rerouting
             Whether to apply rerouting optimization to improve the tree.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -283,7 +283,7 @@ class SteinerTreeEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         source_node: int,
         target_nodes: list[int],
         relationship_weight_property: str | None = None,
@@ -304,13 +304,13 @@ class SteinerTreeEndpoints(ABC):
            Graph object to use or a dictionary representing the graph dimensions.
         source_node
             Node id to use as the starting point.
-        target_nodes : list[int]
+        target_nodes
             List of target node IDs.
         relationship_weight_property
             Name of the property to be used as weights.
-        delta : float, default=2.0
+        delta
             The delta parameter for the shortest path computation.
-        apply_rerouting : bool, default=False
+        apply_rerouting
             Whether to apply rerouting optimization.
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.

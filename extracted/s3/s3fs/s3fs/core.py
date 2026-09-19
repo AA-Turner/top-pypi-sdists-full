@@ -207,10 +207,11 @@ async def _error_wrapper(func, *, args=(), kwargs=None, retries):
         tb = err.__traceback__
         while tb.tb_next:
             tb = tb.tb_next
-        try:
-            await tb.tb_frame.f_locals["response"]
-        except Exception as e:
-            err = e
+        if "response" in tb.tb_frame.f_locals:
+            try:
+                await tb.tb_frame.f_locals["response"]
+            except Exception as e:
+                err = e
     err = translate_boto_error(err)
     raise err
 
@@ -420,6 +421,7 @@ class S3FileSystem(AsyncFileSystem):
         self.version_aware = version_aware
         self.client_kwargs = client_kwargs or {}
         self.config_kwargs = config_kwargs or {}
+        self.requester_pays = requester_pays
         self.req_kw = {"RequestPayer": "requester"} if requester_pays else {}
         self.s3_additional_kwargs = s3_additional_kwargs or {}
         self.use_ssl = use_ssl
@@ -469,10 +471,18 @@ class S3FileSystem(AsyncFileSystem):
 
     def _get_s3_method_kwargs(self, method, *akwarglist, **kwargs):
         additional_kwargs = self.s3_additional_kwargs.copy()
+        # Apply request-wide defaults; unsupported parameters are filtered below.
+        additional_kwargs.update(self.req_kw)
         for akwargs in akwarglist:
             additional_kwargs.update(akwargs)
         # Add the normal kwargs in
         additional_kwargs.update(kwargs)
+        # A narrower scope can explicitly disable the request-wide default.
+        if (
+            "RequestPayer" in additional_kwargs
+            and additional_kwargs["RequestPayer"] is None
+        ):
+            additional_kwargs.pop("RequestPayer")
         # filter all kwargs
         return self._filter_kwargs(method, additional_kwargs)
 
@@ -808,7 +818,7 @@ class S3FileSystem(AsyncFileSystem):
         if fill_cache is None:
             fill_cache = self.default_fill_cache
         if requester_pays is None:
-            requester_pays = bool(self.req_kw)
+            requester_pays = self.requester_pays
 
         acl = (
             acl
@@ -896,26 +906,17 @@ class S3FileSystem(AsyncFileSystem):
             raise ValueError(
                 "versions cannot be specified if the filesystem is not version aware"
             )
-        await self.set_session()
-        s3 = await self.get_s3(bucket)
         if self.version_aware:
             method = "list_object_versions"
             contents_key = "Versions"
         else:
             method = "list_objects_v2"
             contents_key = "Contents"
-        pag = s3.get_paginator(method)
-        config = {}
+        kwargs = dict(Bucket=bucket, Prefix=prefix, Delimiter=delimiter, **self.req_kw)
         if max_items is not None:
-            config.update(MaxItems=max_items, PageSize=2 * max_items)
-        it = pag.paginate(
-            Bucket=bucket,
-            Prefix=prefix,
-            Delimiter=delimiter,
-            PaginationConfig=config,
-            **self.req_kw,
-        )
-        async for i in it:
+            kwargs["MaxKeys"] = 2 * max_items
+        remaining = max_items
+        async for i in self._list_pages(method, **kwargs):
             for l in i.get("CommonPrefixes", []):
                 c = {
                     "Key": l["Prefix"][:-1],
@@ -925,12 +926,33 @@ class S3FileSystem(AsyncFileSystem):
                 }
                 self._fill_info(c, bucket, versions=False)
                 yield c
-            for c in i.get(contents_key, []):
+            contents = i.get(contents_key, [])
+            if remaining is not None:
+                contents = contents[:remaining]
+                remaining -= len(contents)
+            for c in contents:
                 if not self.version_aware or c.get("IsLatest") or versions:
                     c["type"] = "file"
                     c["size"] = c["Size"]
                     self._fill_info(c, bucket, versions=versions)
                     yield c
+            if remaining is not None and remaining <= 0:
+                return
+
+    async def _list_pages(self, method, **kwargs):
+        # Each page goes through _call_s3, so a transient error on one page is
+        # retried like any other request instead of failing (or silently
+        # truncating) the whole listing, as the paginator did (#982).
+        while True:
+            out = await self._call_s3(method, **kwargs)
+            yield out
+            if not out.get("IsTruncated"):
+                return
+            if method == "list_object_versions":
+                kwargs["KeyMarker"] = out.get("NextKeyMarker", "")
+                kwargs["VersionIdMarker"] = out.get("NextVersionIdMarker", "")
+            else:
+                kwargs["ContinuationToken"] = out["NextContinuationToken"]
 
     @staticmethod
     def _fill_info(f, bucket, versions=False):
@@ -1258,16 +1280,16 @@ class S3FileSystem(AsyncFileSystem):
             except FileNotFoundError:
                 # might still be a bucket we can access but don't own
                 pass
-            try:
-                await self._call_s3("head_bucket", Bucket=bucket, **self.req_kw)
-                return True
-            except Exception:
-                pass
-            try:
-                await self._call_s3("get_bucket_location", Bucket=bucket, **self.req_kw)
-                return True
-            except Exception:
-                return False
+            probes = [("head_bucket", {}), ("get_bucket_location", {})]
+            if self.requester_pays:
+                probes.append(("list_objects_v2", {"MaxKeys": 1}))
+            for method, extra in probes:
+                try:
+                    await self._call_s3(method, Bucket=bucket, **extra)
+                    return True
+                except Exception as e:
+                    logger.debug("bucket probe %s failed for %s: %s", method, bucket, e)
+            return False
 
     exists = sync_wrapper(_exists)
 
@@ -1311,7 +1333,6 @@ class S3FileSystem(AsyncFileSystem):
                 Key=key,
                 **version_id_kw(version_id or vers),
                 **head,
-                **self.req_kw,
             )
             try:
                 return await resp["Body"].read()
@@ -1743,7 +1764,6 @@ class S3FileSystem(AsyncFileSystem):
                     Bucket=bucket,
                     Key=key,
                     **version_id_kw(version_id),
-                    **self.req_kw,
                 )
                 return {
                     "ETag": out.get("ETag", ""),
@@ -1761,7 +1781,7 @@ class S3FileSystem(AsyncFileSystem):
                 raise translate_boto_error(e, set_cause=False)
         else:
             try:
-                out = await self._call_s3("head_bucket", Bucket=bucket, **self.req_kw)
+                out = await self._call_s3("head_bucket", Bucket=bucket)
                 return {
                     "name": bucket,
                     "type": "directory",
@@ -1782,7 +1802,6 @@ class S3FileSystem(AsyncFileSystem):
                 Prefix=key.rstrip("/") + "/" if key else "",
                 Delimiter="/",
                 MaxKeys=1,
-                **self.req_kw,
             )
             if (
                 out.get("KeyCount", 0) > 0
@@ -1880,7 +1899,6 @@ class S3FileSystem(AsyncFileSystem):
                 kwargs,
                 Bucket=bucket,
                 Prefix=key,
-                **self.req_kw,
             )
             versions.extend(out["Versions"])
             kwargs.update(
@@ -1912,7 +1930,6 @@ class S3FileSystem(AsyncFileSystem):
             Bucket=bucket,
             Key=key,
             **version_id_kw(version_id),
-            **self.req_kw,
         )
         meta = {k.replace("_", "-"): v for k, v in response["Metadata"].items()}
         return meta
@@ -2410,10 +2427,9 @@ class S3FileSystem(AsyncFileSystem):
 
     async def _rm_versioned_bucket_contents(self, bucket):
         """Remove a versioned bucket and all contents"""
-        await self.set_session()
-        s3 = await self.get_s3(bucket)
-        pag = s3.get_paginator("list_object_versions")
-        async for plist in pag.paginate(Bucket=bucket):
+        async for plist in self._list_pages(
+            "list_object_versions", Bucket=bucket, **self.req_kw
+        ):
             obs = plist.get("Versions", []) + plist.get("DeleteMarkers", [])
             delete_keys = {
                 "Objects": [
@@ -2546,6 +2562,8 @@ class S3File(AbstractBufferedFile):
         self.fill_cache = fill_cache
         self.s3_additional_kwargs = s3_additional_kwargs or {}
         self.req_kw = {"RequestPayer": "requester"} if requester_pays else {}
+        self._request_payer_kw = {"RequestPayer": self.req_kw.get("RequestPayer")}
+        self.read_kw = self._request_payer_kw
         if "r" not in mode:
             if block_size < 5 * 2**20:
                 raise ValueError("Block size must be >=5MB")
@@ -2589,7 +2607,6 @@ class S3File(AbstractBufferedFile):
                 Bucket=bucket,
                 Key=key,
                 **version_id_kw(version_id),
-                **self.req_kw,
             )
 
             head = {
@@ -2615,10 +2632,19 @@ class S3File(AbstractBufferedFile):
             and "ETag" in self.details
             and not s3.local_expiry_check
         ):
-            self.req_kw["IfMatch"] = self.details["ETag"]
+            self.read_kw = {
+                **self._request_payer_kw,
+                "IfMatch": self.details["ETag"],
+            }
 
     def _call_s3(self, method, *kwarglist, **kwargs):
-        return self.fs.call_s3(method, self.s3_additional_kwargs, *kwarglist, **kwargs)
+        return self.fs.call_s3(
+            method,
+            self.s3_additional_kwargs,
+            self._request_payer_kw,
+            *kwarglist,
+            **kwargs,
+        )
 
     def _initiate_upload(self):
         if self.autocommit and not self.append_block and self.tell() < self.blocksize:
@@ -2694,7 +2720,7 @@ class S3File(AbstractBufferedFile):
                 self.version_id,
                 start,
                 end,
-                req_kw=self.req_kw,
+                req_kw=self.read_kw,
                 details=self.details,
             )
 

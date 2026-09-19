@@ -11,9 +11,35 @@ from matrx_scraper.utils import url as url_utils
 
 scrape_router = importlib.import_module("matrx_scraper.api.scrape_router")
 
+#: The organization every one of these calls is ADMITTED for — it arrives on
+#: the wire as `X-Organization-Id` and lands on the context
+#: (matrx_connect.service_auth). `/page-capture` writes a durable parsed page
+#: and can store a screenshot against it, so it never runs without one.
+ORG_ID = "7f1d7b9e-3c9a-4a6d-9c3b-2a4b6d8e0f11"
+
+
+def _ctx(organization_id: str | None = ORG_ID, user_id: str = "") -> SimpleNamespace:
+    return SimpleNamespace(
+        organization_id=organization_id,
+        user_id=user_id,
+        auth_type="token",
+        is_authenticated=True,
+    )
+
 
 class FakeCache:
-    async def get(self, _key: str):
+    """The cache contract: every read names the organization it acts in.
+
+    `scraper.scrape_parsed_page` is org-scoped, so a cache LOOKUP that named no
+    organization would be asking for whatever tenant's copy happened to be
+    there. The last organization seen is recorded so a test can assert the
+    admitted one reached the cache.
+    """
+
+    last_organization_id: str | None = None
+
+    async def get(self, _key: str, *, organization_id: str | None = None):
+        type(self).last_organization_id = organization_id
         return {"cached": True}
 
 
@@ -48,12 +74,13 @@ async def test_backlink_screenshot_uses_direct_render_after_proxied_parse(
             url="https://publisher.example/article",
             target_url="https://brand.example/service",
             capture_screenshot=True,
-            organization_id="org-1",
+            organization_id=ORG_ID,
             site_id="site-1",
             backlink_id="backlink-1",
         ),
         target_url="https://publisher.example/article",
-        ctx=SimpleNamespace(user_id="user-1"),
+        ctx=_ctx(user_id="user-1"),
+        organization_id=ORG_ID,
     )
 
     assert result == {"screenshot_failure_reason": "browser returned no screenshot"}
@@ -102,11 +129,13 @@ async def test_page_capture_returns_bounded_text_and_exact_target_links(monkeypa
             url="https://publisher.example/article",
             target_url="https://brand.example/service",
         ),
-        ctx=SimpleNamespace(),
+        ctx=_ctx(),
     )
 
     assert result.success is True
     assert result.from_cache is True
+    # The cache lookup acted in the organization the CALL was admitted for.
+    assert FakeCache.last_organization_id == ORG_ID
     assert result.char_count == 9
     assert result.content == "12345"
     assert result.content_truncated is True
@@ -151,7 +180,7 @@ async def test_page_capture_preserves_underlying_failure_details(monkeypatch) ->
 
     result = await scrape_router.page_capture(
         scrape_router.PageCaptureRequest(url="https://publisher.example/article"),
-        ctx=SimpleNamespace(),
+        ctx=_ctx(),
     )
 
     assert result.success is False
@@ -205,7 +234,7 @@ async def test_page_capture_returns_the_article_body_by_default(
         scrape_router.PageCaptureRequest(
             url="https://publisher.example/article", full_page=full_page
         ),
-        ctx=SimpleNamespace(),
+        ctx=_ctx(),
     )
 
     assert result.content == expected_content
@@ -242,8 +271,113 @@ async def test_page_capture_falls_back_to_the_full_page_honestly(monkeypatch) ->
 
     result = await scrape_router.page_capture(
         scrape_router.PageCaptureRequest(url="https://publisher.example/pricing"),
-        ctx=SimpleNamespace(),
+        ctx=_ctx(),
     )
 
     assert result.content == "Pricing table and plan comparison."
     assert result.content_scope == "full"
+
+
+@pytest.mark.asyncio
+async def test_page_capture_refuses_a_context_with_no_organization(monkeypatch) -> None:
+    """THE TENANT IS ON THE WIRE (2026-09-17). Before this, the scraper's
+    service routers were mounted `organization_optional=True` and this route
+    took its tenant from the request BODY — so a call that named none simply
+    had no tenant, and nothing screamed."""
+    from fastapi import HTTPException
+
+    async def public_url(value: str) -> str:
+        return value
+
+    monkeypatch.setattr(url_utils, "validate_public_http_url", public_url)
+
+    with pytest.raises(HTTPException) as excinfo:
+        await scrape_router.page_capture(
+            scrape_router.PageCaptureRequest(url="https://publisher.example/article"),
+            ctx=_ctx(organization_id=None),
+        )
+    assert excinfo.value.status_code == 400
+    assert excinfo.value.detail["code"] == "organization_required"
+
+
+@pytest.mark.asyncio
+async def test_page_capture_refuses_a_body_naming_another_organization(monkeypatch) -> None:
+    """A body value CONFIRMS the admitted organization; it never replaces it."""
+    from fastapi import HTTPException
+
+    async def public_url(value: str) -> str:
+        return value
+
+    monkeypatch.setattr(url_utils, "validate_public_http_url", public_url)
+
+    with pytest.raises(HTTPException) as excinfo:
+        await scrape_router.page_capture(
+            scrape_router.PageCaptureRequest(
+                url="https://publisher.example/article",
+                organization_id="11111111-1111-4111-8111-111111111111",
+            ),
+            ctx=_ctx(),
+        )
+    assert excinfo.value.status_code == 409
+    assert excinfo.value.detail["code"] == "organization_context_mismatch"
+
+
+@pytest.mark.asyncio
+async def test_backlink_screenshot_stores_against_the_admitted_organization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The file is stamped with the organization the CALL was admitted for —
+    not with whatever the body carried."""
+    seen: dict[str, object] = {}
+
+    class FakeShot:
+        bytes = b"png"
+        width = 10
+        height = 10
+
+    class FakeBrowserPool:
+        async def fetch_with_capture(self, _url: str, **_kwargs: object) -> SimpleNamespace:
+            return SimpleNamespace(
+                response_url="https://publisher.example/article",
+                screenshots=[FakeShot()],
+                screenshot_failures=[],
+                content='<a data-matrx-backlink-matches="1"></a>',
+            )
+
+    async def public_url(value: str) -> str:
+        return value
+
+    class FakeFileService:
+        def __init__(self, _fm: object) -> None:
+            pass
+
+        async def upload_with_intent(self, _data: bytes, **kwargs: object) -> dict[str, str]:
+            seen["organization_id"] = kwargs["organization_id"]
+            seen["metadata_organization_id"] = kwargs["metadata"]["organization_id"]
+            return {"file_id": "file-1"}
+
+    monkeypatch.setattr(url_utils, "validate_public_http_url", public_url)
+    monkeypatch.setattr(_ext, "has_ext", lambda _name: True)
+    monkeypatch.setattr(
+        _ext,
+        "get_ext",
+        lambda name: FakeBrowserPool() if name == "browser_pool" else object(),
+    )
+    monkeypatch.setattr("matrx_files.service.FileService", FakeFileService)
+
+    result = await scrape_router._capture_backlink_screenshot(
+        request=scrape_router.PageCaptureRequest(
+            url="https://publisher.example/article",
+            target_url="https://brand.example/service",
+            capture_screenshot=True,
+            site_id="site-1",
+            backlink_id="backlink-1",
+        ),
+        target_url="https://publisher.example/article",
+        ctx=_ctx(user_id="user-1"),
+        organization_id=ORG_ID,
+    )
+
+    assert result["screenshot_file_id"] == "file-1"
+    assert seen["organization_id"] == ORG_ID
+    assert seen["metadata_organization_id"] == ORG_ID

@@ -31,6 +31,7 @@ from runlayer_cli.scan.plugin_scanner import (
     _collect_plugin_files,
     _read_json_safe,
     compute_plugin_identifier,
+    mark_plugin_scan_incomplete,
 )
 
 logger = structlog.get_logger(__name__)
@@ -183,6 +184,7 @@ def _scan_marketplace_plugins(
                         )
                     )
     except OSError as e:
+        mark_plugin_scan_incomplete("copilot_plugin_cache_enumeration_failed")
         logger.warning(
             "Failed to scan Copilot marketplace plugins",
             path=str(base),
@@ -237,6 +239,7 @@ def _scan_direct_plugins(
                     )
                 )
     except OSError as e:
+        mark_plugin_scan_incomplete("copilot_plugin_cache_enumeration_failed")
         logger.warning(
             "Failed to scan Copilot direct plugins",
             path=str(direct_dir),
@@ -268,12 +271,14 @@ def scan_copilot_plugins(
         elif platform.system() == "Windows":
             profile = os.environ.get("USERPROFILE")
             if not profile:
+                mark_plugin_scan_incomplete("copilot_plugin_home_resolution_failed")
                 return [], []
             plugins_base = Path(profile) / _INSTALLED_PLUGINS_RELATIVE
         else:
             try:
                 plugins_base = Path.home() / _INSTALLED_PLUGINS_RELATIVE
             except RuntimeError:
+                mark_plugin_scan_incomplete("copilot_plugin_home_resolution_failed")
                 return [], []
 
     if not plugins_base.is_dir():

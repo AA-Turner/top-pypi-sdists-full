@@ -150,6 +150,39 @@ class TestCreatePlaceholderAndSetupWorktree:
     @patch("agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists")
     @patch("agentic_devtools.state.set_value")
     @patch("agentic_devtools.cli.workflows.worktree_setup.create_placeholder_issue")
+    def test_recovery_message_uses_resolved_worktree_path(
+        self,
+        mock_create_issue,
+        mock_set_value,
+        mock_check_exists,
+        mock_setup,
+        capsys,
+    ):
+        """The manual-recovery command names the actual resolved path, not a hardcoded sibling."""
+        mock_create_issue.return_value = PlaceholderIssueResult(success=True, issue_key="PROJECT-9999")
+        mock_check_exists.return_value = None
+        mock_setup.return_value = WorktreeSetupResult(
+            success=False,
+            worktree_path="/repos/wt/PROJECT-9999",
+            branch_name="feature/PROJECT-9999/implementation",
+            error_message="target setup script failed",
+        )
+
+        success, issue_key = create_placeholder_and_setup_worktree(
+            project_key="PROJECT",
+            issue_type="Task",
+        )
+
+        assert success is False
+        assert issue_key == "PROJECT-9999"
+        captured = capsys.readouterr()
+        assert "git worktree add /repos/wt/PROJECT-9999 -b task/PROJECT-9999/create-task" in captured.out
+        assert "git worktree add ../PROJECT-9999" not in captured.out
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.setup_worktree_environment")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists")
+    @patch("agentic_devtools.state.set_value")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.create_placeholder_issue")
     def test_does_not_open_vscode(
         self,
         mock_create_issue,

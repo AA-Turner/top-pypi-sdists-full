@@ -3,6 +3,7 @@
 import typing
 
 from .chat_completion_request_assistant_message import ChatCompletionRequestAssistantMessageParams
+from .chat_completion_request_developer_message import ChatCompletionRequestDeveloperMessageParams
 from .chat_completion_request_generic_message import ChatCompletionRequestGenericMessageParams
 from .chat_completion_request_system_message import ChatCompletionRequestSystemMessageParams
 from .chat_completion_request_tool_message import ChatCompletionRequestToolMessageParams
@@ -10,6 +11,7 @@ from .chat_completion_request_user_message import ChatCompletionRequestUserMessa
 
 ChatCompletionRequestMessageParams = typing.Union[
     ChatCompletionRequestSystemMessageParams,
+    ChatCompletionRequestDeveloperMessageParams,
     ChatCompletionRequestUserMessageParams,
     ChatCompletionRequestAssistantMessageParams,
     ChatCompletionRequestToolMessageParams,

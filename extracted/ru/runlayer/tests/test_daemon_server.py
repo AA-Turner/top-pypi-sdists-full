@@ -445,7 +445,7 @@ async def test_version_skew_drain_flushes_deferred_event_queue(
     )
     monkeypatch.setattr(relay, "_maybe_attach_device", lambda payload: payload)
     monkeypatch.setattr(
-        relay, "_maybe_attach_client_flows", lambda payload, target: payload
+        relay, "_maybe_attach_client_flows", lambda payload, target, host: payload
     )
 
     runtime = daemon_runtime.DaemonRuntime(

@@ -2,14 +2,10 @@
 
 from __future__ import annotations
 
-import json
 import os
 import platform
-import sys
 from pathlib import Path
 from typing import Any, Callable, Iterator, Mapping, TypedDict, cast
-
-import yaml
 
 from runlayer_cli import regex_safe
 from runlayer_cli.hook import hook_io
@@ -39,15 +35,15 @@ from runlayer_cli.hook.copilot_cli_mcp_lookup import (
 )
 from runlayer_cli.hook.mcp_types import MCPServer
 
+# Stdlib-only module top; ``yaml`` / ``tomllib`` load lazily inside the
+# ``parse_*`` that needs them, so a hook fire that never touches a YAML or
+# TOML config never pays for those imports.
+from runlayer_cli.safe_parse import PARSE_ERRORS, parse_json, parse_toml, parse_yaml
+
 # Top-level leaf (closure: ``json`` + ``regex_safe``). Deliberately NOT
 # ``hook_install.tolerant_json`` -- that import runs ``hook_install/__init__.py``
 # and pulls the MDM install stack into every hook process.
 from runlayer_cli.tolerant_json import loads as tolerant_json_loads
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:  # pragma: no cover - Python 3.10 fallback
-    import tomli as tomllib
 
 
 _GOOSE_MCP_TRANSPORT_TYPES = frozenset({"stdio", "sse", "streamable_http"})
@@ -599,12 +595,43 @@ def _read_first_line(path: Path) -> str | None:
     return lines[0].strip() if lines else None
 
 
-def _search_file(path: Path, server_name: str) -> MCPServer | None:
+def _read_text(path: Path) -> str | None:
+    """Bounded-trust read of a user-controlled config file; ``None`` on any
+    read failure (missing, unreadable, not UTF-8)."""
     if not path.is_file():
         return None
     try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+        return path.read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return None
+
+
+# Every reader below decodes user-controlled config through ``safe_parse``:
+# a deep-nested file raises ``RecursionError`` (not a decode error) and would
+# otherwise abort the lookup before later candidate paths are tried -- under
+# Enforce that is a hard deny for a live server. Object-shape checks stay
+# after the decode exactly as before.
+
+
+def _read_json_object(path: Path) -> dict[str, Any] | None:
+    text = _read_text(path)
+    if text is None:
+        return None
+    data = parse_json(text)["value"]
+    return cast(dict[str, Any], data) if isinstance(data, dict) else None
+
+
+def _read_yaml_object(path: Path) -> dict[str, Any] | None:
+    text = _read_text(path)
+    if text is None:
+        return None
+    data = parse_yaml(text)["value"]
+    return cast(dict[str, Any], data) if isinstance(data, dict) else None
+
+
+def _search_file(path: Path, server_name: str) -> MCPServer | None:
+    data = _read_json_object(path)
+    if data is None:
         return None
     return _extract_server(data.get("mcpServers", {}), server_name)
 
@@ -790,11 +817,17 @@ def _iter_child_dirs(path: Path) -> Iterator[Path]:
 
 
 def _codex_mcp_config_paths() -> tuple[Path, ...]:
-    return (
+    paths = [
         Path.home() / ".codex" / "config.toml",
         Path.home() / ".codex" / "managed_config.toml",
-        Path("/etc/codex/managed_config.toml"),
-    )
+    ]
+    if platform.system() == "Windows":
+        # Codex System layer on Windows (where MDM writes hooks + config).
+        program_data = hook_io.getenv("PROGRAMDATA") or r"C:\ProgramData"
+        paths.append(Path(program_data) / "OpenAI" / "Codex" / "config.toml")
+    else:
+        paths.append(Path("/etc/codex/managed_config.toml"))
+    return tuple(paths)
 
 
 def _claude_managed_mcp_config_path() -> Path:
@@ -823,13 +856,8 @@ def _goose_mcp_config_paths() -> tuple[Path, ...]:
 
 def _read_hermes_mcp_servers() -> dict[object, Any]:
     path = Path.home() / ".hermes" / "config.yaml"
-    if not path.is_file():
-        return {}
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
-    except (OSError, yaml.YAMLError):
-        return {}
-    if not isinstance(data, dict):
+    data = _read_yaml_object(path)
+    if data is None:
         return {}
     servers = data.get("mcp_servers", {})
     if isinstance(servers, dict):
@@ -838,12 +866,11 @@ def _read_hermes_mcp_servers() -> dict[object, Any]:
 
 
 def _search_codex_toml_file(path: Path, server_name: str) -> MCPServer | None:
-    if not path.is_file():
+    text = _read_text(path)
+    if text is None:
         return None
-    try:
-        with path.open("rb") as fb:
-            data = tomllib.load(fb)
-    except (OSError, tomllib.TOMLDecodeError):
+    data = parse_toml(text)["value"]
+    if not isinstance(data, dict):
         return None
 
     servers = data.get("mcp_servers", {})
@@ -889,13 +916,8 @@ def _search_server_map(
 
 
 def _read_json_servers(path: Path, key: str) -> Mapping[object, Any]:
-    if not path.is_file():
-        return {}
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return {}
-    if not isinstance(data, dict):
+    data = _read_json_object(path)
+    if data is None:
         return {}
     servers = data.get(key, {})
     if not isinstance(servers, dict):
@@ -904,13 +926,8 @@ def _read_json_servers(path: Path, key: str) -> Mapping[object, Any]:
 
 
 def _search_yaml_key(path: Path, server_name: str, key: str) -> MCPServer | None:
-    if not path.is_file():
-        return None
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError):
-        return None
-    if not isinstance(data, dict):
+    data = _read_yaml_object(path)
+    if data is None:
         return None
 
     servers = data.get(key, {})
@@ -938,13 +955,8 @@ def _lookup_goose_extension_entry(server_name: str) -> dict[str, Any] | None:
 
 
 def _search_yaml_entry(path: Path, server_name: str, key: str) -> dict[str, Any] | None:
-    if not path.is_file():
-        return None
-    try:
-        data = yaml.safe_load(path.read_text(encoding="utf-8"))
-    except (OSError, yaml.YAMLError):
-        return None
-    if not isinstance(data, dict):
+    data = _read_yaml_object(path)
+    if data is None:
         return None
 
     servers = data.get(key, {})
@@ -985,11 +997,8 @@ def _goose_extension_is_mcp(entry: Mapping[str, Any]) -> bool:
 
 
 def _search_cursor_file(path: Path, server_name: str) -> MCPServer | None:
-    if not path.is_file():
-        return None
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
+    data = _read_json_object(path)
+    if data is None:
         return None
 
     servers = data.get("mcpServers", {})
@@ -1096,16 +1105,13 @@ def _read_jsonc_object(path: Path) -> dict[str, Any] | None:
     strict read here would report a live server as unregistered -- a hard deny
     under Enforce.
     """
-    if not path.is_file():
-        return None
-    try:
-        text = path.read_text(encoding="utf-8")
-    except OSError:
+    text = _read_text(path)
+    if text is None:
         return None
     for candidate in (text, _strip_block_comments(text)):
         try:
             data = tolerant_json_loads(candidate)
-        except (ValueError, OSError):
+        except PARSE_ERRORS:
             continue
         if isinstance(data, dict):
             return cast(dict[str, Any], data)
@@ -1191,16 +1197,6 @@ def _extract_server_entry(entry: object) -> MCPServer | None:
         full = f"{command} {' '.join(str(a) for a in args)}".strip()
         return MCPServer(command=full)
     return None
-
-
-def _read_json_object(path: Path) -> dict[str, Any] | None:
-    if not path.is_file():
-        return None
-    try:
-        data = json.loads(path.read_text(encoding="utf-8"))
-    except (json.JSONDecodeError, OSError):
-        return None
-    return data if isinstance(data, dict) else None
 
 
 def _claude_plugin_lookup_names(server_name: str, plugin_name: str) -> list[str]:

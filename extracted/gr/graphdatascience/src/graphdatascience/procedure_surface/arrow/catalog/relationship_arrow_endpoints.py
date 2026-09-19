@@ -1,9 +1,8 @@
-from pandas import DataFrame
-
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
 from graphdatascience.arrow_client.v2.data_mapper_utils import deserialize_single
 from graphdatascience.arrow_client.v2.job_client import JobClient
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
+from graphdatascience.procedure_surface.api.catalog.relationships_data_frame import RelationshipsDataFrame
 from graphdatascience.procedure_surface.api.catalog.relationships_endpoints import (
     Aggregation,
     CollapsePathResult,
@@ -16,9 +15,10 @@ from graphdatascience.procedure_surface.api.catalog.relationships_endpoints impo
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.write_job_handle import WriteJobHandle
 from graphdatascience.procedure_surface.arrow.collapse_path_arrow_endpoints import CollapsePathArrowEndpoints
+from graphdatascience.procedure_surface.arrow.stream_result_mapper import apply_stream_mapper
 from graphdatascience.procedure_surface.utils.config_converter import ConfigConverter
-from graphdatascience.query_runner.protocol.write_protocols import WriteProtocol
 from graphdatascience.query_runner.termination_flag import TerminationFlag
+from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
 class RelationshipArrowEndpoints(RelationshipsEndpoints):
@@ -38,7 +38,7 @@ class RelationshipArrowEndpoints(RelationshipsEndpoints):
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         relationship_types: list[str] = ALL_TYPES,
         relationship_properties: list[str] | None = None,
         *,
@@ -46,7 +46,8 @@ class RelationshipArrowEndpoints(RelationshipsEndpoints):
         sudo: bool = False,
         log_progress: bool = True,
         username: str | None = None,
-    ) -> DataFrame:
+        job_id: str | None = None,
+    ) -> RelationshipsDataFrame:
         config_input = {
             "graph_name": G.name(),
             "relationship_types": relationship_types or ["*"],
@@ -54,6 +55,7 @@ class RelationshipArrowEndpoints(RelationshipsEndpoints):
             "sudo": sudo,
             "log_progress": log_progress,
             "username": username,
+            "job_id": job_id,
         }
 
         endpoint = "v2/graph.relationships.stream"
@@ -64,13 +66,13 @@ class RelationshipArrowEndpoints(RelationshipsEndpoints):
         config = ConfigConverter.convert_to_gds_config(**config_input)
 
         job_id = JobClient.run_job(self._arrow_client, endpoint, config)
-        result = JobClient.stream_results(self._arrow_client, G.name(), job_id)
+        result = apply_stream_mapper(endpoint, JobClient.stream_results(self._arrow_client, G.name(), job_id))
 
-        return result
+        return RelationshipsDataFrame(result)
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         relationship_type: str,
         relationship_properties: list[str] | None = None,
         *,
@@ -132,7 +134,7 @@ class RelationshipArrowEndpoints(RelationshipsEndpoints):
 
     def drop(
         self,
-        G: GraphV2,
+        G: Graph,
         relationship_type: str,
         *,
         fail_if_missing: bool = True,
@@ -151,7 +153,7 @@ class RelationshipArrowEndpoints(RelationshipsEndpoints):
 
     def index_inverse(
         self,
-        G: GraphV2,
+        G: Graph,
         relationship_types: list[str],
         *,
         concurrency: int | None = None,
@@ -179,7 +181,7 @@ class RelationshipArrowEndpoints(RelationshipsEndpoints):
 
     def to_undirected(
         self,
-        G: GraphV2,
+        G: Graph,
         relationship_type: str,
         mutate_relationship_type: str,
         *,
@@ -211,7 +213,7 @@ class RelationshipArrowEndpoints(RelationshipsEndpoints):
 
     def collapse_path(
         self,
-        G: GraphV2,
+        G: Graph,
         path_templates: list[list[str]],
         mutate_relationship_type: str,
         *,

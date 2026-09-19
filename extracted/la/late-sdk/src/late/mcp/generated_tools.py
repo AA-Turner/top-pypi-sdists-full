@@ -6763,8 +6763,8 @@ def register_generated_tools(mcp, _get_client):
             platforms: Meta only. Comma-separated publisher platforms: FACEBOOK, INSTAGRAM, AUDIENCE_NETWORK, MESSENGER, WHATSAPP, OCULUS, THREADS, STREAMING_SERVICES.
             media_type: Meta only.
             languages: Meta only. Comma-separated ISO 639-1 codes of the ad text.
-            since: Earliest delivery date (YYYY-MM-DD).
-            until: Latest delivery date (YYYY-MM-DD).
+            since: Meta only. Earliest delivery date (YYYY-MM-DD). LinkedIn's archive does not filter by date, so it is a 400 there: filter on details.adStatistics.firstImpressionAt / latestImpressionAt instead (EU-delivered ads only).
+            until: Meta only. Latest delivery date (YYYY-MM-DD); a 400 on LinkedIn, see since.
             search_type: Meta only. Whether q matches words in any order or as an exact phrase (comma-separate phrases to match all of them).
             fields: Meta only. Comma-separated Graph field override. Supports nested {} projections and Graph field modifiers, so a nested edge can be paged explicitly: without a .limit() modifier the expansion runs at the Meta default page size and the tail is dropped silently.
             limit: Rows per page. LinkedIn accepts at most 25.
@@ -10960,7 +10960,7 @@ def register_generated_tools(mcp, _get_client):
 
         WhatsApp:
           whatsapp_error, one_whatsapp_per_profile, whatsapp_number_already_connected,
-          whatsapp_number_pinned_to_profile, connection_cancelled
+          whatsapp_number_pinned_to_profile, whatsapp_coexistence_not_registered, connection_cancelled
 
         Google Ads (platform=googleads):
           google_ads_auth_failed, google_ads_invalid_state, google_ads_config_error,
@@ -11017,8 +11017,8 @@ def register_generated_tools(mcp, _get_client):
         side and no domain setup: send the user to `authUrl`, and they come back to `redirect_url` with the
         same params as the redirect flow. Success: `connected=whatsapp`, `profileId`, `accountId`, `username`
         (plus `connect_token` for API-key callers). Failure: `error` and `platform=whatsapp`, with the same
-        values and extras as the redirect flow (`one_whatsapp_per_profile`, `whatsapp_number_already_connected`
-        and `whatsapp_number_pinned_to_profile` with `is_user_fixable=true`; `payment_required` with `reason`
+        values and extras as the redirect flow (`one_whatsapp_per_profile`, `whatsapp_number_already_connected`,
+        `whatsapp_number_pinned_to_profile` and `whatsapp_coexistence_not_registered` with `is_user_fixable=true`; `payment_required` with `reason`
         and `dashboard_url`; `whatsapp_error` with `error_message` when Meta reported one), plus two of its own:
         `connection_cancelled` when the popup was closed before finishing (`error_message` carries Meta's last
         reported step or error when there is one) and `session_expired` when the user took longer than the

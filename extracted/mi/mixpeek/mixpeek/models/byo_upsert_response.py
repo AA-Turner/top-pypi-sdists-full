@@ -32,8 +32,9 @@ class BYOUpsertResponse(BaseModel):
     document_ids: List[StrictStr] = Field(description="IDs of all upserted documents.")
     write_token: Optional[StrictStr] = Field(default=None, description="Opaque token for read-your-writes consistency (only when requested).")
     dropped_payload_fields: Optional[Dict[str, List[StrictStr]]] = Field(default=None, description="document_id -> payload field names that were REMOVED before storage because they collide with reserved internal field names. Their values are not stored anywhere and are not readable back. Rename the field (e.g. 'source_type' -> 'my_source_type') or nest it under 'metadata' to keep the value. Empty when nothing was dropped.")
+    unsearchable_document_ids: Optional[List[StrictStr]] = Field(default=None, description="document_ids that were stored but carry no vector for the collection's declared index, so a retriever search will not return them until you provide a vector for that index or run the collection's extractor. The documents are readable by list and get; they are only absent from search. Empty when every document is searchable.")
     consistency: Optional[WriteConsistency] = Field(default=None, description="How and when this write becomes visible to retriever reads.")
-    __properties: ClassVar[List[str]] = ["inserted", "document_ids", "write_token", "dropped_payload_fields", "consistency"]
+    __properties: ClassVar[List[str]] = ["inserted", "document_ids", "write_token", "dropped_payload_fields", "unsearchable_document_ids", "consistency"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -93,6 +94,7 @@ class BYOUpsertResponse(BaseModel):
             "document_ids": obj.get("document_ids"),
             "write_token": obj.get("write_token"),
             "dropped_payload_fields": obj.get("dropped_payload_fields"),
+            "unsearchable_document_ids": obj.get("unsearchable_document_ids"),
             "consistency": WriteConsistency.from_dict(obj["consistency"]) if obj.get("consistency") is not None else None
         })
         return _obj

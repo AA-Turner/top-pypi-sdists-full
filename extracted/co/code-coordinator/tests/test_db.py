@@ -1100,6 +1100,77 @@ class TestOverrideConnection:
         _ensure_schema(sqlite3.connect(":memory:"))
 
 
+# ── pytest-gap sentinel (#3385) ──────────────────────────────────────────────
+#
+# #3385: `main`'s `Tests` workflow was red for 33 days with thousands of
+# `ProductionDatabaseGuardError`s, and #3380's daemon-lifespan-shutdown fix
+# left the count unchanged -- because the actual gap is in `coord.db`'s
+# connection singleton itself, not the daemon: `tests/conftest.py`'s autouse
+# `coord_db` fixture only guarantees an isolated override while ONE test's
+# own setup/call/teardown phases are running. Its teardown used to call
+# `close()`, which resets `_conn` to plain `None` -- reopening the #1960 gap
+# one layer up for anything that calls `get_connection()` in the window
+# between one test's teardown and the next test's setup, or before the very
+# first test's setup has run at all. #1960's own `PYTEST_CURRENT_TEST` guard
+# inside `_open()` only protects that window if the env var happens to still
+# be set at that exact moment, which is not guaranteed. `_pytest_gap_
+# sentinel()` (installed by both `pytest_configure` and `coord_db`'s
+# teardown in `tests/conftest.py`) closes it unconditionally: `_conn` is
+# never plain `None` for the life of a pytest process, so `get_connection()`
+# can no longer fall through to `_open()` -- and therefore the real
+# `~/.coord/coord.db` -- while pytest is running, regardless of timing.
+class TestPytestGapSentinel:
+    def test_any_attribute_access_raises_the_guard(self) -> None:
+        sentinel = db_mod._pytest_gap_sentinel()
+        with pytest.raises(db_mod.ProductionDatabaseGuardError, match="coord_db"):
+            sentinel.execute("SELECT 1")
+
+    def test_probing_closed_also_raises(self) -> None:
+        """`_connection_is_closed` -- the first thing `get_connection()` does
+        with a cached connection -- reads `.closed` via
+        `getattr(conn, "closed", False)`. The sentinel must not silently
+        answer "not closed" here: that would let `get_connection()` hand the
+        sentinel back as if it were a usable connection, deferring the
+        failure to whatever statement runs next instead of raising at the
+        point the gap was actually reached."""
+        sentinel = db_mod._pytest_gap_sentinel()
+        with pytest.raises(db_mod.ProductionDatabaseGuardError):
+            db_mod._connection_is_closed(sentinel)
+
+    def test_get_connection_raises_instead_of_opening_the_real_path(self) -> None:
+        """Simulates the exact gap #3385 closes: `_conn` holding the
+        sentinel, as `coord_db`'s teardown (and `pytest_configure`, before
+        the first test) now leave it, instead of plain `None`.
+
+        RED against the pre-#3385 shape (installing plain `None` here
+        instead): `get_connection()` would fall through to `_open()`, whose
+        only protection is whether `PYTEST_CURRENT_TEST` happens to be set at
+        that exact moment -- true during this test's own body, so it would
+        incidentally still raise here, just via a DIFFERENT code path (and
+        not at all in the actual gap this issue is about, between two tests,
+        which this single-test assertion cannot reach). GREEN here
+        demonstrates the sentinel raises unconditionally, before `_open()`
+        -- and therefore the real `~/.coord/coord.db` -- is ever reached,
+        which is what actually closes the inter-test gap.
+
+        Restores the real per-test connection in a ``finally`` rather than
+        via ``monkeypatch``: an earlier autouse fixture in
+        ``tests/conftest.py`` already pulls the shared ``monkeypatch``
+        instance's setup forward ahead of ``coord_db`` (see
+        ``_no_frozen_coord_dir_constants``'s docstring), which pushes
+        ``monkeypatch``'s own undo to AFTER ``coord_db``'s teardown -- so a
+        ``monkeypatch.setattr`` here would leave the sentinel installed when
+        ``coord_db``'s teardown tries to ``close()`` it.
+        """
+        original_conn = db_mod._conn
+        db_mod.override_connection(db_mod._pytest_gap_sentinel())
+        try:
+            with pytest.raises(db_mod.ProductionDatabaseGuardError, match="coord_db"):
+                db_mod.get_connection()
+        finally:
+            db_mod.override_connection(original_conn)
+
+
 # ── _resolve_store_target (#827) ─────────────────────────────────────────────
 
 _VALID_REPOS_MACHINES_YAML = (
@@ -2394,7 +2465,10 @@ class TestUatStateAndReasonColumns:
 # #3357 bumped this to (18, 96): `assignments.test_confirmation` —
 # machine-readable provenance for a `test_state` write (confirmed by a real
 # out-of-band re-run, or merely carried forward from the worker's claim).
-_PINNED_SCHEMA_VERSION_AND_MIGRATION_COUNT = (18, 96)
+# #3384 bumped this to (19, 97): `issues.state_reason` — GitHub's own witness
+# that an issue was explicitly reopened, distinguishing that from an issue
+# that merged without ever auto-closing.
+_PINNED_SCHEMA_VERSION_AND_MIGRATION_COUNT = (19, 97)
 
 
 class TestMigrateAddColumnsVersionGuard:
@@ -2762,6 +2836,124 @@ class TestRollbackAfterDriverError:
         )
 
         assert conn.rollbacks == 1
+
+
+class _ExecuteAlwaysFailsConn:
+    """Wraps a real connection: `cursor().execute()` always raises — stands
+    in for a connection where even the compensating statement
+    `undo_pending_write` issues hits sustained contention, for
+    `TestUndoPendingWrite.test_a_failing_undo_never_masks_the_caught_error`.
+    Deliberately does NOT delegate `cursor()` to the real connection (unlike
+    `tests/test_state.py`'s `_CommitFlakyConn`, which only fakes
+    `commit()`) — every statement this wrapper's cursor is asked to run
+    fails, exactly like `_RollbackRecorder(fail=True)` did for the old
+    unconditional-`conn.rollback()` shape this class replaces."""
+
+    __module__ = "sqlite3"  # coord.sql.detect_dialect keys off this
+
+    class _FailingCursor:
+        def execute(self, *_a, **_kw):  # noqa: ANN002,ANN003,ANN201
+            raise sqlite3.OperationalError("rollback itself failed")
+
+    def cursor(self):  # noqa: ANN201
+        return self._FailingCursor()
+
+
+class TestUndoPendingWrite:
+    """#3382 review round 2: `db.undo_pending_write` runs a compensating
+    statement naming THIS write's own row, not any transaction-level undo —
+    neither `conn.rollback()` (round 1) nor `SAVEPOINT` +
+    `ROLLBACK TO SAVEPOINT` (round 2) can express "mine only" on
+    `coord.db`'s shared, process-wide SQLite singleton, which every other
+    `_*_local` writer dispatched through `run_in_threadpool` also writes
+    through. See the function's own docstring for the full incident."""
+
+    def _seed_unrelated_pending_write(self, conn: sqlite3.Connection, key: str) -> None:
+        """A write pending on *conn*, uncommitted — mirrors another thread's
+        own in-flight statement on the shared singleton."""
+        conn.execute(f"INSERT INTO board_meta (key, value) VALUES ('{key}', 'pending')")  # noqa: S608
+
+    def test_undoes_only_this_writes_own_row(
+        self, isolated_conn: sqlite3.Connection,
+    ) -> None:
+        """Both halves of the hazard in one test: an unrelated writer's
+        statement pending BEFORE this write's own (what round 1's bare
+        `conn.rollback()` discarded) *and* one landing AFTER it (what a
+        `ROLLBACK TO SAVEPOINT` would discard, uniquely-named or not — see
+        `test_a_savepoint_scoped_undo_would_discard_a_later_write` below)
+        must both survive, while this write's own row goes."""
+        self._seed_unrelated_pending_write(isolated_conn, "before")
+        isolated_conn.execute(
+            "INSERT INTO board_meta (key, value) VALUES ('ours', 'should-vanish')"
+        )
+        self._seed_unrelated_pending_write(isolated_conn, "after")
+
+        db_mod.undo_pending_write(
+            isolated_conn,
+            sqlite3.OperationalError("database is locked"),
+            undo=lambda: sql.execute(
+                isolated_conn, "DELETE FROM board_meta WHERE key=?", ("ours",)
+            ),
+        )
+
+        # Both unrelated pending writes are untouched and still committable
+        # by whoever's writes they actually are.
+        isolated_conn.commit()
+        rows = {
+            r["key"]: r["value"]
+            for r in isolated_conn.execute("SELECT key, value FROM board_meta").fetchall()
+        }
+        assert rows.get("before") == "pending"
+        assert rows.get("after") == "pending"
+        assert "ours" not in rows
+
+    def test_a_savepoint_scoped_undo_would_discard_a_later_write(
+        self, isolated_conn: sqlite3.Connection,
+    ) -> None:
+        """Pins the premise of the design decision above, against the real
+        driver rather than by assertion: `ROLLBACK TO SAVEPOINT` reverts the
+        database to its state just after that savepoint, so it takes every
+        statement issued since with it — including another thread's, and
+        even when each thread uses its OWN distinctly-named savepoint (the
+        round-2 review's suggested fix, which closes only the narrower
+        name-collision half). If SQLite ever changed this, the comment
+        trail in `db.undo_pending_write` would be wrong and this test is how
+        we would find out."""
+        sql.execute(isolated_conn, "SAVEPOINT sp_thread_a")
+        sql.execute(isolated_conn, "SAVEPOINT sp_thread_b")  # unique name, still nested
+        isolated_conn.execute("INSERT INTO board_meta (key, value) VALUES ('a', 'x')")
+        isolated_conn.execute("INSERT INTO board_meta (key, value) VALUES ('b', 'x')")
+
+        sql.execute(isolated_conn, "ROLLBACK TO SAVEPOINT sp_thread_a")
+        sql.execute(isolated_conn, "RELEASE SAVEPOINT sp_thread_a")
+        isolated_conn.commit()
+
+        keys = {
+            r["key"] for r in isolated_conn.execute("SELECT key FROM board_meta").fetchall()
+        }
+        assert "a" not in keys
+        assert "b" not in keys, (
+            "thread B's row survived — SQLite's ROLLBACK TO semantics changed, "
+            "and db.undo_pending_write's rationale needs revisiting"
+        )
+
+    def test_none_connection_is_a_no_op(self) -> None:
+        called: list[int] = []
+        db_mod.undo_pending_write(
+            None,
+            sqlite3.OperationalError("database is locked"),
+            undo=lambda: called.append(1),
+        )  # must not raise
+        assert called == []
+
+    def test_a_failing_undo_never_masks_the_caught_error(self) -> None:
+        conn = _ExecuteAlwaysFailsConn()
+
+        db_mod.undo_pending_write(
+            conn,
+            sqlite3.OperationalError("database is locked"),
+            undo=lambda: sql.execute(conn, "DELETE FROM board_meta WHERE key=?", ("ours",)),
+        )  # must not raise, even though the compensating statement itself fails
 
 
 class TestBoardConnectionIfOpen:

@@ -159,6 +159,7 @@ __all__ = (
     "PropertyLocationType",
     "PropertyTypeType",
     "QuoteCharType",
+    "RecommendationModeType",
     "RecrawlBehaviorType",
     "RegionName",
     "RegistryStatusType",
@@ -639,6 +640,7 @@ PrincipalTypeType = Literal["GROUP", "ROLE", "USER"]
 PropertyLocationType = Literal["BODY", "HEADER", "PATH", "QUERY_PARAM"]
 PropertyTypeType = Literal["READ_ONLY", "SECRET", "SECRET_OR_USER_INPUT", "UNUSED", "USER_INPUT"]
 QuoteCharType = Literal["disabled", "quillemet", "quote", "single_quote"]
+RecommendationModeType = Literal["ADVANCED", "BASIC"]
 RecrawlBehaviorType = Literal["CRAWL_EVENT_MODE", "CRAWL_EVERYTHING", "CRAWL_NEW_FOLDERS_ONLY"]
 RegistryStatusType = Literal["AVAILABLE", "DELETING"]
 ResourceActionType = Literal["CREATE", "UPDATE"]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: parse
-Version: 1.22.1
+Version: 1.22.2
 Summary: parse() is the opposite of format()
 Author-email: Richard Jones <richard@python.org>
 Maintainer-email: Wim Jeantine-Glenn <hey@wimglenn.com>
@@ -201,10 +201,13 @@ f     Fixed-point numbers                         float
 F     Decimal numbers                             Decimal
 e     Floating-point numbers with exponent        float
       e.g. 1.1e-10, NAN (all case insensitive)
+E     Same as e                                   float
 g     General number format (either d, f or e)    float
+G     Same as g                                   float
 b     Binary numbers                              int
 o     Octal numbers                               int
 x     Hexadecimal numbers (lower and upper case)  int
+X     Same as x                                   int
 ti    ISO 8601 format date/time                   datetime
       e.g. 1972-01-20T10:21:36Z ("T" and "Z"
       optional)
@@ -459,6 +462,7 @@ To run the tests locally:
 Changelog
 ---------
 
+- 1.22.2 Fix negative Decimals, parse nan/inf handling for float (thanks @Sreekant13)
 - 1.22.1 Parse zero-precision floats formatted without a decimal point (thanks @SAY-5)
 - 1.22.0 Convert into a package and add type stubs (thanks @moi90)
 - 1.21.1 Fix microsecond precision loss in timestamp parsing (thanks @karthiksai109)

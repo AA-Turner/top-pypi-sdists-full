@@ -161,8 +161,26 @@ class ScrapeService:
         await service.quick_scrape_stream()
     """
 
-    def __init__(self, emitter=None):
+    def __init__(
+        self,
+        emitter=None,
+        organization_id: str | None = None,
+        acting_user_id: str | None = None,
+    ):
         self.emitter = emitter
+        # The organization this service acts in, resolved by the ROUTE at the
+        # boundary (`confirm_request_organization`) and carried into the
+        # streaming task. The page cache writes an org-scoped row, so it must
+        # travel with the work rather than be re-derived inside it.
+        self.organization_id: str | None = organization_id
+        # The PERSON this scrape runs for, resolved by the ROUTE from the
+        # request context. It unlocks exactly one thing: a blocked page may be
+        # retried through a computer THIS person registered as a home
+        # connection (contract:
+        # `common-docs/systems/platform/residential-egress/FEATURE.md`). A run
+        # with nobody signed in simply never gets that retry, and the result
+        # says so rather than going quiet.
+        self.acting_user_id: str | None = acting_user_id
         self.urls: list[str] = []
         self.use_cache: bool = True
         self.options: ScrapeOptions = ScrapeOptions()
@@ -243,6 +261,8 @@ class ScrapeService:
             use_proxy=True,
             cache=self._resolve_cache(),
             ladder_policy=ladder_policy,
+            organization_id=self.organization_id,
+            acting_user_id=self.acting_user_id,
         ):
             if not result.success:
                 supervised_task(
@@ -274,6 +294,8 @@ class ScrapeService:
             use_proxy=True,
             cache=self._resolve_cache(),
             ladder_policy=ladder_policy,
+            organization_id=self.organization_id,
+            acting_user_id=self.acting_user_id,
         ):
             results.append(_apply_field_flags(result.to_dict(), self.options))
         elapsed_ms = round((time.monotonic() - start) * 1000, 1)
@@ -373,6 +395,8 @@ class ScrapeService:
             use_proxy=True,
             cache=self._resolve_cache(),
             ladder_policy=ladder_policy,
+            organization_id=self.organization_id,
+            acting_user_id=self.acting_user_id,
         ):
             if not result.success:
                 supervised_task(
@@ -432,7 +456,13 @@ class ScrapeService:
 
         successful = 0
         start = time.monotonic()
-        async for result in scrape_many_stream(urls, use_proxy=True, cache=self._resolve_cache()):
+        async for result in scrape_many_stream(
+            urls,
+            use_proxy=True,
+            cache=self._resolve_cache(),
+            organization_id=self.organization_id,
+            acting_user_id=self.acting_user_id,
+        ):
             if not result.success:
                 supervised_task(
                     _fire_and_forget_failure_log(result),

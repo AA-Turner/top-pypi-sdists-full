@@ -43,19 +43,19 @@ use crate::error::{Error, Result};
 
 // ── Geometry ────────────────────────────────────────────────────────
 
-/// A 2D point in **logical** screen coordinates (device-independent points).
+/// A 2D point in desktop coordinates: physical pixels on Windows and logical
+/// points on macOS and Linux.
 ///
 /// This is the same coordinate space as [`crate::element::Rect`] in
 /// `Element::bounds`, so anchor points computed from an element's bounds are
 /// already in the right space. Origin is top-left of the primary display;
 /// negative values are valid on multi-monitor setups.
 ///
-/// Each [`InputProvider`] converts logical points to whatever its OS input API
-/// requires at the FFI boundary: macOS uses points natively (identity), while
-/// Windows and Linux multiply by the target display's scale factor to reach
-/// physical device pixels before dispatching the event. Consumers never see
-/// physical pixels here — a point that lands on an element's centre is
-/// `anchor_point(&element.bounds, Anchor::Center)`, unscaled.
+/// Each [`InputProvider`] uses the same units as its element bounds. Windows
+/// and macOS pass these coordinates to native input without DPI conversion;
+/// Linux converts logical points when its display scale is known. A point
+/// that lands on an element's centre is
+/// `anchor_point(&element.bounds, Anchor::Center)`.
 #[allow(
     clippy::exhaustive_structs,
     reason = "Closed domain: a 2D screen point is an x and a y. Literal \
@@ -120,14 +120,23 @@ pub enum Anchor {
 
 /// Compute a [`Point`] inside a [`Rect`] using the given [`Anchor`].
 pub fn anchor_point(rect: &Rect, anchor: Anchor) -> Point {
-    let (x, y, w, h) = (rect.x, rect.y, rect.width as i32, rect.height as i32);
+    let x = rect.x;
+    let y = rect.y;
+    // Rectangles are half-open. Named right/bottom anchors target the last
+    // point inside the bounds, never the exclusive far edge (which can be on
+    // a different display and is not part of the element).
+    let w = rect.width.saturating_sub(1).min(i32::MAX as u32) as i32;
+    let h = rect.height.saturating_sub(1).min(i32::MAX as u32) as i32;
     match anchor {
-        Anchor::Center => Point::new(x + w / 2, y + h / 2),
+        Anchor::Center => Point::new(
+            x.saturating_add((rect.width / 2).min(i32::MAX as u32) as i32),
+            y.saturating_add((rect.height / 2).min(i32::MAX as u32) as i32),
+        ),
         Anchor::TopLeft => Point::new(x, y),
-        Anchor::TopRight => Point::new(x + w, y),
-        Anchor::BottomLeft => Point::new(x, y + h),
-        Anchor::BottomRight => Point::new(x + w, y + h),
-        Anchor::Offset { dx, dy } => Point::new(x + dx, y + dy),
+        Anchor::TopRight => Point::new(x.saturating_add(w), y),
+        Anchor::BottomLeft => Point::new(x, y.saturating_add(h)),
+        Anchor::BottomRight => Point::new(x.saturating_add(w), y.saturating_add(h)),
+        Anchor::Offset { dx, dy } => Point::new(x.saturating_add(dx), y.saturating_add(dy)),
     }
 }
 
@@ -874,5 +883,24 @@ mod point_scale_tests {
         let center = anchor_point(&bounds, Anchor::Center);
         assert_eq!(center, Point::new(200, 120));
         assert_eq!(center.to_physical(2.0), Point::new(400, 240));
+    }
+
+    #[test]
+    fn corner_anchors_stay_inside_half_open_bounds() {
+        let bounds = Rect {
+            x: 10,
+            y: 20,
+            width: 3,
+            height: 2,
+        };
+        assert_eq!(anchor_point(&bounds, Anchor::TopRight), Point::new(12, 20));
+        assert_eq!(
+            anchor_point(&bounds, Anchor::BottomLeft),
+            Point::new(10, 21)
+        );
+        assert_eq!(
+            anchor_point(&bounds, Anchor::BottomRight),
+            Point::new(12, 21)
+        );
     }
 }

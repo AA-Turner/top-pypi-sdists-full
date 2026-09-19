@@ -23,7 +23,6 @@ from pydantic_ai.messages import (
     ModelMessage,
     ModelRequest,
     ModelResponse,
-    ModelResponsePart,
     ModelResponseStreamEvent,
     RetryPromptPart,
     SystemPromptPart,
@@ -38,6 +37,11 @@ from pydantic_ai.settings import ModelSettings
 from pydantic_ai.tools import ToolDefinition
 from pydantic_ai.usage import RequestUsage
 
+from code_puppy.gemini_common import (
+    _parse_candidate_parts,
+    generate_tool_call_id,
+    _build_generation_config,
+)
 from code_puppy.steer_metadata import is_steer_request
 
 logger = logging.getLogger(__name__)
@@ -51,11 +55,6 @@ BYPASS_THOUGHT_SIGNATURE = "context_engineering_is_the_way_to_go"
 STEER_PREAMBLE = (
     "Additional guidance for the current task; continue the existing workflow:"
 )
-
-
-def generate_tool_call_id() -> str:
-    """Generate a unique tool call ID."""
-    return str(uuid.uuid4())
 
 
 def _flatten_union_to_object_gemini(union_items: list, defs: dict, resolve_fn) -> dict:
@@ -599,44 +598,6 @@ class GeminiModel(Model):
 
         return [{"functionDeclarations": function_declarations}]
 
-    def _build_generation_config(
-        self, model_settings: ModelSettings | None
-    ) -> dict[str, Any]:
-        """Build generation config from model settings."""
-        config: dict[str, Any] = {}
-
-        if model_settings:
-            # ModelSettings is a TypedDict, so use .get() for all access
-            temperature = model_settings.get("temperature")
-            if temperature is not None:
-                config["temperature"] = temperature
-
-            top_p = model_settings.get("top_p")
-            if top_p is not None:
-                config["topP"] = top_p
-
-            max_tokens = model_settings.get("max_tokens")
-            if max_tokens is not None:
-                config["maxOutputTokens"] = max_tokens
-
-            # Handle Gemini 3 Pro thinking settings
-            thinking_enabled = model_settings.get("thinking_enabled")
-            thinking_level = model_settings.get("thinking_level")
-
-            # Build thinkingConfig if thinking settings are present
-            if thinking_enabled is False:
-                # Disable thinking by not including thinkingConfig
-                pass
-            elif thinking_level is not None:
-                # Gemini 3 Pro uses thinkingLevel with values "low" or "high"
-                # includeThoughts=True is required to surface the thinking in the response
-                config["thinkingConfig"] = {
-                    "thinkingLevel": thinking_level,
-                    "includeThoughts": True,
-                }
-
-        return config
-
     def _build_request_body(
         self,
         system_instruction,
@@ -648,7 +609,7 @@ class GeminiModel(Model):
     ) -> dict[str, Any]:
         body: dict[str, Any] = {"contents": contents}
 
-        gen_config = self._build_generation_config(model_settings)
+        gen_config = _build_generation_config(model_settings)
         if gen_config:
             body["generationConfig"] = gen_config
 
@@ -712,40 +673,7 @@ class GeminiModel(Model):
                 usage=RequestUsage(),
             )
 
-        candidate = candidates[0]
-        content = candidate.get("content", {})
-        parts = content.get("parts", [])
-
-        response_parts: list[ModelResponsePart] = []
-
-        for part in parts:
-            if part.get("thought") and part.get("text") is not None:
-                # Thinking part.
-                signature = part.get("thoughtSignature")
-                response_parts.append(
-                    ThinkingPart(content=part["text"], signature=signature)
-                )
-
-            elif "text" in part:
-                response_parts.append(TextPart(content=part["text"]))
-
-            elif "functionCall" in part:
-                fc = part["functionCall"]
-
-                response_parts.append(
-                    ToolCallPart(
-                        tool_name=fc["name"],
-                        args=fc.get("args", {}),
-                        tool_call_id=fc.get("id") or generate_tool_call_id(),
-                    )
-                )
-
-        # Extract usage.
-        usage_meta = data.get("usageMetadata", {})
-        usage = RequestUsage(
-            input_tokens=usage_meta.get("promptTokenCount", 0),
-            output_tokens=usage_meta.get("candidatesTokenCount", 0),
-        )
+        usage, response_parts = _parse_candidate_parts(data, candidates)
 
         return ModelResponse(
             parts=response_parts,

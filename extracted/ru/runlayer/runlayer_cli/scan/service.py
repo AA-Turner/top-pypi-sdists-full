@@ -2,17 +2,19 @@
 
 from __future__ import annotations
 
+import datetime
 import getpass
-import json
 import os
 import stat
 import subprocess
 import sys
+import threading
 import time
-from collections.abc import Callable, Mapping
+import uuid
+from collections.abc import Callable, Mapping, Sequence
 from dataclasses import dataclass, field, replace
 from pathlib import Path, PurePosixPath
-from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypeVar
+from typing import TYPE_CHECKING, Any, Generic, Literal, Protocol, TypeVar, cast
 
 try:
     import pwd
@@ -35,11 +37,15 @@ from runlayer_cli.scan.client_presence import (
     merge_client_presence,
 )
 from runlayer_cli.scan.clients import MCPClientDefinition, get_all_clients
+from runlayer_cli.scan.completeness import ScanCompleteness, ScanCompletionStatus
 from runlayer_cli.scan.config_redact import BENIGN_ENV_KEYS, redact_config_mapping
 from runlayer_cli.scan.config_parser import MCPClientConfig, parse_config_file
 from runlayer_cli.scan.containers import (
+    CONTAINER_SCAN_INCOMPLETE_REASON,
+    ContainerScanResult,
     DiscoveredContainer,
     DiscoveredContainerImage,
+    sanitize_container_scan_error,
     scan_running_containers,
 )
 from runlayer_cli.scan.containers.inspect_parse import MAX_CONTAINERS
@@ -58,34 +64,85 @@ from runlayer_cli.scan.orchestrator import (
     run_concurrent_scan_phases,
     run_timed_phase,
 )
-from runlayer_cli.scan.plugin_scanner import DiscoveredPluginArtifact
+from runlayer_cli.scan.plugin_scanner import (
+    DiscoveredPluginArtifact,
+    reset_plugin_scan_state,
+)
 from runlayer_cli.scan.processes import (
     DiscoveredProcess,
     ProcessDiscoveryResult,
     discover_processes,
 )
-from runlayer_cli.scan.processes.models import OverrideConfigRef
+from runlayer_cli.scan.processes.models import ExtensionRootRef, OverrideConfigRef
+from runlayer_cli.scan.project_scanner import (
+    MAX_PROJECT_DEPTH,
+    _clamp_scan_bound,
+)
 from runlayer_cli.scan.resource_governor import (
+    RESOURCE_LIMIT_EXCEEDED_REASON,
     ResourceGovernor,
     ScanResourceLimitExceeded,
     build_governor,
 )
+from runlayer_cli.scan.skill_presence import (
+    SkillPresenceParams,
+    SkillPresenceState,
+    build_state as build_presence_state,
+    compute_removals,
+    load_state as load_presence_state,
+    save_state as save_presence_state,
+)
 from runlayer_cli.scan.skill_scanner import (
     DiscoveredSkillArtifact,
+    reset_skill_scan_state,
     strip_duplicate_skill_files,
 )
 from runlayer_cli.scan.timing import PhaseTimer
+from runlayer_cli.scan.vscode_extensions import (
+    VSCodeExtensionRoot,
+    scan_vscode_extension_roots,
+)
 from runlayer_cli.scan.wsl_paths import parse_wsl_unc_path
-from runlayer_cli.scan.wsl_projects import scan_wsl_projects
-from runlayer_cli.scan.wsl_exec import scan_wsl_containers
+from runlayer_cli.scan.wsl_projects import WSLProjectScanResult, scan_wsl_projects
+from runlayer_cli.scan.wsl_exec import WSLContainerScanResult, scan_wsl_containers
 from runlayer_cli.scan.wsl_runtime_signals import scan_wsl_runtime_file_signals
+from runlayer_cli.safe_parse import parse_json
 
 if TYPE_CHECKING:
     from runlayer_cli.api import RunlayerClient
 
 logger = structlog.get_logger(__name__)
+_IN_PROCESS_SCAN_LOCK = threading.Lock()
 
 SubmissionStatus = Literal["success", "unsupported", "failed"]
+ScanManifestCategory = Literal[
+    "mcp",
+    "client",
+    "skill",
+    "plugin",
+    "agent",
+    "agent_definition",
+]
+ScanManifestSurface = Literal[
+    "host_static",
+    "host_runtime",
+    "container",
+    "wsl",
+    "wsl_runtime",
+    "device",
+]
+
+CATEGORY_SURFACES: Mapping[
+    ScanManifestCategory,
+    tuple[ScanManifestSurface, ...],
+] = {
+    "mcp": ("host_static", "host_runtime", "container", "wsl", "wsl_runtime"),
+    "client": ("host_static", "host_runtime", "container", "wsl", "wsl_runtime"),
+    "skill": ("host_static", "container", "wsl"),
+    "plugin": ("host_static", "host_runtime", "container", "device"),
+    "agent": ("host_static", "host_runtime", "wsl", "wsl_runtime"),
+    "agent_definition": ("host_static", "container", "wsl"),
+}
 
 # Exit codes distinguish "scan ran but nothing persisted" from a clean run, so a
 # scheduled-task scan (whose only on-device signal is the process exit code,
@@ -118,6 +175,23 @@ class ScanSubmissionResult:
     response: dict[str, Any] | None = None
     unsupported: list[str] = field(default_factory=list)
     failed_submissions: list[str] = field(default_factory=list)
+    category_outcomes: dict[ScanManifestCategory, SubmissionStatus] = field(
+        default_factory=lambda: {category: "success" for category in CATEGORY_SURFACES}
+    )
+    surface_outcomes: dict[
+        tuple[ScanManifestCategory, ScanManifestSurface],
+        SubmissionStatus,
+    ] = field(
+        default_factory=lambda: {
+            (category, surface): "success"
+            for category, surfaces in CATEGORY_SURFACES.items()
+            for surface in surfaces
+        }
+    )
+    incomplete_surfaces: dict[
+        tuple[ScanManifestCategory, ScanManifestSurface],
+        str,
+    ] = field(default_factory=dict)
 
     @property
     def exit_code(self) -> int:
@@ -382,6 +456,18 @@ class ScanResult:
     scan_duration_ms: int
     collector_version: str
     configurations: list[MCPClientConfig]
+    scan_session_id: uuid.UUID = field(default_factory=uuid.uuid4)
+    scan_started_at: datetime.datetime = field(
+        default_factory=lambda: datetime.datetime.now(datetime.timezone.utc)
+    )
+    completeness: ScanCompleteness = field(default_factory=ScanCompleteness)
+    windows_user_sid: str | None = None
+    machine_scope: bool = True
+    project_scan_requested: bool = True
+    agent_discovery_complete: bool = True
+    client_discovery_complete: bool = True
+    process_scan_requested: bool = False
+    processes_scanned: bool = False
     is_wsl: bool = False
     serial_number: str | None = None
     tools: list[InstalledTool] = field(default_factory=list)
@@ -390,6 +476,8 @@ class ScanResult:
     agents: list[DiscoveredAgent] = field(default_factory=list)
     agent_definitions: list[DiscoveredAgentDefinition] = field(default_factory=list)
     processes: list[DiscoveredProcess] = field(default_factory=list)
+    container_scan_requested: bool = False
+    container_scan_error: str | None = None
     containers: list[DiscoveredContainer] = field(default_factory=list)
     containers_scanned: bool = False
     stopped_containers: list[DiscoveredContainer] = field(default_factory=list)
@@ -402,6 +490,23 @@ class ScanResult:
     wsl_container_scanned_distros: list[str] = field(default_factory=list)
     detected_clients: list[DetectedClient] = field(default_factory=list)
     phase_durations_ms: dict[str, int] = field(default_factory=dict)
+    # Governor abort message when the scan was cut short by a resource cap.
+    # Findings are partial (every affected surface is already incomplete);
+    # the command uploads them, then reports the scan as failed.
+    resource_limit_exceeded: str | None = None
+    skill_crawl_complete: bool = False
+    project_scan_depth: int = 7
+    project_scan_home: str | None = None
+    project_skill_candidate_paths: list[str] = field(default_factory=list)
+    global_skill_candidate_paths: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        if (
+            self.scan_started_at.tzinfo is None
+            or self.scan_started_at.utcoffset() is None
+        ):
+            raise ValueError("scan_started_at must be timezone-aware")
+        self.scan_started_at = self.scan_started_at.astimezone(datetime.timezone.utc)
 
     @property
     def total_servers(self) -> int:
@@ -475,6 +580,14 @@ class ScanResult:
     def total_plugins(self) -> int:
         return len(self.plugins)
 
+    def container_scan_failure_reason(self) -> str:
+        return (
+            sanitize_container_scan_error(
+                self.container_scan_error or CONTAINER_SCAN_INCOMPLETE_REASON
+            )
+            or CONTAINER_SCAN_INCOMPLETE_REASON
+        )
+
     def to_api_payload(self) -> dict[str, Any]:
         """The MCP-scan submission contract.
 
@@ -487,6 +600,10 @@ class ScanResult:
         """
         payload: dict[str, Any] = {
             **device_context_dict(self),
+            "scan_session_id": str(self.scan_session_id),
+            "scan_started_at": self.scan_started_at.astimezone(
+                datetime.timezone.utc
+            ).isoformat(),
             "scan_duration_ms": self.scan_duration_ms,
             "collector_version": self.collector_version,
             "tools": self.tools,
@@ -496,6 +613,7 @@ class ScanResult:
                     "display_name": client.display_name,
                     "client_version": client.client_version,
                     "detected_via": client.detected_via,
+                    "evidence_origin": client.evidence_origin,
                     "config_paths": [
                         strip_reported_path_prefix(path) for path in client.config_paths
                     ],
@@ -604,11 +722,7 @@ class ScanResult:
             payload["processes"] = [
                 process.to_api_payload() for process in self.processes
             ]
-        if (
-            self.containers
-            or self.containers_scanned
-            or self.wsl_container_scanned_distros
-        ):
+        if self.container_scan_requested:
             payload["containers"] = [
                 container.to_api_payload() for container in self.containers
             ]
@@ -616,6 +730,8 @@ class ScanResult:
             payload["wsl_container_scanned_distros"] = (
                 self.wsl_container_scanned_distros
             )
+            if not self.containers_scanned:
+                payload["container_scan_error"] = self.container_scan_failure_reason()
         if self.stopped_containers_scanned:
             payload["stopped_containers"] = [
                 container.to_api_payload() for container in self.stopped_containers
@@ -693,6 +809,10 @@ class ScanResult:
             )
         return {
             **device_context_dict(self),
+            "scan_session_id": str(self.scan_session_id),
+            "scan_started_at": self.scan_started_at.astimezone(
+                datetime.timezone.utc
+            ).isoformat(),
             "agents": [
                 a.to_api_payload(usernames=usernames) for a in agents[:MAX_AGENTS]
             ],
@@ -708,6 +828,10 @@ class ScanResult:
             )
         return {
             **device_context_dict(self),
+            "scan_session_id": str(self.scan_session_id),
+            "scan_started_at": self.scan_started_at.astimezone(
+                datetime.timezone.utc
+            ).isoformat(),
             "agent_definitions": [
                 definition.to_api_payload()
                 for definition in self.agent_definitions[:MAX_AGENT_DEFINITIONS]
@@ -723,6 +847,9 @@ def scan_all_clients(
     project_scan_timeout: int = 60,
     project_scan_depth: int = 7,
     username_override: str | None = None,
+    windows_user_sid: str | None = None,
+    windows_system_profile: bool = False,
+    machine_scope: bool = True,
     detect_agents: bool = True,
     detect_agent_frameworks: bool = True,
     detect_processes: bool = False,
@@ -751,6 +878,11 @@ def scan_all_clients(
         project_scan_timeout: Timeout in seconds for project scanning (default 60)
         project_scan_depth: Max directory depth for project scanning (default 7)
         username_override: Explicit username, bypasses auto-detection
+        windows_user_sid: Internal target Windows profile SID
+        windows_system_profile: Internal safety context for a target profile
+            scanned from a SYSTEM child instead of its logged-on user token
+        machine_scope: Include machine-wide builtin extension roots. Multi-user
+            orchestrators enable this for exactly one child.
         detect_agents: Master switch for ALL agent detection (on by default). It
             runs the install-channel probes (e.g. OpenClaw) and gates the static
             scan below. False disables every channel.
@@ -789,29 +921,44 @@ def scan_all_clients(
         max_cpu_percent=max_cpu_percent,
         memory_limit_mb=memory_limit_mb,
     )
-    with active_governor:
-        return _scan_all_clients_impl(
-            active_governor,
-            device_id=device_id,
-            org_device_id=org_device_id,
-            collector_version=collector_version,
-            scan_projects=scan_projects,
-            project_scan_timeout=project_scan_timeout,
-            project_scan_depth=project_scan_depth,
-            username_override=username_override,
-            detect_agents=detect_agents,
-            detect_agent_frameworks=detect_agent_frameworks,
-            detect_processes=detect_processes,
-            detect_containers=detect_containers,
-            detect_disguised_skills=detect_disguised_skills,
-            detect_renamed_plugin_caches=detect_renamed_plugin_caches,
-        )
+    with _IN_PROCESS_SCAN_LOCK, active_governor:
+        try:
+            return _scan_all_clients_impl(
+                active_governor,
+                device_id=device_id,
+                org_device_id=org_device_id,
+                collector_version=collector_version,
+                scan_projects=scan_projects,
+                project_scan_timeout=project_scan_timeout,
+                project_scan_depth=project_scan_depth,
+                username_override=username_override,
+                windows_user_sid=windows_user_sid,
+                windows_system_profile=windows_system_profile,
+                machine_scope=machine_scope,
+                detect_agents=detect_agents,
+                detect_agent_frameworks=detect_agent_frameworks,
+                detect_processes=detect_processes,
+                detect_containers=detect_containers,
+                detect_disguised_skills=detect_disguised_skills,
+                detect_renamed_plugin_caches=detect_renamed_plugin_caches,
+            )
+        finally:
+            reset_plugin_scan_state()
+            reset_skill_scan_state()
+            cache_clear = getattr(get_wsl_distro_inventory, "cache_clear", None)
+            if cache_clear is not None:
+                cache_clear()
 
 
 def _config_dedupe_key(
     config: MCPClientConfig,
-) -> tuple[str, str, tuple[str, ...]] | None:
-    """Identify the same project config across host and container paths."""
+) -> tuple[str, str, tuple[str, ...], int, int] | None:
+    """Identify aliases only when both paths resolve to one backing file."""
+    if (
+        config.config_scope == "container"
+        and config.container_mounts_host_home is not True
+    ):
+        return None
     if not config.config_path or not config.project_path or not config.servers:
         return None
 
@@ -837,15 +984,21 @@ def _config_dedupe_key(
         or any(not config_hash for config_hash in hashes)
     ):
         return None
+    try:
+        backing = os.stat(config.config_path)
+    except (OSError, ValueError):
+        return None
+    if not stat.S_ISREG(backing.st_mode) or not backing.st_ino:
+        return None
 
     relative_path = "/".join(config_parts[len(project_parts) :])
-    return config.client, relative_path, hashes
+    return config.client, relative_path, hashes, backing.st_dev, backing.st_ino
 
 
 def dedupe_host_container_configurations(
     configurations: list[MCPClientConfig],
 ) -> list[MCPClientConfig]:
-    """Prefer container attribution for duplicate host-bridge configs."""
+    """Prefer container attribution only for verified host-file aliases."""
     container_keys = {
         key
         for config in configurations
@@ -894,7 +1047,7 @@ class _ResolvedOverrideConfigPath:
 
 
 def _resolve_wsl_override_config_path(
-    ref: OverrideConfigRef,
+    ref: OverrideConfigRef | ExtensionRootRef,
 ) -> _ResolvedOverrideConfigPath | None:
     owner = (ref.user or "").strip()
     if (
@@ -915,7 +1068,7 @@ def _resolve_wsl_override_config_path(
             linux_path = cwd / linux_path
         if ".." in linux_path.parts:
             return None
-        if ref.mcp_config == "user_data_dir":
+        if getattr(ref, "mcp_config", None) == "user_data_dir":
             linux_path = linux_path / "User" / "mcp.json"
         expected_home = (
             PurePosixPath("/root")
@@ -936,7 +1089,7 @@ def _resolve_wsl_override_config_path(
 
 
 def _resolve_override_config_path(
-    ref: OverrideConfigRef,
+    ref: OverrideConfigRef | ExtensionRootRef,
 ) -> _ResolvedOverrideConfigPath | None:
     """Resolve one raw process flag value without guessing a missing cwd."""
 
@@ -948,7 +1101,7 @@ def _resolve_override_config_path(
             if ref.cwd is None:
                 return None
             path = Path(ref.cwd) / path
-        if ref.mcp_config == "user_data_dir":
+        if getattr(ref, "mcp_config", None) == "user_data_dir":
             path = path / "User" / "mcp.json"
     except (OSError, RuntimeError, ValueError):
         return None
@@ -982,7 +1135,8 @@ def _override_config_path_key(
 
 
 def _resolve_windows_process_owners(
-    refs: list[OverrideConfigRef],
+    refs: Sequence[OverrideConfigRef | ExtensionRootRef],
+    scan_status: ScanCompletionStatus | None = None,
 ) -> dict[int, str]:
     """Resolve owners for ownerless process refs in one bounded query."""
 
@@ -1000,7 +1154,10 @@ def _resolve_windows_process_owners(
             continue
         seen_pids.add(pid)
         pids.append(pid)
-        if len(pids) == MAX_OVERRIDE_OWNER_LOOKUPS:
+        if len(pids) > MAX_OVERRIDE_OWNER_LOOKUPS:
+            if scan_status is not None:
+                scan_status.mark_incomplete("runtime_owner_resolution_capped")
+            pids.pop()
             break
     if not pids:
         return {}
@@ -1035,14 +1192,20 @@ def _resolve_windows_process_owners(
             timeout=5,
         )
     except (OSError, subprocess.SubprocessError):
+        if scan_status is not None:
+            scan_status.mark_incomplete("runtime_owner_resolution_failed")
         return {}
     if completed.returncode != 0:
+        if scan_status is not None:
+            scan_status.mark_incomplete("runtime_owner_resolution_failed")
         return {}
 
-    try:
-        payload = json.loads(completed.stdout)
-    except (json.JSONDecodeError, TypeError):
+    outcome = parse_json(completed.stdout)
+    if outcome["error"] is not None:
+        if scan_status is not None:
+            scan_status.mark_incomplete("runtime_owner_resolution_failed")
         return {}
+    payload = outcome["value"]
     if isinstance(payload, dict):
         entries = [payload]
     elif isinstance(payload, list):
@@ -1066,11 +1229,80 @@ def _resolve_windows_process_owners(
     return owners
 
 
+_OwnerSkipLogEvent = Literal[
+    "process_override_config_skipped_untrusted_owner",
+    "process_extension_root_skipped_untrusted_owner",
+]
+
+
+@dataclass(frozen=True)
+class _TrustedOwnerResolver:
+    """Resolve and enforce one process-owner trust policy for raw path refs."""
+
+    windows_user_sid: str | None
+    scan_status: ScanCompletionStatus | None
+    windows_owners: Mapping[int, str]
+    untrusted_log_event: _OwnerSkipLogEvent
+
+    @classmethod
+    def for_refs(
+        cls,
+        refs: Sequence[OverrideConfigRef | ExtensionRootRef],
+        *,
+        windows_user_sid: str | None,
+        scan_status: ScanCompletionStatus | None,
+        untrusted_log_event: _OwnerSkipLogEvent,
+    ) -> _TrustedOwnerResolver:
+        windows_owners = (
+            _resolve_windows_process_owners(refs, scan_status)
+            if sys.platform == "win32" and windows_user_sid is None
+            else {}
+        )
+        return cls(
+            windows_user_sid=windows_user_sid,
+            scan_status=scan_status,
+            windows_owners=windows_owners,
+            untrusted_log_event=untrusted_log_event,
+        )
+
+    def resolve(self, ref: OverrideConfigRef | ExtensionRootRef) -> str | None:
+        wsl_distro = getattr(ref, "wsl_distro", None)
+        owner = ref.user
+        if wsl_distro is None and owner is None and ref.pid is not None:
+            owner = self.windows_owners.get(ref.pid)
+        process_owner = owner.strip() if owner is not None else ""
+        owner_sid = getattr(ref, "owner_sid", None)
+        owner_is_trusted = bool(process_owner) and wsl_distro is not None
+        if wsl_distro is None and self.windows_user_sid is not None:
+            owner_is_trusted = (
+                owner_sid is not None
+                and owner_sid.casefold() == self.windows_user_sid.casefold()
+            )
+            if owner_sid is None and self.scan_status is not None:
+                self.scan_status.mark_incomplete("runtime_owner_resolution_failed")
+        elif wsl_distro is None:
+            owner_is_trusted = bool(process_owner) and (
+                _process_owner_matches_effective_user(process_owner)
+            )
+        if owner_is_trusted:
+            return process_owner
+
+        logger.debug(
+            self.untrusted_log_event,
+            client=ref.client,
+            flag=ref.flag,
+            owner_status="unknown" if not process_owner else "mismatch",
+        )
+        return None
+
+
 def _parse_process_override_configurations(
     refs: list[OverrideConfigRef],
     *,
     configurations: list[MCPClientConfig],
     clients: list[MCPClientDefinition],
+    scan_status: ScanCompletionStatus | None = None,
+    windows_user_sid: str | None = None,
 ) -> list[MCPClientConfig]:
     """Best-effort parse configs referenced by detected client launch flags."""
 
@@ -1084,31 +1316,27 @@ def _parse_process_override_configurations(
         for config in configurations
         if config.config_path is not None
     }
-    windows_owners = (
-        _resolve_windows_process_owners(refs) if sys.platform == "win32" else {}
+    owner_resolver = _TrustedOwnerResolver.for_refs(
+        refs,
+        windows_user_sid=windows_user_sid,
+        scan_status=scan_status,
+        untrusted_log_event="process_override_config_skipped_untrusted_owner",
     )
     parsed: list[MCPClientConfig] = []
     for ref in refs:
         wsl_distro = getattr(ref, "wsl_distro", None)
-        owner = ref.user
-        if wsl_distro is None and owner is None and ref.pid is not None:
-            owner = windows_owners.get(ref.pid)
-        process_owner = owner.strip() if owner is not None else ""
-        owner_is_trusted = bool(process_owner) and (
-            wsl_distro is not None
-            or _process_owner_matches_effective_user(process_owner)
-        )
-        if not owner_is_trusted:
-            logger.debug(
-                "process_override_config_skipped_untrusted_owner",
-                client=ref.client,
-                flag=ref.flag,
-                owner_status="unknown" if not process_owner else "mismatch",
-            )
+        process_owner = owner_resolver.resolve(ref)
+        if process_owner is None:
             continue
         client = clients_by_name.get(ref.client)
+        if client is None:
+            continue
         path_resolution = _resolve_override_config_path(ref)
-        if client is None or path_resolution is None:
+        if path_resolution is None:
+            if scan_status is not None:
+                scan_status.mark_incomplete(
+                    "runtime_override_config_path_resolution_failed"
+                )
             continue
         config_path = path_resolution.host_path
         path_key = _override_config_path_key(
@@ -1122,6 +1350,8 @@ def _parse_process_override_configurations(
         try:
             config_stat = os.stat(config_path)
         except (OSError, ValueError):
+            if scan_status is not None:
+                scan_status.mark_incomplete("runtime_override_config_stat_failed")
             logger.debug(
                 "process_override_config_skipped_unsafe_file",
                 client=ref.client,
@@ -1136,6 +1366,8 @@ def _parse_process_override_configurations(
         else:
             file_status = None
         if file_status is not None:
+            if scan_status is not None:
+                scan_status.mark_incomplete(f"runtime_override_config_{file_status}")
             logger.debug(
                 "process_override_config_skipped_unsafe_file",
                 client=ref.client,
@@ -1144,8 +1376,15 @@ def _parse_process_override_configurations(
             )
             continue
         try:
-            config = parse_config_file(client, config_path, redact_path_in_logs=True)
+            config = parse_config_file(
+                client,
+                config_path,
+                redact_path_in_logs=True,
+                scan_status=scan_status,
+            )
         except Exception as exc:
+            if scan_status is not None:
+                scan_status.mark_incomplete("runtime_override_config_parse_failed")
             # error_type only: exception messages can embed the raw argv path.
             logger.warning(
                 "process_override_config_parse_failed",
@@ -1162,6 +1401,64 @@ def _parse_process_override_configurations(
                 config.wsl_user = process_owner
             parsed.append(config)
     return parsed
+
+
+def _resolve_process_extension_roots(
+    refs: list[ExtensionRootRef],
+    scan_status: ScanCompletionStatus | None = None,
+    windows_user_sid: str | None = None,
+) -> list[VSCodeExtensionRoot]:
+    """Resolve trusted process-owned extension roots without reporting raw argv."""
+
+    owner_resolver = _TrustedOwnerResolver.for_refs(
+        refs,
+        windows_user_sid=windows_user_sid,
+        scan_status=scan_status,
+        untrusted_log_event="process_extension_root_skipped_untrusted_owner",
+    )
+    if len(refs) > MAX_OVERRIDE_OWNER_LOOKUPS and scan_status is not None:
+        scan_status.mark_incomplete("runtime_extension_root_capped")
+    roots: list[VSCodeExtensionRoot] = []
+    seen_paths: set[tuple[str, str, str | None, str | None]] = set()
+    for ref in refs[:MAX_OVERRIDE_OWNER_LOOKUPS]:
+        wsl_distro = ref.wsl_distro
+        process_owner = owner_resolver.resolve(ref)
+        if process_owner is None:
+            continue
+
+        path_resolution = _resolve_override_config_path(ref)
+        if path_resolution is None:
+            if scan_status is not None:
+                scan_status.mark_incomplete(
+                    "runtime_extension_root_path_resolution_failed"
+                )
+            continue
+        path_key = _override_config_path_key(
+            path_resolution.reported_path,
+            wsl_distro=wsl_distro,
+            wsl_user=process_owner if wsl_distro is not None else None,
+        )
+        if path_key in seen_paths:
+            continue
+        seen_paths.add(path_key)
+        try:
+            root_stat = os.stat(path_resolution.host_path)
+        except (OSError, ValueError):
+            if scan_status is not None:
+                scan_status.mark_incomplete("runtime_extension_root_stat_failed")
+            continue
+        if not stat.S_ISDIR(root_stat.st_mode):
+            if scan_status is not None:
+                scan_status.mark_incomplete("runtime_extension_root_not_directory")
+            continue
+        roots.append(
+            VSCodeExtensionRoot(
+                path=path_resolution.host_path,
+                client=ref.client,
+                wsl_distro=wsl_distro,
+            )
+        )
+    return roots
 
 
 def _dedupe_path_configurations(
@@ -1195,13 +1492,89 @@ def _dedupe_path_configurations(
     return deduped
 
 
+_AssembledT = TypeVar("_AssembledT")
+
+
+def _best_effort_assembly(
+    step: str,
+    work: Callable[[], _AssembledT],
+    *,
+    fallback: _AssembledT,
+    completeness: ScanCompleteness,
+    surfaces: tuple[str, ...],
+) -> _AssembledT:
+    """Run one post-phase assembly step without letting it sink the scan.
+
+    The phases themselves are best-effort, but the dedupe / attribution /
+    presence-merge steps that stitch their results together used to run bare
+    in ``scan_all_clients``: one bug there raised out of the scan and the
+    device reported nothing. On failure the untransformed input is kept and
+    the affected completeness surfaces record ``assembly_step_failed``.
+    """
+    try:
+        return work()
+    except ScanResourceLimitExceeded:
+        raise
+    except Exception:
+        completeness.mark_incomplete("assembly_step_failed", *surfaces)
+        logger.warning("assembly_step_failed", step=step, exc_info=True)
+        return fallback
+
+
+@dataclass
+class _SequentialPhaseGuard:
+    """Governor-abort boundary for the sequential phases (0, 12-14).
+
+    Mirrors :class:`ResourceAbortGuard` for the phases that run after the
+    concurrent graph: once the governor's latch trips, each remaining phase
+    returns its ``fallback`` with every surface it feeds marked
+    ``resource_limit_exceeded``, so the partial manifest is still assembled.
+    """
+
+    governor: ResourceGovernor
+    timer: PhaseTimer
+    completeness: ScanCompleteness
+    reason: str | None = None
+
+    def run(
+        self,
+        name: str,
+        work: Callable[[], _AssembledT],
+        *,
+        fallback: _AssembledT,
+        surfaces: tuple[str, ...],
+    ) -> _AssembledT:
+        try:
+            return run_timed_phase(self.timer, name, self.governor, work)
+        except ScanResourceLimitExceeded as exc:
+            if self.reason is None:
+                self.reason = str(exc) or "scan resource limit exceeded"
+            self.completeness.mark_incomplete(RESOURCE_LIMIT_EXCEEDED_REASON, *surfaces)
+            logger.warning(
+                "scan_phase_aborted_by_resource_limit", phase=name, error=str(exc)
+            )
+            return fallback
+
+
 def _filter_presence_gated_project_configurations(
     configurations: list[MCPClientConfig],
     *,
     clients: list[MCPClientDefinition],
     probed_clients: list[DetectedClient],
+    presence_status: ScanCompletionStatus,
 ) -> list[MCPClientConfig]:
-    """Drop shared project configs when their client lacks an install signal."""
+    """Drop shared project configs when their client lacks an install signal.
+
+    Only a *complete* presence scan may gate: if any probe failed or was cut
+    short, a missing install signal is not evidence of absence, and dropping
+    the shared-path config would silently lose a real finding.
+    """
+    if not presence_status.complete:
+        logger.info(
+            "presence_gate_skipped_incomplete_presence_scan",
+            reasons=presence_status.reasons,
+        )
+        return configurations
     present_clients = {client.client for client in probed_clients}
     gated_patterns = {
         client.name: [
@@ -1252,6 +1625,9 @@ def _scan_all_clients_impl(
     project_scan_timeout: int = 60,
     project_scan_depth: int = 7,
     username_override: str | None = None,
+    windows_user_sid: str | None = None,
+    windows_system_profile: bool = False,
+    machine_scope: bool = True,
     detect_agents: bool = True,
     detect_agent_frameworks: bool = True,
     detect_processes: bool = False,
@@ -1266,7 +1642,15 @@ def _scan_all_clients_impl(
     graph; phases 12-14 stay sequential because they consume assembled configs.
     The crawl shards are governed via ``find_files_under_home(governor=...)``.
     """
-    start_time = time.time()
+    scan_started_at = datetime.datetime.now(datetime.timezone.utc)
+    start_time = time.monotonic()
+    scan_session_id = uuid.uuid4()
+    effective_project_scan_depth = _clamp_scan_bound(
+        project_scan_depth,
+        default=7,
+        maximum=MAX_PROJECT_DEPTH,
+    )
+    reported_home = strip_reported_path_prefix(str(Path.home()))
 
     # The static agent-framework scan runs by default (its results now submit to
     # the backend), widening the agent-manifest crawl and walking source trees. It
@@ -1292,15 +1676,17 @@ def _scan_all_clients_impl(
         tools.append({"name": "scan-collector", "version": collector_version})
 
     timer = PhaseTimer()
+    completeness = ScanCompleteness()
+    phase_guard = _SequentialPhaseGuard(governor, timer, completeness)
     if wsl_scanned:
-        wsl_distros = run_timed_phase(
-            timer,
+        wsl_distros = phase_guard.run(
             "phase_0_wsl_runtime_file_signals",
-            governor,
             lambda: scan_wsl_runtime_file_signals(
                 wsl_distros,
                 checkpoint=governor.checkpoint,
             ),
+            fallback=wsl_distros,
+            surfaces=("wsl_static", "runtime"),
         )
     else:
         timer.record("phase_0_wsl_runtime_file_signals", 0)
@@ -1311,12 +1697,18 @@ def _scan_all_clients_impl(
         timer=timer,
         scan_projects=scan_projects,
         project_scan_timeout=project_scan_timeout,
-        project_scan_depth=project_scan_depth,
+        project_scan_depth=effective_project_scan_depth,
         detect_agents=detect_agents,
         run_static_agents=run_static_agents,
         detect_disguised_skills=detect_disguised_skills,
         detect_renamed_plugin_caches=detect_renamed_plugin_caches,
+        machine_scope=machine_scope,
     )
+    completeness.merge(concurrent_result.completeness)
+    if device_metadata.get("os") == "windows" and not wsl_scanned:
+        completeness.wsl_static.mark_incomplete("wsl_inventory_incomplete")
+        completeness.plugin_host_static.mark_incomplete("wsl_inventory_incomplete")
+        completeness.client_presence.mark_incomplete("wsl_inventory_incomplete")
     configurations = concurrent_result.configurations
     extension_clients = concurrent_result.extension_clients
     all_skills = concurrent_result.skills
@@ -1330,11 +1722,17 @@ def _scan_all_clients_impl(
     # Runtime correlation consumes namespace identity from configurations.
     # Attribute the current batch now; the full pass below still handles
     # artifacts appended by the process, container, and WSL project phases.
-    _attribute_wsl_artifacts(
-        configurations,
-        [],
-        [],
-        inventory_distros=wsl_attribution_distros,
+    _best_effort_assembly(
+        "attribute_wsl_configurations",
+        lambda: _attribute_wsl_artifacts(
+            configurations,
+            [],
+            [],
+            inventory_distros=wsl_attribution_distros,
+        ),
+        fallback=[],
+        completeness=completeness,
+        surfaces=("mcp_host_static", "wsl_static"),
     )
 
     # ==========================================================================
@@ -1345,13 +1743,12 @@ def _scan_all_clients_impl(
     # client parent). OFF by default (detect_processes) since it polls the OS
     # process table; when on, it is best-effort and never raises into the scan.
     all_processes: list[DiscoveredProcess] = []
+    processes_scanned = False
     if detect_processes:
         logger.info("Discovering runtime processes")
         scan_username = device_metadata.get("username")
-        process_result: ProcessDiscoveryResult = run_timed_phase(
-            timer,
+        process_result: ProcessDiscoveryResult = phase_guard.run(
             "phase_12_runtime_processes",
-            governor,
             lambda: discover_processes(
                 configurations=configurations,
                 clients=clients,
@@ -1359,10 +1756,21 @@ def _scan_all_clients_impl(
                 detect_agents=detect_agents,
                 usernames=[scan_username] if scan_username else [],
                 wsl_distros=wsl_distros if wsl_scanned else (),
+                windows_user_sid=windows_user_sid,
                 checkpoint=governor.checkpoint,
             ),
+            fallback=ProcessDiscoveryResult(
+                complete=False, incomplete_reasons=[RESOURCE_LIMIT_EXCEEDED_REASON]
+            ),
+            surfaces=("runtime",),
         )
         all_processes = process_result.processes
+        processes_scanned = process_result.complete
+        if not process_result.complete:
+            for reason in getattr(process_result, "incomplete_reasons", []) or [
+                "runtime_discovery_incomplete"
+            ]:
+                completeness.runtime.mark_incomplete(reason)
         # A failed in-VM process command yields no sightings for that distro
         # and nothing else: distro ``scanned`` stays whatever the Phase 0 file
         # probes established, because it gates persisting last_scanned_at /
@@ -1372,10 +1780,30 @@ def _scan_all_clients_impl(
                 process_result.override_config_refs,
                 configurations=configurations,
                 clients=clients,
+                scan_status=completeness.runtime,
+                windows_user_sid=windows_user_sid,
+            )
+        )
+        extension_roots = _resolve_process_extension_roots(
+            process_result.extension_root_refs,
+            scan_status=completeness.runtime,
+            windows_user_sid=windows_user_sid,
+        )
+        all_plugins.extend(
+            phase_guard.run(
+                "phase_12a_process_extension_overrides",
+                lambda: scan_vscode_extension_roots(
+                    extension_roots,
+                    checkpoint=governor.checkpoint,
+                    scan_status=completeness.runtime,
+                ),
+                fallback=[],
+                surfaces=("runtime", "plugin_host_static"),
             )
         )
     else:
         timer.record("phase_12_runtime_processes", 0)
+        timer.record("phase_12a_process_extension_overrides", 0)
 
     # ==========================================================================
     # PHASE 13: Running-container artifact discovery (temporary opt-in)
@@ -1388,40 +1816,60 @@ def _scan_all_clients_impl(
     stopped_containers_scanned = False
     container_images_scanned = False
     container_images_truncated = False
+    container_artifacts_complete = False
+    container_scan_error: str | None = None
     wsl_container_scanned_distros: list[str] = []
     if detect_containers:
         logger.info("Scanning running containers")
-        container_result = run_timed_phase(
-            timer,
+        container_result = phase_guard.run(
             "phase_13_running_containers",
-            governor,
             lambda: scan_running_containers(
                 clients=clients,
                 detect_disguised_skills=detect_disguised_skills,
             ),
+            fallback=ContainerScanResult(
+                failure_reason=RESOURCE_LIMIT_EXCEEDED_REASON,
+                artifact_failure_reason=RESOURCE_LIMIT_EXCEEDED_REASON,
+            ),
+            surfaces=("container_artifacts",),
         )
         all_containers = container_result.containers
         stopped_containers = container_result.stopped_containers
         container_images = container_result.container_images
         container_detected_clients = container_result.detected_clients
         containers_scanned = container_result.scan_succeeded
+        container_artifacts_complete = container_result.artifact_scan_succeeded
+        if not container_artifacts_complete:
+            completeness.container_artifacts.mark_incomplete(
+                container_result.artifact_failure_reason
+                or "container_artifact_discovery_incomplete"
+            )
+        if not containers_scanned:
+            container_scan_error = sanitize_container_scan_error(
+                container_result.failure_reason or CONTAINER_SCAN_INCOMPLETE_REASON
+            )
         stopped_containers_scanned = container_result.stopped_containers_succeeded
         container_images_scanned = container_result.container_images_succeeded
         container_images_truncated = container_result.container_images_truncated
         configurations.extend(container_result.configurations)
         all_skills.extend(container_result.skills)
+        all_plugins.extend(container_result.plugins)
         all_agent_definitions.extend(container_result.agent_definitions)
         if wsl_scanned:
             logger.info("Scanning running containers inside WSL")
-            wsl_container_result = run_timed_phase(
-                timer,
+            wsl_container_result = phase_guard.run(
                 "phase_13a_wsl_containers",
-                governor,
                 lambda: scan_wsl_containers(
                     wsl_distros,
                     max_containers=MAX_CONTAINERS - len(all_containers),
                     checkpoint=governor.checkpoint,
                 ),
+                fallback=WSLContainerScanResult(
+                    completion=ScanCompletionStatus(
+                        complete=False, reasons=[RESOURCE_LIMIT_EXCEEDED_REASON]
+                    )
+                ),
+                surfaces=("container_artifacts",),
             )
             host_container_ids = {
                 container.container_id
@@ -1434,9 +1882,21 @@ def _scan_all_clients_impl(
                 if container.container_id not in host_container_ids
             )
             wsl_container_scanned_distros = wsl_container_result.scanned_distros
+            if not getattr(wsl_container_result, "complete", True):
+                for reason in getattr(
+                    wsl_container_result,
+                    "incomplete_reasons",
+                    ["wsl_container_inventory_incomplete"],
+                ) or ["wsl_container_inventory_incomplete"]:
+                    completeness.container_artifacts.mark_incomplete(reason)
         else:
+            if device_metadata.get("os") == "windows":
+                completeness.container_artifacts.mark_incomplete(
+                    "wsl_inventory_incomplete"
+                )
             timer.record("phase_13a_wsl_containers", 0)
     else:
+        completeness.container_artifacts.mark_incomplete("container_scan_disabled")
         timer.record("phase_13_running_containers", 0)
         timer.record("phase_13a_wsl_containers", 0)
 
@@ -1445,16 +1905,25 @@ def _scan_all_clients_impl(
     # ==========================================================================
     if detect_containers:
         logger.info("Scanning project artifacts across WSL homes")
-        wsl_project_result = run_timed_phase(
-            timer,
+        wsl_project_result = phase_guard.run(
             "phase_13b_wsl_projects",
-            governor,
             lambda: scan_wsl_projects(clients=clients),
+            fallback=WSLProjectScanResult(
+                complete=False, incomplete_reasons=[RESOURCE_LIMIT_EXCEEDED_REASON]
+            ),
+            surfaces=("wsl_static",),
         )
         configurations.extend(wsl_project_result.configurations)
         all_skills.extend(wsl_project_result.skills)
         all_agent_definitions.extend(wsl_project_result.agent_definitions)
+        if not wsl_project_result.complete:
+            for reason in wsl_project_result.incomplete_reasons or [
+                "wsl_project_scan_failed"
+            ]:
+                completeness.wsl_static.mark_incomplete(reason)
     else:
+        if device_metadata.get("os") == "windows":
+            completeness.wsl_static.mark_incomplete("wsl_project_scan_disabled")
         timer.record("phase_13b_wsl_projects", 0)
 
     # Attribute every discovery route together: global config expansion, shared
@@ -1462,16 +1931,51 @@ def _scan_all_clients_impl(
     # before dedupe so identity remains part of otherwise identical Linux paths.
     # Only the inventory this scan uploads may claim an artifact, so a withheld
     # inventory withholds WSL attribution with it.
-    all_agent_definitions = _attribute_wsl_artifacts(
-        configurations,
-        all_skills,
-        all_agent_definitions,
-        inventory_distros=wsl_attribution_distros,
+    all_agent_definitions = _best_effort_assembly(
+        "attribute_wsl_artifacts",
+        lambda: _attribute_wsl_artifacts(
+            configurations,
+            all_skills,
+            all_agent_definitions,
+            inventory_distros=wsl_attribution_distros,
+        ),
+        fallback=all_agent_definitions,
+        completeness=completeness,
+        surfaces=(
+            "mcp_host_static",
+            "skill_host_static",
+            "agent_definition_host_static",
+            "wsl_static",
+        ),
     )
-    configurations = _dedupe_path_configurations(configurations)
-    configurations = dedupe_host_container_configurations(configurations)
-    all_skills = strip_duplicate_skill_files(all_skills)
-    all_agent_definitions = dedupe_agent_definitions(all_agent_definitions)
+    configurations = _best_effort_assembly(
+        "dedupe_path_configurations",
+        lambda: _dedupe_path_configurations(configurations),
+        fallback=configurations,
+        completeness=completeness,
+        surfaces=("mcp_host_static",),
+    )
+    configurations = _best_effort_assembly(
+        "dedupe_host_container_configurations",
+        lambda: dedupe_host_container_configurations(configurations),
+        fallback=configurations,
+        completeness=completeness,
+        surfaces=("mcp_host_static", "container_artifacts"),
+    )
+    all_skills = _best_effort_assembly(
+        "strip_duplicate_skill_files",
+        lambda: strip_duplicate_skill_files(all_skills),
+        fallback=all_skills,
+        completeness=completeness,
+        surfaces=("skill_host_static",),
+    )
+    all_agent_definitions = _best_effort_assembly(
+        "dedupe_agent_definitions",
+        lambda: dedupe_agent_definitions(all_agent_definitions),
+        fallback=all_agent_definitions,
+        completeness=completeness,
+        surfaces=("agent_definition_host_static",),
+    )
 
     # ==========================================================================
     # PHASE 14: Installed AI-client presence
@@ -1481,43 +1985,92 @@ def _scan_all_clients_impl(
     # are still reported when no app bundle, binary, or registry entry is found.
     logger.info("Detecting installed AI clients")
 
+    client_discovery_complete = True
+    client_presence_status = ScanCompletionStatus()
+
     def _probe_clients() -> list[DetectedClient]:
+        nonlocal client_discovery_complete
         try:
-            return detect_client_presence(
+            profile_context: dict[str, Any] = {}
+            if windows_user_sid is not None:
+                profile_context = {
+                    "home": Path.home(),
+                    "environment": os.environ,
+                    "windows_user_sid": windows_user_sid,
+                    "windows_system_profile": windows_system_profile,
+                    "include_current_user_registry": not windows_system_profile,
+                }
+            detected = detect_client_presence(
                 clients,
                 node_modules_paths=concurrent_result.node_modules_paths,
                 hidden_space_result=concurrent_result.hidden_space_result,
                 checkpoint=governor.checkpoint,
                 wsl_distros=wsl_distros if wsl_scanned else (),
+                scan_status=client_presence_status,
+                **profile_context,
             )
+            client_discovery_complete = client_presence_status.complete
+            return detected
         except ScanResourceLimitExceeded:
             raise
         except Exception:
             logger.warning("Client install probes failed", exc_info=True)
+            client_discovery_complete = False
+            client_presence_status.mark_incomplete("client_presence_scan_failed")
             return []
 
-    probed_clients = run_timed_phase(
-        timer,
+    probed_clients = phase_guard.run(
         "phase_14_client_presence",
-        governor,
         _probe_clients,
+        fallback=[],
+        surfaces=("client_presence",),
     )
-    configurations = _filter_presence_gated_project_configurations(
-        configurations,
-        clients=clients,
-        probed_clients=[*probed_clients, *container_detected_clients],
+    if phase_guard.reason is not None:
+        # The gate below reads this status, not ``completeness.client_presence``:
+        # an aborted probe returned the empty fallback and, left complete, read
+        # as "no client installed" and dropped presence-gated project configs.
+        client_discovery_complete = False
+        client_presence_status.mark_incomplete(RESOURCE_LIMIT_EXCEEDED_REASON)
+    all_probed_clients = [*probed_clients, *container_detected_clients]
+    configurations = _best_effort_assembly(
+        "filter_presence_gated_project_configurations",
+        lambda: _filter_presence_gated_project_configurations(
+            configurations,
+            clients=clients,
+            probed_clients=all_probed_clients,
+            presence_status=client_presence_status,
+        ),
+        fallback=configurations,
+        completeness=completeness,
+        surfaces=("mcp_host_static",),
     )
-    detected_clients = merge_client_presence(
-        [*probed_clients, *container_detected_clients],
-        clients=clients,
-        configurations=configurations,
-        skills=all_skills,
-        agent_definitions=all_agent_definitions,
-        plugins=all_plugins,
-        extension_clients=extension_clients,
+    detected_clients = _best_effort_assembly(
+        "merge_client_presence",
+        lambda: merge_client_presence(
+            all_probed_clients,
+            clients=clients,
+            configurations=configurations,
+            skills=all_skills,
+            agent_definitions=all_agent_definitions,
+            plugins=all_plugins,
+            extension_clients=extension_clients,
+        ),
+        fallback=all_probed_clients,
+        completeness=completeness,
+        surfaces=("client_presence",),
     )
+    if not client_presence_status.complete:
+        for reason in client_presence_status.reasons:
+            completeness.client_presence.mark_incomplete(reason)
+    if len(all_agent_definitions) > MAX_AGENT_DEFINITIONS:
+        completeness.agent_definition_host_static.mark_incomplete(
+            "agent_definition_scan_capped"
+        )
+    reportable_agent_count = sum(1 for agent in all_agents if agent.is_agent)
+    if reportable_agent_count > MAX_AGENTS:
+        completeness.agent_host_static.mark_incomplete("agent_scan_capped")
 
-    scan_duration_ms = int((time.time() - start_time) * 1000)
+    scan_duration_ms = int((time.monotonic() - start_time) * 1000)
 
     logger.info(
         "Scan complete",
@@ -1553,15 +2106,37 @@ def _scan_all_clients_impl(
         scan_duration_ms=scan_duration_ms,
         collector_version=collector_version,
         configurations=configurations,
+        skill_crawl_complete=concurrent_result.skill_crawl_complete,
+        project_scan_depth=effective_project_scan_depth,
+        project_scan_home=reported_home,
+        scan_session_id=scan_session_id,
+        scan_started_at=scan_started_at,
+        completeness=completeness,
+        windows_user_sid=windows_user_sid,
+        machine_scope=machine_scope,
+        project_scan_requested=scan_projects,
+        agent_discovery_complete=(
+            detect_agents
+            and detect_agent_frameworks
+            and scan_projects
+            and reportable_agent_count <= MAX_AGENTS
+        ),
+        client_discovery_complete=client_discovery_complete,
+        process_scan_requested=detect_processes,
+        processes_scanned=processes_scanned,
         detected_clients=detected_clients,
         is_wsl=device_metadata.get("is_wsl", False),
         serial_number=device_metadata.get("serial_number"),
         tools=tools,
         skills=all_skills,
+        project_skill_candidate_paths=(concurrent_result.project_skill_candidate_paths),
+        global_skill_candidate_paths=concurrent_result.global_skill_candidate_paths,
         plugins=all_plugins,
         agents=all_agents,
         agent_definitions=all_agent_definitions,
         processes=all_processes,
+        container_scan_requested=detect_containers,
+        container_scan_error=container_scan_error,
         containers=all_containers,
         containers_scanned=containers_scanned,
         stopped_containers=stopped_containers,
@@ -1573,20 +2148,104 @@ def _scan_all_clients_impl(
         wsl_scanned=wsl_scanned,
         wsl_container_scanned_distros=wsl_container_scanned_distros,
         phase_durations_ms=timer.durations_ms(),
+        resource_limit_exceeded=(
+            concurrent_result.resource_limit_exceeded or phase_guard.reason
+        ),
     )
 
 
 def device_context_dict(scan_result: ScanResult) -> DeviceContext:
     """Build the device-identity block shared by scan + check-in payloads."""
-    return {
-        "device_id": scan_result.device_id,
-        "hostname": scan_result.hostname,
-        "os": scan_result.os,
-        "os_version": scan_result.os_version,
-        "username": scan_result.username,
-        "org_device_id": scan_result.org_device_id,
-        "serial_number": scan_result.serial_number,
-    }
+    context = DeviceContext(
+        device_id=scan_result.device_id,
+        hostname=scan_result.hostname,
+        os=scan_result.os,
+        os_version=scan_result.os_version,
+        username=scan_result.username,
+        org_device_id=scan_result.org_device_id,
+        serial_number=scan_result.serial_number,
+    )
+    windows_user_sid = getattr(scan_result, "windows_user_sid", None)
+    if windows_user_sid is not None:
+        context["windows_user_sid"] = windows_user_sid
+    return context
+
+
+def _host_skill_candidate_paths(paths: list[str]) -> list[str]:
+    """Exclude WSL candidates until namespace-specific removal state exists."""
+    return [path for path in paths if parse_wsl_unc_path(path) is None]
+
+
+def _build_current_skill_presence(scan_result: ScanResult) -> SkillPresenceState:
+    return build_presence_state(
+        SkillPresenceParams(
+            project_depth=scan_result.project_scan_depth,
+            home=scan_result.project_scan_home,
+        ),
+        project_paths=_host_skill_candidate_paths(
+            scan_result.project_skill_candidate_paths
+        ),
+        global_paths=_host_skill_candidate_paths(
+            scan_result.global_skill_candidate_paths
+        ),
+    )
+
+
+def reconcile_skill_presence(
+    client: RunlayerClient,
+    scan_result: ScanResult,
+    *,
+    state_path: Path | None = None,
+) -> Literal["success", "failed"]:
+    """Reconcile complete host presence state after skill submission succeeds."""
+    if not scan_result.skill_crawl_complete:
+        return "success"
+
+    current = _build_current_skill_presence(scan_result)
+    previous = load_presence_state(state_path)
+    removals = compute_removals(
+        previous,
+        current,
+        crawl_complete=scan_result.skill_crawl_complete,
+    )
+    # compute_removals is empty for a first run, changed scan inputs, or an
+    # incomplete crawl (already excluded above) as well as for "nothing gone";
+    # every one of those just advances the baseline.
+    if not removals:
+        save_presence_state(current, state_path)
+        return "success"
+
+    try:
+        response = client.submit_skill_removals(
+            removals,
+            device_context_dict(scan_result),
+        )
+        if not isinstance(response, dict):
+            raise ValueError("invalid skill removal response")
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (401, 403):
+            raise
+        logger.warning(
+            "skill_removal_submission_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+            status_code=exc.response.status_code,
+            removal_count=len(removals),
+        )
+        return "failed"
+    except Exception as exc:
+        logger.warning(
+            "skill_removal_submission_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+            removal_count=len(removals),
+        )
+        return "failed"
+
+    if response.get("unsupported") is True:
+        return "success"
+    save_presence_state(current, state_path)
+    return "success"
 
 
 @dataclass
@@ -1646,6 +2305,9 @@ def submit_discovered_servers(
             error=str(exc),
             error_type=type(exc).__name__,
         )
+        return ServerSubmission(status="failed")
+    except Exception:
+        logger.warning("mcp_watch_scan_submission_failed", exc_info=True)
         return ServerSubmission(status="failed")
     if response.get("unsupported"):
         return ServerSubmission(status="unsupported")
@@ -1760,6 +2422,27 @@ _ArtifactT = TypeVar("_ArtifactT", bound=_DiscoveredArtifact)
 _ArtifactKind = Literal["skill", "plugin"]
 
 
+def _artifact_manifest_surface(
+    artifact: _DiscoveredArtifact,
+    *,
+    kind: _ArtifactKind,
+) -> ScanManifestSurface:
+    surface: ScanManifestSurface = "host_static"
+    if getattr(artifact, "container_id", None) is not None:
+        surface = "container"
+    elif getattr(artifact, "scope", None) == "process_override":
+        surface = "host_runtime"
+    elif getattr(artifact, "wsl_distro", None) is not None:
+        surface = "wsl"
+    elif getattr(artifact, "device_scope", False):
+        surface = "device"
+    # A failure must land on a surface the manifest emits for this category,
+    # or it never revokes authority. WSL plugins submit on host surfaces.
+    if surface not in CATEGORY_SURFACES[kind]:
+        surface = "host_static"
+    return surface
+
+
 @dataclass(frozen=True)
 class _ArtifactSubmissionConfig(Generic[_ArtifactT]):
     kind: _ArtifactKind
@@ -1775,6 +2458,7 @@ def _submit_discovered_artifacts(
     device_ctx: Mapping[str, Any],
     artifact_cache: ArtifactCache | None,
     config: _ArtifactSubmissionConfig[_ArtifactT],
+    failed_surfaces: set[ScanManifestSurface] | None = None,
 ) -> SubmissionStatus:
     """Resolve and submit one artifact kind with cache-backed content stripping."""
     cache_hits: set[str] = set()
@@ -1825,6 +2509,10 @@ def _submit_discovered_artifacts(
             )
 
     any_failed = False
+
+    def unsupported_status() -> SubmissionStatus:
+        return "failed" if any_failed else "unsupported"
+
     seen_identifiers: set[str] = set()
     for artifact in artifacts:
         identifier = artifact.identifier
@@ -1843,7 +2531,7 @@ def _submit_discovered_artifacts(
             else:
                 result = config.lookup_one(artifact, identifier)
             if result.get("unsupported"):
-                return "unsupported"
+                return unsupported_status()
 
             full_payload = artifact.to_api_payload()
             full_payload.update(dict(device_ctx))
@@ -1858,7 +2546,7 @@ def _submit_discovered_artifacts(
                 payload["files"] = []
             submit_response = config.submit(payload)
             if submit_response.get("unsupported") is True:
-                return "unsupported"
+                return unsupported_status()
 
             cache_backed_content_strip = (
                 artifact_cache is not None
@@ -1880,7 +2568,7 @@ def _submit_discovered_artifacts(
                 _artifact_cache_evict(artifact_cache, identifier)
                 submit_response = config.submit(full_payload)
                 if submit_response.get("unsupported") is True:
-                    return "unsupported"
+                    return unsupported_status()
             if submit_response.get("has_content") is True:
                 _artifact_cache_record(artifact_cache, identifier)
         except NotImplementedError:
@@ -1888,6 +2576,7 @@ def _submit_discovered_artifacts(
                 f"{config.kind}_submission_not_implemented",
                 **artifact_log_context,
             )
+            return unsupported_status()
         except httpx.HTTPStatusError as exc:
             if exc.response.status_code in (401, 403):
                 raise
@@ -1899,6 +2588,10 @@ def _submit_discovered_artifacts(
                 status_code=exc.response.status_code,
             )
             any_failed = True
+            if failed_surfaces is not None:
+                failed_surfaces.add(
+                    _artifact_manifest_surface(artifact, kind=config.kind)
+                )
         except httpx.RequestError as exc:
             logger.warning(
                 f"{config.kind}_submission_failed",
@@ -1906,7 +2599,10 @@ def _submit_discovered_artifacts(
                 error=str(exc),
                 error_type=type(exc).__name__,
             )
-            return "failed"
+            if failed_surfaces is None:
+                return "failed"
+            any_failed = True
+            failed_surfaces.add(_artifact_manifest_surface(artifact, kind=config.kind))
         except Exception as exc:
             logger.warning(
                 f"{config.kind}_submission_failed",
@@ -1915,7 +2611,11 @@ def _submit_discovered_artifacts(
                 error_type=type(exc).__name__,
             )
             any_failed = True
-    return "failed" if any_failed else "success"
+            if failed_surfaces is not None:
+                failed_surfaces.add(
+                    _artifact_manifest_surface(artifact, kind=config.kind)
+                )
+    return "failed" if any_failed and failed_surfaces is None else "success"
 
 
 def submit_discovered_skills(
@@ -1923,6 +2623,7 @@ def submit_discovered_skills(
     skills: list[DiscoveredSkillArtifact],
     scan_result: ScanResult | None = None,
     artifact_cache: ArtifactCache | None = None,
+    failed_surfaces: set[ScanManifestSurface] | None = None,
 ) -> SubmissionStatus:
     """Resolve skill fingerprints in batches, then always submit each skill.
 
@@ -1932,7 +2633,14 @@ def submit_discovered_skills(
 
     Returns whether submission succeeded, failed, or is unsupported.
     """
-    device_ctx = device_context_dict(scan_result) if scan_result else {}
+    device_ctx: dict[str, Any] = (
+        {**device_context_dict(scan_result)} if scan_result else {}
+    )
+    if scan_result is not None:
+        device_ctx["scan_session_id"] = str(scan_result.scan_session_id)
+        device_ctx["scan_started_at"] = scan_result.scan_started_at.astimezone(
+            datetime.timezone.utc
+        ).isoformat()
     ordered_skills = [
         skill
         for skill in sorted(skills, key=lambda skill: not skill.files)
@@ -1963,6 +2671,7 @@ def submit_discovered_skills(
         device_ctx=device_ctx,
         artifact_cache=artifact_cache,
         config=config,
+        failed_surfaces=failed_surfaces,
     )
 
 
@@ -1971,6 +2680,7 @@ def submit_discovered_plugins(
     plugins: list[DiscoveredPluginArtifact],
     scan_result: ScanResult | None = None,
     artifact_cache: ArtifactCache | None = None,
+    failed_surfaces: set[ScanManifestSurface] | None = None,
 ) -> SubmissionStatus:
     """Resolve plugin fingerprints in batches, then always submit each plugin.
 
@@ -1980,7 +2690,14 @@ def submit_discovered_plugins(
 
     Returns whether submission succeeded, failed, or is unsupported.
     """
-    device_ctx = device_context_dict(scan_result) if scan_result else {}
+    device_ctx: dict[str, Any] = (
+        {**device_context_dict(scan_result)} if scan_result else {}
+    )
+    if scan_result is not None:
+        device_ctx["scan_session_id"] = str(scan_result.scan_session_id)
+        device_ctx["scan_started_at"] = scan_result.scan_started_at.astimezone(
+            datetime.timezone.utc
+        ).isoformat()
     identified_plugins = [plugin for plugin in plugins if plugin.identifier]
 
     def lookup_plugin(
@@ -2002,6 +2719,7 @@ def submit_discovered_plugins(
         device_ctx=device_ctx,
         artifact_cache=artifact_cache,
         config=config,
+        failed_surfaces=failed_surfaces,
     )
 
 
@@ -2041,6 +2759,9 @@ def submit_discovered_agents(
             error_type=type(exc).__name__,
         )
         return "failed"
+    except Exception:
+        logger.warning("agent_report_submission_failed", exc_info=True)
+        return "failed"
     if response.get("unsupported"):
         return "unsupported"
     return "success"
@@ -2076,9 +2797,526 @@ def submit_discovered_agent_definitions(
             definition_count=definition_count,
         )
         return "failed"
+    except Exception:
+        logger.warning(
+            "agent_definition_report_submission_failed",
+            definition_count=definition_count,
+            exc_info=True,
+        )
+        return "failed"
     if response.get("unsupported"):
         return "unsupported"
     return "success"
+
+
+def _manifest_entry(
+    submission: ScanSubmissionResult,
+    *,
+    category: ScanManifestCategory,
+    surface: ScanManifestSurface,
+    authoritative: bool,
+    incomplete_reason: str,
+) -> dict[str, Any]:
+    outcome = submission.surface_outcomes[(category, surface)]
+    submission_reason = submission.incomplete_surfaces.get((category, surface))
+    complete = authoritative and outcome == "success" and submission_reason is None
+    entry: dict[str, Any] = {
+        "category": category,
+        "surface": surface,
+        "complete": complete,
+    }
+    if not complete:
+        entry["reason"] = (
+            "submission_failed"
+            if outcome == "failed"
+            else "unsupported"
+            if outcome == "unsupported"
+            else submission_reason or incomplete_reason
+        )
+    return entry
+
+
+def _runtime_scan_is_authoritative(scan_result: ScanResult) -> bool:
+    return (
+        scan_result.process_scan_requested
+        and scan_result.processes_scanned
+        and scan_result.completeness.runtime.complete
+    )
+
+
+def _scan_manifest_payload(
+    scan_result: ScanResult,
+    submission: ScanSubmissionResult,
+) -> dict[str, Any]:
+    completeness = scan_result.completeness
+    mcp_static_complete = (
+        scan_result.project_scan_requested and completeness.mcp_host_static.complete
+    )
+    skill_static_complete = (
+        scan_result.project_scan_requested and completeness.skill_host_static.complete
+    )
+    plugin_static_complete = (
+        scan_result.project_scan_requested and completeness.plugin_host_static.complete
+    )
+    windows_host = (scan_result.os or "").casefold() == "windows"
+    # WSL plugins submit on host surfaces. Their authority follows the plugin
+    # category status, not the broader WSL status that includes project walks.
+    windows_plugin_host_complete = not windows_host or (
+        scan_result.wsl_scanned and completeness.plugin_host_static.complete
+    )
+    plugin_static_complete = plugin_static_complete and windows_plugin_host_complete
+    container_complete = (
+        scan_result.container_scan_requested
+        and scan_result.containers_scanned
+        and completeness.container_artifacts.complete
+    )
+    runtime_complete = _runtime_scan_is_authoritative(scan_result)
+    wsl_static_complete = (
+        scan_result.wsl_scanned
+        and scan_result.project_scan_requested
+        and completeness.wsl_static.complete
+    )
+    windows_client_host_complete = not windows_host or (
+        scan_result.wsl_scanned
+        and (not scan_result.container_scan_requested or wsl_static_complete)
+    )
+    wsl_runtime_complete = scan_result.wsl_scanned and runtime_complete
+    agent_payload_complete = (
+        sum(1 for agent in scan_result.agents if agent.is_agent) <= MAX_AGENTS
+    )
+    definition_payload_complete = (
+        len(scan_result.agent_definitions) <= MAX_AGENT_DEFINITIONS
+    )
+    agent_static_complete = (
+        scan_result.project_scan_requested
+        and scan_result.agent_discovery_complete
+        and completeness.agent_host_static.complete
+        and agent_payload_complete
+    )
+    definition_host_complete = (
+        scan_result.project_scan_requested
+        and completeness.agent_definition_host_static.complete
+        and definition_payload_complete
+    )
+    client_static_complete = (
+        mcp_static_complete
+        and skill_static_complete
+        and plugin_static_complete
+        and definition_host_complete
+        and completeness.client_presence.complete
+        and scan_result.client_discovery_complete
+        and windows_client_host_complete
+    )
+    client_wsl_complete = (
+        wsl_static_complete
+        and completeness.client_presence.complete
+        and scan_result.client_discovery_complete
+    )
+
+    def incomplete_reason(
+        status: ScanCompletionStatus,
+        fallback: str,
+    ) -> str:
+        return status.reason(fallback)
+
+    client_static_incomplete_reason = "client_static_discovery_incomplete"
+    client_static_statuses = [
+        completeness.mcp_host_static,
+        completeness.skill_host_static,
+        completeness.plugin_host_static,
+        completeness.agent_definition_host_static,
+        completeness.client_presence,
+    ]
+    if windows_host and scan_result.container_scan_requested:
+        client_static_statuses.append(completeness.wsl_static)
+    for client_status in client_static_statuses:
+        if not client_status.complete:
+            client_static_incomplete_reason = client_status.reason(
+                client_static_incomplete_reason
+            )
+            break
+    if windows_host and not scan_result.wsl_scanned:
+        client_static_incomplete_reason = "wsl_inventory_incomplete"
+
+    if not completeness.client_presence.complete:
+        client_wsl_incomplete_reason = completeness.client_presence.reason(
+            "client_discovery_incomplete"
+        )
+    elif not scan_result.client_discovery_complete:
+        client_wsl_incomplete_reason = "client_discovery_incomplete"
+    elif not scan_result.wsl_scanned:
+        client_wsl_incomplete_reason = "wsl_inventory_incomplete"
+    else:
+        client_wsl_incomplete_reason = completeness.wsl_static.reason(
+            "wsl_discovery_incomplete"
+        )
+
+    plugin_static_incomplete_reason = "static_discovery_incomplete"
+    if not completeness.plugin_host_static.complete:
+        plugin_static_incomplete_reason = incomplete_reason(
+            completeness.plugin_host_static,
+            plugin_static_incomplete_reason,
+        )
+    elif windows_host and not windows_plugin_host_complete:
+        plugin_static_incomplete_reason = incomplete_reason(
+            completeness.plugin_host_static,
+            "wsl_discovery_incomplete",
+        )
+
+    plugin_runtime_incomplete_reason = "runtime_discovery_incomplete"
+    if not completeness.runtime.complete:
+        plugin_runtime_incomplete_reason = incomplete_reason(
+            completeness.runtime,
+            plugin_runtime_incomplete_reason,
+        )
+    elif windows_host and not windows_plugin_host_complete:
+        plugin_runtime_incomplete_reason = incomplete_reason(
+            completeness.plugin_host_static,
+            "wsl_discovery_incomplete",
+        )
+
+    agent_wsl_incomplete_reason = "wsl_discovery_incomplete"
+    if not agent_payload_complete:
+        agent_wsl_incomplete_reason = "agent_payload_truncated"
+    elif not agent_static_complete:
+        agent_wsl_incomplete_reason = incomplete_reason(
+            completeness.agent_host_static,
+            "agent_discovery_incomplete",
+        )
+    else:
+        agent_wsl_incomplete_reason = incomplete_reason(
+            completeness.wsl_static,
+            "wsl_discovery_incomplete",
+        )
+
+    agent_wsl_runtime_incomplete_reason = "wsl_runtime_discovery_incomplete"
+    if not agent_payload_complete:
+        agent_wsl_runtime_incomplete_reason = "agent_payload_truncated"
+    elif not runtime_complete:
+        agent_wsl_runtime_incomplete_reason = incomplete_reason(
+            completeness.runtime,
+            "runtime_discovery_incomplete",
+        )
+
+    def manifest_entry_state(
+        category: ScanManifestCategory,
+        surface: ScanManifestSurface,
+    ) -> tuple[bool, str]:
+        match category, surface:
+            case "mcp", "host_static":
+                return (
+                    mcp_static_complete,
+                    incomplete_reason(
+                        completeness.mcp_host_static,
+                        "static_discovery_incomplete",
+                    ),
+                )
+            case "mcp", "host_runtime":
+                return (
+                    runtime_complete,
+                    incomplete_reason(
+                        completeness.runtime,
+                        "runtime_discovery_incomplete",
+                    ),
+                )
+            case "mcp", "container":
+                return (
+                    container_complete,
+                    incomplete_reason(
+                        completeness.container_artifacts,
+                        "container_discovery_incomplete",
+                    ),
+                )
+            case "mcp", "wsl":
+                return (
+                    wsl_static_complete,
+                    incomplete_reason(
+                        completeness.wsl_static,
+                        "wsl_discovery_incomplete",
+                    ),
+                )
+            case "mcp", "wsl_runtime":
+                return wsl_runtime_complete, "wsl_runtime_discovery_incomplete"
+            case "client", "host_static":
+                return client_static_complete, client_static_incomplete_reason
+            case "client", "host_runtime":
+                return (
+                    runtime_complete,
+                    incomplete_reason(
+                        completeness.runtime,
+                        "runtime_discovery_incomplete",
+                    ),
+                )
+            case "client", "container":
+                return (
+                    container_complete,
+                    incomplete_reason(
+                        completeness.container_artifacts,
+                        "container_discovery_incomplete",
+                    ),
+                )
+            case "client", "wsl":
+                return client_wsl_complete, client_wsl_incomplete_reason
+            case "client", "wsl_runtime":
+                return wsl_runtime_complete, "wsl_runtime_discovery_incomplete"
+            case "skill", "host_static":
+                return (
+                    skill_static_complete,
+                    incomplete_reason(
+                        completeness.skill_host_static,
+                        "static_discovery_incomplete",
+                    ),
+                )
+            case "skill", "container":
+                return (
+                    container_complete,
+                    incomplete_reason(
+                        completeness.container_artifacts,
+                        "container_discovery_incomplete",
+                    ),
+                )
+            case "skill", "wsl":
+                return (
+                    wsl_static_complete,
+                    incomplete_reason(
+                        completeness.wsl_static,
+                        "wsl_discovery_incomplete",
+                    ),
+                )
+            case "plugin", "host_static":
+                return plugin_static_complete, plugin_static_incomplete_reason
+            case "plugin", "host_runtime":
+                return (
+                    runtime_complete and windows_plugin_host_complete,
+                    plugin_runtime_incomplete_reason,
+                )
+            case "plugin", "container":
+                return (
+                    container_complete,
+                    incomplete_reason(
+                        completeness.container_artifacts,
+                        "container_discovery_incomplete",
+                    ),
+                )
+            case "plugin", "device":
+                return (
+                    scan_result.machine_scope and completeness.plugin_device.complete,
+                    (
+                        incomplete_reason(
+                            completeness.plugin_device,
+                            "machine_plugin_discovery_incomplete",
+                        )
+                        if scan_result.machine_scope
+                        else "machine_scope_disabled"
+                    ),
+                )
+            case "agent", "host_static":
+                return (
+                    agent_static_complete,
+                    (
+                        "agent_payload_truncated"
+                        if not agent_payload_complete
+                        else incomplete_reason(
+                            completeness.agent_host_static,
+                            "agent_discovery_incomplete",
+                        )
+                    ),
+                )
+            case "agent", "host_runtime":
+                return (
+                    runtime_complete and agent_payload_complete,
+                    (
+                        "agent_payload_truncated"
+                        if not agent_payload_complete
+                        else incomplete_reason(
+                            completeness.runtime,
+                            "runtime_discovery_incomplete",
+                        )
+                    ),
+                )
+            case "agent", "wsl":
+                return (
+                    wsl_static_complete
+                    and agent_static_complete
+                    and agent_payload_complete,
+                    agent_wsl_incomplete_reason,
+                )
+            case "agent", "wsl_runtime":
+                return (
+                    wsl_runtime_complete and agent_payload_complete,
+                    agent_wsl_runtime_incomplete_reason,
+                )
+            case "agent_definition", "host_static":
+                return (
+                    definition_host_complete,
+                    (
+                        "agent_definition_payload_truncated"
+                        if not definition_payload_complete
+                        else incomplete_reason(
+                            completeness.agent_definition_host_static,
+                            "definition_discovery_incomplete",
+                        )
+                    ),
+                )
+            case "agent_definition", "container":
+                return (
+                    container_complete and definition_payload_complete,
+                    (
+                        "agent_definition_payload_truncated"
+                        if not definition_payload_complete
+                        else incomplete_reason(
+                            completeness.container_artifacts,
+                            "container_discovery_incomplete",
+                        )
+                    ),
+                )
+            case "agent_definition", "wsl":
+                return (
+                    wsl_static_complete and definition_payload_complete,
+                    (
+                        "agent_definition_payload_truncated"
+                        if not definition_payload_complete
+                        else incomplete_reason(
+                            completeness.wsl_static,
+                            "wsl_discovery_incomplete",
+                        )
+                    ),
+                )
+            case _:
+                raise AssertionError(
+                    f"Unhandled scan manifest surface: {category}/{surface}"
+                )
+
+    entries: list[dict[str, Any]] = []
+    for category, surfaces in CATEGORY_SURFACES.items():
+        for surface in surfaces:
+            authoritative, reason = manifest_entry_state(category, surface)
+            entries.append(
+                _manifest_entry(
+                    submission,
+                    category=category,
+                    surface=surface,
+                    authoritative=authoritative,
+                    incomplete_reason=reason,
+                )
+            )
+    return {
+        **device_context_dict(scan_result),
+        "scan_session_id": str(scan_result.scan_session_id),
+        "scan_started_at": scan_result.scan_started_at.astimezone(
+            datetime.timezone.utc
+        ).isoformat(),
+        "entries": entries,
+    }
+
+
+def _record_category_outcome(
+    submission: ScanSubmissionResult,
+    *,
+    category: ScanManifestCategory,
+    outcome: SubmissionStatus,
+    unsupported_label: str,
+    failed_label: str,
+) -> None:
+    submission.category_outcomes[category] = outcome
+    if outcome == "unsupported":
+        if unsupported_label not in submission.unsupported:
+            submission.unsupported.append(unsupported_label)
+    elif outcome == "failed":
+        if failed_label not in submission.failed_submissions:
+            submission.failed_submissions.append(failed_label)
+
+
+def _record_surface_outcomes(
+    submission: ScanSubmissionResult,
+    *,
+    category: ScanManifestCategory,
+    outcome: SubmissionStatus,
+    surface_group: Literal["all", "at_rest", "runtime"] = "all",
+) -> None:
+    for surface in CATEGORY_SURFACES[category]:
+        is_runtime = surface.endswith("_runtime")
+        if surface_group == "at_rest" and is_runtime:
+            continue
+        if surface_group == "runtime" and not is_runtime:
+            continue
+        submission.surface_outcomes[(category, surface)] = outcome
+
+
+def _record_artifact_submission_outcome(
+    submission: ScanSubmissionResult,
+    *,
+    category: Literal["skill", "plugin"],
+    outcome: SubmissionStatus,
+    failed_surfaces: set[ScanManifestSurface],
+    unsupported_label: str,
+    failed_label: str,
+) -> None:
+    effective_outcome: SubmissionStatus = (
+        "failed" if failed_surfaces and outcome == "unsupported" else outcome
+    )
+    _record_surface_outcomes(
+        submission,
+        category=category,
+        outcome=effective_outcome,
+    )
+    if failed_surfaces:
+        if failed_label not in submission.failed_submissions:
+            submission.failed_submissions.append(failed_label)
+        for surface in failed_surfaces:
+            submission.surface_outcomes[(category, surface)] = "failed"
+            submission.incomplete_surfaces[(category, surface)] = "submission_failed"
+    if effective_outcome != "success":
+        _record_category_outcome(
+            submission,
+            category=category,
+            outcome=effective_outcome,
+            unsupported_label=unsupported_label,
+            failed_label=failed_label,
+        )
+
+
+def _consume_backend_surface_failures(
+    submission: ScanSubmissionResult,
+    response: dict[str, Any] | None,
+) -> None:
+    if response is None:
+        return
+    raw_failures = response.get("incomplete_surfaces", [])
+    if not isinstance(raw_failures, list):
+        logger.warning("mcp_watch_scan_invalid_incomplete_surfaces")
+        return
+
+    failed_labels = {
+        "mcp": "servers",
+        "client": "clients",
+        "skill": "skills",
+        "plugin": "plugins",
+        "agent": "agents",
+        "agent_definition": "agent definitions",
+    }
+    for raw_failure in raw_failures[:30]:
+        if not isinstance(raw_failure, dict):
+            continue
+        category = raw_failure.get("category")
+        surface = raw_failure.get("surface")
+        reason = raw_failure.get("reason")
+        if (
+            not isinstance(category, str)
+            or category not in CATEGORY_SURFACES
+            or not isinstance(surface, str)
+            or not isinstance(reason, str)
+            or not reason
+        ):
+            continue
+        typed_category = cast(ScanManifestCategory, category)
+        if surface not in CATEGORY_SURFACES[typed_category]:
+            continue
+        typed_surface = cast(ScanManifestSurface, surface)
+        submission.incomplete_surfaces[(typed_category, typed_surface)] = reason[:200]
+        failed_label = failed_labels[typed_category]
+        if failed_label not in submission.failed_submissions:
+            submission.failed_submissions.append(failed_label)
 
 
 def submit_scan_results(
@@ -2099,65 +3337,202 @@ def submit_scan_results(
     """
     submission = ScanSubmissionResult()
 
+    for skill in scan_result.skills:
+        if skill.identifier is not None:
+            continue
+        surface: ScanManifestSurface = (
+            "container"
+            if skill.container_id is not None
+            else "wsl"
+            if skill.wsl_distro is not None
+            else "host_static"
+        )
+        submission.incomplete_surfaces[("skill", surface)] = "skill_identifier_missing"
+    for plugin in scan_result.plugins:
+        if plugin.identifier is not None:
+            continue
+        surface = _artifact_manifest_surface(plugin, kind="plugin")
+        submission.incomplete_surfaces[("plugin", surface)] = (
+            "plugin_identifier_missing"
+        )
+
     # Submit at-rest agents before process sightings so first-scan runtime
     # correlation can find the catalog + installation rows it should mark live.
     # Categories remain independent: a failed/unsupported agent submit does not
     # block the MCP/process payload below.
     if scan_result.agents:
         agent_submission = submit_discovered_agents(client, scan_result)
-        if agent_submission == "unsupported":
-            submission.unsupported.append("Shadow Agent Detection")
-        elif agent_submission == "failed":
-            submission.failed_submissions.append("agents")
+        _record_category_outcome(
+            submission,
+            category="agent",
+            outcome=agent_submission,
+            unsupported_label="Shadow Agent Detection",
+            failed_label="agents",
+        )
+        _record_surface_outcomes(
+            submission,
+            category="agent",
+            outcome=agent_submission,
+            surface_group="at_rest",
+        )
 
     if scan_result.agent_definitions:
         definition_submission = submit_discovered_agent_definitions(client, scan_result)
-        if definition_submission == "unsupported":
-            submission.unsupported.append("Agent Definition Detection")
-        elif definition_submission == "failed":
-            submission.failed_submissions.append("agent definitions")
+        _record_category_outcome(
+            submission,
+            category="agent_definition",
+            outcome=definition_submission,
+            unsupported_label="Agent Definition Detection",
+            failed_label="agent definitions",
+        )
+        _record_surface_outcomes(
+            submission,
+            category="agent_definition",
+            outcome=definition_submission,
+        )
+
+    # Plugin-backed MCP configurations and skills resolve installation links
+    # during their own ingest, so plugin rows must exist first on a new device.
+    if scan_result.plugins:
+        failed_plugin_surfaces: set[ScanManifestSurface] = set()
+        plugin_submission = submit_discovered_plugins(
+            client,
+            scan_result.plugins,
+            scan_result,
+            artifact_cache=artifact_cache,
+            failed_surfaces=failed_plugin_surfaces,
+        )
+        _record_artifact_submission_outcome(
+            submission,
+            category="plugin",
+            outcome=plugin_submission,
+            failed_surfaces=failed_plugin_surfaces,
+            unsupported_label="Shadow Plugin Detection",
+            failed_label="plugins",
+        )
 
     # Client presence and runtime/inventory sightings ride the MCP-scan payload,
-    # so a successful empty container or WSL inventory still requires a POST.
+    # so successful empty process/WSL inventories and requested container
+    # failures still require a POST.
     if (
         scan_result.total_servers > 0
         or scan_result.detected_clients
         or scan_result.processes
+        or _runtime_scan_is_authoritative(scan_result)
+        or scan_result.container_scan_requested
         or scan_result.containers_scanned
         or scan_result.stopped_containers_scanned
         or scan_result.container_images_scanned
         or scan_result.wsl_scanned
     ):
         server = submit_discovered_servers(client, scan_result)
-        if server.status == "unsupported":
-            submission.unsupported.append("Shadow MCP Detection")
-        elif server.status == "failed":
-            submission.failed_submissions.append("servers")
-        else:
+        if server.status == "success":
             submission.response = server.response
+        _record_surface_outcomes(
+            submission,
+            category="mcp",
+            outcome=server.status,
+        )
+        _record_surface_outcomes(
+            submission,
+            category="client",
+            outcome=server.status,
+        )
+        _record_surface_outcomes(
+            submission,
+            category="agent",
+            outcome=server.status,
+            surface_group="runtime",
+        )
+        if scan_result.total_servers > 0 or scan_result.processes:
+            _record_category_outcome(
+                submission,
+                category="mcp",
+                outcome=server.status,
+                unsupported_label="Shadow MCP Detection",
+                failed_label="servers",
+            )
+        else:
+            submission.category_outcomes["mcp"] = server.status
+        if scan_result.detected_clients:
+            _record_category_outcome(
+                submission,
+                category="client",
+                outcome=server.status,
+                unsupported_label="Shadow Client Detection",
+                failed_label="clients",
+            )
+        else:
+            submission.category_outcomes["client"] = server.status
+        if (
+            server.status == "unsupported"
+            and "Shadow MCP Detection" not in submission.unsupported
+            and "Shadow Client Detection" not in submission.unsupported
+        ):
+            submission.unsupported.append("Scan Inventory")
+        if (
+            server.status == "failed"
+            and "servers" not in submission.failed_submissions
+            and "clients" not in submission.failed_submissions
+        ):
+            submission.failed_submissions.append("scan inventory")
+        _consume_backend_surface_failures(submission, server.response)
 
+    skill_submission: SubmissionStatus = "success"
+    failed_skill_surfaces: set[ScanManifestSurface] = set()
     if scan_result.skills:
         skill_submission = submit_discovered_skills(
             client,
             scan_result.skills,
             scan_result,
             artifact_cache=artifact_cache,
+            failed_surfaces=failed_skill_surfaces,
         )
-        if skill_submission == "unsupported":
-            submission.unsupported.append("Shadow Skill Detection")
-        elif skill_submission == "failed":
-            submission.failed_submissions.append("skills")
+        _record_artifact_submission_outcome(
+            submission,
+            category="skill",
+            outcome=skill_submission,
+            failed_surfaces=failed_skill_surfaces,
+            unsupported_label="Shadow Skill Detection",
+            failed_label="skills",
+        )
 
-    if scan_result.plugins:
-        plugin_submission = submit_discovered_plugins(
-            client,
-            scan_result.plugins,
-            scan_result,
-            artifact_cache=artifact_cache,
+    # Per-surface skill failures are collected rather than failing the whole
+    # submit; presence must still be gated on them or a failed POST would
+    # advance the baseline and emit removals for skills the server never saw.
+    if skill_submission == "success" and not failed_skill_surfaces:
+        presence_submission = reconcile_skill_presence(client, scan_result)
+        if presence_submission == "failed":
+            submission.failed_submissions.append("skill removals")
+
+    manifest_payload = _scan_manifest_payload(scan_result, submission)
+    try:
+        manifest_response = client.submit_scan_manifest(manifest_payload)
+        if manifest_response.get("unsupported") is not True:
+            logger.debug(
+                "scan_manifest_submitted",
+                entries_reconciled=manifest_response.get("entries_reconciled"),
+                installations_updated=manifest_response.get("installations_updated"),
+            )
+    except httpx.HTTPStatusError as exc:
+        if exc.response.status_code in (401, 403):
+            raise
+        logger.warning(
+            "scan_manifest_submission_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+            status_code=exc.response.status_code,
         )
-        if plugin_submission == "unsupported":
-            submission.unsupported.append("Shadow Plugin Detection")
-        elif plugin_submission == "failed":
-            submission.failed_submissions.append("plugins")
+        submission.failed_submissions.append("scan manifest")
+    except httpx.RequestError as exc:
+        logger.warning(
+            "scan_manifest_submission_failed",
+            error=str(exc),
+            error_type=type(exc).__name__,
+        )
+        submission.failed_submissions.append("scan manifest")
+    except Exception:
+        logger.warning("scan_manifest_submission_failed", exc_info=True)
+        submission.failed_submissions.append("scan manifest")
 
     return submission

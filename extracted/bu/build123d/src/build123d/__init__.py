@@ -1,6 +1,7 @@
 """build123d import definitions"""
 
 from build123d.build_common import *
+from build123d.build_constants import *
 from build123d.build_enums import *
 from build123d.build_line import *
 from build123d.build_part import *
@@ -24,7 +25,21 @@ from build123d.persistence import modify_copyreg
 from build123d.exporters3d import *
 from build123d.text import available_fonts, FontManager
 from build123d.brep_from_stl import detect_primitives
-
+from build123d.build_constants import (
+    MC,
+    MM,
+    CM,
+    M,
+    IN,
+    FT,
+    THOU,
+    UNITS_PER_METER,
+    G,
+    KG,
+    G_PER_LB,
+    LB,
+    UNITS_PER_KILOGRAM,
+)
 from .version import version as __version__
 
 modify_copyreg()
@@ -43,13 +58,17 @@ __all__ = [
     # Mass Constants
     "G",
     "KG",
+    "G_PER_LB",
     "LB",
+    # Unit Conversions
+    "UNITS_PER_KILOGRAM",
     # Enums
     "Align",
     "ApproxOption",
     "AngularDirection",
     "CenterOf",
     "ContinuityLevel",
+    "Convexity",
     "Extrinsic",
     "FontStyle",
     "FrameMethod",
@@ -83,6 +102,8 @@ __all__ = [
     "BuildPart",
     "BuildSketch",
     # 1D Curve Objects
+    "BaseCurveObject",
+    "BaseEdgeObject",
     "BaseLineObject",
     "Airfoil",
     "Bezier",
@@ -108,10 +129,6 @@ __all__ = [
     "TangentArc",
     "JernArc",
     "ThreePointArc",
-    "PointArcTangentLine",
-    "ArcArcTangentLine",
-    "PointArcTangentArc",
-    "ArcArcTangentArc",
     # 2D Sketch Objects
     "ArrowHead",
     "Arrow",
@@ -129,6 +146,7 @@ __all__ = [
     "SlotCenterPoint",
     "SlotCenterToCenter",
     "SlotOverall",
+    "Superellipse",
     "Text",
     "TechnicalDrawing",
     "Trapezoid",
@@ -170,7 +188,6 @@ __all__ = [
     "Plane",
     "Compound",
     "Location",
-    "LocationEncoder",
     "GeomEncoder",
     "Joint",
     "RigidJoint",
@@ -216,6 +233,7 @@ __all__ = [
     "vertex",
     # Operations
     "add",
+    "insert",
     "bounding_box",
     "chamfer",
     "draft",
@@ -246,5 +264,6 @@ __all__ = [
     "export_gltf",
     "export_stl",
     "export_brep",
+    "export_obj",
     "export_to_pcbway",
 ]

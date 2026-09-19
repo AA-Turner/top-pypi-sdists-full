@@ -7,8 +7,92 @@ import pytest
 
 from runlayer_cli.scan import pip_global as pip_global_module
 from runlayer_cli.scan.clients import PipPackage
+from runlayer_cli.scan.completeness import ScanCompletionStatus
+from runlayer_cli.scan.hidden_space_sweep import (
+    MAX_PYTHON_ENV_ROOTS,
+    HiddenSpaceScanResult,
+)
 from runlayer_cli.scan.pip_global import PipGlobalPackage, scan_pip_global_packages
 from runlayer_cli.scan.wsl_limits import MAX_WSL_HOMES
+
+
+def test_hidden_python_env_path_cap_marks_presence_incomplete(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    hidden_result = HiddenSpaceScanResult(
+        python_env_roots=[
+            tmp_path / f"hidden-env-{index}" for index in range(MAX_PYTHON_ENV_ROOTS)
+        ],
+        python_env_roots_truncated=True,
+        truncated=False,
+    )
+    monkeypatch.setattr(
+        pip_global_module,
+        "scan_hidden_spaces",
+        lambda **_kwargs: hidden_result,
+    )
+    status = ScanCompletionStatus()
+
+    scan_pip_global_packages(
+        [PipPackage("aider-chat")],
+        home=tmp_path,
+        system="Linux",
+        environment={},
+        scan_status=status,
+    )
+
+    assert "client_pip_hidden_scan_truncated" in status.reasons
+
+
+def test_site_package_entry_cap_marks_presence_incomplete(tmp_path: Path) -> None:
+    venv = tmp_path / "venv"
+    (venv / "pyvenv.cfg").parent.mkdir(parents=True)
+    (venv / "pyvenv.cfg").write_text("home = /usr/bin")
+    site_packages = venv / "lib" / "python3.13" / "site-packages"
+    for index in range(pip_global_module.MAX_SITE_ENTRIES + 1):
+        (site_packages / f"unknown-{index}.dist-info").mkdir(parents=True)
+    status = ScanCompletionStatus()
+
+    scan_pip_global_packages(
+        [PipPackage("aider-chat")],
+        home=tmp_path,
+        system="Linux",
+        environment={},
+        python_env_roots=[venv],
+        discover_hidden=False,
+        scan_status=status,
+    )
+
+    assert "client_pip_site_entries_capped" in status.reasons
+
+
+def test_existing_site_packages_resolution_failure_marks_incomplete(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    venv = tmp_path / "venv"
+    (venv / "pyvenv.cfg").parent.mkdir(parents=True)
+    (venv / "pyvenv.cfg").write_text("home = /usr/bin")
+    (venv / "lib" / "python3.13" / "site-packages").mkdir(parents=True)
+    status = ScanCompletionStatus()
+    monkeypatch.setattr(
+        pip_global_module,
+        "resolve_approved_path",
+        lambda *_args, **_kwargs: None,
+    )
+
+    scan_pip_global_packages(
+        [PipPackage("aider-chat")],
+        home=tmp_path,
+        system="Linux",
+        environment={},
+        python_env_roots=[venv],
+        discover_hidden=False,
+        scan_status=status,
+    )
+
+    assert "client_pip_site_packages_resolution_failed" in status.reasons
 
 
 @pytest.mark.parametrize(

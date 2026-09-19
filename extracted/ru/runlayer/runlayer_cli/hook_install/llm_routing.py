@@ -762,8 +762,24 @@ def _is_runlayer_helper(value: object) -> bool:
     return name in {"aiwatch", "aiwatch.exe"}
 
 
+def _strip_inline_comment(stripped: str) -> str:
+    """Strip a trailing ` # ...` inline comment from a stripped line.
+
+    TOML lets a table header carry a trailing comment (``[table] # note``); the
+    parser must canonicalize to ``[table]`` before the bracket check / name
+    extraction so a commented Runlayer header is not misclassified as foreign
+    content. Only `` #`` (space-hash) is stripped, matching the spec's inline
+    comment form; a ``#`` inside a quoted key segment is not handled (same
+    limitation as the rest of this hand-rolled parser).
+    """
+    hash_idx = stripped.find(" #")
+    if hash_idx != -1:
+        stripped = stripped[:hash_idx].rstrip()
+    return stripped
+
+
 def _is_table_header(line: str) -> bool:
-    stripped = line.strip()
+    stripped = _strip_inline_comment(line.strip())
     return stripped.startswith("[") and stripped.endswith("]")
 
 
@@ -780,8 +796,9 @@ def _assignment(line: str, key: str) -> str | None:
 
 def _table_name(line: str) -> str:
     """Canonical header: TOML allows quoted segments and whitespace around dots."""
+    stripped = _strip_inline_comment(line.strip())
     segments: list[str] = []
-    for raw in line.strip()[1:-1].split("."):
+    for raw in stripped[1:-1].split("."):
         segment = raw.strip()
         quoted = len(segment) >= 2 and segment[0] == segment[-1] and segment[0] in "\"'"
         segments.append(segment[1:-1] if quoted else segment)

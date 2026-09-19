@@ -3,18 +3,22 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.centrality.closeness_endpoints import (
     ClosenessEndpoints,
     ClosenessMutateResult,
     ClosenessStatsResult,
     ClosenessWriteResult,
 )
+from graphdatascience.procedure_surface.api.centrality.closeness_harmonic_endpoints import ClosenessHarmonicEndpoints
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.job_handle import JobHandle
+from graphdatascience.procedure_surface.arrow.centrality.closeness_harmonic_arrow_endpoints import (
+    ClosenessHarmonicArrowEndpoints,
+)
 from graphdatascience.procedure_surface.arrow.node_property_endpoints import NodePropertyEndpointsHelper
-from graphdatascience.query_runner.protocol.write_protocols import WriteProtocol
+from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
 class ClosenessArrowEndpoints(ClosenessEndpoints):
@@ -26,13 +30,20 @@ class ClosenessArrowEndpoints(ClosenessEndpoints):
         write_protocol: WriteProtocol | None = None,
         show_progress: bool = True,
     ):
+        self._arrow_client = arrow_client
+        self._write_protocol = write_protocol
+        self._show_progress = show_progress
         self._node_property_endpoints = NodePropertyEndpointsHelper(
             arrow_client, write_protocol, show_progress=show_progress
         )
 
+    @property
+    def harmonic(self) -> ClosenessHarmonicEndpoints:
+        return ClosenessHarmonicArrowEndpoints(self._arrow_client, self._write_protocol, self._show_progress)
+
     def compute(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         use_wasserman_faust: bool = False,
         relationship_types: list[str] = ALL_TYPES,
@@ -58,7 +69,7 @@ class ClosenessArrowEndpoints(ClosenessEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         use_wasserman_faust: bool = False,
         relationship_types: list[str] = ALL_TYPES,
@@ -87,7 +98,7 @@ class ClosenessArrowEndpoints(ClosenessEndpoints):
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         use_wasserman_faust: bool = False,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -115,7 +126,7 @@ class ClosenessArrowEndpoints(ClosenessEndpoints):
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         use_wasserman_faust: bool = False,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -141,7 +152,7 @@ class ClosenessArrowEndpoints(ClosenessEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         use_wasserman_faust: bool = False,
         relationship_types: list[str] = ALL_TYPES,
@@ -178,7 +189,7 @@ class ClosenessArrowEndpoints(ClosenessEndpoints):
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         use_wasserman_faust: bool = False,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,

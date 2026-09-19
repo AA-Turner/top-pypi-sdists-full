@@ -143,6 +143,7 @@ def discover(
     seed_manifests: Mapping[Path, ManifestInfo] | None = None,
     deadline: float | None = None,
     checkpoint: Callable[[], None] | None = None,
+    on_deadline_exhausted: Callable[[], None] | None = None,
     max_total_source_bytes: int | None = MAX_TOTAL_SOURCE_BYTES,
 ) -> list[AgentUnit]:
     """Discover candidate agent units under ``root``.
@@ -168,6 +169,9 @@ def discover(
 
     ``checkpoint`` is the resource governor's cooperative throttle/abort hook,
     invoked at the same cadence as the deadline checks.
+    ``on_deadline_exhausted`` is called only when the cutoff causes directory
+    entries or source reads to be skipped. Finishing the final unit after the
+    cutoff does not report exhaustion.
     ``max_total_source_bytes`` bounds the source text retained by this call;
     past it, files are enumerated without reading their content.
     """
@@ -177,9 +181,19 @@ def discover(
     manifests_by_dir: dict[Path, list[ManifestInfo]] = {}
     source_paths: list[Path] = []
 
+    deadline_reported = False
+
+    def report_deadline_exhausted() -> None:
+        nonlocal deadline_reported
+        if not deadline_reported:
+            deadline_reported = True
+            if on_deadline_exhausted is not None:
+                on_deadline_exhausted()
+
     hit_deadline = False
     for dirpath, dirnames, filenames in os.walk(root):
         if deadline is not None and time.monotonic() >= deadline:
+            report_deadline_exhausted()
             hit_deadline = True
         if not hit_deadline:
             here = Path(dirpath)
@@ -194,6 +208,7 @@ def discover(
                     if checkpoint is not None:
                         checkpoint()
                     if deadline is not None and time.monotonic() >= deadline:
+                        report_deadline_exhausted()
                         hit_deadline = True
                         break
                 file_path = here / filename
@@ -228,6 +243,7 @@ def discover(
             if checkpoint is not None:
                 checkpoint()
             if deadline is not None and time.monotonic() >= deadline:
+                report_deadline_exhausted()
                 break
         owner = _nearest_manifest_dir(source_path.parent, manifest_dirs)
         if owner is not None:

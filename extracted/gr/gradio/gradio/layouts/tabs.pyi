@@ -24,6 +24,7 @@ class Tabs(BlockContext, metaclass=ComponentMeta):
         self,
         *,
         selected: int | str | None = None,
+        overflow_behavior: Literal["menu", "wrap"] = "menu",
         visible: bool | Literal["hidden"] = True,
         elem_id: str | None = None,
         elem_classes: list[str] | str | None = None,
@@ -34,6 +35,7 @@ class Tabs(BlockContext, metaclass=ComponentMeta):
         """
         Parameters:
             selected: The currently selected tab. Must correspond to an id passed to the one of the child TabItems. Defaults to the first TabItem.
+            overflow_behavior: Controls how tabs that exceed the available width are displayed. If "menu", overflowing tabs are hidden in a dropdown menu. If "wrap", tabs wrap onto additional rows.
             visible: If False, Tabs will be hidden.
             elem_id: An optional string that is assigned as the id of this component in the HTML DOM. Can be used for targeting CSS styles.
             elem_classes: An optional string or list of strings that are assigned as the class of this component in the HTML DOM. Can be used for targeting CSS styles.
@@ -41,6 +43,10 @@ class Tabs(BlockContext, metaclass=ComponentMeta):
             key: in a gr.render, Components with the same key across re-renders are treated as the same component, not a new component. Properties set in 'preserved_by_key' are not reset across a re-render.
             preserved_by_key: A list of parameters from this component's constructor. Inside a gr.render() function, if a component is re-rendered with the same key, these (and only these) parameters will be preserved in the UI (if they have been changed by the user or an event listener) instead of re-rendered based on the values provided during constructor.
         """
+        if overflow_behavior not in ("menu", "wrap"):
+            raise ValueError(
+                "The `overflow_behavior` parameter must be either 'menu' or 'wrap'."
+            )
         BlockContext.__init__(
             self,
             visible=visible,
@@ -51,6 +57,7 @@ class Tabs(BlockContext, metaclass=ComponentMeta):
             preserved_by_key=preserved_by_key,
         )
         self.selected = selected
+        self.overflow_behavior = overflow_behavior
 
     def __exit__(self, exc_type=None, *args):
         super().__exit__(exc_type, *args)
@@ -114,12 +121,14 @@ class Tabs(BlockContext, metaclass=ComponentMeta):
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
         validator: Callable[..., Any] | None = None,
+        inputs_kwargs: dict[str, Block] | None = None,
     
         ) -> Dependency:
         """
         Parameters:
             fn: the function to call when this event is triggered. Often a machine learning model's prediction function. Each parameter of the function corresponds to one input component, and the function should return a single value or a tuple of values, with each element in the tuple corresponding to one output component.
             inputs: list of gradio.components to use as inputs. If the function takes no inputs, this should be an empty list.
+            inputs_kwargs: dictionary mapping function parameter names to gradio.components. The component values are passed to the function as keyword arguments.
             outputs: list of gradio.components to use as outputs. If the function returns no outputs, this should be an empty list.
             api_name: defines how the endpoint appears in the API docs. Can be a string or None. If set to a string, the endpoint will be exposed in the API docs with the given name. If None (default), the name of the function will be used as the API endpoint.
             scroll_to_output: if True, will scroll to output component on completion
@@ -139,7 +148,7 @@ class Tabs(BlockContext, metaclass=ComponentMeta):
             api_visibility: controls the visibility and accessibility of this endpoint. Can be "public" (shown in API docs and callable by clients), "private" (hidden from API docs and not callable by the Gradio client libraries), or "undocumented" (hidden from API docs but callable by clients and via gr.load). If fn is None, api_visibility will automatically be set to "private".
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
-            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
+            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function, including the same keyword arguments when `inputs_kwargs` is used, so its signature must accept those keyword names.
         
         """
         ...
@@ -167,12 +176,14 @@ class Tabs(BlockContext, metaclass=ComponentMeta):
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
         validator: Callable[..., Any] | None = None,
+        inputs_kwargs: dict[str, Block] | None = None,
     
         ) -> Dependency:
         """
         Parameters:
             fn: the function to call when this event is triggered. Often a machine learning model's prediction function. Each parameter of the function corresponds to one input component, and the function should return a single value or a tuple of values, with each element in the tuple corresponding to one output component.
             inputs: list of gradio.components to use as inputs. If the function takes no inputs, this should be an empty list.
+            inputs_kwargs: dictionary mapping function parameter names to gradio.components. The component values are passed to the function as keyword arguments.
             outputs: list of gradio.components to use as outputs. If the function returns no outputs, this should be an empty list.
             api_name: defines how the endpoint appears in the API docs. Can be a string or None. If set to a string, the endpoint will be exposed in the API docs with the given name. If None (default), the name of the function will be used as the API endpoint.
             scroll_to_output: if True, will scroll to output component on completion
@@ -192,7 +203,7 @@ class Tabs(BlockContext, metaclass=ComponentMeta):
             api_visibility: controls the visibility and accessibility of this endpoint. Can be "public" (shown in API docs and callable by clients), "private" (hidden from API docs and not callable by the Gradio client libraries), or "undocumented" (hidden from API docs but callable by clients and via gr.load). If fn is None, api_visibility will automatically be set to "private".
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
-            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
+            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function, including the same keyword arguments when `inputs_kwargs` is used, so its signature must accept those keyword names.
         
         """
         ...
@@ -228,6 +239,7 @@ class Tab(BlockContext, metaclass=ComponentMeta):
         interactive: bool = True,
         *,
         id: int | str | None = None,
+        alignment: Literal["left", "right"] = "left",
         elem_id: str | None = None,
         elem_classes: list[str] | str | None = None,
         scale: int | None = None,
@@ -240,6 +252,7 @@ class Tab(BlockContext, metaclass=ComponentMeta):
         Parameters:
             label: The visual label for the tab
             id: An optional identifier for the tab, required if you wish to control the selected tab from a predict function.
+            alignment: The side of the tab bar where the tab is placed. Right-aligned tabs are grouped together while preserving their relative order.
             elem_id: An optional string that is assigned as the id of the <div> containing the contents of the Tab layout. The same string followed by "-button" is attached to the Tab button. Can be used for targeting CSS styles.
             elem_classes: An optional string or list of strings that are assigned as the class of this component in the HTML DOM. Can be used for targeting CSS styles.
             render: If False, this layout will not be rendered in the Blocks context. Should be used if the intention is to assign event listeners now but render the component later.
@@ -248,6 +261,10 @@ class Tab(BlockContext, metaclass=ComponentMeta):
             interactive: If False, Tab will not be clickable.
             render_children: If True, the children of this Tab will be rendered on the page (but hidden) when the Tab is visible but inactive. This can be useful if you want to ensure that any components (e.g. videos or audio) within the Tab are pre-loaded before the user clicks on the Tab.
         """
+        if alignment not in ("left", "right"):
+            raise ValueError(
+                "The `alignment` parameter must be either 'left' or 'right'."
+            )
         BlockContext.__init__(
             self,
             elem_id=elem_id,
@@ -258,6 +275,7 @@ class Tab(BlockContext, metaclass=ComponentMeta):
         )
         self.label = label
         self.id = id
+        self.alignment = alignment
         self.visible = visible
         self.scale = scale
         self.interactive = interactive
@@ -298,12 +316,14 @@ class Tab(BlockContext, metaclass=ComponentMeta):
         key: int | str | tuple[int | str, ...] | None = None,
         api_description: str | None | Literal[False] = None,
         validator: Callable[..., Any] | None = None,
+        inputs_kwargs: dict[str, Block] | None = None,
     
         ) -> Dependency:
         """
         Parameters:
             fn: the function to call when this event is triggered. Often a machine learning model's prediction function. Each parameter of the function corresponds to one input component, and the function should return a single value or a tuple of values, with each element in the tuple corresponding to one output component.
             inputs: list of gradio.components to use as inputs. If the function takes no inputs, this should be an empty list.
+            inputs_kwargs: dictionary mapping function parameter names to gradio.components. The component values are passed to the function as keyword arguments.
             outputs: list of gradio.components to use as outputs. If the function returns no outputs, this should be an empty list.
             api_name: defines how the endpoint appears in the API docs. Can be a string or None. If set to a string, the endpoint will be exposed in the API docs with the given name. If None (default), the name of the function will be used as the API endpoint.
             scroll_to_output: if True, will scroll to output component on completion
@@ -323,7 +343,7 @@ class Tab(BlockContext, metaclass=ComponentMeta):
             api_visibility: controls the visibility and accessibility of this endpoint. Can be "public" (shown in API docs and callable by clients), "private" (hidden from API docs and not callable by the Gradio client libraries), or "undocumented" (hidden from API docs but callable by clients and via gr.load). If fn is None, api_visibility will automatically be set to "private".
             key: A unique key for this event listener to be used in @gr.render(). If set, this value identifies an event as identical across re-renders when the key is identical.
             api_description: Description of the API endpoint. Can be a string, None, or False. If set to a string, the endpoint will be exposed in the API docs with the given description. If None, the function's docstring will be used as the API endpoint description. If False, then no description will be displayed in the API docs.
-            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function.
+            validator: Optional validation function to run before the main function. If provided, this function will be executed first with queue=False, and only if it completes successfully will the main function be called. The validator receives the same inputs as the main function, including the same keyword arguments when `inputs_kwargs` is used, so its signature must accept those keyword names.
         
         """
         ...

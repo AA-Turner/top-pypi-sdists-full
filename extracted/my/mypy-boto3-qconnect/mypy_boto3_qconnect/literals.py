@@ -55,6 +55,7 @@ __all__ = (
     "GuardrailTopicTypeType",
     "ImportJobStatusType",
     "ImportJobTypeType",
+    "InteractionModeType",
     "KnowledgeBaseSearchTypeType",
     "KnowledgeBaseStatusType",
     "KnowledgeBaseTypeType",
@@ -105,6 +106,7 @@ __all__ = (
     "RelevanceLevelType",
     "RelevanceType",
     "ResourceServiceName",
+    "ReturnReasonType",
     "SearchContentPaginatorName",
     "SearchMessageTemplatesPaginatorName",
     "SearchQuickResponsesPaginatorName",
@@ -240,6 +242,7 @@ ImportJobStatusType = Literal[
     "COMPLETE", "DELETED", "DELETE_FAILED", "DELETE_IN_PROGRESS", "FAILED", "START_IN_PROGRESS"
 ]
 ImportJobTypeType = Literal["QUICK_RESPONSES"]
+InteractionModeType = Literal["DELEGATE", "HANDOFF"]
 KnowledgeBaseSearchTypeType = Literal["HYBRID", "SEMANTIC"]
 KnowledgeBaseStatusType = Literal[
     "ACTIVE",
@@ -274,7 +277,7 @@ MessageFilterTypeType = Literal["ALL", "TEXT_ONLY"]
 MessageTemplateAttributeTypeType = Literal["AGENT", "CUSTOM", "CUSTOMER_PROFILE", "SYSTEM"]
 MessageTemplateFilterOperatorType = Literal["EQUALS", "PREFIX"]
 MessageTemplateQueryOperatorType = Literal["CONTAINS", "CONTAINS_AND_PREFIX"]
-MessageTypeType = Literal["TEXT", "TOOL_USE_RESULT"]
+MessageTypeType = Literal["DATA", "TEXT", "TOOL_USE_RESULT"]
 ModelLifecycleType = Literal["ACTIVE", "LEGACY"]
 OrderType = Literal["ASC", "DESC"]
 OriginType = Literal["CUSTOMER", "SYSTEM"]
@@ -348,6 +351,7 @@ ReferenceTypeType = Literal[
 ]
 RelevanceLevelType = Literal["HIGH", "LOW", "MEDIUM"]
 RelevanceType = Literal["HELPFUL", "NOT_HELPFUL"]
+ReturnReasonType = Literal["COMPLETE", "COMPLETE_WITH_ERROR", "ESCALATE", "OUT_OF_DOMAIN"]
 SearchContentPaginatorName = Literal["search_content"]
 SearchMessageTemplatesPaginatorName = Literal["search_message_templates"]
 SearchQuickResponsesPaginatorName = Literal["search_quick_responses"]
@@ -375,8 +379,11 @@ QConnectServiceName = Literal["qconnect"]
 ServiceName = Literal[
     "accessanalyzer",
     "account",
+    "account-access",
     "acm",
     "acm-pca",
+    "agent-registry",
+    "agent-registry-control",
     "aiops",
     "amp",
     "amplify",
@@ -551,6 +558,7 @@ ServiceName = Literal[
     "health",
     "healthlake",
     "iam",
+    "iam-toolbox",
     "identitystore",
     "imagebuilder",
     "importexport",
@@ -565,8 +573,6 @@ ServiceName = Literal[
     "iot-jobs-data",
     "iot-managed-integrations",
     "iotdeviceadvisor",
-    "iotevents",
-    "iotevents-data",
     "iotfleetwise",
     "iotsecuretunneling",
     "iotsitewise",
@@ -593,6 +599,8 @@ ServiceName = Literal[
     "kms",
     "lakeformation",
     "lambda",
+    "lambda-core",
+    "lambda-microvms",
     "launch-wizard",
     "lex-models",
     "lex-runtime",
@@ -660,10 +668,10 @@ ServiceName = Literal[
     "organizations",
     "osis",
     "outposts",
-    "panorama",
     "partnercentral-account",
     "partnercentral-benefits",
     "partnercentral-channel",
+    "partnercentral-revenue-measurement",
     "partnercentral-selling",
     "payment-cryptography",
     "payment-cryptography-data",
@@ -681,6 +689,7 @@ ServiceName = Literal[
     "pipes",
     "polly",
     "pricing",
+    "pricing-plan-manager",
     "proton",
     "qapps",
     "qbusiness",
@@ -696,6 +705,7 @@ ServiceName = Literal[
     "rekognition",
     "repostspace",
     "resiliencehub",
+    "resiliencehubv2",
     "resource-explorer-2",
     "resource-groups",
     "resourcegroupstaggingapi",
@@ -723,6 +733,7 @@ ServiceName = Literal[
     "sagemaker-geospatial",
     "sagemaker-metrics",
     "sagemaker-runtime",
+    "sagemakerjobruntime",
     "savingsplans",
     "scheduler",
     "schemas",
@@ -744,7 +755,6 @@ ServiceName = Literal[
     "signer-data",
     "signin",
     "simpledbv2",
-    "simspaceweaver",
     "snow-device-management",
     "snowball",
     "sns",
@@ -765,6 +775,7 @@ ServiceName = Literal[
     "supplychain",
     "support",
     "support-app",
+    "supportauthz",
     "sustainability",
     "swf",
     "synthetics",
@@ -826,6 +837,7 @@ PaginatorName = Literal[
     "search_sessions",
 ]
 RegionName = Literal[
+    "af-south-1",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-southeast-1",

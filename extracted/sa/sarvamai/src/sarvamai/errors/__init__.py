@@ -6,6 +6,7 @@ import typing
 from importlib import import_module
 
 if typing.TYPE_CHECKING:
+    from .bad_gateway_error import BadGatewayError
     from .bad_request_error import BadRequestError
     from .conflict_error import ConflictError
     from .content_too_large_error import ContentTooLargeError
@@ -18,6 +19,7 @@ if typing.TYPE_CHECKING:
     from .unauthorized_error import UnauthorizedError
     from .unprocessable_entity_error import UnprocessableEntityError
 _dynamic_imports: typing.Dict[str, str] = {
+    "BadGatewayError": ".bad_gateway_error",
     "BadRequestError": ".bad_request_error",
     "ConflictError": ".conflict_error",
     "ContentTooLargeError": ".content_too_large_error",
@@ -54,6 +56,7 @@ def __dir__():
 
 
 __all__ = [
+    "BadGatewayError",
     "BadRequestError",
     "ConflictError",
     "ContentTooLargeError",

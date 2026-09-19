@@ -8,9 +8,9 @@ Copyright 2026 Vlad Emelianov
 Usage::
 
     ```python
-    from types_boto3_connect.type_defs import ActionSummaryTypeDef
+    from types_boto3_connect.type_defs import AIAgentTypeDef
 
-    data: ActionSummaryTypeDef = ...
+    data: AIAgentTypeDef = ...
     ```
 """
 
@@ -197,6 +197,7 @@ else:
     from typing_extensions import Literal, NotRequired, TypedDict
 
 __all__ = (
+    "AIAgentTypeDef",
     "ActionSummaryTypeDef",
     "ActivateEvaluationFormRequestTypeDef",
     "ActivateEvaluationFormResponseTypeDef",
@@ -1027,6 +1028,9 @@ __all__ = (
     "ListSecurityKeysRequestPaginateTypeDef",
     "ListSecurityKeysRequestTypeDef",
     "ListSecurityKeysResponseTypeDef",
+    "ListSecurityProfileAIAgentsRequestPaginateTypeDef",
+    "ListSecurityProfileAIAgentsRequestTypeDef",
+    "ListSecurityProfileAIAgentsResponseTypeDef",
     "ListSecurityProfileApplicationsRequestPaginateTypeDef",
     "ListSecurityProfileApplicationsRequestTypeDef",
     "ListSecurityProfileApplicationsResponseTypeDef",
@@ -1654,6 +1658,14 @@ __all__ = (
     "WorkspaceThemeTypeDef",
     "WorkspaceThemeTypographyTypeDef",
     "WorkspaceTypeDef",
+)
+
+AIAgentTypeDef = TypedDict(
+    "AIAgentTypeDef",
+    {
+        "Arn": NotRequired[str],
+        "Type": NotRequired[Literal["THIRD_PARTY"]],
+    },
 )
 
 class ActionSummaryTypeDef(TypedDict):
@@ -3893,6 +3905,12 @@ class SecurityKeyTypeDef(TypedDict):
     Key: NotRequired[str]
     CreationTime: NotRequired[datetime]
 
+class ListSecurityProfileAIAgentsRequestTypeDef(TypedDict):
+    SecurityProfileId: str
+    InstanceId: str
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
 class ListSecurityProfileApplicationsRequestTypeDef(TypedDict):
     SecurityProfileId: str
     InstanceId: str
@@ -5102,6 +5120,13 @@ class ListApprovedOriginsResponseTypeDef(TypedDict):
 
 class ListLambdaFunctionsResponseTypeDef(TypedDict):
     LambdaFunctions: list[str]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListSecurityProfileAIAgentsResponseTypeDef(TypedDict):
+    AllowedAIAgents: list[AIAgentTypeDef]
+    LastModifiedTime: datetime
+    LastModifiedRegion: str
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -6768,6 +6793,11 @@ class ListRulesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListSecurityKeysRequestPaginateTypeDef(TypedDict):
+    InstanceId: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListSecurityProfileAIAgentsRequestPaginateTypeDef(TypedDict):
+    SecurityProfileId: str
     InstanceId: str
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
@@ -9691,6 +9721,7 @@ class CreateSecurityProfileRequestTypeDef(TypedDict):
     HierarchyRestrictedResources: NotRequired[Sequence[str]]
     AllowedAccessControlHierarchyGroupId: NotRequired[str]
     AllowedFlowModules: NotRequired[Sequence[FlowModuleTypeDef]]
+    AllowedAIAgents: NotRequired[Sequence[AIAgentTypeDef]]
     GranularAccessControlConfiguration: NotRequired[GranularAccessControlConfigurationUnionTypeDef]
 
 class UpdateSecurityProfileRequestTypeDef(TypedDict):
@@ -9704,6 +9735,7 @@ class UpdateSecurityProfileRequestTypeDef(TypedDict):
     HierarchyRestrictedResources: NotRequired[Sequence[str]]
     AllowedAccessControlHierarchyGroupId: NotRequired[str]
     AllowedFlowModules: NotRequired[Sequence[FlowModuleTypeDef]]
+    AllowedAIAgents: NotRequired[Sequence[AIAgentTypeDef]]
     GranularAccessControlConfiguration: NotRequired[GranularAccessControlConfigurationUnionTypeDef]
 
 class RealtimeContactAnalysisSegmentTypeDef(TypedDict):

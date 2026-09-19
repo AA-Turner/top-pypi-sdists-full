@@ -1,5 +1,5 @@
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.catalog.node_label_endpoints import (
     NodeLabelEndpoints,
     NodeLabelMutateResult,
@@ -15,7 +15,7 @@ class NodeLabelCypherEndpoints(NodeLabelEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         node_label: str,
         *,
         node_filter: str,
@@ -23,31 +23,21 @@ class NodeLabelCypherEndpoints(NodeLabelEndpoints):
         log_progress: bool = True,
         username: str | None = None,
         concurrency: int | None = None,
-        write_concurrency: int | None = None,
-        job_id: str | None = None,
     ) -> NodeLabelMutateResult:
         config = ConfigConverter.convert_to_gds_config(
-            node_filter=node_filter,
-            sudo=sudo,
-            log_progress=log_progress,
-            username=username,
-            concurrency=concurrency,
-            write_concurrency=write_concurrency,
-            job_id=job_id,
+            node_filter=node_filter, sudo=sudo, log_progress=log_progress, username=username, concurrency=concurrency
         )
 
         params = CallParameters(graph_name=G.name(), node_label=node_label, config=config)
         params.ensure_job_id_in_config()
 
-        cypher_result = self._query_runner.call_procedure(
-            endpoint="gds.graph.nodeLabel.mutate", params=params
-        ).squeeze()
+        cypher_result = self._query_runner.call_procedure(endpoint="gds.graph.nodeLabel.mutate", params=params).iloc[0]
 
-        return NodeLabelMutateResult(**cypher_result.to_dict())
+        return NodeLabelMutateResult(**cypher_result)
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         node_label: str,
         *,
         node_filter: str,
@@ -73,6 +63,6 @@ class NodeLabelCypherEndpoints(NodeLabelEndpoints):
 
         cypher_result = self._query_runner.call_procedure(
             endpoint="gds.graph.nodeLabel.write", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return NodeLabelWriteResult(**cypher_result.to_dict())
+        return NodeLabelWriteResult(**cypher_result)

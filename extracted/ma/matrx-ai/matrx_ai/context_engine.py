@@ -30,6 +30,11 @@ from typing import Any
 logger = logging.getLogger(__name__)
 
 LEGACY_CONTEXT_CELL_SHAPE_ERROR_KIND = "context_resolver_legacy_cell_shape"
+CONTEXT_RESOLVER_FAILURE_KIND = "context_resolver_failed"
+
+
+class ContextResolverUnavailable(Exception):
+    """An injected resolver deliberately declines this turn without failing it."""
 
 
 # ---------------------------------------------------------------------------
@@ -191,6 +196,36 @@ def _apply_ambient(
                     cell["value"] = value
 
 
+# ---------------------------------------------------------------------------
+# THE MERGE-FIELD RESOLVER SEAM.
+#
+# DYN-23: one resolver produces resolved context for the prompt, tool arguments,
+# workflow branches and the screen. That resolver lives in `matrx-records`, which
+# already imports this package's tool contracts — so importing it HERE would close a
+# cycle between two siblings, which the package graph forbids for good reason.
+#
+# So it is injected. `matrx_records.merge.context_bridge.producer` is what the host wires
+# in (one line at startup, behind the unified-data campaign's OFF switch); with nothing
+# wired, `build_agent_context` behaves exactly as it does today and says so at the one
+# place where the difference is visible (no provenance, no on-screen explanation).
+#
+# The producer's contract: async, keyword-only `(user_id, scope, variables, cells)`,
+# returning {"direct": {...}, "tool_accessible": {...}, "searchable": {...}}.
+# ---------------------------------------------------------------------------
+_merge_producer: Callable[..., Any] | None = None
+
+
+def configure_context_resolver(producer: Callable[..., Any] | None) -> None:
+    """Wire (or unwire) the ONE merge-field resolver this engine consumes."""
+    global _merge_producer
+    _merge_producer = producer
+    logger.info(
+        "[context_engine] merge-field resolver %s",
+        "wired — every context value now resolves through one ladder with one "
+        "provenance row" if producer is not None else "removed",
+    )
+
+
 def _resolve_context_database() -> str:
     """The registered matrx-orm database/project name for the host's primary
     project. matrx-ai injects no host-specific constant (package boundary) —
@@ -306,6 +341,58 @@ async def build_agent_context(
     # Ambient System items — override their value with the freshly computed one.
     _apply_ambient(user_id, variables, cell_values)
 
+    # THE ONE PRODUCER (DYN-23). When a merge-field resolver is wired, every variable
+    # and every context cell is resolved through it — one ladder, one memo, one
+    # provenance row each — and the tiers below are what it decided. Prompt substitution
+    # becomes the LAST RENDERER of values that were already decided, never the design.
+    producer = _merge_producer
+    if producer is not None:
+        try:
+            resolved_tiers = await producer(
+                user_id=user_id,
+                scope=context_scope,
+                variables=variables,
+                cells=cell_values,
+            )
+        except ContextResolverUnavailable as exc:
+            # A host may deliberately leave an injected capability inactive (for
+            # example, while a feature campaign is OFF). That is the same behavior
+            # as no resolver being wired: continue with the established tier split.
+            logger.info(
+                "[context_engine] merge-field resolver is unavailable for this turn "
+                "(%s); using the direct tier split.",
+                exc,
+            )
+        except Exception as exc:  # noqa: BLE001 — announced, never silent
+            logger.error(
+                "[context_engine] the merge-field resolver refused this turn (%r). "
+                "Falling back to the direct tier split below, which does NOT record "
+                "provenance and cannot explain a value on screen. This is a degraded "
+                "answer and it is being reported as one.",
+                exc,
+                exc_info=True,
+            )
+            from matrx_connect.streaming.error_capture import capture_error
+
+            await capture_error(
+                exc,
+                kind=CONTEXT_RESOLVER_FAILURE_KIND,
+                route="build_agent_context",
+                error_type=type(exc).__name__,
+                error_text="The injected context resolver failed; the direct tier split was used.",
+                user_id=user_id,
+                context={"entity_type": entity_type},
+            )
+        else:
+            return AgentContext(
+                scope=context_scope,
+                scope_labels=scope_labels,
+                direct_variables=resolved_tiers.get("direct", {}),
+                tool_variables=resolved_tiers.get("tool_accessible", {}),
+                searchable_variables=resolved_tiers.get("searchable", {}),
+                cells_by_item_id=cell_values,
+            )
+
     tier1_direct: dict[str, Any] = {}
     tier2_tools: dict[str, Any] = {}
     tier2_searchable: dict[str, Any] = {}
@@ -318,6 +405,22 @@ async def build_agent_context(
             tier2_tools[key] = var_data
         elif inject_as == "searchable":
             tier2_searchable[key] = var_data
+        else:
+            # A VALUE THAT BELONGS TO NO TIER IS A DEFECT, NEVER A SILENT DROP (DYN-17).
+            # This is the live bug in as many words: the engine tiers into
+            # direct/tool_accessible/searchable while the RPC emits `reference`, so a
+            # `reference` value fell into none of the three and vanished with nothing
+            # said anywhere. It is delivered as `direct` — present and usable — and the
+            # mismatch is reported so somebody fixes the emitter.
+            logger.warning(
+                "[context_engine] context value %r asks to be delivered as %r, which is "
+                "not one of the three tiers (direct, tool_accessible, searchable). It "
+                "was delivered DIRECTLY rather than dropped. Remedy: the emitter of that "
+                "value should name a real tier — see DYN-17.",
+                key,
+                inject_as,
+            )
+            tier1_direct[key] = var_data
 
     return AgentContext(
         scope=context_scope,

@@ -23,12 +23,12 @@ from __future__ import annotations
 
 import os
 import re
-from pathlib import Path
 from typing import Any
 
 from agentic_devtools.cli.git.branch_naming import build_branch_name, normalize_issue_key
 from agentic_devtools.cli.git.core import GitError, run_git_safe
 from agentic_devtools.cli.git.worktree import create_worktree, detect_existing_worktree
+from agentic_devtools.cli.git.worktree_paths import resolve_worktree_path
 from agentic_devtools.cli.workflows.preflight import get_current_git_branch, get_git_repo_root
 from agentic_devtools.cli.workflows.worktree_setup import get_main_repo_root, is_in_worktree
 from agentic_devtools.models.git_results import BlockedCategory, BlockedState, SetupResult
@@ -214,15 +214,22 @@ def setup_node(state: WorkOnIssueState) -> dict[str, Any]:
             )
         )
 
+    # Resolve/validate the configured worktree_folder setting up front (before any
+    # mutating git operation) so an invalid value is reported as a structured
+    # context_mismatch instead of escaping as an unstructured ValueError after
+    # `git fetch` has already run.
+    try:
+        worktree_resolution = resolve_worktree_path(main_root, normalized_key)
+    except ValueError as exc:
+        return _blocked_result_dict(SetupResult(error=BlockedState(category="context_mismatch", message=str(exc))))
+
     # Dry-run: return a simulated successful SetupResult without executing any mutating
     # git operation (fetch, create, or track a remote branch).
     if state.get("dry_run"):
-        simulated_key = normalized_key
         description = _resolve_description(state)
-        simulated_branch = build_branch_name(simulated_key, description)
-        simulated_path = str(Path(main_root).parent / simulated_key)
+        simulated_branch = build_branch_name(normalized_key, description)
         return _resume_result_dict(
-            SetupResult(worktree_path=simulated_path, branch_name=simulated_branch, mode="created")
+            SetupResult(worktree_path=worktree_resolution.worktree_path, branch_name=simulated_branch, mode="created")
         )
 
     # Fetch origin so the new branch starts from the latest origin/main (FR-001).

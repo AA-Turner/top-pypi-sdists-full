@@ -8,16 +8,19 @@ from collections.abc import Callable
 from typing import Any, cast
 
 import pytest
+import requests
 from airbyte.agents.models import (
     AgentConnectorDetails,
     AgentConnectorMetadata,
-    AgentContextStoreEntity,
-    AgentContextStoreReadiness,
     AgentExecuteResult,
     AgentExecutionMetadata,
     AgentSkillDocs,
     AgentSkillInfo,
     AgentSkillSection,
+)
+from airbyte.agents._destination_docs import (
+    BIGQUERY_DESTINATION_DEFINITION_ID,
+    SNOWFLAKE_DESTINATION_DEFINITION_ID,
 )
 from airbyte.agents.connectors import AgentConnector, AgentReadAction, AgentWriteAction
 from airbyte.cloud.client import CloudClient
@@ -67,6 +70,14 @@ class _AgentConnectorLike:
         )
 
 
+class _FakeSource:
+    """Stand-in for `CloudSource` that never calls the Cloud API."""
+
+    def __init__(self, connector_id: str, name: str) -> None:
+        self.connector_id = connector_id
+        self.name = name
+
+
 class _RaisingOrganization:
     """Stands in for `AgentOrganization` and fails the way the Agents API does."""
 
@@ -84,15 +95,15 @@ class _RaisingWorkspace:
     def __init__(self, error: AirbyteError) -> None:
         self._error = error
 
+    def get_connector(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+        """Raise the configured error."""
+        raise self._error
+
     def list_connectors(self) -> list[Any]:
         """Raise the configured error."""
         raise self._error
 
     def list_skills(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
-        """Raise the configured error."""
-        raise self._error
-
-    def search_skills(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
         """Raise the configured error."""
         raise self._error
 
@@ -220,6 +231,9 @@ def test_execute_unknown_connector_raises_when_not_a_cloud_destination(
         def list_destinations(self) -> list[Any]:
             return []
 
+        def list_sources(self) -> list[Any]:
+            return []
+
     monkeypatch.setattr(
         agents_mcp,
         "_get_cloud_workspace",
@@ -228,8 +242,40 @@ def test_execute_unknown_connector_raises_when_not_a_cloud_destination(
 
     with pytest.raises(
         AirbyteError, match="No connector found with the given ID or name"
-    ):
+    ) as excinfo:
         _execute(action="sql_select")
+
+    assert "list_agent_connectors" in str(excinfo.value)
+
+
+def test_execute_reports_cloud_source_not_enabled_for_agents(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A Cloud source the Agents API does not list is reported as disabled, not missing."""
+    _patch_mcp_config(monkeypatch)
+    monkeypatch.setattr(agents_mcp.AgentWorkspace, "list_connectors", lambda self: [])
+
+    class _CloudWorkspace:
+        def list_destinations(self) -> list[Any]:
+            return []
+
+        def list_sources(self) -> list[Any]:
+            return [_FakeSource(connector_id="connector-id", name="GitHub prod")]
+
+    monkeypatch.setattr(
+        agents_mcp,
+        "_get_cloud_workspace",
+        lambda ctx, workspace_id: _CloudWorkspace(),
+    )
+
+    result = _execute(action="list")
+
+    assert result.status == agents_mcp.AGENTS_ACCESS_DENIED_STATUS
+    assert result.message is not None
+    assert "'GitHub prod' (connector-id)" in result.message
+    assert "not enabled for Agents access" in result.message
+    assert "Context layer" in result.message
+    assert "cannot be enabled from this tool" in result.message
 
 
 def test_execute_connector_lookup_error_is_not_treated_as_missing_connector(
@@ -366,10 +412,10 @@ def test_read_only_tool_action_type_excludes_writes() -> None:
     assert "download" not in {member.value for member in AgentWriteAction}
 
 
-def test_inspect_tool_reports_context_store_entities(
+def test_inspect_tool_reports_connector_details(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Verify `inspect_agent_connector` surfaces entities, docs, and warnings."""
+    """Verify `inspect_agent_connector` surfaces connector metadata, docs, and warnings."""
 
     class _InspectableConnector:
         def inspect(self) -> AgentConnectorDetails:
@@ -377,23 +423,22 @@ def test_inspect_tool_reports_context_store_entities(
                 connector_id="connector-id",
                 name="GitHub",
                 workspace_id="workspace-id",
-                source_definition_name="GitHub",
+                integration_name="GitHub",
                 docs_skill_id="connector:github",
-                context_store_readiness=AgentContextStoreReadiness(
-                    supported_context_store_entities=[
-                        AgentContextStoreEntity(entity="issues")
-                    ],
-                ),
                 warnings=["Context Store is still syncing."],
             )
 
+    class _InspectableWorkspace:
+        def get_connector(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+            return _InspectableConnector()
+
+        def read_skill_docs(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+            return AgentSkillDocs(metadata=AgentSkillInfo(id="connector:github"))
+
     monkeypatch.setattr(
         agents_mcp,
-        "_get_agent_connector",
-        lambda ctx,
-        connector_id,
-        workspace_id=None,
-        organization_id=None: _InspectableConnector(),
+        "_get_agent_workspace",
+        lambda *args, **kwargs: _InspectableWorkspace(),  # noqa: ARG005
     )
 
     result = agents_mcp.inspect_agent_connector(
@@ -403,9 +448,216 @@ def test_inspect_tool_reports_context_store_entities(
         organization_id=None,
     )
 
-    assert result.context_store_entities == ["issues"]
-    assert result.docs_skill_id == "connector:github"
+    assert result.integration_name == "GitHub"
+    assert result.docs.skill_id == "connector:github"
     assert result.warnings == ["Context Store is still syncing."]
+
+
+def _inspect_workspace_with_docs(
+    monkeypatch: pytest.MonkeyPatch,
+    *,
+    docs: AgentSkillDocs | None,
+    docs_skill_id: str | None = "connector:github",
+) -> Any:  # noqa: ANN401
+    """Stub a workspace whose connector inspects cleanly and docs read as configured."""
+    calls: list[tuple[tuple[Any, ...], dict[str, Any]]] = []
+
+    class _InspectableConnector:
+        def inspect(self) -> AgentConnectorDetails:
+            return AgentConnectorDetails(
+                connector_id="connector-id",
+                name="GitHub",
+                docs_skill_id=docs_skill_id,
+                warnings=["Context Store is still syncing."],
+            )
+
+    class _InspectableWorkspace:
+        def get_connector(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+            return _InspectableConnector()
+
+        def read_skill_docs(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+            calls.append((args, kwargs))
+            if docs is None:
+                raise AirbyteError(
+                    message="Skill docs failed", context={"status_code": 500}
+                )
+            return docs
+
+    monkeypatch.setattr(
+        agents_mcp,
+        "_get_agent_workspace",
+        lambda *args, **kwargs: _InspectableWorkspace(),  # noqa: ARG005
+    )
+    return calls
+
+
+def _inspect_connector_result() -> Any:  # noqa: ANN401
+    return agents_mcp.inspect_agent_connector(
+        ctx=cast(Context, object()),
+        connector_id="connector-id",
+        workspace_id="workspace-id",
+        organization_id=None,
+    )
+
+
+def test_inspect_tool_includes_docs_summary(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify `inspect_agent_connector` embeds the docs summary and guidance."""
+    docs = AgentSkillDocs(
+        metadata=AgentSkillInfo(id="connector:github", title="GitHub"),
+        outline=[
+            AgentSkillSection(
+                id="actions.issues.get",
+                title="issues.get",
+                summary="4 parameters; Get a specific issue",
+            )
+        ],
+        content=[{"type": "heading", "text": "Execution guidance", "level": 2}],
+    )
+    calls = _inspect_workspace_with_docs(monkeypatch, docs=docs)
+
+    result = _inspect_connector_result()
+
+    assert calls == [(("connector:github",), {})]
+    assert result.docs is not None
+    assert result.docs.title == "GitHub"
+    assert "outline" not in result.docs.model_dump()
+    assert "section_id" not in result.docs.model_dump()
+    assert "## Execution guidance" in result.docs.content
+    assert "connector:github" in result.docs.guidance
+    assert "actions.issues.get" in result.docs.guidance
+    assert "read_agent_skill_docs" in result.docs.guidance
+    assert result.warnings == ["Context Store is still syncing."]
+
+
+def test_inspect_tool_warns_when_docs_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A docs read failure degrades to a docs warning plus a warning, never an error."""
+    _inspect_workspace_with_docs(monkeypatch, docs=None)
+
+    result = _inspect_connector_result()
+
+    assert result.docs is not None
+    assert result.docs.skill_id == "connector:github"
+    assert "outline" not in result.docs.model_dump()
+    assert result.docs.warnings == ["Connector docs are unavailable: Skill docs failed"]
+    assert result.warnings == [
+        "Context Store is still syncing.",
+        "Connector docs are unavailable: Skill docs failed",
+    ]
+
+
+def test_inspect_tool_skips_docs_read_without_docs_skill_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """No `docs_skill_id` means no docs read and no extra warning."""
+
+    class _InspectableConnector:
+        def inspect(self) -> AgentConnectorDetails:
+            return AgentConnectorDetails(
+                connector_id="connector-id",
+                name="GitHub",
+                docs_skill_id=None,
+            )
+
+    class _InspectableWorkspace:
+        def get_connector(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+            return _InspectableConnector()
+
+        def read_skill_docs(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+            raise AssertionError("must not run")
+
+    monkeypatch.setattr(
+        agents_mcp,
+        "_get_agent_workspace",
+        lambda *args, **kwargs: _InspectableWorkspace(),  # noqa: ARG005
+    )
+
+    result = _inspect_connector_result()
+
+    assert result.docs is None
+    assert result.warnings is None
+
+
+def test_inspect_tool_docs_guidance_uses_first_available_section(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The guidance example picks the first available outline section."""
+    docs = AgentSkillDocs(
+        metadata=AgentSkillInfo(id="connector:github", title="GitHub"),
+        outline=[
+            AgentSkillSection(id="actions.a", title="a", available=False),
+            AgentSkillSection(id="actions.b", title="b"),
+        ],
+    )
+    _inspect_workspace_with_docs(monkeypatch, docs=docs)
+
+    result = _inspect_connector_result()
+
+    assert "actions.b" in result.docs.guidance
+    assert "actions.a" not in result.docs.guidance
+
+
+def test_inspect_tool_docs_guidance_omits_example_without_outline(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An empty or fully unavailable outline yields guidance with no section example."""
+    for outline in (
+        [],
+        [AgentSkillSection(id="actions.a", title="a", available=False)],
+    ):
+        docs = AgentSkillDocs(
+            metadata=AgentSkillInfo(id="connector:github", title="GitHub"),
+            outline=outline,
+        )
+        _inspect_workspace_with_docs(monkeypatch, docs=docs)
+
+        result = _inspect_connector_result()
+
+        assert result.docs is not None
+        assert result.docs.guidance is not None
+        assert "connector:github" in result.docs.guidance
+        assert "No sections are currently available" in result.docs.guidance
+        assert "e.g." not in result.docs.guidance
+        assert "section=" not in result.docs.guidance
+
+
+def test_inspect_tool_warns_when_docs_read_times_out(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A transport error reading docs degrades to a `docs` message plus a warning."""
+
+    class _InspectableConnector:
+        def inspect(self) -> AgentConnectorDetails:
+            return AgentConnectorDetails(
+                connector_id="connector-id",
+                name="GitHub",
+                docs_skill_id="connector:github",
+            )
+
+    class _InspectableWorkspace:
+        def get_connector(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+            return _InspectableConnector()
+
+        def read_skill_docs(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+            raise requests.exceptions.Timeout("docs timed out")
+
+    monkeypatch.setattr(
+        agents_mcp,
+        "_get_agent_workspace",
+        lambda *args, **kwargs: _InspectableWorkspace(),  # noqa: ARG005
+    )
+
+    result = _inspect_connector_result()
+
+    assert result.connector_name == "GitHub"
+    assert result.docs is not None
+    assert result.docs.skill_id == "connector:github"
+    assert "outline" not in result.docs.model_dump()
+    assert result.docs.warnings == ["Connector docs are unavailable: docs timed out"]
+    assert result.warnings == ["Connector docs are unavailable: docs timed out"]
 
 
 def test_agents_tools_are_registered_with_expected_read_only_hints() -> None:
@@ -421,7 +673,6 @@ def test_agents_tools_are_registered_with_expected_read_only_hints() -> None:
     assert tools["execute_agent_connector_ro"].annotations.readOnlyHint is True
     assert tools["execute_agent_connector"].annotations.readOnlyHint is False
     assert tools["list_agent_skills"].annotations.readOnlyHint is True
-    assert tools["search_agent_skills"].annotations.readOnlyHint is True
     assert tools["read_agent_skill_docs"].annotations.readOnlyHint is True
     assert "read_only" in tools["execute_agent_connector"].parameters["properties"]
     assert (
@@ -483,7 +734,7 @@ def test_connector_resolution_validates_workspace_scope(
         lambda ctx, workspace_id: type(
             "_CloudWorkspace",
             (),
-            {"list_destinations": lambda self: []},
+            {"list_destinations": lambda self: [], "list_sources": lambda self: []},
         )(),
     )
 
@@ -504,12 +755,101 @@ def test_connector_resolution_validates_workspace_scope(
     assert connector.connector_id == "connector-id"
 
 
-def _agents_error(status_code: int | None) -> AirbyteError:
-    """Return an Agents API error carrying the given HTTP status code."""
-    return AirbyteError(
-        message="Agents API request failed.",
-        context={"status_code": status_code} if status_code is not None else {},
+def _agents_error(
+    status_code: int | None,
+    response_text: str | None = None,
+) -> AirbyteError:
+    """Return an Agents API error carrying the given HTTP status code and body."""
+    context: dict[str, Any] = {}
+    if status_code is not None:
+        context["status_code"] = status_code
+    if response_text is not None:
+        context["response_text"] = response_text
+    return AirbyteError(message="Agents API request failed.", context=context)
+
+
+_ACTOR_NOT_ENABLED_BODY = (
+    '{"message": "Actor is not enabled for Agents access.", '
+    '"errors": [{"field": "general", "message": "Actor is not enabled for Agents access.", '
+    '"error_code": "unknown"}]}'
+)
+
+
+@pytest.mark.parametrize(
+    ("response_text", "expected_message"),
+    [
+        pytest.param(
+            _ACTOR_NOT_ENABLED_BODY,
+            f"{agents_mcp.AGENTS_ACTOR_NOT_ENABLED_DETAIL} "
+            f"{agents_mcp.AGENTS_ENABLE_ACTOR_GUIDANCE}",
+            id="actor_not_enabled_sonar_envelope",
+        ),
+        pytest.param(
+            '{"detail": "Actor is not enabled for Agents access."}',
+            f"{agents_mcp.AGENTS_ACTOR_NOT_ENABLED_DETAIL} "
+            f"{agents_mcp.AGENTS_ENABLE_ACTOR_GUIDANCE}",
+            id="actor_not_enabled_fastapi_detail",
+        ),
+        pytest.param(
+            '{"errors": [{"message": "Organization is not onboarded to Agents."}]}',
+            "The Airbyte Agents API denied access: Organization is not onboarded to Agents.",
+            id="other_detail_in_errors_list",
+        ),
+        pytest.param(
+            '{"message": "Organization is not onboarded to Agents."}',
+            "The Airbyte Agents API denied access: Organization is not onboarded to Agents.",
+            id="other_detail",
+        ),
+        pytest.param(None, agents_mcp.AGENTS_FORBIDDEN_MESSAGE, id="no_body"),
+        pytest.param("", agents_mcp.AGENTS_FORBIDDEN_MESSAGE, id="empty_body"),
+        pytest.param(
+            "<html>nginx</html>", agents_mcp.AGENTS_FORBIDDEN_MESSAGE, id="non_json"
+        ),
+        pytest.param(
+            '["x"]', agents_mcp.AGENTS_FORBIDDEN_MESSAGE, id="json_not_object"
+        ),
+        pytest.param(
+            '{"message": "  "}', agents_mcp.AGENTS_FORBIDDEN_MESSAGE, id="blank"
+        ),
+        pytest.param(
+            '{"message": 42}', agents_mcp.AGENTS_FORBIDDEN_MESSAGE, id="non_str"
+        ),
+    ],
+)
+def test_forbidden_message_surfaces_api_detail(
+    response_text: str | None,
+    expected_message: str,
+) -> None:
+    """Verify a 403 surfaces the API's reason, falling back to the generic explanation."""
+    message = agents_mcp._agents_access_message(  # noqa: SLF001
+        _agents_error(403, response_text)
     )
+
+    assert message == expected_message
+
+
+def test_sql_select_forbidden_reports_actor_not_enabled(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify `sql_select` on a not-enabled destination tells the agent how to fix it."""
+    monkeypatch.setattr(
+        agents_mcp,
+        "_get_agent_connector",
+        lambda *args, **kwargs: _RaisingConnector(  # noqa: ARG005
+            _agents_error(403, _ACTOR_NOT_ENABLED_BODY)
+        ),
+    )
+
+    result = _execute_ro(
+        action="sql_select",
+        api_args={"sql": "SHOW TABLES", "sql_dialect": "snowflake"},
+    )
+
+    assert result.status == agents_mcp.AGENTS_ACCESS_DENIED_STATUS
+    assert result.message is not None
+    assert result.message.startswith("Actor is not enabled for Agents access.")
+    assert "Settings -> Context layer" in result.message
+    assert "Do not retry" in result.message
 
 
 def _patch_mcp_config(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -566,36 +906,25 @@ _ACCESS_FAILURE_CASES = [
     pytest.param(
         "_get_agent_workspace",
         _RaisingWorkspace,
-        lambda: agents_mcp.search_agent_skills(
-            ctx=cast(Context, object()),
-            query="github",
-            workspace_id="workspace-1",
-        ),
-        {"skills": []},
-        id="search_skills",
-    ),
-    pytest.param(
-        "_get_agent_workspace",
-        _RaisingWorkspace,
         lambda: agents_mcp.read_agent_skill_docs(
             ctx=cast(Context, object()),
             skill_id="connector:github",
             section=None,
             workspace_id="workspace-1",
         ),
-        {"skill_id": "connector:github", "outline": [], "content": []},
+        {"skill_id": "connector:github", "outline": [], "content": ""},
         id="read_skill_docs",
     ),
     pytest.param(
-        "_get_agent_connector",
-        _RaisingConnector,
+        "_get_agent_workspace",
+        _RaisingWorkspace,
         lambda: agents_mcp.inspect_agent_connector(
             ctx=cast(Context, object()),
             connector_id="connector-id",
             workspace_id="workspace-1",
             organization_id=None,
         ),
-        {"context_store_entities": [], "connector_id": "connector-id"},
+        {"connector_id": "connector-id"},
         id="inspect",
     ),
 ]
@@ -631,7 +960,10 @@ def test_agents_tools_report_access_failures(
 
     result = call_tool()
 
-    assert result.message == expected_message
+    if getattr(result, "errors", None) is not None:
+        assert result.errors == [expected_message]
+    else:
+        assert result.message == expected_message
     for field, expected_value in expected_result_fields.items():
         assert getattr(result, field) == expected_value
 
@@ -700,11 +1032,22 @@ def test_list_agent_connectors_threads_organization_id(
     class _RecordingWorkspace:
         def __init__(self, **kwargs: Any) -> None:
             constructed.append(kwargs)
+            self.workspace_id = kwargs["workspace_id"]
+            self.organization_id = kwargs["organization_id"]
 
         def list_connectors(self) -> list[Any]:
             return []
 
     monkeypatch.setattr(agents_mcp, "AgentWorkspace", _RecordingWorkspace)
+    monkeypatch.setattr(
+        agents_mcp,
+        "_get_cloud_workspace",
+        lambda ctx, workspace_id: type(
+            "_CloudWorkspace",
+            (),
+            {"list_destinations": lambda self: [], "list_sources": lambda self: []},
+        )(),
+    )
 
     result = agents_mcp.list_agent_connectors(
         ctx=cast(Context, object()),
@@ -714,6 +1057,84 @@ def test_list_agent_connectors_threads_organization_id(
 
     assert constructed[0]["organization_id"] == expected_organization_id
     assert result.connectors == []
+
+
+def test_list_agent_connectors_includes_sql_passthrough_destinations(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify SQL destinations are listed as `sql_select`-only after the Agents sources."""
+    _patch_mcp_config(monkeypatch)
+
+    class _Source:
+        connector_id = "source-gong"
+        name = "Gong"
+
+    class _Workspace:
+        workspace_id = "workspace-1"
+
+        def list_connectors(self) -> list[Any]:
+            return [_Source()]
+
+    class _CloudWorkspace:
+        def list_destinations(self) -> list[Any]:
+            return [_SNOWFLAKE_DESTINATION, _UNSUPPORTED_DESTINATION]
+
+    monkeypatch.setattr(
+        agents_mcp,
+        "_get_agent_workspace",
+        lambda *args, **kwargs: _Workspace(),  # noqa: ARG005
+    )
+    monkeypatch.setattr(
+        agents_mcp,
+        "_get_cloud_workspace",
+        lambda ctx, workspace_id: _CloudWorkspace(),
+    )
+
+    result = agents_mcp.list_agent_connectors(
+        ctx=cast(Context, object()),
+        workspace_id="workspace-1",
+        organization_id=None,
+    )
+
+    assert [c.connector_id for c in result.connectors] == [
+        "source-gong",
+        "dest-snowflake",
+    ]
+    source, destination = result.connectors
+    assert source.connector_kind == "source"
+    assert source.supported_actions is None
+    assert destination.connector_kind == "destination"
+    assert destination.connector_name == "Snowflake dev"
+    assert destination.supported_actions == ["sql_select"]
+    assert destination.sql_dialect == "snowflake"
+    assert destination.note is not None
+    assert "Settings -> Context layer" in destination.note
+    assert "SHOW TABLES" in destination.note
+
+
+def test_list_agent_connectors_access_denied_skips_destination_lookup(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Verify a denied Agents listing returns early without a Cloud destination lookup."""
+    monkeypatch.setattr(
+        agents_mcp,
+        "_get_agent_workspace",
+        lambda *args, **kwargs: _RaisingWorkspace(_agents_error(403)),  # noqa: ARG005
+    )
+    monkeypatch.setattr(
+        agents_mcp,
+        "_get_cloud_workspace",
+        lambda ctx, workspace_id: pytest.fail("Cloud lookup should not run"),
+    )
+
+    result = agents_mcp.list_agent_connectors(
+        ctx=cast(Context, object()),
+        workspace_id="workspace-1",
+        organization_id=None,
+    )
+
+    assert result.connectors == []
+    assert result.message == agents_mcp.AGENTS_FORBIDDEN_MESSAGE
 
 
 def test_workspace_organization_id_comes_from_mcp_config(
@@ -804,9 +1225,6 @@ def test_skills_tools_shape_results(monkeypatch: pytest.MonkeyPatch) -> None:
                 _SkillLike(AgentSkillInfo(id="context-store", title="Context Store")),
             ]
 
-        def search_skills(self, query: str) -> list[Any]:
-            return []
-
         def read_skill_docs(
             self,
             skill_id: str,
@@ -852,13 +1270,6 @@ def test_skills_tools_shape_results(monkeypatch: pytest.MonkeyPatch) -> None:
         ),
     ]
 
-    searched = agents_mcp.search_agent_skills(
-        ctx=cast(Context, object()),
-        query="github",
-        workspace_id="workspace-1",
-    )
-    assert searched.skills == []
-
     docs = agents_mcp.read_agent_skill_docs(
         ctx=cast(Context, object()),
         skill_id="connector:github",
@@ -870,7 +1281,7 @@ def test_skills_tools_shape_results(monkeypatch: pytest.MonkeyPatch) -> None:
     assert docs.section_id == "setup"
     assert [section.section_id for section in docs.outline] == ["setup", "faq"]
     assert docs.outline[1].available is False
-    assert docs.content == [{"type": "paragraph", "text": "Hello"}]
+    assert docs.content == "Hello"
     assert docs.warnings == ["Partial runtime metadata."]
 
 
@@ -1045,3 +1456,551 @@ def test_workspace_fallback_ignores_parent_organization_lookup_error(
 
     assert workspace.workspace_id == "ws-default"
     assert workspace.organization_id is None
+
+
+class _FakeDestinationForDocs:
+    """Stand-in for `CloudDestination` in the skill-docs fallback tests."""
+
+    def __init__(
+        self,
+        connector_id: str,
+        name: str,
+        definition_id: str,
+        connections: list[Any] | None = None,
+        sources: list[Any] | None = None,
+        connections_error: Exception | None = None,
+        configuration: dict[str, Any] | None = None,
+    ) -> None:
+        self.connector_id = connector_id
+        self.name = name
+        self.definition_id = definition_id
+        self.configuration = configuration
+        self.connections_looked_up = False
+        self._connections = connections or []
+        self._sources = sources or []
+        self._connections_error = connections_error
+        self.workspace = type(
+            "_FakeWorkspace",
+            (),
+            {
+                "workspace_id": "workspace-1",
+                "list_connections": lambda _self: self.list_connections(),
+                "list_sources": lambda _self: list(self._sources),
+            },
+        )()
+
+    def list_connections(self) -> list[Any]:
+        self.connections_looked_up = True
+        if self._connections_error is not None:
+            raise self._connections_error
+        return list(self._connections)
+
+
+class _FakeConnectionForDocs:
+    """Stand-in for `CloudConnection` in the skill-docs fallback tests."""
+
+    def __init__(
+        self,
+        connection_id: str,
+        name: str,
+        destination_id: str,
+        stream_names: list[str] | None = None,
+        table_prefix: str = "",
+        namespace_definition: str | None = None,
+        namespace_format: str | None = None,
+    ) -> None:
+        self.connection_id = connection_id
+        self.name = name
+        self.destination_id = destination_id
+        self.source_id = "source-1"
+        self.stream_names = stream_names or []
+        self.table_prefix = table_prefix
+        self.namespace_definition = namespace_definition
+        self.namespace_format = namespace_format
+
+    @property
+    def source(self) -> Any:
+        raise AssertionError("source must not be fetched lazily")
+
+
+def _patch_destination_404(
+    monkeypatch: pytest.MonkeyPatch,
+    destinations: list[_FakeDestinationForDocs],
+    sources: list[_FakeSource] | None = None,
+) -> Any:
+    """Make the Agents layer 404 and the Cloud workspace serve the given destinations."""
+    not_found = _agents_error(404)
+
+    class _NotFoundConnector:
+        def inspect(self) -> Any:
+            raise not_found
+
+    class _NotFoundWorkspace:
+        workspace_id = "workspace-1"
+        organization_id = "org-1"
+
+        def get_connector(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+            return _NotFoundConnector()
+
+        def read_skill_docs(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+            raise not_found
+
+    class _CloudWorkspaceWithDestinations:
+        def __init__(self) -> None:
+            self.list_destinations_calls = 0
+
+        def list_destinations(self) -> list[Any]:
+            self.list_destinations_calls += 1
+            return list(destinations)
+
+        def list_sources(self) -> list[Any]:
+            return list(sources or [])
+
+    monkeypatch.setattr(
+        agents_mcp,
+        "_get_agent_connector",
+        lambda *args, **kwargs: _NotFoundConnector(),  # noqa: ARG005
+    )
+    monkeypatch.setattr(
+        agents_mcp,
+        "_get_agent_workspace",
+        lambda *args, **kwargs: _NotFoundWorkspace(),  # noqa: ARG005
+    )
+    cloud_workspace = _CloudWorkspaceWithDestinations()
+    monkeypatch.setattr(
+        agents_mcp,
+        "_get_cloud_workspace",
+        lambda *args, **kwargs: cloud_workspace,  # noqa: ARG005
+    )
+    return cloud_workspace
+
+
+_SNOWFLAKE_DESTINATION = _FakeDestinationForDocs(
+    connector_id="dest-snowflake",
+    name="Snowflake dev",
+    definition_id="424892c4-daac-4491-b35d-c6688ba547ba",
+)
+_UNSUPPORTED_DESTINATION = _FakeDestinationForDocs(
+    connector_id="dest-null",
+    name="End-to-End Testing (/dev/null)",
+    definition_id="f7a7d195-377f-cf5b-70a5-be6b819019dc",
+)
+
+
+def _inspect(connector_id: str) -> agents_mcp.AgentConnectorDetailsResult:
+    return agents_mcp.inspect_agent_connector(
+        ctx=cast(Context, object()),
+        connector_id=connector_id,
+        workspace_id="workspace-1",
+        organization_id=None,
+    )
+
+
+def _read_docs(
+    skill_id: str,
+    section: str | None = None,
+) -> agents_mcp.AgentSkillDocsResult:
+    return agents_mcp.read_agent_skill_docs(
+        ctx=cast(Context, object()),
+        skill_id=skill_id,
+        section=section,
+        workspace_id="workspace-1",
+    )
+
+
+@pytest.mark.parametrize(
+    ("definition_id", "expected_integration_name"),
+    [
+        (SNOWFLAKE_DESTINATION_DEFINITION_ID, "Snowflake"),
+        (BIGQUERY_DESTINATION_DEFINITION_ID, "BigQuery"),
+    ],
+)
+def test_inspect_destination_fallback_reports_docs_skill(
+    monkeypatch: pytest.MonkeyPatch,
+    definition_id: str,
+    expected_integration_name: str,
+) -> None:
+    """A SQL passthrough destination gets built-in details instead of a 404."""
+    destination = _FakeDestinationForDocs(
+        connector_id="dest-warehouse",
+        name="Warehouse dev",
+        definition_id=definition_id,
+    )
+    _patch_destination_404(monkeypatch, [destination])
+
+    result = _inspect("dest-warehouse")
+
+    assert result.connector_id == "dest-warehouse"
+    assert result.connector_name == "Warehouse dev"
+    assert result.docs is not None
+    assert result.docs.skill_id == "connector-destination:dest-warehouse"
+    assert result.integration_name == expected_integration_name
+    assert result.docs.guidance is not None
+    assert "sql-passthrough" in result.docs.guidance
+    assert "No connections sync into this destination" in result.docs.content
+    assert result.errors is None
+
+
+def test_inspect_destination_fallback_docs_failure_yields_warning(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A docs build failure degrades to a docs warning plus a warning, never an error."""
+    destination = _FakeDestinationForDocs(
+        connector_id="dest-snowflake",
+        name="Snowflake dev",
+        definition_id=SNOWFLAKE_DESTINATION_DEFINITION_ID,
+        connections_error=AirbyteError(message="boom"),
+    )
+    _patch_destination_404(monkeypatch, [destination])
+
+    result = _inspect("dest-snowflake")
+
+    assert result.connector_id == "dest-snowflake"
+    assert result.integration_name == "Snowflake"
+    assert result.docs is not None
+    assert result.docs.content == ""
+    assert result.warnings == ["Connector docs are unavailable: boom"]
+    assert result.docs.warnings == ["Connector docs are unavailable: boom"]
+
+
+def test_inspect_destination_fallback_reports_unsupported(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A non-SQL-passthrough destination gets a message instead of a 404."""
+    _patch_destination_404(monkeypatch, [_UNSUPPORTED_DESTINATION])
+
+    result = _inspect("dest-null")
+
+    assert result.errors is not None
+    assert "not a SQL passthrough destination" in result.errors[0]
+    assert result.docs is None
+
+
+def test_inspect_destination_fallback_reports_unknown_id(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An ID that is neither a connector nor a destination gets a message, not a 404."""
+    _patch_destination_404(monkeypatch, [_SNOWFLAKE_DESTINATION])
+
+    result = _inspect("dest-unknown")
+
+    assert result.errors is not None
+    assert "not found" in result.errors[0]
+    assert "list_agent_connectors" in result.errors[0]
+
+
+def test_inspect_reports_cloud_source_not_enabled_for_agents(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A Cloud source the Agents API 404s on is reported as disabled, not as not found."""
+    _patch_destination_404(
+        monkeypatch,
+        [_SNOWFLAKE_DESTINATION],
+        sources=[_FakeSource(connector_id="src-disabled", name="GitHub prod")],
+    )
+
+    result = _inspect("src-disabled")
+
+    assert result.errors is not None
+    assert "'GitHub prod' (src-disabled)" in result.errors[0]
+    assert "not enabled for Agents access" in result.errors[0]
+    assert "Context layer" in result.errors[0]
+    assert "not found" not in result.errors[0]
+
+
+def test_list_agent_connectors_empty_explains_how_to_enable(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An enrolled workspace with nothing enabled gets a message, not a bare empty list."""
+    _patch_mcp_config(monkeypatch)
+    monkeypatch.setattr(agents_mcp.AgentWorkspace, "list_connectors", lambda self: [])
+
+    class _CloudWorkspace:
+        def list_destinations(self) -> list[Any]:
+            return []
+
+        def list_sources(self) -> list[Any]:
+            return [_FakeSource(connector_id="src-disabled", name="GitHub prod")]
+
+    monkeypatch.setattr(
+        agents_mcp,
+        "_get_cloud_workspace",
+        lambda ctx, workspace_id: _CloudWorkspace(),
+    )
+
+    result = agents_mcp.list_agent_connectors(
+        ctx=cast(Context, object()),
+        workspace_id="workspace-1",
+        organization_id=None,
+    )
+
+    assert result.connectors == []
+    assert result.message == agents_mcp.agents_no_connectors_enabled_message(
+        "org-from-config"
+    )
+    assert (
+        "https://cloud.airbyte.com/organization/org-from-config/settings/context-layer"
+        in result.message
+    )
+
+
+def test_list_agent_connectors_empty_cloud_workspace_says_no_sources_exist(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """A Cloud workspace with no sources is told to create one, not to enable one."""
+    _patch_mcp_config(monkeypatch)
+    monkeypatch.setattr(agents_mcp.AgentWorkspace, "list_connectors", lambda self: [])
+
+    class _CloudWorkspace:
+        def list_destinations(self) -> list[Any]:
+            return []
+
+        def list_sources(self) -> list[Any]:
+            return []
+
+    monkeypatch.setattr(
+        agents_mcp,
+        "_get_cloud_workspace",
+        lambda ctx, workspace_id: _CloudWorkspace(),
+    )
+
+    result = agents_mcp.list_agent_connectors(
+        ctx=cast(Context, object()),
+        workspace_id="workspace-1",
+        organization_id=None,
+    )
+
+    assert result.connectors == []
+    assert result.message == agents_mcp.agents_workspace_has_no_sources_message(
+        "org-from-config"
+    )
+    assert "has no source connectors" in result.message
+
+
+def test_context_layer_guidance_omits_url_without_organization_id() -> None:
+    """Without an organization ID there is no URL to interpolate, only the menu path."""
+    with_org = agents_mcp.context_layer_enable_guidance("org-1")
+    without_org = agents_mcp.context_layer_enable_guidance(None)
+
+    assert (
+        "https://cloud.airbyte.com/organization/org-1/settings/context-layer"
+        in with_org
+    )
+    assert "https://" not in without_org
+    assert "Organization settings -> Context layer" in without_org
+
+
+def test_read_docs_destination_fallback_index_includes_connections_and_streams(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The no-section response embeds connections and their enabled streams inline."""
+    matching = _FakeConnectionForDocs(
+        connection_id="conn-1",
+        name="GitHub to Snowflake",
+        destination_id="dest-snowflake",
+        stream_names=["issues"],
+        table_prefix="raw_",
+    )
+    other = _FakeConnectionForDocs(
+        connection_id="conn-2",
+        name="Slack elsewhere",
+        destination_id="dest-elsewhere",
+    )
+    destination = _FakeDestinationForDocs(
+        connector_id="dest-snowflake",
+        name="Snowflake dev",
+        definition_id="424892c4-daac-4491-b35d-c6688ba547ba",
+        connections=[matching, other],
+        sources=[
+            type(
+                "_FakeSource",
+                (),
+                {"connector_id": "source-1", "name": "GitHub"},
+            )()
+        ],
+    )
+    _patch_destination_404(monkeypatch, [destination])
+
+    result = _read_docs("connector-destination:dest-snowflake")
+
+    assert [section.section_id for section in result.outline] == [
+        "sql-passthrough",
+        "connections",
+        "streams",
+    ]
+    assert destination.connections_looked_up
+    assert "## Connections syncing into this destination" in result.content
+    assert "## Streams enabled per connection" in result.content
+    assert "GitHub to Snowflake" in result.content
+    assert "issues" in result.content
+    assert "Slack elsewhere" not in result.content
+
+
+@pytest.mark.parametrize(
+    ("definition_id", "dialect"),
+    [
+        pytest.param(
+            "424892c4-daac-4491-b35d-c6688ba547ba", "snowflake", id="snowflake"
+        ),
+        pytest.param("22f6c74f-5699-40ff-833c-4a879ea40133", "bigquery", id="bigquery"),
+    ],
+)
+def test_read_docs_destination_fallback_sql_passthrough_section(
+    monkeypatch: pytest.MonkeyPatch,
+    definition_id: str,
+    dialect: str,
+) -> None:
+    _patch_destination_404(
+        monkeypatch,
+        [
+            _FakeDestinationForDocs(
+                connector_id="dest-1",
+                name="Warehouse",
+                definition_id=definition_id,
+            )
+        ],
+    )
+
+    result = _read_docs("connector-destination:dest-1", section="sql-passthrough")
+
+    rendered = result.content
+    assert "SHOW TABLES" in rendered
+    assert f'"sql_dialect": "{dialect}"' in rendered
+
+
+def test_read_docs_destination_fallback_connections_and_streams(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    matching = _FakeConnectionForDocs(
+        connection_id="conn-1",
+        name="GitHub to Snowflake",
+        destination_id="dest-snowflake",
+        stream_names=["issues"],
+        table_prefix="raw_",
+    )
+    other = _FakeConnectionForDocs(
+        connection_id="conn-2",
+        name="Slack elsewhere",
+        destination_id="dest-elsewhere",
+    )
+    _patch_destination_404(
+        monkeypatch,
+        [
+            _FakeDestinationForDocs(
+                connector_id="dest-snowflake",
+                name="Snowflake dev",
+                definition_id="424892c4-daac-4491-b35d-c6688ba547ba",
+                connections=[matching, other],
+                sources=[
+                    type(
+                        "_FakeSource",
+                        (),
+                        {"connector_id": "source-1", "name": "GitHub"},
+                    )()
+                ],
+            )
+        ],
+    )
+
+    connections_result = _read_docs(
+        "connector-destination:dest-snowflake", section="connections"
+    )
+    rendered = connections_result.content
+    assert "GitHub to Snowflake" in rendered
+    assert "conn-1" in rendered
+    assert "GitHub" in rendered
+    assert "Slack elsewhere" not in rendered
+
+    streams_result = _read_docs(
+        "connector-destination:dest-snowflake", section="streams"
+    )
+    rendered = streams_result.content
+    assert "GitHub to Snowflake" in rendered
+    assert "issues" in rendered
+
+
+def test_read_docs_destination_fallback_empty_connections(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_destination_404(monkeypatch, [_SNOWFLAKE_DESTINATION])
+
+    result = _read_docs("connector-destination:dest-snowflake", section="connections")
+
+    assert "No connections" in result.content
+
+    index_result = _read_docs("connector-destination:dest-snowflake")
+    assert "No connections sync into this destination" in index_result.content
+
+
+def test_read_docs_destination_fallback_source_prefix_resolves(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """`connector-source:<destination id>` resolves the destination as well."""
+    _patch_destination_404(monkeypatch, [_SNOWFLAKE_DESTINATION])
+
+    result = _read_docs("connector-source:dest-snowflake")
+
+    assert result.errors is None
+    assert result.content
+
+
+def test_read_docs_destination_fallback_rejects_unknown_section(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_destination_404(monkeypatch, [_SNOWFLAKE_DESTINATION])
+
+    with pytest.raises(PyAirbyteInputError, match="sql-passthrough"):
+        _read_docs("connector-destination:dest-snowflake", section="bogus")
+
+
+def test_read_docs_destination_fallback_reports_unsupported_and_unknown(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _patch_destination_404(monkeypatch, [_UNSUPPORTED_DESTINATION])
+
+    unsupported = _read_docs("connector-destination:dest-null")
+    assert unsupported.errors is not None
+    assert "not a SQL passthrough destination" in unsupported.errors[0]
+
+    unknown = _read_docs("connector-destination:dest-unknown")
+    assert unknown.errors is not None
+    assert "not found" in unknown.errors[0]
+
+
+def test_inspect_destination_fallback_handles_get_connector_miss(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """An ID rejected by `get_connector` itself is reported as not found, not raised."""
+
+    class _MissingConnectorWorkspace:
+        workspace_id = "workspace-1"
+
+        def get_connector(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+            raise AirbyteError(message="No connector found with the given ID or name.")
+
+        def read_skill_docs(self, *args: Any, **kwargs: Any) -> Any:  # noqa: ANN401
+            raise AssertionError("read_skill_docs must not run")
+
+    _patch_destination_404(monkeypatch, [_SNOWFLAKE_DESTINATION])
+    monkeypatch.setattr(
+        agents_mcp,
+        "_get_agent_workspace",
+        lambda *args, **kwargs: _MissingConnectorWorkspace(),  # noqa: ARG005
+    )
+
+    result = _inspect("dest-unknown")
+
+    assert result.errors is not None
+    assert "not found" in result.errors[0]
+
+
+def test_inspect_destination_fallback_lists_destinations_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """The fallback inspect enumerates the workspace destinations exactly once."""
+    cloud_workspace = _patch_destination_404(monkeypatch, [_SNOWFLAKE_DESTINATION])
+
+    result = _inspect("dest-snowflake")
+
+    assert result.docs.skill_id == "connector-destination:dest-snowflake"
+    assert cloud_workspace.list_destinations_calls == 1

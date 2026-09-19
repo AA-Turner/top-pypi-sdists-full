@@ -1,12 +1,14 @@
+from collections.abc import Hashable
 from typing import Any
 
 import neo4j
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.procedure_surface.api.pipeline.pipeline_endpoints import (
+from graphdatascience.procedure_surface.api.pipeline.pipeline_catalog_result import (
     PipelineCatalogEntry,
     PipelineExistsResult,
 )
+from graphdatascience.query_runner.query_mode import QueryMode
 from graphdatascience.query_runner.query_runner import QueryRunner
 
 
@@ -26,17 +28,29 @@ class PipelineCatalogCypherEndpoints:
         result = self._query_runner.call_procedure("gds.pipeline.list", params=params, custom_error=False)
         if result.empty:
             return None
-
         row = result.iloc[0].to_dict()
         return PipelineExistsResult(
-            pipelineName=str(row["pipelineName"]),
-            pipelineType=str(row["pipelineType"]),
-            exists=True,
+            pipelineName=pipeline_name, pipelineType=str(row.get("pipelineType", "")), exists=True
         )
+
+    def get(self, pipeline_name: str) -> PipelineCatalogEntry:
+        params = CallParameters(pipeline_name=pipeline_name)
+        result = self._query_runner.call_procedure("gds.pipeline.list", params=params, custom_error=False)
+        if result.empty:
+            raise ValueError(f"There is no '{pipeline_name}' in the pipeline catalog")
+
+        return self._to_pipeline_catalog_entry(result.iloc[0].to_dict())
 
     def drop(self, pipeline_name: str, *, fail_if_missing: bool = False) -> PipelineCatalogEntry | None:
         params = CallParameters(pipeline_name=pipeline_name, fail_if_missing=fail_if_missing)
-        result = self._query_runner.call_procedure("gds.pipeline.drop", params=params, custom_error=False)
+        result = self._query_runner.call_procedure(
+            "gds.pipeline.drop",
+            params=params,
+            custom_error=False,
+            # dropping is idempotent as long as a missing pipeline is not an error
+            retryable=not fail_if_missing,
+            mode=QueryMode.WRITE,
+        )
 
         if result.empty and fail_if_missing:
             raise ValueError(f"Pipeline with name `{pipeline_name}` does not exist")
@@ -45,8 +59,8 @@ class PipelineCatalogCypherEndpoints:
 
         return self._to_pipeline_catalog_entry(result.iloc[0].to_dict())
 
-    def _to_pipeline_catalog_entry(self, result: dict[str, Any]) -> PipelineCatalogEntry:
+    def _to_pipeline_catalog_entry(self, result: dict[Hashable, Any]) -> PipelineCatalogEntry:
         creation_time = result.get("creationTime", None)
         if creation_time and isinstance(creation_time, neo4j.time.DateTime):
             result["creationTime"] = creation_time.to_native()
-        return PipelineCatalogEntry(**result)
+        return PipelineCatalogEntry.model_validate(result)

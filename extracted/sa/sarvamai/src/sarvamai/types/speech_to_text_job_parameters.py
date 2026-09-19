@@ -95,6 +95,11 @@ class SpeechToTextJobParameters(UniversalBaseModel):
     Audio codec/format of uploaded files. The API automatically detects most formats; for PCM files (pcm_s16le, pcm_l16, pcm_raw), you must specify this parameter. PCM files are supported only at 16kHz sample rate.
     """
 
+    keyterms: typing.Optional[typing.List[str]] = pydantic.Field(default=None)
+    """
+    List of up to 50 domain-specific terms (names, places, brands, technical terms) to bias recognition toward. Each keyterm can contain up to 64 characters. Put phrases such as `New Delhi` in one list item; do not send comma-separated terms in one string. Keyterms bias recognition — they do not guarantee that a term will appear in the transcript. **Only supported with `model=saaras:v4`.** Applied while transcribing every audio chunk in the job. Do not use the older `keyterm` or `hotwords` fields.
+    """
+
     if IS_PYDANTIC_V2:
         model_config: typing.ClassVar[pydantic.ConfigDict] = pydantic.ConfigDict(extra="allow", frozen=True)  # type: ignore # Pydantic v2
     else:

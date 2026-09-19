@@ -2553,6 +2553,69 @@ class TestCachedOpenIssues:
         ]
 
 
+class TestUpsertOpenIssuesStateReason:
+    """#3384: `_upsert_open_issues_local` persists GitHub's `stateReason` so
+    `coord.drive_queue.IssueFacts.reopened` has something to read — see
+    `coord.github_ops.get_open_issues`'s ``--json stateReason`` field."""
+
+    def test_reopened_state_reason_is_persisted_lowercased(self, coord_db) -> None:
+        from coord.state import upsert_open_issues
+
+        upsert_open_issues(
+            "api",
+            [
+                {
+                    "number": 1,
+                    "title": "t",
+                    "body": "",
+                    "labels": [],
+                    "stateReason": "REOPENED",
+                }
+            ],
+        )
+        row = coord_db.execute(
+            "SELECT state_reason FROM issues WHERE repo_name = ? AND number = ?",
+            ("api", 1),
+        ).fetchone()
+        assert row["state_reason"] == "reopened"
+
+    def test_absent_state_reason_persists_as_empty_string(self, coord_db) -> None:
+        from coord.state import upsert_open_issues
+
+        upsert_open_issues(
+            "api", [{"number": 1, "title": "t", "body": "", "labels": []}]
+        )
+        row = coord_db.execute(
+            "SELECT state_reason FROM issues WHERE repo_name = ? AND number = ?",
+            ("api", 1),
+        ).fetchone()
+        assert row["state_reason"] == ""
+
+    def test_a_second_sync_without_state_reason_clears_a_stale_reopened_flag(
+        self, coord_db
+    ) -> None:
+        """A row's `state_reason` must track the LATEST sync, not stick at
+        whatever the first sync happened to see — otherwise an issue that was
+        reopened and then re-closed-and-reopened-without-a-reason (or simply
+        re-synced after GitHub's own reason cleared) would read `reopened`
+        forever."""
+        from coord.state import upsert_open_issues
+
+        upsert_open_issues(
+            "api",
+            [{"number": 1, "title": "t", "body": "", "labels": [],
+              "stateReason": "reopened"}],
+        )
+        upsert_open_issues(
+            "api", [{"number": 1, "title": "t", "body": "", "labels": []}]
+        )
+        row = coord_db.execute(
+            "SELECT state_reason FROM issues WHERE repo_name = ? AND number = ?",
+            ("api", 1),
+        ).fetchone()
+        assert row["state_reason"] == ""
+
+
 class TestTestVerdictStalenessAnchor:
     """#1479: `record_test_verdict` best-effort captures test_head_sha /
     test_patch_id / test_base_sha alongside a terminal (passed/skipped)
@@ -2888,6 +2951,178 @@ class TestRecordTestVerdictToolchain:
         board = build_board()
         row = next(a for a in board.active if a.assignment_id == "aid-old")
         assert row.test_toolchain is None
+
+
+class TestRecordTestVerdictBaselineRedStreak:
+    """#3386 (item 3 of #3378): `_record_test_verdict_local` is the single
+    write choke point (#1337) both the automatic `SMOKE: baseline-red` path
+    and the human `coord test --skipped ... --reason "baseline-red
+    (#2170): ..."` remedy route through — so it is where the per-repo
+    consecutive baseline-red streak must be kept, to guarantee neither path
+    can dodge the count the way each independently rendered as an
+    indistinguishable "passed" before #3378 item 2.
+
+    Persisted in `board_meta` (see `record_baseline_red_classification`'s
+    docstring), so `coord_db` (autouse, conftest.py) already gives every
+    test here a private, isolated connection — no extra fixture needed.
+    """
+
+    @staticmethod
+    def _seed_assignment(coord_db, *, assignment_id="aid-1", repo_name="api"):
+        coord_db.execute(
+            "INSERT INTO assignments (assignment_id, machine_name, repo_name, "
+            "issue_number, issue_title, branch) VALUES (?, 'm1', ?, 1, 't', ?)",
+            (assignment_id, repo_name, f"worker/{assignment_id}"),
+        )
+        coord_db.commit()
+
+    def test_baseline_red_skip_increments_the_repo_streak(self, coord_db) -> None:
+        from coord.state import baseline_red_streak
+
+        self._seed_assignment(coord_db)
+
+        record_test_verdict(
+            assignment_id="aid-1", test_state="skipped",
+            test_reason="baseline-red (#2170): pre-existing failures",
+            test_confirmation="baseline_red",
+        )
+
+        assert baseline_red_streak("api") == 1
+
+    def test_repeated_baseline_red_skips_accumulate_across_assignments(
+        self, coord_db,
+    ) -> None:
+        from coord.state import baseline_red_streak
+
+        self._seed_assignment(coord_db, assignment_id="aid-1")
+        self._seed_assignment(coord_db, assignment_id="aid-2")
+
+        for aid in ("aid-1", "aid-2"):
+            record_test_verdict(
+                assignment_id=aid, test_state="skipped",
+                test_confirmation="baseline_red",
+            )
+
+        assert baseline_red_streak("api") == 2
+
+    def test_structural_skip_does_not_touch_the_streak(self, coord_db) -> None:
+        """No `test_confirmation` at all (#1076/#1152's ordinary
+        "nothing to smoke-test" skip) says nothing about the merge base —
+        must never be counted as a baseline-red classification."""
+        from coord.state import baseline_red_streak
+
+        self._seed_assignment(coord_db)
+
+        record_test_verdict(
+            assignment_id="aid-1", test_state="skipped",
+            test_reason="contract/fixture-only, nothing to smoke-test",
+        )
+
+        assert baseline_red_streak("api") == 0
+
+    def test_genuine_passed_verdict_clears_an_existing_streak(self, coord_db) -> None:
+        from coord.state import baseline_red_streak, record_baseline_red_classification
+
+        self._seed_assignment(coord_db, assignment_id="aid-1")
+        record_baseline_red_classification("api")
+        record_baseline_red_classification("api")
+        assert baseline_red_streak("api") == 2
+
+        record_test_verdict(assignment_id="aid-1", test_state="passed")
+
+        assert baseline_red_streak("api") == 0
+
+    def test_an_unconfirmed_passed_verdict_does_not_clear_the_streak(
+        self, coord_db,
+    ) -> None:
+        """#3386 review: `test_confirmation="unconfirmed"` (#2464's
+        no-independent-re-run-was-possible fallback, stamped by
+        `coord.notify._confirmed_pass_verdict`) is a self-report, not
+        evidence the merge base is clean. Clearing the streak on one of
+        these would let an ordinary environmental hiccup (missing
+        toolchain, timeout) on a later, unrelated assignment silently
+        reset a repo already at the #3386 limit back to 0 — reproducing
+        the exact silent bypass #3386 exists to close."""
+        from coord.state import baseline_red_streak, record_baseline_red_classification
+
+        self._seed_assignment(coord_db, assignment_id="aid-1")
+        record_baseline_red_classification("api")
+        record_baseline_red_classification("api")
+        assert baseline_red_streak("api") == 2
+
+        record_test_verdict(
+            assignment_id="aid-1", test_state="passed",
+            test_confirmation="unconfirmed",
+        )
+
+        assert baseline_red_streak("api") == 2
+
+    def test_a_confirmed_passed_verdict_clears_the_streak(self, coord_db) -> None:
+        """The positive case for the fix above: a genuinely confirmed
+        `passed` (`test_confirmation="confirmed"`) is real evidence and
+        must still clear the streak."""
+        from coord.state import baseline_red_streak, record_baseline_red_classification
+
+        self._seed_assignment(coord_db, assignment_id="aid-1")
+        record_baseline_red_classification("api")
+
+        record_test_verdict(
+            assignment_id="aid-1", test_state="passed",
+            test_confirmation="confirmed",
+        )
+
+        assert baseline_red_streak("api") == 0
+
+    def test_a_failed_verdict_does_not_clear_the_streak(self, coord_db) -> None:
+        """A `failed` verdict says the BRANCH is broken, not that the base
+        is clean — must not reset a chronic baseline-red streak."""
+        from coord.state import baseline_red_streak, record_baseline_red_classification
+
+        self._seed_assignment(coord_db, assignment_id="aid-1")
+        record_baseline_red_classification("api")
+
+        record_test_verdict(
+            assignment_id="aid-1", test_state="failed", test_reason="real failure",
+        )
+
+        assert baseline_red_streak("api") == 1
+
+    def test_streak_is_tracked_per_repo(self, coord_db) -> None:
+        from coord.state import baseline_red_streak
+
+        self._seed_assignment(coord_db, assignment_id="aid-1", repo_name="api")
+        self._seed_assignment(coord_db, assignment_id="aid-2", repo_name="web")
+
+        record_test_verdict(
+            assignment_id="aid-1", test_state="skipped",
+            test_confirmation="baseline_red",
+        )
+
+        assert baseline_red_streak("api") == 1
+        assert baseline_red_streak("web") == 0
+
+    def test_literal_matches_the_canonical_confirm_test_constant(self) -> None:
+        """`_record_test_verdict_local` compares `test_confirmation` against
+        the literal `"baseline_red"` rather than importing
+        `coord.confirm_test.TEST_CONFIRMATION_BASELINE_RED` (that would be a
+        circular import: `coord.confirm_test` -> `coord.revalidate` ->
+        `coord.merge_queue` -> `coord.state`). Pin the literal against the
+        canonical constant so the two can never silently drift apart
+        (#2096)."""
+        from coord.confirm_test import TEST_CONFIRMATION_BASELINE_RED
+
+        assert TEST_CONFIRMATION_BASELINE_RED == "baseline_red"
+
+    def test_unconfirmed_literal_matches_the_canonical_confirm_test_constant(
+        self,
+    ) -> None:
+        """Same circular-import constraint as the sibling pin above, for the
+        `test_confirmation != "unconfirmed"` guard added on review: pin the
+        literal against `coord.confirm_test.TEST_CONFIRMATION_UNCONFIRMED`
+        so the two can never silently drift apart (#2096)."""
+        from coord.confirm_test import TEST_CONFIRMATION_UNCONFIRMED
+
+        assert TEST_CONFIRMATION_UNCONFIRMED == "unconfirmed"
 
 
 class TestRecordUatVerdict:
@@ -4561,6 +4796,282 @@ class TestReviewDispatchClaim:
         assert state.claim_review_dispatch("") is True
 
 
+class TestReviewDispatchClaimLockContention:
+    """#3382: `_claim_review_dispatch_local` had neither `retry_on_locked`
+    nor any undo. Unlike a plain failed statement (SQLite's SQLITE_BUSY,
+    hit while acquiring the lock a write needs, applies nothing), a
+    `conn.commit()` failure here happens AFTER the `INSERT OR IGNORE`
+    already applied inside the still-open transaction — WAL-checkpoint
+    contention can make COMMIT itself raise. With no undo, that
+    just-applied insert sat pending on the shared, process-wide connection
+    until a completely unrelated handler's next unrelated `commit()` swept
+    it up — two `coord review` callers each saw their own `/review-claim`
+    POST fail with 503, yet a `review_claims` row survived that neither of
+    them ever actually won (the vimcode#1086 incident, wedged ~13.5h)."""
+
+    class _CommitFlakyConn:
+        """Wraps a real (in-memory) connection: `commit()` — not `execute()`
+        — raises `database is locked` on the first *fail_times* calls,
+        reproducing COMMIT itself hitting contention after the statement
+        before it already applied. Every other `_FlakyConn` in this file
+        fails at `execute()` instead, simulating a statement that never got
+        to write anything — a different, already-handled shape.
+
+        *during_first_failed_commit* is run once, just before the first
+        `commit()` raises: SQLite's COMMIT blocks for up to `busy_timeout`
+        (5s in production) before reporting SQLITE_BUSY, and this shared
+        connection is one every other `_*_local` writer dispatched through
+        `run_in_threadpool` also writes through — so another thread's own
+        statement genuinely can land *inside* this write's critical section,
+        not just before it. This hook makes that interleaving deterministic
+        rather than raced: the ordering is the property under test, and a
+        raced version would only sometimes exercise it.
+
+        `cursor()` returns a thin tracking proxy (not the real cursor
+        directly) so tests can assert on the exact statements #3382's
+        row-scoped `coord.db.undo_pending_write` issues, the same way
+        `commit_calls`/`rollback_calls` already let them assert on
+        `commit()`/`rollback()`."""
+
+        __module__ = "sqlite3"
+
+        class _TrackingCursor:
+            def __init__(self, outer, real_cursor) -> None:
+                self._outer = outer
+                self._real_cursor = real_cursor
+
+            def execute(self, sql_text, params=()):  # noqa: ANN001
+                self._outer.executed_sql.append(sql_text)
+                return self._real_cursor.execute(sql_text, params)
+
+            def __getattr__(self, name):  # noqa: ANN001,ANN204
+                return getattr(self._real_cursor, name)
+
+        def __init__(
+            self, real_conn, fail_times: int, during_first_failed_commit=None,  # noqa: ANN001
+        ) -> None:
+            self._real = real_conn
+            self._fail_times = fail_times
+            self._during_first_failed_commit = during_first_failed_commit
+            self.commit_calls = 0
+            self.rollback_calls = 0
+            self.executed_sql: list[str] = []
+
+        def cursor(self):
+            return self._TrackingCursor(self, self._real.cursor())
+
+        def commit(self):
+            self.commit_calls += 1
+            if self.commit_calls <= self._fail_times:
+                if self.commit_calls == 1 and self._during_first_failed_commit is not None:
+                    self._during_first_failed_commit()
+                raise sqlite3.OperationalError("database is locked")
+            self._real.commit()
+
+        def rollback(self):
+            self.rollback_calls += 1
+            self._real.rollback()
+
+    def test_retries_through_a_commit_failure_then_reports_the_real_winner(
+        self, coord_db, monkeypatch,
+    ) -> None:
+        """The insert genuinely applied on attempt 1. Without an undo
+        before the retry, attempt 2's own `INSERT OR IGNORE` sees it as a
+        conflict and reports `rowcount == 0` — a caller that actually won
+        the claim being told it lost. Pre-fix, this raises immediately
+        instead (no retry at all)."""
+        monkeypatch.setattr("coord.db.time.sleep", lambda s: None)
+        flaky = self._CommitFlakyConn(coord_db, fail_times=1)
+        monkeypatch.setattr("coord.state.get_connection", lambda: flaky)
+
+        assert state.claim_review_dispatch("w1") is True
+        assert flaky.commit_calls == 2  # one failed commit, one that landed
+        # #3382 review: the recovery is a row-scoped compensating statement,
+        # not a whole-connection `conn.rollback()` (round 1) and not a
+        # `ROLLBACK TO SAVEPOINT` (round 2) — neither can express "mine
+        # only" on a connection several threads write through. So
+        # `rollback_calls` stays 0, no savepoint statement is issued at all,
+        # and the executed SQL shows exactly one compensating DELETE naming
+        # this write's own row, for the single failed attempt.
+        assert flaky.rollback_calls == 0
+        assert not [s for s in flaky.executed_sql if "SAVEPOINT" in s]
+        undos = [s for s in flaky.executed_sql if s.startswith("DELETE FROM review_claims")]
+        assert len(undos) == 1
+        assert "claimed_at=?" in undos[0]  # scoped to THIS attempt's own stamp
+
+    def test_does_not_discard_a_genuinely_concurrent_writers_pending_row(
+        self, coord_db, monkeypatch,
+    ) -> None:
+        """#3382 review round 1: `coord.db.get_connection()`'s connection is
+        shared with every OTHER `_*_local` writer this process dispatches
+        through `run_in_threadpool` on a real OS worker thread — not just
+        this one. Simulates that: a second writer's own statement lands on
+        the SAME shared connection BEFORE this claim write ever starts,
+        standing in for another thread's own in-flight, not-yet-committed
+        INSERT at the moment this write's own `conn.commit()` fails. An
+        unconditional `conn.rollback()` would have discarded that writer's
+        row along with this write's own abandoned insert — a caller who
+        already got `sql.insert_ignore`'s success back would then see their
+        OWN later `conn.commit()` either no-op or raise `cannot commit - no
+        transaction is active` (this issue's own second logged symptom)."""
+        monkeypatch.setattr("coord.db.time.sleep", lambda s: None)
+
+        # A concurrent, unrelated writer's own statement — pending,
+        # uncommitted — on the SAME shared connection, applied BEFORE the
+        # claim write below ever touches it.
+        sql.execute(
+            coord_db,
+            "INSERT OR IGNORE INTO review_claims (of_assignment_id, claimed_at) "
+            "VALUES (?, ?)",
+            ("concurrent-writer-row", 2.0),
+        )
+
+        flaky = self._CommitFlakyConn(coord_db, fail_times=999)
+        monkeypatch.setattr("coord.state.get_connection", lambda: flaky)
+
+        with pytest.raises(sqlite3.OperationalError, match="database is locked"):
+            state.claim_review_dispatch("w1")
+
+        # The concurrent writer's own row is untouched by our failed
+        # attempts and retries — its own later commit (standing in for the
+        # next Starlette handler thread reusing this process-wide
+        # singleton) durably persists it exactly as if this claim write had
+        # never touched the connection.
+        coord_db.commit()
+
+        rows = {
+            r["of_assignment_id"]
+            for r in sql.execute(
+                coord_db, "SELECT of_assignment_id FROM review_claims"
+            ).fetchall()
+        }
+        assert rows == {"concurrent-writer-row"}
+
+    def test_does_not_discard_a_concurrent_writers_row_landing_mid_write(
+        self, coord_db, monkeypatch,
+    ) -> None:
+        """#3382 review round 2, blocking finding. The round-1 test above
+        seeds the other writer's statement BEFORE this write's critical
+        section, which a savepoint-scoped undo survives. This one lands it
+        INSIDE that section — while this write's own `commit()` is blocked
+        on `busy_timeout`, which is exactly when another `run_in_threadpool`
+        thread gets to run — and that is the case `ROLLBACK TO SAVEPOINT`
+        cannot handle: it reverts the database to its state just after the
+        savepoint, taking every statement issued since with it, whether the
+        savepoint name is a shared literal or made unique per call.
+
+        Fails against the savepoint-scoped shape this replaces (the
+        concurrent writer's row is silently discarded, and its own caller
+        still gets `{"ok": true}` back)."""
+        monkeypatch.setattr("coord.db.time.sleep", lambda s: None)
+
+        def another_threads_write() -> None:
+            sql.execute(
+                coord_db,
+                "INSERT OR IGNORE INTO review_claims (of_assignment_id, claimed_at) "
+                "VALUES (?, ?)",
+                ("concurrent-writer-row", 2.0),
+            )
+
+        flaky = self._CommitFlakyConn(
+            coord_db, fail_times=999, during_first_failed_commit=another_threads_write
+        )
+        monkeypatch.setattr("coord.state.get_connection", lambda: flaky)
+
+        with pytest.raises(sqlite3.OperationalError, match="database is locked"):
+            state.claim_review_dispatch("w1")
+
+        coord_db.commit()
+
+        rows = {
+            r["of_assignment_id"]
+            for r in sql.execute(
+                coord_db, "SELECT of_assignment_id FROM review_claims"
+            ).fetchall()
+        }
+        assert rows == {"concurrent-writer-row"}
+
+    def test_a_failed_release_undoes_only_its_own_row(
+        self, coord_db, monkeypatch,
+    ) -> None:
+        """#3382 review round 2, the finding's own worked example, on the
+        path it names as "not hypothetical": two worker machines completing
+        two different review assignments at nearly the same moment each get
+        their own `run_in_threadpool` thread and both reach
+        `_release_review_dispatch_claim_local` for DIFFERENT
+        `of_assignment_id`s.
+
+        Thread A (this call) releases `w-a` and its commit fails; thread B's
+        release of `w-b` lands mid-flight and its own commit follows. B's
+        delete must stand — B never failed and never asked for anything to
+        be undone — while A's must be undone, because A's caller was told
+        (correctly) that its release did not land."""
+        monkeypatch.setattr("coord.db.time.sleep", lambda s: None)
+        assert state.claim_review_dispatch("w-a") is True
+        assert state.claim_review_dispatch("w-b") is True
+
+        def thread_b_releases_its_own_claim() -> None:
+            sql.execute(
+                coord_db, "DELETE FROM review_claims WHERE of_assignment_id=?", ("w-b",)
+            )
+
+        flaky = self._CommitFlakyConn(
+            coord_db, fail_times=999,
+            during_first_failed_commit=thread_b_releases_its_own_claim,
+        )
+        monkeypatch.setattr("coord.state.get_connection", lambda: flaky)
+
+        with pytest.raises(sqlite3.OperationalError, match="database is locked"):
+            state.release_review_dispatch_claim("w-a")
+
+        coord_db.commit()  # thread B's own commit
+
+        rows = {
+            r["of_assignment_id"]
+            for r in sql.execute(
+                coord_db, "SELECT of_assignment_id FROM review_claims"
+            ).fetchall()
+        }
+        # A's release failed honestly: its claim is still held (and still
+        # releasable later), and B's release is real.
+        assert rows == {"w-a"}
+
+    def test_exhausted_retries_leave_no_phantom_row_for_a_later_commit(
+        self, coord_db, monkeypatch,
+    ) -> None:
+        """The exact incident, as an acceptance test: a lock that never
+        clears must still raise (an honest 503) — and must not leave the
+        abandoned insert pending for some later, wholly unrelated write to
+        durably persist when IT commits. Fails against unfixed `main`,
+        where `_claim_review_dispatch_local` has no `except` at all around
+        its `conn.commit()`."""
+        monkeypatch.setattr("coord.db.time.sleep", lambda s: None)
+        flaky = self._CommitFlakyConn(coord_db, fail_times=999)
+        monkeypatch.setattr("coord.state.get_connection", lambda: flaky)
+
+        with pytest.raises(sqlite3.OperationalError, match="database is locked"):
+            state.claim_review_dispatch("w1")
+
+        # A later, wholly unrelated write on the SAME real connection —
+        # standing in for the next Starlette handler thread to reuse this
+        # process-wide singleton — must not durably commit the abandoned
+        # insert above along with its own change.
+        sql.execute(
+            coord_db,
+            "INSERT OR IGNORE INTO review_claims (of_assignment_id, claimed_at) "
+            "VALUES (?, ?)",
+            ("unrelated", 1.0),
+        )
+        coord_db.commit()
+
+        row = sql.execute(
+            coord_db,
+            "SELECT COUNT(*) AS n FROM review_claims WHERE of_assignment_id=?",
+            ("w1",),
+        ).fetchone()
+        assert row["n"] == 0
+
+
 # ── #3206: a reaper-killed review's claim must not leak ─────────────────────
 
 
@@ -4643,6 +5154,46 @@ class TestHasReviewClaim:
 
     def test_false_for_empty_id(self, coord_db) -> None:
         assert state.has_review_claim("") is False
+
+
+class TestReviewClaimAgeSecs:
+    """`review_claim_age_secs` (#3383): sibling read to `has_review_claim`
+    used by `coord diagnose --stage review` to gate a claim release on age
+    — a claim taken microseconds ago by an in-flight `claim_review_dispatch`
+    call that hasn't inserted its review row yet must not be released as if
+    it were a leak (the same false-positive window #3206 documents for the
+    terminal-row case)."""
+
+    def test_small_positive_age_while_freshly_claimed(self, coord_db) -> None:
+        assert state.claim_review_dispatch("w1") is True
+        age = state.review_claim_age_secs("w1")
+        assert age is not None
+        assert 0.0 <= age < 5.0
+
+    def test_none_when_never_claimed(self, coord_db) -> None:
+        assert state.review_claim_age_secs("never-claimed") is None
+
+    def test_none_after_release(self, coord_db) -> None:
+        assert state.claim_review_dispatch("w1") is True
+        state.release_review_dispatch_claim("w1")
+        assert state.review_claim_age_secs("w1") is None
+
+    def test_none_for_empty_id(self, coord_db) -> None:
+        assert state.review_claim_age_secs("") is None
+
+    def test_reflects_a_backdated_claim(self, coord_db) -> None:
+        from coord.db import get_connection
+
+        assert state.claim_review_dispatch("w1") is True
+        conn = get_connection()
+        conn.execute(
+            "UPDATE review_claims SET claimed_at=? WHERE of_assignment_id=?",
+            (time.time() - 3600.0, "w1"),
+        )
+        conn.commit()
+        age = state.review_claim_age_secs("w1")
+        assert age is not None
+        assert age >= 3599.0
 
 
 class TestMarkNotifiedReleasesLeakedReviewClaim:
@@ -4751,6 +5302,153 @@ class TestSmokeDispatchClaim:
         # to key a claim on, so never block.
         assert state.claim_smoke_dispatch("", "macos") is True
         assert state.claim_smoke_dispatch("w1", "") is True
+
+
+class TestSmokeDispatchClaimLockContention:
+    """#3382: `_claim_smoke_dispatch_local` mirrors `_claim_review_dispatch_local`
+    exactly — including the same missing `retry_on_locked`/undo before
+    this fix. See `TestReviewDispatchClaimLockContention` for the full
+    incident this shape reproduces; this pins the same fix for its sibling
+    claim table."""
+
+    def test_exhausted_retries_leave_no_phantom_row_for_a_later_commit(
+        self, coord_db, monkeypatch,
+    ) -> None:
+        monkeypatch.setattr("coord.db.time.sleep", lambda s: None)
+        flaky = TestReviewDispatchClaimLockContention._CommitFlakyConn(
+            coord_db, fail_times=999
+        )
+        monkeypatch.setattr("coord.state.get_connection", lambda: flaky)
+
+        with pytest.raises(sqlite3.OperationalError, match="database is locked"):
+            state.claim_smoke_dispatch("w1", "macos")
+
+        sql.execute(
+            coord_db,
+            "INSERT OR IGNORE INTO smoke_claims "
+            "(work_assignment_id, capability_partition, claimed_at) VALUES (?, ?, ?)",
+            ("unrelated", "macos", 1.0),
+        )
+        coord_db.commit()
+
+        row = sql.execute(
+            coord_db,
+            "SELECT COUNT(*) AS n FROM smoke_claims "
+            "WHERE work_assignment_id=? AND capability_partition=?",
+            ("w1", "macos"),
+        ).fetchone()
+        assert row["n"] == 0
+
+    def test_does_not_discard_a_genuinely_concurrent_writers_pending_row(
+        self, coord_db, monkeypatch,
+    ) -> None:
+        """Smoke-claim sibling of `TestReviewDispatchClaimLockContention.
+        test_does_not_discard_a_genuinely_concurrent_writers_pending_row` —
+        see that test's docstring for the #3382 review finding this pins."""
+        monkeypatch.setattr("coord.db.time.sleep", lambda s: None)
+
+        sql.execute(
+            coord_db,
+            "INSERT OR IGNORE INTO smoke_claims "
+            "(work_assignment_id, capability_partition, claimed_at) VALUES (?, ?, ?)",
+            ("concurrent-writer-row", "gtk", 2.0),
+        )
+
+        flaky = TestReviewDispatchClaimLockContention._CommitFlakyConn(
+            coord_db, fail_times=999
+        )
+        monkeypatch.setattr("coord.state.get_connection", lambda: flaky)
+
+        with pytest.raises(sqlite3.OperationalError, match="database is locked"):
+            state.claim_smoke_dispatch("w1", "macos")
+
+        coord_db.commit()
+
+        rows = {
+            (r["work_assignment_id"], r["capability_partition"])
+            for r in sql.execute(
+                coord_db, "SELECT work_assignment_id, capability_partition FROM smoke_claims"
+            ).fetchall()
+        }
+        assert rows == {("concurrent-writer-row", "gtk")}
+
+    def test_does_not_discard_a_concurrent_writers_row_landing_mid_write(
+        self, coord_db, monkeypatch,
+    ) -> None:
+        """Smoke-claim sibling of `TestReviewDispatchClaimLockContention.
+        test_does_not_discard_a_concurrent_writers_row_landing_mid_write` —
+        the #3382 round-2 finding: another thread's statement landing INSIDE
+        this write's critical section (while its `commit()` is blocked on
+        `busy_timeout`) is the case no transaction- or savepoint-scoped undo
+        can survive."""
+        monkeypatch.setattr("coord.db.time.sleep", lambda s: None)
+
+        def another_threads_write() -> None:
+            sql.execute(
+                coord_db,
+                "INSERT OR IGNORE INTO smoke_claims "
+                "(work_assignment_id, capability_partition, claimed_at) VALUES (?, ?, ?)",
+                ("concurrent-writer-row", "gtk", 2.0),
+            )
+
+        flaky = TestReviewDispatchClaimLockContention._CommitFlakyConn(
+            coord_db, fail_times=999, during_first_failed_commit=another_threads_write
+        )
+        monkeypatch.setattr("coord.state.get_connection", lambda: flaky)
+
+        with pytest.raises(sqlite3.OperationalError, match="database is locked"):
+            state.claim_smoke_dispatch("w1", "macos")
+
+        coord_db.commit()
+
+        rows = {
+            (r["work_assignment_id"], r["capability_partition"])
+            for r in sql.execute(
+                coord_db, "SELECT work_assignment_id, capability_partition FROM smoke_claims"
+            ).fetchall()
+        }
+        assert rows == {("concurrent-writer-row", "gtk")}
+
+    def test_a_failed_release_undoes_only_its_own_row(
+        self, coord_db, monkeypatch,
+    ) -> None:
+        """Smoke sibling of `TestReviewDispatchClaimLockContention.
+        test_a_failed_release_undoes_only_its_own_row`: two fan-out legs for
+        the same parent finishing at once (#3182 dispatches one leg per
+        capability partition, so this is the normal shape, not a rare one)
+        each reach `_release_smoke_dispatch_claim_local` on their own
+        `run_in_threadpool` thread. The one whose commit fails must put back
+        only ITS partition's row."""
+        monkeypatch.setattr("coord.db.time.sleep", lambda s: None)
+        assert state.claim_smoke_dispatch("w1", "macos") is True
+        assert state.claim_smoke_dispatch("w1", "gtk") is True
+
+        def other_leg_releases_its_own_partition() -> None:
+            sql.execute(
+                coord_db,
+                "DELETE FROM smoke_claims WHERE work_assignment_id=? "
+                "AND capability_partition=?",
+                ("w1", "gtk"),
+            )
+
+        flaky = TestReviewDispatchClaimLockContention._CommitFlakyConn(
+            coord_db, fail_times=999,
+            during_first_failed_commit=other_leg_releases_its_own_partition,
+        )
+        monkeypatch.setattr("coord.state.get_connection", lambda: flaky)
+
+        with pytest.raises(sqlite3.OperationalError, match="database is locked"):
+            state.release_smoke_dispatch_claim("w1", "macos")
+
+        coord_db.commit()
+
+        rows = {
+            (r["work_assignment_id"], r["capability_partition"])
+            for r in sql.execute(
+                coord_db, "SELECT work_assignment_id, capability_partition FROM smoke_claims"
+            ).fetchall()
+        }
+        assert rows == {("w1", "macos")}
 
 
 # ── #3333: a smoke fan-out leg's terminal write must release its claim ──────

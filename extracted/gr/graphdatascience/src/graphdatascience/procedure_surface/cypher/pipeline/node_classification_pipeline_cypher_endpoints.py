@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from graphdatascience.call_parameters import CallParameters
+from graphdatascience.procedure_surface.api.pipeline.node_classification_model import NodeClassificationModel
 from graphdatascience.procedure_surface.api.pipeline.node_classification_pipeline import (
     NodeClassificationPipeline,
 )
@@ -20,6 +21,7 @@ from graphdatascience.procedure_surface.api.pipeline.node_classification_train_e
 )
 from graphdatascience.procedure_surface.api.pipeline.parameter_space_config import convert_to_parameter_space_config
 from graphdatascience.procedure_surface.api.pipeline.pipeline_catalog_protocol import PipelineCatalogProtocol
+from graphdatascience.procedure_surface.cypher.model.model_catalog_cypher_endpoints import ModelCatalogCypherEndpoints
 from graphdatascience.procedure_surface.cypher.pipeline.node_classification_predict_cypher_endpoints import (
     NodeClassificationPredictCypherEndpoints,
 )
@@ -37,6 +39,7 @@ class NodeClassificationPipelineCypherEndpoints(NodeClassificationPipelineEndpoi
     def __init__(self, query_runner: QueryRunner):
         self._query_runner = query_runner
         self._pipeline_catalog: PipelineCatalogProtocol = PipelineCatalogCypherEndpoints(query_runner)
+        self._model_catalog = ModelCatalogCypherEndpoints(query_runner)
         self._predict = NodeClassificationPredictCypherEndpoints(query_runner)
         self._train = NodeClassificationTrainCypherEndpoints(query_runner, self._predict)
 
@@ -51,22 +54,30 @@ class NodeClassificationPipelineCypherEndpoints(NodeClassificationPipelineEndpoi
     def create(self, pipeline_name: str) -> tuple[NodeClassificationPipeline, NodeClassificationPipelineInfoResult]:
         result = self._query_runner.call_procedure(
             endpoint="gds.beta.pipeline.nodeClassification.create", params=CallParameters(pipeline_name=pipeline_name)
-        ).squeeze()
+        ).iloc[0]
         return NodeClassificationPipeline(
             pipeline_name, self, self, self._pipeline_catalog
-        ), NodeClassificationPipelineInfoResult(**result.to_dict())
+        ), NodeClassificationPipelineInfoResult(**result)
 
     def get(self, pipeline_name: str) -> NodeClassificationPipeline:
-        pipeline_info = self._pipeline_catalog.exists(pipeline_name)
-        if not pipeline_info:
-            raise ValueError(f"No pipeline named '{pipeline_name}' exists")
-        if pipeline_info.pipeline_type != "Node classification training pipeline":
+        entry = self._pipeline_catalog.get(pipeline_name)
+        if entry.pipeline_type != "Node classification training pipeline":
             raise ValueError(f"Pipeline '{pipeline_name}' is not a node classification pipeline")
         return NodeClassificationPipeline(
-            pipeline_info.pipeline_name,
+            entry.pipeline_name,
             self,
             self,
             self._pipeline_catalog,
+        )
+
+    def get_model(self, model_name: str) -> NodeClassificationModel:
+        details = self._model_catalog.get(model_name)
+        if details.model_type != "NodeClassification":
+            raise ValueError(f"Model '{model_name}' is not a node classification model")
+        return NodeClassificationModel(
+            details.model_name,
+            self._model_catalog,
+            predict_endpoints=self._predict,
         )
 
     def add_node_property(
@@ -79,8 +90,8 @@ class NodeClassificationPipelineCypherEndpoints(NodeClassificationPipelineEndpoi
                 task_name=task_name,
                 config=ConfigConverter.convert_to_gds_config(**config),
             ),
-        ).squeeze()
-        return NodeClassificationPipelineInfoResult(**result.to_dict())
+        ).iloc[0]
+        return NodeClassificationPipelineInfoResult(**result)
 
     def select_features(
         self, pipeline_name: str, node_properties: str | list[str]
@@ -88,8 +99,8 @@ class NodeClassificationPipelineCypherEndpoints(NodeClassificationPipelineEndpoi
         result = self._query_runner.call_procedure(
             endpoint="gds.beta.pipeline.nodeClassification.selectFeatures",
             params=CallParameters(pipeline_name=pipeline_name, node_properties=node_properties),
-        ).squeeze()
-        return NodeClassificationPipelineInfoResult(**result.to_dict())
+        ).iloc[0]
+        return NodeClassificationPipelineInfoResult(**result)
 
     def add_logistic_regression(
         self,
@@ -129,8 +140,8 @@ class NodeClassificationPipelineCypherEndpoints(NodeClassificationPipelineEndpoi
         result = self._query_runner.call_procedure(
             endpoint="gds.beta.pipeline.nodeClassification.addLogisticRegression",
             params=CallParameters(pipeline_name=pipeline_name, config=config),
-        ).squeeze()
-        return NodeClassificationPipelineInfoResult(**result.to_dict())
+        ).iloc[0]
+        return NodeClassificationPipelineInfoResult(**result)
 
     def add_random_forest(
         self,
@@ -164,8 +175,8 @@ class NodeClassificationPipelineCypherEndpoints(NodeClassificationPipelineEndpoi
         result = self._query_runner.call_procedure(
             endpoint="gds.beta.pipeline.nodeClassification.addRandomForest",
             params=CallParameters(pipeline_name=pipeline_name, config=config),
-        ).squeeze()
-        return NodeClassificationPipelineInfoResult(**result.to_dict())
+        ).iloc[0]
+        return NodeClassificationPipelineInfoResult(**result)
 
     def add_mlp(
         self,
@@ -207,8 +218,8 @@ class NodeClassificationPipelineCypherEndpoints(NodeClassificationPipelineEndpoi
         result = self._query_runner.call_procedure(
             endpoint="gds.alpha.pipeline.nodeClassification.addMLP",
             params=CallParameters(pipeline_name=pipeline_name, config=config),
-        ).squeeze()
-        return NodeClassificationPipelineInfoResult(**result.to_dict())
+        ).iloc[0]
+        return NodeClassificationPipelineInfoResult(**result)
 
     def configure_split(
         self, pipeline_name: str, *, test_fraction: float = 0.3, validation_folds: int = 3
@@ -221,8 +232,8 @@ class NodeClassificationPipelineCypherEndpoints(NodeClassificationPipelineEndpoi
                     test_fraction=test_fraction, validation_folds=validation_folds
                 ),
             ),
-        ).squeeze()
-        return NodeClassificationPipelineInfoResult(**result.to_dict())
+        ).iloc[0]
+        return NodeClassificationPipelineInfoResult(**result)
 
     def configure_auto_tuning(
         self, pipeline_name: str, *, max_trials: int = 10
@@ -233,5 +244,5 @@ class NodeClassificationPipelineCypherEndpoints(NodeClassificationPipelineEndpoi
                 pipeline_name=pipeline_name,
                 config=ConfigConverter.convert_to_gds_config(max_trials=max_trials),
             ),
-        ).squeeze()
-        return NodeClassificationPipelineInfoResult(**result.to_dict())
+        ).iloc[0]
+        return NodeClassificationPipelineInfoResult(**result)

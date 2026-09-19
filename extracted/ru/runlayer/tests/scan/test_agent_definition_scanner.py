@@ -22,13 +22,75 @@ from runlayer_cli.scan.agent_definition_scanner import (
     scan_user_agent_definitions,
 )
 from runlayer_cli.scan.clients import MCPClientDefinition, ProjectConfigPattern
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.project_scanner import find_files_and_node_modules_under_home
+from runlayer_cli.scan.skill_scanner import SkillPhaseScan
+from tests.hostile_inputs import DEEP_NESTING_BYTES, DEEP_NESTING_TOML
 
 
 def test_agent_definition_pattern_registry_is_immutable():
     assert isinstance(AGENT_DEFINITION_PATTERNS, tuple)
     with pytest.raises(FrozenInstanceError):
         AGENT_DEFINITION_PATTERNS[0].client = "changed"
+
+
+def test_existing_unreadable_project_marker_marks_incomplete(
+    tmp_path,
+    monkeypatch,
+):
+    marker = tmp_path / "project" / ".cursor" / "agents" / "review.md"
+    marker.parent.mkdir(parents=True)
+    marker.write_text("# Reviewer")
+    monkeypatch.setattr(scanner_module, "_read_bounded_file", lambda _path: None)
+    status = ScanCompletionStatus()
+
+    assert process_agent_definition_paths([marker], scan_status=status) == []
+    assert status.reasons == ["agent_definition_marker_read_failed"]
+
+
+def test_vanished_project_marker_remains_complete(tmp_path, monkeypatch):
+    marker = tmp_path / "project" / ".cursor" / "agents" / "review.md"
+    marker.parent.mkdir(parents=True)
+    marker.write_text("# Reviewer")
+    real_read = scanner_module._read_bounded_file
+
+    def racing_read(path: Path) -> bytes | None:
+        # Marker deleted between crawl and read.
+        path.unlink()
+        return real_read(path)
+
+    monkeypatch.setattr(scanner_module, "_read_bounded_file", racing_read)
+    status = ScanCompletionStatus()
+
+    assert process_agent_definition_paths([marker], scan_status=status) == []
+    assert status.complete
+    assert status.reasons == []
+
+
+def test_user_scan_vanished_marker_remains_complete(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    root = home / ".claude" / "agents"
+    root.mkdir(parents=True)
+    vanished = root / "vanished.md"
+    vanished.write_text("# Gone\n", encoding="utf-8")
+    valid = root / "valid.md"
+    valid.write_text("# Valid\n", encoding="utf-8")
+    monkeypatch.setattr(Path, "home", lambda: home)
+    real_read = scanner_module._read_bounded_file
+
+    def racing_read(path: Path) -> bytes | None:
+        if path == vanished:
+            path.unlink()
+        return real_read(path)
+
+    monkeypatch.setattr(scanner_module, "_read_bounded_file", racing_read)
+    status = ScanCompletionStatus()
+
+    definitions = scan_user_agent_definitions(scan_status=status)
+
+    assert [definition.path for definition in definitions] == [str(valid)]
+    assert status.complete
+    assert status.reasons == []
 
 
 def test_parse_claude_agent_definition_from_bytes():
@@ -137,6 +199,21 @@ def test_parse_registered_agent_definition_formats(
             "cursor",
             "/workspace/.cursor/agents/binary.md",
             b"\xff\xfe",
+        ),
+        (
+            "claude_code",
+            "/workspace/.claude/agents/deep.md",
+            b"---\n" + DEEP_NESTING_BYTES + b"\n---\n",
+        ),
+        (
+            "codex",
+            "/workspace/.codex/agents/deep.toml",
+            DEEP_NESTING_TOML.encode(),
+        ),
+        (
+            "goose",
+            "/workspace/.goose/recipes/deep.yaml",
+            DEEP_NESTING_BYTES,
         ),
     ],
 )
@@ -606,6 +683,127 @@ def test_user_scan_covers_all_registered_roots_recursively(tmp_path, monkeypatch
     assert all(item.project_path is None for item in definitions)
 
 
+def test_user_scan_root_access_failure_marks_incomplete(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    denied_root = (home / ".claude" / "agents").absolute()
+    monkeypatch.setattr(Path, "home", lambda: home)
+
+    def checked_link_status(path: Path) -> bool:
+        if path == denied_root:
+            raise PermissionError(path)
+        path.lstat()
+        return False
+
+    monkeypatch.setattr(
+        scanner_module,
+        "link_or_reparse_status_or_raise",
+        checked_link_status,
+        raising=False,
+    )
+    status = ScanCompletionStatus()
+
+    assert scan_user_agent_definitions(scan_status=status) == []
+    assert status.reasons == ["agent_definition_root_enumeration_failed"]
+
+
+def test_user_scan_directory_read_failure_marks_incomplete(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    root = home / ".claude" / "agents"
+    valid = root / "valid.md"
+    valid.parent.mkdir(parents=True)
+    valid.write_text("# Valid\n", encoding="utf-8")
+    monkeypatch.setattr(Path, "home", lambda: home)
+    original_walk = scanner_module.os.walk
+
+    def walk_with_read_failure(path, *, onerror=None, followlinks=False):
+        if Path(path) == root:
+            assert onerror is not None
+            onerror(PermissionError(root / "blocked"))
+        yield from original_walk(
+            path,
+            onerror=onerror,
+            followlinks=followlinks,
+        )
+
+    monkeypatch.setattr(scanner_module.os, "walk", walk_with_read_failure)
+    status = ScanCompletionStatus()
+
+    definitions = scan_user_agent_definitions(scan_status=status)
+
+    assert [definition.path for definition in definitions] == [str(valid)]
+    assert status.reasons == ["agent_definition_directory_read_failed"]
+
+
+def test_user_scan_entry_metadata_failure_marks_incomplete(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    root = home / ".claude" / "agents"
+    blocked = root / "blocked"
+    blocked.mkdir(parents=True)
+    valid = root / "valid.md"
+    valid.write_text("# Valid\n", encoding="utf-8")
+    monkeypatch.setattr(Path, "home", lambda: home)
+    safe_link_status = scanner_module.link_or_reparse_status
+    strict_link_status = scanner_module.link_or_reparse_status_or_raise
+
+    def checked_safe_link_status(path: Path) -> bool | None:
+        if path == blocked:
+            return None
+        return safe_link_status(path)
+
+    def checked_strict_link_status(path: Path) -> bool:
+        if path == blocked:
+            raise PermissionError(path)
+        return strict_link_status(path)
+
+    monkeypatch.setattr(
+        scanner_module,
+        "link_or_reparse_status",
+        checked_safe_link_status,
+    )
+    monkeypatch.setattr(
+        scanner_module,
+        "link_or_reparse_status_or_raise",
+        checked_strict_link_status,
+    )
+    status = ScanCompletionStatus()
+
+    definitions = scan_user_agent_definitions(scan_status=status)
+
+    assert [definition.path for definition in definitions] == [str(valid)]
+    assert status.reasons == ["agent_definition_entry_classification_failed"]
+
+
+def test_user_scan_vanished_entry_remains_complete(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    root = home / ".claude" / "agents"
+    root.mkdir(parents=True)
+    vanished = root / "vanished.md"
+    vanished.write_text("# Gone\n", encoding="utf-8")
+    valid = root / "valid.md"
+    valid.write_text("# Valid\n", encoding="utf-8")
+    monkeypatch.setattr(Path, "home", lambda: home)
+    strict_link_status = scanner_module.link_or_reparse_status_or_raise
+
+    def racing_strict_link_status(path: Path) -> bool:
+        # Listed by the walk, gone before classification.
+        if path == vanished:
+            raise FileNotFoundError(path)
+        return strict_link_status(path)
+
+    monkeypatch.setattr(
+        scanner_module,
+        "link_or_reparse_status_or_raise",
+        racing_strict_link_status,
+    )
+    status = ScanCompletionStatus()
+
+    definitions = scan_user_agent_definitions(scan_status=status)
+
+    assert [definition.path for definition in definitions] == [str(valid)]
+    assert status.complete
+    assert status.reasons == []
+
+
 def test_user_scan_covers_extra_home_roots(tmp_path, monkeypatch):
     native_home = tmp_path / "native-home"
     wsl_home = tmp_path / "wsl-home"
@@ -729,8 +927,8 @@ def test_project_phase_collects_agent_definitions_in_shared_crawl(
     monkeypatch.setattr(scan_orchestrator, "scan_for_project_configs", lambda **_: [])
     monkeypatch.setattr(
         scan_orchestrator,
-        "process_skill_paths",
-        lambda *args, **kwargs: [],
+        "process_skill_paths_with_candidates",
+        lambda *args, **kwargs: SkillPhaseScan(artifacts=[], candidate_paths=[]),
     )
     monkeypatch.setattr(
         scan_orchestrator,
@@ -1053,6 +1251,62 @@ def test_user_scan_reads_followed_file_via_resolved_target(tmp_path, monkeypatch
 
     assert [item.path for item in definitions] == [str(link)]
     assert read_paths == [target.resolve()]
+
+
+@pytest.mark.parametrize(
+    "failing_target_stat_call",
+    [2, 3],
+    ids=["inspect", "follow"],
+)
+def test_user_scan_unreadable_follow_target_marks_incomplete(
+    tmp_path,
+    monkeypatch,
+    failing_target_stat_call,
+):
+    home = tmp_path / "home"
+    root = home / ".cursor" / "agents"
+    root.mkdir(parents=True)
+    target = tmp_path / "target.md"
+    target.write_text("# Target\n", encoding="utf-8")
+    target = target.resolve()
+    link = root / "linked.md"
+    try:
+        link.symlink_to(target)
+    except OSError:
+        pytest.skip("symlinks unavailable")
+    monkeypatch.setattr(Path, "home", lambda: home)
+    real_stat = Path.stat
+    target_stat_calls = 0
+
+    def fail_selected_target_stat(path, *args, **kwargs):
+        nonlocal target_stat_calls
+        if path == target:
+            target_stat_calls += 1
+            if target_stat_calls == failing_target_stat_call:
+                raise PermissionError("denied")
+        return real_stat(path, *args, **kwargs)
+
+    monkeypatch.setattr(Path, "stat", fail_selected_target_stat)
+    status = ScanCompletionStatus()
+
+    assert scan_user_agent_definitions(scan_status=status) == []
+    assert status.reasons == ["agent_definition_follow_target_stat_failed"]
+
+
+def test_user_scan_dangling_follow_target_remains_complete(tmp_path, monkeypatch):
+    home = tmp_path / "home"
+    root = home / ".cursor" / "agents"
+    root.mkdir(parents=True)
+    link = root / "linked.md"
+    try:
+        link.symlink_to(tmp_path / "missing.md")
+    except OSError:
+        pytest.skip("symlinks unavailable")
+    monkeypatch.setattr(Path, "home", lambda: home)
+    status = ScanCompletionStatus()
+
+    assert scan_user_agent_definitions(scan_status=status) == []
+    assert status.complete is True
 
 
 def test_user_scan_skips_entry_when_link_probe_fails(tmp_path, monkeypatch):

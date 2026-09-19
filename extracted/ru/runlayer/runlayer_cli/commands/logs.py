@@ -51,6 +51,8 @@ _FAILURE_TYPES = {
     "server_create_error",
     "server_update_error",
     "slack_app_create_failed",
+    "slack_app_auto_install_failed",
+    "slack_app_delete_failed",
 }
 
 _WARNING_TYPES = {

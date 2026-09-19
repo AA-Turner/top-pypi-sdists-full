@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: build123d
-Version: 0.11.1
+Version: 0.12.0
 Summary: A python CAD programming library
 Author-email: Roger Maitland <gumyr9@gmail.com>
 License: Apache-2.0
@@ -17,11 +17,12 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
 Requires-Dist: cadquery-ocp-novtk<8.0,>=7.9
-Requires-Dist: typing_extensions<5,>=4.6.0
+Requires-Dist: typing_extensions<5,>=4.16.0
 Requires-Dist: numpy<3,>=2
 Requires-Dist: svgpathtools<2,>=1.5.1
 Requires-Dist: anytree<3,>=2.8.0
 Requires-Dist: ezdxf<2,>=1.1.0
+Requires-Dist: fonttools<5,>=4.39.0
 Requires-Dist: ipython<10,>=8.0.0
 Requires-Dist: ocpsvg<0.7,>=0.6
 Requires-Dist: ocp_gordon<0.3,>=0.2
@@ -33,10 +34,14 @@ Requires-Dist: webcolors~=24.8.0
 Requires-Dist: requests<3,>=2.32
 Requires-Dist: lib3mf>=2.4.1; sys_platform != "linux" or platform_machine != "aarch64"
 Requires-Dist: py-lib3mf>=2.4.1; sys_platform == "linux" and platform_machine == "aarch64"
+Requires-Dist: bd_materials<0.3.0,>=0.2.0
+Requires-Dist: threejs-materials<1.3.0,>=1.2.1
 Provides-Extra: ocp-vscode
 Requires-Dist: ocp_vscode; extra == "ocp-vscode"
 Provides-Extra: development
 Requires-Dist: black; extra == "development"
+Requires-Dist: covdefaults; extra == "development"
+Requires-Dist: diff-cover; extra == "development"
 Requires-Dist: mypy; extra == "development"
 Requires-Dist: pylint; extra == "development"
 Requires-Dist: pytest>=9.1.1; extra == "development"
@@ -53,6 +58,7 @@ Requires-Dist: sphinx-copybutton; extra == "docs"
 Requires-Dist: sphinx-hoverxref; extra == "docs"
 Requires-Dist: sphinx-rtd-theme; extra == "docs"
 Requires-Dist: sphinx_autodoc_typehints; extra == "docs"
+Requires-Dist: sphinx-llms-txt<0.8,>=0.7.1; extra == "docs"
 Provides-Extra: all
 Requires-Dist: build123d[ocp_vscode]; extra == "all"
 Requires-Dist: build123d[development]; extra == "all"
@@ -67,7 +73,7 @@ Dynamic: license-file
 [![Documentation Status](https://readthedocs.org/projects/build123d/badge/?version=latest)](https://build123d.readthedocs.io/en/latest/?badge=latest)
 [![tests](https://github.com/gumyr/build123d/actions/workflows/test.yml/badge.svg)](https://github.com/gumyr/build123d/actions/workflows/test.yml)
 [![pylint](https://github.com/gumyr/build123d/actions/workflows/lint.yml/badge.svg)](https://github.com/gumyr/build123d/actions/workflows/lint.yml)
-[![mypy](https://github.com/gumyr/build123d/actions/workflows/mypy.yml/badge.svg)](https://github.com/gumyr/build123d/actions/workflows/mypy.yml)
+[![mypy](https://github.com/gumyr/build123d/actions/workflows/type.yml/badge.svg)](https://github.com/gumyr/build123d/actions/workflows/type.yml)
 [![codecov](https://codecov.io/gh/gumyr/build123d/branch/dev/graph/badge.svg)](https://codecov.io/gh/gumyr/build123d)
 
 ![Python Versions](https://img.shields.io/badge/python-3.10%20|%203.11%20|%203.12%20|%203.13%20|%203.14-blue)
@@ -154,7 +160,7 @@ part = extrude(sketch, amount= 2)
 
 ### Adding to and modifying part
 
-Solids and Parts (a Compound of Solids) are the 1D Shapes available in build123d. A second part can be created from an additional Face. Planes can also be used for positioning and orienting Shape objects. Many objects offer an affordance for alignment relative to the object origin:
+Solids and Parts (a Compound of Solids) are the 3D Shapes available in build123d. A second part can be created from an additional Face. Planes can also be used for positioning and orienting Shape objects. Many objects offer an affordance for alignment relative to the object origin:
 
 ```py
 plate_sketch = Plane.YZ * RectangleRounded(16, 6, 1.5, align=(Align.CENTER, Align.MIN))

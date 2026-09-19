@@ -1,8 +1,15 @@
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
 from graphdatascience.datasets.graph_constructor_func import GraphConstructorFunc
 from graphdatascience.datasets.ogb_loader import OGBLLoader, OGBNLoader
 from graphdatascience.datasets.simple_file_loader import SimpleDatasetLoader
-from graphdatascience.graph.v2 import GraphV2
+from graphdatascience.graph import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_TYPES
+
+if TYPE_CHECKING:
+    from graphdatascience.datasets.nx_loader import NXLoader
 
 
 class DatasetEndpoints:
@@ -10,7 +17,7 @@ class DatasetEndpoints:
         self.construct = graph_constructor
         self._simple_dataset_loader = SimpleDatasetLoader()
 
-    def load_cora(self, graph_name: str = "cora", undirected: bool = False) -> GraphV2:
+    def load_cora(self, graph_name: str = "cora", undirected: bool = False) -> Graph:
         """
         A citation network introduced.
 
@@ -22,15 +29,15 @@ class DatasetEndpoints:
             Whether the graph should be undirected
 
         Returns
-        --------
-        GraphV2
+        -------
+        Graph
             A handle to the graph.
         """
         nodes, rels = self._simple_dataset_loader.cora()
         undirected_relationship_types: list[str] = ALL_TYPES if undirected else []
         return self.construct(graph_name, nodes, rels, undirected_relationship_types=undirected_relationship_types)
 
-    def load_karate_club(self, graph_name: str = "karate_club", undirected: bool = False) -> GraphV2:
+    def load_karate_club(self, graph_name: str = "karate_club", undirected: bool = False) -> Graph:
         """
         A social network introduced by http://konect.cc/networks/ucidata-zachary/[Zachary].
 
@@ -42,8 +49,8 @@ class DatasetEndpoints:
             Whether the graph should be undirected
 
         Returns
-        --------
-        GraphV2
+        -------
+        Graph
             A handle to the graph.
         """
         nodes, rels = self._simple_dataset_loader.karate_club()
@@ -51,7 +58,7 @@ class DatasetEndpoints:
 
         return self.construct(graph_name, nodes, rels, undirected_relationship_types=undirected_relationship_types)
 
-    def load_imdb(self, graph_name: str = "imdb", undirected: bool = True) -> GraphV2:
+    def load_imdb(self, graph_name: str = "imdb", undirected: bool = True) -> Graph:
         """
         A heterogeneous graph that is used to benchmark node classification or link prediction models.
 
@@ -66,8 +73,8 @@ class DatasetEndpoints:
             Whether the graph should be undirected
 
         Returns
-        --------
-        GraphV2
+        -------
+        Graph
             A handle to the graph.
         """
         node_dfs, rel_dfs = self._simple_dataset_loader.imdb()
@@ -78,7 +85,7 @@ class DatasetEndpoints:
             graph_name, node_dfs, rel_dfs, undirected_relationship_types=undirected_relationship_types
         )
 
-    def load_lastfm(self, graph_name: str = "lastfm", undirected: bool = True) -> GraphV2:
+    def load_lastfm(self, graph_name: str = "lastfm", undirected: bool = True) -> Graph:
         """
         A heterogeneous graph that is used to benchmark link prediction models.
         The original raw data is from http://www.lastfm.com/[LastFM].
@@ -94,8 +101,8 @@ class DatasetEndpoints:
             Whether the graph should be undirected
 
         Returns
-        --------
-        GraphV2
+        -------
+        Graph
             A handle to the graph.
         """
         node_dfs, rel_dfs = self._simple_dataset_loader.lastfm()
@@ -125,13 +132,14 @@ class DatasetEndpoints:
         return OGBLLoader(self.construct)
 
     @property
-    def networkx(self):  # type:ignore
+    def networkx(self) -> NXLoader:
         """
         Convenience wrapper to load networkx graphs into the graph catalog.
 
         Returns
         -------
         NXLoader
+            A loader to load networkx graphs into the graph catalog.
         """
         try:
             from graphdatascience.datasets.nx_loader import NXLoader

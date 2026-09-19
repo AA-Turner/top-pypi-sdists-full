@@ -9,7 +9,11 @@ import pytest
 
 from runlayer_cli.scan import orchestrator
 from runlayer_cli.scan import vscode_extensions as vscode_extensions_module
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.vscode_extensions import scan_vscode_extensions
+from tests.hostile_inputs import DEEP_NESTING_BYTES
+
+_DEFAULT_BUILTIN_ROOT_LAYOUTS = vscode_extensions_module._BUILTIN_ROOT_LAYOUTS
 
 
 def _write_extension(
@@ -38,28 +42,25 @@ def _write_builtin_extension(
 def _absolute_builtin_layout(
     root: Path,
 ) -> dict[str, vscode_extensions_module._BuiltinRootLayout]:
-    return {
-        "Darwin": (
-            (Path(root.name),),
-            (("absolute", str(root.parent)),),
-        )
-    }
+    return {"Darwin": (("vscode", Path(root.name), (("absolute", str(root.parent)),)),)}
 
 
 @pytest.fixture(autouse=True)
 def _isolate_system_builtin_roots(monkeypatch):
     home_layouts = {
-        system: (
-            app_tails,
-            tuple(base for base in base_dirs if base[0] != "absolute"),
+        system: tuple(
+            (
+                client,
+                app_tail,
+                tuple(base for base in base_dirs if base[0] != "absolute"),
+            )
+            for client, app_tail, base_dirs in layout
         )
-        for system, (
-            app_tails,
-            base_dirs,
-        ) in vscode_extensions_module._BUILTIN_ROOT_LAYOUTS.items()
+        for system, layout in vscode_extensions_module._BUILTIN_ROOT_LAYOUTS.items()
     }
     monkeypatch.setattr(vscode_extensions_module, "_BUILTIN_ROOT_LAYOUTS", home_layouts)
     monkeypatch.delenv("ProgramFiles", raising=False)
+    monkeypatch.delenv("ProgramFiles(x86)", raising=False)
 
 
 def test_scan_vscode_extensions_inventories_builtin_copilot(
@@ -115,10 +116,83 @@ def test_scan_vscode_extensions_covers_macos_user_application_install(
     )
     monkeypatch.setattr(platform, "system", lambda: "Darwin")
 
-    [artifact] = scan_vscode_extensions(home=home)
+    [artifact] = scan_vscode_extensions(home=home, machine_scope=False)
 
     assert artifact.install_path == str(install_path)
     assert artifact.scope == "builtin"
+
+
+@pytest.mark.parametrize(
+    ("client", "app_bundle"),
+    [
+        ("cursor", "Cursor.app"),
+        ("windsurf", "Windsurf.app"),
+        ("windsurf", "Devin.app"),
+    ],
+)
+def test_macos_editor_builtin_layouts_cover_user_and_machine_installs(
+    client: str,
+    app_bundle: str,
+) -> None:
+    assert (
+        client,
+        Path(app_bundle) / "Contents" / "Resources" / "app" / "extensions",
+        (("home", "Applications"), ("absolute", "/Applications")),
+    ) in _DEFAULT_BUILTIN_ROOT_LAYOUTS["Darwin"]
+
+
+@pytest.mark.parametrize(
+    ("client", "app_bundle"),
+    [
+        ("cursor", "Cursor.app"),
+        ("windsurf", "Windsurf.app"),
+        ("windsurf", "Devin.app"),
+    ],
+)
+def test_macos_editor_builtin_roots_preserve_device_scope(
+    monkeypatch,
+    tmp_path: Path,
+    client: str,
+    app_bundle: str,
+) -> None:
+    home = tmp_path / "home"
+    machine_applications = tmp_path / "Applications"
+    app_tail = Path(app_bundle) / "Contents" / "Resources" / "app" / "extensions"
+    user_path = _write_builtin_extension(
+        home / "Applications" / app_tail,
+        "user-ai",
+        {"publisher": "Vendor", "name": "user-ai", "version": "1.0.0"},
+    )
+    machine_path = _write_builtin_extension(
+        machine_applications / app_tail,
+        "machine-ai",
+        {"publisher": "Vendor", "name": "machine-ai", "version": "2.0.0"},
+    )
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(
+        vscode_extensions_module,
+        "_BUILTIN_ROOT_LAYOUTS",
+        {
+            "Darwin": (
+                (
+                    client,
+                    app_tail,
+                    (
+                        ("home", "Applications"),
+                        ("absolute", str(machine_applications)),
+                    ),
+                ),
+            )
+        },
+    )
+
+    artifacts = scan_vscode_extensions(home=home)
+    by_path = {artifact.install_path: artifact for artifact in artifacts}
+
+    assert by_path[str(user_path)].client == client
+    assert by_path[str(user_path)].device_scope is False
+    assert by_path[str(machine_path)].client == client
+    assert by_path[str(machine_path)].device_scope is True
 
 
 def test_scan_vscode_extensions_covers_windows_user_and_system_installs(
@@ -166,6 +240,227 @@ def test_scan_vscode_extensions_covers_windows_user_and_system_installs(
     assert all(artifact.scope == "builtin" for artifact in artifacts)
 
 
+def test_machine_scope_false_skips_windows_system_builtins_only(
+    monkeypatch,
+    tmp_path: Path,
+):
+    home = tmp_path / "home"
+    user_root = (
+        home
+        / "AppData"
+        / "Local"
+        / "Programs"
+        / "Microsoft VS Code"
+        / "resources"
+        / "app"
+        / "extensions"
+    )
+    program_files = tmp_path / "Program Files"
+    system_root = (
+        program_files / "Microsoft VS Code" / "resources" / "app" / "extensions"
+    )
+    user_path = _write_builtin_extension(
+        user_root,
+        "copilot",
+        {"publisher": "GitHub", "name": "copilot-chat", "version": "1.0.0"},
+    )
+    _write_builtin_extension(
+        system_root,
+        "vendor-ai",
+        {"publisher": "Vendor", "name": "vendor-ai", "version": "2.0.0"},
+    )
+    monkeypatch.setattr(platform, "system", lambda: "Windows")
+    monkeypatch.setenv("ProgramFiles", str(program_files))
+
+    artifacts = scan_vscode_extensions(home=home, machine_scope=False)
+
+    assert [artifact.install_path for artifact in artifacts] == [str(user_path)]
+    assert artifacts[0].scope == "builtin"
+
+
+@pytest.mark.parametrize(
+    ("client", "app_dir"),
+    [
+        ("cursor", "cursor"),
+        ("windsurf", "Windsurf"),
+        ("windsurf", "Devin"),
+    ],
+)
+def test_windows_editor_builtin_roots_cover_user_and_machine_layouts(
+    monkeypatch,
+    tmp_path: Path,
+    client: str,
+    app_dir: str,
+) -> None:
+    home = tmp_path / "home"
+    program_files_x86 = tmp_path / "Program Files (x86)"
+    relative = Path(app_dir) / "resources" / "app" / "extensions"
+    user_path = _write_builtin_extension(
+        home / "AppData" / "Local" / "Programs" / relative,
+        "user-ai",
+        {"publisher": "Vendor", "name": "user-ai", "version": "1.0.0"},
+    )
+    machine_path = _write_builtin_extension(
+        program_files_x86 / relative,
+        "machine-ai",
+        {"publisher": "Vendor", "name": "machine-ai", "version": "2.0.0"},
+    )
+    monkeypatch.setattr(platform, "system", lambda: "Windows")
+    monkeypatch.setenv("ProgramFiles(x86)", str(program_files_x86))
+
+    artifacts = scan_vscode_extensions(home=home)
+    by_path = {artifact.install_path: artifact for artifact in artifacts}
+
+    assert set(by_path) == {str(user_path), str(machine_path)}
+    assert by_path[str(user_path)].client == client
+    assert by_path[str(user_path)].device_scope is False
+    assert by_path[str(machine_path)].client == client
+    assert by_path[str(machine_path)].device_scope is True
+
+
+@pytest.mark.parametrize(
+    ("client", "app_tail"),
+    [
+        ("cursor", Path("cursor/resources/app/extensions")),
+        ("windsurf", Path("devin-desktop/resources/app/extensions")),
+        ("vscode", Path("codium/resources/app/extensions")),
+        (
+            "vscode",
+            Path(
+                "com.visualstudio.code/current/active/files/extra/vscode/"
+                "resources/app/extensions"
+            ),
+        ),
+        (
+            "vscode",
+            Path(
+                "com.vscodium.codium/current/active/files/share/codium/"
+                "resources/app/extensions"
+            ),
+        ),
+    ],
+)
+def test_scan_vscode_extensions_attributes_linux_builtin_roots(
+    monkeypatch,
+    tmp_path: Path,
+    client: str,
+    app_tail: Path,
+):
+    base = tmp_path / "system-apps"
+    install_path = _write_builtin_extension(
+        base / app_tail,
+        "vendor-ai",
+        {"publisher": "Vendor", "name": "vendor-ai", "version": "1.0.0"},
+    )
+    monkeypatch.setattr(platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        vscode_extensions_module,
+        "_BUILTIN_ROOT_LAYOUTS",
+        {"Linux": ((client, app_tail, (("absolute", str(base)),)),)},
+    )
+
+    [artifact] = scan_vscode_extensions(home=tmp_path / "home")
+
+    assert artifact.client == client
+    assert artifact.scope == "builtin"
+    assert artifact.install_path == str(install_path)
+
+
+def test_scan_vscode_extensions_follows_symlinked_linux_builtin_base(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    real_base = tmp_path / "real-snap"
+    linked_base = tmp_path / "snap"
+    app_tail = Path("code/current/usr/share/code/resources/app/extensions")
+    install_path = _write_builtin_extension(
+        real_base / app_tail,
+        "vendor-ai",
+        {"publisher": "Vendor", "name": "vendor-ai", "version": "1.0.0"},
+    )
+    linked_base.symlink_to(real_base, target_is_directory=True)
+    monkeypatch.setattr(platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        vscode_extensions_module,
+        "_BUILTIN_ROOT_LAYOUTS",
+        {"Linux": (("vscode", app_tail, (("absolute", str(linked_base)),)),)},
+    )
+
+    [artifact] = scan_vscode_extensions(home=tmp_path / "home")
+
+    assert artifact.scope == "builtin"
+    assert artifact.install_path == str(install_path)
+
+
+def test_scan_vscode_extensions_skips_builtin_base_below_symlinked_parent(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    real_parent = tmp_path / "real-parent"
+    linked_parent = tmp_path / "linked-parent"
+    real_base = tmp_path / "real-snap"
+    app_tail = Path("code/current/usr/share/code/resources/app/extensions")
+    _write_builtin_extension(
+        real_base / app_tail,
+        "vendor-ai",
+        {"publisher": "Vendor", "name": "vendor-ai", "version": "1.0.0"},
+    )
+    real_parent.mkdir()
+    (real_parent / "snap").symlink_to(real_base, target_is_directory=True)
+    linked_parent.symlink_to(real_parent, target_is_directory=True)
+    monkeypatch.setattr(platform, "system", lambda: "Linux")
+    monkeypatch.setattr(
+        vscode_extensions_module,
+        "_BUILTIN_ROOT_LAYOUTS",
+        {
+            "Linux": (
+                (
+                    "vscode",
+                    app_tail,
+                    (("absolute", str(linked_parent / "snap")),),
+                ),
+            )
+        },
+    )
+
+    assert scan_vscode_extensions(home=tmp_path / "home") == []
+
+
+def test_scan_vscode_extensions_covers_user_flatpak_builtin(
+    monkeypatch,
+    tmp_path: Path,
+):
+    home = tmp_path / "home"
+    builtin_root = (
+        home
+        / ".local"
+        / "share"
+        / "flatpak"
+        / "app"
+        / "com.vscodium.codium"
+        / "current"
+        / "active"
+        / "files"
+        / "share"
+        / "codium"
+        / "resources"
+        / "app"
+        / "extensions"
+    )
+    install_path = _write_builtin_extension(
+        builtin_root,
+        "vendor-ai",
+        {"publisher": "Vendor", "name": "vendor-ai", "version": "1.0.0"},
+    )
+    monkeypatch.setattr(platform, "system", lambda: "Linux")
+
+    [artifact] = scan_vscode_extensions(home=home)
+
+    assert artifact.client == "vscode"
+    assert artifact.scope == "builtin"
+    assert artifact.install_path == str(install_path)
+
+
 def test_scan_vscode_extensions_covers_remote_server_bundles(tmp_path: Path):
     home = tmp_path / "home"
     extra_home = tmp_path / "wsl" / "home" / "alex"
@@ -179,6 +474,16 @@ def test_scan_vscode_extensions_covers_remote_server_bundles(tmp_path: Path):
         / "server"
         / "extensions"
     )
+    cursor_root = home / ".cursor-server" / "bin" / "commit-c" / "extensions"
+    windsurf_root = (
+        extra_home
+        / ".windsurf-server"
+        / "cli"
+        / "servers"
+        / "commit-d"
+        / "server"
+        / "extensions"
+    )
     legacy_path = _write_builtin_extension(
         legacy_root,
         "copilot",
@@ -189,17 +494,57 @@ def test_scan_vscode_extensions_covers_remote_server_bundles(tmp_path: Path):
         "vendor-ai",
         {"publisher": "Vendor", "name": "vendor-ai", "version": "2.0.0"},
     )
+    cursor_path = _write_builtin_extension(
+        cursor_root,
+        "cursor-ai",
+        {"publisher": "Cursor", "name": "cursor-ai", "version": "3.0.0"},
+    )
+    windsurf_path = _write_builtin_extension(
+        windsurf_root,
+        "windsurf-ai",
+        {"publisher": "Windsurf", "name": "windsurf-ai", "version": "4.0.0"},
+    )
 
     artifacts = scan_vscode_extensions(
         home=home,
         extra_home_roots=[extra_home],
+        machine_scope=False,
     )
 
-    assert {artifact.install_path for artifact in artifacts} == {
+    artifacts_by_path = {artifact.install_path: artifact for artifact in artifacts}
+    assert set(artifacts_by_path) == {
         str(legacy_path),
         str(cli_path),
+        str(cursor_path),
+        str(windsurf_path),
     }
     assert all(artifact.scope == "builtin" for artifact in artifacts)
+    assert artifacts_by_path[str(cursor_path)].client == "cursor"
+    assert artifacts_by_path[str(windsurf_path)].client == "windsurf"
+
+
+def test_scan_vscode_extensions_covers_devin_server_remote_roots(tmp_path: Path):
+    home = tmp_path / "home"
+    user_path = _write_extension(
+        home,
+        ".devin-server",
+        "vendor.user-ai-1.0.0",
+        {"publisher": "Vendor", "name": "user-ai", "version": "1.0.0"},
+    )
+    builtin_path = _write_builtin_extension(
+        home / ".devin-server" / "bin" / "commit-a" / "extensions",
+        "vendor-builtin-ai",
+        {"publisher": "Vendor", "name": "builtin-ai", "version": "2.0.0"},
+    )
+
+    artifacts = scan_vscode_extensions(home=home, machine_scope=False)
+    artifacts_by_path = {artifact.install_path: artifact for artifact in artifacts}
+
+    assert set(artifacts_by_path) == {str(user_path), str(builtin_path)}
+    assert artifacts_by_path[str(user_path)].client == "windsurf"
+    assert artifacts_by_path[str(user_path)].scope == "global"
+    assert artifacts_by_path[str(builtin_path)].client == "windsurf"
+    assert artifacts_by_path[str(builtin_path)].scope == "builtin"
 
 
 def test_scan_vscode_extensions_reuses_one_followed_remote_host_layout(
@@ -232,6 +577,35 @@ def test_scan_vscode_extensions_reuses_one_followed_remote_host_layout(
     assert {artifact.scope for artifact in artifacts} == {"global", "builtin"}
 
 
+def test_scan_vscode_extensions_symlinked_remote_layout_survives_exhausted_follow_budget(
+    monkeypatch,
+    tmp_path: Path,
+):
+    external_host = tmp_path / "external-vscode-server"
+    user_target = _write_builtin_extension(
+        external_host / "extensions",
+        "github.copilot-1.0.0",
+        {"publisher": "GitHub", "name": "copilot", "version": "1.0.0"},
+    )
+    home = tmp_path / "home"
+    home.mkdir()
+    (home / ".vscode-server").symlink_to(external_host, target_is_directory=True)
+    # Model an exhausted shared follow budget. The claim_final=False
+    # _extension_collection_root resolution must not spend any slot on the
+    # relocated extensions directory; with the bug it would admit the target,
+    # drop the layout, and mark the scan incomplete.
+    monkeypatch.setattr(vscode_extensions_module, "MAX_FOLLOWED_SYMLINK_TARGETS", 0)
+    scan_status = ScanCompletionStatus()
+
+    artifacts = scan_vscode_extensions(home=home, scan_status=scan_status)
+
+    assert {artifact.install_path for artifact in artifacts} == {
+        str(user_target.resolve()),
+    }
+    assert scan_status.complete is True
+    assert "vscode_extension_symlink_follow_capped" not in scan_status.reasons
+
+
 def test_scan_vscode_extensions_bounds_remote_server_root_candidates(
     monkeypatch,
     tmp_path: Path,
@@ -254,11 +628,84 @@ def test_scan_vscode_extensions_bounds_remote_server_root_candidates(
         "MAX_REMOTE_SERVER_ROOT_CANDIDATES_PER_HOME",
         1,
     )
+    scan_status = ScanCompletionStatus()
 
-    artifacts = scan_vscode_extensions(home=tmp_path)
+    artifacts = scan_vscode_extensions(home=tmp_path, scan_status=scan_status)
 
     assert len(artifacts) == 1
     assert artifacts[0].scope == "builtin"
+    assert scan_status.complete is False
+    assert "vscode_remote_server_root_scan_capped" in scan_status.reasons
+
+
+def test_explicit_extension_root_cap_marks_scan_incomplete(monkeypatch, tmp_path: Path):
+    roots = [tmp_path / "one", tmp_path / "two"]
+    for root in roots:
+        root.mkdir()
+    monkeypatch.setattr(
+        vscode_extensions_module,
+        "MAX_EXPLICIT_EXTENSION_ROOTS",
+        1,
+    )
+    scan_status = ScanCompletionStatus()
+
+    scan_vscode_extensions(
+        extra_extension_roots=[
+            vscode_extensions_module.VSCodeExtensionRoot(
+                path=root,
+                client="vscode",
+            )
+            for root in roots
+        ],
+        include_standard_roots=False,
+        scan_status=scan_status,
+    )
+
+    assert "vscode_explicit_extension_roots_capped" in scan_status.reasons
+
+
+def test_unresolvable_explicit_extension_root_marks_scan_incomplete(tmp_path: Path):
+    scan_status = ScanCompletionStatus()
+
+    scan_vscode_extensions(
+        extra_extension_roots=[
+            vscode_extensions_module.VSCodeExtensionRoot(
+                path=tmp_path / "missing",
+                client="vscode",
+            )
+        ],
+        include_standard_roots=False,
+        scan_status=scan_status,
+    )
+
+    assert "vscode_explicit_extension_root_unresolved" in scan_status.reasons
+
+
+def test_wsl_process_extension_root_artifacts_keep_distro_identity(tmp_path: Path):
+    root = tmp_path / "extensions"
+    _write_builtin_extension(
+        root,
+        "github.copilot-chat-1.0.0",
+        {
+            "publisher": "GitHub",
+            "name": "copilot-chat",
+            "version": "1.0.0",
+        },
+    )
+
+    artifacts = vscode_extensions_module.scan_vscode_extension_roots(
+        [
+            vscode_extensions_module.VSCodeExtensionRoot(
+                path=root,
+                client="vscode",
+                wsl_distro="Ubuntu",
+            )
+        ]
+    )
+
+    assert len(artifacts) == 1
+    assert artifacts[0].scope == "process_override"
+    assert artifacts[0].wsl_distro == "Ubuntu"
 
 
 def test_scan_vscode_extensions_filters_builtin_platform_noise(
@@ -282,8 +729,185 @@ def test_scan_vscode_extensions_filters_builtin_platform_noise(
         "_BUILTIN_ROOT_LAYOUTS",
         _absolute_builtin_layout(builtin_root),
     )
+    device_status = ScanCompletionStatus()
 
-    assert scan_vscode_extensions(home=tmp_path) == []
+    assert scan_vscode_extensions(home=tmp_path, device_scan_status=device_status) == []
+    assert device_status.complete is True
+
+
+def test_windows_device_builtin_reparse_manifest_marks_device_incomplete(
+    monkeypatch,
+    tmp_path: Path,
+):
+    builtin_root = tmp_path / "vscode-app" / "extensions"
+    install_path = builtin_root / "vendor-ai"
+    install_path.mkdir(parents=True)
+    manifest_target = tmp_path / "external-package.json"
+    manifest_target.write_text(
+        json.dumps({"publisher": "Vendor", "name": "ai", "version": "1.0.0"})
+    )
+    (install_path / "package.json").symlink_to(manifest_target)
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(
+        vscode_extensions_module,
+        "_BUILTIN_ROOT_LAYOUTS",
+        _absolute_builtin_layout(builtin_root),
+    )
+    monkeypatch.setattr(
+        vscode_extensions_module,
+        "is_windows_system_context",
+        lambda: True,
+    )
+    host_status = ScanCompletionStatus()
+    device_status = ScanCompletionStatus()
+
+    artifacts = scan_vscode_extensions(
+        home=tmp_path,
+        scan_status=host_status,
+        device_scan_status=device_status,
+    )
+
+    assert artifacts == []
+    assert host_status.complete is True
+    assert device_status.complete is False
+    assert "vscode_builtin_manifest_read_failed" in device_status.reasons
+
+
+@pytest.mark.parametrize("manifest_content", [b"{", b"x" * (1024 * 1024 + 1)])
+def test_device_builtin_manifest_failure_marks_device_incomplete(
+    monkeypatch,
+    tmp_path: Path,
+    manifest_content: bytes,
+):
+    builtin_root = tmp_path / "vscode-app" / "extensions"
+    install_path = builtin_root / "vendor-ai"
+    install_path.mkdir(parents=True)
+    (install_path / "package.json").write_bytes(manifest_content)
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(
+        vscode_extensions_module,
+        "_BUILTIN_ROOT_LAYOUTS",
+        _absolute_builtin_layout(builtin_root),
+    )
+    host_status = ScanCompletionStatus()
+    device_status = ScanCompletionStatus()
+
+    artifacts = scan_vscode_extensions(
+        home=tmp_path,
+        scan_status=host_status,
+        device_scan_status=device_status,
+    )
+
+    assert artifacts == []
+    assert host_status.complete is True
+    assert device_status.complete is False
+    assert "vscode_builtin_manifest_read_failed" in device_status.reasons
+
+
+def test_unreadable_device_builtin_manifest_marks_device_incomplete(
+    monkeypatch,
+    tmp_path: Path,
+):
+    builtin_root = tmp_path / "vscode-app" / "extensions"
+    _write_builtin_extension(
+        builtin_root,
+        "vendor-ai",
+        {"publisher": "Vendor", "name": "ai", "version": "1.0.0"},
+    )
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(
+        vscode_extensions_module,
+        "_BUILTIN_ROOT_LAYOUTS",
+        _absolute_builtin_layout(builtin_root),
+    )
+    monkeypatch.setattr(
+        vscode_extensions_module, "read_bounded", lambda *_a, **_k: None
+    )
+    device_status = ScanCompletionStatus()
+
+    artifacts = scan_vscode_extensions(
+        home=tmp_path,
+        device_scan_status=device_status,
+    )
+
+    assert artifacts == []
+    assert device_status.complete is False
+    assert "vscode_builtin_manifest_read_failed" in device_status.reasons
+
+
+def test_device_builtin_directory_error_preserves_user_findings(
+    monkeypatch,
+    tmp_path: Path,
+):
+    user_path = _write_extension(
+        tmp_path,
+        ".vscode",
+        "vendor.ai-1.0.0",
+        {"publisher": "Vendor", "name": "ai", "version": "1.0.0"},
+    )
+    builtin_root = tmp_path / "vscode-app" / "extensions"
+    _write_builtin_extension(
+        builtin_root,
+        "vendor-ai",
+        {"publisher": "Vendor", "name": "ai", "version": "1.0.0"},
+    )
+    monkeypatch.setattr(platform, "system", lambda: "Darwin")
+    monkeypatch.setattr(
+        vscode_extensions_module,
+        "_BUILTIN_ROOT_LAYOUTS",
+        _absolute_builtin_layout(builtin_root),
+    )
+    original_iterdir = Path.iterdir
+
+    def iterdir(path: Path):
+        if path == builtin_root:
+            raise OSError("denied")
+        return original_iterdir(path)
+
+    monkeypatch.setattr(Path, "iterdir", iterdir)
+    host_status = ScanCompletionStatus()
+    device_status = ScanCompletionStatus()
+
+    artifacts = scan_vscode_extensions(
+        home=tmp_path,
+        scan_status=host_status,
+        device_scan_status=device_status,
+    )
+
+    assert [artifact.install_path for artifact in artifacts] == [str(user_path)]
+    assert host_status.complete is True
+    assert device_status.complete is False
+    assert "vscode_extension_directory_read_failed" in device_status.reasons
+
+
+def test_user_directory_error_marks_host_status_only(
+    monkeypatch,
+    tmp_path: Path,
+) -> None:
+    user_root = tmp_path / ".vscode" / "extensions"
+    user_root.mkdir(parents=True)
+    original_iterdir = Path.iterdir
+
+    def iterdir(path: Path):
+        if path == user_root:
+            raise OSError("denied")
+        return original_iterdir(path)
+
+    monkeypatch.setattr(Path, "iterdir", iterdir)
+    host_status = ScanCompletionStatus()
+    device_status = ScanCompletionStatus()
+
+    assert (
+        scan_vscode_extensions(
+            home=tmp_path,
+            scan_status=host_status,
+            device_scan_status=device_status,
+        )
+        == []
+    )
+    assert host_status.complete is False
+    assert "vscode_extension_directory_read_failed" in host_status.reasons
+    assert device_status.complete is True
 
 
 def test_scan_vscode_extensions_dedupes_builtin_and_user_copy_by_identifier(
@@ -495,8 +1119,16 @@ def test_plugin_artifact_phase_includes_vscode_extensions_and_wsl_roots(
     ):
         monkeypatch.setattr(orchestrator, scanner_name, lambda **kwargs: [])
 
-    def scan_vscode_extensions_stub(*, extra_home_roots, checkpoint):
+    def scan_vscode_extensions_stub(
+        *,
+        extra_home_roots,
+        machine_scope,
+        checkpoint,
+        scan_status,
+        device_scan_status,
+    ):
         captured["extra_home_roots"] = extra_home_roots
+        captured["machine_scope"] = machine_scope
         captured["checkpoint"] = checkpoint
         return [expected]
 
@@ -514,6 +1146,7 @@ def test_plugin_artifact_phase_includes_vscode_extensions_and_wsl_roots(
 
     assert result == [expected]
     assert captured["extra_home_roots"] == [tmp_path]
+    assert captured["machine_scope"] is True
     assert captured["checkpoint"] is governor_checkpoint
 
 
@@ -551,6 +1184,34 @@ def test_plugin_artifact_phase_passes_wsl_homes_to_artifact_scanners(
 
     for scanner_name in scanner_names:
         assert calls[scanner_name] == [None, wsl_home]
+
+
+@pytest.mark.parametrize(
+    ("host_dir", "client"),
+    [
+        (".local/share/code-server", "vscode"),
+        (".openvscode-server", "vscode"),
+        (".devin", "windsurf"),
+        (".var/app/com.visualstudio.code/data/vscode", "vscode"),
+        (".var/app/com.vscodium.codium/data/codium", "vscode"),
+    ],
+)
+def test_scan_vscode_extensions_covers_additional_user_roots(
+    tmp_path: Path,
+    host_dir: str,
+    client: str,
+):
+    install_path = _write_extension(
+        tmp_path,
+        host_dir,
+        "github.copilot-1.0.0",
+        {"publisher": "GitHub", "name": "copilot", "version": "1.0.0"},
+    )
+
+    [artifact] = scan_vscode_extensions(home=tmp_path)
+
+    assert artifact.client == client
+    assert artifact.install_path == str(install_path)
 
 
 @pytest.mark.parametrize(
@@ -1027,8 +1688,11 @@ def test_scan_vscode_extensions_follows_intermediate_symlink_in_allowed_system_r
         "_BUILTIN_ROOT_LAYOUTS",
         {
             "Darwin": (
-                (Path("vscode-app/extensions"),),
-                (("absolute", str(applications)),),
+                (
+                    "vscode",
+                    Path("vscode-app/extensions"),
+                    (("absolute", str(applications)),),
+                ),
             )
         },
     )
@@ -1064,12 +1728,12 @@ def test_scan_vscode_extensions_resolves_covered_root_before_distinct_tail(
     }
 
 
-def test_scan_vscode_extensions_does_not_follow_ancestor_of_absolute_layout(
+def test_scan_vscode_extensions_follows_symlinked_absolute_layout_base(
     monkeypatch,
     tmp_path: Path,
 ):
     actual_applications = tmp_path / "actual-applications"
-    _write_builtin_extension(
+    install_path = _write_builtin_extension(
         actual_applications / "vscode-app" / "extensions",
         "copilot",
         {"publisher": "GitHub", "name": "copilot-chat", "version": "1.0.0"},
@@ -1084,13 +1748,18 @@ def test_scan_vscode_extensions_does_not_follow_ancestor_of_absolute_layout(
         "_BUILTIN_ROOT_LAYOUTS",
         {
             "Darwin": (
-                (Path("vscode-app/extensions"),),
-                (("absolute", str(linked_applications)),),
+                (
+                    "vscode",
+                    Path("vscode-app/extensions"),
+                    (("absolute", str(linked_applications)),),
+                ),
             )
         },
     )
 
-    assert scan_vscode_extensions(home=home) == []
+    [artifact] = scan_vscode_extensions(home=home)
+
+    assert artifact.install_path == str(install_path)
 
 
 def test_scan_vscode_extensions_continues_after_permission_failure(
@@ -1190,8 +1859,46 @@ def test_scan_vscode_extensions_cap_is_scan_wide_fair_and_checkpointed(
         nonlocal checkpoints
         checkpoints += 1
 
-    artifacts = scan_vscode_extensions(home=tmp_path, checkpoint=checkpoint)
+    scan_status = ScanCompletionStatus()
+    artifacts = scan_vscode_extensions(
+        home=tmp_path,
+        checkpoint=checkpoint,
+        scan_status=scan_status,
+    )
 
     assert len(artifacts) == 2
     assert {artifact.client for artifact in artifacts} == {"vscode", "cursor"}
     assert checkpoints >= 2
+    assert "vscode_extension_scan_capped" in scan_status.reasons
+
+
+def test_scan_vscode_extensions_exact_capacity_remains_complete(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    for index in range(2):
+        _write_extension(
+            tmp_path,
+            ".vscode",
+            f"example.extension-{index}.0.0",
+            {
+                "publisher": "example",
+                "name": f"extension-{index}",
+                "version": "1.0.0",
+            },
+        )
+    monkeypatch.setattr(vscode_extensions_module, "MAX_EXTENSIONS_PER_SCAN", 2)
+    scan_status = ScanCompletionStatus()
+
+    artifacts = scan_vscode_extensions(home=tmp_path, scan_status=scan_status)
+
+    assert len(artifacts) == 2
+    assert "vscode_extension_scan_capped" not in scan_status.reasons
+
+
+def test_deeply_nested_extension_manifest_is_rejected_not_raised():
+    """RecursionError from json.loads must stay inside the parser (ISS-01)."""
+    assert (
+        vscode_extensions_module.parse_vscode_extension_manifest(DEEP_NESTING_BYTES)
+        is None
+    )

@@ -1,6 +1,6 @@
-from .helpers.global_data import OsOpsDescr
-from .helpers.global_data import OsOpsDescrs
-from .helpers.global_data import OsOperations
+from tests.helpers.global_data import OsOpsDescr
+from tests.helpers.global_data import OsOpsDescrs
+from tests.helpers.global_data import OsOperations
 
 from src.utils import parse_pg_version
 from src.utils import get_pg_config2

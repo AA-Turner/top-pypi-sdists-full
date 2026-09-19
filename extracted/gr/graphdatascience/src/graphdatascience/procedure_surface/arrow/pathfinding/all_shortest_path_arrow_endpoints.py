@@ -5,7 +5,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.job_handle import JobHandle
@@ -23,9 +23,8 @@ from graphdatascience.procedure_surface.arrow.pathfinding.single_source_delta_ar
 from graphdatascience.procedure_surface.arrow.pathfinding.single_source_dijkstra_arrow_endpoints import (
     SingleSourceDijkstraArrowEndpoints,
 )
-from graphdatascience.procedure_surface.arrow.stream_result_mapper import map_all_shortest_path_stream_result
 from graphdatascience.procedure_surface.arrow.table_endpoints_helper import TableEndpointsHelper
-from graphdatascience.query_runner.protocol.write_protocols import WriteProtocol
+from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
 class AllShortestPathArrowEndpoints(AllShortestPathEndpoints):
@@ -42,7 +41,7 @@ class AllShortestPathArrowEndpoints(AllShortestPathEndpoints):
 
     def compute(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         job_id: str | None = None,
@@ -67,7 +66,7 @@ class AllShortestPathArrowEndpoints(AllShortestPathEndpoints):
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         job_id: str | None = None,
@@ -89,13 +88,11 @@ class AllShortestPathArrowEndpoints(AllShortestPathEndpoints):
             relationship_weight_property=relationship_weight_property,
         )
 
-        result = self._endpoint_helper.run_job_and_stream("v2/pathfinding.allShortestPaths", G, config)
-        map_all_shortest_path_stream_result(result)
-        return result
+        return self._endpoint_helper.run_job_and_stream("v2/pathfinding.allShortestPaths", G, config)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         *,
         relationship_weight_property: str | None = None,
         relationship_types: list[str] = ALL_TYPES,

@@ -565,6 +565,45 @@ def test(assignment_id: str, config_path: Path, verdict: str | None, reason: str
         elif verdict == "running":
             click.echo("  (transient — record --passed/--fail/--skipped when the run concludes)")
 
+        # #3386 (item 3 of #3378): tell the human RIGHT HERE how close (or
+        # past) this repo is to the consecutive baseline-red merge-block
+        # limit — `record_test_verdict` above just incremented it if this
+        # was a `baseline_red`-confirmed skip
+        # (`coord.confirm_test.test_confirmation_for_skip_reason`). Silence
+        # here is exactly how #3378's bypass ran unnoticed for 33 days: the
+        # command that records the bypass is the one place a human is
+        # already looking.
+        if test_confirmation == "baseline_red":
+            from coord.state import (
+                BASELINE_RED_STREAK_LIMIT,
+                baseline_red_merge_blocked,
+                baseline_red_streak,
+            )
+
+            # #3386 review: `baseline_red_merge_blocked` is the ONE predicate
+            # both the real merge refusal (`coord.merge_queue.
+            # evaluate_smoke_verdict`) and any repo-level alert surface must
+            # call — never a second, independently-derived comparison
+            # against `BASELINE_RED_STREAK_LIMIT` (#2096). This echo used to
+            # re-derive `streak >= BASELINE_RED_STREAK_LIMIT` itself; now it
+            # asks the same function the merge gate asks, so the two can
+            # never silently disagree.
+            streak = baseline_red_streak(assignment.repo_name)
+            if baseline_red_merge_blocked(assignment.repo_name):
+                click.echo(
+                    f"  WARNING: {assignment.repo_name} has now recorded {streak} "
+                    f"consecutive baseline-red (#2170) classifications — "
+                    f"`coord merge` will refuse EVERY branch on this repo until "
+                    f"the merge base itself is fixed (#3386)."
+                )
+            else:
+                click.echo(
+                    f"  note: {assignment.repo_name}'s consecutive baseline-red "
+                    f"streak is now {streak}/{BASELINE_RED_STREAK_LIMIT} — "
+                    f"merges for this repo stop at {BASELINE_RED_STREAK_LIMIT} "
+                    f"in a row with no genuine pass in between (#3386)."
+                )
+
         # #271 part 1: restore the local checkout to `default_branch` after a
         # pass/skip verdict (legacy safety — #561 means a Build no longer moves
         # the base, so this is a no-op on fresh checkouts), and #561: remove the

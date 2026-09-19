@@ -3514,6 +3514,144 @@ def test_incremental_rebuild_preserves_python_call_to_unchanged_target(tmp_path)
     assert sorted(_2406_calls(_2406_graph(corpus))) == sorted(full)
 
 
+# --- Rust generic self calls into unchanged impls ---------------------------
+
+_RUST_GENERIC_STATE = "pub struct Bucket<T> { value: T }\n"
+_RUST_GENERIC_METHOD = (
+    "impl<T> Bucket<T> {\n"
+    "    pub fn fetch_value(&self) {}\n"
+    "}\n"
+)
+_RUST_GENERIC_CALLER = (
+    "impl<U> Bucket<U> {\n"
+    "    pub fn run(&self) {\n%s        self.fetch_value();\n"
+    "    }\n"
+    "}\n"
+)
+
+
+def _rust_generic_seed(tmp_path):
+    from graphify.watch import _rebuild_code
+
+    corpus = tmp_path / "corpus"
+    corpus.mkdir(parents=True)
+    (corpus / "state.rs").write_text(_RUST_GENERIC_STATE, encoding="utf-8")
+    (corpus / "method.rs").write_text(_RUST_GENERIC_METHOD, encoding="utf-8")
+    (corpus / "caller.rs").write_text(
+        _RUST_GENERIC_CALLER % "", encoding="utf-8"
+    )
+    assert _rebuild_code(corpus, no_cluster=True, acquire_lock=False) is True
+    return corpus
+
+
+def _rust_generic_call(graph):
+    caller = _2406_nid(graph, ".run()", "caller.rs")
+    callee = _2406_nid(graph, ".fetch_value()", "method.rs")
+    return (caller, callee) in _2406_calls(graph)
+
+
+def test_incremental_rust_generic_self_call_uses_unchanged_impl_context(tmp_path):
+    """A changed generic caller retains its call into an unchanged impl block."""
+    from graphify.watch import _rebuild_code
+
+    corpus = _rust_generic_seed(tmp_path)
+    assert _rust_generic_call(_2406_graph(corpus))
+
+    caller = corpus / "caller.rs"
+    caller.write_text(
+        _RUST_GENERIC_CALLER % "        let marker = 1;\n",
+        encoding="utf-8",
+    )
+    assert _rebuild_code(
+        corpus, changed_paths=[caller], no_cluster=True, acquire_lock=False
+    ) is True
+    assert _rust_generic_call(_2406_graph(corpus))
+
+
+def test_incremental_rust_generic_self_call_legacy_marker_fails_closed(tmp_path):
+    """A pre-marker graph does not guess; re-extraction restores the edge."""
+    from graphify.watch import _rebuild_code
+
+    corpus = _rust_generic_seed(tmp_path)
+    graph_path = corpus / "graphify-out" / "graph.json"
+    legacy = _2406_graph(corpus)
+    assert any(node.get("_rust_impl_key") for node in legacy["nodes"])
+    for node in legacy["nodes"]:
+        node.pop("_rust_impl_key", None)
+    graph_path.write_text(json.dumps(legacy), encoding="utf-8")
+
+    caller = corpus / "caller.rs"
+    caller.write_text(
+        _RUST_GENERIC_CALLER % "        let marker = 1;\n",
+        encoding="utf-8",
+    )
+    assert _rebuild_code(
+        corpus, changed_paths=[caller], no_cluster=True, acquire_lock=False
+    ) is True
+    assert not _rust_generic_call(_2406_graph(corpus))
+
+    state = corpus / "state.rs"
+    method = corpus / "method.rs"
+    state.write_text(_RUST_GENERIC_STATE + "// refreshed\n", encoding="utf-8")
+    method.write_text(_RUST_GENERIC_METHOD + "// refreshed\n", encoding="utf-8")
+    assert _rebuild_code(
+        corpus,
+        changed_paths=[state, method, caller],
+        no_cluster=True,
+        acquire_lock=False,
+    ) is True
+    assert _rust_generic_call(_2406_graph(corpus))
+
+
+def test_incremental_rust_generic_self_call_keeps_module_ambiguity(tmp_path):
+    """A collapsed same-file declaration count survives context projection."""
+    from graphify.watch import _rebuild_code
+
+    corpus = tmp_path / "corpus"
+    corpus.mkdir()
+    (corpus / "state.rs").write_text(
+        "pub mod a { pub struct Bucket<T>(pub T); }\n"
+        "pub mod b { pub struct Bucket<T>(pub T); }\n",
+        encoding="utf-8",
+    )
+    (corpus / "a_impl.rs").write_text(
+        "impl<T> Bucket<T> { pub fn fetch_value(&self) {} }\n",
+        encoding="utf-8",
+    )
+    (corpus / "fallback.rs").write_text(
+        "pub trait Fallback { fn fetch_value(&self) {} }\n",
+        encoding="utf-8",
+    )
+    caller = corpus / "b_impl.rs"
+    caller.write_text(
+        "impl<T> Fallback for Bucket<T> {}\n"
+        "impl<U> Bucket<U> { pub fn run(&self) { self.fetch_value(); } }\n",
+        encoding="utf-8",
+    )
+
+    def has_call():
+        graph = _2406_graph(corpus)
+        run_id = _2406_nid(graph, ".run()", "b_impl.rs")
+        return any(
+            edge.get("relation") == "calls" and edge.get("source") == run_id
+            for edge in graph.get("links", graph.get("edges", []))
+        )
+
+    assert _rebuild_code(corpus, no_cluster=True, acquire_lock=False) is True
+    assert not has_call()
+    caller.write_text(
+        "impl<T> Fallback for Bucket<T> {}\n"
+        "impl<U> Bucket<U> {\n"
+        "    pub fn run(&self) { let marker = 1; self.fetch_value(); }\n"
+        "}\n",
+        encoding="utf-8",
+    )
+    assert _rebuild_code(
+        corpus, changed_paths=[caller], no_cluster=True, acquire_lock=False
+    ) is True
+    assert not has_call()
+
+
 # --- #3567: inherited Ruby calls into unchanged ancestry --------------------
 
 
@@ -4027,11 +4165,13 @@ def _ast_reference(source, target, source_file, **extra):
     }
 
 
-def test_markdown_reconcile_links_new_source_to_semantic_target(tmp_path):
+@pytest.mark.parametrize("suffix", [".md", ".mdx", ".qmd", ".skill"])
+def test_markdown_reconcile_links_new_source_to_semantic_target(tmp_path, suffix):
     """#1915/#1954: a fresh source reaches a semantic-only target."""
+    source_file = f"a{suffix}"
     corpus, graph_path = _markdown_reconcile_fixture(
         tmp_path,
-        {"a.md": "[link](b.md)\n", "b.md": "target\n"},
+        {source_file: "[link](b.md)\n", "b.md": "target\n"},
         [_semantic_doc("b_sem", "b.md")],
         [],
     )
@@ -4085,15 +4225,100 @@ def test_markdown_reconcile_preserves_ambiguous_source(tmp_path):
     assert references[0]["sentinel"] == "keep"
 
 
-def test_markdown_reconcile_prunes_removed_authored_link(tmp_path):
+@pytest.mark.parametrize("suffix", [".md", ".mdx", ".qmd", ".skill"])
+def test_markdown_reconcile_prunes_removed_authored_link(tmp_path, suffix):
     """#1915/#1954: removing a Markdown link removes its owned AST edge."""
+    source_file = f"a{suffix}"
     corpus, graph_path = _markdown_reconcile_fixture(
         tmp_path,
-        {"a.md": "no link\n", "b.md": "target\n"},
-        [_semantic_doc("a_sem", "a.md"), _semantic_doc("b_sem", "b.md")],
-        [_ast_reference("a_sem", "b_sem", "a.md")],
+        {source_file: "no link\n", "b.md": "target\n"},
+        [_semantic_doc("a_sem", source_file), _semantic_doc("b_sem", "b.md")],
+        [_ast_reference("a_sem", "b_sem", source_file)],
     )
 
+    assert _rebuild_code(corpus, no_cluster=True, acquire_lock=False) is True
+    links = json.loads(graph_path.read_text(encoding="utf-8"))["links"]
+    assert not any(edge.get("relation") == "references" for edge in links)
+
+
+@pytest.mark.parametrize("suffix", [".md", ".mdx", ".qmd", ".skill"])
+def test_markdown_reconcile_repoints_incremental_link_to_semantic_target(
+    tmp_path, suffix
+):
+    """A changed Markdown source reuses the target's semantic representative."""
+    source_file = f"a{suffix}"
+    corpus, graph_path = _markdown_reconcile_fixture(
+        tmp_path,
+        {source_file: "[link](b.md)\n", "b.md": "target\n"},
+        [
+            {
+                "id": "a",
+                "label": source_file,
+                "node_kind": "page",
+                "file_type": "document",
+                "source_file": source_file,
+                "source_location": "L1",
+                "_origin": "ast",
+            },
+            _semantic_doc("b_sem", "b.md"),
+        ],
+        [],
+    )
+
+    for _ in range(2):
+        assert _rebuild_code(
+            corpus,
+            changed_paths=[corpus / source_file],
+            no_cluster=True,
+            acquire_lock=False,
+        ) is True
+        links = json.loads(graph_path.read_text(encoding="utf-8"))["links"]
+        references = [edge for edge in links if edge.get("relation") == "references"]
+        assert len(references) == 1
+        assert {references[0]["source"], references[0]["target"]} == {"a", "b_sem"}
+
+
+@pytest.mark.parametrize("suffix", [".md", ".mdx", ".qmd", ".skill"])
+def test_markdown_reconcile_preserves_links_on_extraction_error(
+    tmp_path, monkeypatch, suffix
+):
+    """A failed parse cannot claim ownership of persisted authored links."""
+    import graphify.extract as extract_module
+
+    source_file = f"a{suffix}"
+    corpus, graph_path = _markdown_reconcile_fixture(
+        tmp_path,
+        {source_file: "[link](b.md)\n", "b.md": "target\n"},
+        [_semantic_doc("a_sem", source_file), _semantic_doc("b_sem", "b.md")],
+        [_ast_reference("a_sem", "b_sem", source_file, sentinel="keep")],
+    )
+    source_path = (corpus / source_file).resolve()
+    real_extract = extract_module._safe_extract_with_xaml_root
+    fail_source = True
+
+    def controlled_extract(extractor, path, root):
+        if fail_source and path.resolve() == source_path:
+            return {"nodes": [], "edges": [], "error": "simulated read failure"}
+        return real_extract(extractor, path, root)
+
+    monkeypatch.setattr(
+        extract_module, "_safe_extract_with_xaml_root", controlled_extract
+    )
+
+    assert _rebuild_code(corpus, no_cluster=True, acquire_lock=False) is True
+    links = json.loads(graph_path.read_text(encoding="utf-8"))["links"]
+    references = [edge for edge in links if edge.get("relation") == "references"]
+    assert len(references) == 1
+    assert references[0]["sentinel"] == "keep"
+
+    fail_source = False
+    assert _rebuild_code(corpus, no_cluster=True, acquire_lock=False) is True
+    links = json.loads(graph_path.read_text(encoding="utf-8"))["links"]
+    references = [edge for edge in links if edge.get("relation") == "references"]
+    assert len(references) == 1
+    assert {references[0]["source"], references[0]["target"]} == {"a_sem", "b_sem"}
+
+    (corpus / source_file).write_text("no link\n", encoding="utf-8")
     assert _rebuild_code(corpus, no_cluster=True, acquire_lock=False) is True
     links = json.loads(graph_path.read_text(encoding="utf-8"))["links"]
     assert not any(edge.get("relation") == "references" for edge in links)

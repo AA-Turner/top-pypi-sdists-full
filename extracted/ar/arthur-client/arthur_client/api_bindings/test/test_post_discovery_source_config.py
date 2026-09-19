@@ -44,7 +44,8 @@ class TestPostDiscoverySourceConfig(unittest.TestCase):
                 lookback_window_seconds = 56,
                 engine_ids = [
                     ''
-                    ]
+                    ],
+                is_enabled = True
             )
         else:
             return PostDiscoverySourceConfig(

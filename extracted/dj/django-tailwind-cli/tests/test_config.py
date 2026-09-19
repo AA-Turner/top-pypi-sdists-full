@@ -534,7 +534,7 @@ def test_css_map_duplicate_names(settings: Settings):
     ],
 )
 def test_css_map_rejects_a_duplicate_destination(first: str, second: str, settings: Settings):
-    """Two entries writing one file: the second is skipped as up to date and reported as built.
+    """Two entries must not overwrite each other by writing to the same output file.
 
     The spellings below all name the same file once joined onto the static dir, so comparing the
     raw setting strings would let every case but the first one through.
@@ -668,7 +668,7 @@ def test_system_binary_empty_name_raises(settings: Settings):
 
 
 def test_get_config_never_reads_the_binary_version(settings: Settings, mocker: MockerFixture):
-    """The template tag calls get_config() on every render — no subprocess may hide in there.
+    """Resolving command configuration must not execute the binary.
 
     The version comparison for a binary this library did not download lives on the command path;
     see the system-binary tests in test_management_commands.py.

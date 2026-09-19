@@ -495,6 +495,16 @@ async def _lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     configure_error_capture(record_error)
 
+    # The request context seam, installed exactly as aidream installs it. Without
+    # it `matrx_utils.ctx` answers "no organization" for every call on this host,
+    # and the org-scoped page cache would refuse writes on work that DID arrive
+    # with a tenant on the wire (`X-Organization-Id`). Routes still resolve the
+    # organization explicitly at the boundary; this is what lets code below the
+    # boundary READ the carried value instead of rebuilding one.
+    from matrx_connect.context.app_context import try_get_app_context
+    from matrx_utils.conf import configure_context
+
+    configure_context(try_get_app_context)
     # 🚨 A BLOCK IS A FINDING, and for weeks this service threw every one of them away
     # (board row H7). The sink itself is installed by the package, off the database binding
     # above (`matrx_scraper.db.web._wire_block_ledger`), so it cannot be forgotten by a new
@@ -800,20 +810,23 @@ def create_app(config: ServerConfig | None = None) -> FastAPI:
     # scraper — the user-login-only path 401'd them. The canonical primitive lives
     # in matrx_connect.service_auth (shared with the sandbox bridge + media-heal).
     #
-    # organization_optional: every write route behind this dependency demands
-    # its OWN explicit `organization_id` request-body field and validates it
-    # itself (e.g. scrape_router.py's `if not (request.organization_id and
-    # ...)`) — the tenant fact never comes from `ctx.organization_id` here.
-    # The dependency's own X-Organization-Id requirement would be a second,
-    # redundant gate this host does not use.
-    scraper_caller = require_authenticated_or_service(
-        config.admin_api_token,
-        organization_optional=True,
-        organization_optional_reason=(
-            "every scraper write route validates its own request-body "
-            "organization_id field; ctx.organization_id is never read"
-        ),
-    )
+    # 🚨 THE ORGANIZATION IS ON THE WIRE OR THE CALL IS REFUSED.
+    # Until 2026-09-17 all four service-facing routers were mounted
+    # `organization_optional=True`, on the reasoning that every write route
+    # validates its own request-body `organization_id`. Two things were wrong
+    # with that: matrx-connect skipped the requirement ENTIRELY for a call that
+    # named no acting user, so a pure server-to-server call arrived with no
+    # tenant at all; and a route that simply forgot its body field then had no
+    # tenant and nothing screamed. Every route behind this dependency reads or
+    # writes tenant work — a crawl/scrape of a customer's page, a durable parsed
+    # page in `scraper.scrape_parsed_page`, a retry-queue claim, a pooled
+    # browser session driven on a tenant's behalf, a preview that spends an
+    # external fetch and a browser hold — so the organization is REQUIRED on
+    # every one of them, and no exemption is declared here. A route that also
+    # receives an organization in its body treats the wire value as the
+    # authority and refuses a disagreement (409).
+    # Law: common-docs/policies/context-is-carried-never-rebuilt.md rule 1.
+    scraper_caller = require_authenticated_or_service(config.admin_api_token)
 
     app.include_router(
         scrape_router,

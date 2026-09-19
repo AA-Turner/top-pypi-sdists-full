@@ -10,6 +10,7 @@ from runlayer_cli.scan.cursor_plugins import (
     read_project_plugin_refs,
     scan_cursor_plugins,
 )
+from tests.hostile_inputs import DEEP_NESTING
 
 
 def _make_client_def(plugin_base: Path) -> MCPClientDefinition:
@@ -202,6 +203,26 @@ class TestDiscoverPlugins:
         client = _make_client_def(tmp_path)
         assert discover_plugins(client) == []
 
+    def test_deeply_nested_plugin_json_does_not_kill_sibling_plugins(
+        self, tmp_path: Path
+    ):
+        """One crafted plugin.json used to drop every phase-10 artifact (ISS-01)."""
+        _create_plugin(
+            tmp_path,
+            "good",
+            mcp_servers={"mcpServers": {"s": {"command": "echo"}}},
+        )
+        hostile = tmp_path / "hostile" / "abc123"
+        hostile.mkdir(parents=True)
+        (hostile / "mcp.json").write_text(DEEP_NESTING)
+        manifest_dir = hostile / ".cursor-plugin"
+        manifest_dir.mkdir()
+        (manifest_dir / "plugin.json").write_text(DEEP_NESTING)
+
+        result = discover_plugins(_make_client_def(tmp_path))
+
+        assert [plugin.name for plugin in result] == ["good"]
+
     def test_multiple_servers_in_plugin(self, tmp_path: Path):
         """A plugin can define multiple servers."""
         _create_plugin(
@@ -287,6 +308,12 @@ class TestReadProjectPluginRefs:
         (cursor_dir / "settings.json").write_text("{bad json")
         result = read_project_plugin_refs([tmp_path])
         assert result == {}
+
+    def test_deeply_nested_settings_skipped(self, tmp_path: Path):
+        cursor_dir = tmp_path / ".cursor"
+        cursor_dir.mkdir()
+        (cursor_dir / "settings.json").write_text(DEEP_NESTING)
+        assert read_project_plugin_refs([tmp_path]) == {}
 
     def test_non_dict_settings_skipped(self, tmp_path: Path):
         """Non-dict settings.json (e.g. JSON array) is skipped."""

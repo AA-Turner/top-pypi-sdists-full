@@ -13,10 +13,13 @@ import shutil
 import signal
 import stat
 import subprocess
+import sys
 import time
 from pathlib import Path
 from typing import Any, Callable, TypedDict
 from urllib.parse import urlparse
+
+from runlayer_cli.managed_policy_publication import publish_managed_policy
 
 
 _RUNLAYER_SCRIPT_NAMES = frozenset(
@@ -106,6 +109,7 @@ _PACKAGE_PATHS = (
     _SYSTEM_PREFERENCES_DIR / "com.runlayer.aiwatch.plist",
     _SYSTEM_PREFERENCES_DIR / "com.runlayer.aiwatch.version.plist",
     Path("/Library/Google/Chrome/NativeMessagingHosts/com.runlayer.aiwatch.json"),
+    Path("/Library/Microsoft/Edge/NativeMessagingHosts/com.runlayer.aiwatch.json"),
     Path(
         "/Library/Application Support/Mozilla/NativeMessagingHosts/"
         "com.runlayer.aiwatch.json"
@@ -128,6 +132,11 @@ _CHROME_EXTERNAL_EXTENSIONS_DIR = Path(
     "/Library/Application Support/Google/Chrome/External Extensions"
 )
 _CHROME_TENANT_MANIFEST_PREFIX = "/api/v1/binary-packages/browser-extension/chrome/"
+_EDGE_POLICY_PATH = Path("/Library/Managed Preferences/com.microsoft.Edge.plist")
+_EDGE_TENANT_POLICY_PATH = Path(
+    "/Library/Managed Preferences/"
+    f"com.microsoft.Edge.extensions.{_RUNLAYER_CHROME_EXTENSION_ID}.plist"
+)
 
 # LLM routing state the dep-free uninstaller must mirror from the install-side
 # ``llm_routing.unroute`` teardown for MDM scope. These constants are dep-free
@@ -1619,6 +1628,29 @@ def clean_chrome_force_install_policy(
     return removed_ids if changed else set()
 
 
+def clean_edge_policy(path: Path, *, _anchor: Path | None = None) -> bool:
+    """Remove only Runlayer's entry from Edge's shared ExtensionSettings."""
+    snapshot = _read_regular_bytes(path, anchor=_anchor)
+    if snapshot is None:
+        return False
+    current = _load_plist_dict(snapshot)
+    if current is None:
+        return False
+    settings = current.get("ExtensionSettings")
+    if not isinstance(settings, dict) or _RUNLAYER_CHROME_EXTENSION_ID not in settings:
+        return False
+    updated = copy.deepcopy(current)
+    del updated["ExtensionSettings"][_RUNLAYER_CHROME_EXTENSION_ID]
+    if not updated["ExtensionSettings"]:
+        updated.pop("ExtensionSettings")
+    if not updated:
+        return _unlink_snapshot(path, snapshot, anchor=_anchor)
+    rendered = _verified_plist_bytes(updated)
+    return rendered is not None and _atomic_replace(
+        path, rendered, snapshot, anchor=_anchor
+    )
+
+
 def _unlink_regular(path: Path, *, anchor: Path | None = None) -> bool:
     if anchor is None:
         if not _path_is_safe(path, None):
@@ -2254,8 +2286,16 @@ def _clean_browser_policies(
         if path is not None:
             changed = bool(_clean_call(clean_firefox_policy, path, _anchor=system_root))
             if configured_path == _FIREFOX_CANONICAL_POLICY_PATH:
-                # Only this plist needs cfprefsd eviction; Managed Preferences does not.
+                # Ordinary Firefox preferences use the existing cleanup refresh.
                 result["preferences_changed"] = changed
+
+    edge_path = _map_system_path(_EDGE_POLICY_PATH, system_root)
+    if edge_path is not None:
+        _clean_call(clean_edge_policy, edge_path, _anchor=system_root)
+    # Corrupt shared policy must not prevent removing the owned tenant credentials.
+    edge_tenant_path = _map_system_path(_EDGE_TENANT_POLICY_PATH, system_root)
+    if edge_tenant_path is not None:
+        _clean_call(_unlink_regular, edge_tenant_path, anchor=system_root)
 
     chrome_path = _map_system_path(
         _CHROME_FORCE_INSTALL_POLICY_PATH,
@@ -2271,9 +2311,6 @@ def _clean_browser_policies(
         )
     except BaseException:
         extension_ids = set()
-    if not extension_ids:
-        return result
-
     managed_preferences_dir = _map_system_path(
         _CHROME_MANAGED_PREFERENCES_DIR,
         system_root,
@@ -2282,7 +2319,11 @@ def _clean_browser_policies(
         _CHROME_EXTERNAL_EXTENSIONS_DIR,
         system_root,
     )
-    if managed_preferences_dir is not None and external_extensions_dir is not None:
+    if (
+        extension_ids
+        and managed_preferences_dir is not None
+        and external_extensions_dir is not None
+    ):
         _clean_call(
             clean_browser_owned_artifacts,
             managed_preferences_dir,
@@ -2290,6 +2331,19 @@ def _clean_browser_policies(
             extension_ids=extension_ids,
             managed_host=managed_host,
         )
+    policy_paths = [
+        path for path in (chrome_path, edge_path, edge_tenant_path) if path is not None
+    ]
+    if managed_preferences_dir is not None:
+        policy_paths.extend(
+            managed_preferences_dir
+            / f"com.google.Chrome.extensions.{extension_id}.plist"
+            for extension_id in extension_ids | {_RUNLAYER_CHROME_EXTENSION_ID}
+        )
+    try:
+        publish_managed_policy(policy_paths)
+    except OSError:
+        result["ok"] = False
     return result
 
 
@@ -2299,6 +2353,11 @@ def _watchdog_exit_success(_signum: int, _frame: object) -> None:
 
 def main() -> int:
     """Run the complete macOS package teardown; always report success."""
+    if len(sys.argv) >= 2 and sys.argv[1] == "__publish_managed_policy__":
+        from runlayer_cli.managed_policy_publication import main as publish
+
+        return publish()
+
     old_handler: Any = None
     watchdog_installed = False
     try:

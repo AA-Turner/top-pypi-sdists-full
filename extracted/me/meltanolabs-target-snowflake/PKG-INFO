@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: meltanolabs-target-snowflake
-Version: 0.20.1
+Version: 0.20.2
 Summary: Singer target for Snowflake, built with the Meltano SDK for Singer Targets.
 Author: Ken Payne
 Maintainer-email: Meltano Team and Community <hello@meltano.com>
@@ -24,7 +24,7 @@ Requires-Dist: snowflake-sqlalchemy==1.11.1
 Requires-Dist: sqlalchemy~=2.0.31
 Requires-Dist: typing-extensions>=4.16.0; python_full_version < '3.12'
 Provides-Extra: snowpipe
-Requires-Dist: snowpipe-streaming>=1.8.0; extra == 'snowpipe'
+Requires-Dist: snowpipe-streaming<2,>=1.8.0; extra == 'snowpipe'
 Description-Content-Type: text/markdown
 
 # `target-snowflake`

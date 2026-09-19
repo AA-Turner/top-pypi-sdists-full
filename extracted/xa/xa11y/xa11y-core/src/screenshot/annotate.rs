@@ -154,11 +154,11 @@ impl Screenshot {
     /// and macOS captures a display that need not be the one at the
     /// coordinate-space origin.
     ///
-    /// Each annotation's rect is translated by `-origin` and then scaled to
-    /// physical pixels by [`Screenshot::scale`]. Passing `(0, 0)` for a
-    /// capture that does not start there shifts every box by the difference,
-    /// and nothing here can detect it: the shifted rects still land inside a
-    /// capture that wide, so they are drawn over the wrong pixels.
+    /// Captured screenshots use their frozen, per-display mapping. A
+    /// rectangle crossing displays is drawn as multiple image rectangles with
+    /// one badge. For a raw [`Screenshot::new`] without mapping metadata, the
+    /// legacy `origin` + [`Screenshot::scale`] transform remains available for
+    /// compatibility and is exact only for a single-scale capture.
     ///
     /// Returns a **new** [`Screenshot`] (the pixels are cloned; `self` is
     /// never mutated) and the indices of the annotations that were not drawn.
@@ -210,6 +210,66 @@ impl Screenshot {
         annotations: &[Annotation],
         origin: Point,
     ) -> Result<(Screenshot, Vec<usize>)> {
+        let scale = sane_scale(f64::from(self.scale));
+        let mut physical = Vec::new();
+        let mut owners = Vec::new();
+        let mut skipped = Vec::new();
+        for (index, ann) in annotations.iter().enumerate() {
+            let parts = if self.mapping_available() {
+                self.desktop_rect_to_image(ann.rect)?
+            } else {
+                let translated = Rect {
+                    x: ann.rect.x.saturating_sub(origin.x),
+                    y: ann.rect.y.saturating_sub(origin.y),
+                    width: ann.rect.width,
+                    height: ann.rect.height,
+                };
+                vec![translated.to_physical(scale)]
+            };
+            if parts.is_empty() {
+                skipped.push(index);
+                continue;
+            }
+            for (part_index, rect) in parts.into_iter().enumerate() {
+                // A spanning element is one annotation. Draw every display
+                // fragment, but put its badge on only the first fragment.
+                let tag = if part_index == 0 {
+                    ann.tag.clone()
+                } else {
+                    String::new()
+                };
+                physical.push(Annotation::new(rect, tag).color(ann.color));
+                owners.push(index);
+            }
+        }
+        let (drawn, fragment_skips) = self.annotate_physical(&physical)?;
+        let mut visible = vec![false; annotations.len()];
+        for (fragment, owner) in owners.iter().enumerate() {
+            if !fragment_skips.contains(&fragment) {
+                visible[*owner] = true;
+            }
+        }
+        for (index, is_visible) in visible.into_iter().enumerate() {
+            if !is_visible && !skipped.contains(&index) {
+                skipped.push(index);
+            }
+        }
+        skipped.sort_unstable();
+        Ok((drawn, skipped))
+    }
+
+    /// Draw annotations whose rectangles are already capture-relative
+    /// physical pixels.
+    ///
+    /// Platform composition code uses this after applying a per-display
+    /// coordinate transform. It is hidden from generated API documentation:
+    /// callers normally want [`Screenshot::annotate`], whose rectangles are
+    /// in the same logical coordinate space as accessibility bounds.
+    #[doc(hidden)]
+    pub fn annotate_physical(
+        &self,
+        annotations: &[Annotation],
+    ) -> Result<(Screenshot, Vec<usize>)> {
         let expected = (self.width as usize)
             .checked_mul(self.height as usize)
             .and_then(|n| n.checked_mul(4))
@@ -252,16 +312,7 @@ impl Screenshot {
         let mut skipped = Vec::new();
         let mut visible: Vec<(usize, &Annotation, PxRect)> = Vec::new();
         for (i, ann) in annotations.iter().enumerate() {
-            // Saturating: a rect at `i32::MIN` translated by a positive
-            // origin stays at `i32::MIN`, which is still far outside any
-            // image, so saturation cannot pull an off-screen box into view.
-            let translated = Rect {
-                x: ann.rect.x.saturating_sub(origin.x),
-                y: ann.rect.y.saturating_sub(origin.y),
-                width: ann.rect.width,
-                height: ann.rect.height,
-            };
-            let physical = PxRect::from_rect(translated.to_physical(scale));
+            let physical = PxRect::from_rect(ann.rect);
             if physical.overlaps(bounds) {
                 visible.push((i, ann, physical));
             } else {
@@ -295,10 +346,9 @@ impl Screenshot {
             }
         }
 
-        Ok((
-            Screenshot::new(self.width, self.height, canvas.pixels, self.scale),
-            skipped,
-        ))
+        let mut drawn = self.clone();
+        drawn.pixels = canvas.pixels;
+        Ok((drawn, skipped))
     }
 }
 

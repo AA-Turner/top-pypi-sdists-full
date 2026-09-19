@@ -254,12 +254,20 @@ async def instance_create(args: dict[str, Any], ctx: ToolContext) -> ToolResult:
             "title": derive_title(data, title, kind_title_key(kd)),
             "created_by": user_id,
         }
-        # The INSTANCE lives in the CALLER's org (never the kind's — the
-        # kind's org must not govern user data). Without an active org the DB
-        # _stamp_org_default backstop derives it from created_by.
+        # The INSTANCE lives in the CALLER's org (never the kind's — the kind's
+        # org must not govern user data), READ off the carried context and
+        # REFUSED by name when it is absent. Until 2026-09-17 the key was left
+        # out and the DB `_stamp_org_default` backstop derived a tenant from
+        # `created_by`, so the row landed in the agent owner's personal
+        # workspace instead of the organization the person was working in.
         org_id = ctx_org_id(ctx)
-        if org_id:
-            payload["organization_id"] = org_id
+        if not org_id:
+            raise ValueError(
+                f"instance_create({kd.kind!r}): this call carries no organization, so "
+                "the instance has no tenant. A tool call inherits the organization the "
+                "boundary admitted — fix the caller; the database never guesses one."
+            )
+        payload["organization_id"] = org_id
         # A tool invocation is an agent-authored persistence door.  The host
         # emits this ContextVar declaration as transaction-local GUCs when the
         # injected ORM opens the create transaction; without it an admitted

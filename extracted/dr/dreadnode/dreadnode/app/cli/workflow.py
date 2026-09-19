@@ -191,6 +191,7 @@ def run(
     project_id: str,
     input: t.Annotated[list[str] | None, cyclopts.Parameter(name="--input", negative=())] = None,
     local: t.Annotated[bool, cyclopts.Parameter(name="--local", negative=())] = False,
+    model: str | None = None,
     runtime_id: str | None = None,
     runtime_url: str | None = None,
     as_json: t.Annotated[bool, cyclopts.Parameter(name="--json", negative=())] = False,
@@ -205,10 +206,16 @@ def run(
             when possible, so `max_steps=200` is an int.
         local: Execute here, in this process, shipping facts to the platform as
             it goes. Without it the selected runtime executes the workflow.
+        model: Default model for agents using inherit. Requires --local;
+            pinned agent models and explicit step models take precedence.
         runtime_id: Runtime that owns remote execution. Required unless `--local`.
         runtime_url: Runtime to run agents against when using `--local`.
         as_json: Output as JSON.
     """
+    if model is not None and not local:
+        raise ValueError("--model currently requires --local")
+    if model is not None and (not model.strip() or model.strip() == "inherit"):
+        raise ValueError("--model must be a concrete model ID")
     api, profile = platform.connect()
     try:
         input_data = parse_inputs(input)
@@ -261,6 +268,7 @@ def run(
         definition=definition,
         input_data=input_data,
         runtime_url=runtime_url,
+        model=model,
         session_group_id=created.get("session_group_id"),
         execution_id=execution_id,
     )
@@ -285,6 +293,7 @@ def _execute_locally(
     runtime_url: str | None,
     execution_id: str,
     session_group_id: str | None = None,
+    model: str | None = None,
 ) -> t.Any:
     """Run the workflow in this process, streaming progress and shipping facts.
 
@@ -310,6 +319,7 @@ def _execute_locally(
         capability=definition.get("capability_name"),
         run_id=str(run_id),
         session_group_id=str(session_group_id) if session_group_id else None,
+        default_model=model,
     )
 
     console.print(

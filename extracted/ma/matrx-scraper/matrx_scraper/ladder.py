@@ -51,6 +51,21 @@ SERVER_RUNGS: frozenset[str] = frozenset({"http", "browser"})
 #: Rungs that need the person's own Chrome (matrx-extend).
 CLIENT_RUNGS: frozenset[str] = frozenset({"own_browser", "human_drive"})
 
+#: Residential egress — the person's OWN computer used as the internet exit,
+#: after the server's own two rungs were blocked. It is NOT a fifth rung of the
+#: ladder: it is the same `http`/`browser` work, run again from a different
+#: address, and it is optional in every sense (a host that has not wired it
+#: never records one). So it is an OPTIONAL entry: it may appear in a trail, it
+#: never changes which rung may follow, and a trail without it is complete.
+#: Contract: `common-docs/systems/platform/residential-egress/FEATURE.md`.
+RESIDENTIAL_RUNG = "residential"
+
+#: Entries a trail may carry that the ladder order does not reason about.
+#: `assert_no_skipped_rung` steps over them and `decide()` asks the last
+#: ORDERED rung what comes next — so adding one can never turn an existing,
+#: legal trail (`http` -> `browser` -> `own_browser`) into a skipped rung.
+OPTIONAL_RUNGS: frozenset[str] = frozenset({RESIDENTIAL_RUNG})
+
 #: Why "stopped" — the closed vocabulary for a ladder that goes no further.
 STOP_RUNG_DISABLED = "rung_disabled"
 STOP_NOT_ESCALATABLE = "not_escalatable"
@@ -62,6 +77,9 @@ class LadderOrderError(AssertionError):
 
 
 def rung_index(rung: str) -> int:
+    """Where a rung sits in the ladder. An optional entry has no place in it."""
+    if rung in OPTIONAL_RUNGS:
+        raise LadderOrderError(f"{rung!r} is an optional entry, not a rung: {RUNGS}")
     try:
         return RUNGS.index(rung)
     except ValueError as exc:  # pragma: no cover — a typo'd rung is a defect
@@ -89,7 +107,13 @@ def assert_no_skipped_rung(trail: list[dict[str, Any]]) -> None:
     """
     if not trail:
         return
-    rungs = [str(entry.get("rung") or "") for entry in trail]
+    rungs = [
+        str(entry.get("rung") or "")
+        for entry in trail
+        if str(entry.get("rung") or "") not in OPTIONAL_RUNGS
+    ]
+    if not rungs:
+        return
     if rungs[0] != RUNGS[0]:
         raise LadderOrderError(
             f"a capture trail must start at {RUNGS[0]!r}, this one starts at {rungs[0]!r}"
@@ -277,7 +301,8 @@ def trail_entry(
     chars: int = 0,
 ) -> dict[str, Any]:
     """One rung's attempt, in the shape every repo reads."""
-    rung_index(rung)  # a typo'd rung fails here, not three systems later
+    if rung not in OPTIONAL_RUNGS:
+        rung_index(rung)  # a typo'd rung fails here, not three systems later
     return {
         "rung": rung,
         "ok": bool(ok),
@@ -362,7 +387,15 @@ def decide(
     if not trail:
         raise LadderOrderError("a ladder verdict needs a trail; none was recorded")
 
-    current = str(trail[-1]["rung"])
+    ordered = [
+        str(entry["rung"]) for entry in trail if str(entry["rung"]) not in OPTIONAL_RUNGS
+    ]
+    if not ordered:
+        raise LadderOrderError(
+            "a ladder verdict needs at least one ladder rung; this trail has only "
+            f"optional entries ({sorted(OPTIONAL_RUNGS)})"
+        )
+    current = ordered[-1]
     candidate = next_rung(current)
     if candidate is None:
         return LadderVerdict(

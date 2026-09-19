@@ -1,4 +1,4 @@
-"""Tests for bounded Docker Engine API access over a Unix socket."""
+"""Tests for bounded Docker Engine API access over local transports."""
 
 from __future__ import annotations
 
@@ -146,6 +146,12 @@ def _tar_files(files: dict[str, bytes]) -> bytes:
     return archive.getvalue()
 
 
+def _missing_archive_path_error(path: str) -> bytes:
+    return json.dumps(
+        {"message": f"Could not find the file {path} in container container-1"}
+    ).encode()
+
+
 def test_unix_http_connection_uses_socket_path(monkeypatch):
     created: list[tuple[int, int]] = []
     fake_socket = _FakeSocket()
@@ -208,6 +214,18 @@ def test_find_docker_socket_handles_missing_path(monkeypatch):
     monkeypatch.setattr(docker_socket_module.os, "stat", missing_stat)
 
     assert find_docker_socket() is None
+
+
+def test_find_docker_socket_returns_reachable_windows_named_pipe(monkeypatch):
+    monkeypatch.setattr(docker_socket_module.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(
+        docker_socket_module,
+        "_windows_named_pipe_available",
+        lambda _path: True,
+        raising=False,
+    )
+
+    assert find_docker_socket() == r"\\.\pipe\docker_engine"
 
 
 def test_engine_api_inventory_inspect_and_image_digest(monkeypatch):
@@ -361,10 +379,151 @@ def test_engine_api_archive_file_and_tree(monkeypatch):
         deadline=deadline,
     )
 
-    assert copied == file_archive
+    assert copied.status == "success"
+    assert copied.archive == file_archive
     assert walked.truncated is False
     assert walked.files == {"/workspace/project/.cursor/mcp.json": b'{"ok":true}'}
     assert factory.paths == list(routes)
+
+
+def test_engine_api_tree_walk_uses_scan_deadline_after_open(monkeypatch):
+    path = "/containers/container-1/archive?path=%2Fworkspace"
+    client, _ = _client(monkeypatch, {path: (200, _tar_files({}))})
+    observed_deadlines: list[float] = []
+
+    def fake_walk(*_args, deadline, **_kwargs):
+        observed_deadlines.append(deadline)
+        return docker_socket_module._TarWalkResult()
+
+    monkeypatch.setattr(docker_socket_module.time, "monotonic", lambda: 10.0)
+    monkeypatch.setattr(docker_socket_module, "_walk_tar_stream", fake_walk)
+
+    client.copy_tree(
+        container_id="container-1",
+        root_path="/workspace",
+        wanted_file=lambda _: True,
+        deadline=100.0,
+    )
+
+    assert observed_deadlines == [100.0]
+
+
+@pytest.mark.parametrize(
+    ("status", "expected_failure"),
+    [
+        (404, None),
+        (500, "container_artifact_socket_http_500"),
+    ],
+)
+def test_engine_api_tree_distinguishes_absence_from_failure(
+    monkeypatch,
+    status,
+    expected_failure,
+):
+    path = "/containers/container-1/archive?path=%2Fworkspace"
+    body = _missing_archive_path_error("/workspace") if status == 404 else b"error"
+    client, _ = _client(monkeypatch, {path: (status, body)})
+
+    walked = client.copy_tree(
+        container_id="container-1",
+        root_path="/workspace",
+        wanted_file=lambda _: True,
+        deadline=time.monotonic() + 5,
+    )
+
+    assert walked.files == {}
+    assert walked.failure_reason == expected_failure
+
+
+@pytest.mark.parametrize(
+    ("status", "expected_status", "expected_failure"),
+    [
+        (404, "absent", None),
+        (500, "failed", "container_artifact_socket_http_500"),
+    ],
+)
+def test_engine_api_file_distinguishes_absence_from_failure(
+    monkeypatch,
+    status,
+    expected_status,
+    expected_failure,
+):
+    path = "/containers/container-1/archive?path=%2Fconfig"
+    body = _missing_archive_path_error("/config") if status == 404 else b"error"
+    client, _ = _client(monkeypatch, {path: (status, body)})
+
+    copied = client.copy_file_archive(
+        container_id="container-1",
+        path="/config",
+        deadline=time.monotonic() + 5,
+    )
+
+    assert copied.status == expected_status
+    assert copied.failure_reason == expected_failure
+
+
+def test_engine_api_archive_missing_container_is_failure(monkeypatch) -> None:
+    error = json.dumps({"message": "No such container: container-1"}).encode()
+    routes: dict[str, _ResponseSpec] = {
+        "/containers/container-1/archive?path=%2Fconfig": (404, error),
+        "/containers/container-1/archive?path=%2Fworkspace": (404, error),
+    }
+    client, _ = _client(monkeypatch, routes)
+    deadline = time.monotonic() + 5
+
+    copied = client.copy_file_archive(
+        container_id="container-1",
+        path="/config",
+        deadline=deadline,
+    )
+    walked = client.copy_tree(
+        container_id="container-1",
+        root_path="/workspace",
+        wanted_file=lambda _: True,
+        deadline=deadline,
+    )
+
+    assert copied.status == "failed"
+    assert copied.failure_reason == "container_artifact_socket_http_404"
+    assert walked.failure_reason == "container_artifact_socket_http_404"
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        b"not-json",
+        b"{}",
+        json.dumps({"message": "unknown archive error"}).encode(),
+    ],
+    ids=["malformed", "missing-message", "unknown-message"],
+)
+def test_engine_api_archive_unknown_404_is_failure(
+    monkeypatch,
+    error: bytes,
+) -> None:
+    routes: dict[str, _ResponseSpec] = {
+        "/containers/container-1/archive?path=%2Fconfig": (404, error),
+        "/containers/container-1/archive?path=%2Fworkspace": (404, error),
+    }
+    client, factory = _client(monkeypatch, routes)
+    deadline = time.monotonic() + 5
+
+    copied = client.copy_file_archive(
+        container_id="container-1",
+        path="/config",
+        deadline=deadline,
+    )
+    walked = client.copy_tree(
+        container_id="container-1",
+        root_path="/workspace",
+        wanted_file=lambda _: True,
+        deadline=deadline,
+    )
+
+    assert copied.status == "failed"
+    assert copied.failure_reason == "container_artifact_socket_http_404"
+    assert walked.failure_reason == "container_artifact_socket_http_404"
+    assert all(response.closed for response in factory.responses)
 
 
 def test_engine_api_responses_are_size_bounded(monkeypatch):
@@ -397,8 +556,8 @@ def test_engine_api_responses_are_size_bounded(monkeypatch):
             path="/config",
             deadline=deadline,
             max_bytes=4,
-        )
-        is None
+        ).status
+        == "failed"
     )
     walked = client.copy_tree(
         container_id="container-1",

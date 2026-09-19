@@ -12,16 +12,17 @@ import os
 import platform
 import shutil
 import subprocess
+from collections.abc import Callable
 from itertools import islice
 from pathlib import Path
 
 
-_MAX_NVM_VERSION_ROOTS = 64
+_MAX_VERSION_MANAGER_ROOTS = 64
 _WINDOWS_EXECUTABLE_SUFFIXES = (".cmd", ".exe", ".bat")
 
 
 def _nvm_bin_roots(home: Path) -> list[Path]:
-    """Return deterministic bin roots from nvm's versioned installs.
+    """Return a sorted bounded sample of nvm version bin roots.
 
     Cap scandir itself. Sorting the full tree first would list every dirent
     over WSL UNC homes before the 64-root limit takes effect.
@@ -30,7 +31,7 @@ def _nvm_bin_roots(home: Path) -> list[Path]:
     versions_root = home / ".nvm" / "versions" / "node"
     try:
         with os.scandir(versions_root) as entries:
-            for entry in islice(entries, _MAX_NVM_VERSION_ROOTS):
+            for entry in islice(entries, _MAX_VERSION_MANAGER_ROOTS):
                 try:
                     bin_root = Path(entry.path) / "bin"
                     if bin_root.is_dir():
@@ -42,18 +43,77 @@ def _nvm_bin_roots(home: Path) -> list[Path]:
     return sorted(roots)
 
 
-def _windows_versioned_node_roots(home: Path) -> list[Path]:
-    """Return per-version bin roots from Windows Node version managers."""
+def _windows_versioned_node_roots(
+    home: Path,
+    *,
+    checkpoint: Callable[[], bool] | None = None,
+    on_truncated: Callable[[], None] | None = None,
+) -> list[Path]:
+    """Return bounded per-version roots from Windows Node version managers."""
     app_data = home / "AppData" / "Roaming"
     roots: list[Path] = []
-    for root, pattern in (
-        (app_data / "nvm", "v*"),
-        (app_data / "fnm" / "node-versions", "*/installation"),
+    entries_seen = 0
+    for root, require_v_prefix, suffix in (
+        (app_data / "nvm", True, ()),
+        (app_data / "fnm" / "node-versions", False, ("installation",)),
     ):
         try:
-            roots.extend(sorted(root.glob(pattern)))
+            with os.scandir(root) as entries:
+                for entry in entries:
+                    if checkpoint is not None and not checkpoint():
+                        return sorted(roots)
+                    entries_seen += 1
+                    overflowed = entries_seen > _MAX_VERSION_MANAGER_ROOTS
+                    if not overflowed:
+                        try:
+                            admitted_name = (
+                                not require_v_prefix or entry.name.startswith("v")
+                            )
+                            if admitted_name and entry.is_dir(follow_symlinks=False):
+                                roots.append(Path(entry.path).joinpath(*suffix))
+                        except OSError:
+                            pass
+                    if checkpoint is not None and not checkpoint():
+                        return sorted(roots)
+                    if overflowed:
+                        if on_truncated is not None:
+                            on_truncated()
+                        return sorted(roots)
         except OSError:
             continue
+    return sorted(roots)
+
+
+def windows_bin_roots(
+    *,
+    home: Path,
+    include_versioned: bool = True,
+    checkpoint: Callable[[], bool] | None = None,
+    on_versioned_truncated: Callable[[], None] | None = None,
+) -> list[Path]:
+    """Return bounded user-home roots that may contain Windows launchers."""
+    app_data = home / "AppData" / "Roaming"
+    local_app_data = home / "AppData" / "Local"
+    roots = [
+        app_data / "npm",
+        local_app_data / "pnpm",
+        local_app_data / "Volta" / "bin",
+        local_app_data / "Yarn" / "bin",
+        local_app_data / "Microsoft" / "WinGet" / "Links",
+        home / ".bun" / "bin",
+        home / ".local" / "bin",
+        home / ".cargo" / "bin",
+        home / "scoop" / "shims",
+        *(
+            _windows_versioned_node_roots(
+                home,
+                checkpoint=checkpoint,
+                on_truncated=on_versioned_truncated,
+            )
+            if include_versioned
+            else ()
+        ),
+    ]
     return roots
 
 
@@ -67,23 +127,9 @@ def _windows_cli_candidates(binary: str, *, home: Path) -> list[Path]:
     installer directory or uninstall registry entry either) would otherwise
     have no executable-class evidence at all.
     """
-    app_data = home / "AppData" / "Roaming"
-    local_app_data = home / "AppData" / "Local"
-    roots = [
-        app_data / "npm",
-        local_app_data / "pnpm",
-        local_app_data / "Volta" / "bin",
-        local_app_data / "Yarn" / "bin",
-        local_app_data / "Microsoft" / "WinGet" / "Links",
-        home / ".bun" / "bin",
-        home / ".local" / "bin",
-        home / ".cargo" / "bin",
-        home / "scoop" / "shims",
-        *_windows_versioned_node_roots(home),
-    ]
     return [
         root / f"{binary}{suffix}"
-        for root in roots
+        for root in windows_bin_roots(home=home)
         for suffix in _WINDOWS_EXECUTABLE_SUFFIXES
     ]
 

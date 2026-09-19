@@ -6,7 +6,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS
 
@@ -15,7 +15,7 @@ class NodePropertiesEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         node_properties: str | list[str],
         *,
         list_node_labels: bool | None = False,
@@ -34,9 +34,9 @@ class NodePropertiesEndpoints(ABC):
         ----------
         G
            Graph object to use
-        node_properties : str | list[str]
+        node_properties
             The node properties to stream
-        list_node_labels : boolean | None, default=None
+        list_node_labels
             Whether to include node labels in the stream
         node_labels
             Filter the graph using the given node labels. Nodes with any of the given labels will be included.
@@ -50,11 +50,11 @@ class NodePropertiesEndpoints(ABC):
             As an administrator, impersonate a different user for accessing their graphs.
         job_id
             Identifier for the computation.
-        db_node_properties : list[str] | None, default=None
+        db_node_properties
             Retrieves additional node properties from the database and attaches them to the stream.
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             The streamed node properties
         """
         pass
@@ -62,7 +62,7 @@ class NodePropertiesEndpoints(ABC):
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         node_properties: str | list[str] | dict[str, str],
         *,
         node_labels: list[str] = ALL_LABELS,
@@ -110,10 +110,10 @@ class NodePropertiesEndpoints(ABC):
     @abstractmethod
     def drop(
         self,
-        G: GraphV2,
+        G: Graph,
         node_properties: list[str],
         *,
-        fail_if_missing: bool | None = True,
+        fail_if_missing: bool = True,
         concurrency: int | None = None,
         username: str | None = None,
     ) -> NodePropertiesDropResult:
@@ -123,11 +123,11 @@ class NodePropertiesEndpoints(ABC):
         Parameters
         ----------
         G
-           Graph object to use
-        node_properties : list[str]
+            Graph object to use
+        node_properties
             The node properties to drop
-        fail_if_missing: bool | None = None,
-            Whether to fail if any of the node properties are missing
+        fail_if_missing
+            Whether to fail if any of the node properties are missing.
         concurrency
             Number of concurrent threads to use.
         username

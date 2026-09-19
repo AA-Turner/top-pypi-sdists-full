@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 import sys
+from collections.abc import Callable
 from enum import Enum
 from pathlib import Path
 from typing import cast
@@ -12,6 +13,7 @@ from runlayer_cli.hook import hook_io, messages
 
 
 class Client(str, Enum):
+    UNKNOWN = "unknown"
     CURSOR = "cursor"
     VSCODE = "vscode"
     CLAUDE_CODE = "claude_code"
@@ -367,7 +369,11 @@ def detect_client() -> Client:
         return Client.GROK_CLI
     if "/.cline/" in hook_dir or _hook_dir_in_cline_dir(hook_dir):
         return Client.CLINE_CLI
-    if "/.codex/" in hook_dir or hook_dir.startswith("/etc/codex/"):
+    if (
+        "/.codex/" in hook_dir
+        or hook_dir.startswith("/etc/codex/")
+        or "/programdata/openai/codex/" in hook_dir
+    ):
         return Client.CODEX
     # DEVIN_PROJECT_DIR is set only in Devin's own hook subprocesses, so it
     # identifies the host for a hook installed without an explicit --client.
@@ -378,7 +384,7 @@ def detect_client() -> Client:
     if any(pat in hook_dir for pat in _CLAUDE_CODE_DIR_PATTERNS):
         return Client.CLAUDE_CODE
 
-    return Client.CLAUDE_CODE
+    return Client.UNKNOWN
 
 
 def should_noop_for_devin(client: Client) -> bool:
@@ -446,6 +452,25 @@ class HookResponse:
     def __init__(self, client: Client, hook_event_name: str) -> None:
         self._client = client
         self._event = normalize_event_name(hook_event_name)
+        self._notice: Callable[[], str | None] | None = None
+
+    @property
+    def has_notice_channel(self) -> bool:
+        """Whether this client shows a user-visible one-liner on an allow
+        (Claude Code documents ``systemMessage`` as a common output field).
+        Callers check this before spending a rate-limited notice budget."""
+        return self._client == Client.CLAUDE_CODE
+
+    def attach_notice(self, notice: Callable[[], str | None]) -> None:
+        """Carry a user-visible one-liner on the plain ``allow`` answer.
+
+        ``notice`` is called only at the moment ``allow()`` actually emits, so
+        a rate-limited budget claimed inside it is spent on an answer the user
+        sees. Deny, input-rewriting and observational answers never carry it —
+        the decision (or silence) is the message there — and never call it, so
+        the budget survives for the next allow. Channel-less clients ignore it
+        (``allow`` unchanged). Returning ``None`` yields a plain allow."""
+        self._notice = notice
 
     def deny(
         self,
@@ -571,6 +596,10 @@ class HookResponse:
 
     def allow(self) -> str | None:
         """Return allow JSON for clients that require it; otherwise no output."""
+        if self._notice is not None and self.has_notice_channel:
+            notice = self._notice()
+            if notice is not None:
+                return self.allow_with_notice(notice)
         if self._client == Client.CURSOR:
             return '{"permission":"allow"}'
         if self._client == Client.HERMES:
@@ -637,6 +666,14 @@ class HookResponse:
             )
         if self._client == Client.CLINE_CLI and self._event == "PreToolUse":
             return _cline_control({"overrideInput": tool_input})
+        return None
+
+    def allow_with_notice(self, notice: str) -> str | None:
+        """Allow carrying a user-visible one-liner, or ``None`` when this client
+        has no such channel (Claude Code documents ``systemMessage`` as a common
+        output field shown to the user; without a decision it proceeds)."""
+        if self.has_notice_channel:
+            return json.dumps({"systemMessage": notice})
         return None
 
     def observational(self) -> str | None:

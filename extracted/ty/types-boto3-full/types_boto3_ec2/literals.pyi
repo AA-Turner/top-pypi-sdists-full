@@ -3716,7 +3716,7 @@ TransitGatewayStateType = Literal["available", "deleted", "deleting", "modifying
 TransportProtocolType = Literal["tcp", "udp"]
 TrustProviderTypeType = Literal["device", "user"]
 TunnelInsideIpVersionType = Literal["ipv4", "ipv6"]
-UnlimitedSupportedInstanceFamilyType = Literal["t2", "t3", "t3a", "t4g"]
+UnlimitedSupportedInstanceFamilyType = Literal["t2", "t3", "t3a", "t4g", "t8i"]
 UnsuccessfulInstanceCreditSpecificationErrorCodeType = Literal[
     "IncorrectInstanceState",
     "InstanceCreditSpecification.NotSupported",

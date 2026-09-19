@@ -1,10 +1,9 @@
 from __future__ import annotations
 
-import json
 from pathlib import Path
 from typing import Any
 
-import json5
+from runlayer_cli.safe_parse import parse_json, parse_json5
 
 PLUGIN_MANIFEST = Path(".claude-plugin/plugin.json")
 PLUGIN_MCP_JSON = Path(".mcp.json")
@@ -12,9 +11,10 @@ PLUGIN_MCP_JSON = Path(".mcp.json")
 
 def load_plugin_manifest(manifest_path: Path) -> dict[str, Any] | None:
     try:
-        raw = json.loads(manifest_path.read_text(encoding="utf-8"))
+        text = manifest_path.read_text(encoding="utf-8")
     except (ValueError, OSError):
         return None
+    raw = parse_json(text)["value"]
     if not isinstance(raw, dict):
         return None
     return raw
@@ -35,9 +35,10 @@ def resolve_plugin_mcp_config(
         return None, None
 
     try:
-        raw = json5.loads(mcp_path.read_text(encoding="utf-8"))
+        text = mcp_path.read_text(encoding="utf-8")
     except (ValueError, OSError):
         return None, mcp_path
+    raw = parse_json5(text)["value"]
     if not isinstance(raw, dict):
         return None, mcp_path
     return raw, mcp_path

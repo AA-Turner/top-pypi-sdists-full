@@ -6,6 +6,8 @@ from cpython.mem cimport (
     PyMem_RawMalloc,
     PyMem_RawRealloc
 )
+from enum import IntFlag
+
 _ENCODING = 'UTF-8'
 
 include "base.pxi"
@@ -17,8 +19,78 @@ include "lexbor/util.pxi"
 include "lexbor/node_remove.pxi"
 include "lexbor/fragment_lookup.pxi"
 
-# We don't inherit from HTMLParser here, because it also includes all the C code from Modest.
 
+class LexborDocumentOptions(IntFlag):
+    """Parser options for the Lexbor document.
+
+    These mirror the ``lxb_dom_document_opt`` flags from Lexbor.
+
+    Multiple options can be combined with the bitwise OR operator, or by
+    combining their integer values. Both of the following are equivalent:
+
+    >>> LexborDocumentOptions.WO_EVENTS | LexborDocumentOptions.UNDEF
+    >>> LexborDocumentOptions.WO_EVENTS.value | LexborDocumentOptions.UNDEF.value
+    1
+
+    The combined value can be passed directly to the parser::
+
+        LexborHTMLParser(html, options=LexborDocumentOptions.WO_EVENTS)
+    """
+
+    """Original Lexbor name: ``LXB_DOM_DOCUMENT_OPT_UNDEF``.
+
+    Default value. No options are set.
+    """
+    UNDEF = 0x00
+
+    """Original Lexbor name: ``LXB_DOM_DOCUMENT_OPT_WO_EVENTS``.
+
+    Disables mutation events ("without events"). When set, Lexbor skips the
+    document mutation callbacks (``inserted``, ``removed``, ``moved``,
+    ``children_changed``, ``connected``, and the attribute callbacks) while
+    building or modifying the tree. This can speed up parsing, but it also
+    disables behaviors implemented through those callbacks.
+
+    For example, ``<selectedcontent>`` no longer receives a copy of the
+    selected ``<option>``::
+
+        html = (
+            "<select><button><selectedcontent></selectedcontent></button>"
+            "<option>a</option><option selected>b</option></select>"
+        )
+
+        LexborHTMLParser(html).css_first("selectedcontent").html
+        # '<selectedcontent>b</selectedcontent>'
+
+        LexborHTMLParser(
+            html, options=LexborDocumentOptions.WO_EVENTS
+        ).css_first("selectedcontent").html
+        # '<selectedcontent></selectedcontent>'
+    """
+    WO_EVENTS = 1 << 0
+
+
+cdef lxb_dom_node_t* _clone_node_into_document(
+    lxb_html_document_t* document, lxb_dom_node_t* node
+) except NULL:
+    """Deep-copy ``node`` into ``document`` and append it as its child."""
+    cdef lxb_dom_node_t* cloned
+
+    with nogil:
+        cloned = lxb_dom_document_import_node(
+            &document.dom_document, node, <bint> True
+        )
+
+    if cloned == NULL:
+        raise SelectolaxError("Can't create a new document")
+
+    with nogil:
+        lxb_dom_node_insert_child(<lxb_dom_node_t * > document, cloned)
+
+    return cloned
+
+
+# We don't inherit from HTMLParser here, because it also includes all the C code from Modest.
 cdef class LexborHTMLParser:
     """The lexbor HTML parser.
 
@@ -37,6 +109,7 @@ cdef class LexborHTMLParser:
         is_fragment: bool = False,
         fragment_tag: str = "div",
         fragment_namespace: str = "html",
+        options: int = 0,
     ):
         """Create a parser and load HTML.
 
@@ -63,6 +136,20 @@ cdef class LexborHTMLParser:
             Context element namespace used for fragment parsing. Defaults to ``"html"``.
             Accepts Lexbor namespace names such as ``"html"``, ``"svg"``, and ``"math"``,
             or a namespace URI recognized by Lexbor. Only used when ``is_fragment`` is ``True``.
+        options : int, optional
+            Lexbor document options passed to ``lxb_html_document_dom_opt_set``.
+            Use the flags from :class:`LexborDocumentOptions`, e.g.
+            ``LexborDocumentOptions.WO_EVENTS`` to disable mutation events.
+
+            Several options can be combined with the bitwise OR operator::
+
+                LexborDocumentOptions.WO_EVENTS | LexborDocumentOptions.UNDEF
+
+            or by passing the equivalent plain integer::
+
+                LexborDocumentOptions.WO_EVENTS.value | LexborDocumentOptions.UNDEF.value
+
+            Defaults to ``0``.
 
         """
         cdef size_t html_len
@@ -75,6 +162,8 @@ cdef class LexborHTMLParser:
         self._fragment_namespace_id = LXB_NS_HTML
         self._selector = None
         self._new_html_document()
+        lxb_html_document_dom_opt_set(self.document, <lxb_dom_document_opt_t> int(options))
+
         if self._is_fragment:
             self._fragment_tag_id = _fragment_tag_id_from_string(self.document, fragment_tag)
             self._fragment_namespace_id = _fragment_namespace_id_from_string(self.document, fragment_namespace)
@@ -250,6 +339,17 @@ cdef class LexborHTMLParser:
         if self._selector is None:
             self._selector = LexborCSSSelector()
         return self._selector
+
+    @property
+    def options(self):
+        """Return the Lexbor document options for this parser.
+
+        Returns
+        -------
+        LexborDocumentOptions
+            The options currently set on the underlying Lexbor document.
+        """
+        return LexborDocumentOptions(lxb_html_document_dom_opt(self.document))
 
     @property
     def root(self):
@@ -711,6 +811,8 @@ cdef class LexborHTMLParser:
         You can use to do temporary modifications without affecting the original HTML tree.
         It is tied to the current parser instance.
         Gets destroyed when the parser instance is destroyed.
+        Document options are preserved in the cloned parser.
+        The document ``head`` and ``body`` are preserved when available.
 
         Returns
         -------
@@ -719,8 +821,10 @@ cdef class LexborHTMLParser:
         """
         cdef lxb_html_document_t* cloned_document
         cdef lxb_dom_node_t* cloned_node
-        cdef lxb_dom_node_t* source_node
-        cdef lxb_dom_node_t* cloned_root
+        cdef lxb_dom_node_t* source_child
+        cdef lxb_dom_node_t* next_child
+        cdef lxb_dom_node_t* cloned_html
+        cdef lxb_dom_node_t* child
         cdef LexborHTMLParser cls
 
         with nogil:
@@ -729,24 +833,37 @@ cdef class LexborHTMLParser:
         if cloned_document == NULL:
             raise SelectolaxError("Can't create a new document")
 
+        lxb_html_document_dom_opt_set(
+            cloned_document, lxb_html_document_dom_opt(self.document)
+        )
+
         cloned_document.ready_state = LXB_HTML_DOCUMENT_READY_STATE_COMPLETE
 
-        source_node = lxb_dom_document_root(&self.document.dom_document)
-        if self._is_fragment and self._fragment_wrapper != NULL:
-            source_node = self._fragment_wrapper
+        cloned_node = NULL
+        cloned_html = NULL
 
-        with nogil:
-            cloned_node = lxb_dom_document_import_node(
-                &cloned_document.dom_document,
-                source_node,
-                <bint> True
-            )
+        if self._is_fragment:
+            if self._fragment_wrapper != NULL and self._fragment_root != NULL:
+                cloned_node = _clone_node_into_document(
+                    cloned_document, self._fragment_wrapper
+                )
+        else:
+            source_child = self.document.dom_document.node.first_child
+            while source_child != NULL:
+                next_child = source_child.next
+                cloned_node = _clone_node_into_document(cloned_document, source_child)
+                if cloned_html == NULL and lxb_dom_node_tag_id_noi(cloned_node) == LXB_TAG_HTML:
+                    cloned_html = cloned_node
+                source_child = next_child
 
-        if cloned_node == NULL:
-            raise SelectolaxError("Can't create a new document")
-
-        with nogil:
-            lxb_dom_node_insert_child(<lxb_dom_node_t * > cloned_document, cloned_node)
+            if cloned_html != NULL:
+                child = cloned_html.first_child
+                while child != NULL:
+                    if lxb_dom_node_tag_id_noi(child) == LXB_TAG_HEAD:
+                        cloned_document.head = <lxb_html_head_element_t *> child
+                    elif lxb_dom_node_tag_id_noi(child) == LXB_TAG_BODY:
+                        cloned_document.body = <lxb_html_body_element_t *> child
+                    child = child.next
 
         cls = LexborHTMLParser.from_document(cloned_document, self.raw_html)
         if self._is_fragment:
@@ -754,9 +871,8 @@ cdef class LexborHTMLParser:
             cls._fragment_tag_id = self._fragment_tag_id
             cls._fragment_namespace_id = self._fragment_namespace_id
             cls._fragment_wrapper = cloned_node
-            cloned_root = cloned_node
-            if cloned_root != NULL:
-                cls._fragment_root = cloned_root.first_child
+            if cloned_node != NULL:
+                cls._fragment_root = cloned_node.first_child
         return cls
 
     def unwrap_tags(self, list tags, delete_empty = False):

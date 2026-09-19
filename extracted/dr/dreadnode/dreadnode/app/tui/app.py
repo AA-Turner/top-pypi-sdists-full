@@ -24,7 +24,12 @@ from dreadnode.app.cli.shared import ArtifactRef
 from dreadnode.app.client.managed_client import ManagedRuntimeClient
 from dreadnode.app.client.models import CapabilityInfo, RuntimeInfo, SessionInfo
 from dreadnode.app.client.runtime_client import DEFAULT_MODEL
-from dreadnode.app.config import DEFAULT_PLATFORM_URL, Profile, UserConfig
+from dreadnode.app.config import (
+    DEFAULT_AUTONOMOUS_MAX_STEPS,
+    DEFAULT_PLATFORM_URL,
+    Profile,
+    UserConfig,
+)
 from dreadnode.app.server.runtime_events import (
     EVENT_COMPONENT_STATE_CHANGED,
     RuntimeEventEnvelope,
@@ -2963,7 +2968,10 @@ class DreadnodeTextualApp(App[None]):
                 agent=self._initial_agent or None,
                 model=self.model,
                 generate_params_extra=self.generate_params_extra or None,
-                policy={"name": "headless", "max_steps": 30},
+                policy={
+                    "name": "headless",
+                    "max_steps": DEFAULT_AUTONOMOUS_MAX_STEPS,
+                },
                 project_memory_preload_limit=self._project_memory_preload_limit,
             )
         except Exception as exc:
@@ -3229,7 +3237,7 @@ class DreadnodeTextualApp(App[None]):
     ) -> None:
         """Swap the active session's policy.
 
-        ``/auto [max_steps]`` — max_steps optional, defaults to 30.
+        ``/auto [max_steps]`` — max_steps optional, defaults to 100.
         ``/interactive`` — no args.
         """
         session = self._active_session()
@@ -3239,7 +3247,7 @@ class DreadnodeTextualApp(App[None]):
 
         spec: str | dict[str, t.Any]
         if policy_name == "headless":
-            max_steps = 30
+            max_steps = DEFAULT_AUTONOMOUS_MAX_STEPS
             if args:
                 try:
                     max_steps = int(args[0])

@@ -29,6 +29,9 @@ class FlowSummaryTrace(Protocol):
     def server_id(self) -> str | None: ...
 
     @property
+    def target_host(self) -> str | None: ...
+
+    @property
     def startup_ms(self) -> float | None: ...
 
 
@@ -108,10 +111,12 @@ def build_summary(
         # New optional fields are omitted (not null) when unset: keeps spool
         # entries lean and old backends' extra="ignore" parsing unchanged.
         # server_id: the UUID this process is running (``runlayer run`` only).
+        # target_host: hostname the flow's relay calls were aimed at (hook path).
         # error_category / error_http_status: sanitized failure classification
         # (flow_contract.CLIENT_FLOW_ERROR_CATEGORIES + integer status) — never
         # free-text exception messages.
         **({"server_id": trace.server_id} if trace.server_id is not None else {}),
+        **({"target_host": trace.target_host} if trace.target_host is not None else {}),
         **(
             {"error_category": trace.error_category}
             if trace.error_category is not None

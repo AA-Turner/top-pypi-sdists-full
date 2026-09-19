@@ -1,24 +1,144 @@
 //! Windows UI Automation accessibility provider.
 
-use std::collections::{HashMap, HashSet};
-use std::sync::atomic::{AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
+use std::collections::{HashMap, HashSet, VecDeque};
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
+use std::sync::{Arc, Mutex, OnceLock};
 
 use windows::core::{implement, BOOL};
 use windows::Win32::Foundation::*;
 use windows::Win32::System::Com::{CoInitializeEx, COINIT};
 use windows::Win32::System::Variant::VARIANT;
 use windows::Win32::UI::Accessibility::*;
-use windows::Win32::UI::WindowsAndMessaging::{GetForegroundWindow, STATE_SYSTEM_SELECTED};
+use windows::Win32::UI::WindowsAndMessaging::{
+    GetForegroundWindow, SetForegroundWindow, STATE_SYSTEM_SELECTED,
+};
 
 use xa11y_core::{
     selector::{matches_simple, Combinator, Selector, SelectorSegment},
     CancelHandle, ElementData, ElementParts, Error, Event, EventKind, EventParts, EventReceiver,
-    Provider, Rect, Result, Role, ShellSurfaceKind, StateFlag, StateParts, StateSet, Subscription,
+    Provider, Result, Role, ShellSurfaceKind, StateFlag, StateParts, StateSet, Subscription,
     Toggled,
 };
 
 static NEXT_HANDLE: AtomicU64 = AtomicU64::new(1);
+
+/// High bit of a synthesized Application-node handle.
+///
+/// UIA has no `Application` accessible — processes surface only through their
+/// top-level HWNDs — so the per-process Application node this provider reports
+/// is synthesized: it deliberately holds no live UIA element, and its handle
+/// is a tagged entry in [`WindowsProvider::synthetic_apps`] instead of a
+/// `handle_cache` key. Handles minted by [`WindowsProvider::cache_element`]
+/// increment from 1 and never carry the tag, so the tag space is disjoint by
+/// construction; the counter is shared with `cache_element` so two syntheses
+/// of the same process never collide.
+const SYNTHETIC_APP_TAG: u64 = 1 << 63;
+
+/// Upper bounds for provider-owned COM references and synthetic identities.
+///
+/// Handles are opaque, session-local capabilities. Keeping the newest 65K
+/// real elements preserves several large tree snapshots for normal action
+/// flows while preventing repeated enumeration from retaining every UIA COM
+/// object for the lifetime of the process. Synthetic apps are much smaller,
+/// but process churn is unbounded too, so they have their own cap.
+const MAX_CACHED_ELEMENTS: usize = 65_536;
+const MAX_SYNTHETIC_APPS: usize = 4_096;
+
+/// Insertion-order-bounded handle table with refresh-on-update.
+///
+/// Handle values are never reused, so insertion order is enough: an evicted
+/// capability becomes stale and can never accidentally resolve to a newer
+/// object. Updating an existing key refreshes its age, which lets repeated
+/// app enumeration keep a still-live synthetic identity resident while old
+/// process generations age out.
+struct BoundedHandleCache<T> {
+    entries: HashMap<u64, T>,
+    order: VecDeque<u64>,
+    capacity: usize,
+}
+
+impl<T> BoundedHandleCache<T> {
+    fn new(capacity: usize) -> Self {
+        debug_assert!(capacity > 0);
+        Self {
+            entries: HashMap::new(),
+            order: VecDeque::new(),
+            capacity,
+        }
+    }
+
+    fn insert(&mut self, handle: u64, value: T) {
+        if self.entries.insert(handle, value).is_some() {
+            self.order.retain(|candidate| *candidate != handle);
+        }
+        self.order.push_back(handle);
+        while self.entries.len() > self.capacity {
+            if let Some(oldest) = self.order.pop_front() {
+                self.entries.remove(&oldest);
+            }
+        }
+    }
+
+    fn get(&self, handle: &u64) -> Option<&T> {
+        self.entries.get(handle)
+    }
+
+    #[cfg(test)]
+    fn len(&self) -> usize {
+        self.entries.len()
+    }
+}
+
+/// True for every handle in the synthetic Application-node tag space.
+fn is_synthetic_handle(handle: u64) -> bool {
+    handle & SYNTHETIC_APP_TAG != 0
+}
+
+/// Process-generation identity of a synthesized Application node.
+///
+/// The pid alone cannot identify a process: Windows reuses PIDs, so a stale
+/// `App` node (a handle minted before the process exited) would otherwise
+/// re-enumerate an unrelated process that was assigned the same PID. The
+/// creation time is captured via [`process_creation_time`] at synthesis and
+/// re-read when the node resolves its children; a mismatch is surfaced as
+/// [`Error::ElementStale`] instead of silently retargeting.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct SyntheticAppIdentity {
+    pid: u32,
+    /// FILETIME creation timestamp (100ns since 1601-01-01), or `None` when
+    /// the process could not be opened at synthesis time. Such a node may be
+    /// listed, but any later operation that would resolve its pid fails stale:
+    /// an unverifiable pid must never target a different process after reuse.
+    creation_time: Option<u64>,
+}
+
+/// A saved synthetic node together with the handle used in stale diagnostics.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+struct SavedSyntheticAppIdentity {
+    handle: u64,
+    identity: SyntheticAppIdentity,
+}
+
+/// Return a stable handle for a process generation whose identity could be
+/// verified, or mint a fresh fail-closed handle when it could not.
+fn cache_synthetic_app_identity(
+    synthetic_apps: &mut BoundedHandleCache<SyntheticAppIdentity>,
+    identity: SyntheticAppIdentity,
+) -> u64 {
+    // Repeated App::list calls must not grow the table for a live process.
+    // An unverifiable identity is deliberately never deduplicated by pid:
+    // doing so could make a new process inherit an old process's handle.
+    let existing = identity.creation_time.and_then(|_| {
+        synthetic_apps
+            .entries
+            .iter()
+            .find_map(|(handle, candidate)| (*candidate == identity).then_some(*handle))
+    });
+    let handle =
+        existing.unwrap_or_else(|| SYNTHETIC_APP_TAG | NEXT_HANDLE.fetch_add(1, Ordering::Relaxed));
+    synthetic_apps.insert(handle, identity);
+    handle
+}
 
 /// `EVENT_E_ALL_SUBSCRIBERS_FAILED` (0x80040201) — returned by UIA when an
 /// action fires a notification and all registered event subscribers fail to
@@ -59,7 +179,13 @@ pub struct WindowsProvider {
     /// the probe sees the same tree the traversal does.
     raw_walker: IUIAutomationTreeWalker,
     /// UIA elements retained for action dispatch (keyed by handle ID).
-    handle_cache: Mutex<HashMap<u64, IUIAutomationElement>>,
+    handle_cache: Mutex<BoundedHandleCache<IUIAutomationElement>>,
+    /// Identities of the synthesized Application nodes this provider minted,
+    /// keyed by their tagged handle. `get_children(Some(app))` validates the
+    /// identity (creation time) before enumerating, so a stale `App` whose
+    /// process exited and whose PID was reused by another process surfaces an
+    /// error rather than silently retargeting to the new process.
+    synthetic_apps: Mutex<BoundedHandleCache<SyntheticAppIdentity>>,
 }
 
 // IUIAutomation is COM and thread-safe via proxy
@@ -98,58 +224,50 @@ impl WindowsProvider {
             automation,
             batch_request,
             raw_walker,
-            handle_cache: Mutex::new(HashMap::new()),
+            handle_cache: Mutex::new(BoundedHandleCache::new(MAX_CACHED_ELEMENTS)),
+            synthetic_apps: Mutex::new(BoundedHandleCache::new(MAX_SYNTHETIC_APPS)),
         })
     }
 
     /// Re-acquire a UIA element via its native window handle.
     /// This triggers WM_GETOBJECT which activates AccessKit's UIA provider,
     /// ensuring the element's children include virtual accessibility elements.
+    ///
+    /// Returns the COM error rather than collapsing it: a caller wants to
+    /// decide whether a given failure is fatal to its enumeration, and the
+    /// `()`-shaped old signature forced every caller into the same silent
+    /// fallback (tenet 1). An element with no native handle is not an error —
+    /// there is nothing to re-acquire — so it returns the element itself;
+    /// `element` is a COM interface and cloning it is an `AddRef`.
     fn reacquire_via_hwnd(
         &self,
         element: &IUIAutomationElement,
-    ) -> std::result::Result<IUIAutomationElement, ()> {
-        let hwnd = unsafe { element.CurrentNativeWindowHandle() }.map_err(|_| ())?;
+    ) -> windows::core::Result<IUIAutomationElement> {
+        let hwnd = unsafe { element.CurrentNativeWindowHandle() }?;
         if hwnd.0.is_null() {
-            return Err(());
+            return Ok(element.clone());
         }
-        // Callers fall back to the un-reacquired element on `Err`, which for a
-        // transiently-busy COM server would silently hand back an element whose
-        // AccessKit provider was never activated. Retry first so a foreign
-        // app's momentary busy-ness doesn't quietly degrade the result.
-        retry_transient(|| unsafe { self.automation.ElementFromHandle(hwnd) }).map_err(|_| ())
-    }
-
-    /// Find an application's root UIA element + window name by PID.
-    ///
-    /// Used by `subscribe_impl` to scope native UIA event handlers to a
-    /// single application's subtree.
-    fn find_app_by_pid(&self, pid: u32) -> Result<(IUIAutomationElement, String)> {
-        let root = uia_call(|| unsafe { self.automation.GetRootElement() })?;
-        let condition = uia_call(|| unsafe {
-            self.automation
-                .CreatePropertyCondition(UIA_ProcessIdPropertyId, &VARIANT::from(pid as i32))
-        })?;
-        let el = unsafe { root.FindFirst(TreeScope_Children, &condition) }.map_err(|_| {
-            Error::Platform {
-                code: -1,
-                message: format!("No window found for PID {}", pid),
-            }
-        })?;
-
-        // Re-acquire via HWND to activate AccessKit provider
-        let el = self.reacquire_via_hwnd(&el).unwrap_or(el);
-
-        let name = unsafe { el.CurrentName() }
-            .map(|s| s.to_string())
-            .unwrap_or_default();
-
-        Ok((el, name))
+        // Callers that fall back to the un-reacquired element on `Err` would,
+        // for a transiently-busy COM server, silently hand back an element
+        // whose AccessKit provider was never activated. Retry first so a
+        // foreign app's momentary busy-ness doesn't quietly degrade the
+        // result; a persistent failure still surfaces as the HRESULT.
+        retry_transient(|| unsafe { self.automation.ElementFromHandle(hwnd) })
     }
 
     /// Cache a UIA element and return its handle ID.
     fn cache_element(&self, uia: IUIAutomationElement) -> u64 {
         let handle = NEXT_HANDLE.fetch_add(1, Ordering::Relaxed);
+        // Handles minted here increment from 1 and must never enter the
+        // synthetic tag space: a tagged handle would be reported as a
+        // synthesized app node by `is_synthetic_handle` and become
+        // unreachable through `get_cached`. The counter cannot reach bit 63
+        // in practice; the assert documents the invariant rather than
+        // guarding a reachable state.
+        debug_assert!(
+            !is_synthetic_handle(handle),
+            "cache_element minted handle {handle} inside the synthetic tag space"
+        );
         self.handle_cache
             .lock()
             .unwrap_or_else(|e| e.into_inner())
@@ -159,6 +277,27 @@ impl WindowsProvider {
 
     /// Look up a cached UIA element by handle.
     fn get_cached(&self, handle: u64) -> Result<IUIAutomationElement> {
+        // A synthesized Application node has no live element behind it, so no
+        // cached lookup can succeed. Answer with the remedy rather than an
+        // opaque "stale handle": the pid identifies the node and the message
+        // names the path that does work (tenet 6 — the error carries its own
+        // diagnosis).
+        if is_synthetic_handle(handle) {
+            let pid = self
+                .synthetic_apps
+                .lock()
+                .unwrap_or_else(|e| e.into_inner())
+                .get(&handle)
+                .map(|identity| identity.pid.to_string())
+                .unwrap_or_else(|| "unknown".to_string());
+            return Err(Error::Unsupported {
+                feature: format!(
+                    "handle {handle} is a synthesized Application node (pid {pid}) with no \
+                     live UIA element; enumerate the process's windows via `App::windows` \
+                     and act on a window child"
+                ),
+            });
+        }
         self.handle_cache
             .lock()
             .unwrap_or_else(|e| e.into_inner())
@@ -169,10 +308,104 @@ impl WindowsProvider {
             })
     }
 
+    /// Identity of the synthesized Application node for `handle`, if any.
+    ///
+    /// Handles tagged by [`is_synthetic_handle`] but absent from the map
+    /// (minted by another provider instance, or an enum-keyed carry-over)
+    /// return `None` — callers then treat the node as a plain stale handle.
+    fn synthetic_app_identity(&self, handle: u64) -> Option<SyntheticAppIdentity> {
+        if !is_synthetic_handle(handle) {
+            return None;
+        }
+        self.synthetic_apps
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .get(&handle)
+            .copied()
+    }
+
+    /// Resolve a tagged synthetic handle without ever falling back to the pid
+    /// embedded in caller-owned `ElementData`.
+    ///
+    /// A missing entry means the bounded identity table evicted this saved
+    /// capability (or it came from another provider instance). Either way it
+    /// is stale: trusting `ElementData::pid` here would defeat both eviction
+    /// safety and the process-generation guard.
+    fn synthetic_app_identity_checked(&self, handle: u64) -> Result<Option<SyntheticAppIdentity>> {
+        if !is_synthetic_handle(handle) {
+            return Ok(None);
+        }
+        self.synthetic_app_identity(handle)
+            .map(Some)
+            .ok_or_else(|| Error::ElementStale {
+                selector: format!(
+                    "handle:{handle}; the synthetic Application identity expired, so its pid \
+                     can no longer be resolved safely"
+                ),
+            })
+    }
+
     /// Query UIA patterns from the element once, sharing across
     /// `get_value`, `get_actions`, and `parse_states` to avoid duplicate COM calls.
-    fn query_patterns(element: &IUIAutomationElement) -> ElementPatterns {
-        ElementPatterns {
+    ///
+    /// WindowPattern / TransformPattern exist only on top-level window
+    /// elements, and `GetCurrentPatternAs` is a live COM round-trip — not
+    /// served from the snapshot cache — so they are queried only for
+    /// window/dialog roles. Every other element previously paid two failed
+    /// provider calls per snapshot for patterns nothing consults.
+    ///
+    /// Only the known "pattern absent" HRESULTs (see [`is_pattern_absent`])
+    /// become `None`. A stale element or wedged provider is a real COM
+    /// failure and must not bleed into the snapshot as "no window actions and
+    /// unknown window states" — the same distinction the window verbs make via
+    /// [`pattern_acquisition_error`] (tenet 1).
+    ///
+    /// These acquisitions run for *every* Window/Dialog element in every
+    /// snapshot, and `GetCurrentPatternAs` is a cross-process COM call into
+    /// a foreign app that can be momentarily busy (`RPC_E_CALL_REJECTED` and
+    /// friends — see [`is_com_server_busy`]). Unlike the window verbs, a
+    /// transient rejection here has no caller left to retry: it would fail
+    /// the whole `get_children` walk. So the acquisitions are wrapped in
+    /// [`retry_transient`], which re-issues only the classified transient
+    /// HRESULTs and propagates everything else unchanged.
+    fn query_patterns(role: Role, element: &IUIAutomationElement) -> Result<ElementPatterns> {
+        let window = if matches!(role, Role::Window | Role::Dialog) {
+            match retry_transient(|| unsafe {
+                element.GetCurrentPatternAs::<IUIAutomationWindowPattern>(UIA_WindowPatternId)
+            }) {
+                Ok(p) => Some(p),
+                Err(e) if is_pattern_absent(&e) => None,
+                Err(e) => {
+                    return Err(Error::Platform {
+                        code: e.code().0 as i64,
+                        message: format!(
+                            "acquiring WindowPattern while building element data failed: {e}"
+                        ),
+                    });
+                }
+            }
+        } else {
+            None
+        };
+        let transform = if matches!(role, Role::Window | Role::Dialog) {
+            match retry_transient(|| unsafe {
+                element.GetCurrentPatternAs::<IUIAutomationTransformPattern>(UIA_TransformPatternId)
+            }) {
+                Ok(p) => Some(p),
+                Err(e) if is_pattern_absent(&e) => None,
+                Err(e) => {
+                    return Err(Error::Platform {
+                        code: e.code().0 as i64,
+                        message: format!(
+                            "acquiring TransformPattern while building element data failed: {e}"
+                        ),
+                    });
+                }
+            }
+        } else {
+            None
+        };
+        Ok(ElementPatterns {
             invoke: unsafe {
                 element.GetCurrentPatternAs::<IUIAutomationInvokePattern>(UIA_InvokePatternId)
             }
@@ -202,7 +435,9 @@ impl WindowsProvider {
                 )
             }
             .ok(),
-        }
+            window,
+            transform,
+        })
     }
 
     /// Build an ElementData from a pre-fetched UIA element snapshot.
@@ -210,9 +445,125 @@ impl WindowsProvider {
     /// The element MUST have been obtained via `FindAllBuildCache` or
     /// `BuildUpdatedCache` so that Cached* accessors are populated.
     /// Every query takes a fresh snapshot — callers never see stale data.
-    fn build_element_data(&self, element: &IUIAutomationElement, pid: Option<u32>) -> ElementData {
+    fn build_element_data(
+        &self,
+        element: &IUIAutomationElement,
+        pid: Option<u32>,
+    ) -> Result<ElementData> {
         let handle = self.cache_element(element.clone());
         build_snapshot_data(element, pid, handle, Some(&self.raw_walker))
+    }
+
+    /// Build the per-process Application node Windows lacks natively.
+    ///
+    /// UIA exposes processes only through their top-level HWNDs, so this node
+    /// is *synthesized*: a handle tagged with [`SYNTHETIC_APP_TAG`] and keyed
+    /// into [`Self::synthetic_apps`] (recognized by
+    /// [`synthetic_app_identity`](Self::synthetic_app_identity), funnelled to
+    /// an explicit `Unsupported` error by [`get_cached`](Self::get_cached)),
+    /// no live UIA element, no bounds (UIA has no process geometry — `None`
+    /// is the honest answer, not a union of window rects), no window actions,
+    /// no window-state flags. The node's top-level windows are its
+    /// `get_children` answer.
+    ///
+    /// `representative` is the process's first top-level window in z-order;
+    /// it is the *fallback* name source only. Name resolution: process
+    /// executable stem (`OpenProcess` + `QueryFullProcessImageNameW`) first;
+    /// the representative window's title when the process cannot be opened.
+    /// `raw` records which one was used (`uia_name_source`), plus the
+    /// synthesized marker and the full executable path when known — the
+    /// fallback is explicit, not silent (tenet 1).
+    ///
+    /// Verified syntheses of the same process generation share a handle, so
+    /// repeated enumeration remains bounded. A different creation time (or
+    /// an unavailable one) gets a fresh handle from [`NEXT_HANDLE`], which is
+    /// how a stale `App` node stays distinct from a process that reuses its
+    /// pid.
+    fn build_synthetic_app_data(
+        &self,
+        pid: u32,
+        representative: &IUIAutomationElement,
+    ) -> Result<ElementData> {
+        let (name, name_source, executable) = match process_image_name(pid) {
+            Some(path) => {
+                let stem = std::path::Path::new(&path)
+                    .file_stem()
+                    .map(|s| s.to_string_lossy().into_owned())
+                    .unwrap_or_else(|| path.clone());
+                (stem, "process", Some(path))
+            }
+            None => {
+                // The fallback name source is explicit, so a failing read must
+                // not silently become "unnamed window": CurrentName() is the
+                // last chance for a name and its COM error is the diagnosis,
+                // not an empty title (tenet 1).
+                let title = unsafe { representative.CurrentName() }
+                    .map_err(|e| Error::Platform {
+                        code: e.code().0 as i64,
+                        message: format!(
+                            "IUIAutomationElement.CurrentName failed for the representative \
+                             window (pid {pid}): {e}"
+                        ),
+                    })?
+                    .to_string();
+                (title, "window_title", None)
+            }
+        };
+        let identity = SyntheticAppIdentity {
+            pid,
+            creation_time: process_creation_time(pid),
+        };
+        let mut synthetic_apps = self
+            .synthetic_apps
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        let handle = cache_synthetic_app_identity(&mut synthetic_apps, identity);
+        let mut raw = HashMap::new();
+        raw.insert("uia_synthesized".into(), serde_json::Value::Bool(true));
+        raw.insert(
+            "uia_name_source".into(),
+            serde_json::Value::String(name_source.into()),
+        );
+        if let Some(path) = executable {
+            raw.insert("uia_process_name".into(), serde_json::Value::String(path));
+        }
+        Ok(ElementParts {
+            role: Role::Application,
+            name: if name.is_empty() { None } else { Some(name) },
+            value: None,
+            description: None,
+            bounds: None,
+            actions: vec![],
+            states: StateSet::default(),
+            numeric_value: None,
+            min_value: None,
+            max_value: None,
+            stable_id: None,
+            pid: Some(pid),
+            raw,
+            handle,
+        }
+        .into())
+    }
+
+    /// Enumerate every top-level window (`ControlType.Window`) owned by `pid`
+    /// under the desktop root, in z-order.
+    ///
+    /// This is the single window-discovery primitive now: [`list_apps`] /
+    /// [`get_children(None)`](Self::get_children) group its result by pid,
+    /// [`app_by_pid`](Self::app_by_pid) takes its first match as the
+    /// representative, and [`get_children(Some(app))`](Self::get_children)
+    /// answers with it. Requiring the Window control type keeps the answer
+    /// window-shaped even for a WebView2/wry host (Tauri, egui, Electron),
+    /// whose process owns several pid-matching desktop children.
+    ///
+    /// An empty result is a truth, not an error: the last window closing is
+    /// exactly the state "no windows" must report. Length / GetElement
+    /// failures are real COM failures and propagate (tenet 1) — an empty
+    /// `Ok` reads as "this process has no windows" when a transient UIA
+    /// failure actually occurred.
+    fn top_level_windows_of_pid(&self, pid: u32) -> Result<Vec<IUIAutomationElement>> {
+        top_level_windows_of_pid_with(&self.automation, pid, &self.batch_request)
     }
 
     /// Populate a UIA element's snapshot so Cached* accessors work.
@@ -310,6 +661,56 @@ impl WindowsProvider {
                 message: format!("FindFirstBuildCache(ClassName={class}) failed: {e}"),
             }),
         }
+    }
+
+    /// Direct Raw View children of the UIA desktop root, with the batch cache
+    /// populated on every element.
+    ///
+    /// A `FindAllBuildCache(TreeScope_Children, ...)` query navigates Control
+    /// View even when the cache request itself uses a Raw View tree filter.
+    /// Native `#32768` popup-menu windows are not guaranteed to be control
+    /// elements, so the shell scan must navigate with `RawViewWalker` too.
+    fn raw_children_with_cache(
+        &self,
+        root: &IUIAutomationElement,
+    ) -> Result<Vec<IUIAutomationElement>> {
+        let mut current = match retry_transient(|| unsafe {
+            self.raw_walker
+                .GetFirstChildElementBuildCache(root, &self.batch_request)
+        }) {
+            Ok(element) => element,
+            Err(e) if e.code().is_ok() => return Ok(Vec::new()),
+            Err(e) => {
+                return Err(Error::Platform {
+                    code: i64::from(e.code().0),
+                    message: format!("RawViewWalker.GetFirstChildElementBuildCache failed: {e}"),
+                });
+            }
+        };
+        let mut children = Vec::new();
+
+        loop {
+            children.push(current.clone());
+            current = match retry_transient(|| unsafe {
+                self.raw_walker
+                    .GetNextSiblingElementBuildCache(&current, &self.batch_request)
+            }) {
+                Ok(element) => element,
+                Err(e) if e.code().is_ok() => break,
+                Err(e) => {
+                    return Err(Error::Platform {
+                        code: i64::from(e.code().0),
+                        message: format!(
+                            "RawViewWalker.GetNextSiblingElementBuildCache failed after {} \
+                             desktop child(ren): {e}",
+                            children.len()
+                        ),
+                    });
+                }
+            };
+        }
+
+        Ok(children)
     }
 
     /// Extract a UIA element's RuntimeId as a `Vec<i32>` for use as a stable
@@ -481,6 +882,199 @@ fn classified_so_far(surfaces: &[(u8, ShellSurfaceKind, ElementData)]) -> Vec<St
     out
 }
 
+/// Build the UIA `ProcessId` property-condition value for `pid`.
+///
+/// UIA property conditions carry an i32: a `u32` pid above 2^31 would wrap
+/// and silently match nothing (tenet 1), so fail surfaceably instead.
+fn pid_variant(pid: u32) -> Result<VARIANT> {
+    i32::try_from(pid)
+        .map(VARIANT::from)
+        .map_err(|_| Error::Platform {
+            code: -1,
+            message: format!("PID {pid} exceeds the i32 range UIA property conditions accept"),
+        })
+}
+
+/// Free-function form of [`WindowsProvider::top_level_windows_of_pid`].
+///
+/// The event subscription's open/close watch runs on UIA's callback thread
+/// without a `WindowsProvider` handle, but must re-attach handlers to the
+/// same window set — so the enumeration lives here and the provider method
+/// delegates, keeping one implementation of the discovery primitive.
+fn top_level_windows_of_pid_with(
+    autom: &IUIAutomation,
+    pid: u32,
+    cache: &IUIAutomationCacheRequest,
+) -> Result<Vec<IUIAutomationElement>> {
+    let root = uia_call(|| unsafe { autom.GetRootElement() })?;
+    let value = pid_variant(pid)?;
+    let pid_condition =
+        uia_call(|| unsafe { autom.CreatePropertyCondition(UIA_ProcessIdPropertyId, &value) })?;
+    let window_condition = uia_call(|| unsafe {
+        autom.CreatePropertyCondition(
+            UIA_ControlTypePropertyId,
+            &VARIANT::from(UIA_WindowControlTypeId.0),
+        )
+    })?;
+    let condition =
+        uia_call(|| unsafe { autom.CreateAndCondition(&pid_condition, &window_condition) })?;
+    let found =
+        uia_call(|| unsafe { root.FindAllBuildCache(TreeScope_Children, &condition, cache) })?;
+    let len = uia_call(|| unsafe { found.Length() })?;
+    let mut out = Vec::with_capacity(len as usize);
+    for i in 0..len {
+        let el = uia_call(|| unsafe { found.GetElement(i) }).map_err(|e| match e {
+            Error::Platform { code, message } => Error::Platform {
+                code,
+                message: format!("IUIAutomationElementArray.GetElement({i}) failed: {message}"),
+            },
+            other => other,
+        })?;
+        out.push(el);
+    }
+    Ok(out)
+}
+
+/// Enumerate a pid only while it still names the saved process generation.
+///
+/// Checking on both sides closes the useful PID-reuse race: a replacement
+/// that appears before or during the PID-filtered UIA query is rejected, and
+/// the returned COM elements are thereafter bound to the enumerated windows
+/// rather than resolved again by PID.
+fn top_level_windows_of_saved_app_with(
+    autom: &IUIAutomation,
+    cache: &IUIAutomationCacheRequest,
+    saved: SavedSyntheticAppIdentity,
+) -> Result<Vec<IUIAutomationElement>> {
+    validate_synthetic_app_identity(
+        saved.handle,
+        saved.identity,
+        process_creation_time(saved.identity.pid),
+    )?;
+    let windows = top_level_windows_of_pid_with(autom, saved.identity.pid, cache)?;
+    validate_synthetic_app_identity(
+        saved.handle,
+        saved.identity,
+        process_creation_time(saved.identity.pid),
+    )?;
+    Ok(windows)
+}
+
+/// Resolve the executable image path of `pid` via
+/// `OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)` +
+/// `QueryFullProcessImageNameW`.
+///
+/// `None` when the process cannot be opened or queried (access denied, the
+/// process exited between enumeration and query, 32-bit/64-bit boundary in a
+/// hard case). That is the *windows do not stay alive by name* trigger for
+/// [`WindowsProvider::build_synthetic_app_data`]'s representative-window-title
+/// fallback — returning `None` rather than a synthesized error keeps the
+/// Application node constructible for a process that is enumerable but not
+/// inspectable, and the caller records which source produced the name in
+/// `raw["uia_name_source"]` so the fallback is explicit, not silent
+/// (tenet 1).
+fn process_image_name(pid: u32) -> Option<String> {
+    use windows::Win32::System::Threading::{
+        OpenProcess, QueryFullProcessImageNameW, PROCESS_NAME_WIN32,
+        PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+
+    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }.ok()?;
+    // QueryFullProcessImageNameW follows the Create Rule: nothing else owns
+    // `handle` here, so it must be released (and the error dropped rather
+    // than leaked) on every path.
+    let mut buf = vec![0u16; 32768];
+    let mut size = buf.len() as u32;
+    let ok = unsafe {
+        QueryFullProcessImageNameW(
+            handle,
+            PROCESS_NAME_WIN32,
+            windows::core::PWSTR(buf.as_mut_ptr()),
+            &mut size,
+        )
+    }
+    .is_ok();
+    // Releasing the OpenProcess handle is best-effort only: a failure here
+    // leaks a single process handle we only queried for a name — the leak is
+    // unrecoverable at this layer, and the name lookup's outcome was already
+    // decided. Treating it as an error would report a fallback that never
+    // happened (tenet 1), so the call is dropped with its reason stated.
+    let _ = unsafe { windows::Win32::Foundation::CloseHandle(handle) };
+    if !ok {
+        return None;
+    }
+    let path = String::from_utf16_lossy(&buf[..size as usize]);
+    Some(path)
+}
+
+/// Resolve the creation time of `pid` (FILETIME, 100ns since 1601-01-01) via
+/// `OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION)` + `GetProcessTimes`.
+///
+/// This is the process-generation token [`WindowsProvider::synthetic_app_identity`]
+/// validates against: the pid alone cannot identify a process, because
+/// Windows reuses PIDs once a process exits. `None` when the process cannot
+/// be opened or queried (access denied, exited between enumeration and
+/// query) — same shape as [`process_image_name`], and the same consequence:
+/// a synthesized node minted for such a process cannot be re-validated, so
+/// it disables the generation check rather than failing to synthesize
+/// (tenet 1 does not demand a guard when the platform refuses the baseline).
+fn process_creation_time(pid: u32) -> Option<u64> {
+    use windows::Win32::System::Threading::{
+        GetProcessTimes, OpenProcess, PROCESS_QUERY_LIMITED_INFORMATION,
+    };
+
+    let handle = unsafe { OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, false, pid) }.ok()?;
+    // Same ownership rule as `process_image_name`: nothing else owns
+    // `handle`, so it must be released on every path.
+    let mut creation = FILETIME::default();
+    let mut exit = FILETIME::default();
+    let mut kernel = FILETIME::default();
+    let mut user = FILETIME::default();
+    let ok = unsafe { GetProcessTimes(handle, &mut creation, &mut exit, &mut kernel, &mut user) }
+        .is_ok();
+    let _ = unsafe { CloseHandle(handle) };
+    if !ok {
+        return None;
+    }
+    Some((u64::from(creation.dwHighDateTime) << 32) | u64::from(creation.dwLowDateTime))
+}
+
+/// Verify that a saved synthetic app still names the same process generation.
+///
+/// Failure to read either side is a stale result, not permission to proceed:
+/// a pid with no verifiable generation can be reused, and enumerating it would
+/// silently retarget the saved `App` to an unrelated process.
+fn validate_synthetic_app_identity(
+    handle: u64,
+    identity: SyntheticAppIdentity,
+    current: Option<u64>,
+) -> Result<()> {
+    match (identity.creation_time, current) {
+        (Some(stored), Some(current)) if stored == current => Ok(()),
+        (Some(_), Some(_)) => Err(Error::ElementStale {
+            selector: format!(
+                "handle:{handle} (pid {}); the process exited and Windows reused its pid, \
+                 so this Application node is stale",
+                identity.pid
+            ),
+        }),
+        (None, _) => Err(Error::ElementStale {
+            selector: format!(
+                "handle:{handle} (pid {}); the process identity could not be captured when \
+                 this Application node was created, so resolving the pid would be unsafe",
+                identity.pid
+            ),
+        }),
+        (Some(_), None) => Err(Error::ElementStale {
+            selector: format!(
+                "handle:{handle} (pid {}); the current process identity could not be verified, \
+                 so resolving the pid would be unsafe",
+                identity.pid
+            ),
+        }),
+    }
+}
+
 /// Read a BSTR VARIANT property from the element's pre-fetched snapshot.
 fn uia_cached_bstr(element: &IUIAutomationElement, prop: UIA_PROPERTY_ID) -> Option<String> {
     unsafe { element.GetCachedPropertyValue(prop) }
@@ -515,7 +1109,7 @@ fn build_snapshot_data(
     pid: Option<u32>,
     handle: u64,
     walker: Option<&IUIAutomationTreeWalker>,
-) -> ElementData {
+) -> Result<ElementData> {
     let control_type = unsafe { element.CachedControlType() }.unwrap_or(UIA_CONTROLTYPE_ID(0));
     let is_table_item = (control_type == UIA_DataItemControlTypeId
         || control_type == UIA_CustomControlTypeId)
@@ -573,7 +1167,7 @@ fn build_snapshot_data(
         .map(|s| s.to_string())
         .filter(|s| !s.is_empty());
 
-    let patterns = WindowsProvider::query_patterns(element);
+    let patterns = WindowsProvider::query_patterns(role, element)?;
     let value = get_value(role, &patterns);
 
     // Try FullDescription first (AccessKit's description), then HelpText
@@ -590,30 +1184,20 @@ fn build_snapshot_data(
             if width == 0 && height == 0 {
                 None
             } else {
-                // Under Per-Monitor-V2 awareness UIA reports physical pixels.
-                // Convert to logical coordinates so `Element::bounds` matches
-                // the cross-platform contract (logical points, same space as
-                // the screenshot/input layers). Scale is the DPI of the
-                // monitor the element sits on.
-                let scale = crate::dpi::scale_for_physical_point(r.left, r.top);
-                Some(
-                    Rect {
-                        x: r.left,
-                        y: r.top,
-                        width,
-                        height,
-                    }
-                    .to_logical(scale),
-                )
+                // Per-Monitor-V2 UIA bounds are physical desktop pixels.
+                Some(crate::dpi::physical_rect_to_desktop(r))
             }
         });
 
-    let actions = get_actions(element, role, &patterns);
+    let actions = get_actions(element, role, &patterns)?;
 
     let automation_id = unsafe { element.CachedAutomationId() }
         .ok()
         .map(|s| s.to_string())
         .filter(|s| !s.is_empty());
+
+    let native_handle = unsafe { element.CachedNativeWindowHandle() }.ok();
+    let stable_id = uia_stable_id(native_handle, automation_id.clone());
 
     let class_name = unsafe { element.CachedClassName() }
         .ok()
@@ -672,7 +1256,7 @@ fn build_snapshot_data(
         (None, None, None)
     };
 
-    ElementParts {
+    Ok(ElementParts {
         role,
         name,
         value,
@@ -683,12 +1267,12 @@ fn build_snapshot_data(
         numeric_value,
         min_value,
         max_value,
-        stable_id: automation_id,
+        stable_id,
         pid,
         raw,
         handle,
     }
-    .into()
+    .into())
 }
 
 /// Build the batch request that describes which properties and patterns
@@ -751,6 +1335,117 @@ fn uia_len(arr: &IUIAutomationElementArray) -> i32 {
 /// Safe wrapper for IUIAutomationElementArray::GetElement.
 fn uia_get(arr: &IUIAutomationElementArray, index: i32) -> Option<IUIAutomationElement> {
     unsafe { arr.GetElement(index) }.ok()
+}
+
+/// True when `GetCurrentPatternAs` reported that the element genuinely has no
+/// such pattern.
+///
+/// UIA says "not supported" via `E_NOINTERFACE` or `UIA_E_INVALIDOPERATION`,
+/// and AccessKit's provider via the empty error: `GetPatternProvider`
+/// returns `Err(Error::empty())` for unsupported patterns
+/// (`accesskit_windows`' `pattern_provider` fallback arm), which windows-rs
+/// surfaces as a null pattern pointer with S_OK — an error whose `code()` is
+/// `HRESULT(0)` ("The operation completed successfully."). S_OK is the only
+/// non-failed HRESULT, so code 0 is definitively "the provider delivered no
+/// pattern", never a COM failure; every real failure has a nonzero (failed)
+/// HRESULT.
+///
+/// Every other HRESULT is therefore a real COM failure (a dead element, a
+/// wedged provider) and must be propagated, not treated as an absent
+/// capability (tenet 1).
+fn is_pattern_absent(err: &windows::core::Error) -> bool {
+    let code = err.code().0;
+    code == E_NOINTERFACE.0 || code == UIA_E_INVALIDOPERATION as i32 || code == 0
+}
+
+/// The stable identity of a UIA element, or `None` when it has none.
+///
+/// UIA excludes top-level application windows from the AutomationId contract
+/// (they have none — see Microsoft's AutomationId docs), so their stable
+/// identity is the native window handle, which is what the provider already
+/// uses to reacquire and activate windows ([`WindowsProvider::reacquire_via_hwnd`]).
+/// Nested framework controls (WPF/WinForms) carry an AutomationId but no HWND
+/// of their own. Prefer the HWND when one exists, fall back to the
+/// AutomationId: that populates `stable_id` for both element kinds, which is
+/// what cross-snapshot correlation, `[stable_id=...]` selectors, and the
+/// window-list dedup all need.
+///
+/// The handle is formatted as `hwnd:0x…` in lowercase hex, stable for the
+/// life of the window within a session (like the Linux D-Bus object path;
+/// HWNDs are reused after a window closes, so the identity is session-scoped,
+/// not launch-scoped).
+fn uia_stable_id(native_handle: Option<HWND>, automation_id: Option<String>) -> Option<String> {
+    native_handle
+        .filter(|h| !h.0.is_null())
+        .map(|h| format!("hwnd:{:#x}", h.0 as usize))
+        .or(automation_id)
+}
+
+/// Translate a window-verb `GetCurrentPatternAs` failure. Only the two
+/// known-absent HRESULTs (see [`is_pattern_absent`]) mean the element has no
+/// such pattern, and thus `ActionNotSupported`; every other COM error — a dead
+/// element, a wedged provider — is a platform failure and must propagate
+/// (tenet 1), exactly as the `activate` path below does.
+fn pattern_acquisition_error(err: &windows::core::Error, verb: &str, role: Role) -> Error {
+    if is_pattern_absent(err) {
+        Error::ActionNotSupported {
+            action: verb.to_string(),
+            role,
+        }
+    } else {
+        Error::Platform {
+            code: err.code().0 as i64,
+            message: format!("acquiring pattern for {verb} failed: {err}"),
+        }
+    }
+}
+
+fn is_top_level_window_control(element: &IUIAutomationElement) -> Result<bool> {
+    // `Role::Dialog` also covers in-page ARIA dialogs; the actual desktop
+    // window identity on Windows is UIA's Window control type.
+    //
+    // `CachedControlType` replays whatever the walk's cache fetch stored, and
+    // AccessKit's provider bakes a transient
+    // `EVENT_E_ALL_SUBSCRIBERS_FAILED` (0x80040201, issue #257) into that
+    // fetch for a regenerating node — the intermittent "reading UIA control
+    // type failed" that hit the egui Windows integ cell in different tests
+    // each run. A cache rebuild does not help because the same fetch reruns;
+    // a live `Current` read bypasses the cache and answers from the provider,
+    // which AccessKit serves in-process. A genuinely dead node surfaces
+    // UIA_E_ELEMENTNOTAVAILABLE and propagates (tenet 1), and the retry
+    // stays inside the classified-transient set (`retry_transient`),
+    // so this is a recovery of a known transient, not a fallback chain.
+    match retry_transient(|| unsafe { element.CachedControlType() }) {
+        Ok(t) => Ok(t == UIA_WindowControlTypeId),
+        Err(e) if is_event_subscriber_failure(&e) => {
+            let t = retry_transient(|| unsafe { element.CurrentControlType() }).map_err(|e| {
+                Error::Platform {
+                    code: e.code().0 as i64,
+                    message: format!("reading UIA control type failed: {e}"),
+                }
+            })?;
+            Ok(t == UIA_WindowControlTypeId)
+        }
+        Err(e) => Err(Error::Platform {
+            code: e.code().0 as i64,
+            message: format!("reading UIA control type failed: {e}"),
+        }),
+    }
+}
+
+fn ensure_top_level_window_target(
+    element: &IUIAutomationElement,
+    action: &str,
+    role: Role,
+) -> Result<()> {
+    if is_top_level_window_control(element)? {
+        Ok(())
+    } else {
+        Err(Error::ActionNotSupported {
+            action: action.to_string(),
+            role,
+        })
+    }
 }
 
 /// Locate the caret within a control's TextPattern, as a character offset
@@ -831,13 +1526,25 @@ struct ElementPatterns {
     value: Option<IUIAutomationValuePattern>,
     range_value: Option<IUIAutomationRangeValuePattern>,
     selection_item: Option<IUIAutomationSelectionItemPattern>,
+    /// WindowPattern — present only on elements backed by an HWND frame
+    /// (top-level windows, dialogs). Drives the window verbs and the
+    /// `minimized` / `maximized` / `modal` state reads.
+    window: Option<IUIAutomationWindowPattern>,
+    /// TransformPattern — present on movable/resizable windows.
+    transform: Option<IUIAutomationTransformPattern>,
 }
 
 impl Provider for WindowsProvider {
     fn get_children(&self, element: Option<&ElementData>) -> Result<Vec<ElementData>> {
         match element {
             None => {
-                // Top-level: list all GUI application windows
+                // Top-level: enumerate the desktop root's named top-level
+                // windows, then group them by pid — one synthesized
+                // Application node per process, in first-seen (z-) order,
+                // with that pid's first window as the representative. The old
+                // code returned one entry per window (issue #304's shape);
+                // grouping now reports one Application node per process on
+                // every platform, and the windows are the node's children.
                 let root = uia_call(|| unsafe { self.automation.GetRootElement() })?;
                 let condition = uia_call(|| unsafe {
                     self.automation.CreatePropertyCondition(
@@ -849,75 +1556,224 @@ impl Provider for WindowsProvider {
                     root.FindAllBuildCache(TreeScope_Children, &condition, &self.batch_request)
                 })?;
 
-                let mut results = Vec::new();
-
-                for i in 0..uia_len(&found) {
-                    let Some(el) = uia_get(&found, i) else {
-                        continue;
-                    };
-                    let pid = unsafe { el.CachedProcessId() }.unwrap_or(0) as u32;
-                    // A process may own several top-level windows (e.g. a main
-                    // window plus a modal dialog) and each is returned as its
-                    // own entry. Deduping by pid silently dropped every window
-                    // after the first, hiding modals from `App::list`/`find`
-                    // (issue #304). The `pid == 0` skip still drops windows with
-                    // no resolvable owning process; the empty-name skip below
-                    // drops windows that are still unnamed mid-startup.
-                    // Each entry's `states.active` marks the actual foreground
-                    // window (HWND == GetForegroundWindow); that is what lets
-                    // the core's foreground tagging pick the right window when a
-                    // single process owns several top-level entries.
+                let mut windows: Vec<(IUIAutomationElement, u32)> = Vec::new();
+                // Strict iteration (the same shape `top_level_windows_of_pid`
+                // uses): `Length` and `GetElement` failures are real COM
+                // failures, not absent windows — propagating keeps a transient
+                // UIA failure from silently truncating the process list to
+                // zero or a partial subset (tenet 1). `uia_call` retries the
+                // classified-transient HRESULTs first; what survives is
+                // persistent and must surface.
+                let len = uia_call(|| unsafe { found.Length() })?;
+                for i in 0..len {
+                    let el = uia_call(|| unsafe { found.GetElement(i) }).map_err(|e| match e {
+                        Error::Platform { code, message } => Error::Platform {
+                            code,
+                            message: format!(
+                                "IUIAutomationElementArray.GetElement({i}) failed: {message}"
+                            ),
+                        },
+                        other => other,
+                    })?;
+                    // The Cached* reads come from the batch cache populated by
+                    // FindAllBuildCache, so a failure here is an enumeration
+                    // failure rather than an absent value — propagate it with
+                    // the index it failed for (tenet 6), instead of letting
+                    // `pid == 0` / empty-name filters turn it into a silent
+                    // dismissal of the window.
+                    let pid = uia_call(|| unsafe { el.CachedProcessId() })
+                        .map_err(|e| match e {
+                            Error::Platform { code, message } => Error::Platform {
+                                code,
+                                message: format!(
+                                    "reading the process id of desktop window #{i} failed: \
+                                     {message}"
+                                ),
+                            },
+                            other => other,
+                        })?
+                        .max(0) as u32;
+                    // `pid == 0` skips windows with no resolvable owning
+                    // process; the empty-name skip drops windows that are
+                    // still unnamed mid-startup. Both are the same filters
+                    // the pre-unification enumeration applied.
                     if pid == 0 {
                         continue;
                     }
-                    let name = unsafe { el.CachedName() }
-                        .map(|s| s.to_string())
-                        .unwrap_or_default();
+                    let name = uia_call(|| unsafe { el.CachedName() })
+                        .map_err(|e| match e {
+                            Error::Platform { code, message } => Error::Platform {
+                                code,
+                                message: format!(
+                                    "reading the name of desktop window #{i} failed: \
+                                     {message}"
+                                ),
+                            },
+                            other => other,
+                        })?
+                        .to_string();
                     if name.is_empty() {
                         continue;
                     }
-                    // Re-acquire via HWND to activate AccessKit provider,
-                    // then populate snapshot for build_element_data.
-                    let el = self
-                        .reacquire_via_hwnd(&el)
-                        .and_then(|e| self.populate_cache(&e).map_err(|_| ()))
-                        .unwrap_or(el);
-                    let mut data = self.build_element_data(&el, Some(pid));
-                    if data.name.is_none() {
-                        data.name = Some(name);
-                    }
-                    results.push(data);
+                    windows.push((el, pid));
                 }
 
+                let mut seen = HashSet::new();
+                let mut results = Vec::new();
+                for (el, pid) in windows {
+                    if !seen.insert(pid) {
+                        continue;
+                    }
+                    results.push(self.build_synthetic_app_data(pid, &el)?);
+                }
                 Ok(results)
             }
             Some(element_data) => {
+                // A synthesized Application node answers with the process's
+                // top-level windows — a process-wide UIA query, not a tree
+                // walk, because the node deliberately has no live element
+                // behind it. This uniform "windows are the Application node's
+                // children" answer is what makes `App::windows` identical
+                // across platforms, and an empty result is the truth of a
+                // process whose last window closed.
+                if let Some(identity) = self.synthetic_app_identity_checked(element_data.handle)? {
+                    // Validate both before and after the PID-filtered query.
+                    // A replacement process appearing during enumeration is
+                    // rejected rather than returned as this saved App.
+                    let windows = top_level_windows_of_saved_app_with(
+                        &self.automation,
+                        &self.batch_request,
+                        SavedSyntheticAppIdentity {
+                            handle: element_data.handle,
+                            identity,
+                        },
+                    )?;
+                    let mut data = Vec::with_capacity(windows.len());
+                    for el in windows {
+                        // Strict path: re-acquire via HWND to activate
+                        // AccessKit's provider, then populate the snapshot
+                        // that build_element_data reads. A failure here is a
+                        // real COM failure — the fallback would silently hand
+                        // back a window whose provider was never activated
+                        // (tenet 1).
+                        let el = self.reacquire_via_hwnd(&el).map_err(|e| Error::Platform {
+                            code: e.code().0 as i64,
+                            message: format!(
+                                "re-acquiring a top-level window via HWND failed: {e}"
+                            ),
+                        })?;
+                        let reacquired_pid =
+                            unsafe { el.CurrentProcessId() }.map_err(|e| Error::Platform {
+                                code: e.code().0 as i64,
+                                message: format!(
+                                    "reading the process id of a re-acquired top-level window \
+                                     failed: {e}"
+                                ),
+                            })? as u32;
+                        if reacquired_pid != identity.pid {
+                            return Err(Error::ElementStale {
+                                selector: format!(
+                                    "handle:{} (pid {}); top-level window HWND was reused by \
+                                     pid {reacquired_pid}",
+                                    element_data.handle, identity.pid
+                                ),
+                            });
+                        }
+                        // Re-check the process generation after resolving the
+                        // numeric HWND. HWNDs are reusable too; together these
+                        // checks ensure ElementFromHandle cannot redirect this
+                        // saved App to another process or process generation.
+                        validate_synthetic_app_identity(
+                            element_data.handle,
+                            identity,
+                            process_creation_time(reacquired_pid),
+                        )?;
+                        let el = self.populate_cache(&el).map_err(|e| Error::Platform {
+                            code: e.code().0 as i64,
+                            message: format!(
+                                "populating the re-acquired top-level window cache failed: {e}"
+                            ),
+                        })?;
+                        let mut window_data = self.build_element_data(&el, Some(identity.pid))?;
+                        if window_data.name.is_none() {
+                            // Error-preserving live name read (tenet 1): a
+                            // CurrentName COM failure must not collapse into
+                            // an honestly unnamed window via `.ok()` — the
+                            // result would be indistinguishable from "this
+                            // window has no name" in listings and selectors.
+                            // A successfully read empty string IS the "no
+                            // name" answer.
+                            window_data.name = match unsafe { el.CurrentName() } {
+                                Ok(s) => {
+                                    let s = s.to_string();
+                                    if s.is_empty() {
+                                        None
+                                    } else {
+                                        Some(s)
+                                    }
+                                }
+                                Err(e) => {
+                                    return Err(Error::Platform {
+                                        code: e.code().0 as i64,
+                                        message: format!(
+                                            "CurrentName failed while listing a top-level \
+                                             window of pid {}: {e}",
+                                            identity.pid
+                                        ),
+                                    });
+                                }
+                            };
+                        }
+                        data.push(window_data);
+                    }
+                    return Ok(data);
+                }
                 let uia = self.get_cached(element_data.handle)?;
                 let children = self.uia_children(&uia);
                 let pid = element_data.pid;
-                Ok(children
-                    .iter()
-                    .map(|child| self.build_element_data(child, pid))
-                    .collect())
+                let mut data = Vec::with_capacity(children.len());
+                for child in children {
+                    data.push(self.build_element_data(&child, pid)?);
+                }
+                Ok(data)
             }
         }
     }
 
     fn get_parent(&self, element: &ElementData) -> Result<Option<ElementData>> {
+        // A synthesized Application node is top-level by construction — no
+        // element has the process as a child. The walk needs a live element
+        // the node does not have, so answer `None` directly instead of
+        // routing a synthetic handle through `get_cached` into the
+        // "unsupported" error.
+        if is_synthetic_handle(element.handle) {
+            return Ok(None);
+        }
         let uia = self.get_cached(element.handle)?;
         if let Ok(walker) = unsafe { self.automation.RawViewWalker() } {
             if let Ok(parent) = unsafe { walker.GetParentElement(&uia) } {
                 // Check if the parent is the desktop root (no further parent)
                 let parent_parent = unsafe { walker.GetParentElement(&parent) };
                 if parent_parent.is_err() {
-                    return Ok(None);
+                    // The desktop root is not a "real" parent: the owning
+                    // process is. Answer with the synthetic Application node
+                    // for the element's pid, using the element itself as the
+                    // representative window — name resolution reads the
+                    // process path in the common case. An element whose
+                    // pid could not be resolved (rare — a shell Pane from a
+                    // vanished process) has no process identity to report,
+                    // which is "no parent", not an error.
+                    let Some(pid) = element.pid else {
+                        return Ok(None);
+                    };
+                    return Ok(Some(self.build_synthetic_app_data(pid, &uia)?));
                 }
                 // Populate snapshot so build_element_data can read Cached* props
                 let parent = self.populate_cache(&parent).map_err(|e| Error::Platform {
                     code: e.code().0 as i64,
                     message: format!("BuildUpdatedCache failed: {}", e),
                 })?;
-                let data = self.build_element_data(&parent, element.pid);
+                let data = self.build_element_data(&parent, element.pid)?;
                 return Ok(Some(data));
             }
         }
@@ -927,17 +1783,12 @@ impl Provider for WindowsProvider {
     /// Enumerate the Windows shell surfaces by classifying the UIA desktop
     /// root's **direct** children by class name.
     ///
-    /// [`get_children(None)`](Self::get_children) filters the same children to
-    /// `ControlType.Window`, which is exactly what hides the shell: every
-    /// surface below is a `Pane`. This walk therefore drops the control-type
-    /// filter (`TreeScope_Children` + `TrueCondition`) and keeps only the
-    /// classes it recognises. Note this is still the **Control View**, not the
-    /// Raw View: `FindAllBuildCache` walks the control view unless given
-    /// `RawViewWalker`. It works because every shell pane below is a control
-    /// element — a shell window with `IsControlElement=false` would be
-    /// invisible here, and would need the raw walker to reach. Anything else — ordinary app windows and their
-    /// panes — is skipped silently: it is not a shell surface, and it is
-    /// already reachable through `list_apps`.
+    /// [`get_children(None)`](Self::get_children) filters desktop children to
+    /// `ControlType.Window`, which hides the shell panes and native popup-menu
+    /// hosts. This scan walks the desktop root's direct **Raw View** children
+    /// and keeps only the classes it recognises. Anything else — ordinary app
+    /// windows and their panes — is skipped: it is not a shell surface, and it
+    /// is already reachable through `list_apps`.
     ///
     /// | Class name | Kind |
     /// |---|---|
@@ -946,6 +1797,7 @@ impl Provider for WindowsProvider {
     /// | `TopLevelWindowForOverflowXamlIsland` | [`Flyout`](ShellSurfaceKind::Flyout) — the tray overflow |
     /// | `Microsoft.UI.Content.PopupWindowSiteBridge` | [`Flyout`](ShellSurfaceKind::Flyout) — a shell popup |
     /// | `ControlCenterWindow` | [`Flyout`](ShellSurfaceKind::Flyout) — Quick Settings, **only while its content is on screen** |
+    /// | `#32768` | [`Flyout`](ShellSurfaceKind::Flyout) — a native Win32 popup menu, while open |
     ///
     /// Two shell classes are deliberately *not* listed:
     ///
@@ -973,22 +1825,15 @@ impl Provider for WindowsProvider {
     /// scan aborted.
     fn list_shell_surfaces(&self) -> Result<Vec<(ShellSurfaceKind, ElementData)>> {
         let root = uia_call(|| unsafe { self.automation.GetRootElement() })?;
-        let true_cond = uia_call(|| unsafe { self.automation.CreateTrueCondition() })?;
-        let found = uia_call(|| unsafe {
-            root.FindAllBuildCache(TreeScope_Children, &true_cond, &self.batch_request)
-        })?;
+        let found = self.raw_children_with_cache(&root)?;
 
         // (rank, kind, data) — rank groups the output; the stable sort below
         // keeps enumeration order within a group.
         let mut surfaces: Vec<(u8, ShellSurfaceKind, ElementData)> = Vec::new();
 
-        for i in 0..uia_len(&found) {
-            let Some(el) = uia_get(&found, i) else {
-                continue;
-            };
-            let Some(class_name) = uia_cached_bstr(&el, UIA_ClassNamePropertyId) else {
-                continue;
-            };
+        for el in found {
+            let class_name = uia_cached_bstr(&el, UIA_ClassNamePropertyId).unwrap_or_default();
+            let control_type = uia_cached_i32(&el, UIA_ControlTypePropertyId);
 
             let (rank, kind) = match class_name.as_str() {
                 "Shell_TrayWnd" => (0u8, ShellSurfaceKind::Taskbar),
@@ -997,7 +1842,13 @@ impl Provider for WindowsProvider {
                 // the flyout is open, so its presence is the open signal.
                 // The XAML popup site bridge behaves the same way.
                 "TopLevelWindowForOverflowXamlIsland"
-                | "Microsoft.UI.Content.PopupWindowSiteBridge" => (2u8, ShellSurfaceKind::Flyout),
+                | "Microsoft.UI.Content.PopupWindowSiteBridge"
+                // Win32 creates a top-level window of the system menu class
+                // for TrackPopupMenu-style menus. It exists only while the
+                // menu is open and exposes its commands as UIA menu items.
+                // Native notification-area menus use this path rather than
+                // either of the XAML popup hosts above.
+                | "#32768" => (2u8, ShellSurfaceKind::Flyout),
                 // Quick Settings is the exception: its host window persists as
                 // a desktop-root child after dismissal, keeping the bounds it
                 // had while open, and only its XAML content goes offscreen.
@@ -1038,6 +1889,13 @@ impl Provider for WindowsProvider {
                     }
                     (2u8, ShellSurfaceKind::Flyout)
                 }
+                // Windows 11 shell controls do not consistently use the
+                // Win32 system-menu class. UIA's top-level Menu control type
+                // is the stable accessibility signal for those popup hosts;
+                // direct Raw View scope keeps ordinary in-app menus out.
+                _ if control_type == Some(UIA_MenuControlTypeId.0) => {
+                    (2u8, ShellSurfaceKind::Flyout)
+                }
                 _ => continue,
             };
 
@@ -1072,12 +1930,13 @@ impl Provider for WindowsProvider {
             })? as u32;
             // Mirror get_children(None): re-acquire via HWND so the window's
             // UIA provider is activated, then repopulate the snapshot that
-            // build_element_data reads.
-            let el = self
-                .reacquire_via_hwnd(&el)
-                .and_then(|e| self.populate_cache(&e).map_err(|_| ()))
-                .unwrap_or(el);
-            let data = self.build_element_data(&el, (pid != 0).then_some(pid));
+            // build_element_data reads. Best-effort here, as in
+            // get_children — see the rationale there.
+            let el = match self.reacquire_via_hwnd(&el) {
+                Ok(re) => self.populate_cache(&re).unwrap_or(el),
+                Err(_) => el,
+            };
+            let data = self.build_element_data(&el, (pid != 0).then_some(pid))?;
             surfaces.push((rank, kind, data));
         }
 
@@ -1088,14 +1947,17 @@ impl Provider for WindowsProvider {
             .collect())
     }
 
-    /// Enumerate top-level applications. UIA exposes apps as top-level
-    /// `Window` control-type elements under the desktop root — there's no
-    /// dedicated `Application` accessible — so we list the desktop's direct
-    /// named window children, one entry per top-level window. A process that
-    /// owns several top-level windows (e.g. an app showing a modal dialog)
-    /// therefore yields several entries, not one per PID (issue #304). This
-    /// is the canonical app discovery primitive (replaces the old
-    /// `find_elements(None, "application"/"window", …, depth=0)` idiom).
+    /// Enumerate top-level applications.
+    ///
+    /// UIA has no `Application` accessible — processes surface only as
+    /// top-level `Window` control-type elements under the desktop root — so
+    /// this lists the desktop's named window children and groups them by
+    /// pid: one synthesized Application node per process, in first-seen
+    /// (z-) order. A process owning several top-level windows (e.g. an app
+    /// showing a modal dialog, issue #304) now yields *one* Application node
+    /// whose children are its windows — the uniform shape every platform
+    /// reports. This is the canonical app discovery primitive (replaces the
+    /// old `find_elements(None, "application"/"window", …, depth=0)` idiom).
     fn list_apps(&self) -> Result<Vec<ElementData>> {
         self.get_children(None)
     }
@@ -1108,12 +1970,37 @@ impl Provider for WindowsProvider {
     /// exactly the state a freshly launched app's top-level window is in
     /// while the process boots. Matching on the pid property alone closes
     /// that blind spot: any top-level element owned by the process counts,
-    /// named or not.
+    /// named or not. The first match is the representative; the returned
+    /// node is the process's synthesized Application node (issue #304's
+    /// missing-entry shape: the process's windows, not its first window,
+    /// are what the pid means).
     fn app_by_pid(&self, pid: u32) -> Result<ElementData> {
         let root = uia_call(|| unsafe { self.automation.GetRootElement() })?;
+        let value = pid_variant(pid)?;
+        let pid_condition = uia_call(|| unsafe {
+            self.automation
+                .CreatePropertyCondition(UIA_ProcessIdPropertyId, &value)
+        })?;
+        // Require the Window control type, mirroring the process-wide
+        // enumeration: a WebView2/wry host (Tauri, egui, Electron)
+        // owns several pid-matching desktop children, and the first of them
+        // is the content Pane, whose UIA subtree disappears while the window
+        // is minimized — so the app root resolved by pid alone would drop
+        // the window exactly when `xa11y action restore "window" --pid PID`
+        // must reach it. The Window-type desktop child (the HWND) stays in
+        // the tree while minimized, matching what `windows --pid` lists and
+        // what the handle-based binding suites restore. On native apps
+        // (Qt, WinForms, WPF) the first pid child IS that window, so the
+        // additional condition changes nothing for them.
+        let window_condition = uia_call(|| unsafe {
+            self.automation.CreatePropertyCondition(
+                UIA_ControlTypePropertyId,
+                &VARIANT::from(UIA_WindowControlTypeId.0),
+            )
+        })?;
         let condition = uia_call(|| unsafe {
             self.automation
-                .CreatePropertyCondition(UIA_ProcessIdPropertyId, &VARIANT::from(pid as i32))
+                .CreateAndCondition(&pid_condition, &window_condition)
         })?;
         // FindFirstBuildCache returns S_OK with a null element when nothing
         // matches; windows-rs surfaces that null as an `Err` carrying the
@@ -1139,38 +2026,49 @@ impl Provider for WindowsProvider {
                 });
             }
         };
-        // Mirror get_children(None): re-acquire via HWND to activate
-        // AccessKit's UIA provider, then repopulate the property snapshot.
-        let el = self
-            .reacquire_via_hwnd(&el)
-            .and_then(|e| self.populate_cache(&e).map_err(|_| ()))
-            .unwrap_or(el);
-        Ok(self.build_element_data(&el, Some(pid)))
+        // The representative window serves only the fallback name source of
+        // the synthesized node (process path first); no snapshot is needed,
+        // and the node deliberately keeps no live element (tenet 2 — no
+        // window-shaped stand-in).
+        self.build_synthetic_app_data(pid, &el)
     }
 
     /// Identify the foreground application via `GetForegroundWindow` +
     /// `ElementFromHandle` — the canonical Win32 foreground query mapped into
-    /// the UIA tree. UIA exposes apps as top-level `Window` elements (see
-    /// [`list_apps`](Self::list_apps)), and the foreground HWND is exactly such
-    /// a top-level window, so the resolved element's pid lines up with a
-    /// `list_apps` entry for the core to tag.
+    /// the UIA tree. The foreground HWND is a process's top-level window, so
+    /// its pid resolves to that process's synthesized Application node — the
+    /// same node `list_apps` reports, which is what lets the core's
+    /// foreground tagging line a `list_apps` entry up by pid.
     ///
     /// A NULL foreground window (nothing active — e.g. the desktop has focus,
     /// or during a fast app switch) maps to [`Error::SelectorNotMatched`]
     /// ("nothing focused"); a failing `ElementFromHandle` is a genuine UIA
-    /// error and propagates.
+    /// error and propagates; a foreground window with no resolvable pid is an
+    /// honest `Platform` error, not "no foreground app" (tenet 1).
     fn focused_app(&self) -> Result<ElementData> {
         let hwnd = unsafe { GetForegroundWindow() };
         if hwnd.0.is_null() {
             return Err(Error::selector_not_matched("focused application"));
         }
         let el = uia_call(|| unsafe { self.automation.ElementFromHandle(hwnd) })?;
-        let pid = unsafe { el.CurrentProcessId() }.unwrap_or(0) as u32;
-        let pid_opt = (pid != 0).then_some(pid);
-        // Populate the snapshot so build_element_data's Cached* reads work,
-        // falling back to the live element if caching fails.
-        let el = self.populate_cache(&el).unwrap_or(el);
-        Ok(self.build_element_data(&el, pid_opt))
+        // A failing read propagates with its HRESULT; this branch is reserved
+        // for a *successfully returned* zero pid (an honest "no owning
+        // process", tenet 1 — not "no foreground app").
+        let pid = unsafe { el.CurrentProcessId() }.map_err(|e| Error::Platform {
+            code: e.code().0 as i64,
+            message: format!(
+                "IUIAutomationElement.CurrentProcessId failed for the foreground window: {e}"
+            ),
+        })? as u32;
+        if pid == 0 {
+            return Err(Error::Platform {
+                code: -1,
+                message: "foreground window returns pid 0 (no owning process)".to_string(),
+            });
+        }
+        // The foreground window is the representative; only its title can
+        // fall back as the name source of the synthesized node.
+        self.build_synthetic_app_data(pid, &el)
     }
 
     /// Override the default `narrow_multi_segment` so that the Descendant
@@ -1261,6 +2159,23 @@ impl Provider for WindowsProvider {
 
         let max_depth_val = max_depth.unwrap_or(xa11y_core::MAX_TREE_DEPTH);
 
+        // A synthesized Application node has no live UIA element, so the UIA
+        // subtree query below cannot be scoped to it. Answer with the
+        // level-by-level walk instead, which goes through `get_children`:
+        // the synthetic node's children are the process's top-level windows,
+        // and each is walked natively. Same shape as the fragment-element
+        // fallback further down — the walk is the honest primitive for a
+        // root that is not a UIA HWND fragment.
+        if is_synthetic_handle(root.handle) {
+            return xa11y_core::selector::find_elements_in_tree_group(
+                |el| self.get_children(el),
+                Some(root),
+                group,
+                limit,
+                max_depth,
+            );
+        }
+
         // ── Phase-1 limit short-circuit ───────────────────────────
         // When there's exactly one clause, propagate the user's `limit`
         // (adjusted for `:nth`) to the subtree walk so e.g.
@@ -1334,7 +2249,7 @@ impl Provider for WindowsProvider {
             };
             // Build ElementData once; reuse for every clause check. The
             // handle assigned here is stable for the rest of this call.
-            let data = self.build_element_data(&el, pid);
+            let data = self.build_element_data(&el, pid)?;
 
             for (idx, clause) in group.clauses.iter().enumerate() {
                 if matches_simple(&data, &clause.segments[0].simple) {
@@ -1727,6 +2642,264 @@ impl Provider for WindowsProvider {
         })
     }
 
+    // ── Window management ──────────────────────────────────────────
+    //
+    // Window verbs go through UIA's WindowPattern / TransformPattern — the
+    // canonical accessibility interfaces for window state and geometry. No
+    // input simulation is involved (tenet 2).
+
+    fn activate(&self, element: &ElementData) -> Result<()> {
+        let uia = self.get_cached(element.handle)?;
+        ensure_top_level_window_target(&uia, "activate", element.role)?;
+        // winlenium parity: if minimized, restore; then bring the HWND to the
+        // foreground; then complete with a UIA SetFocus so UIA-backed
+        // providers treat the window as focused.
+        //
+        // Only a genuinely absent WindowPattern is a skip — activate's fore/focus
+        // work does not need the pattern. Every other pattern-acquisition
+        // error (a dead element, a wedged provider) propagates, and so does a
+        // failed visual-state read: a minimized window whose state could not
+        // be read must not be reported as successfully activated while it stays
+        // minimized (tenet 1).
+        match unsafe { uia.GetCurrentPatternAs::<IUIAutomationWindowPattern>(UIA_WindowPatternId) }
+        {
+            Ok(pattern) => match unsafe { pattern.CurrentWindowVisualState() } {
+                Ok(v) if v == WindowVisualState_Minimized => {
+                    unsafe { pattern.SetWindowVisualState(WindowVisualState_Normal) }.map_err(
+                        |e| Error::Platform {
+                            code: e.code().0 as i64,
+                            message: format!(
+                                "WindowPattern.SetWindowVisualState(Normal) while activating failed: {e}"
+                            ),
+                        },
+                    )?;
+                }
+                Ok(_) => {}
+                Err(e) => {
+                    return Err(Error::Platform {
+                        code: e.code().0 as i64,
+                        message: format!(
+                            "WindowPattern.CurrentWindowVisualState failed while raising: {e}"
+                        ),
+                    });
+                }
+            },
+            Err(e) if is_pattern_absent(&e) => {}
+            Err(e) => {
+                return Err(Error::Platform {
+                    code: e.code().0 as i64,
+                    message: format!("acquiring WindowPattern while activating failed: {e}"),
+                });
+            }
+        }
+        let hwnd = unsafe { uia.CurrentNativeWindowHandle() }.map_err(|e| Error::Platform {
+            code: e.code().0 as i64,
+            message: format!("CurrentNativeWindowHandle failed while raising: {e}"),
+        })?;
+        if hwnd.0.is_null() {
+            return Err(Error::Platform {
+                code: -1,
+                message: "window has no native handle; cannot activate".to_string(),
+            });
+        }
+        if !unsafe { SetForegroundWindow(hwnd) }.as_bool() {
+            // Windows restricts foreground changes (foreground lock); a
+            // denied SetForegroundWindow is a real failure, not a no-op —
+            // surface it (tenet 1).
+            return Err(Error::Platform {
+                code: -1,
+                message: "SetForegroundWindow was denied (foreground lock); the window may not \
+                          have been activated"
+                    .to_string(),
+            });
+        }
+        unsafe { uia.SetFocus() }.map_err(|e| Error::Platform {
+            code: e.code().0 as i64,
+            message: format!("SetFocus during activate failed: {e}"),
+        })?;
+        Ok(())
+    }
+
+    fn minimize(&self, element: &ElementData) -> Result<()> {
+        let uia = self.get_cached(element.handle)?;
+        ensure_top_level_window_target(&uia, "minimize", element.role)?;
+        let pattern =
+            unsafe { uia.GetCurrentPatternAs::<IUIAutomationWindowPattern>(UIA_WindowPatternId) }
+                .map_err(|e| pattern_acquisition_error(&e, "minimize", element.role))?;
+        // A failed capability read is a platform failure, not an absent
+        // capability: transient/stale-element COM errors must not masquerade
+        // as ActionNotSupported (tenet 1). Only a successfully reported
+        // FALSE means the window cannot be minimized.
+        if unsafe { pattern.CurrentCanMinimize() }.map_err(|e| Error::Platform {
+            code: e.code().0 as i64,
+            message: format!("WindowPattern.CurrentCanMinimize failed: {e}"),
+        })? != TRUE
+        {
+            return Err(Error::ActionNotSupported {
+                action: "minimize".to_string(),
+                role: element.role,
+            });
+        }
+        unsafe { pattern.SetWindowVisualState(WindowVisualState_Minimized) }.map_err(|e| {
+            Error::Platform {
+                code: e.code().0 as i64,
+                message: format!("WindowPattern.SetWindowVisualState(Minimized) failed: {e}"),
+            }
+        })?;
+        Ok(())
+    }
+
+    fn maximize(&self, element: &ElementData) -> Result<()> {
+        let uia = self.get_cached(element.handle)?;
+        ensure_top_level_window_target(&uia, "maximize", element.role)?;
+        let pattern =
+            unsafe { uia.GetCurrentPatternAs::<IUIAutomationWindowPattern>(UIA_WindowPatternId) }
+                .map_err(|e| pattern_acquisition_error(&e, "maximize", element.role))?;
+        // See minimize: a failed read propagates; only a successful FALSE is
+        // "cannot maximize".
+        if unsafe { pattern.CurrentCanMaximize() }.map_err(|e| Error::Platform {
+            code: e.code().0 as i64,
+            message: format!("WindowPattern.CurrentCanMaximize failed: {e}"),
+        })? != TRUE
+        {
+            return Err(Error::ActionNotSupported {
+                action: "maximize".to_string(),
+                role: element.role,
+            });
+        }
+        unsafe { pattern.SetWindowVisualState(WindowVisualState_Maximized) }.map_err(|e| {
+            Error::Platform {
+                code: e.code().0 as i64,
+                message: format!("WindowPattern.SetWindowVisualState(Maximized) failed: {e}"),
+            }
+        })?;
+        Ok(())
+    }
+
+    fn enter_fullscreen(&self, element: &ElementData) -> Result<()> {
+        let uia = self.get_cached(element.handle)?;
+        // Same target contract as the sibling verbs: a non-window target is
+        // rejected as an unsupported action on that element, before the
+        // platform-level answer.
+        ensure_top_level_window_target(&uia, "enter_fullscreen", element.role)?;
+        // UIA has no fullscreen surface at all: `WindowVisualState` has no
+        // fullscreen value and no other pattern exposes one. Substituting
+        // `Maximized` would be a different operation (see `maximize`), and
+        // sizing the HWND by hand is not an accessibility call (tenet 2), so
+        // the verb is platform-unsupported on a real window — the same split
+        // the Linux backend makes (tenet 1: no silent fallback).
+        Err(Error::Unsupported {
+            feature: format!(
+                "enter_fullscreen on {}: UIA has no API to enter fullscreen \
+                 (WindowVisualState has no fullscreen value)",
+                element.role.to_snake_case()
+            ),
+        })
+    }
+
+    fn restore(&self, element: &ElementData) -> Result<()> {
+        let uia = self.get_cached(element.handle)?;
+        ensure_top_level_window_target(&uia, "restore", element.role)?;
+        let pattern =
+            unsafe { uia.GetCurrentPatternAs::<IUIAutomationWindowPattern>(UIA_WindowPatternId) }
+                .map_err(|e| pattern_acquisition_error(&e, "restore", element.role))?;
+        // See minimize: each capability read propagates its COM error, and
+        // `ActionNotSupported` is reserved for the case where both capability
+        // flags were successfully read as FALSE.
+        let can_minimize =
+            unsafe { pattern.CurrentCanMinimize() }.map_err(|e| Error::Platform {
+                code: e.code().0 as i64,
+                message: format!("WindowPattern.CurrentCanMinimize failed: {e}"),
+            })? == TRUE;
+        let can_maximize =
+            unsafe { pattern.CurrentCanMaximize() }.map_err(|e| Error::Platform {
+                code: e.code().0 as i64,
+                message: format!("WindowPattern.CurrentCanMaximize failed: {e}"),
+            })? == TRUE;
+        if !can_minimize && !can_maximize {
+            return Err(Error::ActionNotSupported {
+                action: "restore".to_string(),
+                role: element.role,
+            });
+        }
+        unsafe { pattern.SetWindowVisualState(WindowVisualState_Normal) }.map_err(|e| {
+            Error::Platform {
+                code: e.code().0 as i64,
+                message: format!("WindowPattern.SetWindowVisualState(Normal) failed: {e}"),
+            }
+        })?;
+        Ok(())
+    }
+
+    fn close(&self, element: &ElementData) -> Result<()> {
+        let uia = self.get_cached(element.handle)?;
+        ensure_top_level_window_target(&uia, "close", element.role)?;
+        let pattern =
+            unsafe { uia.GetCurrentPatternAs::<IUIAutomationWindowPattern>(UIA_WindowPatternId) }
+                .map_err(|e| pattern_acquisition_error(&e, "close", element.role))?;
+        unsafe { pattern.Close() }.map_err(|e| Error::Platform {
+            code: e.code().0 as i64,
+            message: format!("WindowPattern.Close failed: {e}"),
+        })?;
+        Ok(())
+    }
+
+    fn move_to(&self, element: &ElementData, x: i32, y: i32) -> Result<()> {
+        let uia = self.get_cached(element.handle)?;
+        ensure_top_level_window_target(&uia, "move_to", element.role)?;
+        let pattern = unsafe {
+            uia.GetCurrentPatternAs::<IUIAutomationTransformPattern>(UIA_TransformPatternId)
+        }
+        .map_err(|e| pattern_acquisition_error(&e, "move_to", element.role))?;
+        // See minimize: a failed read propagates; only a successful FALSE is
+        // "cannot move".
+        if unsafe { pattern.CurrentCanMove() }.map_err(|e| Error::Platform {
+            code: e.code().0 as i64,
+            message: format!("TransformPattern.CurrentCanMove failed: {e}"),
+        })? != TRUE
+        {
+            return Err(Error::ActionNotSupported {
+                action: "move_to".to_string(),
+                role: element.role,
+            });
+        }
+        // Windows desktop coordinates match TransformPattern's pixels.
+        unsafe { pattern.Move(f64::from(x), f64::from(y)) }.map_err(|e| Error::Platform {
+            code: e.code().0 as i64,
+            message: format!("TransformPattern.Move({x}, {y}) failed: {e}"),
+        })?;
+        Ok(())
+    }
+
+    fn resize_to(&self, element: &ElementData, width: u32, height: u32) -> Result<()> {
+        let uia = self.get_cached(element.handle)?;
+        ensure_top_level_window_target(&uia, "resize_to", element.role)?;
+        let pattern = unsafe {
+            uia.GetCurrentPatternAs::<IUIAutomationTransformPattern>(UIA_TransformPatternId)
+        }
+        .map_err(|e| pattern_acquisition_error(&e, "resize_to", element.role))?;
+        // See minimize: a failed read propagates; only a successful FALSE is
+        // "cannot resize".
+        if unsafe { pattern.CurrentCanResize() }.map_err(|e| Error::Platform {
+            code: e.code().0 as i64,
+            message: format!("TransformPattern.CurrentCanResize failed: {e}"),
+        })? != TRUE
+        {
+            return Err(Error::ActionNotSupported {
+                action: "resize_to".to_string(),
+                role: element.role,
+            });
+        }
+        // Width and height use the same physical desktop units as bounds.
+        unsafe { pattern.Resize(f64::from(width), f64::from(height)) }.map_err(|e| {
+            Error::Platform {
+                code: e.code().0 as i64,
+                message: format!("TransformPattern.Resize({width}, {height}) failed: {e}"),
+            }
+        })?;
+        Ok(())
+    }
+
     fn set_value(&self, element: &ElementData, value: &str) -> Result<()> {
         let uia_element = self.get_cached(element.handle)?;
         if let Ok(pattern) = unsafe {
@@ -1847,6 +3020,24 @@ impl Provider for WindowsProvider {
             "increment" => self.increment(element),
             "decrement" => self.decrement(element),
             "scroll_into_view" => self.scroll_into_view(element),
+            "activate" => self.activate(element),
+            "minimize" => self.minimize(element),
+            "maximize" => self.maximize(element),
+            "enter_fullscreen" => self.enter_fullscreen(element),
+            "restore" => self.restore(element),
+            "close" => self.close(element),
+            // Payload verbs have no arguments on the generic escape hatch;
+            // fail surfaceably with how to call them instead of guessing
+            // (tenet 1: no silent fallback).
+            "move_to" => Err(Error::InvalidActionData {
+                message: "perform_action(\"move_to\") requires coordinates; call move_to(x, y)"
+                    .to_string(),
+            }),
+            "resize_to" => Err(Error::InvalidActionData {
+                message: "perform_action(\"resize_to\") requires dimensions; call \
+                           resize_to(width, height)"
+                    .to_string(),
+            }),
             _ => Err(Error::ActionNotSupported {
                 action: action.to_string(),
                 role: element.role,
@@ -1855,12 +3046,34 @@ impl Provider for WindowsProvider {
     }
 
     fn subscribe(&self, element: &ElementData) -> Result<Subscription> {
-        let pid = element.pid.ok_or(Error::Platform {
-            code: -1,
-            message: "Element has no PID for subscribe".to_string(),
-        })?;
+        // A synthesized Application node resolves its pid from the identity
+        // map; a plain element carries its pid directly. Either way, the
+        // stale-process guard runs: subscribing to a reused pid would attach
+        // the handler to an unrelated process, the same silent retarget the
+        // children path guards against (tenet 1).
+        let saved_app =
+            if let Some(identity) = self.synthetic_app_identity_checked(element.handle)? {
+                validate_synthetic_app_identity(
+                    element.handle,
+                    identity,
+                    process_creation_time(identity.pid),
+                )?;
+                Some(SavedSyntheticAppIdentity {
+                    handle: element.handle,
+                    identity,
+                })
+            } else {
+                None
+            };
+        let pid = match saved_app {
+            Some(saved) => saved.identity.pid,
+            None => element.pid.ok_or(Error::Platform {
+                code: -1,
+                message: "Element has no PID for subscribe".to_string(),
+            })?,
+        };
         let app_name = element.name.clone().unwrap_or_default();
-        self.subscribe_impl(pid, app_name)
+        self.subscribe_impl(pid, app_name, saved_app)
     }
 }
 
@@ -1894,11 +3107,17 @@ fn get_value(role: Role, patterns: &ElementPatterns) -> Option<String> {
 }
 
 /// Determine available actions from pre-queried UIA patterns.
+///
+/// The window capability reads propagate their errors: a stale element or
+/// wedged provider is a platform failure, not evidence that the capability
+/// is absent. `ActionNotSupported`-free advertisement is reserved for a
+/// successful `FALSE` (tenet 1 — the action list must not degrade "could
+/// not read" into "does not support").
 fn get_actions(
     element: &IUIAutomationElement,
     role: Role,
     patterns: &ElementPatterns,
-) -> Vec<String> {
+) -> Result<Vec<String>> {
     let mut actions: Vec<String> = Vec::new();
 
     if patterns.invoke.is_some() {
@@ -1961,7 +3180,66 @@ fn get_actions(
         actions.push("set_value".to_string());
     }
 
-    actions
+    // Window verbs, from WindowPattern / TransformPattern.
+    if let Some(ref pattern) = patterns.window {
+        if !actions.iter().any(|a| a == "close") {
+            actions.push("close".to_string());
+        }
+        // Setup for minimize/maximize/restore advertisement, based on what
+        // the window can actually do (CurrentCanMinimize/CurrentCanMaximize).
+        // A failed read propagates — a capability unknown is not a
+        // capability absent (see get_actions' doc).
+        let can_minimize =
+            unsafe { pattern.CurrentCanMinimize() }.map_err(|e| Error::Platform {
+                code: e.code().0 as i64,
+                message: format!(
+                    "WindowPattern.CurrentCanMinimize failed while advertising actions: {e}"
+                ),
+            })? == TRUE;
+        let can_maximize =
+            unsafe { pattern.CurrentCanMaximize() }.map_err(|e| Error::Platform {
+                code: e.code().0 as i64,
+                message: format!(
+                    "WindowPattern.CurrentCanMaximize failed while advertising actions: {e}"
+                ),
+            })? == TRUE;
+        if can_minimize {
+            actions.push("minimize".to_string());
+        }
+        if can_maximize {
+            actions.push("maximize".to_string());
+        }
+        if can_minimize || can_maximize {
+            actions.push("restore".to_string());
+        }
+    }
+    if let Some(ref pattern) = patterns.transform {
+        if unsafe { pattern.CurrentCanMove() }.map_err(|e| Error::Platform {
+            code: e.code().0 as i64,
+            message: format!(
+                "TransformPattern.CurrentCanMove failed while advertising actions: {e}"
+            ),
+        })? == TRUE
+        {
+            actions.push("move_to".to_string());
+        }
+        if unsafe { pattern.CurrentCanResize() }.map_err(|e| Error::Platform {
+            code: e.code().0 as i64,
+            message: format!(
+                "TransformPattern.CurrentCanResize failed while advertising actions: {e}"
+            ),
+        })? == TRUE
+        {
+            actions.push("resize_to".to_string());
+        }
+    }
+    // `activate` works on any top-level HWND window (SetForegroundWindow +
+    // UIA SetFocus), independent of the pattern set.
+    if !actions.iter().any(|a| a == "activate") && is_top_level_window_control(element)? {
+        actions.push("activate".to_string());
+    }
+
+    Ok(actions)
 }
 
 /// Parse UIA element properties into xa11y StateSet using pre-queried patterns.
@@ -2071,13 +3349,46 @@ fn parse_states(
 
     let focusable = unsafe { element.CachedIsKeyboardFocusable() }.unwrap_or(FALSE) == TRUE;
 
+    // Window visual state (minimized / maximized) from WindowPattern. `None`
+    // means unknown: no WindowPattern (non-window element) or a state that
+    // couldn't be read. Fullscreen is not reported by UIA at all
+    // (WindowVisualState has no fullscreen value), so it stays `None` —
+    // never guessed (tenet 1). macOS reads the fullscreen state from
+    // AXFullScreen and AT-SPI has no fullscreen state bit; no platform can
+    // raise a StateChanged{fullscreen} event, because the AX API has no
+    // fullscreen notification.
+    let (minimized, maximized) = match patterns.window {
+        Some(ref pattern) => match unsafe { pattern.CurrentWindowVisualState() } {
+            Ok(WindowVisualState_Minimized) => (Some(true), Some(false)),
+            Ok(WindowVisualState_Maximized) => (Some(false), Some(true)),
+            // Normal is the only other defined value (there is no Restored);
+            // it clears both flags. A value outside the spec is unknown, not
+            // "definitely not minimized/maximized" — `None`, never guessed.
+            Ok(WindowVisualState_Normal) => (Some(false), Some(false)),
+            Ok(_) => (None, None),
+            Err(_) => (None, None),
+        },
+        None => (None, None),
+    };
+
+    // Modal from WindowPattern.CurrentIsModal — the only authoritative UIA
+    // signal. Previously hard-coded `false`, which reported every modal
+    // dialog (e.g. a WinForms modal form) as non-modal.
+    let modal = match patterns.window {
+        Some(ref pattern) => unsafe { pattern.CurrentIsModal() }.unwrap_or(FALSE) == TRUE,
+        None => false,
+    };
+
     StateParts {
         enabled,
         visible,
         focused,
         active,
         focusable,
-        modal: false,
+        modal,
+        minimized,
+        maximized,
+        fullscreen: None,
         checked,
         selected,
         expanded,
@@ -2297,8 +3608,7 @@ fn map_uia_control_type(control_type: UIA_CONTROLTYPE_ID) -> Role {
 /// Moves a COM interface into a `Send` closure. COM in MTA (the apartment
 /// xa11y uses) serializes access via proxies, so transferring a raw pointer
 /// across threads is safe as long as every dereference happens under MTA —
-/// which is the case for the cancel closure, run from the subscriber's
-/// thread on Subscription drop.
+/// which is the case for the shared registration worker and UIA callbacks.
 ///
 /// Mirrors the `unsafe impl Send for WindowsProvider` assertion in this file:
 /// the same MTA guarantee holds for every COM type we need to capture.
@@ -2309,6 +3619,97 @@ fn map_uia_control_type(control_type: UIA_CONTROLTYPE_ID) -> Role {
 /// forces the full wrapper to be captured.
 struct ComSend<T> {
     inner: T,
+}
+
+type RegistrationJob = Box<dyn FnOnce() + Send + 'static>;
+
+#[derive(Clone)]
+struct RegistrationWorkerError {
+    code: i64,
+    message: String,
+}
+
+static REGISTRATION_WORKER: OnceLock<
+    std::result::Result<std::sync::mpsc::Sender<RegistrationJob>, RegistrationWorkerError>,
+> = OnceLock::new();
+
+/// Return the process-wide UIA registration worker.
+///
+/// UI Automation requires every event-handler registration and removal to be
+/// made from the same thread. Providers and subscriptions can be created and
+/// dropped from arbitrary runtime threads, so the worker is process-wide,
+/// long-lived, and explicitly enters the MTA before accepting work.
+fn registration_worker() -> Result<std::sync::mpsc::Sender<RegistrationJob>> {
+    REGISTRATION_WORKER
+        .get_or_init(|| {
+            let (jobs_tx, jobs_rx) = std::sync::mpsc::channel::<RegistrationJob>();
+            let (ready_tx, ready_rx) = std::sync::mpsc::sync_channel(0);
+            std::thread::Builder::new()
+                .name("xa11y-uia-registration".to_string())
+                .spawn(move || {
+                    let initialized =
+                        ensure_com_initialized().map_err(|e| RegistrationWorkerError {
+                            code: e.code().0 as i64,
+                            message: format!(
+                                "COM initialization failed on UIA registration worker: {e}"
+                            ),
+                        });
+                    if ready_tx.send(initialized.clone()).is_err() || initialized.is_err() {
+                        return;
+                    }
+                    for job in jobs_rx {
+                        job();
+                    }
+                })
+                .map_err(|e| RegistrationWorkerError {
+                    code: -1,
+                    message: format!("Failed to start UIA registration worker: {e}"),
+                })?;
+            ready_rx.recv().map_err(|e| RegistrationWorkerError {
+                code: -1,
+                message: format!("UIA registration worker exited during startup: {e}"),
+            })??;
+            Ok(jobs_tx)
+        })
+        .clone()
+        .map_err(|e| Error::Platform {
+            code: e.code,
+            message: e.message,
+        })
+}
+
+/// Run one registration operation on the shared worker and wait for its
+/// result. Callbacks never use this synchronous form: a removal can wait for
+/// an in-flight callback, so making a callback wait for the worker would form
+/// a UIA callback/removal deadlock.
+fn on_registration_worker<T, F>(operation: F) -> Result<T>
+where
+    T: Send + 'static,
+    F: FnOnce() -> Result<T> + Send + 'static,
+{
+    let worker = registration_worker()?;
+    let (result_tx, result_rx) = std::sync::mpsc::sync_channel(0);
+    worker
+        .send(Box::new(move || {
+            let _ = result_tx.send(operation());
+        }))
+        .map_err(|e| Error::Platform {
+            code: -1,
+            message: format!("UIA registration worker is unavailable: {e}"),
+        })?;
+    result_rx.recv().map_err(|e| Error::Platform {
+        code: -1,
+        message: format!("UIA registration worker stopped before completing an operation: {e}"),
+    })?
+}
+
+fn queue_registration_job(operation: impl FnOnce() + Send + 'static) -> Result<()> {
+    registration_worker()?
+        .send(Box::new(operation))
+        .map_err(|e| Error::Platform {
+            code: -1,
+            message: format!("UIA registration worker is unavailable: {e}"),
+        })
 }
 unsafe impl<T> Send for ComSend<T> {}
 
@@ -2322,16 +3723,510 @@ impl<T> ComSend<T> {
     }
 }
 
+/// The event-handler registrations attached to one top-level window of a live
+/// subscription.
+///
+/// A subscription now registers the automation / property-changed /
+/// structure-changed handlers on **every** current top-level window of the pid
+/// (the pre-C1 shape scoped them to the first window only, so sibling
+/// windows — a dialog next to the main window — never delivered events). The
+/// record keeps the exact element pointer and event-ID subset each window was
+/// registered with, so removal (watch teardown, window close, subscription
+/// cancel) removes precisely what was added.
+struct RegisteredWindow {
+    /// The element the handlers were registered on; removal requires the same
+    /// pointer `Add*` was given.
+    element: ComSend<IUIAutomationElement>,
+    hwnd: usize,
+    /// The subset of `AUTOMATION_EVENT_IDS` successfully registered.
+    automation_ids: Vec<UIA_EVENT_ID>,
+}
+
+/// Live state of one app subscription, shared between `subscribe_impl`, the
+/// per-window handlers, the open/close watch, and the cancel closure.
+///
+/// MTA COM proxies make every dereference of the captured interfaces safe
+/// from the UIA callback threads (the same guarantee behind `ComSend` and
+/// `unsafe impl Send for WindowsProvider`), so sharing the state across those
+/// threads is sound.
+struct SubscriptionState {
+    automation: ComSend<IUIAutomation>,
+    automation_handler: ComSend<IUIAutomationEventHandler>,
+    property_handler: ComSend<IUIAutomationPropertyChangedEventHandler>,
+    structure_handler: ComSend<IUIAutomationStructureChangedEventHandler>,
+    /// Per-window registrations, keyed by HWND — the open/close watch diffs
+    /// against this set and the cancel closure drains it.
+    registered: Mutex<HashMap<usize, RegisteredWindow>>,
+    /// Current `WindowVisualState` per top-level window; shared with
+    /// [`PropertyHandler`] so the delta map and the add/remove paths agree.
+    visual_states: Arc<Mutex<HashMap<usize, i32>>>,
+    /// Process-generation guard retained for the entire subscription. A
+    /// desktop-scoped watch must never attach to a later process that reuses
+    /// the subscribed app's pid.
+    saved_app: Option<SavedSyntheticAppIdentity>,
+    /// Keeps each subscription's bookkeeping transaction explicit. Native
+    /// Add*/Remove* work is already serialized across *all* subscriptions by
+    /// the process-wide registration worker; this lock also documents and
+    /// protects the state transaction if non-UIA bookkeeping is later called
+    /// from another path.
+    reconciliation: Mutex<()>,
+    /// Set once, under `reconciliation`, when the subscription is cancelled.
+    /// An in-flight reconcile that started before the flag was set finishes
+    /// first (cancel waits on the same lock) and its registrations are then
+    /// drained; a reconcile that acquires the lock after sees the flag and
+    /// registers nothing.
+    cancelled: AtomicBool,
+}
+
+unsafe impl Send for SubscriptionState {}
+unsafe impl Sync for SubscriptionState {}
+
+/// The native handle of a top-level window element.
+///
+/// Errors rather than keying a failed read with a sentinel: two windows
+/// whose handle cannot be read must not collapse into one registration key,
+/// which would lose one window's handlers and tear down the wrong
+/// registration. The subscribe-time path propagates the error (tenet 1);
+/// background reconciliation retries it and disconnects the event source if
+/// readiness still cannot be established.
+fn window_handle(el: &IUIAutomationElement) -> Result<usize> {
+    match unsafe { el.CurrentNativeWindowHandle() } {
+        Ok(h) => Ok(h.0 as usize),
+        Err(e) => Err(Error::Platform {
+            code: e.code().0 as i64,
+            message: format!("CurrentNativeWindowHandle failed: {e}"),
+        }),
+    }
+}
+
+/// Split a window-set sync into (HWNDs to attach, HWNDs to tear down).
+///
+/// Pure and unit-testable: the open/close watch and the post-subscribe
+/// reconciliation both call it, and registration bookkeeping is the fiddly
+/// half of per-window scoping (tenet: never let a closed window's stale
+/// registration survive, and never attach twice to an open one).
+fn plan_window_registration_diff(
+    registered: &HashSet<usize>,
+    current: &HashSet<usize>,
+) -> (Vec<usize>, Vec<usize>) {
+    let mut to_add: Vec<usize> = current
+        .iter()
+        .copied()
+        .filter(|h| !registered.contains(h))
+        .collect();
+    let mut to_remove: Vec<usize> = registered
+        .iter()
+        .copied()
+        .filter(|h| !current.contains(h))
+        .collect();
+    to_add.sort_unstable();
+    to_remove.sort_unstable();
+    (to_add, to_remove)
+}
+
+/// Register the automation / property-changed / structure-changed handlers on
+/// one top-level window and seed its `WindowVisualState` baseline.
+///
+/// The caller stores the returned record in the subscription's per-window map.
+/// A partial failure removes what was registered and returns the error (tenet
+/// 1): a half-registered window would deliver only some event kinds and read
+/// as a complete subscription. Seeding happens first so a
+/// `WindowVisualState` event arriving mid-registration has a prior value to
+/// delta against; a re-read after the handlers are attached then closes the
+/// seed→attach gap, where a transition's event would otherwise be raised to
+/// nobody and leave the baseline stale (see the reconciliation below).
+///
+/// The handle is passed in rather than re-read here: the caller already read
+/// it (enumerating the window set), and a second read that fails after the
+/// first succeeded would abort a registration over a transient property read.
+#[allow(
+    clippy::too_many_arguments,
+    reason = "The arguments are the exact per-window registration closure: one automation handle, the target window + its handle, the cache request, the event context a post-attach baseline reconciliation emits through, and the three UIA handler interfaces the registration wires. Grouping them behind a struct would move the coupling the caller already names explicitly."
+)]
+fn register_window_handlers(
+    autom: &IUIAutomation,
+    window: &IUIAutomationElement,
+    hwnd: usize,
+    cache: &IUIAutomationCacheRequest,
+    ctx: &EventContext,
+    automation_handler: &IUIAutomationEventHandler,
+    property: &IUIAutomationPropertyChangedEventHandler,
+    structure: &IUIAutomationStructureChangedEventHandler,
+    visual_states: &Mutex<HashMap<usize, i32>>,
+) -> Result<RegisteredWindow> {
+    // Acquire the window pattern once: the baseline seed below and the
+    // post-attach reconciliation both read `CurrentWindowVisualState` from
+    // it, and a second acquisition could fail transiently between two reads
+    // that must agree on the same window.
+    //
+    // Only an actually absent WindowPattern means "no baseline" (a window
+    // without the pattern never raises visual-state events, so there is
+    // nothing to seed). A transient or stale-provider failure propagates
+    // instead of being swallowed — the PropertyHandler drops a state event
+    // whose baseline is missing, so swallowing this read would silently
+    // consume the first real minimize/maximize transition and miss the event
+    // while the subscription reports success (tenet 1). Same classification
+    // the window verbs apply via `pattern_acquisition_error`.
+    let pattern = if hwnd != 0 {
+        match unsafe {
+            window.GetCurrentPatternAs::<IUIAutomationWindowPattern>(UIA_WindowPatternId)
+        } {
+            Ok(pattern) => Some(pattern),
+            Err(e) if is_pattern_absent(&e) => None,
+            Err(e) => {
+                return Err(Error::Platform {
+                    code: e.code().0 as i64,
+                    message: format!(
+                        "GetCurrentPatternAs(WindowPattern) failed while subscribing to \
+                         window {hwnd:#x}: {e}"
+                    ),
+                });
+            }
+        }
+    } else {
+        None
+    };
+    // Seed the visual-state baseline so the first WindowVisualState
+    // notification after subscribe is already a true delta.
+    let seeded = match &pattern {
+        Some(pattern) => match unsafe { pattern.CurrentWindowVisualState() } {
+            Ok(state) => {
+                let mut states = visual_states.lock().unwrap_or_else(|e| e.into_inner());
+                states.insert(hwnd, state.0);
+                Some(state.0)
+            }
+            Err(e) => {
+                return Err(Error::Platform {
+                    code: e.code().0 as i64,
+                    message: format!(
+                        "CurrentWindowVisualState failed while seeding the baseline of \
+                         window {hwnd:#x}: {e}"
+                    ),
+                });
+            }
+        },
+        None => None,
+    };
+
+    let mut automation_ids: Vec<UIA_EVENT_ID> = Vec::new();
+    for eid in AUTOMATION_EVENT_IDS {
+        if let Err(e) = unsafe {
+            autom.AddAutomationEventHandler(
+                *eid,
+                window,
+                TreeScope_Subtree,
+                cache,
+                automation_handler,
+            )
+        } {
+            let err = Error::Platform {
+                code: e.code().0 as i64,
+                message: format!("AddAutomationEventHandler({:?}) failed: {e}", eid),
+            };
+            remove_handlers_of(
+                autom,
+                window,
+                &automation_ids,
+                automation_handler,
+                property,
+                structure,
+            );
+            remove_visual_state(visual_states, hwnd);
+            return Err(err);
+        }
+        automation_ids.push(*eid);
+    }
+    if let Err(e) = unsafe {
+        autom.AddPropertyChangedEventHandlerNativeArray(
+            window,
+            TreeScope_Subtree,
+            cache,
+            property,
+            PROPERTY_CHANGE_IDS,
+        )
+    } {
+        let err = Error::Platform {
+            code: e.code().0 as i64,
+            message: format!("AddPropertyChangedEventHandlerNativeArray failed: {e}"),
+        };
+        remove_handlers_of(
+            autom,
+            window,
+            &automation_ids,
+            automation_handler,
+            property,
+            structure,
+        );
+        remove_visual_state(visual_states, hwnd);
+        return Err(err);
+    }
+    if let Err(e) = unsafe {
+        autom.AddStructureChangedEventHandler(window, TreeScope_Subtree, cache, structure)
+    } {
+        let err = Error::Platform {
+            code: e.code().0 as i64,
+            message: format!("AddStructureChangedEventHandler failed: {e}"),
+        };
+        let _ = unsafe { autom.RemovePropertyChangedEventHandler(window, property) };
+        remove_handlers_of(
+            autom,
+            window,
+            &automation_ids,
+            automation_handler,
+            property,
+            structure,
+        );
+        remove_visual_state(visual_states, hwnd);
+        return Err(err);
+    }
+
+    // Close the seed→attach gap. The baseline is seeded before the property
+    // handler is registered, so a visual-state transition that lands in
+    // between raises its `PropertyChanged` to nobody — and the stale seed then
+    // swallows the *next* transition's delta too (a restore after a missed
+    // minimize compares Normal against Normal and emits nothing). Re-read now
+    // that the handler is live: when no event has updated the baseline since
+    // the seed, this read is the first observation after attachment and its
+    // delta is emitted here. When an event did update it, the handler already
+    // emitted the delta and this read is older than that observation — leave
+    // the map alone. An in-flight duplicate of a transition this read already
+    // folded in is suppressed by the same map comparison in `PropertyHandler`.
+    if let (Some(pattern), Some(seeded)) = (&pattern, seeded) {
+        match unsafe { pattern.CurrentWindowVisualState() } {
+            Ok(current) => {
+                let kinds = {
+                    let mut states = visual_states.lock().unwrap_or_else(|e| e.into_inner());
+                    match states.get(&hwnd).copied() {
+                        Some(observed) if observed == seeded => {
+                            states.insert(hwnd, current.0);
+                            visual_state_delta_kinds(seeded, current.0)
+                        }
+                        // A handler observed (and emitted) a change after the
+                        // seed, or the entry was torn down: the re-read must
+                        // not overwrite a newer observation.
+                        _ => Vec::new(),
+                    }
+                };
+                if !kinds.is_empty() {
+                    let target = ctx.snapshot_or_log(window, cache);
+                    for kind in kinds {
+                        ctx.emit(kind, target.clone());
+                    }
+                }
+            }
+            Err(e) => {
+                // The handlers are attached but the gap could not be closed:
+                // a half-reconciled window would silently drop transitions,
+                // so undo the registration and surface the failure (tenet 1).
+                remove_handlers_of(
+                    autom,
+                    window,
+                    &automation_ids,
+                    automation_handler,
+                    property,
+                    structure,
+                );
+                remove_visual_state(visual_states, hwnd);
+                return Err(Error::Platform {
+                    code: e.code().0 as i64,
+                    message: format!(
+                        "CurrentWindowVisualState failed while reconciling the baseline of \
+                         window {hwnd:#x} after attaching handlers: {e}"
+                    ),
+                });
+            }
+        }
+    }
+
+    Ok(RegisteredWindow {
+        element: ComSend::new(window.clone()),
+        hwnd,
+        automation_ids,
+    })
+}
+
+fn remove_visual_state(visual_states: &Mutex<HashMap<usize, i32>>, hwnd: usize) {
+    visual_states
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .remove(&hwnd);
+}
+
+/// Remove a window's previously registered handlers. Removal errors are
+/// ignored: a window that closed during subscription (or was never fully
+/// registered) answers `Remove*` with an error there is nothing to do about,
+/// and the callers treat removal as best-effort teardown.
+fn remove_handlers_of(
+    autom: &IUIAutomation,
+    window: &IUIAutomationElement,
+    automation_ids: &[UIA_EVENT_ID],
+    automation_handler: &IUIAutomationEventHandler,
+    property: &IUIAutomationPropertyChangedEventHandler,
+    structure: &IUIAutomationStructureChangedEventHandler,
+) {
+    for eid in automation_ids {
+        let _ = unsafe { autom.RemoveAutomationEventHandler(*eid, window, automation_handler) };
+    }
+    let _ = unsafe { autom.RemovePropertyChangedEventHandler(window, property) };
+    let _ = unsafe { autom.RemoveStructureChangedEventHandler(window, structure) };
+}
+
+/// Reconcile per-window registrations with the pid's current top-level
+/// windows: attach handlers to windows that opened, tear down handlers of
+/// windows that closed, and seed / drop their visual-state baselines.
+///
+/// Used by the open/close watch after each event and once by `subscribe_impl`
+/// right after the watch is registered, so a window that opened during the
+/// subscribe-time enumeration is attached too. The caller decides whether a
+/// failure can be returned (subscribe) or should be retried and diagnosed
+/// (the asynchronous watch path).
+fn sync_registrations(
+    state: &SubscriptionState,
+    cache: &IUIAutomationCacheRequest,
+    ctx: &EventContext,
+    pid: u32,
+) -> Result<bool> {
+    // The process-wide worker serializes native registration operations
+    // across subscriptions. This per-subscription guard makes the associated
+    // diff and bookkeeping one transaction as well.
+    let _guard = state
+        .reconciliation
+        .lock()
+        .unwrap_or_else(|e| e.into_inner());
+    if state.cancelled.load(Ordering::SeqCst) {
+        return Ok(false);
+    }
+    let autom = state.automation.get();
+    let current = match state.saved_app {
+        Some(saved) => top_level_windows_of_saved_app_with(autom, cache, saved),
+        None => top_level_windows_of_pid_with(autom, pid, cache),
+    };
+    let current = current?;
+    // Resolve every window's native handle once, building the map the
+    // add-pass needs so no handle is read a second time (a second failure
+    // would silently leave a newly opened window unregistered until some
+    // unrelated event). A window whose handle cannot be read is diagnosed,
+    // never keyed with a sentinel (see `window_handle`), and never treated as
+    // closed: removing its existing registration on a transient read failure
+    // would permanently stop a still-open window's events, and there may be
+    // no later open/close event to reattach it. Such a sync therefore only
+    // adds — teardown is skipped so an existing registration survives until a
+    // sync that sees every window cleanly.
+    let mut current_by_hwnd: HashMap<usize, &IUIAutomationElement> = HashMap::new();
+    for w in &current {
+        current_by_hwnd.insert(window_handle(w)?, w);
+    }
+    let current_hwnds: HashSet<usize> = current_by_hwnd.keys().copied().collect();
+    let registered_hwnds: HashSet<usize> = {
+        let m = state.registered.lock().unwrap_or_else(|e| e.into_inner());
+        m.keys().copied().collect()
+    };
+    let (to_add, to_remove) = plan_window_registration_diff(&registered_hwnds, &current_hwnds);
+
+    // Tear down closed windows first: any subsequent open keeps the remaining
+    // registrations intact, and a closed window cannot accept new handlers.
+    for hwnd in to_remove {
+        let reg = {
+            let mut m = state.registered.lock().unwrap_or_else(|e| e.into_inner());
+            m.remove(&hwnd)
+        };
+        if let Some(reg) = reg {
+            remove_handlers_of(
+                autom,
+                reg.element.get(),
+                &reg.automation_ids,
+                state.automation_handler.get(),
+                state.property_handler.get(),
+                state.structure_handler.get(),
+            );
+        }
+        let mut states = state
+            .visual_states
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        states.remove(&hwnd);
+    }
+
+    for hwnd in to_add {
+        let Some(window) = current_by_hwnd.get(&hwnd).copied() else {
+            continue;
+        };
+        let reg = register_window_handlers(
+            autom,
+            window,
+            hwnd,
+            cache,
+            ctx,
+            state.automation_handler.get(),
+            state.property_handler.get(),
+            state.structure_handler.get(),
+            &state.visual_states,
+        )?;
+        let mut m = state.registered.lock().unwrap_or_else(|e| e.into_inner());
+        m.insert(reg.hwnd, reg);
+    }
+    Ok(true)
+}
+
+/// Best-effort removal of every registration of a subscription: the desktop
+/// watch, the focus handler, and every per-window record. Used on the
+/// subscribe-time error path and on cancel; removal errors are ignored for
+/// the same reason as in [`remove_handlers_of`] (a dead window or an
+/// already-removed handler has nothing to remove).
+fn cleanup_registrations(
+    autom: &IUIAutomation,
+    root: &IUIAutomationElement,
+    watch: &IUIAutomationEventHandler,
+    focus: &IUIAutomationFocusChangedEventHandler,
+    state: &SubscriptionState,
+) {
+    // Stop reconciles from registering anything further and drain the
+    // per-window records under the same bookkeeping guard used by sync.
+    // Remove* stays outside that guard because UIA may wait for in-flight
+    // callbacks; callbacks only enqueue worker jobs and never wait for them.
+    let regs: Vec<RegisteredWindow> = {
+        let _guard = state
+            .reconciliation
+            .lock()
+            .unwrap_or_else(|e| e.into_inner());
+        state.cancelled.store(true, Ordering::SeqCst);
+        let mut m = state.registered.lock().unwrap_or_else(|e| e.into_inner());
+        m.drain().map(|(_, r)| r).collect()
+    };
+    let _ = unsafe { autom.RemoveFocusChangedEventHandler(focus) };
+    for eid in WATCH_EVENT_IDS {
+        let _ = unsafe { autom.RemoveAutomationEventHandler(*eid, root, watch) };
+    }
+    for reg in regs {
+        remove_handlers_of(
+            autom,
+            reg.element.get(),
+            &reg.automation_ids,
+            state.automation_handler.get(),
+            state.property_handler.get(),
+            state.structure_handler.get(),
+        );
+    }
+    state
+        .visual_states
+        .lock()
+        .unwrap_or_else(|e| e.into_inner())
+        .clear();
+}
+
 /// Shared context passed to every UIA event handler.
 ///
-/// `sender` is wrapped in a `Mutex` because `mpsc::Sender` is `!Sync`
-/// (its internal inner is `UnsafeCell`-like), while handler callbacks may be
-/// invoked concurrently from the UIA MTA background thread. The lock is only
-/// held for the duration of a single channel push, so contention is trivial.
+/// `sender` is optional so a terminal background-registration failure can
+/// disconnect the stream and become visible to a waiting consumer. The mutex
+/// keeps that transition atomic with concurrent callback sends.
 struct EventContext {
-    sender: Mutex<std::sync::mpsc::Sender<Event>>,
+    sender: Mutex<Option<std::sync::mpsc::Sender<Event>>>,
     app_name: String,
     app_pid: u32,
+    /// The saved generation for a synthetic App subscription. Global focus
+    /// and desktop watch handlers re-check it for every event; plain element
+    /// subscriptions have no saved-app identity and retain PID-only behavior.
+    saved_app: Option<SavedSyntheticAppIdentity>,
     /// Clone of the provider's raw-view walker, so event-target snapshots
     /// resolve DataItem cells the same way tree traversal does. COM in MTA
     /// serializes access via proxies (see `ComCallbackWrapper`), so sharing
@@ -2356,19 +4251,41 @@ impl EventContext {
             timestamp: std::time::Instant::now(),
         }
         .into();
-        if let Ok(tx) = self.sender.lock() {
+        if let Some(tx) = self
+            .sender
+            .lock()
+            .unwrap_or_else(|e| e.into_inner())
+            .as_ref()
+        {
             // Receiver may be dropped after close(); lost event is expected then.
             let _ = tx.send(event);
         }
+    }
+
+    /// Make a terminal background-registration failure visible to consumers.
+    /// `wait_for` reports the disconnected source immediately rather than
+    /// timing out against a subscription that can no longer meet its event
+    /// contract.
+    fn disconnect(&self) {
+        self.sender.lock().unwrap_or_else(|e| e.into_inner()).take();
     }
 
     /// Best-effort PID filter. `AddFocusChangedEventHandler` is process-wide,
     /// and scoped handlers occasionally leak events for sibling processes —
     /// checking the sender's PID keeps each subscription clean.
     fn matches_pid(&self, sender: &IUIAutomationElement) -> bool {
-        unsafe { sender.CurrentProcessId() }
+        let sender_matches = unsafe { sender.CurrentProcessId() }
             .map(|p| p as u32 == self.app_pid)
-            .unwrap_or(false)
+            .unwrap_or(false);
+        sender_matches
+            && self.saved_app.is_none_or(|saved| {
+                validate_synthetic_app_identity(
+                    saved.handle,
+                    saved.identity,
+                    process_creation_time(saved.identity.pid),
+                )
+                .is_ok()
+            })
     }
 
     /// Build a full ElementData snapshot from a UIA sender element.
@@ -2380,7 +4297,7 @@ impl EventContext {
         &self,
         sender: &IUIAutomationElement,
         cache: &IUIAutomationCacheRequest,
-    ) -> ElementData {
+    ) -> Result<ElementData> {
         // `CachedControlType()` is cheap and indicates whether the cache
         // covers our expected properties. If it errors, refresh the cache.
         let cached_element = if unsafe { sender.CachedControlType() }.is_ok() {
@@ -2389,6 +4306,29 @@ impl EventContext {
             unsafe { sender.BuildUpdatedCache(cache) }.unwrap_or_else(|_| sender.clone())
         };
         build_snapshot_data(&cached_element, Some(self.app_pid), 0, Some(&self.walker))
+    }
+
+    /// Snapshot an event sender's ElementData, or deliver the event without
+    /// a target. An event handler is fire-and-forget: its return value goes
+    /// to the UIA runtime, not to a subscriber, so a failed snapshot still
+    /// delivers the event (the target is honestly unknown — that is the
+    /// documented `None` case) while the error is diagnosed on stderr
+    /// instead of being silently dropped (tenet 1).
+    fn snapshot_or_log(
+        &self,
+        el: &IUIAutomationElement,
+        cache: &IUIAutomationCacheRequest,
+    ) -> Option<ElementData> {
+        match self.snapshot(el, cache) {
+            Ok(data) => Some(data),
+            Err(e) => {
+                eprintln!(
+                    "event sender snapshot failed for pid {}: {e:?}",
+                    self.app_pid
+                );
+                None
+            }
+        }
     }
 }
 
@@ -2401,6 +4341,61 @@ fn variant_i32(v: &VARIANT) -> Option<i32> {
 /// Unpack a UIA `VT_BOOL` VARIANT (used by `IsEnabled`) into a `bool`.
 fn variant_bool(v: &VARIANT) -> Option<bool> {
     bool::try_from(v).ok()
+}
+
+/// Map a UIA `WindowVisualState` value (VT_I4, from either a
+/// `PropertyChanged(WindowVisualState)` event or a `CurrentWindowVisualState`
+/// read) to the `(minimized, maximized)` pair.
+///
+/// UIA defines exactly three values: Normal (0), Maximized (1), and
+/// Minimized (2) — there is no Restored. Mirrors `parse_states`'s derivation
+/// for the defined values, so the event and the next snapshot always agree:
+/// a restore emits both flags cleared, matching what re-query shows. An
+/// unrecognized value is `None`; the caller drops the event rather than
+/// reporting a state it cannot name (tenet 1).
+fn window_visual_state_to_flags(v: i32) -> Option<(bool, bool)> {
+    if v == WindowVisualState_Minimized.0 {
+        Some((true, false))
+    } else if v == WindowVisualState_Maximized.0 {
+        Some((false, true))
+    } else if v == WindowVisualState_Normal.0 {
+        Some((false, false))
+    } else {
+        None
+    }
+}
+
+/// The `StateChanged` kinds for a `WindowVisualState` transition, given the
+/// full state on each side.
+///
+/// UIA reports the whole visual state on every notification rather than a
+/// delta, so the change-promise of `StateChanged` is enforced by deriving the
+/// flags whose values differ. Empty when nothing changed or either side is an
+/// unrecognized state — a state we cannot name is dropped rather than
+/// reported (tenet 1). Shared by `PropertyHandler` and the post-attach
+/// baseline reconciliation in [`register_window_handlers`], so both emit the
+/// identical delta for the identical pair.
+fn visual_state_delta_kinds(from: i32, to: i32) -> Vec<EventKind> {
+    let (Some((was_minimized, was_maximized)), Some((minimized, maximized))) = (
+        window_visual_state_to_flags(from),
+        window_visual_state_to_flags(to),
+    ) else {
+        return Vec::new();
+    };
+    let mut kinds = Vec::with_capacity(2);
+    if minimized != was_minimized {
+        kinds.push(EventKind::StateChanged {
+            flag: StateFlag::Minimized,
+            value: minimized,
+        });
+    }
+    if maximized != was_maximized {
+        kinds.push(EventKind::StateChanged {
+            flag: StateFlag::Maximized,
+            value: maximized,
+        });
+    }
+    kinds
 }
 
 // ── Handler implementations ──────────────────────────────────────────────────
@@ -2418,7 +4413,7 @@ impl IUIAutomationFocusChangedEventHandler_Impl for FocusHandler_Impl {
     ) -> windows::core::Result<()> {
         if let Some(el) = sender.as_ref() {
             if self.ctx.matches_pid(el) {
-                let target = Some(self.ctx.snapshot(el, &self.cache));
+                let target = self.ctx.snapshot_or_log(el, &self.cache);
                 self.ctx.emit(EventKind::FocusChanged, target);
             }
         }
@@ -2459,7 +4454,7 @@ impl IUIAutomationEventHandler_Impl for AutomationHandler_Impl {
             }
             _ => return Ok(()),
         };
-        let target = Some(self.ctx.snapshot(el, &self.cache));
+        let target = self.ctx.snapshot_or_log(el, &self.cache);
         self.ctx.emit(kind, target);
         Ok(())
     }
@@ -2469,6 +4464,15 @@ impl IUIAutomationEventHandler_Impl for AutomationHandler_Impl {
 struct PropertyHandler {
     ctx: Arc<EventContext>,
     cache: IUIAutomationCacheRequest,
+    /// Current `WindowVisualState` per top-level window, keyed by HWND. UIA
+    /// reports the whole visual state on every transition while
+    /// `StateChanged` promises a *change*, so a delta is only meaningful
+    /// against that window's own previous state — two windows minimizing
+    /// consecutively must not compare against each other. Shared with the
+    /// subscription state so the open/close watch seeds (window opened) and
+    /// clears (window closed) the baselines the first event of a window is
+    /// already a true delta against.
+    visual_state_by_hwnd: Arc<Mutex<HashMap<usize, i32>>>,
 }
 
 impl IUIAutomationPropertyChangedEventHandler_Impl for PropertyHandler_Impl {
@@ -2520,6 +4524,53 @@ impl IUIAutomationPropertyChangedEventHandler_Impl for PropertyHandler_Impl {
                     });
                 }
             }
+            // Window minimize/maximize/restore. UIA reports the whole visual
+            // state on every transition, not a delta, so derive both flags
+            // from it (the same derivation parse_states uses): a restore
+            // clears both, mirroring what the next snapshot shows. The
+            // Windows provider is the first to raise StateFlag::Maximized.
+            // `StateChanged` promises a change, so only flags that actually
+            // changed are emitted, per window, against that window's own
+            // previous observation (seeded at subscription time) — a
+            // Normal→Minimized transition must not claim Maximized changed.
+            // An unrecognized value is dropped rather than invented as
+            // "restored" (tenet 1).
+            UIA_WindowWindowVisualStatePropertyId => {
+                if let Some(v) = variant_i32(newvalue) {
+                    // An unrecognized value is dropped before the baseline is
+                    // touched: storing it would poison the next real
+                    // transition's delta (tenet 1).
+                    if window_visual_state_to_flags(v).is_none() {
+                        return Ok(());
+                    }
+                    // Delta per window: the sender's HWND keys the baseline.
+                    // WindowVisualState changes come only from top-level
+                    // windows, which always carry an HWND; a sender without
+                    // one is dropped rather than guessed (tenet 1).
+                    let hwnd = match unsafe { el.CurrentNativeWindowHandle() } {
+                        Ok(h) if !h.0.is_null() => h.0 as usize,
+                        _ => return Ok(()),
+                    };
+                    let prev = {
+                        let mut states = self
+                            .visual_state_by_hwnd
+                            .lock()
+                            .unwrap_or_else(|e| e.into_inner());
+                        let prev = states.get(&hwnd).copied();
+                        states.insert(hwnd, v);
+                        prev
+                    };
+                    let Some(prev) = prev else {
+                        // A window not seeded at subscription time (opened
+                        // after subscribe): the prior state is unknown, and
+                        // inventing one would be exactly the false delta
+                        // `StateChanged` promises not to send. Drop the event
+                        // — the current state is re-queryable.
+                        return Ok(());
+                    };
+                    kinds.extend(visual_state_delta_kinds(prev, v));
+                }
+            }
             _ => return Ok(()),
         }
 
@@ -2529,7 +4580,7 @@ impl IUIAutomationPropertyChangedEventHandler_Impl for PropertyHandler_Impl {
 
         // Build the snapshot once and clone into each emit — cheap since
         // ElementData is just owned strings + small primitives.
-        let target = Some(self.ctx.snapshot(el, &self.cache));
+        let target = self.ctx.snapshot_or_log(el, &self.cache);
         for kind in kinds {
             self.ctx.emit(kind, target.clone());
         }
@@ -2552,7 +4603,7 @@ impl IUIAutomationStructureChangedEventHandler_Impl for StructureHandler_Impl {
     ) -> windows::core::Result<()> {
         let target = sender.as_ref().and_then(|el| {
             if self.ctx.matches_pid(el) {
-                Some(self.ctx.snapshot(el, &self.cache))
+                self.ctx.snapshot_or_log(el, &self.cache)
             } else {
                 None
             }
@@ -2564,11 +4615,105 @@ impl IUIAutomationStructureChangedEventHandler_Impl for StructureHandler_Impl {
     }
 }
 
-// Event IDs registered through `AddAutomationEventHandler`. Kept as a shared
-// constant so registration and removal iterate the same list.
+/// Desktop-scoped open/close watch: keeps a subscription's handler
+/// registrations in step with the pid's current top-level windows.
+///
+/// Per-window registrations catch events *within* each window's subtree, but
+/// a sibling top-level window opening is not inside any registered subtree —
+/// so this handler is registered on the desktop root (TreeScope_Children)
+/// for `WindowOpened` / `WindowClosed`, filters by pid, emits the event, and
+/// reconciles the per-window attachment set. Without it a window that opens
+/// after subscribe would never deliver property events and its leftovers
+/// would never be torn down.
+#[implement(IUIAutomationEventHandler)]
+struct WatchHandler {
+    ctx: Arc<EventContext>,
+    cache: IUIAutomationCacheRequest,
+    state: Arc<SubscriptionState>,
+}
+
+impl IUIAutomationEventHandler_Impl for WatchHandler_Impl {
+    #[allow(non_upper_case_globals)] // UIA constants use CamelCase in the windows crate
+    fn HandleAutomationEvent(
+        &self,
+        sender: windows::core::Ref<IUIAutomationElement>,
+        eventid: UIA_EVENT_ID,
+    ) -> windows::core::Result<()> {
+        let Some(el) = sender.as_ref() else {
+            return Ok(());
+        };
+        match eventid {
+            UIA_Window_WindowOpenedEventId | UIA_Window_WindowClosedEventId => {
+                // The event target is a top-level window of *some* process;
+                // emit only for ours (the per-window registrations already
+                // scoped child-window events by subtree; ours are the pid
+                // filter).
+                if !self.ctx.matches_pid(el) {
+                    return Ok(());
+                }
+                let kind = if eventid == UIA_Window_WindowOpenedEventId {
+                    EventKind::WindowOpened
+                } else {
+                    EventKind::WindowClosed
+                };
+                let target = self.ctx.snapshot_or_log(el, &self.cache);
+                let state = Arc::clone(&self.state);
+                let ctx = Arc::clone(&self.ctx);
+                let failure_ctx = Arc::clone(&self.ctx);
+                let cache = ComSend::new(self.cache.clone());
+                let pid = self.ctx.app_pid;
+
+                // Never register from a UIA callback thread. Queue the whole
+                // reconcile on the process-wide MTA worker and return so a
+                // concurrent Remove* cannot wait on a callback that is itself
+                // waiting for removal. WindowOpened is emitted only after the
+                // new window's handlers and visual-state baseline are ready;
+                // a consumer can therefore minimize it immediately without
+                // racing attachment. A newly created provider can be briefly
+                // unavailable, so retry the complete idempotent reconcile.
+                if let Err(e) = queue_registration_job(move || {
+                    const READY_ATTEMPTS: usize = 4;
+                    let mut last_error = None;
+                    for attempt in 0..READY_ATTEMPTS {
+                        match sync_registrations(&state, cache.get(), &ctx, pid) {
+                            Ok(true) => {
+                                ctx.emit(kind, target);
+                                return;
+                            }
+                            Ok(false) => return,
+                            Err(e) => last_error = Some(e),
+                        }
+                        if attempt + 1 < READY_ATTEMPTS {
+                            std::thread::sleep(std::time::Duration::from_millis(25));
+                        }
+                    }
+                    if let Some(e) = last_error {
+                        eprintln!(
+                            "window-reconciliation failed after {READY_ATTEMPTS} attempts for pid {pid}; suppressing {kind:?} because event readiness was not established: {e:?}"
+                        );
+                        ctx.disconnect();
+                    }
+                }) {
+                    eprintln!(
+                        "failed to queue window-reconciliation for pid {}: {e:?}",
+                        self.ctx.app_pid
+                    );
+                    failure_ctx.disconnect();
+                }
+            }
+            _ => {}
+        }
+        Ok(())
+    }
+}
+
+// Event IDs registered through `AddAutomationEventHandler` on *each* top-level
+// window's subtree. Kept as a shared constant so registration and removal
+// iterate the same list. `WindowOpened` / `WindowClosed` are deliberately NOT
+// here: a per-window subtree registration would deliver a top-level window's
+// open/close twice (once from its own subtree scope, once from the desktop
+// root's Children scope) — the open/close watch owns those two event IDs.
 const AUTOMATION_EVENT_IDS: &[UIA_EVENT_ID] = &[
-    UIA_Window_WindowOpenedEventId,
-    UIA_Window_WindowClosedEventId,
     UIA_MenuOpenedEventId,
     UIA_MenuClosedEventId,
     UIA_Text_TextChangedEventId,
@@ -2584,7 +4729,19 @@ const AUTOMATION_EVENT_IDS: &[UIA_EVENT_ID] = &[
     UIA_SystemAlertEventId,
 ];
 
+// Event IDs registered through `AddAutomationEventHandler` on the *desktop
+// root* (TreeScope_Children): the open/close watch, whose handler reconciles
+// the per-window registrations with the pid's current top-level windows.
+const WATCH_EVENT_IDS: &[UIA_EVENT_ID] = &[
+    UIA_Window_WindowOpenedEventId,
+    UIA_Window_WindowClosedEventId,
+];
+
 // Property IDs watched via `AddPropertyChangedEventHandlerNativeArray`.
+// `WindowVisualState` is the canonical UIA notification for window
+// minimize/maximize/restore: UIA has no dedicated event ID for it, so
+// providers raise PropertyChanged(WindowVisualState) and a provider that
+// doesn't watch the property never sees it.
 const PROPERTY_CHANGE_IDS: &[UIA_PROPERTY_ID] = &[
     UIA_NamePropertyId,
     UIA_IsEnabledPropertyId,
@@ -2592,19 +4749,47 @@ const PROPERTY_CHANGE_IDS: &[UIA_PROPERTY_ID] = &[
     UIA_ValueValuePropertyId,
     UIA_RangeValueValuePropertyId,
     UIA_ExpandCollapseExpandCollapseStatePropertyId,
+    UIA_WindowWindowVisualStatePropertyId,
 ];
 
 impl WindowsProvider {
-    fn subscribe_impl(&self, pid: u32, app_name: String) -> Result<Subscription> {
+    fn subscribe_impl(
+        &self,
+        pid: u32,
+        app_name: String,
+        saved_app: Option<SavedSyntheticAppIdentity>,
+    ) -> Result<Subscription> {
         let (tx, rx) = std::sync::mpsc::channel::<Event>();
 
-        // Scope handler registrations to the target app's subtree.
-        let (app_root, _root_name) = self.find_app_by_pid(pid)?;
+        // Enumerate every current top-level window of the pid up front and
+        // register the scoped handlers on *each* of them — the pre-C1 shape
+        // resolved a single representative via `find_app_by_pid` (FindFirst)
+        // and scoped the handlers to that one window's subtree, so events
+        // from same-pid sibling top-level windows (a modal dialog next to the
+        // main window, issue #304) were never delivered. The desktop-scoped
+        // open/close watch below keeps the set in step as windows come and
+        // go, so "app subscription" now means "the process".
+        let windows = match saved_app {
+            Some(saved) => {
+                top_level_windows_of_saved_app_with(&self.automation, &self.batch_request, saved)?
+            }
+            None => self.top_level_windows_of_pid(pid)?,
+        };
+        if windows.is_empty() {
+            // Not reachable yet (or its last window just closed): surface it
+            // as a selector miss so core's poll loop retries, matching
+            // `find_app_by_pid`'s contract for a fresh process.
+            return Err(Error::Platform {
+                code: -1,
+                message: format!("No top-level window found for PID {pid} while subscribing"),
+            });
+        }
 
         let ctx = Arc::new(EventContext {
-            sender: Mutex::new(tx),
+            sender: Mutex::new(Some(tx)),
             app_name,
             app_pid: pid,
+            saved_app,
             walker: self.raw_walker.clone(),
         });
 
@@ -2624,9 +4809,11 @@ impl WindowsProvider {
             cache: cache.clone(),
         }
         .into();
+        let visual_states = Arc::new(Mutex::new(HashMap::<usize, i32>::new()));
         let property: IUIAutomationPropertyChangedEventHandler = PropertyHandler {
             ctx: ctx.clone(),
             cache: cache.clone(),
+            visual_state_by_hwnd: Arc::clone(&visual_states),
         }
         .into();
         let structure: IUIAutomationStructureChangedEventHandler = StructureHandler {
@@ -2635,114 +4822,124 @@ impl WindowsProvider {
         }
         .into();
 
-        // Focus handler is system-wide (UIA has no scope parameter here) —
-        // the handler filters by PID.
-        unsafe { self.automation.AddFocusChangedEventHandler(&cache, &focus) }.map_err(|e| {
+        // The desktop root anchors the open/close watch below.
+        let root = uia_call(|| unsafe { self.automation.GetRootElement() }).map_err(|e| {
             Error::Platform {
-                code: e.code().0 as i64,
-                message: format!("AddFocusChangedEventHandler failed: {}", e),
+                code: -1,
+                message: format!("GetRootElement failed while subscribing: {e}"),
             }
         })?;
 
-        // Other handlers are scoped to the app root's subtree. If any
-        // registration fails, events of that type would never arrive — the
-        // caller must know (tenet 1). Clean up already-registered handlers
-        // before returning so we don't leak native handlers on the app root.
-        let cleanup_focus = || unsafe {
-            let _ = self.automation.RemoveFocusChangedEventHandler(&focus);
-        };
-        let cleanup_automation = |registered: &[UIA_EVENT_ID]| unsafe {
-            for eid in registered {
-                let _ = self.automation.RemoveAutomationEventHandler(
-                    *eid,
-                    &app_root,
-                    &automation_handler,
-                );
-            }
-        };
+        let state = Arc::new(SubscriptionState {
+            automation: ComSend::new(self.automation.clone()),
+            automation_handler: ComSend::new(automation_handler.clone()),
+            property_handler: ComSend::new(property.clone()),
+            structure_handler: ComSend::new(structure.clone()),
+            registered: Mutex::new(HashMap::new()),
+            visual_states,
+            saved_app,
+            reconciliation: Mutex::new(()),
+            cancelled: AtomicBool::new(false),
+        });
+        let watch: IUIAutomationEventHandler = WatchHandler {
+            ctx: ctx.clone(),
+            cache: cache.clone(),
+            state: Arc::clone(&state),
+        }
+        .into();
 
-        let mut registered_automation_ids: Vec<UIA_EVENT_ID> = Vec::new();
-        for eid in AUTOMATION_EVENT_IDS {
-            if let Err(e) = unsafe {
-                self.automation.AddAutomationEventHandler(
-                    *eid,
-                    &app_root,
-                    TreeScope_Subtree,
-                    &cache,
-                    &automation_handler,
-                )
-            } {
-                cleanup_automation(&registered_automation_ids);
-                cleanup_focus();
-                return Err(Error::Platform {
+        // Every Add* call, including initial setup, runs on the same
+        // process-wide MTA worker used by reconciliation and cancellation.
+        // This is stricter than merely serializing each subscription: UIA's
+        // registration contract is thread-affine across subscriptions too.
+        let initial_automation = ComSend::new(self.automation.clone());
+        let initial_windows = ComSend::new(windows);
+        let initial_cache = ComSend::new(cache.clone());
+        let initial_focus = ComSend::new(focus.clone());
+        let initial_watch = ComSend::new(watch.clone());
+        let initial_root = ComSend::new(root.clone());
+        let initial_automation_handler = ComSend::new(automation_handler);
+        let initial_property = ComSend::new(property);
+        let initial_structure = ComSend::new(structure);
+        let initial_state = Arc::clone(&state);
+        let initial_ctx = Arc::clone(&ctx);
+        on_registration_worker(move || {
+            let autom = initial_automation.get();
+            let cache = initial_cache.get();
+            let focus = initial_focus.get();
+            let watch = initial_watch.get();
+            let root = initial_root.get();
+
+            unsafe { autom.AddFocusChangedEventHandler(cache, focus) }.map_err(|e| {
+                Error::Platform {
                     code: e.code().0 as i64,
-                    message: format!("AddAutomationEventHandler({:?}) failed: {e}", eid),
-                });
-            }
-            registered_automation_ids.push(*eid);
-        }
+                    message: format!("AddFocusChangedEventHandler failed: {e}"),
+                }
+            })?;
 
-        if let Err(e) = unsafe {
-            self.automation.AddPropertyChangedEventHandlerNativeArray(
-                &app_root,
-                TreeScope_Subtree,
-                &cache,
-                &property,
-                PROPERTY_CHANGE_IDS,
-            )
-        } {
-            cleanup_automation(&registered_automation_ids);
-            cleanup_focus();
-            return Err(Error::Platform {
-                code: e.code().0 as i64,
-                message: format!("AddPropertyChangedEventHandlerNativeArray failed: {e}"),
-            });
-        }
-
-        if let Err(e) = unsafe {
-            self.automation.AddStructureChangedEventHandler(
-                &app_root,
-                TreeScope_Subtree,
-                &cache,
-                &structure,
-            )
-        } {
-            unsafe {
-                // Cleanup during error path; can't override the original error.
-                let _ = self
-                    .automation
-                    .RemovePropertyChangedEventHandler(&app_root, &property);
+            let cleanup_error = |e: Error| {
+                cleanup_registrations(autom, root, watch, focus, &initial_state);
+                e
+            };
+            for window in initial_windows.get() {
+                let hwnd = window_handle(window).map_err(&cleanup_error)?;
+                let reg = register_window_handlers(
+                    autom,
+                    window,
+                    hwnd,
+                    cache,
+                    &initial_ctx,
+                    initial_automation_handler.get(),
+                    initial_property.get(),
+                    initial_structure.get(),
+                    &initial_state.visual_states,
+                )
+                .map_err(&cleanup_error)?;
+                let mut registrations = initial_state
+                    .registered
+                    .lock()
+                    .unwrap_or_else(|e| e.into_inner());
+                registrations.insert(reg.hwnd, reg);
             }
-            cleanup_automation(&registered_automation_ids);
-            cleanup_focus();
-            return Err(Error::Platform {
-                code: e.code().0 as i64,
-                message: format!("AddStructureChangedEventHandler failed: {e}"),
-            });
-        }
+
+            for eid in WATCH_EVENT_IDS {
+                if let Err(e) = unsafe {
+                    autom.AddAutomationEventHandler(*eid, root, TreeScope_Children, cache, watch)
+                } {
+                    return Err(cleanup_error(Error::Platform {
+                        code: e.code().0 as i64,
+                        message: format!(
+                            "AddAutomationEventHandler({eid:?}) on desktop root failed: {e}"
+                        ),
+                    }));
+                }
+            }
+
+            // Close the enumeration/watch gap before subscribe returns.
+            sync_registrations(&initial_state, cache, &initial_ctx, pid)
+                .map(|_| ())
+                .map_err(cleanup_error)
+        })?;
 
         // Each captured COM interface is wrapped in ComSend so the cancel
         // closure satisfies CancelHandle::new's `Send` bound. See ComSend's
         // doc comment for the safety argument.
-        let automation_clone = ComSend::new(self.automation.clone());
-        let app_root_clone = ComSend::new(app_root.clone());
+        let root_c = ComSend::new(root);
         let focus_c = ComSend::new(focus);
-        let auto_c = ComSend::new(automation_handler);
-        let property_c = ComSend::new(property);
-        let structure_c = ComSend::new(structure);
+        let watch_c = ComSend::new(watch);
+        let state_c = Arc::clone(&state);
         let cancel = CancelHandle::new(move || {
-            // RemoveXxx is synchronous: when it returns, UIA guarantees no
-            // further callbacks for this handler. We ignore errors because
-            // there's nothing useful to do in a cancel path.
-            let automation = automation_clone.get();
-            let app_root = app_root_clone.get();
-            unsafe {
-                let _ = automation.RemoveFocusChangedEventHandler(focus_c.get());
-                for eid in AUTOMATION_EVENT_IDS {
-                    let _ = automation.RemoveAutomationEventHandler(*eid, app_root, auto_c.get());
-                }
-                let _ = automation.RemovePropertyChangedEventHandler(app_root, property_c.get());
-                let _ = automation.RemoveStructureChangedEventHandler(app_root, structure_c.get());
+            if let Err(e) = on_registration_worker(move || {
+                cleanup_registrations(
+                    state_c.automation.get(),
+                    root_c.get(),
+                    watch_c.get(),
+                    focus_c.get(),
+                    &state_c,
+                );
+                Ok(())
+            }) {
+                eprintln!("UIA subscription cancellation failed: {e:?}");
             }
         });
 
@@ -2933,35 +5130,59 @@ mod tests {
     }
 
     #[test]
-    fn get_children_none_returns_applications() {
+    fn get_children_none_returns_synthetic_applications() {
         let Some(provider) = try_provider() else {
             return;
         };
         let apps = provider.get_children(None).unwrap();
-        // Should find at least one window on a Windows desktop
+        // Should find at least one process on a Windows desktop
         assert!(
             !apps.is_empty(),
-            "Should find at least one top-level window"
+            "Should find at least one top-level application"
         );
         for app in &apps {
-            assert!(app.pid.is_some(), "Top-level windows should have a PID");
-            assert!(app.name.is_some(), "Top-level windows should have a name");
+            assert_eq!(
+                app.role,
+                Role::Application,
+                "top-level entries must be Application nodes after the unification"
+            );
+            assert!(app.pid.is_some(), "Application nodes should have a PID");
+            assert!(app.name.is_some(), "Application nodes should have a name");
+            assert!(
+                app.bounds.is_none(),
+                "UIA has no process geometry; Application bounds must be None"
+            );
+            assert_eq!(
+                app.raw.get("uia_synthesized"),
+                Some(&serde_json::Value::Bool(true)),
+                "every Application node must be marked synthesized"
+            );
         }
     }
 
     #[test]
-    fn get_children_none_at_most_one_active() {
+    fn get_children_none_applications_carry_no_window_flags() {
         let Some(provider) = try_provider() else {
             return;
         };
         let apps = provider.get_children(None).unwrap();
-        // At most one top-level window is the foreground (active) window.
-        // Zero is legal: the foreground window may be unnamed/filtered.
-        let active_count = apps.iter().filter(|a| a.states.active).count();
-        assert!(
-            active_count <= 1,
-            "At most one top-level window may be active, found {active_count}"
-        );
+        // The synthesized Application node is a process, not a window: it
+        // must not advertise window-state flags or window actions — asking
+        // the app to minimize itself has no meaning (and `App::windows` is
+        // how the process's windows are reached).
+        for app in &apps {
+            assert!(
+                !app.states.active
+                    && !app.states.minimized.unwrap_or(false)
+                    && !app.states.maximized.unwrap_or(false)
+                    && !app.states.modal,
+                "Application nodes must not carry window-state flags"
+            );
+            assert!(
+                app.actions.is_empty(),
+                "Application nodes are not window-like"
+            );
+        }
     }
 
     #[test]
@@ -2969,10 +5190,211 @@ mod tests {
         let Some(provider) = try_provider() else {
             return;
         };
-        let result = provider.get_cached(u64::MAX);
+        // A real cached handle's high bit is clear (cache_element increments
+        // from 1), so a far-out handle with the bit clear is a plain stale
+        // handle. Bit 63 is the synthetic tag space and is covered by
+        // `get_cached_synthetic_handle_returns_unsupported`.
+        let result = provider.get_cached(1 << 40);
         assert!(
             matches!(result, Err(Error::ElementStale { .. })),
             "Stale handle should return ElementStale error"
+        );
+    }
+
+    #[test]
+    fn synthetic_handle_tag_recognizer() {
+        // Bit 63 is the synthetic tag space.
+        assert!(is_synthetic_handle(SYNTHETIC_APP_TAG));
+        assert!(is_synthetic_handle(SYNTHETIC_APP_TAG | 42));
+        assert!(is_synthetic_handle(SYNTHETIC_APP_TAG | (1 << 33)));
+        // A real cached handle (high bit clear) is not synthetic.
+        assert!(!is_synthetic_handle(1));
+        assert!(!is_synthetic_handle(!SYNTHETIC_APP_TAG));
+        assert!(!is_synthetic_handle(1 << 40));
+    }
+
+    #[test]
+    fn synthetic_app_requires_matching_process_timestamps() {
+        let verified = SyntheticAppIdentity {
+            pid: 42,
+            creation_time: Some(1000),
+        };
+        assert!(validate_synthetic_app_identity(7, verified, Some(1000)).is_ok());
+        assert!(matches!(
+            validate_synthetic_app_identity(7, verified, Some(2000)),
+            Err(Error::ElementStale { .. })
+        ));
+
+        let unverified = SyntheticAppIdentity {
+            pid: 42,
+            creation_time: None,
+        };
+        for (identity, current) in [
+            (verified, None),
+            (unverified, Some(1000)),
+            (unverified, None),
+        ] {
+            assert!(matches!(
+                validate_synthetic_app_identity(7, identity, current),
+                Err(Error::ElementStale { .. })
+            ));
+        }
+    }
+
+    #[test]
+    fn bounded_handle_cache_evicts_oldest_without_reusing_handles() {
+        let mut cache = BoundedHandleCache::new(3);
+        for handle in 1..=100 {
+            cache.insert(handle, handle * 10);
+            assert!(cache.len() <= 3);
+        }
+        assert!(cache.get(&97).is_none());
+        assert_eq!(cache.get(&98), Some(&980));
+        assert_eq!(cache.get(&100), Some(&1000));
+    }
+
+    #[test]
+    fn bounded_handle_cache_does_not_grow_when_a_key_is_updated() {
+        let mut cache = BoundedHandleCache::new(2);
+        cache.insert(1, "old");
+        cache.insert(2, "other");
+        cache.insert(1, "new");
+        cache.insert(3, "newest");
+        assert_eq!(cache.len(), 2);
+        assert_eq!(cache.get(&1), Some(&"new"));
+        assert!(cache.get(&2).is_none(), "refreshing 1 must make 2 oldest");
+    }
+
+    #[test]
+    fn repeated_app_enumeration_and_process_churn_stay_bounded() {
+        let mut cache = BoundedHandleCache::new(3);
+        let live = SyntheticAppIdentity {
+            pid: 42,
+            creation_time: Some(1_000),
+        };
+        let first = cache_synthetic_app_identity(&mut cache, live);
+        for _ in 0..10_000 {
+            assert_eq!(cache_synthetic_app_identity(&mut cache, live), first);
+            assert_eq!(cache.len(), 1, "a live process generation must be reused");
+        }
+
+        // Simulate a pid being reused by many successive process generations.
+        for creation_time in 1_001..11_001 {
+            let handle = cache_synthetic_app_identity(
+                &mut cache,
+                SyntheticAppIdentity {
+                    pid: 42,
+                    creation_time: Some(creation_time),
+                },
+            );
+            assert_ne!(handle, first, "a reused pid must get a distinct handle");
+            assert!(cache.len() <= 3);
+        }
+    }
+
+    #[test]
+    fn is_pattern_absent_classifies_the_known_absent_signals() {
+        use windows::core::{Error as CoreError, HRESULT};
+        // The canonical "no such pattern" HRESULTs.
+        assert!(
+            is_pattern_absent(&CoreError::from_hresult(E_NOINTERFACE)),
+            "E_NOINTERFACE is the canonical absent signal"
+        );
+        assert!(
+            is_pattern_absent(&CoreError::from_hresult(HRESULT(
+                UIA_E_INVALIDOPERATION as i32
+            ))),
+            "UIA_E_INVALIDOPERATION is the UIA-specific absent signal"
+        );
+        // AccessKit's provider declines unsupported patterns with
+        // `Error::empty()` (S_OK with a null pattern pointer): code() is
+        // HRESULT(0), "The operation completed successfully." — the AccessKit
+        // test-app windows hit exactly this on TransformPattern.
+        assert!(
+            is_pattern_absent(&CoreError::empty()),
+            "the empty error (S_OK + null pattern) is AccessKit's absent signal"
+        );
+        // A genuine COM failure is never "absent" — it must propagate as a
+        // platform error, not silently degrade to a capability the element
+        // does not advertise (tenet 1).
+        assert!(
+            !is_pattern_absent(&CoreError::from_hresult(HRESULT(E_FAIL.0))),
+            "a failed HRESULT is a real COM failure, not an absent pattern"
+        );
+    }
+
+    #[test]
+    fn get_cached_synthetic_handle_returns_unsupported() {
+        let Some(provider) = try_provider() else {
+            return;
+        };
+        // A synthetic handle only has an identity once `build_synthetic_app_data`
+        // registered it; mint one directly so the error names the pid.
+        let handle = SYNTHETIC_APP_TAG | 1_000_001;
+        provider.synthetic_apps.lock().unwrap().insert(
+            handle,
+            SyntheticAppIdentity {
+                pid: 42,
+                creation_time: Some(12345),
+            },
+        );
+        let err = provider
+            .get_cached(handle)
+            .expect_err("a synthetic handle must never resolve to a live element");
+        assert!(
+            matches!(&err, Error::Unsupported { feature } if feature.contains("pid 42")),
+            "error must name the synthesized node's pid and the remedy, got {err:?}"
+        );
+    }
+
+    #[test]
+    fn expired_synthetic_identity_never_falls_back_to_element_pid() {
+        let Some(provider) = try_provider() else {
+            return;
+        };
+        let mut app = ElementData::for_role(Role::Application);
+        app.handle = SYNTHETIC_APP_TAG | 9_999_999;
+        app.pid = Some(std::process::id());
+
+        assert!(matches!(
+            provider.get_children(Some(&app)),
+            Err(Error::ElementStale { .. })
+        ));
+        assert!(matches!(
+            provider.subscribe(&app),
+            Err(Error::ElementStale { .. })
+        ));
+    }
+
+    #[test]
+    fn get_parent_of_top_level_window_is_synthetic_app() {
+        let Some(provider) = try_provider() else {
+            return;
+        };
+        // The desktop-root branch resolves the owning process's Application
+        // node for any element whose UIA parent is the desktop root — so a
+        // top-level window's parent is its process, not the desktop.
+        let Some(app) = provider.list_apps().ok().and_then(|a| a.into_iter().next()) else {
+            return;
+        };
+        let Some(window) = provider
+            .get_children(Some(&app))
+            .ok()
+            .and_then(|w| w.into_iter().next())
+        else {
+            return;
+        };
+        let parent = provider.get_parent(&window).expect("parent must resolve");
+        let parent = parent.expect("a top-level window has its process as parent");
+        assert_eq!(
+            parent.role,
+            Role::Application,
+            "a top-level window's parent must be the synthesized Application node"
+        );
+        assert_eq!(parent.pid, window.pid, "the parent app must own the window");
+        assert_eq!(
+            parent.raw.get("uia_synthesized"),
+            Some(&serde_json::Value::Bool(true))
         );
     }
 
@@ -2999,7 +5421,9 @@ mod tests {
         };
         let mut dummy = ElementData::for_role(Role::Button);
         dummy.name = Some("test".to_string());
-        dummy.handle = u64::MAX;
+        // High bit clear: a plain stale handle, not a synthetic one (the
+        // synthetic tag space funnels to `Unsupported`, covered separately).
+        dummy.handle = 1 << 40;
         // Actions that look up the cached element should return ElementStale
         let result = provider.press(&dummy);
         assert!(
@@ -3297,12 +5721,17 @@ mod tests {
             return;
         };
         let before = NEXT_HANDLE.load(Ordering::Relaxed);
-        // Getting children allocates handles
-        let _ = provider.get_children(None).unwrap();
+        // Getting an Application node's children allocates a handle per window
+        // (window elements are cached real UIA elements); the synthetic node
+        // itself never mints one, so resolve one first.
+        let Some(app) = provider.list_apps().ok().and_then(|a| a.into_iter().next()) else {
+            return;
+        };
+        let _ = provider.get_children(Some(&app)).unwrap();
         let after = NEXT_HANDLE.load(Ordering::Relaxed);
         assert!(
             after > before,
-            "Handle counter should increment after caching elements"
+            "Handle counter should increment after caching window elements"
         );
     }
 
@@ -3341,17 +5770,16 @@ mod tests {
 
     #[test]
     fn subscribe_and_drop_cleans_up() {
-        // Use this test process itself as the target. find_app_by_pid scans
-        // visible top-level windows and our test runner has none, so the call
-        // will fail cleanly — but the *setup* path (cache request creation,
-        // handler boxing into COM objects, Arc<EventContext> construction) is
-        // still exercised by the integer-PID cases above. Here we additionally
-        // verify that dropping a live Subscription runs the cancel closure
-        // without panicking when find_app_by_pid does happen to succeed.
+        // The setup path (cache request creation, handler boxing into COM
+        // objects, Arc<EventContext> + per-window registration) is exercised
+        // by the integer-PID cases above. Here we additionally verify that
+        // dropping a live Subscription runs the cancel closure without
+        // panicking when the pid has at least one top-level window.
         //
-        // The flow: if find_app_by_pid returns a window, subscribe returns
-        // Ok(Subscription) and the drop happens at end of scope. If not,
-        // subscribe returns Err and we just confirm the err type.
+        // The flow: if the pid resolves a window, subscribe registers the
+        // per-window handlers and the desktop watch, and the drop happens at
+        // end of scope. If not, subscribe returns Err and we just confirm
+        // the err type.
         let Some(provider) = try_provider() else {
             return;
         };
@@ -3379,12 +5807,19 @@ mod tests {
             return;
         };
         let el = dummy_element(app.pid);
-        // Two sequential subscriptions must both succeed; the first's cancel
-        // must not break the second (RemoveXxx is scoped per handler).
-        let sub1 = provider.subscribe(&el);
-        drop(sub1);
-        let sub2 = provider.subscribe(&el);
-        drop(sub2);
+        // Repeated subscribe/cancel cycles must remain independent. This also
+        // exercises teardown after the handler state maps have been seeded:
+        // no cancelled subscription may poison or retain the next one.
+        let Ok(first) = provider.subscribe(&el) else {
+            return;
+        };
+        drop(first);
+        for _ in 0..32 {
+            let sub = provider
+                .subscribe(&el)
+                .expect("a prior cancellation must not break a new subscription");
+            drop(sub);
+        }
     }
 
     #[test]
@@ -3398,11 +5833,85 @@ mod tests {
     }
 
     #[test]
+    fn registration_worker_serializes_callers_on_one_thread() {
+        // Model concurrent subscriptions/cancellations without fabricating
+        // COM handlers: every caller must execute on the same long-lived
+        // worker, even when they arrive from different runtime threads.
+        let callers: Vec<_> = (0..16)
+            .map(|_| {
+                std::thread::spawn(|| {
+                    on_registration_worker(|| Ok(std::thread::current().id()))
+                        .expect("registration worker must accept a job")
+                })
+            })
+            .collect();
+        let worker_threads: Vec<_> = callers
+            .into_iter()
+            .map(|caller| caller.join().expect("caller thread must not panic"))
+            .collect();
+        assert!(
+            worker_threads.windows(2).all(|pair| pair[0] == pair[1]),
+            "every registration job must run on one shared thread"
+        );
+    }
+
+    #[test]
+    fn plan_window_registration_diff_adds_new_and_removes_closed() {
+        // The open/close watch's reconcile: a new sibling window must be
+        // attached, a closed one must be torn down, common windows are left
+        // alone.
+        let registered: HashSet<usize> = [0x10, 0x20, 0x30].into_iter().collect();
+        let current: HashSet<usize> = [0x20, 0x30, 0x40].into_iter().collect();
+        let (to_add, to_remove) = plan_window_registration_diff(&registered, &current);
+        assert_eq!(to_add, vec![0x40]);
+        assert_eq!(to_remove, vec![0x10]);
+    }
+
+    #[test]
+    fn plan_window_registration_diff_is_a_noop_for_an_unchanged_set() {
+        let windows: HashSet<usize> = [0x10, 0x20].into_iter().collect();
+        let (to_add, to_remove) = plan_window_registration_diff(&windows, &windows);
+        assert!(to_add.is_empty());
+        assert!(to_remove.is_empty());
+    }
+
+    #[test]
+    fn plan_window_registration_diff_attaches_everything_on_first_sync() {
+        // The post-subscribe reconcile: the initial set is registered during
+        // subscribe, so a window that opened in the gap shows up as new.
+        let registered: HashSet<usize> = [0x10].into_iter().collect();
+        let current: HashSet<usize> = [0x10, 0x11].into_iter().collect();
+        let (to_add, to_remove) = plan_window_registration_diff(&registered, &current);
+        assert_eq!(to_add, vec![0x11]);
+        assert!(to_remove.is_empty());
+    }
+
+    #[test]
+    fn registration_diff_stays_bounded_under_repeated_window_churn() {
+        let mut registered = HashSet::new();
+        for generation in 0..10_000usize {
+            let current: HashSet<usize> =
+                (0..4).map(|offset| 0x1000 + generation + offset).collect();
+            let (to_add, to_remove) = plan_window_registration_diff(&registered, &current);
+            for hwnd in to_remove {
+                registered.remove(&hwnd);
+            }
+            registered.extend(to_add);
+            assert_eq!(registered, current);
+            assert_eq!(registered.len(), 4);
+        }
+    }
+
+    #[test]
     fn automation_event_ids_covers_design_doc() {
         // These are the event IDs the design doc mandates we watch. If a
         // future refactor drops one silently, this test will catch it.
-        assert!(AUTOMATION_EVENT_IDS.contains(&UIA_Window_WindowOpenedEventId));
-        assert!(AUTOMATION_EVENT_IDS.contains(&UIA_Window_WindowClosedEventId));
+        for eid in WATCH_EVENT_IDS {
+            assert!(
+                eid == &UIA_Window_WindowOpenedEventId || eid == &UIA_Window_WindowClosedEventId,
+                "the watch must cover exactly the top-level window open/close events"
+            );
+        }
         assert!(AUTOMATION_EVENT_IDS.contains(&UIA_MenuOpenedEventId));
         assert!(AUTOMATION_EVENT_IDS.contains(&UIA_MenuClosedEventId));
         assert!(AUTOMATION_EVENT_IDS.contains(&UIA_Text_TextChangedEventId));
@@ -3422,6 +5931,7 @@ mod tests {
         assert!(PROPERTY_CHANGE_IDS.contains(&UIA_ValueValuePropertyId));
         assert!(PROPERTY_CHANGE_IDS.contains(&UIA_RangeValueValuePropertyId));
         assert!(PROPERTY_CHANGE_IDS.contains(&UIA_ExpandCollapseExpandCollapseStatePropertyId));
+        assert!(PROPERTY_CHANGE_IDS.contains(&UIA_WindowWindowVisualStatePropertyId));
     }
 
     #[test]
@@ -3445,11 +5955,110 @@ mod tests {
         // VariantToInt32 coerces compatible scalar types (VT_BOOL, VT_UI2,
         // VT_R8, etc.) into i32 rather than failing — i.e. variant_i32 is
         // lenient on the wire representation as long as the runtime can
-        // make the conversion. ToggleState / ExpandCollapseState are the
-        // only properties our handler feeds to it and they're strictly
-        // VT_I4, so the coercion is a non-issue in practice.
+        // make the conversion. ToggleState, ExpandCollapseState, and
+        // WindowVisualState are the only properties our handler feeds to
+        // it and they're strictly VT_I4, so the coercion is a non-issue in
+        // practice.
         let v = VARIANT::from(ExpandCollapseState_Expanded.0);
         assert_eq!(variant_i32(&v), Some(1));
+    }
+
+    #[test]
+    fn window_visual_state_to_flags_maps_minimize_maximize_normal() {
+        // Mirror of the parse_states derivation: a single WindowVisualState
+        // read/event produces the (minimized, maximized) pair.
+        assert_eq!(
+            window_visual_state_to_flags(WindowVisualState_Minimized.0),
+            Some((true, false))
+        );
+        assert_eq!(
+            window_visual_state_to_flags(WindowVisualState_Maximized.0),
+            Some((false, true))
+        );
+        assert_eq!(
+            window_visual_state_to_flags(WindowVisualState_Normal.0),
+            Some((false, false))
+        );
+        // UIA defines only Normal (0), Maximized (1), and Minimized (2) —
+        // 3 is not "Restored" and no such constant exists in the windows
+        // crate. An unrecognized (invalid or future) value is `None` so the
+        // caller drops the event rather than inventing a state it cannot
+        // verify (tenet 1).
+        assert_eq!(window_visual_state_to_flags(3), None);
+        assert_eq!(window_visual_state_to_flags(42), None);
+    }
+
+    #[test]
+    fn visual_state_delta_kinds_reports_only_the_flag_that_changed() {
+        // UIA reports the whole visual state on every transition; the delta
+        // helper must claim only the flags whose values differ, so a
+        // Normal→Minimized transition does not also report Maximized cleared.
+        // This is the same derivation `PropertyHandler` and the post-attach
+        // baseline reconciliation both emit.
+        let minimized = |value| EventKind::StateChanged {
+            flag: StateFlag::Minimized,
+            value,
+        };
+        let maximized = |value| EventKind::StateChanged {
+            flag: StateFlag::Maximized,
+            value,
+        };
+        assert_eq!(
+            visual_state_delta_kinds(WindowVisualState_Normal.0, WindowVisualState_Minimized.0),
+            vec![minimized(true)]
+        );
+        assert_eq!(
+            visual_state_delta_kinds(WindowVisualState_Minimized.0, WindowVisualState_Normal.0),
+            vec![minimized(false)]
+        );
+        assert_eq!(
+            visual_state_delta_kinds(WindowVisualState_Normal.0, WindowVisualState_Maximized.0),
+            vec![maximized(true)]
+        );
+        assert_eq!(
+            visual_state_delta_kinds(WindowVisualState_Maximized.0, WindowVisualState_Normal.0),
+            vec![maximized(false)]
+        );
+        // Minimized → Maximized changes both flags, in flag order.
+        assert_eq!(
+            visual_state_delta_kinds(WindowVisualState_Minimized.0, WindowVisualState_Maximized.0),
+            vec![minimized(false), maximized(true)]
+        );
+        // No transition, or an unrecognized state on either side: no delta.
+        assert!(
+            visual_state_delta_kinds(WindowVisualState_Normal.0, WindowVisualState_Normal.0)
+                .is_empty()
+        );
+        assert!(visual_state_delta_kinds(3, WindowVisualState_Normal.0).is_empty());
+        assert!(visual_state_delta_kinds(WindowVisualState_Normal.0, 3).is_empty());
+    }
+
+    #[test]
+    fn uia_stable_id_prefers_hwnd_and_falls_back_to_automation_id() {
+        // Top-level windows have no AutomationId (UIA excludes them by
+        // contract), so their identity is the HWND; nested controls have an
+        // AutomationId and no HWND of their own. HWND wins when both exist;
+        // a null HWND is the same as no HWND.
+        let hwnd = |v: usize| HWND(v as *mut _);
+        let hwnd_of = |v: usize| Some(hwnd(v));
+        assert_eq!(
+            uia_stable_id(hwnd_of(0x1234), Some("btn-close".into())),
+            Some("hwnd:0x1234".into())
+        );
+        assert_eq!(
+            uia_stable_id(hwnd_of(0x1A2B), None),
+            Some("hwnd:0x1a2b".into())
+        );
+        assert_eq!(
+            uia_stable_id(hwnd_of(0), None),
+            None,
+            "a null HWND must not produce a bogus identity"
+        );
+        assert_eq!(
+            uia_stable_id(None, Some("PanelFields".into())),
+            Some("PanelFields".into())
+        );
+        assert_eq!(uia_stable_id(None, None), None);
     }
 
     #[test]
@@ -3466,9 +6075,10 @@ mod tests {
             return;
         };
         let apps = provider.get_children(None).unwrap_or_default();
-        // Every element returned from the provider has a non-zero handle
-        // because build_element_data allocates one. Event-path snapshots
-        // pass 0; that path is covered by the actual handler wiring.
+        // Every Application node's handle is a tagged synthetic handle
+        // (non-zero by construction); real window children mint handles via
+        // build_element_data. Event-path snapshots pass 0; that path is
+        // covered by the actual handler wiring.
         for a in &apps {
             assert!(a.handle != 0, "provider-built handle should be non-zero");
         }
@@ -3509,6 +6119,25 @@ mod tests {
                 "HRESULT 0x{code:08X} must not be classified as an event-subscriber failure"
             );
         }
+    }
+
+    // ── pid_variant ─────────────────────────────────────────────────────────
+
+    #[test]
+    fn pid_variant_accepts_pids_in_i32_range() {
+        for pid in [0u32, 1, 42, i32::MAX as u32] {
+            pid_variant(pid).expect("pids within i32 range must convert");
+        }
+    }
+
+    #[test]
+    fn pid_variant_rejects_pids_above_i32_range() {
+        // The smallest pid that no longer fits: 2^31. A silent wrap would
+        // make the UIA ProcessId condition match nothing (tenet 1).
+        let err = pid_variant(i32::MAX as u32 + 1)
+            .expect_err("pid above i32 range must be a surfaceable error");
+        assert!(matches!(err, Error::Platform { .. }));
+        pid_variant(u32::MAX).expect_err("u32::MAX pid must fail");
     }
 
     // ── uia_call retry behaviour (issue #257) ───────────────────────────────

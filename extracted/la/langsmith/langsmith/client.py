@@ -711,6 +711,21 @@ def _get_langsmith_env_var_uncached(name: str) -> Optional[str]:
     return None
 
 
+def _api_url_source(
+    api_url_arg: Optional[str],
+    env_api_url: Optional[str],
+    profile_api_url: Optional[str],
+) -> str:
+    """Name where the API URL came from, so a wrong region is easy to spot in logs."""
+    if api_url_arg:
+        return "api_url argument"
+    if env_api_url:
+        return "LANGSMITH_ENDPOINT / LANGCHAIN_ENDPOINT environment variable"
+    if profile_api_url:
+        return "profile config"
+    return "built-in default"
+
+
 def _validate_api_key_if_hosted(
     api_url: str,
     api_key: Optional[str],
@@ -1325,6 +1340,11 @@ class Client:
                 tracing_mode=resolved_mode,
             )
             self._write_api_urls = {self.api_url: self.api_key}
+            logger.debug(
+                "LangSmith API URL %s resolved from %s",
+                self.api_url,
+                _api_url_source(api_url, env_api_url, profile_config.api_url),
+            )
         self.retry_config = retry_config or _default_retry_config()
         self.timeout_ms = (
             (timeout_ms, timeout_ms)
@@ -10626,6 +10646,7 @@ class Client:
         blocking: bool = True,
         experiment: Optional[EXPERIMENT_T] = None,
         upload_results: bool = True,
+        disable_evaluator_tracing: bool = False,
         **kwargs: Any,
     ) -> ExperimentResults: ...
 
@@ -10645,6 +10666,7 @@ class Client:
         blocking: bool = True,
         experiment: Optional[EXPERIMENT_T] = None,
         upload_results: bool = True,
+        disable_evaluator_tracing: bool = False,
         **kwargs: Any,
     ) -> ComparativeExperimentResults: ...
 
@@ -10667,6 +10689,7 @@ class Client:
         blocking: bool = True,
         experiment: Optional[EXPERIMENT_T] = None,
         upload_results: bool = True,
+        disable_evaluator_tracing: bool = False,
         error_handling: Literal["log", "ignore"] = "log",
         **kwargs: Any,
     ) -> Union[ExperimentResults, ComparativeExperimentResults]:
@@ -10711,6 +10734,11 @@ class Client:
                 `'log'` will trace the runs with the error message as part of the
                 experiment, `'ignore'` will not count the run as part of the experiment at
                 all.
+            disable_evaluator_tracing (bool, default=False): Whether to skip tracing
+                evaluator invocations to the `evaluators` project in LangSmith. Set to
+                `True` to run evaluators without creating evaluator traces; feedback is
+                still created and attached to the experiment runs, but can't be
+                corrected from the UI.
             **kwargs (Any): Additional keyword arguments to pass to the evaluator.
 
         Returns:
@@ -10873,6 +10901,7 @@ class Client:
             experiment=experiment,
             upload_results=upload_results,
             error_handling=error_handling,
+            disable_evaluator_tracing=disable_evaluator_tracing,
             **kwargs,
         )
 
@@ -10900,6 +10929,7 @@ class Client:
         blocking: bool = True,
         experiment: Optional[Union[schemas.TracerSession, str, uuid.UUID]] = None,
         upload_results: bool = True,
+        disable_evaluator_tracing: bool = False,
         error_handling: Literal["log", "ignore"] = "log",
         **kwargs: Any,
     ) -> AsyncExperimentResults:
@@ -10941,6 +10971,11 @@ class Client:
                 `'log'` will trace the runs with the error message as part of the
                 experiment, `'ignore'` will not count the run as part of the experiment at
                 all.
+            disable_evaluator_tracing (bool, default=False): Whether to skip tracing
+                evaluator invocations to the `evaluators` project in LangSmith. Set to
+                `True` to run evaluators without creating evaluator traces; feedback is
+                still created and attached to the experiment runs, but can't be
+                corrected from the UI.
             **kwargs (Any): Additional keyword arguments to pass to the evaluator.
 
         Returns:
@@ -11124,6 +11159,7 @@ class Client:
             experiment=experiment,
             upload_results=upload_results,
             error_handling=error_handling,
+            disable_evaluator_tracing=disable_evaluator_tracing,
             **kwargs,
         )
 

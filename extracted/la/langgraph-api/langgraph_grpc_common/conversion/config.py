@@ -30,6 +30,7 @@ from langgraph_grpc_common.conversion.struct import _default_serializer
 from langgraph_grpc_common.proto import engine_common_pb2, enum_stream_mode_pb2
 
 CONFIG_KEY_GRAPH_ID = "graph_id"
+CONFIG_KEY_NODE_FINISHED = "__pregel_node_finished"
 # DR-specific key for storing root graph stream modes, required for patched subgraph streaming.
 CONFIG_KEY_ROOT_STREAM_MODES = "__pregel_root_stream_modes"
 CONFIG_KEY_REPLAY_STATE = "__pregel_replay_state"
@@ -185,6 +186,8 @@ KNOWN_CONFIG_KEYS = {
 
 def config_to_proto(
     config: RunnableConfig,
+    *,
+    skip_private_configurable: bool = False,
 ) -> engine_common_pb2.EngineRunnableConfig | None:
     # Prepare kwargs for construction
     if not config:
@@ -228,7 +231,11 @@ def config_to_proto(
         pb_config.tags.extend(tags)
 
     if configurable := config.get("configurable"):
-        _inject_configurable_into_proto(configurable, pb_config)
+        _inject_configurable_into_proto(
+            configurable,
+            pb_config,
+            skip_private_configurable=skip_private_configurable,
+        )
 
     # Preserve extra top-level keys (not in KNOWN_CONFIG_KEYS)
     extra = {k: v for k, v in config.items() if k not in KNOWN_CONFIG_KEYS}
@@ -252,6 +259,8 @@ def config_to_proto(
     return pb_config
 
 
+# Known process-local framework values excluded from every proto conversion.
+# Checkpoint conversion also skips arbitrary private keys to match Python savers.
 RESTRICTED_RESERVED_CONFIGURABLE_KEYS = {
     CONFIG_KEY_SEND,
     CONFIG_KEY_READ,
@@ -261,13 +270,17 @@ RESTRICTED_RESERVED_CONFIGURABLE_KEYS = {
     CONFIG_KEY_STREAM,
     CONFIG_KEY_CACHE,
     CONFIG_KEY_RUNNER_SUBMIT,
+    CONFIG_KEY_NODE_FINISHED,
     CONFIG_KEY_ROOT_STREAM_MODES,
     CONFIG_KEY_REPLAY_STATE,
 }
 
 
 def _inject_configurable_into_proto(
-    configurable: dict[str, Any], proto: engine_common_pb2.EngineRunnableConfig
+    configurable: dict[str, Any],
+    proto: engine_common_pb2.EngineRunnableConfig,
+    *,
+    skip_private_configurable: bool = False,
 ) -> None:
     extra = {}
     for key, value in configurable.items():
@@ -313,26 +326,24 @@ def _inject_configurable_into_proto(
         elif key == CONFIG_KEY_TRACING_EXAMPLE_ID:
             if value is not None:
                 proto.tracing_example_id = str(value)
+        elif skip_private_configurable and key.startswith("__"):
+            continue
         elif key not in RESTRICTED_RESERVED_CONFIGURABLE_KEYS:
             extra[key] = value
-    if extra:
-        extra_configurable_json = {}
-        for k, v in extra.items():
-            try:
-                extra_configurable_json[k] = orjson.dumps(
-                    v, default=_default_serializer
-                )
-            except Exception:
-                logger.warning(
-                    "Failed to serialize extra configurable value",
-                    extra={
-                        "configurable_key": str(k),
-                        "configurable_value_type": str(type(v)),
-                    },
-                )
-                raise
-
-        proto.extra_configurable_json.update(extra_configurable_json)
+    for k, v in extra.items():
+        try:
+            proto.extra_configurable_json[k] = orjson.dumps(
+                v, default=_default_serializer
+            )
+        except Exception:
+            logger.warning(
+                "Failed to serialize extra configurable value",
+                extra={
+                    "configurable_key": str(k),
+                    "configurable_value_type": str(type(v)),
+                },
+            )
+            raise
 
 
 def runtime_to_proto(runtime: Runtime) -> engine_common_pb2.Runtime:

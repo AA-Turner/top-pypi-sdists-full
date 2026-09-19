@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agent-framework-openai
-Version: 1.14.3
+Version: 1.14.4
 Summary: OpenAI integrations for Microsoft Agent Framework.
 Author-email: Microsoft <af-support@microsoft.com>
 Requires-Python: >=3.10
@@ -16,7 +16,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
 License-File: LICENSE
-Requires-Dist: agent-framework-core>=1.17.0,<2
+Requires-Dist: agent-framework-core>=1.19.0,<2
 Requires-Dist: openai>=2.25.0,<4
 Project-URL: homepage, https://aka.ms/agent-framework
 Project-URL: issues, https://github.com/microsoft/agent-framework/issues
@@ -48,6 +48,22 @@ Use `OpenAIChatClient` for new work unless you specifically need the Chat Comple
   existing Chat Completions-based integrations.
 
 The previous deprecated Responses alias has been removed. Use `OpenAIChatClient` directly.
+
+## Hosted function results
+
+`OpenAIChatClient` parses hosted `function_call_output` items in both streaming and non-streaming responses.
+Each result retains its `call_id` for correlation with the corresponding function call.
+Outputs explicitly marked `in_progress` are deferred without claiming their deduplication ID, so an empty
+or partial `.added` placeholder cannot suppress a later `.done` result. Completed empty results remain valid.
+
+Rich output parts are available through the function result's `items`; the backward-compatible `result`
+field contains only their text. Image and file parts retain their explicit provider type in OpenAI replay,
+including hosted file references, extensionless image URLs, and files whose names have image extensions.
+
+The ordinary AG-UI `TOOL_CALL_RESULT` emitter currently reads only `result`, not `items`. It emits the text
+for mixed text/attachment outputs and empty event content for image/file-only outputs. Preserving rich parts
+in framework content and OpenAI replay does not provide frontend attachment display; that is a separate
+transport/frontend capability, outside this parser's scope.
 
 ## Environment variables
 

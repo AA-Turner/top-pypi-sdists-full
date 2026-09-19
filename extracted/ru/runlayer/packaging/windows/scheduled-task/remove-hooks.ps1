@@ -2779,6 +2779,13 @@ function Invoke-RunlayerEnterpriseHookCleanup {
             OwnedName = $true
         },
         @{
+            # Codex System layer; the profile sweep still covers the legacy
+            # per-user .codex\hooks.json.
+            Root = $ProgramDataRoot
+            Parts = @("OpenAI", "Codex", "hooks.json")
+            OwnedName = $true
+        },
+        @{
             Root = $ProgramDataRoot
             Parts = @("qwen-code", "settings.json")
             OwnedName = $false
@@ -2860,6 +2867,23 @@ function Invoke-RunlayerEnterpriseHookCleanup {
     return $changed
 }
 
+function Invoke-RunlayerBrowserPolicyCleanup {
+    # Reuse the binary's ownership rules; never fetch backend settings on uninstall.
+    $binary = Join-Path (Split-Path -Parent $PSScriptRoot) "aiwatch.exe"
+    try {
+        if ((Test-RunlayerPathSafe -Path $binary) -and (Test-Path -LiteralPath $binary -PathType Leaf)) {
+            & $binary __remove-browser-policies 2>&1 | Out-Null
+            if ($LASTEXITCODE -ne 0) {
+                Write-RunlayerHookCleanupLog "browser policy cleanup failed"
+            }
+        } else {
+            Write-RunlayerHookCleanupLog "browser policy cleanup unavailable; repair AI Watch before uninstall"
+        }
+    } catch {
+        Write-RunlayerHookCleanupLog "browser policy cleanup failed"
+    }
+}
+
 function Invoke-RemoveHooks {
     [CmdletBinding()]
     param(
@@ -2887,6 +2911,7 @@ function Invoke-RemoveHooks {
 
     Set-RunlayerHookCleanupContext -BackupRoot $BackupRoot -LogFile $LogFile
     Write-RunlayerHookCleanupLog "starting"
+    Invoke-RunlayerBrowserPolicyCleanup
 
     $changed = 0
     if ($PSBoundParameters.ContainsKey("ProfileRoots")) {

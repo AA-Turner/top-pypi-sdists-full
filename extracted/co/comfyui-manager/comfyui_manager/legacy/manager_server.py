@@ -19,6 +19,7 @@ import asyncio
 from collections import deque
 
 from . import manager_core as core
+from . import html_utils
 from ..common import manager_util
 from ..common import cm_global
 from ..common import manager_downloader
@@ -37,14 +38,15 @@ logging.info("[ComfyUI-Manager] network_mode: " + network_mode_description)
 comfy_ui_hash = "-"
 comfyui_tag = None
 
-SECURITY_MESSAGE_MIDDLE = "ERROR: To use this action, a security_level of `normal or below` is required. Please contact the administrator.\nReference: https://github.com/Comfy-Org/ComfyUI-Manager#security-policy"
-SECURITY_MESSAGE_MIDDLE_P = "ERROR: To use this action, security_level must be `normal or below`, and network_mode must be set to `personal_cloud`. Please contact the administrator.\nReference: https://github.com/ltdrdata/ComfyUI-Manager#security-policy"
-SECURITY_MESSAGE_HIGH_P = "ERROR: To use this action, '--listen' must be set to a local IP and security_level must be 'normal-' or lower. Please contact the administrator.\nReference: https://github.com/Comfy-Org/ComfyUI-Manager#security-policy"
-SECURITY_MESSAGE_NORMAL_MINUS = "ERROR: To use this feature, you must either set '--listen' to a local IP and set the security level to 'normal-' or lower, or set the security level to 'middle' or 'weak'. Please contact the administrator.\nReference: https://github.com/Comfy-Org/ComfyUI-Manager#security-policy"
-SECURITY_MESSAGE_GENERAL = "ERROR: This installation is not allowed in this security_level. Please contact the administrator.\nReference: https://github.com/Comfy-Org/ComfyUI-Manager#security-policy"
-SECURITY_MESSAGE_NORMAL_MINUS_MODEL = "ERROR: Downloading models that are not in '.safetensors' format is only allowed for models registered in the 'default' channel at this security level. If you want to download this model, set the security level to 'normal-' or lower."
-SECURITY_MESSAGE_FLAG_GIT_URL = "ERROR: This action requires 'allow_git_url_install = true' in config.ini ([default] section). This setting is independent of security_level. Please contact the administrator.\nReference: https://github.com/Comfy-Org/ComfyUI-Manager#security-policy"
-SECURITY_MESSAGE_FLAG_PIP = "ERROR: This action requires 'allow_pip_install = true' in config.ini ([default] section). This setting is independent of security_level. Please contact the administrator.\nReference: https://github.com/Comfy-Org/ComfyUI-Manager#security-policy"
+from ..common.security_messages import (
+    SECURITY_MESSAGE_MIDDLE,
+    SECURITY_MESSAGE_MIDDLE_P,
+    SECURITY_MESSAGE_HIGH_P,
+    SECURITY_MESSAGE_GENERAL,
+    SECURITY_MESSAGE_NORMAL_MINUS_MODEL,
+)
+SECURITY_MESSAGE_FLAG_GIT_URL = "ERROR: This action requires BOTH: (1) 'allow_git_url_install = true' in config.ini ([default] section), AND (2) a network position the Manager treats as private - either ComfyUI launched with a loopback '--listen' (any 127.x.x.x address, or ::1), OR 'network_mode = personal_cloud' in config.ini. Currently listening on {listen} with network_mode = {network_mode}. Both values are read once at ComfyUI startup, so changing either one needs a restart, done with the server down: STOP ComfyUI, change the setting, then start it again. Both are independent of security_level. Please contact the administrator.\nReference: https://github.com/Comfy-Org/ComfyUI-Manager#security-policy"
+SECURITY_MESSAGE_FLAG_PIP = "ERROR: This action requires BOTH: (1) 'allow_pip_install = true' in config.ini ([default] section), AND (2) a network position the Manager treats as private - either ComfyUI launched with a loopback '--listen' (any 127.x.x.x address, or ::1), OR 'network_mode = personal_cloud' in config.ini. Currently listening on {listen} with network_mode = {network_mode}. Both values are read once at ComfyUI startup, so changing either one needs a restart, done with the server down: STOP ComfyUI, change the setting, then start it again. Both are independent of security_level. Please contact the administrator.\nReference: https://github.com/Comfy-Org/ComfyUI-Manager#security-policy"
 
 routes = PromptServer.instance.routes
 
@@ -160,6 +162,9 @@ async def get_risky_level(files, pip_packages):
 
 
 class ManagerFuncsInComfyUI(core.ManagerFuncs):
+    def is_flagged_install_allowed(self):
+        return core.get_config()['allow_flagged_nodepack_install'] or manager_security.is_loopback_listener(args.listen)
+
     def run_script(self, cmd, cwd='.'):
         if len(cmd) > 0 and cmd[0].startswith("#"):
             logging.error(f"[ComfyUI-Manager] Unexpected behavior: `{cmd}`")
@@ -257,7 +262,6 @@ def print_comfyui_version():
 
 print_comfyui_version()
 core.check_invalid_nodes()
-
 
 
 def setup_environment():
@@ -467,7 +471,7 @@ async def task_worker():
 
     await core.unified_manager.reload('cache')
 
-    async def do_install(item) -> str:
+    async def do_install(item, operation) -> str:
         ui_id, node_spec_str, channel, mode, skip_post_install = item
 
         try:
@@ -477,7 +481,15 @@ async def task_worker():
                 return f"Cannot resolve install target: '{node_spec_str}'"
 
             node_name, version_spec, is_specified = node_spec
-            res = await core.unified_manager.install_by_id(node_name, version_spec, channel, mode, return_postinstall=skip_post_install) # discard post install if skip_post_install mode
+            # Check the resolved target, including requests with misleading metadata.
+            level = 'middle+' if version_spec in ('nightly', 'unknown') else 'middle'
+            if not is_allowed_security_level(level):
+                logging.error(SECURITY_MESSAGE_MIDDLE_P if level == 'middle+' else SECURITY_MESSAGE_MIDDLE)
+                return 'Installation blocked by security policy'
+            if operation == 'reinstall':
+                res = await core.unified_manager.reinstall_by_id(node_name, version_spec, channel, mode)
+            else:
+                res = await core.unified_manager.install_by_id(node_name, version_spec, channel, mode, return_postinstall=skip_post_install)
 
             if res.action not in ['skip', 'enable', 'install-git', 'install-cnr', 'switch-cnr']:
                 logging.error(f"[ComfyUI-Manager] Installation failed:\n{res.msg}")
@@ -529,7 +541,7 @@ async def task_worker():
                     base_res['msg'] = 'success'
                     return base_res
 
-            base_res['msg'] = f"An error occurred while updating '{node_name}'."
+            base_res['msg'] = res.msg or f"An error occurred while updating '{node_name}'."
             logging.error(f"\nERROR: An error occurred while updating '{node_name}'. (res.result={res.result}, res.action={res.action})")
             return base_res
         except Exception:
@@ -704,8 +716,8 @@ async def task_worker():
             tasks_in_progress.add((kind, item[0]))
 
         try:
-            if kind == 'install':
-                msg = await do_install(item)
+            if kind in ('install', 'reinstall'):
+                msg = await do_install(item, kind)
             elif kind == 'enable':
                 msg = await do_enable(item)
             elif kind == 'install-model':
@@ -769,19 +781,9 @@ async def queue_batch(request):
         if k == 'update_all':
             await _update_all({'mode': v})
 
-        elif k == 'reinstall':
+        elif k in ('install', 'reinstall'):
             for x in v:
-                res = await _uninstall_custom_node(x)
-                if res.status != 200:
-                    failed.add(x['id'])
-                else:
-                    res = await _install_custom_node(x)
-                    if res.status != 200:
-                        failed.add(x['id'])
-
-        elif k == 'install':
-            for x in v:
-                res = await _install_custom_node(x)
+                res = await _queue_node_install(x, k)
                 if res.status != 200:
                     failed.add(x['id'])
 
@@ -974,14 +976,22 @@ async def _update_all(json_data):
 
 
 def convert_markdown_to_html(input_text):
+    """Parse source markdown, escaping text and URLs at their HTML boundaries."""
     pattern_a = re.compile(r'\[a/([^]]+)]\(([^)]+)\)')
     pattern_w = re.compile(r'\[w/([^]]+)]')
     pattern_i = re.compile(r'\[i/([^]]+)]')
     pattern_bold = re.compile(r'\*\*([^*]+)\*\*')
     pattern_white = re.compile(r'%%([^*]+)%%')
 
+    # Format link labels separately from URLs; escape URLs when inserted.
+    hrefs = []
+
     def replace_a(match):
-        return f"<a href='{match.group(2)}' target='blank'>{match.group(1)}</a>"
+        # Entities written in the source URL (e.g. &amp;) retain their meaning.
+        url = html_utils.unescape_html_entities(match.group(2))
+        hrefs.append(html_utils.sanitize_url(url))
+        text = html_utils.escape_html_text(match.group(1))
+        return f"<a href='\x00H{len(hrefs) - 1}\x00' target='_blank' rel='noopener noreferrer'>{text}</a>"
 
     def replace_w(match):
         return f"<p class='cm-warn-note'>{match.group(1)}</p>"
@@ -995,20 +1005,35 @@ def convert_markdown_to_html(input_text):
     def replace_white(match):
         return f"<font color='white'>{match.group(1)}</font>"
 
-    input_text = input_text.replace('\\[', '&#91;').replace('\\]', '&#93;').replace('<', '&lt;').replace('>', '&gt;')
+    # NUL dropped first so the input cannot forge the href placeholders.
+    input_text = input_text.replace('\x00', '')
+    input_text = input_text.replace('\\[', '&#91;').replace('\\]', '&#93;')
 
-    result_text = re.sub(pattern_a, replace_a, input_text)
+    # Parse links before escaping prose, so generated text entities never enter URLs.
+    parts = []
+    start = 0
+    for match in pattern_a.finditer(input_text):
+        parts.append(manager_util.sanitize_tag(input_text[start:match.start()]))
+        parts.append(replace_a(match))
+        start = match.end()
+    parts.append(manager_util.sanitize_tag(input_text[start:]))
+    result_text = ''.join(parts)
     result_text = re.sub(pattern_w, replace_w, result_text)
     result_text = re.sub(pattern_i, replace_i, result_text)
     result_text = re.sub(pattern_bold, replace_bold, result_text)
     result_text = re.sub(pattern_white, replace_white, result_text)
+    result_text = result_text.replace("\n", "<BR>")
 
-    return result_text.replace("\n", "<BR>")
+    return re.sub(
+        r'\x00H(\d+)\x00',
+        lambda m: html_utils.escape_html_attribute(hrefs[int(m.group(1))]),
+        result_text,
+    )
 
 
 def populate_markdown(x):
     if 'description' in x:
-        x['description'] = convert_markdown_to_html(manager_util.sanitize_tag(x['description']))
+        x['description'] = convert_markdown_to_html(x['description'])
 
     if 'name' in x:
         x['name'] = manager_util.sanitize_tag(x['name'])
@@ -1396,7 +1421,6 @@ async def import_fail_info_bulk(request):
         return web.Response(status=500, text="Internal server error")
 
 
-
 @routes.post("/v2/manager/queue/reset")
 async def reset_queue(request):
     rejection = manager_security.reject_simple_form_post(request)
@@ -1410,7 +1434,6 @@ async def reset_queue(request):
         task_batch_queue = deque()
 
     return web.Response(status=200)
-
 
 
 @routes.get("/v2/manager/queue/status")
@@ -1437,15 +1460,15 @@ async def queue_count(request):
         'is_processing': is_processing})
 
 
-async def _install_custom_node(json_data):
-    if not is_allowed_security_level('middle+'):
-        logging.error(SECURITY_MESSAGE_MIDDLE_P)
+async def _queue_node_install(json_data, operation):
+    if not is_allowed_security_level('middle'):
+        logging.error(SECURITY_MESSAGE_MIDDLE)
         return web.Response(status=403, text="A security error has occurred. Please check the terminal logs")
 
-    # non-nightly cnr is safe
+    # CNR versions are checked for flagged status by the install worker.
     risky_level = None
     cnr_id = json_data.get('id')
-    skip_post_install = json_data.get('skip_post_install')
+    skip_post_install = False if operation == 'reinstall' else json_data.get('skip_post_install')
 
     git_url = None
 
@@ -1487,20 +1510,22 @@ async def _install_custom_node(json_data):
         else:
             return web.Response(status=404, text=f"Following node pack doesn't provide `nightly` version: ${git_url}")
 
-    # goal265 S-C (middle+ entry gate above UNCHANGED): unknown git URL ('high+')
-    # -> dedicated-flag full predicate replaces the security_level check (spec §1.2);
-    # unknown pip ('block') -> unconditional deny via is_allowed_security_level (Q1).
-    # Flag-deny PRESERVES today's 404 response shape at this position (R1).
+    if risky_level != 'low' and not is_allowed_security_level('middle+'):
+        logging.error(SECURITY_MESSAGE_MIDDLE_P)
+        return web.Response(status=403, text="A security error has occurred. Please check the terminal logs")
+
+    # Unknown Git installs also require the dedicated flag; preserve the 404 response.
     if risky_level == 'high+':
         if not _dedicated_install_allowed('allow_git_url_install'):
-            logging.error(SECURITY_MESSAGE_FLAG_GIT_URL)
+            logging.error(SECURITY_MESSAGE_FLAG_GIT_URL.format(
+                listen=args.listen, network_mode=core.get_config()['network_mode']))
             return web.Response(status=404, text="A security error has occurred. Please check the terminal logs")
     elif not is_allowed_security_level(risky_level):
         logging.error(SECURITY_MESSAGE_GENERAL)
         return web.Response(status=404, text="A security error has occurred. Please check the terminal logs")
 
     install_item = json_data.get('ui_id'), node_spec_str, json_data['channel'], json_data['mode'], skip_post_install
-    temp_queue_batch.append(("install", install_item))
+    temp_queue_batch.append((operation, install_item))
 
     return web.Response(status=200)
 
@@ -1551,8 +1576,10 @@ async def _fix_custom_node(json_data):
 async def install_custom_node_git_url(request):
     # goal265 S-A: dedicated-flag gate, decoupled from security_level (spec §1.2).
     if not _dedicated_install_allowed('allow_git_url_install'):
-        logging.error(SECURITY_MESSAGE_FLAG_GIT_URL)
-        return web.Response(status=403)
+        logging.error(SECURITY_MESSAGE_FLAG_GIT_URL.format(
+            listen=args.listen, network_mode=core.get_config()['network_mode']))
+        # Only the flag name goes on the wire; the full message is logged above.
+        return web.json_response({'reason': 'allow_git_url_install'}, status=403)
 
     url = await request.text()
     res = await core.gitclone_install(url)
@@ -1572,8 +1599,10 @@ async def install_custom_node_git_url(request):
 async def install_custom_node_pip(request):
     # goal265 S-B: dedicated-flag gate, decoupled from security_level (spec §1.2).
     if not _dedicated_install_allowed('allow_pip_install'):
-        logging.error(SECURITY_MESSAGE_FLAG_PIP)
-        return web.Response(status=403)
+        logging.error(SECURITY_MESSAGE_FLAG_PIP.format(
+            listen=args.listen, network_mode=core.get_config()['network_mode']))
+        # Only the flag name goes on the wire; the full message is logged above.
+        return web.json_response({'reason': 'allow_pip_install'}, status=403)
 
     packages = await request.text()
     core.pip_install(packages.split(' '))
@@ -1815,19 +1844,6 @@ async def set_channel_url(request):
         return web.Response(status=400, text='Invalid request')
 
 
-def add_target_blank(html_text):
-    pattern = r'(<a\s+href="[^"]*"\s*[^>]*)(>)'
-
-    def add_target(match):
-        if 'target=' not in match.group(1):
-            return match.group(1) + ' target="_blank"' + match.group(2)
-        return match.group(0)
-
-    modified_html = re.sub(pattern, add_target, html_text)
-
-    return modified_html
-
-
 @routes.get("/v2/manager/notice")
 async def get_notice(request):
     url = "github.com"
@@ -1843,7 +1859,9 @@ async def get_notice(request):
                 match = pattern.search(html_content)
 
                 if match:
-                    markdown_content = match.group(1)
+                    # Remote page content lands in innerHTML on the client:
+                    # keep formatting markup only.
+                    markdown_content = html_utils.sanitize_html_fragment(match.group(1))
                     version_tag = os.environ.get('__COMFYUI_DESKTOP_VERSION__')
                     if version_tag is not None:
                         markdown_content += f"<HR>ComfyUI: {version_tag} [Desktop]"
@@ -1856,8 +1874,6 @@ async def get_notice(request):
                                                  f"&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;({core.comfy_ui_commit_datetime.date()})")
                     # markdown_content += f"<BR>&nbsp; &nbsp; &nbsp; &nbsp; &nbsp;()"
                     markdown_content += f"<BR>Manager: {core.version_str}"
-
-                    markdown_content = add_target_blank(markdown_content)
 
                     try:
                         if '__COMFYUI_DESKTOP_VERSION__' not in os.environ:

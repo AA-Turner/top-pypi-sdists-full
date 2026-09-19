@@ -189,18 +189,14 @@ class ConversationRunner:
         context_mode: ContextMode = ContextMode.INHERIT,
     ) -> ConversationResult:
         # one conversation = one execution, linked to the cx conversation record
-        if parent_execution_id is not None:
-            execution = await self._engine.spawn_child(
-                parent_execution_id, type="conversation", context_mode=context_mode,
-                link_kind="conversation", link_id=conversation_id, execution_id=execution_id,
-            )
-        else:
-            execution = await self._engine.create_root(
-                type="conversation", request_id=request_id, context=context,
-                cost_budget=cost_budget, link_kind="conversation", link_id=conversation_id,
-                execution_id=execution_id,
-            )
-        await self._engine.start(execution.id)
+        scope = self._engine.execution(
+            type="conversation", request_id=request_id, context=context,
+            cost_budget=cost_budget, link_kind="conversation", link_id=conversation_id,
+            execution_id=execution_id, parent_execution_id=parent_execution_id,
+            context_mode=context_mode,
+        )
+        await scope.begin()
+        execution = scope.execution
         await self._cx.append_turn(
             conversation_id=conversation_id, execution_id=execution.id,
             role="user", content=user_message,

@@ -246,28 +246,17 @@ class Assessment:
             return None
 
         try:
-            # Get runtime_id - try to use a default runtime for the project
-            runtime_id = getattr(self, "_runtime_id", None)
-            if runtime_id is None:
-                # Auto-discover a runtime for this project (CLI users shouldn't need to specify this)
-                try:
-                    runtimes_resp = api.list_runtimes(profile.org_key, profile.workspace_key)
-                    runtime_items = runtimes_resp.get("items", [])
-                    matching_runtimes = [r for r in runtime_items if r["project_id"] == project_id]
-                    if matching_runtimes:
-                        runtime_id = matching_runtimes[0]["id"]
-                        logger.debug(f"Auto-selected runtime {runtime_id} for project {project_id}")
-                    else:
-                        logger.warning(f"No runtimes found for project {project_id}")
-                except Exception as e:
-                    logger.debug(f"Failed to auto-discover runtime for project: {e}")
-
+            # A null runtime id asks the server to pick the caller's own runtime
+            # for the project. Members each hold their own runtimes there, so a
+            # client has no way to know which one is meant; anything inferred
+            # here would be a guess sent as though the caller had chosen it.
+            # Pass through what the caller supplied, nothing more.
             result = api.create_airt_assessment(
                 profile.org_key,
                 profile.workspace_key,
                 name=self.name,
                 project_id=project_id,
-                runtime_id=runtime_id,
+                runtime_id=self._runtime_id,
                 description=self.description,
                 session_id=self._session_id,
                 target_model=self.target_model,

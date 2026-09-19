@@ -40,6 +40,8 @@ CLIENT_FLOW_STEPS: frozenset[str] = frozenset(
         "device_context",
         "daemon_ipc",
         "daemon_fallback",
+        "credential_rejected_cached",
+        "host_override",
     }
 )
 # Closed vocabulary for the sanitized failure classification on errored flows.
@@ -62,6 +64,9 @@ CLIENT_FLOW_ERROR_CATEGORIES: frozenset[str] = frozenset(
         "http_5xx",
         "oauth_registration_rejected",
         "oauth_flow_timeout",
+        "oauth_callback_port_in_use",
+        "oauth_callback_listener",
+        "oauth_flow_error",
         "mcp_protocol",
         "cancelled",
         "other",

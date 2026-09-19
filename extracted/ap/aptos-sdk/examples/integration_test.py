@@ -1,0 +1,165 @@
+# Copyright © Aptos Foundation
+# SPDX-License-Identifier: Apache-2.0
+
+"""
+Provides a test harness for treating examples as integration tests.
+"""
+
+import asyncio
+import importlib
+import os
+import unittest
+from typing import Optional
+
+from aptos_sdk.account_address import AccountAddress
+from aptos_sdk.aptos_cli_wrapper import AptosCLIWrapper, AptosInstance
+from aptos_sdk.async_client import RestClient
+
+from . import common
+from .common import APTOS_CORE_PATH
+
+
+class Test(unittest.IsolatedAsyncioTestCase):
+    _node: Optional[AptosInstance] = None
+
+    @classmethod
+    def setUpClass(self):
+        if os.getenv("APTOS_TEST_USE_EXISTING_NETWORK"):
+            self._reload_network_config()
+            asyncio.run(self._wait_for_network())
+            return
+
+        self._node = AptosCLIWrapper.start_node()
+        operational = asyncio.run(self._node.wait_until_operational())
+        if not operational:
+            raise Exception("".join(self._node.errors()))
+
+        os.environ["APTOS_FAUCET_URL"] = "http://127.0.0.1:8081"
+        os.environ["APTOS_INDEXER_URL"] = "none"
+        os.environ["APTOS_NODE_URL"] = "http://127.0.0.1:8080/v1"
+        self._reload_network_config()
+        asyncio.run(self._wait_for_network())
+
+    @classmethod
+    def _reload_network_config(cls) -> None:
+        """Re-read NODE/FAUCET/INDEXER URLs after env vars are set in setUpClass."""
+        importlib.reload(common)
+
+    @classmethod
+    async def _wait_for_network(cls) -> None:
+        rest = RestClient(common.NODE_URL, client_config=common.CLIENT_CONFIG)
+        try:
+            await rest.wait_until_ready()
+        finally:
+            await rest.close()
+
+    async def test_aptos_token(self):
+        from . import aptos_token
+
+        await aptos_token.main()
+
+    async def test_fee_payer_transfer_coin(self):
+        from . import fee_payer_transfer_coin
+
+        await fee_payer_transfer_coin.main()
+
+    async def test_hello_blockchain(self):
+        from . import hello_blockchain
+
+        hello_blockchain_dir = os.path.join(
+            APTOS_CORE_PATH, "aptos-move", "move-examples", "hello_blockchain"
+        )
+        AptosCLIWrapper.test_package(
+            hello_blockchain_dir, {"hello_blockchain": AccountAddress.from_str("0xa")}
+        )
+        contract_address = await hello_blockchain.publish_contract(hello_blockchain_dir)
+        await hello_blockchain.main(contract_address)
+
+    async def test_large_package_publisher(self):
+        from . import large_package_publisher
+
+        large_packages_dir = os.path.join(
+            APTOS_CORE_PATH, "aptos-move", "move-examples", "large_packages"
+        )
+        # Upstream aptos-core only ships `large_packages/large_package_example/`;
+        # the parent `large_packages/` Move package (the chunked-publish helper)
+        # was relocated out of aptos-core, so we cannot publish it to localnet
+        # from this checkout. Skip until we either embed the helper source here
+        # or aptos-core restores it.
+        if not os.path.exists(os.path.join(large_packages_dir, "Move.toml")):
+            self.skipTest(
+                "large_packages helper Move package is not present in aptos-core; "
+                "cannot publish chunked-package helper to localnet"
+            )
+
+        module_addr = await large_package_publisher.publish_large_packages(large_packages_dir)
+        large_package_example_dir = os.path.join(large_packages_dir, "large_package_example")
+        await large_package_publisher.main(large_package_example_dir, module_addr)
+
+    async def test_multikey(self):
+        from . import multikey
+
+        await multikey.main()
+
+    async def test_multisig(self):
+        from . import multisig
+
+        await multisig.main(False)
+
+    async def test_read_aggreagtor(self):
+        from . import read_aggregator
+
+        await read_aggregator.main()
+
+    async def test_rotate_key(self):
+        from . import rotate_key
+
+        await rotate_key.main()
+
+    async def test_secp256k1_ecdsa_transfer_coin(self):
+        from . import secp256k1_ecdsa_transfer_coin
+
+        await secp256k1_ecdsa_transfer_coin.main()
+
+    async def test_simple_aptos_token(self):
+        from . import simple_aptos_token
+
+        await simple_aptos_token.main()
+
+    async def test_simple_nft(self):
+        from . import simple_nft
+
+        await simple_nft.main()
+
+    async def test_simulate_transfer_coin(self):
+        from . import simulate_transfer_coin
+
+        await simulate_transfer_coin.main()
+
+    async def test_transfer_coin(self):
+        from . import transfer_coin
+
+        await transfer_coin.main()
+
+    async def test_transfer_two_by_two(self):
+        from . import transfer_two_by_two
+
+        await transfer_two_by_two.main()
+
+    async def test_your_coin(self):
+        from . import your_coin
+
+        moon_coin_path = os.path.join(APTOS_CORE_PATH, "aptos-move", "move-examples", "moon_coin")
+        AptosCLIWrapper.test_package(moon_coin_path, {"MoonCoin": AccountAddress.from_str("0xa")})
+        await your_coin.main(moon_coin_path)
+
+    @classmethod
+    def tearDownClass(self):
+        if os.getenv("APTOS_TEST_USE_EXISTING_NETWORK"):
+            return
+
+        self._node.stop()
+
+
+if __name__ == "__main__":
+    unittest.main(buffer=True)

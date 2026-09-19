@@ -127,6 +127,16 @@ class TestRevoluteJoint(DirectApiTestCase):
         self.assertVectorAlmostEquals(j2.symbol.location.orientation, (0, 0, 90), 6)
         self.assertEqual(len(j1.symbol.edges()), 3)
 
+    def test_revolute_joint_uses_angle_reference_when_connecting_to_rigid(self):
+        p1 = Box(1, 1, 1)
+        j1 = RevoluteJoint("j1", p1, Axis.Z, angle_reference=(1, 1, 0))
+        p2 = Box(0.2, 0.2, 2)
+        j2 = RigidJoint("j2", p2, Location())
+
+        j1.connect_to(j2, angle=22.5)
+
+        self.assertVectorAlmostEquals(p2.location.orientation, (0, 0, 67.5), 6)
+
     def test_revolute_joint_absolute_locations(self):
         b1 = Box(10, 10, 1)
         b2 = Box(5, 5, 1)
@@ -554,6 +564,23 @@ class TestJointPropagation(DirectApiTestCase):
         self.assertVectorAlmostEquals(
             base.joints["top"].location.position, (0, 0, 3), 5
         )
+
+
+class TestJointValidation(DirectApiTestCase):
+    """Guards on the joint classes."""
+
+    def test_ball_joint_angle_types(self):
+        ball = BallJoint("ball", Solid.make_box(1, 1, 1), Location())
+        rigid = RigidJoint("rigid", Solid.make_box(1, 1, 1), Location())
+        for angles in (Rotation(0, 0, 0), (0, 0, 0), None):
+            with self.subTest(angles=angles):
+                self.assertEqual(ball.relative_to(rigid, angles=angles), Location())
+
+    def test_ball_joint_invalid_angles(self):
+        ball = BallJoint("ball", Solid.make_box(1, 1, 1), Location())
+        rigid = RigidJoint("rigid", Solid.make_box(1, 1, 1), Location())
+        with self.assertRaisesRegex(TypeError, "angles is of an unknown type"):
+            ball.relative_to(rigid, angles="bogus")
 
 
 if __name__ == "__main__":

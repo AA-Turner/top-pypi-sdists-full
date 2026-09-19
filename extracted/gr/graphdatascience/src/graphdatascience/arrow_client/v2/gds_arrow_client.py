@@ -10,6 +10,7 @@ import pyarrow
 from pyarrow import RecordBatch, flight
 
 from graphdatascience.arrow_client.arrow_endpoint_version import ArrowEndpointVersion
+from graphdatascience.arrow_client.arrow_table_utils import table_from_pandas
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient, ConnectionInfo
 from graphdatascience.query_runner.termination_flag import TerminationFlag
 
@@ -29,7 +30,7 @@ class GdsArrowClient:
 
         Parameters
         ----------
-        flight_client : AuthenticatedArrowClient
+        flight_client
             The authenticated flight client to use for communication with the GDS server. Ownership of the client is transferred to this GdsArrowClient.
         """
         self._flight_client = flight_client
@@ -51,15 +52,15 @@ class GdsArrowClient:
         Parameters
         ----------
         graph_name
-            The name of the graph
+            Name of the graph to be created
         node_properties
-            The name of the node properties to retrieve
+            Names of the node properties to retrieve
         node_labels
             A list of node labels to filter the nodes
         list_node_labels
             A flag that indicates whether the node labels should be included in the result
         concurrency
-            The number of threads used on the server side when serving the data
+            Number of threads used on the server side when serving the data
         log_progress
             Display progress logging.
         job_id
@@ -99,7 +100,7 @@ class GdsArrowClient:
         Parameters
         ----------
         graph_name
-           The name of the graph
+           Name of the graph to be created
         node_filter
             A Cypher predicate for filtering nodes in the input graph.
         log_progress
@@ -187,7 +188,7 @@ class GdsArrowClient:
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             A pandas DataFrame containing the results of the job.
         """
         return JobClient().get_stream(self._flight_client, job_id)
@@ -250,29 +251,29 @@ class GdsArrowClient:
         job_id: str | None = None,
     ) -> str:
         """
-         Starts a new graph import process on the GDS server.
+        Starts a new graph import process on the GDS server.
 
-         The import process accepts triplets as input data.
+        The import process accepts triplets as input data.
 
         Parameters
-         ----------
-         graph_name : str
-             The name used to identify the graph in the catalog
-         undirected_relationship_types
-             A list of relationship types that should be treated as undirected
-         inverse_indexed_relationship_types
-             A list of relationship types that should be indexed in reverse direction as well
-         concurrency
-             Number of concurrent threads to use.
-         log_progress
-             Display progress logging.
-         job_id
-             Identifier for the computation.
+        ----------
+        graph_name
+            The name used to identify the graph in the catalog
+        undirected_relationship_types
+            A list of relationship types that should be treated as undirected
+        inverse_indexed_relationship_types
+            A list of relationship types that should be indexed in reverse direction as well
+        concurrency
+            Number of concurrent threads to use.
+        log_progress
+            Display progress logging.
+        job_id
+            Identifier for the computation.
 
-         Returns
-         -------
-         str
-             The JobId identifying the import process
+        Returns
+        -------
+        str
+            The JobId identifying the import process
         """
 
         config = ConfigConverter.convert_to_gds_config(
@@ -411,7 +412,7 @@ class GdsArrowClient:
 
         Parameters
         ----------
-        job_id : str
+        job_id
             The job id of the process
         """
         JobClient.cancel_job(self._flight_client, job_id)
@@ -427,7 +428,7 @@ class GdsArrowClient:
 
         Returns
         -------
-        JobStatus
+        ~graphdatascience.arrow_client.v2.api_types.JobStatus
             The status of the job
         """
         return JobClient.get_job_status(self._flight_client, job_id)
@@ -504,14 +505,14 @@ class GdsArrowClient:
         batch_size: int,
     ) -> list[list[pyarrow.RecordBatch]]:
         if isinstance(data, pandas.DataFrame):
-            return [pyarrow.Table.from_pandas(data).to_batches(batch_size)]
+            return [table_from_pandas(data).to_batches(batch_size)]
 
         if isinstance(data, pyarrow.Table):
             return [data.to_batches(batch_size)]
 
         if isinstance(data, list):
             if all(isinstance(entry, pandas.DataFrame) for entry in data):
-                return [pyarrow.Table.from_pandas(entry).to_batches(batch_size) for entry in data]
+                return [table_from_pandas(entry).to_batches(batch_size) for entry in data]
 
             if all(isinstance(entry, pyarrow.RecordBatch) for entry in data):
                 return [data]

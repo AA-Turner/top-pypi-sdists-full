@@ -21,8 +21,8 @@
 //! let schema = Arc::new(arrow::datatypes::Schema::new(vec![id_field]));
 //! let ids = arrow::array::Int32Array::from(vec![1, 2, 3, 4, 5]);
 //! let batch = RecordBatch::try_new(schema, vec![Arc::new(ids)])?;
-//! let ops = DeltaOps::try_from_url("../path/to/empty/dir").await?;
-//! let table = ops.write(vec![batch]).await?;
+//! let table = DeltaTableBuilder::from_url("../path/to/empty/dir").unwrap().build()?;
+//! let table = table.write(vec![batch]).await?;
 //! ````
 
 use std::collections::HashMap;
@@ -71,7 +71,10 @@ pub(crate) mod generated_columns;
 pub(crate) mod metrics;
 mod plan;
 pub(crate) mod schema_evolution;
-pub mod writer;
+
+/// Back-compat re-export: the writer types moved to [`crate::datafile::writer`].
+#[deprecated(note = "moved to deltalake_core::datafile::writer")]
+pub use crate::datafile::writer;
 
 #[derive(thiserror::Error, Debug)]
 pub(crate) enum WriteError {
@@ -176,6 +179,9 @@ pub struct WriteMetrics {
     pub num_added_rows: usize,
     /// Time taken to execute the entire operation
     pub execution_time_ms: u64,
+    /// Number of retries before successful commit
+    #[serde(default)]
+    pub num_retries: u64,
 }
 
 impl super::Operation for WriteBuilder {

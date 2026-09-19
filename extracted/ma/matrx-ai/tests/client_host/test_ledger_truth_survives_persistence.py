@@ -30,8 +30,6 @@ import uuid
 from typing import Any
 
 import pytest
-from matrx_utils.source_guard import stable_source
-
 from matrx_ai._ext import configure_ext
 
 pytestmark = pytest.mark.usefixtures("client_host_sandbox")
@@ -253,26 +251,13 @@ async def test_commands_run_comes_from_the_ledger_not_the_model(failing_tool_reg
     assert answer["commands_run"] == [FAILING_COMMAND]
 
 
-def test_v1_and_v2_entry_points_share_this_one_loop():
-    """Both product routes reach the corrected loop — no second lane exists.
-
-    ``POST /ai/agents/{id}`` (v1) runs ``run_ai_task``; ``POST /api/v2/ai/agents/{id}``
-    (v2) runs ``run_ai_task_on_spine``, which is ``run_ai_task`` wrapped in the
-    runtime spine. Both bottom out in ``execute_until_complete`` — the function the
-    tests above drive — so a fix there is a fix on every route. If that ever stops
-    being true, this fails and the behavioural tests above must be duplicated for
-    the new lane.
-    """
-    from aidream.services.ai_execution import ai_task
-    from aidream.services.runtime import conversation
-
-    spine_src = stable_source(conversation.run_ai_task_on_spine)
-    assert "run_ai_task(" in spine_src, (
-        "the v2 spine no longer delegates to run_ai_task — it has grown a second "
-        "execution lane that the ledger-truth chokepoint does not cover."
-    )
-    v1_src = stable_source(ai_task)
-    assert "execute_until_complete" in v1_src, (
-        "run_ai_task no longer reaches execute_until_complete — the ledger-truth "
-        "chokepoint is no longer on the v1/v2 path."
-    )
+# THE HOST HALF OF THIS GUARD LIVES IN AIDREAM, NOT HERE.
+# `test_v1_and_v2_entry_points_share_this_one_loop` asserted that aidream's
+# v1 `run_ai_task` and v2 `run_ai_task_on_spine` both bottom out in
+# `execute_until_complete`. That is HOST behaviour, and importing `aidream`
+# from a standalone package's test tree breaks the package paradox (CLAUDE.md
+# "Confusion #2"): `pytest packages/matrx-ai/tests` resolves its config from
+# packages/matrx-ai/pyproject.toml, so the repo root is NOT on sys.path and the
+# import died with `ModuleNotFoundError: No module named 'aidream'` in CI's
+# `level1 (unit)` matrx-ai suite. It now lives at
+# aidream/services/ai_execution/tests/test_ledger_truth_entry_points.py.

@@ -9,6 +9,7 @@ from loguru import logger
 
 from dreadnode.app.client.managed_client import ManagedRuntimeClient
 from dreadnode.app.client.runtime_client import DEFAULT_MODEL
+from dreadnode.app.config import DEFAULT_AUTONOMOUS_MAX_STEPS
 from dreadnode.app.tui import wire_events as we
 from dreadnode.app.tui.wire_events import parse_wire_event
 
@@ -26,11 +27,12 @@ async def run_print_mode(
     capabilities: list[str] | None = None,
     capability_flags: list[str] | None = None,
     system_prompt: str | None = None,
+    max_steps: int = DEFAULT_AUTONOMOUS_MAX_STEPS,
     server_url: str | None = None,
     platform_url: str | None = None,
     project_memory_preload_limit: int = 20,
 ) -> None:
-    """Run a single prompt headlessly: stream response text to stdout, progress to stderr.
+    """Run one prompt headlessly with an explicit autonomous step budget.
 
     ``profile`` is the caller's already-resolved profile — the CLI passes the
     one built from ``--profile`` plus the scope flags and ``DREADNODE_*`` env
@@ -84,7 +86,7 @@ async def run_print_mode(
     session = await client.create_session(
         agent=agent,
         model=model,
-        policy="headless",
+        policy={"name": "headless", "max_steps": max_steps},
         project_memory_preload_limit=project_memory_preload_limit,
     )
     session_id = session.session_id

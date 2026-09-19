@@ -5,7 +5,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.job_handle import JobHandle
@@ -16,8 +16,7 @@ from graphdatascience.procedure_surface.api.pathfinding.single_source_bellman_fo
     SingleSourceBellmanFordEndpoints,
 )
 from graphdatascience.procedure_surface.arrow.relationship_endpoints_helper import RelationshipEndpointsHelper
-from graphdatascience.procedure_surface.arrow.stream_result_mapper import map_shortest_path_stream_result
-from graphdatascience.query_runner.protocol.write_protocols import WriteProtocol
+from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
 class BellmanFordArrowEndpoints(SingleSourceBellmanFordEndpoints):
@@ -33,7 +32,7 @@ class BellmanFordArrowEndpoints(SingleSourceBellmanFordEndpoints):
 
     def compute(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         *,
         relationship_weight_property: str | None = None,
@@ -61,7 +60,7 @@ class BellmanFordArrowEndpoints(SingleSourceBellmanFordEndpoints):
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         relationship_weight_property: str | None = None,
         relationship_types: list[str] = ALL_TYPES,
@@ -86,7 +85,6 @@ class BellmanFordArrowEndpoints(SingleSourceBellmanFordEndpoints):
         )
 
         result = self._endpoints_helper.run_job_and_stream("v2/pathfinding.singleSource.bellmanFord", G, config)
-        map_shortest_path_stream_result(result)
         if "isNegativeCycle" not in result.columns:
             result["isNegativeCycle"] = (result["sourceNode"] == result["targetNode"]) & (result["totalCost"] < 0)
 
@@ -94,7 +92,7 @@ class BellmanFordArrowEndpoints(SingleSourceBellmanFordEndpoints):
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         relationship_weight_property: str | None = None,
         relationship_types: list[str] = ALL_TYPES,
@@ -124,7 +122,7 @@ class BellmanFordArrowEndpoints(SingleSourceBellmanFordEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_relationship_type: str,
         source_node: int,
         mutate_negative_cycles: bool = False,
@@ -140,6 +138,8 @@ class BellmanFordArrowEndpoints(SingleSourceBellmanFordEndpoints):
         config = self._endpoints_helper.create_base_config(
             G,
             sourceNode=source_node,
+            # The Arrow v2 endpoint uses writeNegativeCycles for both mutate and write modes,
+            # unlike the Cypher procedure which uses mutateNegativeCycles for mutate.
             writeNegativeCycles=mutate_negative_cycles,
             relationshipWeightProperty=relationship_weight_property,
             relationshipTypes=relationship_types,
@@ -162,7 +162,7 @@ class BellmanFordArrowEndpoints(SingleSourceBellmanFordEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_relationship_type: str,
         source_node: int,
         write_node_ids: bool = False,
@@ -209,7 +209,7 @@ class BellmanFordArrowEndpoints(SingleSourceBellmanFordEndpoints):
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         source_node: int,
         relationship_weight_property: str | None = None,
         relationship_types: list[str] = ALL_TYPES,

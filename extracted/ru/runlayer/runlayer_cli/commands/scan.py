@@ -55,10 +55,10 @@ def _no_findings(result) -> bool:
     """True when the scan surfaced nothing across every category.
 
     A scan that found only clients, agent definitions, framework agents, runtime
-    processes, containers, or a successfully collected WSL inventory must not
-    print "nothing found" and exit silently. Client presence, runtime processes,
-    and inventories are submitted with the MCP scan payload. Agent definitions
-    use their own bounded report.
+    processes, containers, a requested-but-failed container inventory, or a
+    successfully collected WSL inventory must not print "nothing found" and exit
+    silently. Client presence, runtime processes, and inventories are submitted
+    with the MCP scan payload. Agent definitions use their own bounded report.
     """
     return (
         result.total_servers == 0
@@ -69,6 +69,7 @@ def _no_findings(result) -> bool:
         and not getattr(result, "agent_definitions", ())
         and not result.processes
         and not result.containers
+        and not result.container_scan_requested
         and not result.containers_scanned
         and not result.wsl_distros
         and not result.wsl_scanned
@@ -258,6 +259,21 @@ def scan(
             "logged-off users as SYSTEM with paths pointed at their profile."
         ),
     ),
+    windows_user_sid: str | None = typer.Option(
+        None,
+        "--windows-user-sid",
+        hidden=True,
+    ),
+    windows_system_profile: bool = typer.Option(
+        False,
+        "--windows-system-profile",
+        hidden=True,
+    ),
+    machine_scope: bool = typer.Option(
+        True,
+        "--machine-scope/--no-machine-scope",
+        hidden=True,
+    ),
     ca_bundle: str | None = typer.Option(
         None,
         "--ca-bundle",
@@ -351,6 +367,7 @@ def scan(
         allow_org_key=True,
         implicit_org_key_label=AI_WATCH_MDM_ORG_KEY_LABEL,
         interactive_login_on_missing=False,
+        managed_host_wins=True,
     )
     effective_secret = credentials["secret"]
     effective_host = credentials["host"]
@@ -390,6 +407,9 @@ def scan(
                 artifact_lookup_cache=artifact_lookup_cache,
                 detect_renamed_plugin_caches=detect_renamed_plugin_caches,
                 log_file_path=log_file_path,
+                windows_user_sid=windows_user_sid,
+                windows_system_profile=windows_system_profile,
+                machine_scope=machine_scope,
             )
     finally:
         telemetry.shutdown_cli_tracing()
@@ -401,6 +421,8 @@ def _report_detect_scan_failure(
     effective_secret: str,
     dry_run: bool,
     error_message: str,
+    username: str | None = None,
+    windows_user_sid: str | None = None,
 ) -> None:
     """Best-effort Detect error check-in when a scan fails.
 
@@ -419,7 +441,10 @@ def _report_detect_scan_failure(
         client = RunlayerClient(hostname=effective_host, secret=effective_secret)
         submit_detect_error_checkin(
             client,
-            ctx=_make_device_context(),
+            ctx=_make_device_context(
+                username=username,
+                windows_user_sid=windows_user_sid,
+            ),
             error_message=error_message,
         )
     except Exception as exc:
@@ -478,6 +503,9 @@ def _run_scan(
     detect_renamed_plugin_caches: bool,
     log_file_path: object,
     artifact_lookup_cache: bool = False,
+    windows_user_sid: str | None = None,
+    windows_system_profile: bool = False,
+    machine_scope: bool = True,
 ) -> None:
     try:
         if not quiet:
@@ -500,6 +528,9 @@ def _run_scan(
             cpu_cores=cpu_cores,
             max_cpu_percent=max_cpu_percent,
             memory_limit_mb=memory_limit_mb,
+            windows_user_sid=windows_user_sid,
+            windows_system_profile=windows_system_profile,
+            machine_scope=machine_scope,
         )
         agent_definition_count = _agent_definition_count(result)
 
@@ -550,20 +581,31 @@ def _run_scan(
                 typer.echo(f"  WSL distributions: {result.total_wsl_distros}")
 
         if dry_run:
-            if _no_findings(result):
-                if not quiet:
-                    typer.secho(
-                        "No AI clients, MCP servers, skills, plugins, agents, "
-                        "processes, or containers found.",
-                        fg=typer.colors.YELLOW,
-                    )
-                raise typer.Exit(0)
-            # to_full_payload owns the full dry-run view; both agent artifact
-            # classes retain their richer local shape there.
-            payload = result.to_full_payload(include_agents=True)
-            typer.echo(json.dumps(payload, indent=2, default=str))
+            no_findings = _no_findings(result)
+            if no_findings and not quiet:
+                typer.secho(
+                    "No AI clients, MCP servers, skills, plugins, agents, "
+                    "processes, or containers found.",
+                    fg=typer.colors.YELLOW,
+                )
+            if not no_findings:
+                # to_full_payload owns the full dry-run view; both agent artifact
+                # classes retain their richer local shape there.
+                payload = result.to_full_payload(include_agents=True)
+                typer.echo(json.dumps(payload, indent=2, default=str))
+            # An aborted scan that found nothing is still an aborted scan: the
+            # empty result is a symptom of the cap, not a clean answer, and the
+            # submit path exits nonzero for the same abort.
+            if result.resource_limit_exceeded is not None:
+                print_error(
+                    f"Scan aborted: {result.resource_limit_exceeded} "
+                    "(partial findings shown)",
+                    str(log_file_path),
+                )
+                raise typer.Exit(1)
             raise typer.Exit(0)
 
+        no_findings = _no_findings(result)
         client = RunlayerClient(hostname=effective_host, secret=effective_secret)
         # SYSTEM fallback children point home variables at user-controlled
         # profiles, so they must never create a privileged cache file there.
@@ -574,22 +616,14 @@ def _run_scan(
             else None
         )
 
-        # Best-effort liveness/health check-ins, independent of the submission
-        # outcome (a rejected batch shows up via the WARN lines + nonzero exit
-        # below; a re-raised auth error as a Detect *error* via
-        # _report_detect_scan_failure). Ordered after submission so that
-        # re-raise skips them. No-findings path just records liveness and exits.
-        if _no_findings(result):
-            _submit_scan_checkins_best_effort(client, result)
+        if no_findings:
             if not quiet:
                 typer.secho(
                     "No AI clients, MCP servers, skills, plugins, agents, "
                     "processes, or containers found.",
                     fg=typer.colors.YELLOW,
                 )
-            raise typer.Exit(0)
-
-        if not quiet:
+        elif not quiet:
             global_count = len(result.global_configs)
             project_count = len(result.project_configs)
             wsl_count = len(result.wsl_configs)
@@ -621,6 +655,36 @@ def _run_scan(
             artifact_cache=local_artifact_cache,
         )
 
+        # A governor abort cut the scan short. The partial manifest above still
+        # landed (every affected surface is marked incomplete, so the backend
+        # removes nothing); now surface the abort the same way any other scan
+        # failure does: Detect *error* check-in instead of the success
+        # check-ins, then a nonzero exit.
+        if result.resource_limit_exceeded is not None:
+            logger.error(
+                "Scan aborted by resource limit; partial findings uploaded",
+                error=result.resource_limit_exceeded,
+            )
+            _report_detect_scan_failure(
+                effective_host=effective_host,
+                effective_secret=effective_secret,
+                dry_run=dry_run,
+                error_message=result.resource_limit_exceeded,
+                username=username,
+                windows_user_sid=windows_user_sid,
+            )
+            print_error(
+                f"Scan aborted: {result.resource_limit_exceeded} "
+                "(partial findings uploaded)",
+                str(log_file_path),
+            )
+            raise typer.Exit(1)
+
+        # Best-effort liveness/health check-ins, independent of the submission
+        # outcome (a rejected batch shows up via the WARN lines + nonzero exit
+        # below; a re-raised auth error as a Detect *error* via
+        # _report_detect_scan_failure). Ordered after submission so that
+        # re-raise skips them.
         _submit_scan_checkins_best_effort(client, result)
 
         if submission.unsupported and not quiet:
@@ -649,6 +713,9 @@ def _run_scan(
                 failed_submissions=submission.failed_submissions,
             )
             raise typer.Exit(exit_code)
+
+        if no_findings:
+            raise typer.Exit(0)
 
         response = submission.response
         if not quiet:
@@ -704,6 +771,8 @@ def _run_scan(
             effective_secret=effective_secret,
             dry_run=dry_run,
             error_message=str(e),
+            username=username,
+            windows_user_sid=windows_user_sid,
         )
         print_error(str(e), str(log_file_path))
         raise typer.Exit(1)

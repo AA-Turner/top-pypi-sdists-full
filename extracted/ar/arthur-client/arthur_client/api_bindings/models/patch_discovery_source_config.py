@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.discovery_query_language import DiscoveryQueryLanguage
 from typing import Optional, Set
@@ -34,7 +34,8 @@ class PatchDiscoverySourceConfig(BaseModel):
     schedule_timezone: Optional[StrictStr] = None
     lookback_window_seconds: Optional[StrictInt] = None
     engine_ids: Optional[List[StrictStr]] = None
-    __properties: ClassVar[List[str]] = ["name", "query", "query_language", "schedule_cron", "schedule_timezone", "lookback_window_seconds", "engine_ids"]
+    is_enabled: Optional[StrictBool] = None
+    __properties: ClassVar[List[str]] = ["name", "query", "query_language", "schedule_cron", "schedule_timezone", "lookback_window_seconds", "engine_ids", "is_enabled"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -110,6 +111,11 @@ class PatchDiscoverySourceConfig(BaseModel):
         if self.engine_ids is None and "engine_ids" in self.model_fields_set:
             _dict['engine_ids'] = None
 
+        # set to None if is_enabled (nullable) is None
+        # and model_fields_set contains the field
+        if self.is_enabled is None and "is_enabled" in self.model_fields_set:
+            _dict['is_enabled'] = None
+
         return _dict
 
     @classmethod
@@ -128,7 +134,8 @@ class PatchDiscoverySourceConfig(BaseModel):
             "schedule_cron": obj.get("schedule_cron"),
             "schedule_timezone": obj.get("schedule_timezone"),
             "lookback_window_seconds": obj.get("lookback_window_seconds"),
-            "engine_ids": obj.get("engine_ids")
+            "engine_ids": obj.get("engine_ids"),
+            "is_enabled": obj.get("is_enabled")
         })
         return _obj
 

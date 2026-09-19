@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -15,7 +15,7 @@ class WccEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         threshold: float = 0.0,
         relationship_types: list[str] = ALL_TYPES,
@@ -41,7 +41,7 @@ class WccEndpoints(ABC):
            Graph object to use
         mutate_property
             Name of the node property to store the results in.
-        threshold : float, default=0.0
+        threshold
             The minimum required weight to consider a relationship during traversal
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -55,7 +55,7 @@ class WccEndpoints(ABC):
             As an administrator, impersonate a different user for accessing their graphs.
         concurrency
             Number of concurrent threads to use.
-        job_id : str | None, default=None
+        job_id
             Identifier for the computation.
         seed_property
             Name of the property to be used to for the initial value of a node.
@@ -74,7 +74,7 @@ class WccEndpoints(ABC):
     @abstractmethod
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         threshold: float = 0.0,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -94,7 +94,7 @@ class WccEndpoints(ABC):
         ----------
         G
            Graph object to use
-        threshold : float, default=0.0
+        threshold
             The minimum required weight to consider a relationship during traversal
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -127,7 +127,7 @@ class WccEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         min_component_size: int | None = None,
         threshold: float = 0.0,
         relationship_types: list[str] = ALL_TYPES,
@@ -148,9 +148,9 @@ class WccEndpoints(ABC):
         ----------
         G
            Graph object to use
-        min_component_size : int | None, default=None
+        min_component_size
             Don't stream components with fewer nodes than this
-        threshold : float, default=0.0
+        threshold
             The minimum required weight to consider a relationship during traversal
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -175,7 +175,7 @@ class WccEndpoints(ABC):
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             DataFrame with the algorithm results
         """
         pass
@@ -183,7 +183,7 @@ class WccEndpoints(ABC):
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         min_component_size: int | None = None,
         threshold: float = 0.0,
@@ -208,9 +208,9 @@ class WccEndpoints(ABC):
            Graph object to use
         write_property
             Name of the node property to store the results in.
-        min_component_size : int | None, default=None
+        min_component_size
             Don't write components with fewer nodes than this
-        threshold : float, default=0.0
+        threshold
             The minimum required weight to consider a relationship during traversal
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -243,7 +243,7 @@ class WccEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         threshold: float = 0.0,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -259,7 +259,7 @@ class WccEndpoints(ABC):
         ----------
         G
            Graph object to use or a dictionary representing the graph dimensions.
-        threshold : float, default=0.0
+        threshold
             The minimum required weight to consider a relationship during traversal
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.

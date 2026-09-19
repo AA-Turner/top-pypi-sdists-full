@@ -5,6 +5,8 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING, Any, cast
 
+from anthropic.types import CacheCreation
+
 from any_llm.exceptions import InvalidRequestError
 from any_llm.types.messages import (
     ContentBlockDeltaEvent,
@@ -183,6 +185,12 @@ def _convert_assistant_blocks_to_openai(blocks: list[dict[str, Any]]) -> list[di
     request that later reaches an Anthropic-native provider can rebuild the block whole.
     Anthropic requires that signature back unmodified while extended thinking is on.
 
+    Neither key reaches every backend as emitted here. ``strip_extra_content`` drops the
+    ``anthropic`` side-channel in ``BaseOpenAIProvider`` (but not ``otari``, which overrides
+    ``_acompletion``), ``groq`` and ``cerebras``, and ``groq`` and ``cerebras``, whose APIs name
+    the field ``reasoning``, rename ``reasoning_content`` through
+    ``replay_reasoning_content_as_reasoning``.
+
     A signature is emitted only when the turn holds a single ``thinking`` block. Interleaved
     thinking can put several in one turn, and the OpenAI wire has one ``reasoning_content``
     string to hold them, so the joined text is not what any one signature signs. Emitting one
@@ -323,15 +331,45 @@ def _convert_tool_result_content(tool_content: Any) -> tuple[str, list[dict[str,
         return str(tool_content), []
     text_parts: list[str] = []
     extra_parts: list[dict[str, Any]] = []
+    after_rendered_block = False
     for block in tool_content:
         block_type = block.get("type", "")
         if block_type == "text":
-            text_parts.append(block.get("text", ""))
+            text = block.get("text", "")
+            if after_rendered_block and text:
+                text_parts.append("\n")
+                after_rendered_block = False
+            text_parts.append(text)
         elif block_type == "image":
             extra_parts.append(_convert_image_block_to_openai(block))
         elif block_type == "document":
             extra_parts.append(_convert_document_block_to_openai(block))
+        elif rendered := _render_tool_result_block_as_text(block):
+            if any(text_parts):
+                text_parts.append("\n")
+            text_parts.append(rendered)
+            after_rendered_block = True
     return "".join(text_parts), extra_parts
+
+
+def _render_tool_result_block_as_text(block: dict[str, Any]) -> str | None:
+    """Render a tool result block that has no OpenAI part as text, or return ``None`` for an unknown type.
+
+    Anthropic also allows ``search_result``, ``tool_reference`` and ``browser_state`` blocks in a
+    ``tool_result``. None has an OpenAI equivalent, and dropping them loses the tool's output, so
+    each becomes text on the ``role: tool`` message, set off from neighbouring text by newlines.
+    Anthropic renders ``browser_state`` into model-visible text server-side; no other backend
+    does, so its fields are sent as JSON.
+    """
+    block_type = block.get("type", "")
+    if block_type == "search_result":
+        body = "".join(part.get("text", "") for part in block.get("content", []) if part.get("type") == "text")
+        return "\n".join(part for part in (block.get("title", ""), block.get("source", ""), body) if part)
+    if block_type == "tool_reference":
+        return f"Tool reference: {block.get('tool_name', '')}"
+    if block_type == "browser_state":
+        return json.dumps({key: block[key] for key in ("tabs", "state_changes") if key in block})
+    return None
 
 
 def _convert_user_blocks_to_openai(blocks: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -339,13 +377,13 @@ def _convert_user_blocks_to_openai(blocks: list[dict[str, Any]]) -> list[dict[st
 
     Handles tool_result blocks (→ role:tool messages) and content blocks (text, image).
 
-    A tool result marked ``is_error`` keeps that marker on the emitted ``role: tool`` message.
-    OpenAI has no field for it, and the OpenAI SDK forwards unknown message keys verbatim, so
-    the flag reaches any backend reached through an OpenAI-shaped request and is inert on one
-    that does not read it. It travels no further than that: a provider that rebuilds the
-    message from known keys, as ``bedrock``, ``gemini`` and ``ollama`` do, drops it again.
-    Mapping it onto each of those representations, such as ``toolResult.status`` on Bedrock,
-    is left to a follow-up.
+    A tool result marked ``is_error`` has its text prefixed with ``Error: ``, unless it already
+    starts with one, rather than carrying the flag as a message key. OpenAI has no field for it, the OpenAI SDK forwards unknown message
+    keys verbatim, and strict OpenAI-compatible backends such as Fireworks reject the whole request
+    over an unknown key. The text is the one place the signal reaches the model on every backend,
+    including providers that rebuild the message from known keys, as ``bedrock``, ``gemini`` and
+    ``ollama`` do. Mapping it onto a native representation, such as ``toolResult.status`` on
+    Bedrock, is left to a follow-up.
 
     A tool result carrying image or document blocks emits the text as the ``role: tool``
     message and holds the remaining parts back, because OpenAI accepts text only on a tool
@@ -369,14 +407,18 @@ def _convert_user_blocks_to_openai(blocks: list[dict[str, Any]]) -> list[dict[st
                 results.append({"role": "user", "content": content_blocks})
                 content_blocks = []
             tool_text, extra_parts = _convert_tool_result_content(block.get("content", ""))
-            tool_message: dict[str, Any] = {
-                "role": "tool",
-                "tool_call_id": block.get("tool_use_id", ""),
-                "content": tool_text,
-            }
             if block.get("is_error") is True:
-                tool_message["is_error"] = True
-            results.append(tool_message)
+                if not tool_text:
+                    tool_text = "Error"
+                elif not tool_text.startswith("Error:"):
+                    tool_text = f"Error: {tool_text}"
+            results.append(
+                {
+                    "role": "tool",
+                    "tool_call_id": block.get("tool_use_id", ""),
+                    "content": tool_text,
+                }
+            )
             held_parts.extend(extra_parts)
         elif block_type == "text":
             content_blocks.append({"type": "text", "text": block.get("text", "")})
@@ -435,35 +477,58 @@ def _budget_to_reasoning_effort(budget: int) -> str:
     return "xhigh"
 
 
-def split_cached_input_tokens(prompt_tokens: int, cached_tokens: int) -> tuple[int, int | None]:
+def split_cached_input_tokens(
+    prompt_tokens: int,
+    cached_tokens: int | None,
+    cache_write_tokens: int | None = None,
+) -> tuple[int, int | None]:
     """Split an OpenAI prompt-token total into disjoint Anthropic input/cache-read counts.
 
-    OpenAI reports ``prompt_tokens`` as the whole prompt with ``prompt_tokens_details.cached_tokens``
-    as a subset of it, while Anthropic's ``input_tokens`` and ``cache_read_input_tokens`` are disjoint
-    and sum to the prompt. Copying the cached count across without subtracting would make any consumer
-    that sums the fields over-count, and would bill cached tokens twice in a cost model that prices
-    the two at different rates.
+    OpenAI reports ``prompt_tokens`` as the whole prompt, with ``prompt_tokens_details.cached_tokens`` and
+    ``prompt_tokens_details.cache_write_tokens`` as subsets of it, while Anthropic's ``input_tokens``,
+    ``cache_read_input_tokens`` and ``cache_creation_input_tokens`` are disjoint and sum to the prompt.
+    Copying the cache counts across without subtracting would make any consumer that sums the fields
+    over-count, and would bill cached tokens twice in a cost model that prices them at different rates.
 
-    The cached count comes back as ``None`` rather than 0 when there was no cache hit, so a response
-    from a provider that reports no cache accounting looks exactly as it did before this mapping
-    existed. ``cache_creation_input_tokens`` is left unset rather than synthesized because no provider
-    in this repo populates ``prompt_tokens_details.cache_write_tokens``, which is the field a cache
-    write would arrive on.
+    The cached count comes back as ``None`` when the provider reported no read meter, and as 0 when it
+    reported an explicit zero, so consumers can tell "no cache hit" from "no cache accounting".
 
-    The cached count is clamped into ``[0, prompt_tokens]`` so a provider that reports the two
-    inconsistently cannot push ``input_tokens`` negative (cached above the total) or above the prompt
-    total (cached below zero). Clamping the subtrahend rather than flooring the result keeps the sum
-    invariant intact: the two returned values still add up to ``prompt_tokens``.
+    Each cache count is clamped into what remains of ``prompt_tokens`` so a provider that reports them
+    inconsistently cannot push ``input_tokens`` negative or above the prompt total. Clamping the
+    subtrahends rather than flooring the result keeps the returned input and cached counts summing to
+    ``prompt_tokens`` minus the cache writes.
     """
-    cached = min(max(cached_tokens, 0), prompt_tokens)
-    return prompt_tokens - cached, cached or None
+    remaining = prompt_tokens - min(max(cache_write_tokens or 0, 0), prompt_tokens)
+    cached = min(max(cached_tokens or 0, 0), remaining)
+    cache_read = cached if cached_tokens is not None and (cached_tokens == 0 or cached > 0) else None
+    return remaining - cached, cache_read
 
 
-def _cached_tokens_from_usage(usage: CompletionUsage) -> int:
-    """Read ``prompt_tokens_details.cached_tokens`` off a usage object, defaulting to 0."""
-    if usage.prompt_tokens_details is None:
-        return 0
-    return usage.prompt_tokens_details.cached_tokens or 0
+def _cached_tokens_from_usage(usage: CompletionUsage) -> int | None:
+    """Read ``prompt_tokens_details.cached_tokens``, preserving absent versus zero."""
+    details = usage.prompt_tokens_details
+    return details.cached_tokens if details is not None else None
+
+
+def _cache_write_tokens_from_usage(usage: CompletionUsage) -> int | None:
+    details = usage.prompt_tokens_details
+    return details.cache_write_tokens if details is not None else None
+
+
+def _cache_creation_details_from_usage(usage: CompletionUsage) -> CacheCreation | None:
+    """Build Anthropic's TTL breakdown from ``prompt_tokens_details.cache_creation_token_details``.
+
+    ``CacheCreation`` requires both buckets, so a usage that reports only one yields ``None`` rather than a
+    fabricated zero; the write total still travels on ``cache_creation_input_tokens``.
+    """
+    details = usage.prompt_tokens_details
+    ttl = details.cache_creation_token_details if details is not None else None
+    if ttl is None or ttl.ephemeral_5m_input_tokens is None or ttl.ephemeral_1h_input_tokens is None:
+        return None
+    return CacheCreation(
+        ephemeral_5m_input_tokens=ttl.ephemeral_5m_input_tokens,
+        ephemeral_1h_input_tokens=ttl.ephemeral_1h_input_tokens,
+    )
 
 
 def chat_completion_to_message_response(completion: ChatCompletion) -> MessageResponse:
@@ -480,6 +545,9 @@ def chat_completion_to_message_response(completion: ChatCompletion) -> MessageRe
 
         if msg.content:
             content_blocks.append(TextBlock(type="text", text=msg.content))
+
+        if msg.refusal:
+            content_blocks.append(TextBlock(type="text", text=msg.refusal))
 
         if msg.tool_calls:
             for tc in msg.tool_calls:
@@ -499,8 +567,7 @@ def chat_completion_to_message_response(completion: ChatCompletion) -> MessageRe
                     )
                 )
 
-        finish_reason = choice.finish_reason
-        stop_reason = _finish_reason_to_stop_reason(finish_reason)
+        stop_reason = "refusal" if msg.refusal else _finish_reason_to_stop_reason(choice.finish_reason)
 
     if not content_blocks:
         content_blocks.append(TextBlock(type="text", text=""))
@@ -510,11 +577,14 @@ def chat_completion_to_message_response(completion: ChatCompletion) -> MessageRe
         input_tokens, cache_read = split_cached_input_tokens(
             completion.usage.prompt_tokens,
             _cached_tokens_from_usage(completion.usage),
+            _cache_write_tokens_from_usage(completion.usage),
         )
         usage = MessageUsage(
             input_tokens=input_tokens,
             cache_read_input_tokens=cache_read,
             output_tokens=completion.usage.completion_tokens,
+            cache_creation_input_tokens=_cache_write_tokens_from_usage(completion.usage),
+            cache_creation=_cache_creation_details_from_usage(completion.usage),
         )
 
     return MessageResponse(
@@ -534,7 +604,7 @@ def _finish_reason_to_stop_reason(finish_reason: str | None) -> StopReason:
         "stop": "end_turn",
         "length": "max_tokens",
         "tool_calls": "tool_use",
-        "content_filter": "end_turn",
+        "content_filter": "refusal",
         "function_call": "tool_use",
     }
     return mapping.get(finish_reason or "stop", "end_turn")
@@ -551,7 +621,9 @@ class StreamingState:
         self.model = "unknown"
         self.input_tokens = 0
         self.output_tokens = 0
-        self.cache_read_input_tokens = 0
+        self.cache_read_input_tokens: int | None = None
+        self.cache_creation_input_tokens: int | None = None
+        self.cache_creation: CacheCreation | None = None
         self.stop_reason: StopReason | None = None
         self.tool_call_id: str | None = None
         self.tool_call_name: str | None = None
@@ -577,16 +649,28 @@ def chat_completion_chunk_to_message_stream_events(
         if chunk.usage.completion_tokens:
             state.output_tokens = chunk.usage.completion_tokens
         cached = _cached_tokens_from_usage(chunk.usage)
-        if cached:
+        if cached is not None:
             state.cache_read_input_tokens = cached
+        cache_write = _cache_write_tokens_from_usage(chunk.usage)
+        if cache_write is not None:
+            state.cache_creation_input_tokens = cache_write
+        cache_creation_details = _cache_creation_details_from_usage(chunk.usage)
+        if cache_creation_details is not None:
+            state.cache_creation = cache_creation_details
 
     if not state.started:
         state.started = True
-        input_tokens, cache_read = split_cached_input_tokens(state.input_tokens, state.cache_read_input_tokens)
+        input_tokens, cache_read = split_cached_input_tokens(
+            state.input_tokens,
+            state.cache_read_input_tokens,
+            state.cache_creation_input_tokens,
+        )
         usage = MessageUsage(
             input_tokens=input_tokens,
             cache_read_input_tokens=cache_read,
             output_tokens=0,
+            cache_creation_input_tokens=state.cache_creation_input_tokens,
+            cache_creation=state.cache_creation,
         )
         msg = MessageResponse(
             id=chunk.id,
@@ -646,6 +730,29 @@ def chat_completion_chunk_to_message_stream_events(
                 )
             )
 
+    if delta.refusal:
+        state.stop_reason = "refusal"
+        # A distinct block type keeps refusal text out of the block holding any partial answer,
+        # matching the separate TextBlock the non-streaming conversion produces.
+        if state.current_block_type != "refusal":
+            _close_current_block(state, events)
+            state.current_block_index += 1
+            state.current_block_type = "refusal"
+            events.append(
+                ContentBlockStartEvent(
+                    type="content_block_start",
+                    index=state.current_block_index,
+                    content_block=TextBlock(type="text", text=""),
+                )
+            )
+        events.append(
+            ContentBlockDeltaEvent(
+                type="content_block_delta",
+                index=state.current_block_index,
+                delta=TextDelta(type="text_delta", text=delta.refusal),
+            )
+        )
+
     if delta.tool_calls:
         for tc in delta.tool_calls:
             # An id repeated on later fragments of the same tool call must not open a second block.
@@ -684,7 +791,9 @@ def chat_completion_chunk_to_message_stream_events(
 
     if choice.finish_reason:
         _close_current_block(state, events)
-        state.stop_reason = _finish_reason_to_stop_reason(choice.finish_reason)
+        # OpenAI ends a streamed refusal with finish_reason="stop", which must not mask the refusal.
+        if state.stop_reason != "refusal":
+            state.stop_reason = _finish_reason_to_stop_reason(choice.finish_reason)
 
     return events
 

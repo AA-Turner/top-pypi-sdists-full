@@ -18,6 +18,7 @@ from rich.panel import Panel
 
 from dreadnode.app.cli.args import RESUME_PICK_SENTINEL, PlatformArgs, TuiArgs
 from dreadnode.app.cli.shared import console, print_error, print_success
+from dreadnode.app.config import DEFAULT_AUTONOMOUS_MAX_STEPS
 from dreadnode.app.model_catalog import resolve_model
 from dreadnode.core.tls import format_tls_error
 
@@ -255,6 +256,17 @@ def _default(*, tui_args: TuiArgs = TuiArgs()) -> None:
 # ---------------------------------------------------------------------------
 
 
+def _autonomous_step_budget(tui_args: TuiArgs) -> int:
+    """Step budget for unattended runs (``--auto``, ``--print``).
+
+    ``--max-steps`` wins when supplied; otherwise these surfaces run under the
+    product default rather than the budget-neutral ``headless`` policy default.
+    """
+    if tui_args.max_steps is not None:
+        return tui_args.max_steps
+    return DEFAULT_AUTONOMOUS_MAX_STEPS
+
+
 def create_app(tui_args: TuiArgs) -> "DreadnodeTextualApp":
     """Build a :class:`DreadnodeTextualApp` from resolved CLI/TUI args.
 
@@ -297,9 +309,10 @@ def create_app(tui_args: TuiArgs) -> "DreadnodeTextualApp":
         if tui_args.max_steps is not None and "max_steps" not in initial_policy:
             initial_policy["max_steps"] = tui_args.max_steps
     elif tui_args.auto:
-        initial_policy = {"name": "headless"}
-        if tui_args.max_steps is not None:
-            initial_policy["max_steps"] = tui_args.max_steps
+        initial_policy = {
+            "name": "headless",
+            "max_steps": _autonomous_step_budget(tui_args),
+        }
 
     return DreadnodeTextualApp(
         profile=profile,
@@ -359,6 +372,7 @@ def _run_print(tui_args: TuiArgs) -> None:
             capabilities=tui_args.capabilities,
             capability_flags=tui_args.capability_flags,
             system_prompt=tui_args.system_prompt,
+            max_steps=_autonomous_step_budget(tui_args),
             server_url=tui_args.runtime_server,
             platform_url=tui_args.server,
             project_memory_preload_limit=tui_args.project_memory_preload_limit,

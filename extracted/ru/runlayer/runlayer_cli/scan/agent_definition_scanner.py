@@ -6,30 +6,26 @@ import hashlib
 import os
 import platform
 import stat
-import sys
 from collections import deque
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Literal
 
-import yaml
-
 from runlayer_cli.paths import strip_reported_path_prefix
+from runlayer_cli.scan.completeness import ScanCompletionStatus
+from runlayer_cli.safe_parse import parse_toml, parse_yaml
 from runlayer_cli.scan.scanner_primitives import (
     SymlinkFollowBudget,
     SymlinkFollowPolicy,
     has_link_or_reparse_component,
     link_or_reparse_status,
+    link_or_reparse_status_or_raise,
+    mark_path_unresolved_if_present,
     read_bounded,
     realpath_key,
 )
 from runlayer_cli.scan.windows_users import is_windows_system_context
-
-if sys.version_info >= (3, 11):
-    import tomllib
-else:  # pragma: no cover - Python < 3.11
-    import tomli as tomllib
 
 AgentDefinitionScope = Literal["user", "project"]
 AgentDefinitionFormat = Literal["markdown", "toml", "yaml"]
@@ -225,10 +221,10 @@ def _parse_markdown_metadata(text: str) -> dict[str, Any] | None:
     close = text.find("\n---", 3)
     if close == -1:
         return {}
-    try:
-        loaded = yaml.safe_load(text[3:close])
-    except yaml.YAMLError:
+    outcome = parse_yaml(text[3:close])
+    if outcome["error"] is not None:
         return None
+    loaded = outcome["value"]
     if loaded is None:
         return {}
     if not isinstance(loaded, dict):
@@ -262,26 +258,26 @@ def parse_agent_definition(
     except UnicodeDecodeError:
         return None
 
-    try:
-        if pattern.file_format == "markdown":
-            metadata = _parse_markdown_metadata(text)
-            if metadata is None:
-                return None
-        elif pattern.file_format == "toml":
-            loaded = tomllib.loads(text)
-            if not isinstance(loaded, dict):
-                return None
-            metadata = loaded
+    if pattern.file_format == "markdown":
+        metadata = _parse_markdown_metadata(text)
+        if metadata is None:
+            return None
+    elif pattern.file_format == "toml":
+        loaded = parse_toml(text)["value"]
+        if not isinstance(loaded, dict):
+            return None
+        metadata = loaded
+    else:
+        outcome = parse_yaml(text)
+        if outcome["error"] is not None:
+            return None
+        loaded = outcome["value"]
+        if loaded is None:
+            metadata = {}
+        elif not isinstance(loaded, dict):
+            return None
         else:
-            loaded = yaml.safe_load(text)
-            if loaded is None:
-                metadata = {}
-            elif not isinstance(loaded, dict):
-                return None
-            else:
-                metadata = loaded
-    except (ValueError, yaml.YAMLError):
-        return None
+            metadata = loaded
 
     name = (
         metadata.get("title") or metadata.get("name")
@@ -428,6 +424,7 @@ def process_agent_definition_paths(
     extra_home_roots: Sequence[Path] = (),
     *,
     logical_paths: Mapping[Path, Sequence[Path]] | None = None,
+    scan_status: ScanCompletionStatus | None = None,
 ) -> list[DiscoveredAgentDefinition]:
     """Classify logical identities while reading each physical crawl path once."""
     results: list[DiscoveredAgentDefinition] = []
@@ -463,12 +460,23 @@ def process_agent_definition_paths(
         if not classified:
             continue
         if files_seen >= MAX_AGENT_DEFINITION_FILES:
+            if scan_status is not None:
+                scan_status.mark_incomplete("agent_definition_file_scan_capped")
             break
         files_seen += 1
         content = _read_bounded_file(path)
         if content is None:
+            # Vanished between crawl and read is clean absence; only a marker
+            # that is still present but unreadable revokes absence authority.
+            mark_path_unresolved_if_present(
+                path,
+                scan_status,
+                "agent_definition_marker_read_failed",
+            )
             continue
         if total_bytes + len(content) > MAX_AGENT_DEFINITION_TOTAL_BYTES:
+            if scan_status is not None:
+                scan_status.mark_incomplete("agent_definition_byte_scan_capped")
             break
         total_bytes += len(content)
         for logical_path, pattern, project_path in classified:
@@ -499,6 +507,7 @@ class _UserDefinitionRootGroupScanner:
         seen: set[tuple[str, str]],
         results: list[DiscoveredAgentDefinition],
         symlink_policies: dict[str, SymlinkFollowPolicy],
+        scan_status: ScanCompletionStatus | None = None,
     ) -> None:
         self._group = group
         self._seen = seen
@@ -509,6 +518,7 @@ class _UserDefinitionRootGroupScanner:
         self._budget_exhausted = False
         self._pending: deque[_UserDefinitionWalkRoot] = deque()
         self._policies = symlink_policies
+        self._scan_status = scan_status
 
     def _inspect_follow_target(
         self,
@@ -524,7 +534,13 @@ class _UserDefinitionRootGroupScanner:
             return None
         try:
             target_mode = target.stat().st_mode
+        except FileNotFoundError:
+            return None
         except OSError:
+            if self._scan_status is not None:
+                self._scan_status.mark_incomplete(
+                    "agent_definition_follow_target_stat_failed"
+                )
             return None
         if require_directory:
             supported = stat.S_ISDIR(target_mode)
@@ -563,9 +579,7 @@ class _UserDefinitionRootGroupScanner:
     def scan(self) -> None:
         for pattern, root in self._group:
             try:
-                link_status = link_or_reparse_status(root)
-                if link_status is None:
-                    continue
+                link_status = link_or_reparse_status_or_raise(root)
                 if link_status:
                     target = self._claim_follow_target(
                         pattern,
@@ -575,15 +589,43 @@ class _UserDefinitionRootGroupScanner:
                     if target is None:
                         continue
                     self._enqueue_root(pattern, target, root)
-                elif root.is_dir():
+                elif stat.S_ISDIR(root.stat().st_mode):
                     self._enqueue_root(pattern, root, root)
                 else:
                     continue
+            except FileNotFoundError:
+                continue
             except OSError:
+                if self._scan_status is not None:
+                    self._scan_status.mark_incomplete(
+                        "agent_definition_root_enumeration_failed"
+                    )
                 continue
 
         while self._pending and not self._budget_exhausted:
             self._walk_root(self._pending.popleft())
+
+    def _entry_link_status(self, path: Path) -> bool | None:
+        try:
+            return link_or_reparse_status_or_raise(path)
+        except FileNotFoundError:
+            # Entry vanished between the directory listing and lstat: clean
+            # absence, same as a missing root or dangling follow target.
+            return None
+        except OSError:
+            if self._scan_status is not None:
+                self._scan_status.mark_incomplete(
+                    "agent_definition_entry_classification_failed"
+                )
+            return None
+
+    def _walk_error(self, _error: OSError) -> None:
+        if self._scan_status is not None:
+            self._scan_status.mark_incomplete("agent_definition_directory_read_failed")
+
+    @property
+    def complete(self) -> bool:
+        return not self._budget_exhausted
 
     def _enqueue_root(
         self,
@@ -605,6 +647,7 @@ class _UserDefinitionRootGroupScanner:
     def _walk_root(self, walk_root: _UserDefinitionWalkRoot) -> None:
         for dirpath, dirnames, filenames in os.walk(
             walk_root.actual_root,
+            onerror=self._walk_error,
             followlinks=False,
         ):
             if self._budget_exhausted:
@@ -624,7 +667,7 @@ class _UserDefinitionRootGroupScanner:
                 real_directories: list[str] = []
                 for dirname in sorted(dirnames):
                     path = current / dirname
-                    link_status = link_or_reparse_status(path)
+                    link_status = self._entry_link_status(path)
                     if link_status is None:
                         continue
                     if link_status:
@@ -635,7 +678,7 @@ class _UserDefinitionRootGroupScanner:
 
             for filename in sorted(filenames):
                 path = current / filename
-                link_status = link_or_reparse_status(path)
+                link_status = self._entry_link_status(path)
                 if link_status is not None:
                     entries.append((filename, path, link_status))
 
@@ -664,7 +707,13 @@ class _UserDefinitionRootGroupScanner:
             return
         try:
             target_mode = target.stat().st_mode
+        except FileNotFoundError:
+            return
         except OSError:
+            if self._scan_status is not None:
+                self._scan_status.mark_incomplete(
+                    "agent_definition_follow_target_stat_failed"
+                )
             return
         if stat.S_ISREG(target_mode):
             self._collect_file(
@@ -706,6 +755,11 @@ class _UserDefinitionRootGroupScanner:
             content = _read_bounded_file(read_path)
             self._read_cache[read_path_key] = content
         if content is None:
+            mark_path_unresolved_if_present(
+                read_path,
+                self._scan_status,
+                "agent_definition_marker_read_failed",
+            )
             return
         if not cache_hit:
             if self._total_bytes + len(content) > MAX_AGENT_DEFINITION_TOTAL_BYTES:
@@ -731,18 +785,24 @@ def _scan_user_root_group(
     seen: set[tuple[str, str]],
     results: list[DiscoveredAgentDefinition],
     symlink_policies: dict[str, SymlinkFollowPolicy],
-) -> None:
+    scan_status: ScanCompletionStatus | None = None,
+) -> bool:
     """Scan one home's roots with one shared budget and symlink frontier."""
-    _UserDefinitionRootGroupScanner(
+    scanner = _UserDefinitionRootGroupScanner(
         group=group,
         seen=seen,
         results=results,
         symlink_policies=symlink_policies,
-    ).scan()
+        scan_status=scan_status,
+    )
+    scanner.scan()
+    return scanner.complete
 
 
 def scan_user_agent_definitions(
     extra_home_roots: Sequence[Path] = (),
+    *,
+    scan_status: ScanCompletionStatus | None = None,
 ) -> list[DiscoveredAgentDefinition]:
     """Recursively scan bounded, client-owned user definition roots.
 
@@ -754,6 +814,7 @@ def scan_user_agent_definitions(
     groups = _user_root_groups(extra_home_roots)
     windows_system_context = is_windows_system_context()
     if windows_system_context:
+        original_root_count = sum(len(group) for group in groups)
         groups = [
             [
                 (pattern, root)
@@ -762,14 +823,27 @@ def scan_user_agent_definitions(
             ]
             for group in groups
         ]
+        if (
+            scan_status is not None
+            and sum(len(group) for group in groups) != original_root_count
+        ):
+            scan_status.mark_incomplete("agent_definition_profile_safety_skip")
 
     direct_roots: list[tuple[AgentDefinitionPattern, Path]] = []
     for group in groups:
         for pattern, root in group:
             try:
-                if link_or_reparse_status(root) is False and root.is_dir():
+                if link_or_reparse_status_or_raise(root) is False and stat.S_ISDIR(
+                    root.stat().st_mode
+                ):
                     direct_roots.append((pattern, root))
+            except FileNotFoundError:
+                continue
             except OSError:
+                if scan_status is not None:
+                    scan_status.mark_incomplete(
+                        "agent_definition_root_enumeration_failed"
+                    )
                 continue
     follow_budget = SymlinkFollowBudget(MAX_FOLLOWED_AGENT_DEFINITION_TARGETS)
     symlink_policies = {
@@ -786,12 +860,17 @@ def scan_user_agent_definitions(
         for pattern in AGENT_DEFINITION_PATTERNS
     }
     for group in groups:
-        _scan_user_root_group(
+        complete = _scan_user_root_group(
             group,
             seen,
             results,
             symlink_policies,
+            scan_status,
         )
+        if not complete and scan_status is not None:
+            scan_status.mark_incomplete("agent_definition_scan_capped")
+    if follow_budget.exhausted and scan_status is not None:
+        scan_status.mark_incomplete("agent_definition_symlink_follow_capped")
     return results
 
 

@@ -188,6 +188,7 @@ from roboflow.cli.handlers.annotation import annotation_app  # noqa: E402
 from roboflow.cli.handlers.api_key import api_key_app  # noqa: E402
 from roboflow.cli.handlers.asynctasks import asynctasks_app  # noqa: E402
 from roboflow.cli.handlers.auth import auth_app  # noqa: E402
+from roboflow.cli.handlers.autolabel import autolabel_app  # noqa: E402
 from roboflow.cli.handlers.batch import batch_app  # noqa: E402
 from roboflow.cli.handlers.completion import completion_app  # noqa: E402
 from roboflow.cli.handlers.deployment import deployment_app  # noqa: E402
@@ -213,7 +214,8 @@ app.add_typer(annotation_app, name="annotation")
 app.add_typer(api_key_app, name="api-key")
 app.add_typer(asynctasks_app, name="asynctasks")
 app.add_typer(auth_app, name="auth")
-app.add_typer(batch_app, name="batch", hidden=True)  # All stubs — hidden until implemented
+app.add_typer(autolabel_app, name="autolabel")
+app.add_typer(batch_app, name="batch")
 app.add_typer(completion_app, name="completion")
 app.add_typer(deployment_app, name="deployment")
 app.add_typer(device_app, name="device")

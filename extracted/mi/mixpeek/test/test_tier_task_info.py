@@ -196,7 +196,8 @@ class TestTierTaskInfo(unittest.TestCase):
                     balanced = True, 
                     notes = [
                         ''
-                        ], ),
+                        ], 
+                    durability = 'confirmed', ),
                 audit_override_reason = ''
             )
         else:

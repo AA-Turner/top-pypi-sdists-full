@@ -3208,6 +3208,56 @@ def test_setup_hooks_install_codex_enforcement_only():
             assert not (codex_dir / "hooks" / "runlayer-config.json").exists()
 
 
+def test_windows_mdm_codex_operator_install_lands_on_programdata_config_toml(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Operator ``setup hooks --mdm`` must hit the same ProgramData files as
+    the AI Watch SYSTEM task: ``hooks.json`` + ``config.toml``, never
+    ``managed_config.toml`` (Windows only reads that from ``~/.codex``)."""
+    from runlayer_cli.hook_install import paths as paths_module
+
+    enterprise_dir = tmp_path / "ProgramData" / "OpenAI" / "Codex"
+    user_dir = tmp_path / "home" / ".codex"
+    monkeypatch.setattr(setup_commands.plat, "system", lambda: "Windows")
+    monkeypatch.setattr(paths_module.platform, "system", lambda: "Windows")
+    monkeypatch.setitem(
+        setup_commands.ENTERPRISE_CONFIG_DIRS, Client.CODEX, enterprise_dir
+    )
+    monkeypatch.setitem(setup_commands.CLIENT_CONFIG_DIRS, Client.CODEX, user_dir)
+
+    setup_commands._install_codex_hooks(mdm=True)
+
+    hooks_config = json.loads((enterprise_dir / "hooks.json").read_text())
+    assert _expected_hook_command("codex") in str(hooks_config["hooks"]["PreToolUse"])
+    config_toml = (enterprise_dir / "config.toml").read_text()
+    assert "[features]" in config_toml
+    assert "hooks = true" in config_toml
+    assert not (enterprise_dir / "managed_config.toml").exists()
+    assert not user_dir.exists()
+
+
+@pytest.mark.parametrize("system", ["Darwin", "Linux", "Windows"])
+def test_codex_mdm_toml_path_parity_operator_vs_aiwatch(
+    system: str, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Operator and AI Watch writers must resolve the identical MDM TOML."""
+    from runlayer_cli.hook_install import paths as paths_module
+    from runlayer_cli.hook_install.clients import _codex_features_toml_file
+    from runlayer_cli.hook_install.paths import InstallScope, enterprise_codex_dir
+
+    monkeypatch.setattr(setup_commands.plat, "system", lambda: system)
+    monkeypatch.setattr(paths_module.platform, "system", lambda: system)
+
+    operator_path = setup_commands._codex_config_file_path(
+        setup_commands._get_enterprise_codex_dir(), mdm=True
+    )
+
+    assert operator_path == _codex_features_toml_file(InstallScope.MDM)
+    assert operator_path.parent == enterprise_codex_dir()
+    expected_name = "config.toml" if system == "Windows" else "managed_config.toml"
+    assert operator_path.name == expected_name
+
+
 def test_setup_hooks_install_codex_replaces_deprecated_feature_flag():
     """Codex install should migrate the old codex_hooks feature flag."""
     with tempfile.TemporaryDirectory() as temp_dir:

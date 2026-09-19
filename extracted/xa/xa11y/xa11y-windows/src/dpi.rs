@@ -1,113 +1,283 @@
-//! Shared Windows DPI handling.
+//! Windows desktop coordinates and DPI awareness.
 //!
-//! # Why this exists
-//!
-//! UI Automation reports element bounds, `GetSystemMetrics(SM_*VIRTUALSCREEN)`
-//! reports the virtual desktop, and GDI `BitBlt` reads pixels — all in a
-//! coordinate space that depends on the **process DPI awareness**. A
-//! DPI-unaware process sees system-virtualized (logical) coordinates; a
-//! Per-Monitor-V2 process sees true physical pixels. That awareness is a
-//! process-wide, set-once flag.
-//!
-//! Previously it was set lazily on the first screenshot, which meant any UIA
-//! bounds read *before* the first screenshot came back in a different
-//! coordinate space than the screenshot itself (issue #300). We now:
-//!
-//! 1. Set Per-Monitor-V2 awareness **eagerly and exactly once**
-//!    ([`ensure_process_dpi_aware`]), called from both `WindowsProvider::new`
-//!    and `WindowsScreenshot::new`, so it is established before the first
-//!    UIA bounds read regardless of which subsystem the consumer touches
-//!    first.
-//! 2. With awareness pinned to Per-Monitor-V2, UIA bounds and `BitBlt` are
-//!    both in **physical** pixels. The provider then converts bounds down to
-//!    **logical** coordinates (`xa11y_core::Rect::to_logical`) so that
-//!    `Element::bounds` matches the cross-platform contract (logical points,
-//!    same as macOS), and the screenshot/input backends convert back up to
-//!    physical at the OS boundary using [`scale_for_logical_point`].
-//!
-//! # Multi-monitor
-//!
-//! The per-monitor effective DPI is queried for the monitor containing the
-//! point of interest. For a uniform-DPI desktop this is exact everywhere. For
-//! a **mixed-DPI** multi-monitor desktop the conversion is only exact within a
-//! single monitor; a rectangle that straddles a DPI boundary is scaled by the
-//! DPI of the monitor under its origin, which can be off by the DPI ratio near
-//! the seam. Mixed-DPI straddling windows are rare and this is documented
-//! rather than silently "corrected".
+//! UI Automation, GDI capture, `SendInput`, and the UIA window transform
+//! pattern use physical desktop pixels when the process is Per-Monitor-V2
+//! aware. Windows exposes those same coordinates through xa11y. Keeping the
+//! desktop space continuous makes ordinary rectangle arithmetic valid even
+//! when a window crosses displays with different DPI scales.
 
 #![cfg(target_os = "windows")]
 
+use std::collections::hash_map::DefaultHasher;
+use std::hash::{Hash, Hasher};
 use std::sync::Once;
 
-use windows::Win32::Foundation::POINT;
-use windows::Win32::Graphics::Gdi::{MonitorFromPoint, HMONITOR, MONITOR_DEFAULTTONEAREST};
+use windows::Win32::Foundation::{LPARAM, RECT};
+use windows::Win32::Graphics::Gdi::{EnumDisplayMonitors, HDC, HMONITOR};
 use windows::Win32::UI::HiDpi::{
-    GetDpiForMonitor, SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
-    MDT_EFFECTIVE_DPI,
+    SetProcessDpiAwarenessContext, DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2,
 };
 
-/// The DPI value Windows treats as "100%": one logical unit == one physical
-/// pixel. `scale = effective_dpi / USER_DEFAULT_SCREEN_DPI`.
-const USER_DEFAULT_SCREEN_DPI: f64 = 96.0;
+use xa11y_core::{CaptureMapping, CaptureMappingSegment, Error, Rect, Result};
 
 static DPI_AWARENESS: Once = Once::new();
 
-/// Set the process to Per-Monitor-V2 DPI awareness, at most once per process.
-///
-/// Idempotent and safe to call from any entry point. The first call sets the
-/// awareness; later calls are cheap no-ops (the `Once` short-circuits, and the
-/// underlying `SetProcessDpiAwarenessContext` would return `ERROR_ACCESS_DENIED`
-/// anyway once awareness is pinned). If a host application already selected an
-/// equal or higher awareness, this is a no-op and we keep theirs — we never
-/// downgrade.
+/// Set process DPI awareness before the first UIA bounds read or capture.
 pub fn ensure_process_dpi_aware() {
     DPI_AWARENESS.call_once(|| {
-        // Best-effort: the result is intentionally ignored. Success sets
-        // Per-Monitor-V2; failure means awareness was already pinned (by an
-        // earlier call or a manifest) to something at least as high, which is
-        // exactly what we want. There is no coordinate correctness we could
-        // recover by propagating this error — the only requirement is that
-        // awareness is >= Per-Monitor-V2 before the first bounds read.
+        // A host may already have fixed its process awareness. Windows then
+        // rejects a second setting; the host-awareness limitation is documented.
         unsafe {
             let _ = SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
         }
     });
 }
 
-/// Effective DPI scale (physical/logical) of the monitor containing the given
-/// **physical** pixel. Used to convert UIA's physical bounds to logical.
-///
-/// Returns `1.0` if the monitor or its DPI can't be resolved — a best-effort
-/// degradation to identity, matching the "no known scale" convention the
-/// other backends use, rather than failing a tree read over a DPI query.
-pub fn scale_for_physical_point(x: i32, y: i32) -> f64 {
-    scale_for_point(x, y)
+/// UIA bounds are already in the Windows desktop coordinate space.
+pub fn physical_rect_to_desktop(rect: RECT) -> Rect {
+    Rect {
+        x: rect.left,
+        y: rect.top,
+        width: (i64::from(rect.right) - i64::from(rect.left)).max(0) as u32,
+        height: (i64::from(rect.bottom) - i64::from(rect.top)).max(0) as u32,
+    }
 }
 
-/// Effective DPI scale (physical/logical) of the monitor containing the given
-/// **logical** point. Used to convert logical bounds/points up to physical for
-/// `BitBlt` and `SendInput`.
-///
-/// On a uniform-DPI desktop the logical and physical coordinates identify the
-/// same monitor, so this is exact. See the module docs for the mixed-DPI
-/// caveat.
-pub fn scale_for_logical_point(x: i32, y: i32) -> f64 {
-    scale_for_point(x, y)
+/// Capture the physical virtual desktop with an identity coordinate mapping.
+pub fn full_capture_plan() -> Result<(Rect, f32, CaptureMapping)> {
+    let monitors = monitor_rects()?;
+    let physical = bounding_rect(monitors.iter().copied().map(physical_rect_to_desktop))
+        .ok_or_else(|| Error::Platform {
+            code: -1,
+            message: "no displays were found for screenshot capture".into(),
+        })?;
+    let mapping = capture_mapping(&monitors, physical)?;
+    Ok((physical, 1.0, mapping))
 }
 
-fn scale_for_point(x: i32, y: i32) -> f64 {
-    // SAFETY: MonitorFromPoint takes a POINT by value and a flag; it always
-    // returns a monitor handle (DEFAULTTONEAREST never returns null for a
-    // real desktop). GetDpiForMonitor writes two u32s we own.
-    let monitor: HMONITOR = unsafe { MonitorFromPoint(POINT { x, y }, MONITOR_DEFAULTTONEAREST) };
-    if monitor.is_invalid() {
-        return 1.0;
+/// A requested region is already in physical desktop pixels.
+pub fn region_capture_plan(rect: Rect) -> Result<(Rect, f32, CaptureMapping)> {
+    let monitors = monitor_rects()?;
+    Ok((rect, 1.0, capture_mapping(&monitors, rect)?))
+}
+
+fn capture_mapping(monitors: &[RECT], capture: Rect) -> Result<CaptureMapping> {
+    let segments = capture_segments(monitors, capture);
+    if segments.is_empty() {
+        return Err(Error::Platform {
+            code: -1,
+            message: "captured rectangle does not intersect any display".into(),
+        });
     }
-    let mut dpi_x: u32 = 0;
-    let mut dpi_y: u32 = 0;
-    let hr = unsafe { GetDpiForMonitor(monitor, MDT_EFFECTIVE_DPI, &mut dpi_x, &mut dpi_y) };
-    if hr.is_err() || dpi_x == 0 {
-        return 1.0;
+    Ok(CaptureMapping::with_layout_validation(
+        segments,
+        layout_token(monitors),
+        validate_layout_token,
+    ))
+}
+
+fn capture_segments(monitors: &[RECT], capture: Rect) -> Vec<CaptureMappingSegment> {
+    monitors
+        .iter()
+        .filter_map(|monitor| {
+            let left = i64::from(monitor.left).max(i64::from(capture.x));
+            let top = i64::from(monitor.top).max(i64::from(capture.y));
+            let right =
+                i64::from(monitor.right).min(i64::from(capture.x) + i64::from(capture.width));
+            let bottom =
+                i64::from(monitor.bottom).min(i64::from(capture.y) + i64::from(capture.height));
+            (right > left && bottom > top).then_some(CaptureMappingSegment {
+                desktop: Rect {
+                    x: left as i32,
+                    y: top as i32,
+                    width: (right - left) as u32,
+                    height: (bottom - top) as u32,
+                },
+                image: Rect {
+                    x: (left - i64::from(capture.x)) as i32,
+                    y: (top - i64::from(capture.y)) as i32,
+                    width: (right - left) as u32,
+                    height: (bottom - top) as u32,
+                },
+            })
+        })
+        .collect()
+}
+
+fn validate_layout_token(expected: u64) -> Result<bool> {
+    Ok(layout_token(&monitor_rects()?) == expected)
+}
+
+fn layout_token(monitors: &[RECT]) -> u64 {
+    let mut values: Vec<_> = monitors
+        .iter()
+        .map(|m| (m.left, m.top, m.right, m.bottom))
+        .collect();
+    values.sort_unstable();
+    let mut hasher = DefaultHasher::new();
+    values.hash(&mut hasher);
+    hasher.finish()
+}
+
+fn bounding_rect(rects: impl Iterator<Item = Rect>) -> Option<Rect> {
+    rects.fold(None, |bounds, rect| {
+        Some(match bounds {
+            None => rect,
+            Some(bounds) => {
+                let left = bounds.x.min(rect.x);
+                let top = bounds.y.min(rect.y);
+                let right = (i64::from(bounds.x) + i64::from(bounds.width))
+                    .max(i64::from(rect.x) + i64::from(rect.width));
+                let bottom = (i64::from(bounds.y) + i64::from(bounds.height))
+                    .max(i64::from(rect.y) + i64::from(rect.height));
+                Rect {
+                    x: left,
+                    y: top,
+                    width: (right - i64::from(left)) as u32,
+                    height: (bottom - i64::from(top)) as u32,
+                }
+            }
+        })
+    })
+}
+
+fn monitor_rects() -> Result<Vec<RECT>> {
+    let mut monitors = Vec::new();
+    // SAFETY: the callback receives the pointer unchanged; `monitors` lives
+    // until EnumDisplayMonitors returns.
+    let ok = unsafe {
+        EnumDisplayMonitors(
+            None,
+            None,
+            Some(collect_monitor),
+            LPARAM(&mut monitors as *mut Vec<RECT> as isize),
+        )
     }
-    f64::from(dpi_x) / USER_DEFAULT_SCREEN_DPI
+    .as_bool();
+    if !ok {
+        return Err(Error::Platform {
+            code: -1,
+            message: "EnumDisplayMonitors failed while reading desktop layout".into(),
+        });
+    }
+    Ok(monitors)
+}
+
+unsafe extern "system" fn collect_monitor(
+    _hmonitor: HMONITOR,
+    _hdc: HDC,
+    lprc: *mut RECT,
+    user_data: LPARAM,
+) -> windows::core::BOOL {
+    let monitors = unsafe { &mut *(user_data.0 as *mut Vec<RECT>) };
+    // A null HDC makes the supplied rectangle use virtual-screen pixels.
+    // EnumDisplayMonitors keeps this pointer valid for the callback.
+    monitors.push(unsafe { *lprc });
+    windows::core::BOOL(1)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use xa11y_core::{anchor_point, Anchor, Point, Screenshot};
+
+    fn rect(left: i32, top: i32, right: i32, bottom: i32) -> RECT {
+        RECT {
+            left,
+            top,
+            right,
+            bottom,
+        }
+    }
+
+    #[test]
+    fn seam_spanning_bounds_center_maps_to_native_input_pixel() {
+        // Two adjacent 200% displays. The center of this window is on the
+        // second display and must remain within its physical frame.
+        let window = physical_rect_to_desktop(rect(3800, 100, 4000, 300));
+        assert_eq!(window.width, 200);
+        let center = anchor_point(&window, Anchor::Center);
+        assert_eq!((center.x, center.y), (3900, 200));
+        assert!((3800..4000).contains(&center.x));
+    }
+
+    #[test]
+    fn negative_origin_and_unequal_scale_have_continuous_geometry() {
+        // Scale does not enter desktop geometry; a 150% display can sit to
+        // the left of a 200% primary without a coordinate gap.
+        let monitors = [rect(-2560, 0, 0, 1440), rect(0, 0, 3840, 2160)];
+        let window = physical_rect_to_desktop(rect(-100, 100, 100, 300));
+        let center = anchor_point(&window, Anchor::Center);
+        assert_eq!((center.x, center.y), (0, 200));
+        assert_eq!(window.width, 200);
+        let desktop = bounding_rect(monitors.into_iter().map(physical_rect_to_desktop)).unwrap();
+        assert_eq!((desktop.x, desktop.width), (-2560, 6400));
+    }
+
+    #[test]
+    fn capture_region_mapping_is_identity_across_seam() {
+        let region = physical_rect_to_desktop(rect(3800, 100, 4000, 300));
+        let monitors = [rect(0, 0, 3840, 2160), rect(3840, 0, 7680, 2160)];
+        let segments = capture_segments(&monitors, region);
+        assert_eq!(segments.len(), 2);
+        let shot = Screenshot::new(200, 200, vec![0; 200 * 200 * 4], 1.0)
+            .with_mapping(CaptureMapping::new(segments));
+        assert_eq!(
+            shot.desktop_to_image(Point::new(3900, 200)).unwrap(),
+            Point::new(100, 100)
+        );
+        assert_eq!(
+            shot.image_to_desktop(Point::new(100, 100)).unwrap(),
+            Point::new(3900, 200)
+        );
+        assert_eq!(
+            shot.desktop_rect_to_image(physical_rect_to_desktop(rect(3820, 120, 3980, 280)))
+                .unwrap(),
+            vec![
+                Rect {
+                    x: 20,
+                    y: 20,
+                    width: 20,
+                    height: 160
+                },
+                Rect {
+                    x: 40,
+                    y: 20,
+                    width: 140,
+                    height: 160
+                },
+            ]
+        );
+    }
+
+    #[test]
+    fn capture_mapping_excludes_holes_and_offscreen_pixels() {
+        let monitors = [rect(-1920, 0, 0, 1080), rect(0, -1080, 1920, 0)];
+        let capture = Rect {
+            x: -1920,
+            y: -1080,
+            width: 3840,
+            height: 2160,
+        };
+        let segments = capture_segments(&monitors, capture);
+        assert_eq!(segments.len(), 2);
+        let shot =
+            Screenshot::new(3840, 2160, vec![], 1.0).with_mapping(CaptureMapping::new(segments));
+        assert_eq!(
+            shot.desktop_to_image(Point::new(-100, 100)).unwrap(),
+            Point::new(1820, 1180)
+        );
+        assert!(shot.image_to_desktop(Point::new(100, 100)).is_err());
+        assert!(shot.desktop_to_image(Point::new(100, 100)).is_err());
+        assert!(capture_mapping(
+            &monitors,
+            Rect {
+                x: 3000,
+                y: 3000,
+                width: 100,
+                height: 100
+            }
+        )
+        .is_err());
+    }
 }

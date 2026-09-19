@@ -32,6 +32,7 @@ from runlayer_cli.scan.device import (
     get_wsl_user_homes,
     list_wsl_distros,
 )
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.wsl_limits import (
     MAX_WSL_DISTROS,
     MAX_WSL_HOMES,
@@ -686,6 +687,7 @@ class TestListWSLDistros:
             "\ufeff  NAME                   STATE           VERSION\r\n"
             "* Ubuntu 24.04           Running         2\r\n"
             "  Debian                  Stopped         1\r\n"
+            "  docker-desktop          Running         2\r\n"
             "  docker-desktop-data     Stopped         2\r\n"
         ).encode("utf-16-le")
         mock_run.return_value = mock.Mock(stdout=raw, returncode=0)
@@ -804,9 +806,9 @@ class TestListWSLDistros:
             "* Ubuntu 24.04           Wird ausgeführt 2\r\n"
             "  Debian                  Beendet         1\r\n"
         ).encode("utf-16-le")
-        quiet_raw = ("\ufeffUbuntu 24.04\r\nDebian\r\ndocker-desktop-data\r\n").encode(
-            "utf-16-le"
-        )
+        quiet_raw = (
+            "\ufeffUbuntu 24.04\r\nDebian\r\ndocker-desktop\r\ndocker-desktop-data\r\n"
+        ).encode("utf-16-le")
         running_raw = "\ufeffUbuntu 24.04\r\n".encode("utf-16-le")
         mock_run.side_effect = _wsl_list_side_effect(
             verbose=mock.Mock(stdout=verbose_raw, returncode=0),
@@ -1028,10 +1030,12 @@ class TestGetWSLUserHomes:
 
         monkeypatch.setattr("runlayer_cli.scan.device.Path", fake_path)
         monkeypatch.setattr(path_type, "iterdir", reverse_iterdir)
+        status = ScanCompletionStatus()
 
-        homes = get_wsl_user_homes("Ubuntu")
+        homes = get_wsl_user_homes("Ubuntu", scan_status=status)
 
         assert homes == sorted(directories)[:MAX_WSL_HOMES]
+        assert status.reasons == ["wsl_home_discovery_capped"]
 
     def test_caps_home_probes_during_iteration_with_root_first(
         self,
@@ -1109,7 +1113,85 @@ class TestGetWSLUserHomes:
         homes = get_wsl_user_homes("Ubuntu")
 
         assert homes == sorted(directories)[:MAX_WSL_HOMES]
-        assert len(enumerated) == MAX_WSL_HOME_PROBES
+        assert len(enumerated) == MAX_WSL_HOME_PROBES + 1
+
+    def test_probe_cap_marks_home_discovery_incomplete(self, tmp_path, monkeypatch):
+        home_base = tmp_path / "home"
+        home_base.mkdir()
+        for index in range(MAX_WSL_HOME_PROBES + 1):
+            (home_base / f"entry-{index}").write_text("x")
+
+        def fake_path(path):
+            return Path(str(path).replace(R"\\wsl.localhost\Ubuntu", str(tmp_path)))
+
+        monkeypatch.setattr("runlayer_cli.scan.device.Path", fake_path)
+        status = ScanCompletionStatus()
+
+        get_wsl_user_homes("Ubuntu", scan_status=status)
+
+        assert status.reasons == ["wsl_home_probe_capped"]
+
+    def test_entry_access_error_marks_home_discovery_incomplete(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        home_base = tmp_path / "home"
+        home_base.mkdir()
+        denied = home_base / "denied"
+        denied.write_text("x")
+
+        def fake_path(path):
+            return Path(str(path).replace(R"\\wsl.localhost\Ubuntu", str(tmp_path)))
+
+        path_type = type(tmp_path)
+        original_is_dir = path_type.is_dir
+
+        def denied_is_dir(path):
+            if path == denied:
+                raise PermissionError("denied")
+            return original_is_dir(path)
+
+        monkeypatch.setattr("runlayer_cli.scan.device.Path", fake_path)
+        monkeypatch.setattr(path_type, "is_dir", denied_is_dir)
+        status = ScanCompletionStatus()
+
+        get_wsl_user_homes("Ubuntu", scan_status=status)
+
+        assert "wsl_home_access_failed" in status.reasons
+
+    def test_successful_legacy_unc_fallback_suppresses_primary_root_errors(
+        self,
+        tmp_path,
+        monkeypatch,
+    ):
+        primary = tmp_path / "primary"
+        fallback = tmp_path / "fallback"
+        fallback_home = fallback / "home" / "alex"
+        fallback_home.mkdir(parents=True)
+
+        def fake_path(path):
+            text = str(path)
+            text = text.replace(R"\\wsl.localhost\Ubuntu", str(primary))
+            text = text.replace(R"\\wsl$\Ubuntu", str(fallback))
+            return Path(text)
+
+        path_type = type(tmp_path)
+        original_is_dir = path_type.is_dir
+
+        def primary_unavailable(path):
+            if path == primary / "root" or path == primary / "home":
+                raise OSError("primary UNC unavailable")
+            return original_is_dir(path)
+
+        monkeypatch.setattr("runlayer_cli.scan.device.Path", fake_path)
+        monkeypatch.setattr(path_type, "is_dir", primary_unavailable)
+        status = ScanCompletionStatus()
+
+        homes = get_wsl_user_homes("Ubuntu", scan_status=status)
+
+        assert homes == [fallback_home]
+        assert status.reasons == []
 
     def test_returns_empty_when_unreachable(self, tmp_path):
         def fake_path(p):
@@ -1140,15 +1222,77 @@ class TestDeviceMetadataWSL:
         assert "is_wsl" not in result
 
 
+_GNU_STAT_FILESYSTEM_BLOB = (
+    '  File: "/dev/console"\n'
+    "    ID: fc27db800000013 Namelen: ?       Type: devfs\n"
+    "Block size: 512        Fundamental block size: 512\n"
+    "Blocks: Total: 425        Free: 0          Available: 0\n"
+    "Inodes: Total: 736        Free: 0\n"
+)
+
+
 class TestGetMacosConsoleUser:
     @mock.patch("subprocess.run")
     def test_returns_console_user(self, mock_run):
-        mock_run.return_value = mock.Mock(stdout="awfrazer\n")
+        mock_run.return_value = mock.Mock(returncode=0, stdout="awfrazer\n")
         assert _get_macos_console_user() == "awfrazer"
 
     @mock.patch("subprocess.run")
+    def test_invokes_apple_stat_by_absolute_path(self, mock_run):
+        """Bare ``stat`` resolves GNU/uutils coreutils first on some PATHs."""
+        mock_run.return_value = mock.Mock(returncode=0, stdout="awfrazer\n")
+        _get_macos_console_user()
+        argv = mock_run.call_args[0][0]
+        assert argv[0] == "/usr/bin/stat"
+        assert argv[1:] == ["-f", "%Su", "/dev/console"]
+
+    @pytest.mark.parametrize("name", ["a.b", "first_last", "jane-doe", "user2", "x"])
+    @mock.patch("subprocess.run")
+    def test_accepts_posix_short_names(self, mock_run, name):
+        mock_run.return_value = mock.Mock(returncode=0, stdout=f"{name}\n")
+        assert _get_macos_console_user() == name
+
+    @mock.patch("subprocess.run")
     def test_filters_system_usernames(self, mock_run):
-        mock_run.return_value = mock.Mock(stdout="root\n")
+        mock_run.return_value = mock.Mock(returncode=0, stdout="root\n")
+        assert _get_macos_console_user() is None
+
+    @mock.patch("subprocess.run")
+    def test_rejects_gnu_stat_filesystem_output(self, mock_run):
+        """GNU ``stat -f`` means --file-system; %Su is treated as a filename."""
+        mock_run.return_value = mock.Mock(
+            returncode=0, stdout=_GNU_STAT_FILESYSTEM_BLOB
+        )
+        assert _get_macos_console_user() is None
+
+    @pytest.mark.parametrize(
+        "stdout",
+        [
+            "foo bar\n",
+            "foo\tbar\n",
+            "foo\x00bar\n",
+            "foo\nbar\n",
+            "foo;bar\n",
+            "$(whoami)\n",
+            "foo/bar\n",
+            "\n",
+            "",
+            "a" * 256 + "\n",
+        ],
+    )
+    @mock.patch("subprocess.run")
+    def test_rejects_non_username_output(self, mock_run, stdout):
+        mock_run.return_value = mock.Mock(returncode=0, stdout=stdout)
+        assert _get_macos_console_user() is None
+
+    @mock.patch("subprocess.run")
+    def test_accepts_max_length_name(self, mock_run):
+        mock_run.return_value = mock.Mock(returncode=0, stdout="a" * 255 + "\n")
+        assert _get_macos_console_user() == "a" * 255
+
+    @mock.patch("subprocess.run")
+    def test_rejects_nonzero_returncode(self, mock_run):
+        mock_run.return_value = mock.Mock(returncode=1, stdout="awfrazer\n")
         assert _get_macos_console_user() is None
 
     @mock.patch("subprocess.run", side_effect=Exception("not macOS"))

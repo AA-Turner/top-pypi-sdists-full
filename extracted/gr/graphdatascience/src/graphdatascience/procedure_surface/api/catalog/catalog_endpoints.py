@@ -2,35 +2,59 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from types import TracebackType
-from typing import Any, NamedTuple, Type
+from typing import Any, List, NamedTuple, Type
 
 from pandas import DataFrame
 from pydantic import field_validator
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
+from graphdatascience.graph.graph_info import GraphInfoWithDegrees
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.catalog.dataset_endpoints import DatasetEndpoints
-from graphdatascience.procedure_surface.api.catalog.graph_info import GraphInfo, GraphInfoWithDegrees
+from graphdatascience.procedure_surface.api.catalog.graph_export_endpoints import GraphExportEndpoints
 from graphdatascience.procedure_surface.api.catalog.graph_sampling_endpoints import GraphSamplingEndpoints
 from graphdatascience.procedure_surface.api.catalog.node_label_endpoints import NodeLabelEndpoints
 from graphdatascience.procedure_surface.api.catalog.node_properties_endpoints import NodePropertiesEndpoints
+from graphdatascience.procedure_surface.api.catalog.node_property_endpoints import NodePropertyEndpoints
+from graphdatascience.procedure_surface.api.catalog.relationship_properties_endpoints import (
+    RelationshipPropertiesEndpoints,
+)
+from graphdatascience.procedure_surface.api.catalog.relationship_property_endpoints import (
+    RelationshipPropertyEndpoints,
+)
 from graphdatascience.procedure_surface.api.catalog.relationships_endpoints import RelationshipsEndpoints
 
 
 class CatalogEndpoints(ABC):
     @abstractmethod
-    def get(self, graph_name: str) -> GraphV2:
+    def get(self, graph_name: str) -> Graph:
         """Retrieve a handle to a graph from the graph catalog.
 
         Parameters
         ----------
         graph_name
-            The name of the graph.
+            Name of the graph
 
         Returns
         -------
-        GraphV2
+        Graph
             A handle to the graph.
+        """
+        pass
+
+    @abstractmethod
+    def exists(self, graph_name: str) -> bool:
+        """Check if a graph exists in the catalog.
+
+        Parameters
+        ----------
+        graph_name
+            Name of the graph
+
+        Returns
+        -------
+        bool
+            True if the graph exists, False otherwise.
         """
         pass
 
@@ -42,13 +66,16 @@ class CatalogEndpoints(ABC):
         relationships: DataFrame | list[DataFrame] | None = None,
         concurrency: int | None = None,
         undirected_relationship_types: list[str] | None = None,
-    ) -> GraphV2:
+        inverse_indexed_relationship_types: list[str] | None = None,
+        batch_size: int = 100000,
+        overwrite: bool = False,
+    ) -> Graph:
         """Construct a graph from a list of node and relationship dataframes.
 
         Parameters
         ----------
         graph_name
-            Name of the graph to construct
+            Name of the graph to be created
         nodes
             Node dataframes. A dataframe should follow the schema:
 
@@ -66,10 +93,17 @@ class CatalogEndpoints(ABC):
             Number of concurrent threads to use.
         undirected_relationship_types
             List of relationship types to treat as undirected.
+        inverse_indexed_relationship_types
+            List of relationship types for which to create an inverse index.
+        batch_size
+            Batch size to use when sending data to GDS.
+        overwrite
+            If `True`, drop an existing graph with the same name before constructing the new one.
+            Defaults to `False`.
 
         Returns
         -------
-        GraphV2
+        Graph
             Constructed graph object.
         """
 
@@ -81,7 +115,7 @@ class CatalogEndpoints(ABC):
         return DatasetEndpoints(self.construct)
 
     @abstractmethod
-    def list(self, G: GraphV2 | str | None = None) -> list[GraphInfoWithDegrees]:
+    def list(self, G: Graph | str | None = None) -> list[GraphInfoWithDegrees]:
         """List graphs in the graph catalog.
 
         Parameters
@@ -97,26 +131,9 @@ class CatalogEndpoints(ABC):
         pass
 
     @abstractmethod
-    def drop(self, G: GraphV2 | str, fail_if_missing: bool = True) -> GraphInfo | None:
-        """Drop a graph from the graph catalog.
-
-        Parameters
-        ----------
-        G
-            Graph to drop by name of object.
-        fail_if_missing
-            Whether to fail if the graph is missing
-
-        Returns
-        -------
-        GraphListResult
-            GraphV2 metadata object containing information like node count.
-        """
-
-    @abstractmethod
     def filter(
         self,
-        G: GraphV2,
+        G: Graph,
         graph_name: str,
         node_filter: str,
         relationship_filter: str,
@@ -126,6 +143,7 @@ class CatalogEndpoints(ABC):
         sudo: bool = False,
         log_progress: bool = True,
         username: str | None = None,
+        overwrite: bool = False,
     ) -> GraphWithFilterResult:
         """Create a subgraph of a graph based on a filter expression.
 
@@ -133,11 +151,11 @@ class CatalogEndpoints(ABC):
         ----------
         G
            Graph object to use
-        graph_name (str):
-            Name of subgraph to create
-        node_filter (str):
+        graph_name
+            Name of the graph to be created
+        node_filter
             Filter expression for nodes
-        relationship_filter (str):
+        relationship_filter
             Filter expression for relationships
         parameters
             A map of user-defined query parameters that are passed into the node and relationship filters.
@@ -151,10 +169,13 @@ class CatalogEndpoints(ABC):
             Display progress logging.
         username
             As an administrator, impersonate a different user for accessing their graphs.
+        overwrite
+            If `True`, drop an existing graph with the same name before creating the filtered subgraph.
+            Defaults to `False`.
 
         Returns
         -------
-        GraphWithFilterResult:
+        GraphWithFilterResult
             tuple of the filtered graph object and the information like graph name, node count, relationship count, etc.
         """
         pass
@@ -177,6 +198,7 @@ class CatalogEndpoints(ABC):
         sudo: bool = False,
         log_progress: bool = True,
         username: str | None = None,
+        overwrite: bool = False,
     ) -> GraphWithGenerationStats:
         """
         Generates a random graph and store it in the graph catalog.
@@ -184,7 +206,7 @@ class CatalogEndpoints(ABC):
         Parameters
         ----------
         graph_name
-            Name of the generated graph.
+            Name of the graph to be created
         node_count
             The number of nodes in the generated graph
         average_degree
@@ -211,12 +233,21 @@ class CatalogEndpoints(ABC):
             Display progress logging.
         username
             As an administrator, impersonate a different user for accessing their graphs.
+        overwrite
+            If `True`, drop an existing graph with the same name before generating the new one.
+            Defaults to `False`.
 
         Returns
         -------
-        GraphGenerationStats:
+        GraphWithGenerationStats
             tuple of the generated graph object and the result object containing stats about the generation.
         """
+
+    @property
+    @abstractmethod
+    def export(self) -> GraphExportEndpoints:
+        """Endpoints for exporting graphs to a new database or CSV files."""
+        pass
 
     @property
     @abstractmethod
@@ -233,14 +264,39 @@ class CatalogEndpoints(ABC):
     @property
     @abstractmethod
     def node_properties(self) -> NodePropertiesEndpoints:
-        """Endpoints for node label operations."""
+        """Endpoints for node property operations."""
         pass
+
+    @property
+    def node_property(self) -> NodePropertyEndpoints:
+        """Endpoints for streaming a single node property."""
+        return NodePropertyEndpoints(self.node_properties)
 
     @property
     @abstractmethod
     def relationships(self) -> RelationshipsEndpoints:
         """Endpoints for relationship operations."""
         pass
+
+    @property
+    def relationship_property(self) -> RelationshipPropertyEndpoints:
+        """Endpoints for streaming a single relationship property."""
+        return RelationshipPropertyEndpoints(self.relationships)
+
+    @property
+    def relationship_properties(self) -> RelationshipPropertiesEndpoints:
+        """Endpoints for streaming several relationship properties."""
+        return RelationshipPropertiesEndpoints(self.relationships)
+
+
+def normalize_graph_names(G: Graph | str | List[Graph | str]) -> List[str]:
+    match G:
+        case Graph() as graph:
+            return [graph.name()]
+        case str(name):
+            return [name]
+        case list(seq):
+            return [name for e in seq for name in normalize_graph_names(e)]
 
 
 class GraphFilterResult(BaseResult):
@@ -287,10 +343,10 @@ class RelationshipPropertySpec(BaseResult):
 
 # cannot use namedtuple + generic result as for python < 3.11 Multiple inheritance with NamedTuple is not supported
 class GraphWithFilterResult(NamedTuple):
-    graph: GraphV2
+    graph: Graph
     result: GraphFilterResult
 
-    def __enter__(self) -> GraphV2:
+    def __enter__(self) -> Graph:
         return self.graph
 
     def __exit__(
@@ -303,10 +359,10 @@ class GraphWithFilterResult(NamedTuple):
 
 
 class GraphWithGenerationStats(NamedTuple):
-    graph: GraphV2
+    graph: Graph
     result: GraphGenerationStats
 
-    def __enter__(self) -> GraphV2:
+    def __enter__(self) -> Graph:
         return self.graph
 
     def __exit__(

@@ -2255,7 +2255,11 @@ class ConversationClusteringState(pycarlo.lib.types.Enum):
     DISCOVERING means taxonomy discovery is in progress on an intent
     space; an issue space never runs discovery, so there it is the
     window between opt-in and the first rule-evaluation run seeding
-    the space's rule clusters.
+    the space's rule clusters. WRITER_UNAVAILABLE means the wait
+    cannot end: the trace store lacks the rollup writer's schema, so
+    the watermark it waits on can never publish. Only the panel
+    summary read (``getConversationClustering``) emits it — the space-
+    level ``state`` field reports from taxonomy alone.
 
     Enumeration Choices:
 
@@ -2264,10 +2268,18 @@ class ConversationClusteringState(pycarlo.lib.types.Enum):
     * `ENABLED`None
     * `LOW_VOLUME`None
     * `OPT_IN`None
+    * `WRITER_UNAVAILABLE`None
     """
 
     __schema__ = schema
-    __choices__ = ("DISABLED", "DISCOVERING", "ENABLED", "LOW_VOLUME", "OPT_IN")
+    __choices__ = (
+        "DISABLED",
+        "DISCOVERING",
+        "ENABLED",
+        "LOW_VOLUME",
+        "OPT_IN",
+        "WRITER_UNAVAILABLE",
+    )
 
 
 class ConversationFilterFieldName(pycarlo.lib.types.Enum):
@@ -11205,7 +11217,20 @@ class AlertsFilterDataRequestType(sgqlc.types.Input):
 
 class AlertsFilterDataSearchCriteriaType(sgqlc.types.Input):
     __schema__ = schema
-    __field_names__ = ("updated_time", "created_time", "filters", "from_agent_monitor")
+    __field_names__ = (
+        "on_agent_read_tables",
+        "updated_time",
+        "created_time",
+        "filters",
+        "from_agent_monitor",
+    )
+    on_agent_read_tables = sgqlc.types.Field(Boolean, graphql_name="onAgentReadTables")
+    """True restricts facet counts to known tables read by observed
+    agents. Requires Assets and Lineage access in addition to Alerts
+    access; a denied or failed dependency query raises an error. False
+    or null applies no restriction.
+    """
+
     updated_time = sgqlc.types.Field("DateTimeRangeInput", graphql_name="updatedTime")
     """Supply a time range to filter alerts by their updated time. Either
     this or `createdTime` must be supplied.
@@ -12036,6 +12061,10 @@ class ClusteringConfigInput(sgqlc.types.Input):
         "agent_response_char_cap",
         "min_conversations",
         "classify_cadence_minutes",
+        "issue_watermark_range_minutes",
+        "issue_watermark_batch_size",
+        "backfill_slice_hours",
+        "issue_initial_backfill_days",
         "daily_classification_budget",
         "work_item_batch_cap",
         "collection_lag_hours",
@@ -12060,7 +12089,9 @@ class ClusteringConfigInput(sgqlc.types.Input):
     """Maximum history, in days, discovery scans back to fill its sample."""
 
     classify_cap_per_run = sgqlc.types.Field(Int, graphql_name="classifyCapPerRun")
-    """Maximum conversations classified per run (uniform random sample)."""
+    """Maximum conversations classified per run, oldest by readiness
+    first.
+    """
 
     min_confidence = sgqlc.types.Field(Float, graphql_name="minConfidence")
     """Confidence below which a conversation routes to Uncategorized."""
@@ -12087,6 +12118,30 @@ class ClusteringConfigInput(sgqlc.types.Input):
     retried on the next tick rather than waiting out this interval;
     consecutive failures back off exponentially, capped at this
     interval.
+    """
+
+    issue_watermark_range_minutes = sgqlc.types.Field(
+        Int, graphql_name="issueWatermarkRangeMinutes"
+    )
+    """Minutes covered by each platform-agent issue-space watermark work
+    item. Minimum 30.
+    """
+
+    issue_watermark_batch_size = sgqlc.types.Field(Int, graphql_name="issueWatermarkBatchSize")
+    """Maximum adjacent watermark slices produced or consumed together
+    for a platform-agent issue space. Must be a positive integer.
+    """
+
+    backfill_slice_hours = sgqlc.types.Field(Int, graphql_name="backfillSliceHours")
+    """Hours covered by each BACKFILL work item. Wider than a watermark
+    range because a backfill drains in the background; bounded so one
+    item's rule matches still fit a single read.
+    """
+
+    issue_initial_backfill_days = sgqlc.types.Field(Int, graphql_name="issueInitialBackfillDays")
+    """Days of retained history queued when an issue space is first
+    enabled. The queued range is capped by the 30-day retention
+    window.
     """
 
     daily_classification_budget = sgqlc.types.Field(Int, graphql_name="dailyClassificationBudget")
@@ -13718,9 +13773,10 @@ class DismissMonitorTuningSuggestionInput(sgqlc.types.Input):
 
 
 class DomainCriterionInput(sgqlc.types.Input):
-    """A domain criterion: a location, optionally narrowed by a tag
-    filter. `tags` narrow the location, so they require one;
-    standalone tag filters belong in the domain's `tags` field.
+    """A domain criterion: a tag filter with a match operator,
+    intersected with a location when one is given and applied account-
+    wide when omitted. Omitting the location with `operator: ALL`
+    selects the intersection of the tags.
     """
 
     __schema__ = schema
@@ -13728,7 +13784,8 @@ class DomainCriterionInput(sgqlc.types.Input):
     location = sgqlc.types.Field(String, graphql_name="location")
     """What the criterion is scoped to: an integration (warehouse or ETL)
     as a uuid or an MCON, or the MCON of any other catalog object of
-    the account (a database, schema, table, job, agent).
+    the account (a database, schema, table, job). Omit it for a tag-
+    only criterion.
     """
 
     tags = sgqlc.types.Field(
@@ -19737,6 +19794,7 @@ class ValidationInput(sgqlc.types.Input):
         "exception_primary_key_column",
         "percentage_threshold",
         "percentage_operator",
+        "fail_on_reset",
         "time_filter",
         "filters",
         "time_filter_sql_expression",
@@ -19815,6 +19873,8 @@ class ValidationInput(sgqlc.types.Input):
     percentage_threshold = sgqlc.types.Field(Float, graphql_name="percentageThreshold")
 
     percentage_operator = sgqlc.types.Field(String, graphql_name="percentageOperator")
+
+    fail_on_reset = sgqlc.types.Field(Boolean, graphql_name="failOnReset")
 
     time_filter = sgqlc.types.Field(TimeFilterInput, graphql_name="timeFilter")
 
@@ -24528,10 +24588,10 @@ class AgentMetadataV2(sgqlc.types.Type):
 
     last_seen_at = sgqlc.types.Field(DateTime, graphql_name="lastSeenAt")
     """When this agent last produced a trace; a row whose observation
-    carried no timestamp carries its record time instead. An agent
-    stays listed after it goes quiet, reporting zero traces, so this
-    is how long it has been silent. Null only when no observation of
-    the agent carried a timestamp.
+    carried no timestamp carries its record time instead (or the
+    registration's created time for agents recorded from the
+    registration index). An agent stays listed after it goes quiet,
+    reporting zero traces, so this is how long it has been silent.
     """
 
 
@@ -24746,6 +24806,112 @@ class AgentObservabilityBillingInfo(sgqlc.types.Type):
         graphql_name="agents",
     )
     """List of active agents counted for billing"""
+
+
+class AgentObservabilitySummary(sgqlc.types.Type):
+    """Observed agents and current known dependencies within an alert
+    window.  Null metrics are unavailable; unavailableFields lists
+    their field names. Runtime totals, historical comparisons, evals,
+    and spend are not yet available.
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "start_time",
+        "end_time",
+        "generated_time",
+        "instrumented_agent_count",
+        "has_configured_agent_source",
+        "agents_with_open_issues_count",
+        "agents_on_alerted_data_count",
+        "agent_read_table_count",
+        "unmonitored_agent_read_table_count",
+        "recent_alerts_on_agent_read_tables_count",
+        "agents_with_recent_alerts_on_read_tables_count",
+        "total_runs",
+        "run_success_rate",
+        "p95_latency_seconds",
+        "average_latency_seconds",
+        "eval_score",
+        "spend",
+        "spend_unit",
+        "unavailable_fields",
+    )
+    start_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="startTime")
+
+    end_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="endTime")
+
+    generated_time = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="generatedTime")
+
+    instrumented_agent_count = sgqlc.types.Field(Int, graphql_name="instrumentedAgentCount")
+    """Distinct accessible agents observed during the window, not
+    lifetime installations.
+    """
+
+    has_configured_agent_source = sgqlc.types.Field(
+        Boolean, graphql_name="hasConfiguredAgentSource"
+    )
+    """Whether an accessible agent trace source is registered."""
+
+    agents_with_open_issues_count = sgqlc.types.Field(Int, graphql_name="agentsWithOpenIssuesCount")
+    """Agents with active, non-ignored findings seen in the past 48
+    hours.
+    """
+
+    agents_on_alerted_data_count = sgqlc.types.Field(Int, graphql_name="agentsOnAlertedDataCount")
+    """Agents reading known tables with currently unresolved alerts
+    created during the window.
+    """
+
+    agent_read_table_count = sgqlc.types.Field(Int, graphql_name="agentReadTableCount")
+    """Distinct accessible tables with known direct agent dependencies.
+    Lineage has no read-time filter.
+    """
+
+    unmonitored_agent_read_table_count = sgqlc.types.Field(
+        Int, graphql_name="unmonitoredAgentReadTableCount"
+    )
+    """Known agent-read tables without monitoring."""
+
+    recent_alerts_on_agent_read_tables_count = sgqlc.types.Field(
+        Int, graphql_name="recentAlertsOnAgentReadTablesCount"
+    )
+    """Distinct alerts created during the window on known agent-read
+    tables, across all statuses and without declared severity.
+    """
+
+    agents_with_recent_alerts_on_read_tables_count = sgqlc.types.Field(
+        Int, graphql_name="agentsWithRecentAlertsOnReadTablesCount"
+    )
+    """Distinct agents associated with recent alerts on known tables,
+    across all alert statuses.
+    """
+
+    total_runs = sgqlc.types.Field(BigInt, graphql_name="totalRuns")
+
+    run_success_rate = sgqlc.types.Field(Float, graphql_name="runSuccessRate")
+    """Successful run fraction from zero to one, when available."""
+
+    p95_latency_seconds = sgqlc.types.Field(Float, graphql_name="p95LatencySeconds")
+
+    average_latency_seconds = sgqlc.types.Field(Float, graphql_name="averageLatencySeconds")
+    """Run-weighted mean recorded trace duration in seconds, using the
+    agent overview latency definition within [startTime, endTime).
+    Includes successful and failed traces with finite, nonnegative
+    durations. Null when no traces qualify or any source is
+    unavailable.
+    """
+
+    eval_score = sgqlc.types.Field(Float, graphql_name="evalScore")
+
+    spend = sgqlc.types.Field(Float, graphql_name="spend")
+
+    spend_unit = sgqlc.types.Field(String, graphql_name="spendUnit")
+
+    unavailable_fields = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(String))),
+        graphql_name="unavailableFields",
+    )
 
 
 class AgentSegmentsResult(sgqlc.types.Type):
@@ -29173,6 +29339,10 @@ class ClusteringConfig(sgqlc.types.Type):
         "agent_response_char_cap",
         "min_conversations",
         "classify_cadence_minutes",
+        "issue_watermark_range_minutes",
+        "issue_watermark_batch_size",
+        "backfill_slice_hours",
+        "issue_initial_backfill_days",
         "daily_classification_budget",
         "work_item_batch_cap",
         "collection_lag_hours",
@@ -29207,7 +29377,9 @@ class ClusteringConfig(sgqlc.types.Type):
     classify_cap_per_run = sgqlc.types.Field(
         sgqlc.types.non_null(Int), graphql_name="classifyCapPerRun"
     )
-    """Maximum conversations classified per run (uniform random sample)."""
+    """Maximum conversations classified per run, oldest by readiness
+    first.
+    """
 
     min_confidence = sgqlc.types.Field(sgqlc.types.non_null(Float), graphql_name="minConfidence")
     """Confidence below which a conversation routes to Uncategorized."""
@@ -29242,6 +29414,36 @@ class ClusteringConfig(sgqlc.types.Type):
     retried on the next tick rather than waiting out this interval;
     consecutive failures back off exponentially, capped at this
     interval.
+    """
+
+    issue_watermark_range_minutes = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="issueWatermarkRangeMinutes"
+    )
+    """Minutes covered by each platform-agent issue-space watermark work
+    item. Minimum 30.
+    """
+
+    issue_watermark_batch_size = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="issueWatermarkBatchSize"
+    )
+    """Maximum adjacent watermark slices produced or consumed together
+    for a platform-agent issue space. Must be a positive integer.
+    """
+
+    backfill_slice_hours = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="backfillSliceHours"
+    )
+    """Hours covered by each BACKFILL work item. Wider than a watermark
+    range because a backfill drains in the background; bounded so one
+    item's rule matches still fit a single read.
+    """
+
+    issue_initial_backfill_days = sgqlc.types.Field(
+        sgqlc.types.non_null(Int), graphql_name="issueInitialBackfillDays"
+    )
+    """Days of retained history queued when an issue space is first
+    enabled. The queued range is capped by the 30-day retention
+    window.
     """
 
     daily_classification_budget = sgqlc.types.Field(
@@ -31045,7 +31247,9 @@ class ConversationSpan(sgqlc.types.Type):
     """Whether span represents a tool call"""
 
     status = sgqlc.types.Field(Int, graphql_name="status")
-    """OTel status code (NULL=unset, 2=error)"""
+    """OTel status code (0=unset, 1=ok, 2=error); null when the span
+    carries no status
+    """
 
     prompts = sgqlc.types.Field(GenericScalar, graphql_name="prompts")
     """Raw prompt messages JSON string fetched from the warehouse"""
@@ -31192,6 +31396,7 @@ class ConversationTurnV2(sgqlc.types.Type):
         "system_messages",
         "messages",
         "internal_steps",
+        "main_span_metrics",
         "start_time",
         "duration_seconds",
         "prompt_tokens",
@@ -31226,7 +31431,22 @@ class ConversationTurnV2(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("InternalStepGroupV2"))),
         graphql_name="internalSteps",
     )
-    """Non-main-chain spans (internal agent steps) for this turn"""
+    """Non-main spans (internal agent steps) for this turn"""
+
+    main_span_metrics = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null("MainSpanMetricsV2"))),
+        graphql_name="mainSpanMetrics",
+    )
+    """Metrics-only entries for this turn's main spans, ordered by span
+    start time. The election usually lands on the LLM calls whose
+    content renders in this turn's messages; it can also elect a
+    Cortex turn wrapper or, when no span carries user-role prompts, a
+    trailing tool-execution span (see isToolCall). When internalSteps
+    are requested, the two lists partition the turn's tokens: step
+    totalTokens plus mainSpanMetrics totalTokens sum to the turn's
+    totalTokens. Empty for turns with no main spans (e.g. error-only
+    turns).
+    """
 
     start_time = sgqlc.types.Field(DateTime, graphql_name="startTime")
     """Wall-clock start of this turn: the earliest LLM span start in the
@@ -42847,7 +43067,19 @@ class InternalStepGroupV2(sgqlc.types.Type):
     """
 
     __schema__ = schema
-    __field_names__ = ("span_id", "span_name", "is_tool_call", "messages")
+    __field_names__ = (
+        "span_id",
+        "span_name",
+        "is_tool_call",
+        "messages",
+        "start_time",
+        "end_time",
+        "duration_seconds",
+        "prompt_tokens",
+        "completion_tokens",
+        "total_tokens",
+        "status",
+    )
     span_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spanId")
     """Span ID (hex-encoded)"""
 
@@ -42865,6 +43097,41 @@ class InternalStepGroupV2(sgqlc.types.Type):
         graphql_name="messages",
     )
     """Messages from this internal span (deduplicated within the span)"""
+
+    start_time = sgqlc.types.Field(DateTime, graphql_name="startTime")
+    """Start time of the step's underlying span. Null for synthesized
+    steps with no underlying span or when the span has no start time.
+    """
+
+    end_time = sgqlc.types.Field(DateTime, graphql_name="endTime")
+    """End time of the step's underlying span. Null for in-flight spans
+    and synthesized steps with no underlying span.
+    """
+
+    duration_seconds = sgqlc.types.Field(Float, graphql_name="durationSeconds")
+    """Duration of the step's underlying span in seconds (end minus
+    start). Null when either time is missing or the end precedes the
+    start.
+    """
+
+    prompt_tokens = sgqlc.types.Field(Int, graphql_name="promptTokens")
+    """Number of prompt tokens on the step's underlying span"""
+
+    completion_tokens = sgqlc.types.Field(Int, graphql_name="completionTokens")
+    """Number of completion tokens on the step's underlying span"""
+
+    total_tokens = sgqlc.types.Field(Int, graphql_name="totalTokens")
+    """Total tokens (prompt + completion) on the step's underlying span.
+    Steps cover only non-main spans. When internalSteps are requested,
+    step totalTokens plus the turn's mainSpanMetrics totalTokens sum
+    to the turn's totalTokens.
+    """
+
+    status = sgqlc.types.Field(Int, graphql_name="status")
+    """OTel status code of the step's underlying span (0=unset, 1=ok,
+    2=error). Null for synthesized steps with no underlying span, and
+    when the span carries no status.
+    """
 
 
 class InvestigationQuery(sgqlc.types.Type):
@@ -43324,6 +43591,8 @@ class JobExecutionHistoryLog(sgqlc.types.Type):
         "total_execution_duration",
         "consolidating_job_uuid",
         "evaluated_record_count",
+        "run_evaluated_row_count",
+        "run_breached_row_count",
     )
     job_execution_uuid = sgqlc.types.Field(
         sgqlc.types.non_null(String), graphql_name="jobExecutionUuid"
@@ -43396,6 +43665,40 @@ class JobExecutionHistoryLog(sgqlc.types.Type):
     (e.g. no traces in the lookback window). Null for non-agent-
     evaluation runs and for span/trace-aggregation evaluation runs,
     whose scores have no per-run provenance.
+    """
+
+    run_evaluated_row_count = sgqlc.types.Field(BigInt, graphql_name="runEvaluatedRowCount")
+    """(experimental) Rows this run evaluated for the rule, passing runs
+    included. Counted per rule run, not as distinct table rows.
+    Several rules on one table evaluate overlapping rows, so summing
+    across rules counts the same row more than once. Populated for
+    validation monitors and row-count custom SQL monitors. For
+    monitors with variables, all child rules share one schedule, so
+    the count sums every rule you have read access to across all
+    variable combinations. Read these fields on the parent monitor's
+    runs only: a child rule's runs show the same schedule-wide totals,
+    not that child's own rows. Soft-deleted rules' counts contribute
+    only while at least one of the monitor's counted rules is live and
+    readable by you. Null for other monitor types, for runs with no
+    recorded count, and when you lack read access to the monitor's
+    rules.
+    """
+
+    run_breached_row_count = sgqlc.types.Field(BigInt, graphql_name="runBreachedRowCount")
+    """(experimental) Rows this run found breaching the rule. Sampled
+    runs may record a capped count. Counted per rule run, not as
+    distinct table rows. Several rules on one table evaluate
+    overlapping rows, so summing across rules counts the same row more
+    than once. Populated for validation monitors and row-count custom
+    SQL monitors. For monitors with variables, all child rules share
+    one schedule, so the count sums every rule you have read access to
+    across all variable combinations. Read these fields on the parent
+    monitor's runs only: a child rule's runs show the same schedule-
+    wide totals, not that child's own rows. Soft-deleted rules' counts
+    contribute only while at least one of the monitor's counted rules
+    is live and readable by you. Null for other monitor types, for
+    runs with no recorded count, and when you lack read access to the
+    monitor's rules.
     """
 
 
@@ -43979,6 +44282,7 @@ class LineageGraphNode(sgqlc.types.Type):
         "element_id",
         "agent_name",
         "tool_call",
+        "bi_asset_type",
     )
     mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
     """Monte Carlo full identifier for an entity"""
@@ -44036,6 +44340,14 @@ class LineageGraphNode(sgqlc.types.Type):
     tool_call = sgqlc.types.Field(String, graphql_name="toolCall")
     """Name of the tool call. Set only on ``tool``-typed nodes; null on
     agent and table nodes.
+    """
+
+    bi_asset_type = sgqlc.types.Field(String, graphql_name="biAssetType")
+    """Specific kind of a pushed BI asset (e.g. ``report`` or
+    ``dashboard``), resolved from the asset catalog on getTableLineage
+    nodes. Populated only on nodes whose objectType is the generic
+    ``bi-asset``; null when the asset has no usable catalog kind or on
+    non-BI-asset nodes.
     """
 
 
@@ -44856,6 +45168,73 @@ class LookerDashboardTileRef(sgqlc.types.Type):
     tile_id = sgqlc.types.Field(String, graphql_name="tileId")
 
     tile_title = sgqlc.types.Field(String, graphql_name="tileTitle")
+
+
+class MainSpanMetricsV2(sgqlc.types.Type):
+    """Metrics for one of the turn's main spans — the spans whose content
+    renders in this turn's messages.  The span's content is already
+    rendered in the turn's messages; this carries only its per-span
+    metrics. A main span is usually an LLM call, but can be a Cortex
+    turn wrapper or — when no span carries user-role prompts — a
+    trailing tool-execution span (see isToolCall).
+    """
+
+    __schema__ = schema
+    __field_names__ = (
+        "span_id",
+        "span_name",
+        "is_tool_call",
+        "start_time",
+        "end_time",
+        "duration_seconds",
+        "prompt_tokens",
+        "completion_tokens",
+        "total_tokens",
+        "status",
+    )
+    span_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="spanId")
+    """Span ID (hex-encoded)"""
+
+    span_name = sgqlc.types.Field(String, graphql_name="spanName")
+    """Span name"""
+
+    is_tool_call = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isToolCall")
+    """True when the main span is a tool execution rather than an LLM
+    call. The election falls back to a tool span when no span in the
+    turn carries user-role prompts.
+    """
+
+    start_time = sgqlc.types.Field(DateTime, graphql_name="startTime")
+    """Start time of the call's underlying span. Null when the span has
+    no start time.
+    """
+
+    end_time = sgqlc.types.Field(DateTime, graphql_name="endTime")
+    """End time of the call's underlying span. Null for in-flight spans."""
+
+    duration_seconds = sgqlc.types.Field(Float, graphql_name="durationSeconds")
+    """Duration of the call's underlying span in seconds (end minus
+    start). Null when either time is missing or the end precedes the
+    start.
+    """
+
+    prompt_tokens = sgqlc.types.Field(Int, graphql_name="promptTokens")
+    """Number of prompt tokens on the call's underlying span"""
+
+    completion_tokens = sgqlc.types.Field(Int, graphql_name="completionTokens")
+    """Number of completion tokens on the call's underlying span"""
+
+    total_tokens = sgqlc.types.Field(Int, graphql_name="totalTokens")
+    """Total tokens (prompt + completion) on the call's underlying span.
+    When internalSteps are requested, a turn's internalSteps
+    totalTokens plus its mainSpanMetrics totalTokens sum to the turn's
+    totalTokens.
+    """
+
+    status = sgqlc.types.Field(Int, graphql_name="status")
+    """OTel status code of the call's underlying span (0=unset, 1=ok,
+    2=error); null when the span carries no status
+    """
 
 
 class ManualMonitorExecutionStatusType(sgqlc.types.Type):
@@ -47642,6 +48021,7 @@ class Mutation(sgqlc.types.Type):
         "update_platform_service",
         "create_or_update_conversation_clustering_space",
         "refresh_conversation_clustering_space",
+        "request_conversation_clustering_backfill",
         "delete_conversation_clustering_space",
         "create_or_update_custom_conversation_cluster",
         "delete_custom_conversation_cluster",
@@ -49578,6 +49958,36 @@ class Mutation(sgqlc.types.Type):
 
     Arguments:
 
+    * `space_uuid` (`UUID!`)None
+    """
+
+    request_conversation_clustering_backfill = sgqlc.types.Field(
+        "RequestConversationClusteringBackfill",
+        graphql_name="requestConversationClusteringBackfill",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "lookback_days",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(Int), graphql_name="lookbackDays", default=None
+                    ),
+                ),
+                (
+                    "space_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(UUID), graphql_name="spaceUuid", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Classify retained conversations from before an
+    issue clustering space was enabled. The requested range is clamped
+    to 30 days of retained history.
+
+    Arguments:
+
+    * `lookback_days` (`Int!`)None
     * `space_uuid` (`UUID!`)None
     """
 
@@ -52216,6 +52626,10 @@ class Mutation(sgqlc.types.Type):
                     sgqlc.types.Arg(String, graphql_name="exceptionPrimaryKeyColumn", default=None),
                 ),
                 (
+                    "fail_on_reset",
+                    sgqlc.types.Arg(Boolean, graphql_name="failOnReset", default=False),
+                ),
+                (
                     "failure_audiences",
                     sgqlc.types.Arg(
                         sgqlc.types.list_of(sgqlc.types.non_null(String)),
@@ -52334,6 +52748,10 @@ class Mutation(sgqlc.types.Type):
     * `exception_primary_key_column` (`String`): Specifies the column
       which contains the primary key for sampled data used in
       exception management.
+    * `fail_on_reset` (`Boolean`): Return an error if the update is a
+      significant change that would reset the monitor (e.g. switching
+      threshold type). Lets the UI warn before resetting. (default:
+      `false`)
     * `failure_audiences` (`[String!]`): The audiences to notify on
       failure
     * `interval_minutes` (`Int`): How often to run scheduled custom
@@ -52349,6 +52767,8 @@ class Mutation(sgqlc.types.Type):
       failures occur.
     * `percentage_operator` (`ValidationPercentageThresholdOperator`):
       Comparison operator for validation percentage thresholds.
+      Defaults to GT when percentage_threshold is set without an
+      operator.
     * `percentage_threshold` (`Float`): Percentage threshold to alert
       on as a percentage of total rows.
     * `priority` (`String`): The default priority for alerts involving
@@ -58786,6 +59206,8 @@ class Mutation(sgqlc.types.Type):
                         sgqlc.types.non_null(UUID), graphql_name="monitorUuid", default=None
                     ),
                 ),
+                ("period_from", sgqlc.types.Arg(DateTime, graphql_name="periodFrom", default=None)),
+                ("period_to", sgqlc.types.Arg(DateTime, graphql_name="periodTo", default=None)),
                 (
                     "runtime_variables",
                     sgqlc.types.Arg(
@@ -58802,6 +59224,10 @@ class Mutation(sgqlc.types.Type):
     Arguments:
 
     * `monitor_uuid` (`UUID!`): Monitor UUID to run
+    * `period_from` (`DateTime`): Inclusive start of an agent
+      evaluation backfill window
+    * `period_to` (`DateTime`): Exclusive end of an agent evaluation
+      backfill window, at most seven days after its start
     * `runtime_variables` (`[RuntimeVariableValueInput!]`): Runtime
       variable values for parameterized execution
     """
@@ -74245,7 +74671,9 @@ class NodeDetail(sgqlc.types.Type):
     """Whether span represents an LLM call"""
 
     status = sgqlc.types.Field(Int, graphql_name="status")
-    """OTel status code (NULL=unset, 2=error)"""
+    """OTel status code (0=unset, 1=ok, 2=error); null when the span
+    carries no status
+    """
 
     model = sgqlc.types.Field(String, graphql_name="model")
     """LLM model used; non-null when is_llm_call=true"""
@@ -77507,6 +77935,7 @@ class Query(sgqlc.types.Type):
         "lookup_custom_dashboard_time_series_id_by_monitor",
         "get_custom_dashboard_widget_as_definition",
         "get_open_telemetry_data_stores",
+        "get_agent_observability_summary",
         "get_conversation_clustering_spaces",
         "get_conversation_clustering",
         "get_agent_metadata",
@@ -78613,6 +79042,38 @@ class Query(sgqlc.types.Type):
     )
     """(experimental) List all OpenTelemetry data stores for the account"""
 
+    get_agent_observability_summary = sgqlc.types.Field(
+        AgentObservabilitySummary,
+        graphql_name="getAgentObservabilitySummary",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "start_time",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="startTime", default=None
+                    ),
+                ),
+                (
+                    "end_time",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(DateTime), graphql_name="endTime", default=None
+                    ),
+                ),
+                ("domain_uuid", sgqlc.types.Arg(UUID, graphql_name="domainUuid", default=None)),
+            )
+        ),
+    )
+    """(experimental) Summarize observed agents and known data
+    dependencies in a half-open time window. Unavailable metrics are
+    null.
+
+    Arguments:
+
+    * `start_time` (`DateTime!`)None
+    * `end_time` (`DateTime!`)None
+    * `domain_uuid` (`UUID`)None
+    """
+
     get_conversation_clustering_spaces = sgqlc.types.Field(
         ConversationClusteringSpaceConnection,
         graphql_name="getConversationClusteringSpaces",
@@ -78733,10 +79194,6 @@ class Query(sgqlc.types.Type):
             (
                 ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
                 ("domain_uuid", sgqlc.types.Arg(UUID, graphql_name="domainUuid", default=None)),
-                (
-                    "include_inactive",
-                    sgqlc.types.Arg(Boolean, graphql_name="includeInactive", default=None),
-                ),
             )
         ),
     )
@@ -78745,15 +79202,10 @@ class Query(sgqlc.types.Type):
 
     Arguments:
 
-    * `start_time` (`DateTime`): Filter spans with start_time >= this
-      value
+    * `start_time` (`DateTime`): Only include agents seen at or after
+      this time
     * `domain_uuid` (`UUID`): Filter results to only include MCONs
       assigned to this domain UUID
-    * `include_inactive` (`Boolean`): Also list agents that have
-      produced no traces in the window, including ones whose spans
-      have aged out of retention entirely. true (the default) and null
-      widen the listing; false keeps only agents with traces in the
-      window.
     """
 
     get_agent_observability_billing_info = sgqlc.types.Field(
@@ -85085,7 +85537,12 @@ class Query(sgqlc.types.Type):
             )
         ),
     )
-    """Arguments:
+    """Execution history for a query performance monitor rule. The
+    runEvaluatedRowCount and runBreachedRowCount fields are always
+    null. Row counts are recorded only for validation monitors and
+    row-count custom SQL monitors, not for query performance monitors.
+
+    Arguments:
 
     * `rule_uuid` (`UUID!`): UUID of the Query Performance
       Monitor/Rule
@@ -96699,6 +97156,10 @@ class Query(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 (
+                    "order_by_agent_dependency",
+                    sgqlc.types.Arg(Boolean, graphql_name="orderByAgentDependency", default=False),
+                ),
+                (
                     "start_time",
                     sgqlc.types.Arg(
                         sgqlc.types.non_null(DateTime), graphql_name="startTime", default=None
@@ -96759,6 +97220,12 @@ class Query(sgqlc.types.Type):
 
     Arguments:
 
+    * `order_by_agent_dependency` (`Boolean`): True ranks eligible
+      tables by distinct reading agents before limiting. It enforces
+      minImportanceScore of at least 0.85, enables standard
+      prefix/suffix exclusions, and disables filterByCriticality.
+      Requires Assets and Lineage access; dependency failures raise an
+      error. False or null keeps the default order. (default: `false`)
     * `start_time` (`DateTime!`): Start of time window (inclusive) for
       anomaly filtering
     * `end_time` (`DateTime!`): End of time window (exclusive) for
@@ -101281,6 +101748,10 @@ class Query(sgqlc.types.Type):
         args=sgqlc.types.ArgDict(
             (
                 (
+                    "on_agent_read_tables",
+                    sgqlc.types.Arg(Boolean, graphql_name="onAgentReadTables", default=None),
+                ),
+                (
                     "updated_time",
                     sgqlc.types.Arg(DateTimeRangeInput, graphql_name="updatedTime", default=None),
                 ),
@@ -101320,6 +101791,11 @@ class Query(sgqlc.types.Type):
 
     Arguments:
 
+    * `on_agent_read_tables` (`Boolean`): True restricts alerts to
+      known tables read by observed agents. Requires Assets and
+      Lineage access in addition to Alerts access; a denied or failed
+      dependency query raises an error. False or null applies no
+      restriction.
     * `updated_time` (`DateTimeRangeInput`): Supply a time range
       within 2 months. Either this or `createdTime` or `ids` must be
       provided.
@@ -104136,6 +104612,18 @@ class ReportStatus(sgqlc.types.Type):
     error = sgqlc.types.Field(String, graphql_name="error")
 
     download_url = sgqlc.types.Field(String, graphql_name="downloadUrl")
+
+
+class RequestConversationClusteringBackfill(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("space", "ready_from", "ready_to")
+    space = sgqlc.types.Field(
+        sgqlc.types.non_null(ConversationClusteringSpaceType), graphql_name="space"
+    )
+
+    ready_from = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="readyFrom")
+
+    ready_to = sgqlc.types.Field(sgqlc.types.non_null(DateTime), graphql_name="readyTo")
 
 
 class RequiredMonitorFields(sgqlc.types.Type):
@@ -109062,7 +109550,7 @@ class TableWithAnomalies(sgqlc.types.Type):
     """Warehouse table with associated anomalies"""
 
     __schema__ = schema
-    __field_names__ = ("table", "events")
+    __field_names__ = ("table", "events", "reading_agent_count")
     table = sgqlc.types.Field(sgqlc.types.non_null("WarehouseTable"), graphql_name="table")
     """The warehouse table"""
 
@@ -109070,6 +109558,11 @@ class TableWithAnomalies(sgqlc.types.Type):
         sgqlc.types.non_null(sgqlc.types.list_of("Event")), graphql_name="events"
     )
     """Anomaly events associated with this table"""
+
+    reading_agent_count = sgqlc.types.Field(Int, graphql_name="readingAgentCount")
+    """Distinct visible agents with a known direct dependency on this
+    table. Null when unavailable or not requested.
+    """
 
 
 class TableauAccount(sgqlc.types.Type):
@@ -114237,6 +114730,7 @@ class ValidationOutput(sgqlc.types.Type):
         "exception_primary_key_column",
         "percentage_threshold",
         "percentage_operator",
+        "fail_on_reset",
         "time_filter",
         "filters",
         "time_filter_sql_expression",
@@ -114321,6 +114815,8 @@ class ValidationOutput(sgqlc.types.Type):
     percentage_threshold = sgqlc.types.Field(Float, graphql_name="percentageThreshold")
 
     percentage_operator = sgqlc.types.Field(String, graphql_name="percentageOperator")
+
+    fail_on_reset = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="failOnReset")
 
     time_filter = sgqlc.types.Field(TimeFilter, graphql_name="timeFilter")
 
@@ -118393,6 +118889,7 @@ class CustomRule(sgqlc.types.Type, Node):
         "migrated_to_uuid",
         "audience_conditions",
         "field_metric",
+        "evaluated_count_metric_name",
         "field_query_parameters",
         "query_template_id",
         "query_template_variable_values",
@@ -118734,6 +119231,16 @@ class CustomRule(sgqlc.types.Type, Node):
     field_metric = sgqlc.types.Field(FieldMetricOutput, graphql_name="fieldMetric")
     """Field quality rule parameters (if query generated by
     getFieldMetricQuery)
+    """
+
+    evaluated_count_metric_name = sgqlc.types.Field(String, graphql_name="evaluatedCountMetricName")
+    """Name of the metric series where this rule's per-run evaluated row
+    count is recorded. Null when the rule records no such series. For
+    a monitor with variables, each child rule records its own series
+    under its own UUID and the template parent records none. Read the
+    series with getMetricsV4, passing this rule's UUID as the monitor
+    ID. A returned name does not mean data exists: runs can fail or
+    predate recording.
     """
 
     field_query_parameters = sgqlc.types.Field(
@@ -119649,12 +120156,14 @@ class DataSourceSql(sgqlc.types.Type, DataSourceInterface):
 
 class DataSourceTable(sgqlc.types.Type, DataSourceInterface):
     __schema__ = schema
-    __field_names__ = ("mcon", "transforms")
+    __field_names__ = ("mcon", "transforms", "table_identifier")
     mcon = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="mcon")
 
     transforms = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(Transform)), graphql_name="transforms"
     )
+
+    table_identifier = sgqlc.types.Field(String, graphql_name="tableIdentifier")
 
 
 class DatadogIncident(sgqlc.types.Type, NodeWithUUID):
@@ -126074,6 +126583,7 @@ class WarehouseTable(sgqlc.types.Type, Node):
         "is_muted",
         "muted_event_types",
         "table_stats",
+        "last_updated_on",
         "is_transitioning_data_provider",
         "table_capabilities",
         "partition_keys",
@@ -126595,6 +127105,13 @@ class WarehouseTable(sgqlc.types.Type, Node):
 
     table_stats = sgqlc.types.Field(TableStats, graphql_name="tableStats")
     """Stats for the table"""
+
+    last_updated_on = sgqlc.types.Field(DateTime, graphql_name="lastUpdatedOn")
+    """Time of the most recent data update, from the out-of-the-box
+    freshness metric (collected hourly). Falls back to the table's
+    last write from query stats when collection has stopped. Null when
+    neither is available.
+    """
 
     is_transitioning_data_provider = sgqlc.types.Field(
         Boolean, graphql_name="isTransitioningDataProvider"

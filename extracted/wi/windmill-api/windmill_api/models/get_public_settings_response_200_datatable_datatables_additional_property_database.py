@@ -13,10 +13,12 @@ T = TypeVar("T", bound="GetPublicSettingsResponse200DatatableDatatablesAdditiona
 
 @_attrs_define
 class GetPublicSettingsResponse200DatatableDatatablesAdditionalPropertyDatabase:
-    """
-    Attributes:
-        resource_type (GetPublicSettingsResponse200DatatableDatatablesAdditionalPropertyDatabaseResourceType):
-        resource_path (Union[Unset, str]):
+    """Set on an entry that owns its database. Absent on a fork's entry, which points at another workspace's data table
+    instead.
+
+        Attributes:
+            resource_type (GetPublicSettingsResponse200DatatableDatatablesAdditionalPropertyDatabaseResourceType):
+            resource_path (Union[Unset, str]):
     """
 
     resource_type: GetPublicSettingsResponse200DatatableDatatablesAdditionalPropertyDatabaseResourceType

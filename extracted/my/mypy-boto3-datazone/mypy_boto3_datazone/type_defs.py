@@ -75,6 +75,7 @@ from .literals import (
     NotebookExportStatusType,
     NotebookRunStatusType,
     NotebookStatusType,
+    NotebookTypeType,
     NotificationRoleType,
     NotificationTypeType,
     OAuth2GrantTypeType,
@@ -1507,14 +1508,19 @@ class CreateListingChangeSetInputTypeDef(TypedDict):
     clientToken: NotRequired[str]
 
 
-class CreateNotebookInputTypeDef(TypedDict):
-    domainIdentifier: str
-    owningProjectIdentifier: str
-    name: str
-    description: NotRequired[str]
-    metadata: NotRequired[Mapping[str, str]]
-    parameters: NotRequired[Mapping[str, str]]
-    clientToken: NotRequired[str]
+CreateNotebookInputTypeDef = TypedDict(
+    "CreateNotebookInputTypeDef",
+    {
+        "domainIdentifier": str,
+        "owningProjectIdentifier": str,
+        "name": str,
+        "description": NotRequired[str],
+        "type": NotRequired[NotebookTypeType],
+        "metadata": NotRequired[Mapping[str, str]],
+        "parameters": NotRequired[Mapping[str, str]],
+        "clientToken": NotRequired[str],
+    },
+)
 
 
 class GitMetadataOutputTypeDef(TypedDict):
@@ -2618,16 +2624,19 @@ class ListNotebookRunsInputTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 
-class ListNotebooksInputTypeDef(TypedDict):
-    domainIdentifier: str
-    owningProjectIdentifier: str
-    maxResults: NotRequired[int]
-    sortOrder: NotRequired[SortOrderType]
-    sortBy: NotRequired[SortKeyType]
-    status: NotRequired[NotebookStatusType]
-    nextToken: NotRequired[str]
-
-
+ListNotebooksInputTypeDef = TypedDict(
+    "ListNotebooksInputTypeDef",
+    {
+        "domainIdentifier": str,
+        "owningProjectIdentifier": str,
+        "maxResults": NotRequired[int],
+        "sortOrder": NotRequired[SortOrderType],
+        "sortBy": NotRequired[SortKeyType],
+        "status": NotRequired[NotebookStatusType],
+        "type": NotRequired[NotebookTypeType],
+        "nextToken": NotRequired[str],
+    },
+)
 NotebookSummaryTypeDef = TypedDict(
     "NotebookSummaryTypeDef",
     {
@@ -2636,6 +2645,7 @@ NotebookSummaryTypeDef = TypedDict(
         "owningProjectId": str,
         "domainId": str,
         "status": NotebookStatusType,
+        "type": NotRequired[NotebookTypeType],
         "description": NotRequired[str],
         "createdAt": NotRequired[datetime],
         "createdBy": NotRequired[str],
@@ -4790,15 +4800,18 @@ class ListNotebookRunsInputPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
-class ListNotebooksInputPaginateTypeDef(TypedDict):
-    domainIdentifier: str
-    owningProjectIdentifier: str
-    sortOrder: NotRequired[SortOrderType]
-    sortBy: NotRequired[SortKeyType]
-    status: NotRequired[NotebookStatusType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-
+ListNotebooksInputPaginateTypeDef = TypedDict(
+    "ListNotebooksInputPaginateTypeDef",
+    {
+        "domainIdentifier": str,
+        "owningProjectIdentifier": str,
+        "sortOrder": NotRequired[SortOrderType],
+        "sortBy": NotRequired[SortKeyType],
+        "status": NotRequired[NotebookStatusType],
+        "type": NotRequired[NotebookTypeType],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
 ListNotificationsInputPaginateTypeDef = TypedDict(
     "ListNotificationsInputPaginateTypeDef",
     {
@@ -5768,6 +5781,7 @@ CreateNotebookOutputTypeDef = TypedDict(
         "domainId": str,
         "cellOrder": list[dict[str, Any]],
         "status": NotebookStatusType,
+        "type": NotebookTypeType,
         "description": str,
         "createdAt": datetime,
         "createdBy": str,
@@ -5794,6 +5808,7 @@ GetNotebookOutputTypeDef = TypedDict(
         "domainId": str,
         "cellOrder": list[dict[str, Any]],
         "status": NotebookStatusType,
+        "type": NotebookTypeType,
         "description": str,
         "createdAt": datetime,
         "createdBy": str,
@@ -5867,21 +5882,22 @@ StartNotebookRunOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
-
-
-class UpdateNotebookInputTypeDef(TypedDict):
-    domainIdentifier: str
-    identifier: str
-    description: NotRequired[str]
-    status: NotRequired[NotebookStatusType]
-    name: NotRequired[str]
-    cellOrder: NotRequired[Sequence[Mapping[str, Any]]]
-    metadata: NotRequired[Mapping[str, str]]
-    parameters: NotRequired[Mapping[str, str]]
-    environmentConfiguration: NotRequired[EnvironmentConfigTypeDef]
-    clientToken: NotRequired[str]
-
-
+UpdateNotebookInputTypeDef = TypedDict(
+    "UpdateNotebookInputTypeDef",
+    {
+        "domainIdentifier": str,
+        "identifier": str,
+        "description": NotRequired[str],
+        "status": NotRequired[NotebookStatusType],
+        "name": NotRequired[str],
+        "cellOrder": NotRequired[Sequence[Mapping[str, Any]]],
+        "type": NotRequired[NotebookTypeType],
+        "metadata": NotRequired[Mapping[str, str]],
+        "parameters": NotRequired[Mapping[str, str]],
+        "environmentConfiguration": NotRequired[EnvironmentConfigTypeDef],
+        "clientToken": NotRequired[str],
+    },
+)
 UpdateNotebookOutputTypeDef = TypedDict(
     "UpdateNotebookOutputTypeDef",
     {
@@ -5891,6 +5907,7 @@ UpdateNotebookOutputTypeDef = TypedDict(
         "domainId": str,
         "cellOrder": list[dict[str, Any]],
         "status": NotebookStatusType,
+        "type": NotebookTypeType,
         "description": str,
         "createdAt": datetime,
         "createdBy": str,

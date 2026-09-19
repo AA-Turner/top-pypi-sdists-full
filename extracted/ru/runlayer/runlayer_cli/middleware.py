@@ -1,7 +1,6 @@
 """Basic on_message middleware for MCP CLI with OAuth support."""
 
 import inspect
-import sys
 from typing import Any, cast
 
 import anyio
@@ -13,7 +12,7 @@ import structlog
 import mcp.types as mt
 from runlayer_cli import flow_trace, oauth_guidance
 from runlayer_cli.api import RunlayerClient
-from runlayer_cli.error_classification import classify_exception
+from runlayer_cli.error_classification import classify_exception, iter_exception_tree
 from runlayer_cli.sync import sync_local_capabilities
 
 from fastmcp.server.proxy import FastMCPProxy
@@ -21,23 +20,23 @@ from fastmcp.tools.tool import ToolResult
 from fastmcp.server.proxy import ProxyTool
 from runlayer_cli.models import ServerDetails
 from runlayer_cli.models_mcp import PostRequest, PreRequest, UpstreamError
+from runlayer_cli.oauth import OAUTH_LOGIN_BUDGET_SECONDS, OAuthCallbackListenerError
 
-if sys.version_info >= (3, 11):
-    import builtins
-
-    _ExceptionGroup = builtins.BaseExceptionGroup
-else:  # pragma: no cover - py3.10 backport (dep of anyio)
-    from exceptiongroup import BaseExceptionGroup as _ExceptionGroup
 
 logger = structlog.get_logger()
 
-# Connection errors that indicate the upstream target is not reachable.
-# httpx.TransportError covers ConnectError/ReadError/ReadTimeout/etc; a hung
-# upstream (VPN down, DNS blackhole) surfaces as a timeout, not a connect error.
-_UPSTREAM_CONNECTION_ERRORS = (
+# Errors meaning the request never reached a working upstream: transport
+# failures (httpx.TransportError covers ConnectError/ReadError/ReadTimeout; a
+# hung upstream surfaces as a timeout) and device-local OAuth listener
+# failures that stop the login before it starts.
+_UPSTREAM_UNAVAILABLE_ERRORS = (
     httpx.TransportError,
     ConnectionError,
     TimeoutError,
+    # Callback listener failed before any login started: the request never
+    # reaches the upstream, same as a refused connect, and the message is
+    # already the user guidance.
+    OAuthCallbackListenerError,
 )
 
 # Upper bound on the upstream tools/list round-trip so a blackholed target
@@ -46,9 +45,10 @@ _UPSTREAM_CONNECTION_ERRORS = (
 _LIST_TOOLS_UPSTREAM_TIMEOUT_SECONDS = 30.0
 
 # Upper bound on the detached first upstream connect. Generous because a cold
-# remote connect may wait on a human finishing a browser OAuth login; bounded
-# so a dead upstream releases the callback port instead of holding it forever.
-_FIRST_CONNECT_TIMEOUT_SECONDS = 300.0
+# remote connect may first wait on a sibling process's browser login and then
+# run its own; bounded so a dead upstream releases the callback port instead
+# of holding it forever. The 30s covers discovery and token round-trips.
+_FIRST_CONNECT_TIMEOUT_SECONDS = 2 * OAUTH_LOGIN_BUDGET_SECONDS + 30.0
 
 # Transports whose first connect may run a browser OAuth flow.
 _OAUTH_TRANSPORT_TYPES = frozenset({"sse", "streaming-http"})
@@ -108,18 +108,21 @@ def _same_capability_source(left: ServerDetails, right: ServerDetails) -> bool:
 def _unreachable_error(exc: BaseException) -> BaseException | None:
     """Return the underlying connection error if `exc` means upstream unreachable.
 
-    anyio task groups (used by fastmcp transports) can wrap transport errors in
-    (nested) ExceptionGroups that a plain `except` tuple never matches, so
-    unwrap them recursively.
+    anyio task groups (used by fastmcp transports) wrap transport errors in
+    (nested) ExceptionGroups, and fastmcp's connect path re-raises the session
+    task's failure as ``RuntimeError("Client failed to connect: ...") from
+    exc``. Neither shape matches a plain `except` tuple. Only explicit causes
+    and group members count here: this decides control flow, and an implicit
+    ``__context__`` may be an unrelated bug raised while handling the error.
     """
-    if isinstance(exc, _UPSTREAM_CONNECTION_ERRORS):
-        return exc
-    if isinstance(exc, _ExceptionGroup):
-        for inner in exc.exceptions:
-            found = _unreachable_error(inner)
-            if found is not None:
-                return found
-    return None
+    return next(
+        (
+            node
+            for node in iter_exception_tree(exc, follow_context=False)
+            if isinstance(node, _UPSTREAM_UNAVAILABLE_ERRORS)
+        ),
+        None,
+    )
 
 
 def _session_id_from_call_params(params: mt.CallToolRequestParams) -> str | None:
@@ -430,9 +433,16 @@ class RunlayerMiddleware(Middleware):
             unreachable = _unreachable_error(exc)
             if unreachable is None:
                 raise
+            # OAuth-side failures carry their own user guidance; anything
+            # else is the upstream process not answering.
+            client_message = getattr(unreachable, "client_message", None)
             error_result = ToolResult(
-                content=f"{self.server.name} is not running. "
-                f"Please start the application and try again."
+                content=(
+                    f"{self.server.name}: {client_message}"
+                    if client_message
+                    else f"{self.server.name} is not running. "
+                    "Please start the application and try again."
+                )
             )
             self._handle_upstream_unreachable(
                 unreachable,
@@ -502,6 +512,13 @@ class RunlayerMiddleware(Middleware):
                 post_result=[],
                 inject_synthetic_tool_on_policy_block=True,
             )
+            if isinstance(unreachable, OAuthCallbackListenerError):
+                # An empty tool list would hide the one thing the user can
+                # act on; the audit and flow record are written, so let the
+                # client display the guidance. Bare re-raise: `unreachable` is
+                # usually `exc.__cause__`, and `from exc` would overwrite its
+                # own OSError cause.
+                raise unreachable
             return []
 
         await self.maybe_start_sync()

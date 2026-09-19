@@ -38,9 +38,13 @@ from runlayer_cli import regex_safe
 from runlayer_cli.hook_install.browser_policy import (
     expected_policy,
     read_plist_dict,
-    refresh_managed_preferences,
     write_if_changed,
 )
+from runlayer_cli.hook_install.chromium_profile_health import (
+    CHROME_USER_DATA_DIR,
+    browser_profile_extension_details,
+)
+from runlayer_cli.managed_policy_publication import publish_policy_changes
 from runlayer_cli.mdm_config import ManagedConfig
 
 CHROME_MANAGED_PREFS_DIR = Path("/Library/Managed Preferences")
@@ -98,7 +102,9 @@ def _skip(reason: str) -> BrowserExtensionResult:
 
 
 def should_report_browser_extension_skip(result: BrowserExtensionResult) -> bool:
-    return result.skipped_reason != _SKIP_NO_EXTENSION_ID
+    return (
+        bool(result.skipped_reason) and result.skipped_reason != _SKIP_NO_EXTENSION_ID
+    )
 
 
 def _extension_update_url(managed: ManagedConfig) -> tuple[str | None, str | None]:
@@ -236,48 +242,54 @@ def _remove_stale_runlayer_extension(
     )
     force_policy_changed = False
 
-    if isinstance(current_force_list, list) and stale_ids:
-        kept_entries = [
-            entry
-            for entry in current_force_list
-            if (parts := _force_install_entry_parts(entry)) is None
-            or parts[0] not in stale_ids
-        ]
-        updated_policy = dict(chrome_policy)
-        if kept_entries:
-            updated_policy[EXTENSION_INSTALL_FORCELIST_KEY] = kept_entries
-        else:
-            updated_policy.pop(EXTENSION_INSTALL_FORCELIST_KEY, None)
-        force_policy_bytes = plistlib.dumps(
-            updated_policy, fmt=plistlib.FMT_XML, sort_keys=True
-        )
-        force_policy_changed = write_if_changed(force_policy_path, force_policy_bytes)
+    policy_paths = [
+        force_policy_path,
+        *(
+            policy_plist_path(extension_id, managed_prefs_dir)
+            for extension_id in stale_ids | {RUNLAYER_CHROME_EXTENSION_ID}
+        ),
+    ]
+    with publish_policy_changes(policy_paths):
+        if isinstance(current_force_list, list) and stale_ids:
+            kept_entries = [
+                entry
+                for entry in current_force_list
+                if (parts := _force_install_entry_parts(entry)) is None
+                or parts[0] not in stale_ids
+            ]
+            updated_policy = dict(chrome_policy)
+            if kept_entries:
+                updated_policy[EXTENSION_INSTALL_FORCELIST_KEY] = kept_entries
+            else:
+                updated_policy.pop(EXTENSION_INSTALL_FORCELIST_KEY, None)
+            force_policy_bytes = plistlib.dumps(
+                updated_policy, fmt=plistlib.FMT_XML, sort_keys=True
+            )
+            force_policy_changed = write_if_changed(
+                force_policy_path, force_policy_bytes
+            )
 
-    external_changed = False
-    for extension_id in _runlayer_external_extension_ids(
-        external_dir, managed_host=managed_host
-    ):
-        stale_ids.add(extension_id)
-        try:
-            external_install_path(extension_id, external_dir).unlink()
-        except FileNotFoundError:
-            pass
-        else:
-            external_changed = True
+        external_changed = False
+        for extension_id in _runlayer_external_extension_ids(
+            external_dir, managed_host=managed_host
+        ):
+            stale_ids.add(extension_id)
+            policy_paths.append(policy_plist_path(extension_id, managed_prefs_dir))
+            try:
+                external_install_path(extension_id, external_dir).unlink()
+            except FileNotFoundError:
+                pass
+            else:
+                external_changed = True
 
-    policy_changed = False
-    for extension_id in stale_ids:
-        try:
-            policy_plist_path(extension_id, managed_prefs_dir).unlink()
-        except FileNotFoundError:
-            pass
-        else:
-            policy_changed = True
-
-    if (
-        force_policy_changed or policy_changed
-    ) and managed_prefs_dir == CHROME_MANAGED_PREFS_DIR:
-        refresh_managed_preferences()
+        policy_changed = False
+        for extension_id in stale_ids:
+            try:
+                policy_plist_path(extension_id, managed_prefs_dir).unlink()
+            except FileNotFoundError:
+                pass
+            else:
+                policy_changed = True
 
     changed = force_policy_changed or external_changed or policy_changed
     return BrowserExtensionResult(
@@ -347,26 +359,24 @@ def install_browser_extension(
         raise BrowserExtensionMisconfiguration("managed Host + OrgApiKey required")
 
     policy_path = policy_plist_path(extension_id, managed_prefs_dir)
-    policy_bytes = plistlib.dumps(policy, fmt=plistlib.FMT_XML, sort_keys=True)
-    write_if_changed(policy_path, policy_bytes)
-
     force_policy_path = chrome_policy_plist_path(managed_prefs_dir)
-    chrome_policy = _with_force_install_entry(
-        read_plist_dict(force_policy_path), extension_id, update_url
-    )
-    chrome_policy_bytes = plistlib.dumps(
-        chrome_policy, fmt=plistlib.FMT_XML, sort_keys=True
-    )
-    write_if_changed(force_policy_path, chrome_policy_bytes)
+    with publish_policy_changes([policy_path, force_policy_path]):
+        policy_bytes = plistlib.dumps(policy, fmt=plistlib.FMT_XML, sort_keys=True)
+        write_if_changed(policy_path, policy_bytes)
 
-    install_path = external_install_path(extension_id, external_dir)
-    install_bytes = (
-        json.dumps({"external_update_url": update_url}, indent=2) + "\n"
-    ).encode()
-    write_if_changed(install_path, install_bytes)
+        chrome_policy = _with_force_install_entry(
+            read_plist_dict(force_policy_path), extension_id, update_url
+        )
+        chrome_policy_bytes = plistlib.dumps(
+            chrome_policy, fmt=plistlib.FMT_XML, sort_keys=True
+        )
+        write_if_changed(force_policy_path, chrome_policy_bytes)
 
-    # Do not run mcxrefresh: macOS rebuilds Managed Preferences from installed
-    # profiles and would delete this runtime-owned Chrome policy.
+        install_path = external_install_path(extension_id, external_dir)
+        install_bytes = (
+            json.dumps({"external_update_url": update_url}, indent=2) + "\n"
+        ).encode()
+        write_if_changed(install_path, install_bytes)
 
     return BrowserExtensionResult(
         written=True,
@@ -382,7 +392,7 @@ def check_browser_extension(
     managed_prefs_dir: Path = CHROME_MANAGED_PREFS_DIR,
     external_dir: Path = CHROME_EXTERNAL_EXTENSIONS_DIR,
 ) -> tuple[bool, str | None]:
-    """Drift check: ``(ok, detail)``."""
+    """Policy and persisted profile drift, not proof of a running extension."""
     extension_id = managed.get("browser_extension_id")
     if platform.system() != "Darwin":
         return True, None
@@ -432,5 +442,12 @@ def check_browser_extension(
     if not _external_install_entry_matches(extension_id, update_url, external_dir):
         ok = False
         details.append("auto-install entry stale or missing")
+
+    profile_details = browser_profile_extension_details(
+        extension_id, user_data_dir=CHROME_USER_DATA_DIR
+    )
+    if profile_details:
+        ok = False
+        details.extend(profile_details)
 
     return ok, "; ".join(details) or None

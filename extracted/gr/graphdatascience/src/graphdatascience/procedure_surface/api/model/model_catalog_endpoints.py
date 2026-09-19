@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from graphdatascience.model.v2.model_details import ModelDetails
+from graphdatascience.model.model_details import ModelDetails
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 
 
@@ -56,6 +56,7 @@ class ModelCatalogEndpoints(ABC):
     @abstractmethod
     def get(self, model_name: str) -> ModelDetails:
         """Get a model catalog entry by name.
+        To get the typed model object use `gds.<algo>.get`, such as `gds.graph_sage.get`
 
         Parameters
         ----------
@@ -81,7 +82,7 @@ class ModelCatalogEndpoints(ABC):
 
         Returns
         -------
-        ModelDetails
+        ModelDetails | None
             The model details after the drop operation when applicable.
         """
 
@@ -98,7 +99,7 @@ class ModelCatalogEndpoints(ABC):
 
         Returns
         -------
-        ModelDeleteResult
+        ModelDeleteResult | None
             The delete result.
         """
 

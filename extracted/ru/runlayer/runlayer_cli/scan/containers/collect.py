@@ -5,7 +5,8 @@ from __future__ import annotations
 import posixpath
 import time
 from collections.abc import Iterable, Iterator
-from dataclasses import dataclass, field
+from contextlib import contextmanager
+from dataclasses import dataclass, field, replace
 from itertools import chain
 from pathlib import Path
 from typing import Callable, TypeVar
@@ -31,7 +32,10 @@ from runlayer_cli.scan.config_parser import (
     MCPClientConfig,
     parse_config_content,
 )
-from runlayer_cli.scan.containers.collector import ContainerRuntimeCollector
+from runlayer_cli.scan.containers.collector import (
+    ContainerRuntimeCollector,
+    FileCopyResult,
+)
 from runlayer_cli.scan.containers.docker_cli import (
     MAX_DOCKER_CP_ARCHIVE_BYTES,
     SCAN_BASE_TIME_BUDGET_S,
@@ -45,7 +49,7 @@ from runlayer_cli.scan.containers.docker_cli import (
     _inspect_stopped_containers,
     _list_container_images,
     _remaining_timeout,
-    _run_bytes,
+    _run_file_copy,
     _scaled_scan_time_budget,
 )
 from runlayer_cli.scan.containers.docker_socket import (
@@ -53,6 +57,9 @@ from runlayer_cli.scan.containers.docker_socket import (
     find_docker_socket,
 )
 from runlayer_cli.scan.containers.inspect_parse import (
+    CONTAINER_SCAN_INCOMPLETE_REASON,
+    CONTAINER_SCAN_UNAVAILABLE_REASON,
+    CONTAINER_SCAN_UNEXPECTED_REASON,
     MAX_CONTAINER_IMAGES,
     MAX_CONTAINERS,
     ContainerImageInventory,
@@ -85,6 +92,8 @@ from runlayer_cli.scan.disguised_skills import validate_disguised_skill_content
 from runlayer_cli.scan.file_collector import MAX_TOTAL_BYTES
 from runlayer_cli.scan.hidden_space_sweep import is_hidden_container_path
 from runlayer_cli.scan.npm_global import ValidatedNpmManifest, validate_npm_manifest
+from runlayer_cli.scan.plugin_scanner import DiscoveredPluginArtifact
+from runlayer_cli.scan.resource_governor import ScanResourceLimitExceeded
 from runlayer_cli.scan.project_tree_match import (
     _ConfigCandidate,
     _ProjectConfigSpec,
@@ -105,6 +114,13 @@ from runlayer_cli.scan.skill_scanner import (
     _GLOBAL_SKILL_DIRS,
     apply_retention_policy,
     build_skill_artifact_from_files,
+)
+from runlayer_cli.scan.vscode_extensions import (
+    MAX_EXTENSIONS_PER_SCAN,
+    MAX_MANIFEST_BYTES,
+    _HOST_CLIENTS,
+    build_vscode_extension_artifact,
+    parse_vscode_extension_manifest,
 )
 
 logger = structlog.get_logger(__name__)
@@ -143,6 +159,7 @@ class DockerCliCollector:
             docker=self.docker,
             deadline=deadline,
             subprocess_timeout=self.operation_timeout,
+            runtime=self.runtime,
         )
 
     def inspect_containers(
@@ -182,6 +199,7 @@ class DockerCliCollector:
             docker=self.docker,
             deadline=deadline,
             subprocess_timeout=self.operation_timeout,
+            runtime=self.runtime,
         )
 
     def inspect_stopped_containers(
@@ -216,11 +234,14 @@ class DockerCliCollector:
         container: DiscoveredContainer,
         path: str,
         deadline: float,
-    ) -> bytes | None:
+    ) -> FileCopyResult:
         timeout = _remaining_timeout(deadline, self.operation_timeout)
         if timeout is None:
-            return None
-        return _run_bytes(
+            return FileCopyResult(
+                status="failed",
+                failure_reason="container_artifact_copy_timed_out",
+            )
+        return _run_file_copy(
             [self.docker, "cp", f"{container.container_id}:{path}", "-"],
             timeout=timeout,
             max_output=MAX_DOCKER_CP_ARCHIVE_BYTES,
@@ -310,7 +331,7 @@ class DockerSocketCollector:
         container: DiscoveredContainer,
         path: str,
         deadline: float,
-    ) -> bytes | None:
+    ) -> FileCopyResult:
         return self._client.copy_file_archive(
             container_id=container.container_id,
             path=path,
@@ -384,20 +405,36 @@ class K3sCrictlCollector:
         container: DiscoveredContainer,
         path: str,
         deadline: float,
-    ) -> bytes | None:
+    ) -> FileCopyResult:
         pid = container.pid
         if pid is None:
-            return None
+            return FileCopyResult(
+                status="failed",
+                failure_reason="container_artifact_proc_pid_missing",
+            )
         operation_deadline = min(
             deadline,
             time.monotonic() + max(self.operation_timeout, 0.05),
         )
-        return _copy_proc_file_archive(
+        archive = _copy_proc_file_archive(
             proc_root=self.proc_root,
             pid=pid,
             path=path,
             deadline=operation_deadline,
             container_id=container.container_id,
+        )
+        if archive is not None:
+            return FileCopyResult(status="success", archive=archive)
+        proc_path = self.proc_root / str(pid) / "root" / path.lstrip("/")
+        try:
+            proc_path.stat()
+        except FileNotFoundError:
+            return FileCopyResult(status="absent")
+        except OSError:
+            pass
+        return FileCopyResult(
+            status="failed",
+            failure_reason="container_artifact_proc_copy_failed",
         )
 
     def copy_tree(
@@ -412,7 +449,7 @@ class K3sCrictlCollector:
     ) -> _TarWalkResult:
         pid = container.pid
         if pid is None:
-            return _TarWalkResult()
+            return _TarWalkResult(failure_reason="container_artifact_proc_pid_missing")
         operation_deadline = min(
             deadline,
             time.monotonic() + max(self.operation_timeout, 0.05),
@@ -440,7 +477,42 @@ class _CollectedContainerArtifacts:
     configurations: list[MCPClientConfig] = field(default_factory=list)
     detected_clients: list[DetectedClient] = field(default_factory=list)
     skills: list[DiscoveredSkillArtifact] = field(default_factory=list)
+    plugins: list[DiscoveredPluginArtifact] = field(default_factory=list)
     agent_definitions: list[DiscoveredAgentDefinition] = field(default_factory=list)
+    complete: bool = True
+    failure_reason: str | None = None
+
+
+def _apply_tar_walk_outcome(
+    artifacts: _CollectedContainerArtifacts,
+    walked: _TarWalkResult,
+) -> None:
+    if walked.truncated or walked.failure_reason is not None:
+        artifacts.complete = False
+        artifacts.failure_reason = (
+            walked.failure_reason or "container_artifact_walk_truncated"
+        )
+
+
+def _copied_file_content(
+    artifacts: _CollectedContainerArtifacts,
+    result: FileCopyResult,
+) -> bytes | None:
+    if result.status == "absent":
+        return None
+    if result.status == "failed":
+        artifacts.complete = False
+        artifacts.failure_reason = (
+            result.failure_reason or "container_artifact_copy_failed"
+        )
+        return None
+    content = (
+        _extract_copied_file(result.archive) if result.archive is not None else None
+    )
+    if content is None:
+        artifacts.complete = False
+        artifacts.failure_reason = "container_artifact_archive_read_failed"
+    return content
 
 
 @dataclass(frozen=True)
@@ -725,6 +797,10 @@ def _configuration_from_candidate(
     )
 
 
+class _ExtensionCollectionCapped(Exception):
+    """Stop extension collection without aborting later artifact phases."""
+
+
 class _CollectionBudgetExhausted(Exception):
     """Abort all remaining collection once a time or byte budget is spent."""
 
@@ -733,13 +809,18 @@ class _CollectionBudgetExhausted(Exception):
 class _ArtifactByteBudget:
     """Running total of collected artifact bytes across every container and phase.
 
-    Covers configs, skills, and agent definitions alike: each tar walk is
-    individually bounded, but the aggregate held across 4 phases x up to 64
+    Covers configs, skills, plugins, and agent definitions alike: each tar walk is
+    individually bounded, but the aggregate held across all phases x up to 64
     containers must also stay under ``MAX_TOTAL_BYTES``.
     """
 
     total_bytes: int = 0
     stream_bytes: int = 0
+    # Scan-wide VS Code extension cap, latched once tripped. Lives on the shared
+    # budget (not a loop local) so a later phase raising inside the same
+    # container cannot lose the latch and let the next container re-enter the
+    # extension walk and overwrite that container's failure reason.
+    extensions_capped: bool = False
 
     def charge(self, size: int) -> None:
         """Account for collected bytes, aborting collection once over the cap."""
@@ -840,6 +921,29 @@ def _make_wanted_global_file(
             not relative.startswith("../")
             and len(relative.split("/")) >= 2
             and posixpath.splitext(path)[1].lower() in SKILL_SUPPORTED_EXTENSIONS
+        )
+
+    return _wanted
+
+
+def _make_wanted_extension_manifest(
+    *,
+    extension_root: str,
+    container: DiscoveredContainer,
+    host_home: Path,
+) -> Callable[[str], bool]:
+    """Match package.json directly below one extension install directory."""
+
+    def _wanted(path: str) -> bool:
+        if path_is_shared_with_host_home(path, container.mounts, host_home):
+            return False
+        relative = posixpath.relpath(path, extension_root)
+        parts = relative.split("/")
+        return (
+            not relative.startswith("../")
+            and len(parts) == 2
+            and parts[0] not in {"", ".", ".."}
+            and parts[1] == "package.json"
         )
 
     return _wanted
@@ -1001,12 +1105,12 @@ def _validated_container_npm_manifest(
         ctx.host_home,
     ):
         return None
-    archive = ctx.collector.copy_file_archive(
+    copy_result = ctx.collector.copy_file_archive(
         container=container,
         path=target_path,
         deadline=ctx.tree_deadline_or_stop(),
     )
-    target_content = _extract_copied_file(archive) if archive is not None else None
+    target_content = _copied_file_content(ctx.artifacts, copy_result)
     if target_content is None:
         return None
     ctx.budget.charge(len(target_content))
@@ -1038,12 +1142,12 @@ def _collect_standard_container_npm_agents(
                 ctx.host_home,
             ):
                 continue
-            archive = ctx.collector.copy_file_archive(
+            copy_result = ctx.collector.copy_file_archive(
                 container=container,
                 path=manifest_path,
                 deadline=ctx.tree_deadline_or_stop(),
             )
-            content = _extract_copied_file(archive) if archive is not None else None
+            content = _copied_file_content(ctx.artifacts, copy_result)
             if content is None:
                 continue
             ctx.budget.charge(len(content))
@@ -1078,14 +1182,12 @@ def _collect_container_configs(
         timeout = _remaining_timeout(ctx.deadline, ctx.subprocess_timeout)
         if timeout is None:
             raise _CollectionBudgetExhausted
-        archive = ctx.collector.copy_file_archive(
+        copy_result = ctx.collector.copy_file_archive(
             container=container,
             path=candidate.path,
             deadline=ctx.deadline,
         )
-        if archive is None:
-            continue
-        content = _extract_copied_file(archive)
+        content = _copied_file_content(ctx.artifacts, copy_result)
         if content is None:
             continue
         ctx.budget.charge(len(content))
@@ -1128,6 +1230,7 @@ def _collect_container_project_tree(
         deadline=tree_deadline,
         max_stream_bytes=ctx.tree_stream_allowance_or_stop(),
     )
+    _apply_tar_walk_outcome(ctx.artifacts, walked)
     ctx.budget.charge_stream(walked.stream_bytes)
     ctx.budget.charge_files(walked.files)
     for path, content in walked.files.items():
@@ -1179,6 +1282,7 @@ def _collect_container_global_skills(
             deadline=tree_deadline,
             max_stream_bytes=ctx.tree_stream_allowance_or_stop(),
         )
+        _apply_tar_walk_outcome(ctx.artifacts, walked)
         ctx.budget.charge_stream(walked.stream_bytes)
         ctx.budget.charge_files(walked.files)
         ctx.artifacts.skills.extend(
@@ -1189,6 +1293,72 @@ def _collect_container_global_skills(
                 container=container,
             )
         )
+
+
+def _collect_container_extensions(
+    ctx: _PhaseContext,
+    container: DiscoveredContainer,
+) -> None:
+    """Walk known VS Code-family user extension roots."""
+    seen_roots: set[str] = set()
+    for host_dir, client in _HOST_CLIENTS:
+        if len(ctx.artifacts.plugins) >= MAX_EXTENSIONS_PER_SCAN:
+            raise _ExtensionCollectionCapped
+        extension_root = posixpath.normpath(
+            posixpath.join(container.home, host_dir, "extensions")
+        )
+        if extension_root in seen_roots or path_is_shared_with_host_home(
+            extension_root,
+            container.mounts,
+            ctx.host_home,
+        ):
+            continue
+        seen_roots.add(extension_root)
+        walked = ctx.collector.copy_tree(
+            container=container,
+            root_path=extension_root,
+            wanted_file=_make_wanted_extension_manifest(
+                extension_root=extension_root,
+                container=container,
+                host_home=ctx.host_home,
+            ),
+            deadline=ctx.tree_deadline_or_stop(),
+            max_stream_bytes=ctx.tree_stream_allowance_or_stop(),
+        )
+        _apply_tar_walk_outcome(ctx.artifacts, walked)
+        ctx.budget.charge_stream(walked.stream_bytes)
+        ctx.budget.charge_files(walked.files)
+        for manifest_path in sorted(walked.files):
+            if len(ctx.artifacts.plugins) >= MAX_EXTENSIONS_PER_SCAN:
+                raise _ExtensionCollectionCapped
+            content = walked.files[manifest_path]
+            if len(content) > MAX_MANIFEST_BYTES:
+                continue
+            manifest = parse_vscode_extension_manifest(content)
+            if manifest is None:
+                continue
+            install_path = posixpath.dirname(manifest_path)
+            artifact = build_vscode_extension_artifact(
+                manifest=manifest,
+                install_path=install_path,
+                folder_name=posixpath.basename(install_path),
+                client=client,
+            )
+            if artifact is not None:
+                ctx.artifacts.plugins.append(
+                    replace(
+                        artifact,
+                        container_id=container.container_id,
+                        container_name=container.name,
+                        container_image_ref=container.image_ref,
+                        container_image_digest=container.image_digest,
+                        container_runtime=container.runtime,
+                        container_is_devcontainer=container.is_devcontainer,
+                        container_is_running=container.is_running,
+                        container_labels=container.labels,
+                        container_mounts_host_home=container.mounts_host_home,
+                    )
+                )
 
 
 def _collect_container_user_definitions(
@@ -1218,6 +1388,7 @@ def _collect_container_user_definitions(
             deadline=tree_deadline,
             max_stream_bytes=ctx.tree_stream_allowance_or_stop(),
         )
+        _apply_tar_walk_outcome(ctx.artifacts, walked)
         ctx.budget.charge_stream(walked.stream_bytes)
         ctx.budget.charge_files(walked.files)
         ctx.artifacts.agent_definitions.extend(
@@ -1271,6 +1442,7 @@ def _collect_container_hidden_artifacts(
             deadline=ctx.tree_deadline_or_stop(),
             max_stream_bytes=ctx.tree_stream_allowance_or_stop(),
         )
+        _apply_tar_walk_outcome(ctx.artifacts, walked)
         ctx.budget.charge_stream(walked.stream_bytes)
         ctx.budget.charge_files(walked.files)
         for path, content in walked.files.items():
@@ -1315,8 +1487,8 @@ def _collect_container_artifacts(
 
     Standard npm identities run across every container before general artifact
     collection so earlier noisy trees cannot consume their reserved ordering.
-    General phases then collect configs, project trees, global skills, user
-    definitions, and hidden artifacts under shared content and stream budgets.
+    General phases then collect configs, project trees, global skills, extensions,
+    user definitions, and hidden artifacts under shared content and stream budgets.
     """
     ctx = _PhaseContext(
         collector=collector,
@@ -1335,37 +1507,87 @@ def _collect_container_artifacts(
     )
     try:
         for container in containers:
-            _collect_standard_container_npm_agents(ctx, container, npm_specs)
+            with _isolated_container(ctx, container):
+                _collect_standard_container_npm_agents(ctx, container, npm_specs)
         for container in containers:
-            agent_user_roots = _container_agent_user_roots(container)
-            global_skill_roots = {
-                relative_root: posixpath.normpath(
-                    posixpath.join(container.home, relative_root)
-                )
-                for relative_root, _ in _GLOBAL_SKILL_DIRS
-            }
-            _collect_container_configs(ctx, container, clients)
-            _collect_container_project_tree(
-                ctx,
-                container,
-                project_specs,
-                excluded_skill_roots=tuple(global_skill_roots.values()),
-                excluded_agent_roots=tuple(
-                    user_root for _, user_root in agent_user_roots
-                ),
-            )
-            _collect_container_global_skills(ctx, container, global_skill_roots)
-            _collect_container_user_definitions(ctx, container, agent_user_roots)
-            if detect_disguised_skills or npm_specs:
-                _collect_container_hidden_artifacts(
+            with _isolated_container(ctx, container):
+                _collect_one_container(
                     ctx,
                     container,
+                    clients=clients,
+                    project_specs=project_specs,
                     npm_specs=npm_specs,
                     detect_disguised_skills=detect_disguised_skills,
                 )
     except _CollectionBudgetExhausted:
-        pass
+        ctx.artifacts.complete = False
+        ctx.artifacts.failure_reason = "container_artifact_budget_exhausted"
     return ctx.artifacts
+
+
+@contextmanager
+def _isolated_container(
+    ctx: _PhaseContext, container: DiscoveredContainer
+) -> Iterator[None]:
+    """Confine an unexpected failure to one container.
+
+    A hostile or merely odd container (labels, mounts, file trees) must not
+    take every sibling's artifacts with it. Budget exhaustion is loop control
+    and keeps propagating; the governor's abort does too.
+    """
+    try:
+        yield
+    except (_CollectionBudgetExhausted, ScanResourceLimitExceeded):
+        raise
+    except Exception:
+        ctx.artifacts.complete = False
+        ctx.artifacts.failure_reason = "container_artifact_collection_failed"
+        logger.warning(
+            "container_artifact_collection_failed",
+            container_id=container.container_id,
+            exc_info=True,
+        )
+
+
+def _collect_one_container(
+    ctx: _PhaseContext,
+    container: DiscoveredContainer,
+    *,
+    clients: list[MCPClientDefinition],
+    project_specs: list[_ProjectConfigSpec],
+    npm_specs: tuple[_ContainerNpmSpec, ...],
+    detect_disguised_skills: bool,
+) -> None:
+    """Collect the general artifact phases for one container."""
+    agent_user_roots = _container_agent_user_roots(container)
+    global_skill_roots = {
+        relative_root: posixpath.normpath(posixpath.join(container.home, relative_root))
+        for relative_root, _ in _GLOBAL_SKILL_DIRS
+    }
+    _collect_container_configs(ctx, container, clients)
+    _collect_container_project_tree(
+        ctx,
+        container,
+        project_specs,
+        excluded_skill_roots=tuple(global_skill_roots.values()),
+        excluded_agent_roots=tuple(user_root for _, user_root in agent_user_roots),
+    )
+    _collect_container_global_skills(ctx, container, global_skill_roots)
+    if not ctx.budget.extensions_capped:
+        try:
+            _collect_container_extensions(ctx, container)
+        except _ExtensionCollectionCapped:
+            ctx.budget.extensions_capped = True
+            ctx.artifacts.complete = False
+            ctx.artifacts.failure_reason = "vscode_extension_scan_capped"
+    _collect_container_user_definitions(ctx, container, agent_user_roots)
+    if detect_disguised_skills or npm_specs:
+        _collect_container_hidden_artifacts(
+            ctx,
+            container,
+            npm_specs=npm_specs,
+            detect_disguised_skills=detect_disguised_skills,
+        )
 
 
 def _scan_with_collector(
@@ -1395,8 +1617,14 @@ def _scan_with_collector(
         return None
     container_ids = inventory["container_ids"]
     if not container_ids:
+        scan_succeeded = not inventory["malformed"] and inventory["output_empty"]
         return ContainerScanResult(
-            scan_succeeded=not inventory["malformed"] and inventory["output_empty"]
+            scan_succeeded=scan_succeeded,
+            failure_reason=None if scan_succeeded else CONTAINER_SCAN_INCOMPLETE_REASON,
+            artifact_scan_succeeded=scan_succeeded,
+            artifact_failure_reason=(
+                None if scan_succeeded else "container_inventory_incomplete"
+            ),
         )
 
     if time_budget is None:
@@ -1408,7 +1636,9 @@ def _scan_with_collector(
         host_home=host_home,
     )
     if containers is None:
-        return ContainerScanResult()
+        return ContainerScanResult(
+            failure_reason=CONTAINER_SCAN_INCOMPLETE_REASON,
+        )
     containers = collector.collect_image_digests(
         containers=containers,
         deadline=deadline,
@@ -1428,30 +1658,37 @@ def _scan_with_collector(
         container_count=len(containers),
         config_count=len(artifacts.configurations),
         skill_count=len(artifacts.skills),
+        plugin_count=len(artifacts.plugins),
         agent_definition_count=len(artifacts.agent_definitions),
     )
     # scan_succeeded marks the inventory authoritative: the backend treats any
     # previously-seen container missing from a successful scan as stopped. The
-    # Docker CLI and Engine-API socket collectors return None from
-    # inspect_containers unless every discovered ID parsed, so their inspected
-    # set always matches. The k3s/crictl collector inspects per container and
-    # drops rows that fail to parse or raced to stopped between ps and inspect,
-    # returning a short (or empty) list. Require the inspected set to equal the
-    # discovered set here so a partial k3s inventory reports scan_succeeded=False
-    # instead of reaping still-running containers, while its parsed containers
-    # and their artifacts are still collected above.
+    # Engine-API socket collector returns None from inspect_containers unless
+    # every discovered ID parsed, so its inspected set always matches. The
+    # Docker CLI collector falls back to per-ID inspect when the batch fails,
+    # and the k3s/crictl collector inspects per container; both drop rows that
+    # fail to parse or raced to stopped between ps and inspect, returning a
+    # short (or empty) list. Require the inspected set to equal the discovered
+    # set here so a partial inventory reports scan_succeeded=False instead of
+    # reaping still-running containers, while its parsed containers and their
+    # artifacts are still collected above.
     inventory_complete = len(containers) == len(container_ids) and {
         container.container_id for container in containers
     } == set(container_ids)
+    scan_succeeded = (
+        not inventory["truncated"] and not inventory["malformed"] and inventory_complete
+    )
     return ContainerScanResult(
         containers=containers,
         configurations=artifacts.configurations,
         detected_clients=artifacts.detected_clients,
         skills=artifacts.skills,
+        plugins=artifacts.plugins,
         agent_definitions=dedupe_agent_definitions(artifacts.agent_definitions),
-        scan_succeeded=not inventory["truncated"]
-        and not inventory["malformed"]
-        and inventory_complete,
+        scan_succeeded=scan_succeeded,
+        failure_reason=None if scan_succeeded else CONTAINER_SCAN_INCOMPLETE_REASON,
+        artifact_scan_succeeded=artifacts.complete,
+        artifact_failure_reason=artifacts.failure_reason,
     )
 
 
@@ -1593,7 +1830,13 @@ def _collect_docker_inventory(
                                 deadline=deadline,
                             )
                             result.stopped_containers = stopped_containers
-                            result.stopped_containers_succeeded = True
+                            # The CLI collector falls back to per-ID inspect
+                            # when the batch fails, so the list may be short;
+                            # only a full match is an authoritative inventory.
+                            result.stopped_containers_succeeded = {
+                                container.container_id
+                                for container in stopped_containers
+                            } == set(container_ids)
                     elif inventory["output_empty"]:
                         result.stopped_containers_succeeded = True
             except Exception as exc:
@@ -1671,6 +1914,7 @@ def _merge_scan_results(
     configurations: list[MCPClientConfig] = []
     detected_clients: list[DetectedClient] = []
     skills: list[DiscoveredSkillArtifact] = []
+    plugins: list[DiscoveredPluginArtifact] = []
     agent_definitions: list[DiscoveredAgentDefinition] = []
     seen_container_ids: set[str] = set()
     accepted_ids_per_result: list[set[str]] = [set() for _ in results]
@@ -1700,6 +1944,9 @@ def _merge_scan_results(
         skills.extend(
             skill for skill in result.skills if skill.container_id in accepted_ids
         )
+        plugins.extend(
+            plugin for plugin in result.plugins if plugin.container_id in accepted_ids
+        )
         agent_definitions.extend(
             definition
             for definition in result.agent_definitions
@@ -1720,6 +1967,39 @@ def _merge_scan_results(
     }
     cap_truncated = len(distinct_container_ids) > MAX_CONTAINERS
     supplemental = docker_inventory or DockerInventoryResult()
+    scan_succeeded = (
+        bool(results)
+        and all(result.scan_succeeded for result in results)
+        and not cap_truncated
+    )
+    artifact_scan_succeeded = (
+        scan_succeeded
+        and all(result.artifact_scan_succeeded for result in results)
+        and not cap_truncated
+    )
+    artifact_failure_reason = next(
+        (
+            result.artifact_failure_reason
+            for result in results
+            if result.artifact_failure_reason is not None
+        ),
+        None,
+    )
+    if not artifact_scan_succeeded and artifact_failure_reason is None:
+        artifact_failure_reason = "container_inventory_incomplete"
+    failure_reasons = {
+        result.failure_reason for result in results if result.failure_reason is not None
+    }
+    if scan_succeeded:
+        failure_reason = None
+    elif CONTAINER_SCAN_UNEXPECTED_REASON in failure_reasons:
+        failure_reason = CONTAINER_SCAN_UNEXPECTED_REASON
+    elif CONTAINER_SCAN_UNAVAILABLE_REASON in failure_reasons:
+        failure_reason = CONTAINER_SCAN_UNAVAILABLE_REASON
+    elif results:
+        failure_reason = CONTAINER_SCAN_INCOMPLETE_REASON
+    else:
+        failure_reason = CONTAINER_SCAN_UNAVAILABLE_REASON
 
     return ContainerScanResult(
         containers=containers,
@@ -1728,10 +2008,12 @@ def _merge_scan_results(
         configurations=configurations,
         detected_clients=coalesce_detected_clients(detected_clients),
         skills=skills,
+        plugins=plugins,
         agent_definitions=dedupe_agent_definitions(agent_definitions),
-        scan_succeeded=bool(results)
-        and all(result.scan_succeeded for result in results)
-        and not cap_truncated,
+        scan_succeeded=scan_succeeded,
+        failure_reason=failure_reason,
+        artifact_scan_succeeded=artifact_scan_succeeded,
+        artifact_failure_reason=artifact_failure_reason,
         stopped_containers_succeeded=supplemental.stopped_containers_succeeded,
         container_images_succeeded=supplemental.container_images_succeeded,
         container_images_truncated=supplemental.container_images_truncated,
@@ -1788,7 +2070,11 @@ def _scan_runtime(
         )
         if result is not None:
             return result
-    return ContainerScanResult() if available else None
+    return (
+        ContainerScanResult(failure_reason=CONTAINER_SCAN_UNAVAILABLE_REASON)
+        if available
+        else None
+    )
 
 
 def _scan_running_containers(
@@ -1923,4 +2209,6 @@ def scan_running_containers(
             error_type=type(exc).__name__,
             exc_info=True,
         )
-        return ContainerScanResult()
+        return ContainerScanResult(
+            failure_reason=CONTAINER_SCAN_UNEXPECTED_REASON,
+        )

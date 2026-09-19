@@ -103,6 +103,9 @@ class PlatformConfig(BaseModel):
     credits_enabled: bool = True
     feedback_enabled: bool = False
     integrations_enabled: bool = True
+    # Whether the operator has switched on the Agent Policies pages. Absent
+    # (False) on older platforms.
+    agent_policies_enabled: bool = False
     # Whether the operator has enabled the Slack integration for this
     # deployment. Absent (False) on older platforms, which have no Slack routes
     # at all, so a client that does not receive it shows nothing (SLK-GATE-003).

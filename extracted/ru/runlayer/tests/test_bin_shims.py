@@ -6,7 +6,7 @@ import json
 import shutil
 from pathlib import Path
 
-from runlayer_cli.scan import bin_shims
+from runlayer_cli.scan import bin_shims, symlink_identity
 from runlayer_cli.scan.bin_shims import sweep_shim_identities
 from runlayer_cli.scan.clients import NpmPackage
 
@@ -163,7 +163,7 @@ def test_path_dirs_swept_only_with_host_dirs_enabled(tmp_path):
 
 
 def test_entry_budget_bounds_directory_sweep(tmp_path, monkeypatch):
-    monkeypatch.setattr(bin_shims, "MAX_ENTRIES_PER_DIR", 1)
+    monkeypatch.setattr(symlink_identity, "MAX_IDENTITY_ENTRIES_PER_DIRECTORY", 1)
     tool = _real_tool(tmp_path, "norvex")
     bin_dir = tmp_path / ".local" / "bin"
     bin_dir.mkdir(parents=True)
@@ -174,6 +174,24 @@ def test_entry_budget_bounds_directory_sweep(tmp_path, monkeypatch):
 
     findings = by_basename.get("norvex", [])
     assert len(findings) <= 1
+
+
+def test_missing_roots_do_not_consume_directory_budget(tmp_path, monkeypatch):
+    monkeypatch.setattr(symlink_identity, "MAX_IDENTITY_DIRECTORIES", 1)
+    tool = _real_tool(tmp_path, "norvex")
+    bin_dir = tmp_path / "reachable" / "bin"
+    bin_dir.mkdir(parents=True)
+    (bin_dir / "renamed-tool").symlink_to(tool)
+    monkeypatch.setattr(
+        bin_shims,
+        "posix_bin_roots",
+        lambda **_kwargs: [tmp_path / "missing" / "bin", bin_dir],
+    )
+
+    by_basename, _ = _sweep(tmp_path)
+
+    [finding] = by_basename["norvex"]
+    assert finding.shim_path == bin_dir / "renamed-tool"
 
 
 def test_windows_sweep_is_a_noop(tmp_path):

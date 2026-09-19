@@ -20,6 +20,16 @@ log = logging.getLogger("lomond")
 class FrameParser(Parser):
     """Parses a stream of data in to HTTP headers + WS frames."""
 
+    @classmethod
+    def unpack16(cls, data, _unpack16=struct.Struct(b'!H').unpack):
+        """Unpack 16 bits in to an integer."""
+        return _unpack16(bytes(data))[0]
+
+    @classmethod
+    def unpack64(cls, data, _unpack64=struct.Struct(b'!Q').unpack):
+        """Unpack 64 bits in to an integer."""
+        return _unpack64(bytes(data))[0]
+
     def __init__(self, parse_headers=True, validate=True):
         self.parse_headers = parse_headers
         self.validate = validate
@@ -35,17 +45,6 @@ class FrameParser(Parser):
             self.parse_headers,
             self.validate
         )
-
-    # A bug in Python2.7.3 requires casting data to bytes
-    @classmethod
-    def unpack16(cls, data, _unpack16 = struct.Struct(b"!H").unpack):
-        """Unpack 16 bits in to an integer."""
-        return _unpack16(bytes(data))[0]
-
-    @classmethod
-    def unpack64(cls, data, _unpack64 = struct.Struct(b"!Q").unpack):
-        """Unpack 64 bits in to an integer."""
-        return _unpack64(bytes(data))[0]
 
     def enable_compression(self):
         """Enable compressed packets."""

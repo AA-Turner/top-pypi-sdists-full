@@ -286,20 +286,24 @@ def param(
         )
         return init_value
 
+    args: tuple
     if callable(init_value):
 
-        def fn(init_fn: Callable, *args, **kwargs) -> ArrayLike:
-            return init_fn(prng_key())
+        def fn(*args, init_value: Callable = init_value, **kwargs) -> ArrayLike:
+            return init_value(prng_key())
+
+        args = ()
 
     else:
         fn = cast(Callable, identity)
+        args = (init_value,)
 
     # Otherwise, we initialize a message...
     initial_msg = {
         "type": "param",
         "name": name,
         "fn": fn,
-        "args": (init_value,),
+        "args": args,
         "kwargs": kwargs,
         "value": None,
         "scale": None,
@@ -510,7 +514,7 @@ class plate(Messenger):
         self.subsample_size = self._indices.shape[0]
         super(plate, self).__init__()
 
-    # XXX: different from Pyro, this method returns dim and indices
+    # Note: different from Pyro, this method returns dim and indices
     @staticmethod
     def _subsample(name, size, subsample_size, dim):  # noqa: ANN001, ANN205
         msg = {

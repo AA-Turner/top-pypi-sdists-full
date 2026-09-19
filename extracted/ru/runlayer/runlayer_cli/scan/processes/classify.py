@@ -38,6 +38,7 @@ from runlayer_cli.scan.agents.redact import sanitize_path
 from runlayer_cli.scan.agents.registry import load_registry
 from runlayer_cli.scan.processes.models import (
     DiscoveredProcess,
+    ExtensionRootRef,
     OverrideConfigRef,
     ProcessCandidate,
     ProcessDiscoveryResult,
@@ -53,6 +54,7 @@ from runlayer_cli.scan.processes.redact import (
 from runlayer_cli.scan.processes.settings_override import (
     SettingsOverrideFlagSpec,
     SettingsOverrideMatch,
+    extension_root_refs,
     extract_settings_overrides,
     override_config_refs,
     sanitized_settings_overrides,
@@ -1061,7 +1063,9 @@ def classify_processes_with_overrides(
         _agent_framework_markers(excluded_frameworks) if context.detect_agents else ()
     )
 
-    discovered: list[tuple[DiscoveredProcess, list[OverrideConfigRef]]] = []
+    discovered: list[
+        tuple[DiscoveredProcess, list[OverrideConfigRef], list[ExtensionRootRef]]
+    ] = []
     for candidate in candidates:
         score = _score_candidate(
             candidate,
@@ -1141,6 +1145,7 @@ def classify_processes_with_overrides(
                 usernames=usernames,
             ),
             wsl_distro=candidate.wsl_distro,
+            owner_sid=candidate.owner_sid,
         )
         discovered.append(
             (
@@ -1150,11 +1155,17 @@ def classify_processes_with_overrides(
                     score.matched_client,
                     score.settings_overrides,
                 ),
+                extension_root_refs(
+                    candidate,
+                    score.matched_client,
+                    score.settings_overrides,
+                ),
             )
         )
 
     discovered.sort(key=lambda item: item[0].confidence, reverse=True)
-    if len(discovered) > MAX_DISCOVERED:
+    complete = len(discovered) <= MAX_DISCOVERED
+    if not complete:
         logger.warning(
             "process_discovery_truncated",
             detected=len(discovered),
@@ -1162,6 +1173,12 @@ def classify_processes_with_overrides(
         )
         discovered = discovered[:MAX_DISCOVERED]
     return ProcessDiscoveryResult(
-        processes=[process for process, _refs in discovered],
-        override_config_refs=[ref for _process, refs in discovered for ref in refs],
+        processes=[process for process, _config_refs, _root_refs in discovered],
+        override_config_refs=[
+            ref for _process, refs, _root_refs in discovered for ref in refs
+        ],
+        extension_root_refs=[
+            ref for _process, _config_refs, refs in discovered for ref in refs
+        ],
+        complete=complete,
     )

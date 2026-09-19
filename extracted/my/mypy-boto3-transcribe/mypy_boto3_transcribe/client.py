@@ -97,6 +97,8 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
     UpdateCallAnalyticsCategoryRequestTypeDef,
     UpdateCallAnalyticsCategoryResponseTypeDef,
+    UpdateLanguageModelRequestTypeDef,
+    UpdateLanguageModelResponseTypeDef,
     UpdateMedicalVocabularyRequestTypeDef,
     UpdateMedicalVocabularyResponseTypeDef,
     UpdateVocabularyFilterRequestTypeDef,
@@ -568,6 +570,16 @@ class TranscribeServiceClient(BaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/transcribe/client/update_call_analytics_category.html)
         [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_transcribe/client/#update_call_analytics_category)
+        """
+
+    def update_language_model(
+        self, **kwargs: Unpack[UpdateLanguageModelRequestTypeDef]
+    ) -> UpdateLanguageModelResponseTypeDef:
+        """
+        Updates the encryption configuration for an existing custom language model.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/transcribe/client/update_language_model.html)
+        [Show boto3-stubs documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_transcribe/client/#update_language_model)
         """
 
     def update_medical_vocabulary(

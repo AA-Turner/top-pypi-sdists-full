@@ -184,9 +184,7 @@ class TestMDMScopeWrites:
 
         assert settings_path.read_text() == original
 
-    def test_mdm_claude_code_preserves_empty_settings(
-        self, tmp_path, monkeypatch
-    ):
+    def test_mdm_claude_code_preserves_empty_settings(self, tmp_path, monkeypatch):
         """A transient empty file must fail closed and remain untouched."""
         from runlayer_cli.hook_install import clients as clients_module
 
@@ -284,9 +282,7 @@ class TestMDMScopeWrites:
             "type": "command",
             "command": "statusline",
         }
-        assert updated["enabledPlugins"] == {
-            "linear@claude-plugins-official": True
-        }
+        assert updated["enabledPlugins"] == {"linear@claude-plugins-official": True}
         assert updated["model"] == "claude-opus-4-1"
 
         install_client(
@@ -325,9 +321,7 @@ class TestMDMScopeWrites:
         assert settings_path.stat().st_mode & 0o777 == 0o600
         assert backup_path.stat().st_mode & 0o777 == 0o600
 
-    def test_mdm_claude_code_reowns_backup_before_rewrite(
-        self, tmp_path, monkeypatch
-    ):
+    def test_mdm_claude_code_reowns_backup_before_rewrite(self, tmp_path, monkeypatch):
         """A failed active write must not strand its recovery backup as root."""
         from runlayer_cli.hook_install import clients as clients_module
 
@@ -344,9 +338,7 @@ class TestMDMScopeWrites:
         )
         _patch_console_home(monkeypatch, console_home)
         monkeypatch.setattr(console_user_module.platform, "system", lambda: "Darwin")
-        monkeypatch.setattr(
-            console_user_module.os, "geteuid", lambda: 0, raising=False
-        )
+        monkeypatch.setattr(console_user_module.os, "geteuid", lambda: 0, raising=False)
         records = _spy_fchown(monkeypatch)
         real_write_config = clients_module._write_config
 
@@ -533,9 +525,7 @@ class TestMDMScopeWrites:
         assert command == "/usr/local/bin/aiwatch hook --client goose"
         assert (console_goose_root / "plugin.json").exists()
 
-    def test_mdm_claude_code_preserves_symlinked_settings(
-        self, tmp_path, monkeypatch
-    ):
+    def test_mdm_claude_code_preserves_symlinked_settings(self, tmp_path, monkeypatch):
         """MDM must not replace a user's symlinked Claude settings file."""
         from runlayer_cli.hook_install import clients as clients_module
 
@@ -712,6 +702,178 @@ class TestMDMScopeWrites:
         assert "hooks = true" in managed_toml
         # The user-scope config.toml is not touched.
         assert not (enterprise_root / "config.toml").exists()
+
+    def test_windows_mdm_codex_targets_programdata_system_layer(self, monkeypatch):
+        """Codex reads ``%ProgramData%\\OpenAI\\Codex`` as its managed System
+        layer on Windows. Under the SYSTEM ``AIWatchHooks`` task ``Path.home()``
+        is the systemprofile, which no console user ever reads (ENG-6617)."""
+        from runlayer_cli.hook_install import paths as paths_module
+        from runlayer_cli.hook_install.clients import (
+            _codex_features_toml_file,
+            config_path_for,
+        )
+
+        monkeypatch.setattr(paths_module.platform, "system", lambda: "Windows")
+        monkeypatch.setattr(
+            Path,
+            "home",
+            classmethod(lambda cls: Path("C:/Windows/system32/config/systemprofile")),
+        )
+
+        hooks_path = config_path_for(Client.CODEX, InstallScope.MDM)
+        toml_path = _codex_features_toml_file(InstallScope.MDM)
+
+        assert hooks_path == Path("C:/ProgramData/OpenAI/Codex/hooks.json")
+        # Only ``config.toml`` carries a hooks folder on the System layer;
+        # Windows ``managed_config.toml`` lives in ``~/.codex`` and is not read
+        # from ProgramData.
+        assert toml_path == Path("C:/ProgramData/OpenAI/Codex/config.toml")
+        assert "systemprofile" not in str(hooks_path)
+        assert "systemprofile" not in str(toml_path)
+
+    def test_windows_mdm_codex_writes_config_toml_not_managed_config(
+        self, tmp_path, monkeypatch
+    ):
+        from runlayer_cli.hook_install import clients as clients_module
+        from runlayer_cli.hook_install import paths as paths_module
+
+        enterprise_root = tmp_path / "ProgramData" / "OpenAI" / "Codex"
+        monkeypatch.setattr(clients_module.platform, "system", lambda: "Windows")
+        monkeypatch.setattr(paths_module.platform, "system", lambda: "Windows")
+        monkeypatch.setattr(
+            clients_module,
+            "enterprise_codex_dir",
+            lambda: enterprise_root,
+        )
+        _patch_console_home(monkeypatch, None)
+
+        install_client(
+            Client.CODEX,
+            scope=InstallScope.MDM,
+            hook_command="C:/Program Files/Runlayer/aiwatch.exe hook",
+        )
+
+        data = json.loads((enterprise_root / "hooks.json").read_text())
+        assert data["hooks"]["PreToolUse"][0]["hooks"][0]["command"].endswith(
+            "hook --client codex"
+        )
+        config_toml = (enterprise_root / "config.toml").read_text()
+        assert "[features]" in config_toml
+        assert "hooks = true" in config_toml
+        assert not (enterprise_root / "managed_config.toml").exists()
+
+    def test_windows_mdm_codex_removes_legacy_console_user_hooks(
+        self, tmp_path, monkeypatch
+    ):
+        """The System-layer install supersedes a user-layer ``hooks.json`` that
+        Codex would otherwise hold for ``/hooks`` trust review; strip Runlayer
+        entries there and keep third-party ones."""
+        from runlayer_cli.hook_install import clients as clients_module
+
+        enterprise_root = tmp_path / "ProgramData" / "OpenAI" / "Codex"
+        console_home = tmp_path / "Users" / "alice"
+        legacy = console_home / ".codex" / "hooks.json"
+        legacy.parent.mkdir(parents=True)
+        legacy.write_text(
+            json.dumps(
+                {
+                    "hooks": {
+                        "PreToolUse": [
+                            {
+                                "matcher": "",
+                                "hooks": [
+                                    {
+                                        "type": "command",
+                                        "command": (
+                                            '& "C:/Program Files/Runlayer/aiwatch.exe" '
+                                            "hook --client codex"
+                                        ),
+                                    },
+                                ],
+                            },
+                            {
+                                "matcher": "",
+                                "hooks": [
+                                    {"type": "command", "command": "my-linter"},
+                                ],
+                            },
+                        ]
+                    }
+                }
+            )
+        )
+        monkeypatch.setattr(clients_module.platform, "system", lambda: "Windows")
+        monkeypatch.setattr(
+            clients_module,
+            "enterprise_codex_dir",
+            lambda: enterprise_root,
+        )
+        _patch_console_home(monkeypatch, console_home)
+        monkeypatch.setattr(clients_module, "_reown_to_console_user", lambda _p: None)
+
+        install_client(
+            Client.CODEX,
+            scope=InstallScope.MDM,
+            hook_command="C:/Program Files/Runlayer/aiwatch.exe hook",
+        )
+
+        assert (enterprise_root / "hooks.json").exists()
+        remaining = json.loads(legacy.read_text())
+        commands = [
+            hook["command"]
+            for entry in remaining["hooks"]["PreToolUse"]
+            for hook in entry["hooks"]
+        ]
+        assert commands == ["my-linter"]
+
+    def test_windows_mdm_codex_legacy_cleanup_skips_reparse_point(
+        self, tmp_path, monkeypatch
+    ):
+        """A user-planted link under ``~/.codex`` must never be followed by
+        SYSTEM, and must not block the ProgramData write."""
+        from runlayer_cli.hook_install import clients as clients_module
+        from runlayer_cli.hook_install import safe_fs as safe_fs_module
+
+        enterprise_root = tmp_path / "ProgramData" / "OpenAI" / "Codex"
+        console_home = tmp_path / "Users" / "alice"
+        outside = tmp_path / "outside.json"
+        original = json.dumps(
+            {
+                "hooks": {
+                    "PreToolUse": [
+                        {
+                            "hooks": [
+                                {
+                                    "type": "command",
+                                    "command": "aiwatch.exe hook --client codex",
+                                }
+                            ]
+                        }
+                    ]
+                }
+            }
+        )
+        outside.write_text(original)
+        (console_home / ".codex").mkdir(parents=True)
+        (console_home / ".codex" / "hooks.json").symlink_to(outside)
+        monkeypatch.setattr(clients_module.platform, "system", lambda: "Windows")
+        monkeypatch.setattr(safe_fs_module.platform, "system", lambda: "Windows")
+        monkeypatch.setattr(
+            clients_module,
+            "enterprise_codex_dir",
+            lambda: enterprise_root,
+        )
+        _patch_console_home(monkeypatch, console_home)
+
+        install_client(
+            Client.CODEX,
+            scope=InstallScope.MDM,
+            hook_command="C:/Program Files/Runlayer/aiwatch.exe hook",
+        )
+
+        assert (enterprise_root / "hooks.json").exists()
+        assert outside.read_text() == original
+        assert (console_home / ".codex" / "hooks.json").is_symlink()
 
     def test_mdm_hermes_writes_to_resolved_console_user_dir(
         self, tmp_path, monkeypatch

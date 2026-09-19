@@ -13,6 +13,7 @@ from runlayer_cli.scan.config_parser import (
     MCPServerConfig,
     compute_config_hash,
 )
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.warp_sqlite import (
     _build_variable_map,
     _merge_into_global_warp,
@@ -23,6 +24,23 @@ from runlayer_cli.scan.warp_sqlite import (
     enrich_configurations_with_warp_sqlite,
     scan_warp_sqlite,
 )
+
+
+def test_existing_unreadable_warp_db_marks_scan_incomplete(tmp_path, monkeypatch):
+    db_path = tmp_path / "warp.sqlite"
+    db_path.write_bytes(b"not sqlite")
+    monkeypatch.setattr(
+        "runlayer_cli.scan.warp_sqlite._warp_sqlite_paths",
+        lambda: [db_path],
+    )
+    monkeypatch.setattr(
+        "runlayer_cli.scan.warp_sqlite.sqlite3.connect",
+        mock.Mock(side_effect=sqlite3.OperationalError("denied")),
+    )
+    status = ScanCompletionStatus()
+
+    assert scan_warp_sqlite(status) is None
+    assert status.reasons == ["warp_sqlite_open_failed"]
 
 
 def _installation_blob(
@@ -431,7 +449,7 @@ class TestMergeIntoGlobalWarp:
 class TestEnrichConfigurations:
     def test_noop_when_no_sqlite_servers(self, monkeypatch):
         monkeypatch.setattr(
-            "runlayer_cli.scan.warp_sqlite.scan_warp_sqlite", lambda: None
+            "runlayer_cli.scan.warp_sqlite.scan_warp_sqlite", lambda *_: None
         )
         configs: list[MCPClientConfig] = []
         enrich_configurations_with_warp_sqlite(configs)
@@ -442,7 +460,7 @@ class TestEnrichConfigurations:
         server.config_hash = compute_config_hash(server)
         monkeypatch.setattr(
             "runlayer_cli.scan.warp_sqlite.scan_warp_sqlite",
-            lambda: MCPClientConfig(
+            lambda *_: MCPClientConfig(
                 client="warp", config_scope="global", servers=[server]
             ),
         )

@@ -550,7 +550,7 @@ def _reconcile_markdown_links(
     from graphify.extract import _file_node_id, _safe_extract_with_xaml_root
     from graphify.extractors.base import _make_id
     from graphify.extractors.markdown import extract_markdown
-    from graphify.markdown_resolution import _is_file_node
+    from graphify.markdown_resolution import MARKDOWN_MENTION_SUFFIXES, _is_file_node
 
     all_nodes = result.get("nodes", []) + preserved_nodes
     nodes_by_id = {node["id"]: node for node in all_nodes if node.get("id")}
@@ -580,7 +580,11 @@ def _reconcile_markdown_links(
             representatives[source_file] = None
 
     markdown_files = code_files if full_rebuild else extract_targets
-    markdown_files = [path for path in markdown_files if path.suffix.lower() == ".md"]
+    markdown_files = [
+        path
+        for path in markdown_files
+        if path.suffix.lower() in MARKDOWN_MENTION_SUFFIXES
+    ]
     parsed_sources: set[str] = set()
     authored_links: set[tuple[str, str]] = set()
     authored_raw_pairs: set[frozenset[str]] = set()
@@ -599,12 +603,14 @@ def _reconcile_markdown_links(
         except ValueError:
             relative_source = markdown_file
         source_file = source_paths.normalize(str(relative_source))
-        parsed_sources.add(source_file)
         source_rep = representatives.get(source_file)
 
         extraction = _safe_extract_with_xaml_root(
             extract_markdown, markdown_file, project_root
         )
+        if extraction.get("error"):
+            continue
+        parsed_sources.add(source_file)
         for edge in extraction.get("edges", []):
             if edge.get("relation") != "references":
                 continue
@@ -1684,10 +1690,13 @@ def _rebuild_code(
                         "file_type": node.get("file_type"),
                         "type": node.get("type"),
                     }
-                    # #2438: the persisted callability markers are the only
-                    # thing that lets an unchanged target pass the
-                    # indirect_call guard — never re-derived from the label.
-                    for marker in ("_callable", "_callable_class", "_elixir_module"):
+                    # Persisted resolver markers are never re-derived from a
+                    # label: callability protects indirect calls (#2438), and
+                    # Rust impl identity connects alpha-renamed generic blocks.
+                    for marker in (
+                        "_callable", "_callable_class", "_elixir_module",
+                        "_rust_impl_key", "_rust_declaration_count",
+                    ):
                         if node.get(marker):
                             ctx_node[marker] = node[marker]
                     metadata = node.get("metadata")

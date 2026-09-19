@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: Zernio API
-  version: "1.21.2"
+  version: "1.25.0"
   description: |
     API reference for Zernio. Authenticate with a Bearer API key.
     Base URL: https://zernio.com/api
@@ -1305,10 +1305,27 @@ components:
             on the single-creative shape if neither `imageUrl` nor an existing post reference is supplied.
         welcomeMessage:
           type: object
-          required: [text, prefillText]
+          required: [text]
           properties:
             text: { type: string, minLength: 1, description: "Greeting shown when the chat opens. Replaces Meta's default (\"Hi! Can we help you?\")." }
-            prefillText: { type: string, minLength: 1, description: "Message put into the user's text input, ready to send. Replaces Meta's default (\"Hi! I want more info.\"). Lets one ad steer the opening message toward what it promotes (e.g. a specific product)." }
+            prefillText: { type: string, minLength: 1, description: "Message put into the user's text input, ready to send. Replaces Meta's default (\"Hi! I want more info.\"). Lets one ad steer the opening message toward what it promotes (e.g. a specific product). Exactly one of prefillText or quickReplies." }
+            quickReplies:
+              type: array
+              minItems: 1
+              maxItems: 13
+              items:
+                type: object
+                required: [title, payload]
+                properties:
+                  title: { type: string, minLength: 1, maxLength: 20, description: 'Chip label the person taps.' }
+                  payload: { type: string, minLength: 1, maxLength: 1000, description: 'Opaque string you choose; delivered on the message.received webhook as interactiveMetadata.quickReplyPayload when the chip is tapped.' }
+              description: |
+                Tappable chips under the greeting instead of a prefilled
+                message. Exactly one of prefillText or quickReplies. Put
+                your own campaign or ad key in each payload: the tap arrives
+                on the messages webhook with that payload even where Meta
+                delivers no ad referral (Pages owned by an EU business under
+                the Europe/Japan Messenger restrictions).
           description: |
             Custom chat welcome message (Meta's `page_welcome_message`,
             "Mensaje de bienvenida" / "Mensaje predefinido" in Ads Manager).
@@ -19281,6 +19298,10 @@ paths:
                 properties:
                   accountId: { type: string }
                   platform: { type: string }
+                  integrationLane:
+                    type: string
+                    enum: [business, developer]
+                    description: 'TikTok only. The TikTok integration the account is connected through: business (TikTok for Business, Accounts API) or developer (the original integration). Absent on other platforms.'
                   username: { type: string }
                   displayName: { type: string }
                   status:
@@ -19800,6 +19821,12 @@ paths:
                 properties:
                   valid: { type: boolean }
                   userId: { type: string }
+                  name:
+                    type: [string, 'null']
+                    description: "Display name of the credential's owner."
+                  email:
+                    type: [string, 'null']
+                    description: "Email of the credential's owner."
                   authType:
                     type: string
                     enum: [api_key, oauth, session]
@@ -19809,6 +19836,8 @@ paths:
               example:
                 valid: true
                 userId: "6507a1b2c3d4e5f6a7b8c9d0"
+                name: "Ada Lovelace"
+                email: "ada@example.com"
                 authType: "oauth"
                 scope: "posts:read posts:write accounts:read"
         '401': { $ref: '#/components/responses/Unauthorized' }
@@ -20177,7 +20206,7 @@ paths:
 
             WhatsApp:
               whatsapp_error, one_whatsapp_per_profile, whatsapp_number_already_connected,
-              whatsapp_number_pinned_to_profile, connection_cancelled
+              whatsapp_number_pinned_to_profile, whatsapp_coexistence_not_registered, connection_cancelled
 
             Google Ads (platform=googleads):
               google_ads_auth_failed, google_ads_invalid_state, google_ads_config_error,
@@ -20249,8 +20278,8 @@ paths:
             side and no domain setup: send the user to `authUrl`, and they come back to `redirect_url` with the
             same params as the redirect flow. Success: `connected=whatsapp`, `profileId`, `accountId`, `username`
             (plus `connect_token` for API-key callers). Failure: `error` and `platform=whatsapp`, with the same
-            values and extras as the redirect flow (`one_whatsapp_per_profile`, `whatsapp_number_already_connected`
-            and `whatsapp_number_pinned_to_profile` with `is_user_fixable=true`; `payment_required` with `reason`
+            values and extras as the redirect flow (`one_whatsapp_per_profile`, `whatsapp_number_already_connected`,
+            `whatsapp_number_pinned_to_profile` and `whatsapp_coexistence_not_registered` with `is_user_fixable=true`; `payment_required` with `reason`
             and `dashboard_url`; `whatsapp_error` with `error_message` when Meta reported one), plus two of its own:
             `connection_cancelled` when the popup was closed before finishing (`error_message` carries Meta's last
             reported step or error when there is one) and `session_expired` when the user took longer than the
@@ -24429,7 +24458,7 @@ paths:
         '403':
           description: Profile limit exceeded for this plan
         '409':
-          description: 'Conflict with an existing connection. Either the phone number is a Zernio-provisioned number pinned to a different profile (code WHATSAPP_NUMBER_PINNED_TO_PROFILE, connect it from that profile or move it first with PATCH /v1/whatsapp/phone-numbers/{id}/profile), or the number is already actively connected on another profile or team (code WHATSAPP_NUMBER_ALREADY_CONNECTED, disconnect it there first). A number can only be live on one profile.'
+          description: 'Conflict with an existing connection. Either the phone number is a Zernio-provisioned number pinned to a different profile (code WHATSAPP_NUMBER_PINNED_TO_PROFILE, connect it from that profile or move it first with PATCH /v1/whatsapp/phone-numbers/{id}/profile), or the number is already actively connected on another profile or team (code WHATSAPP_NUMBER_ALREADY_CONNECTED, disconnect it there first). A number can only be live on one profile. Or, for a number connected from the WhatsApp Business app (coexistence), the phone never registered the number on the Cloud API, so Meta reported it as platform_type ON_PREMISE and refused the contacts/history sync with error 133010 (code WHATSAPP_COEXISTENCE_NOT_REGISTERED). No account is created in that case: the customer opens WhatsApp Business on the phone, keeps it open and updated, and runs the same Embedded Signup again, which succeeds on the second attempt in practice.'
 
   /v1/connect/whatsapp/select-phone-number:
     get:
@@ -24586,7 +24615,7 @@ paths:
             application/json:
               schema: { $ref: '#/components/schemas/ErrorResponse' }
         '409':
-          description: 'Conflict with an existing connection. One of: the target profile already has a WhatsApp number connected (code ONE_WHATSAPP_PER_PROFILE, each profile holds exactly one WhatsApp number, so connect this number to a different or new profile); the phone number is a Zernio-provisioned number pinned to a different profile (code WHATSAPP_NUMBER_PINNED_TO_PROFILE, connect it from that profile or move it first with PATCH /v1/whatsapp/phone-numbers/{id}/profile); or the number is already actively connected on another profile or team (code WHATSAPP_NUMBER_ALREADY_CONNECTED, disconnect it there first). A number can only be live on one profile.'
+          description: 'Conflict with an existing connection. One of: the target profile already has a WhatsApp number connected (code ONE_WHATSAPP_PER_PROFILE, each profile holds exactly one WhatsApp number, so connect this number to a different or new profile); the phone number is a Zernio-provisioned number pinned to a different profile (code WHATSAPP_NUMBER_PINNED_TO_PROFILE, connect it from that profile or move it first with PATCH /v1/whatsapp/phone-numbers/{id}/profile); or the number is already actively connected on another profile or team (code WHATSAPP_NUMBER_ALREADY_CONNECTED, disconnect it there first). A number can only be live on one profile. Or, for a number connected from the WhatsApp Business app (coexistence), the phone never registered the number on the Cloud API, so Meta reported it as platform_type ON_PREMISE and refused the contacts/history sync with error 133010 (code WHATSAPP_COEXISTENCE_NOT_REGISTERED). No account is created in that case: the customer opens WhatsApp Business on the phone, keeps it open and updated, and runs the same Embedded Signup again, which succeeds on the second attempt in practice.'
         '500':
           description: Failed to bind phone number
           content:
@@ -37774,14 +37803,14 @@ paths:
             another number was purchased within the last 10 minutes; retry
             with allowMultiple: true to confirm), or the requested areaCode
             has no deliverable inventory right now (code
-            AREA_CODE_UNAVAILABLE: pick another area or omit areaCode; PHONE_NUMBER_UNAVAILABLE: search again and pick another number).
+            AREA_CODE_UNAVAILABLE: pick another area or omit areaCode; PHONE_NUMBER_UNAVAILABLE: search again and pick another number; COUNTRY_OUT_OF_STOCK: this country and type have no orderable numbers right now, pick another).
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   error: { type: string }
-                  code: { type: string, enum: [PURCHASE_VELOCITY, AREA_CODE_UNAVAILABLE, PHONE_NUMBER_UNAVAILABLE] }
+                  code: { type: string, enum: [PURCHASE_VELOCITY, AREA_CODE_UNAVAILABLE, PHONE_NUMBER_UNAVAILABLE, COUNTRY_OUT_OF_STOCK] }
         '503':
           description: 'The carrier could not take the order just now (code CARRIER_UNAVAILABLE); the number is not taken, retry the same request in a minute.'
           content:
@@ -38214,14 +38243,14 @@ paths:
             another number was purchased within the last 10 minutes; retry
             with allowMultiple: true to confirm), or the requested areaCode
             has no deliverable inventory right now (code
-            AREA_CODE_UNAVAILABLE: pick another area or omit areaCode; PHONE_NUMBER_UNAVAILABLE: search again and pick another number).
+            AREA_CODE_UNAVAILABLE: pick another area or omit areaCode; PHONE_NUMBER_UNAVAILABLE: search again and pick another number; COUNTRY_OUT_OF_STOCK: this country and type have no orderable numbers right now, pick another).
           content:
             application/json:
               schema:
                 type: object
                 properties:
                   error: { type: string }
-                  code: { type: string, enum: [PURCHASE_VELOCITY, AREA_CODE_UNAVAILABLE, PHONE_NUMBER_UNAVAILABLE] }
+                  code: { type: string, enum: [PURCHASE_VELOCITY, AREA_CODE_UNAVAILABLE, PHONE_NUMBER_UNAVAILABLE, COUNTRY_OUT_OF_STOCK] }
         '503':
           description: 'The carrier could not take the order just now (code CARRIER_UNAVAILABLE); the number is not taken, retry the same request in a minute.'
           content:
@@ -54647,8 +54676,8 @@ paths:
         last impression. EU-delivered ads carry impression ranges and the disclosed targeting facets.
         Pages are capped at 25 ads (`limit` > 25 is a 400); `after` is the next offset.
 
-        Which params apply: `q`, `countries`, `since`, `until`, `limit`, `after` on both; `pageIds`,
-        `adType`, `status`, `platforms`, `mediaType`, `languages`, `searchType`, `fields` are Meta-only;
+        Which params apply: `q`, `countries`, `limit`, `after` on both; `pageIds`, `adType`, `status`,
+        `platforms`, `mediaType`, `languages`, `searchType`, `fields`, `since`, `until` are Meta-only;
         `advertiser` is LinkedIn-only. Passing a param the account's platform does not support is a 400
         naming the param.
       security:
@@ -54665,8 +54694,8 @@ paths:
         - { name: platforms, in: query, schema: { type: string }, description: "Meta only. Comma-separated publisher platforms: FACEBOOK, INSTAGRAM, AUDIENCE_NETWORK, MESSENGER, WHATSAPP, OCULUS, THREADS, STREAMING_SERVICES." }
         - { name: mediaType, in: query, schema: { type: string, enum: [ALL, IMAGE, MEME, VIDEO, NONE] }, description: "Meta only." }
         - { name: languages, in: query, schema: { type: string }, description: "Meta only. Comma-separated ISO 639-1 codes of the ad text." }
-        - { name: since, in: query, schema: { type: string, format: date }, description: "Earliest delivery date (YYYY-MM-DD)." }
-        - { name: until, in: query, schema: { type: string, format: date }, description: "Latest delivery date (YYYY-MM-DD)." }
+        - { name: since, in: query, schema: { type: string, format: date }, description: "Meta only. Earliest delivery date (YYYY-MM-DD). LinkedIn's archive does not filter by date, so it is a 400 there: filter on details.adStatistics.firstImpressionAt / latestImpressionAt instead (EU-delivered ads only)." }
+        - { name: until, in: query, schema: { type: string, format: date }, description: "Meta only. Latest delivery date (YYYY-MM-DD); a 400 on LinkedIn, see since." }
         - { name: searchType, in: query, schema: { type: string, enum: [KEYWORD_UNORDERED, KEYWORD_EXACT_PHRASE], default: KEYWORD_UNORDERED }, description: "Meta only. Whether q matches words in any order or as an exact phrase (comma-separate phrases to match all of them)." }
         - { name: fields, in: query, schema: { type: string, example: 'id,page_name,ad_delivery_start_time,ad_creative_bodies' }, description: 'Meta only. Comma-separated Graph field override. Supports nested {} projections and Graph field modifiers, so a nested edge can be paged explicitly: without a .limit() modifier the expansion runs at the Meta default page size and the tail is dropped silently.' }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 100, default: 25 }, description: "Rows per page. LinkedIn accepts at most 25." }

@@ -73,9 +73,11 @@ def test_scan_keeps_callback_behavior(runner, tmp_path):
         agents=[],
         processes=[],
         containers=[],
+        container_scan_requested=False,
         containers_scanned=False,
         wsl_distros=[],
         wsl_scanned=False,
+        resource_limit_exceeded=None,
     )
 
     with (

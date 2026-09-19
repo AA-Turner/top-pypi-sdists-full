@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymilvus
-Version: 3.0.1
+Version: 3.0.2
 Summary: Python SDK for Milvus
 Project-URL: Homepage, https://milvus.io
 Project-URL: Repository, https://github.com/milvus-io/pymilvus
@@ -25,6 +25,8 @@ Requires-Dist: pandas>=1.2.4
 Requires-Dist: protobuf>=5.27.2
 Requires-Dist: python-dotenv<2.0.0,>=1.0.1
 Requires-Dist: requests>=2.20.0
+Provides-Extra: bloom-filter
+Requires-Dist: xxhash>=3.0.0; extra == 'bloom-filter'
 Provides-Extra: bulk-writer
 Requires-Dist: azure-storage-blob; extra == 'bulk-writer'
 Requires-Dist: minio>=7.0.0; extra == 'bulk-writer'

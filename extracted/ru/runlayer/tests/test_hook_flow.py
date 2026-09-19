@@ -3,6 +3,7 @@
 import io
 import json
 import sys
+import time
 
 import httpx
 import pytest
@@ -14,6 +15,8 @@ from runlayer_cli.hook import messages
 from runlayer_cli.hook import relay
 from runlayer_cli.hook.clients import Client
 from runlayer_cli.mdm_config import AIWatchMode
+
+_HOST = "https://app.example.com"
 
 
 @pytest.fixture(autouse=True)
@@ -277,11 +280,11 @@ class TestEventPostAttachment:
             {"client": "claude_code", "event_name": "e", "payload": {}}
         )
 
-        attached = json.loads(relay._maybe_attach_client_flows(payload, "event"))
+        attached = json.loads(relay._maybe_attach_client_flows(payload, "event", _HOST))
 
         assert attached["client_flows"]["flows"][0]["operation"] == "cli.hook_event"
         # Spool drained: the next event POST carries nothing.
-        again = json.loads(relay._maybe_attach_client_flows(payload, "event"))
+        again = json.loads(relay._maybe_attach_client_flows(payload, "event", _HOST))
         assert "client_flows" not in again
 
     def test_enforce_target_untouched(self):
@@ -289,7 +292,7 @@ class TestEventPostAttachment:
         flow_spool.spool_append({"operation": "cli.hook_event", "status": "ok"})
         payload = json.dumps({"hook_event_name": "beforeMCPExecution"})
 
-        assert relay._maybe_attach_client_flows(payload, "enforce") == payload
+        assert relay._maybe_attach_client_flows(payload, "enforce", _HOST) == payload
         # Spool NOT drained by a non-event target.
         assert _spooled_flows() != []
 
@@ -297,14 +300,22 @@ class TestEventPostAttachment:
         flow_spool.spool_append({"operation": "cli.hook_event", "status": "ok"})
         payload = json.dumps({"payload": {}})
 
-        assert relay._maybe_attach_client_flows(payload, "event") == payload
+        assert relay._maybe_attach_client_flows(payload, "event", _HOST) == payload
+        assert _spooled_flows() != []
+
+    def test_unparsable_host_untouched_and_not_drained(self):
+        flow_trace.enable_flow_tracing(flow_spool.spool_append)
+        flow_spool.spool_append({"operation": "cli.hook_event", "status": "ok"})
+        payload = json.dumps({"payload": {}})
+
+        assert relay._maybe_attach_client_flows(payload, "event", "") == payload
         assert _spooled_flows() != []
 
     def test_non_dict_payload_untouched_and_not_drained(self):
         flow_trace.enable_flow_tracing(flow_spool.spool_append)
         flow_spool.spool_append({"operation": "cli.hook_event", "status": "ok"})
 
-        assert relay._maybe_attach_client_flows("[1]", "event") == "[1]"
+        assert relay._maybe_attach_client_flows("[1]", "event", _HOST) == "[1]"
         assert _spooled_flows() != []
 
 
@@ -329,7 +340,7 @@ class TestPostFailureContext:
         monkeypatch.setattr(relay, "HookAPIClient", _Client)
         monkeypatch.setattr(relay, "_maybe_attach_device", lambda p: p)
         monkeypatch.setattr(relay, "_maybe_stamp_client_time", lambda p, t: p)
-        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t: p)
+        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t, h: p)
         with pytest.raises(relay.RelayError) as ei:
             relay._post("https://example.invalid", "sk", payload, target="tool-pre")
         return ei.value
@@ -448,7 +459,7 @@ class TestPostPayloadBytes:
             relay, "_maybe_attach_device", lambda p: p[:-1] + "," + marker[1:]
         )
         monkeypatch.setattr(relay, "_maybe_stamp_client_time", lambda p, t: p)
-        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t: p)
+        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t, h: p)
         # Multibyte content so a char count would differ from the byte count.
         body = json.dumps({"payload": {"text": "é" * 32}}, ensure_ascii=False)
 
@@ -489,7 +500,7 @@ class TestPostPayloadBytes:
         monkeypatch.setattr(relay, "HookAPIClient", _Client)
         monkeypatch.setattr(relay, "_maybe_attach_device", lambda p: p)
         monkeypatch.setattr(relay, "_maybe_stamp_client_time", lambda p, t: p)
-        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t: p)
+        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t, h: p)
         monkeypatch.setattr(relay, "read_managed_config", lambda: {"gzip_hooks": True})
         monkeypatch.delenv("RUNLAYER_HOOK_GZIP", raising=False)
         body = json.dumps({"transcript": "x" * (32 * 1024)})
@@ -702,7 +713,7 @@ class TestPostRetries:
         monkeypatch.setattr(relay, "HookAPIClient", _Client)
         monkeypatch.setattr(relay, "_maybe_attach_device", lambda p: p)
         monkeypatch.setattr(relay, "_maybe_stamp_client_time", lambda p, t: p)
-        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t: p)
+        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t, h: p)
         monkeypatch.setattr(relay, "read_managed_config", lambda: {})
         return calls
 
@@ -907,7 +918,7 @@ class TestPostRetries:
         monkeypatch.setattr(relay, "HookAPIClient", _Client)
         monkeypatch.setattr(relay, "_maybe_attach_device", lambda p: p)
         monkeypatch.setattr(relay, "_maybe_stamp_client_time", lambda p, t: p)
-        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t: p)
+        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t, h: p)
         monkeypatch.setattr(relay.time, "monotonic", lambda: clock["t"])
         monkeypatch.setattr(
             relay.time,
@@ -981,7 +992,7 @@ class TestPostRetries:
         monkeypatch.setattr(relay, "HookAPIClient", _Client)
         monkeypatch.setattr(relay, "_maybe_attach_device", lambda p: p)
         monkeypatch.setattr(relay, "_maybe_stamp_client_time", lambda p, t: p)
-        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t: p)
+        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t, h: p)
         monkeypatch.setattr(relay.time, "monotonic", lambda: clock["t"])
 
         def _sleep(delay):
@@ -1013,7 +1024,7 @@ class TestPostRetries:
         monkeypatch.setattr(relay, "HookAPIClient", _Client)
         monkeypatch.setattr(relay, "_maybe_attach_device", lambda p: p)
         monkeypatch.setattr(relay, "_maybe_stamp_client_time", lambda p, t: p)
-        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t: p)
+        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t, h: p)
         monkeypatch.setattr(relay.time, "monotonic", lambda: clock["t"])
         # Sleep overshoots the whole remaining budget.
         monkeypatch.setattr(
@@ -1052,7 +1063,7 @@ class TestPostRetries:
         monkeypatch.setattr(relay, "HookAPIClient", _Client)
         monkeypatch.setattr(relay, "_maybe_attach_device", lambda p: p)
         monkeypatch.setattr(relay, "_maybe_stamp_client_time", lambda p, t: p)
-        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t: p)
+        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t, h: p)
         monkeypatch.setattr(relay.time, "monotonic", lambda: clock["t"])
         # Pin jitter so backoff arithmetic passes the pre-sleep budget check.
         monkeypatch.setattr(relay.random, "random", lambda: 0.5)
@@ -1180,7 +1191,7 @@ class TestGzipBackendFallback:
         monkeypatch.setattr(relay, "HookAPIClient", _Client)
         monkeypatch.setattr(relay, "_maybe_attach_device", lambda p: p)
         monkeypatch.setattr(relay, "_maybe_stamp_client_time", lambda p, t: p)
-        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t: p)
+        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t, h: p)
         monkeypatch.setattr(relay, "read_managed_config", lambda: {"gzip_hooks": True})
         monkeypatch.setattr(relay, "_compression_rejected_by_backend", False)
         monkeypatch.delenv("RUNLAYER_HOOK_GZIP", raising=False)
@@ -1430,7 +1441,7 @@ class TestWireCodecSelection:
         monkeypatch.setattr(relay, "HookAPIClient", _Client)
         monkeypatch.setattr(relay, "_maybe_attach_device", lambda p: p)
         monkeypatch.setattr(relay, "_maybe_stamp_client_time", lambda p, t: p)
-        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t: p)
+        monkeypatch.setattr(relay, "_maybe_attach_client_flows", lambda p, t, h: p)
         monkeypatch.setattr(relay, "read_managed_config", lambda: dict(managed))
         monkeypatch.setattr(relay, "_compression_rejected_by_backend", False)
         monkeypatch.delenv("RUNLAYER_HOOK_GZIP", raising=False)
@@ -1588,3 +1599,77 @@ class TestTranscriptStreamCompression:
         poster("claude_code", "transcript", {"text": "small"})
 
         assert "Content-Encoding" not in calls[0]["headers"]
+
+
+def _ok_client(posted: list[dict]):
+    """Fake ``HookAPIClient`` answering 200 and recording decoded bodies."""
+
+    class _Resp:
+        is_success = True
+        status_code = 200
+        text = "{}"
+
+    class _Client:
+        def __init__(self, *args, **kwargs) -> None:
+            pass
+
+        def post_target(self, target, payload, *, timeout=None):
+            body = payload.decode() if isinstance(payload, bytes) else payload
+            posted.append(json.loads(body))
+            return _Resp()
+
+    return _Client
+
+
+def _hosted_summary(host: str) -> dict:
+    return {
+        "operation": "cli.hook_event",
+        "status": "ok",
+        "target_host": host,
+        "ts": int(time.time()),
+    }
+
+
+class TestTargetHost:
+    """Relay stamps the resolved host on the active flow; the spool drains per host."""
+
+    def test_relay_post_stamps_target_host_on_active_flow(self, monkeypatch):
+        flow_trace.enable_flow_tracing(flow_spool.spool_append)
+        monkeypatch.setattr(relay, "_credential_cache", None)
+        monkeypatch.setattr(
+            relay,
+            "_load_credentials_uncached",
+            lambda: ("https://Staging.Example.com.:8443", "rl_key"),
+        )
+        monkeypatch.setattr(relay, "_maybe_attach_device", lambda p: p)
+        monkeypatch.setattr(relay, "HookAPIClient", _ok_client([]))
+
+        with flow_trace.flow("cli.hook_pre_tool"):
+            relay.enforce(json.dumps({"hook_event_name": "PreToolUse"}))
+
+        flows = _spooled_flows()
+        assert flows[-1]["target_host"] == "staging.example.com"
+
+    def test_event_post_drains_only_its_own_host(self, monkeypatch):
+        flow_trace.enable_flow_tracing(flow_spool.spool_append)
+        drains: list[str | None] = []
+        real_drain = flow_spool.spool_drain
+
+        def _drain(*, target_host=None):
+            drains.append(target_host)
+            return real_drain(target_host=target_host)
+
+        monkeypatch.setattr(flow_spool, "spool_drain", _drain)
+        monkeypatch.setattr(relay, "_maybe_attach_device", lambda p: p)
+        posted: list[dict] = []
+        monkeypatch.setattr(relay, "HookAPIClient", _ok_client(posted))
+        flow_spool.spool_append(_hosted_summary("other.example.com"))
+        flow_spool.spool_append(_hosted_summary("app.example.com"))
+
+        relay._post(_HOST, "rl_key", json.dumps({"payload": {}}), target="event")
+
+        assert drains == ["app.example.com"]
+        shipped = posted[0]["client_flows"]["flows"]
+        assert [f["target_host"] for f in shipped] == ["app.example.com"]
+        # The other host's summary waits in the spool for its own POST.
+        assert [f["target_host"] for f in _spooled_flows()] == ["other.example.com"]

@@ -11,6 +11,8 @@ use xa11y_core::{
 };
 use zbus::blocking::{Connection, Proxy};
 
+use crate::window::WindowManager;
+
 /// Global handle counter for mapping ElementData back to AccessibleRefs.
 static NEXT_HANDLE: AtomicU64 = AtomicU64::new(1);
 
@@ -49,6 +51,9 @@ pub struct LinuxProvider {
     /// Cached AT-SPI2 action indices keyed by element handle.
     /// Maps each action name (snake_case) to the integer index used by `DoAction(i)`.
     action_indices: Mutex<HashMap<u64, HashMap<String, i32>>>,
+    /// Native X11/Wayland window-manager channel, selected independently of
+    /// the AT-SPI accessibility connection.
+    window_manager: WindowManager,
 }
 
 /// AT-SPI2 accessible reference: (bus_name, object_path).
@@ -69,6 +74,7 @@ impl LinuxProvider {
             a11y_bus,
             handle_cache: Mutex::new(HashMap::new()),
             action_indices: Mutex::new(HashMap::new()),
+            window_manager: WindowManager::new(),
         })
     }
 
@@ -487,7 +493,8 @@ impl LinuxProvider {
     ///
     /// Used to scope the press-fallback heuristic for the
     /// AdwMenuButton/GtkMenuButton wrapper pattern; other toolkits are
-    /// unaffected.
+    /// unaffected. Note that WebKitGTK also reports "GTK", so the answer is
+    /// not a "GtkWidget app" discriminator.
     fn is_gtk_toolkit(&self, aref: &AccessibleRef) -> bool {
         let app_root = AccessibleRef {
             bus_name: aref.bus_name.clone(),
@@ -689,7 +696,7 @@ impl LinuxProvider {
     fn build_element_data(&self, aref: &AccessibleRef, pid: Option<u32>) -> ElementData {
         let role_name = self.get_role_name(aref).unwrap_or_default();
         let role_num = self.get_role_number(aref).unwrap_or(0);
-        let role = {
+        let coarse_role = {
             let by_name = if !role_name.is_empty() {
                 map_atspi_role(&role_name)
             } else {
@@ -702,6 +709,24 @@ impl LinuxProvider {
             };
             self.refine_text_role(coarse, aref)
         };
+        // GTK 3 overloads AT-SPI's `menu` role: both a popup menu container
+        // and the MenuItem that opens a submenu report `menu`. The entry is
+        // distinguishable by its native activation action (`click`, normalized
+        // to `press`); GtkMenu itself has no Action interface. Fetch once here
+        // so role refinement and the advertised action list use the same
+        // evidence without a second D-Bus round trip.
+        let prefetched_menu_actions = if coarse_role == Role::Menu {
+            Some(self.get_actions(aref))
+        } else {
+            None
+        };
+        let role = refine_menu_role(
+            coarse_role,
+            prefetched_menu_actions
+                .as_ref()
+                .map(|(actions, _)| actions.as_slice())
+                .unwrap_or(&[]),
+        );
 
         // Fetch all independent properties in parallel.
         // Left tree: (name+value, description)
@@ -744,7 +769,9 @@ impl LinuxProvider {
                     || {
                         rayon::join(
                             || {
-                                if role_has_actions(role) {
+                                if let Some(actions) = prefetched_menu_actions.as_ref() {
+                                    actions.clone()
+                                } else if role_has_actions(role) {
                                     self.get_actions(aref)
                                 } else {
                                     (vec![], HashMap::new())
@@ -788,6 +815,25 @@ impl LinuxProvider {
                 name = Some(v.clone());
             }
         }
+
+        // `activate` is deliberately not advertised from AT-SPI alone. A real
+        // native window backend may add it below after proving identity and
+        // checking capabilities. The AT-SPI-only path is Component.GrabFocus
+        // on the top-level frame, and Windows/macOS advertise theirs unconditionally,
+        // but the AT-SPI adapters disagree about implementing a *frame*
+        // GrabFocus: the GTK widget adapter answers true, while Chromium
+        // (Electron), WebKitGTK (Tauri — whose bridge reports itself as
+        // ToolkitName "GTK", so even a toolkit gate cannot separate it from
+        // the GTK widget app) and Qt answer false. No interface or toolkit
+        // probe discriminates them, and a snapshot-side GrabFocus probe
+        // would activate windows as a side effect. Advertising anyway would
+        // promise an action the call then declines — the false-promise shape
+        // the integration suites exist to catch (round-4 CI: it failed the
+        // activate suites on electron, tauri and qt; only the GTK cell passed).
+        // The action stays callable on every toolkit, and the call reports a
+        // `false` reply or a D-Bus NotSupported error honestly as
+        // ActionNotSupported (tenet 3; tenet 1 — no silent fallback — is
+        // why there is no substitute mechanism to advertise instead).
 
         let raw = {
             let raw_role = if role_name.is_empty() {
@@ -844,7 +890,7 @@ impl LinuxProvider {
                 .insert(handle, action_index_map);
         }
 
-        ElementParts {
+        let mut data: ElementData = ElementParts {
             role,
             name,
             value,
@@ -860,7 +906,71 @@ impl LinuxProvider {
             raw,
             handle,
         }
-        .into()
+        .into();
+
+        if matches!(role, Role::Window | Role::Dialog) && self.is_top_level_window_ref(aref) {
+            let facts = self.window_manager.facts(&data);
+            if facts.bounds.is_some() {
+                data.bounds = facts.bounds;
+            }
+            for action in &facts.actions {
+                if !data.actions.iter().any(|existing| existing == action) {
+                    data.actions.push((*action).to_string());
+                }
+            }
+            if facts.minimized.is_some() {
+                data.states.minimized = facts.minimized;
+            }
+            if facts.maximized.is_some() {
+                data.states.maximized = facts.maximized;
+            }
+            if facts.fullscreen.is_some() {
+                data.states.fullscreen = facts.fullscreen;
+            }
+            if let Some(backend) = facts.backend {
+                data.raw.insert(
+                    "window_backend".to_string(),
+                    serde_json::Value::String(backend.to_string()),
+                );
+            }
+            if let Some(version) = facts.protocol_version {
+                data.raw.insert(
+                    "window_protocol_version".to_string(),
+                    serde_json::Value::Number(version.into()),
+                );
+            }
+            let capabilities = [
+                "activate",
+                "minimize",
+                "maximize",
+                "enter_fullscreen",
+                "restore",
+                "close",
+                "move_to",
+                "resize_to",
+            ]
+            .into_iter()
+            .map(|action| {
+                let status = if facts.backend.is_none() {
+                    "unknown"
+                } else if facts.actions.contains(&action) {
+                    "supported"
+                } else {
+                    "unsupported"
+                };
+                (
+                    action.to_string(),
+                    serde_json::Value::String(status.to_string()),
+                )
+            })
+            .collect();
+            data.raw.insert(
+                "window_capabilities".to_string(),
+                serde_json::Value::Object(capabilities),
+            );
+        }
+
+        data
     }
 
     /// Get the AT-SPI parent of an accessible ref.
@@ -908,14 +1018,20 @@ impl LinuxProvider {
     ///
     /// AT-SPI2 returns states as two `u32`s (low/high words); collapse them
     /// into one mask so callers can test bit positions directly.
-    fn state_bits(&self, aref: &AccessibleRef) -> u64 {
-        let state_bits = self.get_state(aref).unwrap_or_default();
-        if state_bits.len() >= 2 {
-            (state_bits[0] as u64) | ((state_bits[1] as u64) << 32)
-        } else if state_bits.len() == 1 {
-            state_bits[0] as u64
-        } else {
-            0
+    ///
+    /// The `bool` reports whether `GetState` itself succeeded. A failed read
+    /// is not "all states false": window-state optionals (`minimized`) must
+    /// stay unknown rather than guess `false` (tenet 1), just as the rest of
+    /// the window contract treats an unread state as `None`.
+    fn state_bits(&self, aref: &AccessibleRef) -> (u64, bool) {
+        match self.get_state(aref) {
+            Ok(state_bits) if state_bits.len() >= 2 => (
+                (state_bits[0] as u64) | ((state_bits[1] as u64) << 32),
+                true,
+            ),
+            Ok(state_bits) if state_bits.len() == 1 => (state_bits[0] as u64, true),
+            Ok(_) => (0, true),
+            Err(_) => (0, false),
         }
     }
 
@@ -928,9 +1044,12 @@ impl LinuxProvider {
     /// callers can surface provider-only facts (notably DEFUNCT) that have no
     /// cross-platform `StateSet` field.
     fn parse_states_with_bits(&self, aref: &AccessibleRef, role: Role) -> (StateSet, u64) {
-        let bits = self.state_bits(aref);
+        let (bits, state_read_ok) = self.state_bits(aref);
 
-        // AT-SPI2 state bit positions (AtspiStateType enum values)
+        // AT-SPI2 state bit positions: each is `1 << ordinal` of the
+        // `AtspiStateType` enum in at-spi2-core's `atspi/atspi-constants.h`
+        // (ICONIFIED=15, MODAL=16, SELECTED=23, VISIBLE=30, ...). Kept in
+        // sync with `states_from_bits` in events.rs.
         const ACTIVE: u64 = 1 << 1;
         const BUSY: u64 = 1 << 3;
         const CHECKED: u64 = 1 << 4;
@@ -940,6 +1059,7 @@ impl LinuxProvider {
         const EXPANDED: u64 = 1 << 10;
         const FOCUSABLE: u64 = 1 << 11;
         const FOCUSED: u64 = 1 << 12;
+        const ICONIFIED: u64 = 1 << 15;
         const MODAL: u64 = 1 << 16;
         const SELECTED: u64 = 1 << 23;
         const SENSITIVE: u64 = 1 << 24;
@@ -985,6 +1105,26 @@ impl LinuxProvider {
             modal: (bits & MODAL) != 0,
             required: (bits & REQUIRED) != 0,
             busy: (bits & BUSY) != 0,
+            // `ICONIFIED` is AT-SPI's minimized state, reported on window
+            // frames. Maximized/fullscreen are not reported by AT-SPI at all
+            // (no state bit), so they stay `None` — unknown, not guessed
+            // `false` (tenet 1). macOS reads the fullscreen state from
+            // AXFullScreen, but no platform can raise a
+            // StateChanged{fullscreen} event: the AX API has no fullscreen
+            // notification and UIA has no fullscreen state either. A failed
+            // `GetState` must likewise leave `minimized` unknown — an unread
+            // state is not a state that was read as absent.
+            minimized: if matches!(role, Role::Window | Role::Dialog) {
+                if state_read_ok {
+                    Some((bits & ICONIFIED) != 0)
+                } else {
+                    None
+                }
+            } else {
+                None
+            },
+            maximized: None,
+            fullscreen: None,
         }
         .into();
         (states, bits)
@@ -994,7 +1134,8 @@ impl LinuxProvider {
     ///
     /// Used by `subscribe` to resolve the target app's D-Bus sender name so
     /// signal match rules can be scoped to it.
-    pub(crate) fn find_app_by_pid(&self, pid: u32) -> Result<AccessibleRef> {
+    pub(crate) fn find_apps_by_pid(&self, pid: u32) -> Result<Vec<AccessibleRef>> {
+        let mut matches = Vec::new();
         let registry = AccessibleRef {
             bus_name: "org.a11y.atspi.Registry".to_string(),
             path: "/org/a11y/atspi/accessible/root".to_string(),
@@ -1012,7 +1153,8 @@ impl LinuxProvider {
             // against Application.Id alone misses real processes.
             if let Some(app_pid) = self.get_dbus_pid(&child.bus_name) {
                 if app_pid == pid {
-                    return Ok(child.clone());
+                    matches.push(child.clone());
+                    continue;
                 }
             }
             // Fall back to Application.Id for adapters that do set it to pid.
@@ -1021,16 +1163,13 @@ impl LinuxProvider {
             {
                 if let Ok(app_pid) = proxy.get_property::<i32>("Id") {
                     if app_pid as u32 == pid {
-                        return Ok(child.clone());
+                        matches.push(child.clone());
                     }
                 }
             }
         }
 
-        Err(Error::Platform {
-            code: -1,
-            message: format!("No application found with PID {}", pid),
-        })
+        Ok(matches)
     }
 
     /// Get PID via D-Bus GetConnectionUnixProcessID.
@@ -1056,12 +1195,28 @@ impl LinuxProvider {
     /// Perform an AT-SPI2 action by its integer index (from discovery).
     fn do_atspi_action_by_index(&self, aref: &AccessibleRef, index: i32) -> Result<()> {
         let proxy = self.make_proxy(&aref.bus_name, &aref.path, "org.a11y.atspi.Action")?;
-        proxy
+        let reply = proxy
             .call_method("DoAction", &(index,))
             .map_err(|e| Error::Platform {
                 code: -1,
                 message: format!("DoAction({}) failed: {}", index, e),
             })?;
+        // AT-SPI's DoAction returns a boolean: true means the action ran. A
+        // false reply means the provider declined — reporting Ok would let
+        // activate()/focus() claim success while the window was never activated.
+        let performed: bool = reply.body().deserialize().map_err(|e| Error::Platform {
+            code: -1,
+            message: format!("DoAction({}) reply decode failed: {}", index, e),
+        })?;
+        if !performed {
+            return Err(Error::Platform {
+                code: -1,
+                message: format!(
+                    "DoAction({}) returned false; the accessibility provider declined the action",
+                    index
+                ),
+            });
+        }
         Ok(())
     }
 
@@ -1106,7 +1261,8 @@ impl LinuxProvider {
         None
     }
 
-    /// Resolve the mapped Role for an accessible ref (1-3 D-Bus calls).
+    /// Resolve the mapped Role for an accessible ref (1-3 D-Bus calls, plus
+    /// an Action probe for AT-SPI `menu`, whose meaning is ambiguous on GTK 3).
     fn resolve_role(&self, aref: &AccessibleRef) -> Role {
         let role_name = self.get_role_name(aref).unwrap_or_default();
         let by_name = if !role_name.is_empty() {
@@ -1121,7 +1277,72 @@ impl LinuxProvider {
             let role_num = self.get_role_number(aref).unwrap_or(0);
             map_atspi_role_number(role_num)
         };
-        self.refine_text_role(coarse, aref)
+        let role = self.refine_text_role(coarse, aref);
+        if role == Role::Menu {
+            let (actions, _) = self.get_actions(aref);
+            refine_menu_role(role, &actions)
+        } else {
+            role
+        }
+    }
+
+    /// AT-SPI role-name probe for top-level decisions: is `parent` the
+    /// application node?
+    ///
+    /// AccessKit's AT-SPI bridge reports role names as empty strings and
+    /// carries the actual role as the numeric one (see `resolve_role`); an
+    /// empty name fed to `map_atspi_role` would hit the strict mapper's panic
+    /// arm — the exact failure the integration suite surfaced (every element's
+    /// snapshot went through the round-4 top-level probe and died). The empty
+    /// name is resolved numerically, exactly like `resolve_role`, so the
+    /// probe agrees with the snapshot path, and a D-Bus failure is the
+    /// caller's decision to make (propagated for the runtime guard).
+    fn parent_role_is_application(&self, parent: &AccessibleRef) -> Result<bool> {
+        let role_name = self.get_role_name(parent)?;
+        let role = if role_name.is_empty() {
+            map_atspi_role_number(self.get_role_number(parent)?)
+        } else {
+            map_atspi_role(&role_name)
+        };
+        Ok(role == Role::Application)
+    }
+
+    fn ensure_top_level_window_target(&self, element: &ElementData, action: &str) -> Result<()> {
+        // AT-SPI window discovery is "direct child of the application node";
+        // descendants with role=dialog are document structure, not OS windows.
+        //
+        // A Parent of the registry root (or the null address) is the AT-SPI
+        // top-level shape: some adapters — AccessKit's, per the
+        // `app_node_contract` integ test — report a top-level frame's Parent
+        // there instead of on the application, and `get_atspi_parent` maps
+        // it to `None` (see `get_parent`). `None` is therefore a
+        // top-level-window answer, not a rejection: only an explicit
+        // non-application parent (an in-page ARIA dialog's document ancestor)
+        // means "not a real OS window".
+        let target = self.get_cached(element.handle)?;
+        let Some(parent) = self.get_atspi_parent(&target)? else {
+            return Ok(());
+        };
+        // Same resolution as the advertisement probe (`is_atspi_top_level`),
+        // so a window the snapshot advertised and the runtime guard can never
+        // disagree; empty role names resolve numerically (AccessKit's bridge)
+        // instead of feeding the strict mapper's panic arm.
+        if self.parent_role_is_application(&parent)? {
+            Ok(())
+        } else {
+            Err(Error::ActionNotSupported {
+                action: action.to_string(),
+                role: element.role,
+            })
+        }
+    }
+
+    fn is_top_level_window_ref(&self, target: &AccessibleRef) -> bool {
+        match self.get_atspi_parent(target) {
+            Ok(None) => true,
+            Ok(Some(parent)) => self.parent_role_is_application(&parent).unwrap_or(false),
+            Err(_) => false,
+        }
     }
 
     /// Check if an accessible ref matches a simple selector, fetching only the
@@ -1141,6 +1362,7 @@ impl LinuxProvider {
         &self,
         aref: &AccessibleRef,
         simple: &xa11y_core::selector::SimpleSelector,
+        pid: Option<u32>,
     ) -> bool {
         // Resolve role only if the selector needs it (for either the role
         // segment or any role/checked filter — checked depends on role).
@@ -1217,7 +1439,6 @@ impl LinuxProvider {
                     // matcher handle every remaining filter — it dispatches
                     // to `ElementData` fields and the `raw` map identically
                     // to the default tree-traversal path.
-                    let pid = None; // pid isn't selector-addressable
                     let data = self.build_element_data(aref, pid);
                     return xa11y_core::selector::matches_simple(&data, simple);
                 }
@@ -1243,6 +1464,7 @@ impl LinuxProvider {
         depth: u32,
         max_depth: u32,
         limit: Option<usize>,
+        pid: Option<u32>,
     ) -> Result<Vec<(usize, AccessibleRef)>> {
         if depth > max_depth {
             return Ok(vec![]);
@@ -1316,12 +1538,18 @@ impl LinuxProvider {
             .map(|child| {
                 let mut child_results: Vec<(usize, AccessibleRef)> = Vec::new();
                 for (idx, simple) in clauses.iter().enumerate() {
-                    if self.matches_ref(child, simple) {
+                    if self.matches_ref(child, simple, pid) {
                         child_results.push((idx, child.clone()));
                     }
                 }
-                match self.collect_matching_refs_group(child, clauses, depth + 1, max_depth, limit)
-                {
+                match self.collect_matching_refs_group(
+                    child,
+                    clauses,
+                    depth + 1,
+                    max_depth,
+                    limit,
+                    pid,
+                ) {
                     Ok(sub) => {
                         child_results.extend(sub);
                         (child_results, None)
@@ -1371,7 +1599,16 @@ impl Provider for LinuxProvider {
             }
             Some(element_data) => {
                 let aref = self.get_cached(element_data.handle)?;
-                let children = self.get_atspi_children(&aref).unwrap_or_default();
+                // Propagate, never default to an empty list (tenet 1): this
+                // path backs `App::windows()` / `Element::children()`, and a
+                // D-Bus/AT-SPI failure must surface as the error the CLI
+                // and MCP partial-error reporting expect. An `Ok([])` read as
+                // "the app has no windows" would print "No windows found."
+                // over a live failure. (The selector-search path
+                // `find_elements_group` keeps its own documented tolerance —
+                // a flaky sibling must not fail a whole locator query — but
+                // this is a direct enumeration, not a search.)
+                let children = self.get_atspi_children(&aref)?;
                 let pid = element_data.pid;
 
                 // Pre-filter invalid refs and flatten nested application nodes,
@@ -1386,7 +1623,10 @@ impl Provider for LinuxProvider {
                     }
                     let child_role = self.get_role_name(child_ref).unwrap_or_default();
                     if child_role == "application" {
-                        let grandchildren = self.get_atspi_children(child_ref).unwrap_or_default();
+                        // Same rule as above: dropping the nested app's
+                        // windows on a failure would quietly return a partial
+                        // `windows()` list that reads as complete.
+                        let grandchildren = self.get_atspi_children(child_ref)?;
                         for gc_ref in grandchildren {
                             if gc_ref.path == "/org/a11y/atspi/null"
                                 || gc_ref.bus_name.is_empty()
@@ -1479,10 +1719,15 @@ impl Provider for LinuxProvider {
             None
         };
 
-        let phase1: Vec<(usize, AccessibleRef)> =
-            self.collect_matching_refs_group(&start_ref, &firsts, 0, max_depth_val, phase1_limit)?;
-
         let pid_from_root = root.pid;
+        let phase1: Vec<(usize, AccessibleRef)> = self.collect_matching_refs_group(
+            &start_ref,
+            &firsts,
+            0,
+            max_depth_val,
+            phase1_limit,
+            pid_from_root,
+        )?;
 
         // Bucket phase-1 hits by clause so each clause's tail can narrow
         // independently. `walk_pos` preserves the doc-order rank from the
@@ -1683,6 +1928,29 @@ impl Provider for LinuxProvider {
         Ok(surfaces)
     }
 
+    /// A single process can register several AT-SPI Application entries
+    /// (per-process instance plus per-event-loop pieces), so `App::windows`
+    /// must merge their window children by pid. The same-pid merge and the
+    /// stable identities it deduplicates by live in `xa11y-core`.
+    fn splits_app_across_entries(&self) -> bool {
+        true
+    }
+
+    fn app_roots(&self, app: &ElementData) -> Result<Vec<ElementData>> {
+        let Some(pid) = app.pid else {
+            return Ok(vec![app.clone()]);
+        };
+        let mut roots: Vec<_> = self
+            .list_apps()?
+            .into_iter()
+            .filter(|candidate| candidate.pid == Some(pid))
+            .collect();
+        if roots.is_empty() {
+            roots.push(app.clone());
+        }
+        Ok(roots)
+    }
+
     /// Enumerate top-level applications by listing direct children of the
     /// AT-SPI registry root — every running accessibility-enabled app
     /// registers a child accessible there. Apps with empty names are
@@ -1801,7 +2069,7 @@ impl Provider for LinuxProvider {
             let has_active_window = windows
                 .iter()
                 .filter(|w| w.path != "/org/a11y/atspi/null")
-                .any(|w| self.state_bits(w) & ACTIVE != 0);
+                .any(|w| self.state_bits(w).0 & ACTIVE != 0);
             if has_active_window {
                 let pid = self.get_app_pid(app);
                 let mut data = self.build_element_data(app, pid);
@@ -1854,23 +2122,38 @@ impl Provider for LinuxProvider {
 
     fn focus(&self, element: &ElementData) -> Result<()> {
         let target = self.get_cached(element.handle)?;
-        // Try Component.GrabFocus first, then fall back to stored action index.
-        // GrabFocus returns a boolean indicating success — we must check it.
-        // Fixes GitHub issue #98.
-        if let Ok(proxy) =
-            self.make_proxy(&target.bus_name, &target.path, "org.a11y.atspi.Component")
-        {
-            if let Ok(reply) = proxy.call_method("GrabFocus", &()) {
-                // GrabFocus returns boolean: true if focus was grabbed, false otherwise
-                if let Ok(true) = reply.body().deserialize::<bool>() {
-                    return Ok(());
-                }
-                // GrabFocus returned false — fall through to action index fallback
-            }
+        // The only mechanism is Component.GrabFocus, which returns a boolean
+        // indicating success — we must check it. Fixes GitHub issue #98.
+        //
+        // There is deliberately no stored-action-index fallback: one cannot
+        // fire. `action_indices` is populated only for roles in
+        // `role_has_actions` (Window/Dialog excluded) from names
+        // `map_atspi_action_name` produces, and no mapping yields "focus" (see
+        // `get_actions`'s note: "focus" is only ever reported when explicitly
+        // in the AT-SPI Action interface). Keeping the dead lookup here would
+        // pretend to a second mechanism that never succeeds — the same
+        // decision `activate` documents above (tenet 1).
+        let proxy = self
+            .make_proxy(&target.bus_name, &target.path, "org.a11y.atspi.Component")
+            .map_err(|e| Error::Platform {
+                code: -1,
+                message: format!("Component proxy while focusing failed: {}", e),
+            })?;
+        let reply = grab_focus_result(
+            proxy.call_method("GrabFocus", &()),
+            "focusing",
+            "focus",
+            element.role,
+        )?;
+        let grabbed: bool = reply.body().deserialize().map_err(|e| Error::Platform {
+            code: -1,
+            message: format!("Component.GrabFocus reply while focusing failed: {}", e),
+        })?;
+        if grabbed {
+            return Ok(());
         }
-        if let Ok(index) = self.get_action_index(element.handle, "focus") {
-            return self.do_atspi_action_by_index(&target, index);
-        }
+        // GrabFocus(false) is an honest "cannot focus this element" — the
+        // AT-SPI adapter declined, not a platform failure.
         Err(Error::ActionNotSupported {
             action: "focus".to_string(),
             role: element.role,
@@ -2049,6 +2332,183 @@ impl Provider for LinuxProvider {
         Ok(())
     }
 
+    // ── Window management ──────────────────────────────────────────
+    //
+    // Native X11/Sway window-manager requests handle the verbs they advertise.
+    // On Wayland compositors without a native provider, AT-SPI still exposes
+    // `activate` (Component.GrabFocus on the frame) and two geometry setters:
+    // SetPosition and SetSize. There is no simulated-shortcut path.
+    //
+    // Window discovery is `App::windows` — `get_children(app)` filtered to
+    // Window|Dialog — as on every platform.
+
+    fn activate(&self, element: &ElementData) -> Result<()> {
+        // The AT-SPI implementation of "activate this window" is the same
+        // Component.GrabFocus path `focus` uses: the frame that receives
+        // focus becomes the active window. No separate activate API exists.
+        //
+        // Implemented here rather than delegating to `focus` so a failure
+        // reports the verb the caller requested — `activate` — not `focus`'s
+        // name (the two share a mechanism, not an identity).
+        //
+        // A GrabFocus(false) reply is an honest "cannot activate this window",
+        // reported as ActionNotSupported: the action-index fallback that
+        // `focus` carries cannot fire for window-like roles, because
+        // `action_indices` is populated only for roles in `role_has_actions`
+        // (Window/Dialog excluded) and `map_atspi_action_name` maps no
+        // "focus" action name. Unlike Windows/macOS, `activate` is deliberately
+        // NOT advertised on AT-SPI — the adapters disagree about a frame
+        // GrabFocus and no interface probe discriminates them (see the
+        // reasons in `build_element_data`); advertised or not, the call here
+        // and the `focus` call use the same mechanism, which is why the
+        // deleted `focus` lookup would only ever pretend to a second path
+        // (tenet 1). If GTK4's GrabFocus(false) is ever reproduced with an
+        // actual focus-named Action interface entry (issue #98), the right
+        // fix is a direct Action probe on this failure path, not a cache
+        // lookup the role/name mapping rules can never fill.
+        self.ensure_top_level_window_target(element, "activate")?;
+        if self.window_manager.uses_native() {
+            return self.window_manager.activate(element);
+        }
+        let target = self.get_cached(element.handle)?;
+        let proxy = self
+            .make_proxy(&target.bus_name, &target.path, "org.a11y.atspi.Component")
+            .map_err(|e| Error::Platform {
+                code: -1,
+                message: format!("Component proxy while activating failed: {}", e),
+            })?;
+        let reply = grab_focus_result(
+            proxy.call_method("GrabFocus", &()),
+            "activating",
+            "activate",
+            element.role,
+        )?;
+        let grabbed: bool = reply.body().deserialize().map_err(|e| Error::Platform {
+            code: -1,
+            message: format!("Component.GrabFocus reply while activating failed: {}", e),
+        })?;
+        if grabbed {
+            return Ok(());
+        }
+        Err(Error::ActionNotSupported {
+            action: "activate".to_string(),
+            role: element.role,
+        })
+    }
+
+    fn minimize(&self, element: &ElementData) -> Result<()> {
+        self.ensure_top_level_window_target(element, "minimize")?;
+        self.window_manager.minimize(element)
+    }
+
+    fn maximize(&self, element: &ElementData) -> Result<()> {
+        self.ensure_top_level_window_target(element, "maximize")?;
+        self.window_manager.maximize(element)
+    }
+
+    fn enter_fullscreen(&self, element: &ElementData) -> Result<()> {
+        self.ensure_top_level_window_target(element, "enter_fullscreen")?;
+        self.window_manager.enter_fullscreen(element)
+    }
+
+    fn restore(&self, element: &ElementData) -> Result<()> {
+        self.ensure_top_level_window_target(element, "restore")?;
+        self.window_manager.restore(element)
+    }
+
+    fn close(&self, element: &ElementData) -> Result<()> {
+        self.ensure_top_level_window_target(element, "close")?;
+        self.window_manager.close(element)
+    }
+
+    fn move_to(&self, element: &ElementData, x: i32, y: i32) -> Result<()> {
+        self.ensure_top_level_window_target(element, "move_to")?;
+        if self.window_manager.uses_native() {
+            return self.window_manager.move_to(element, x, y);
+        }
+        let target = self.get_cached(element.handle)?;
+        let proxy = self.make_proxy(&target.bus_name, &target.path, "org.a11y.atspi.Component")?;
+        let scale = crate::scale::coordinate_scale();
+        let point = xa11y_core::Point::new(x, y).to_physical(scale);
+        // coord_type 0 is screen coordinates, matching GetExtents above.
+        let reply = proxy
+            .call_method("SetPosition", &(point.x, point.y, 0u32))
+            .map_err(|e| {
+                if is_absent_member(&e) {
+                    Error::ActionNotSupported {
+                        action: "move_to".to_string(),
+                        role: element.role,
+                    }
+                } else {
+                    Error::Platform {
+                        code: -1,
+                        message: format!("Component.SetPosition while moving window failed: {e}"),
+                    }
+                }
+            })?;
+        let moved: bool = reply.body().deserialize().map_err(|e| Error::Platform {
+            code: -1,
+            message: format!("Component.SetPosition reply while moving window failed: {e}"),
+        })?;
+        if moved {
+            Ok(())
+        } else {
+            Err(Error::ActionNotSupported {
+                action: "move_to".to_string(),
+                role: element.role,
+            })
+        }
+    }
+
+    fn resize_to(&self, element: &ElementData, w: u32, h: u32) -> Result<()> {
+        self.ensure_top_level_window_target(element, "resize_to")?;
+        if self.window_manager.uses_native() {
+            return self.window_manager.resize_to(element, w, h);
+        }
+        let target = self.get_cached(element.handle)?;
+        let proxy = self.make_proxy(&target.bus_name, &target.path, "org.a11y.atspi.Component")?;
+        let physical = Rect {
+            x: 0,
+            y: 0,
+            width: w,
+            height: h,
+        }
+        .to_physical(crate::scale::coordinate_scale());
+        let width = i32::try_from(physical.width).map_err(|_| Error::InvalidActionData {
+            message: format!("resize width {w} is too large for AT-SPI"),
+        })?;
+        let height = i32::try_from(physical.height).map_err(|_| Error::InvalidActionData {
+            message: format!("resize height {h} is too large for AT-SPI"),
+        })?;
+        let reply = proxy
+            .call_method("SetSize", &(width, height))
+            .map_err(|e| {
+                if is_absent_member(&e) {
+                    Error::ActionNotSupported {
+                        action: "resize_to".to_string(),
+                        role: element.role,
+                    }
+                } else {
+                    Error::Platform {
+                        code: -1,
+                        message: format!("Component.SetSize while resizing window failed: {e}"),
+                    }
+                }
+            })?;
+        let resized: bool = reply.body().deserialize().map_err(|e| Error::Platform {
+            code: -1,
+            message: format!("Component.SetSize reply while resizing window failed: {e}"),
+        })?;
+        if resized {
+            Ok(())
+        } else {
+            Err(Error::ActionNotSupported {
+                action: "resize_to".to_string(),
+                role: element.role,
+            })
+        }
+    }
+
     fn set_value(&self, element: &ElementData, value: &str) -> Result<()> {
         let target = self.get_cached(element.handle)?;
         let proxy = self
@@ -2155,6 +2615,24 @@ impl Provider for LinuxProvider {
             "increment" => self.increment(element),
             "decrement" => self.decrement(element),
             "scroll_into_view" => self.scroll_into_view(element),
+            "activate" => self.activate(element),
+            "minimize" => self.minimize(element),
+            "maximize" => self.maximize(element),
+            "enter_fullscreen" => self.enter_fullscreen(element),
+            "restore" => self.restore(element),
+            "close" => self.close(element),
+            // Payload verbs have no arguments on the generic escape hatch;
+            // fail surfaceably with how to call them instead of guessing
+            // (tenet 1: no silent fallback).
+            "move_to" => Err(Error::InvalidActionData {
+                message: "perform_action(\"move_to\") requires coordinates; call move_to(x, y)"
+                    .to_string(),
+            }),
+            "resize_to" => Err(Error::InvalidActionData {
+                message: "perform_action(\"resize_to\") requires dimensions; call \
+                           resize_to(width, height)"
+                    .to_string(),
+            }),
             _ => Err(Error::ActionNotSupported {
                 action: action.to_string(),
                 role: element.role,
@@ -2193,6 +2671,15 @@ fn role_has_value(role: Role) -> bool {
 
 /// Whether a role typically supports actions via the Action interface.
 /// Container and display-only roles are skipped to save D-Bus round-trips.
+///
+/// Window and Dialog are deliberately excluded: their semantic verbs do not
+/// come from the Action interface. `activate` (the one Linux supports) is also
+/// deliberately NOT advertised — see the note in `build_element_data` on why
+/// (the AT-SPI adapters disagree about implementing a frame GrabFocus, so
+/// advertising it would promise an action the call then declines); it stays
+/// callable, and the state-mutating verbs are `Unsupported` on AT-SPI — so
+/// admitting them here would only earn a pointless GetActions probe
+/// returning no usable entries.
 fn role_has_actions(role: Role) -> bool {
     matches!(
         role,
@@ -2214,6 +2701,50 @@ fn role_has_actions(role: Role) -> bool {
             | Role::Image
             | Role::Unknown
     )
+}
+
+/// Classify a `Component.GrabFocus` call result, used by
+/// [`focus`](LinuxProvider::focus) and [`activate`](LinuxProvider::activate).
+///
+/// The two verbs share the AT-SPI mechanism (there is no separate activate API),
+/// and an adapter signals "this element cannot take focus" in one of two
+/// honest shapes: a `false` reply (checked by both callers) or the D-Bus
+/// `NotSupported` error, which is what the GTK4 adapter raises for
+/// non-focusable controls instead of answering false (issue #98). Both mean
+/// the adapter declined — `ActionNotSupported`, the documented contract that
+/// the python/JS suites treat as xfail — and every other failure stays a
+/// `Platform` error (tenet 1: no silent swallowing of unexpected failures).
+fn grab_focus_result(
+    call: std::result::Result<zbus::Message, zbus::Error>,
+    verb: &str,
+    action: &str,
+    role: Role,
+) -> Result<zbus::Message> {
+    call.map_err(|e| match e {
+        zbus::Error::MethodError(name, _, _) => {
+            grab_focus_error(name.as_str().to_string(), verb, action, role)
+        }
+        other => Error::Platform {
+            code: -1,
+            message: format!("Component.GrabFocus while {verb} failed: {other}"),
+        },
+    })
+}
+
+/// Pure classification half of `grab_focus_result`, unit-testable without
+/// constructing zbus internals.
+fn grab_focus_error(name: String, verb: &str, action: &str, role: Role) -> Error {
+    if name == "org.freedesktop.DBus.Error.NotSupported" {
+        Error::ActionNotSupported {
+            action: action.to_string(),
+            role,
+        }
+    } else {
+        Error::Platform {
+            code: -1,
+            message: format!("Component.GrabFocus while {verb} failed: {name}"),
+        }
+    }
 }
 
 /// Map AT-SPI2 role name to xa11y Role.
@@ -2569,6 +3100,21 @@ fn map_atspi_action_name(action_name: &str) -> Option<String> {
     Some(canonical.to_string())
 }
 
+/// Resolve AT-SPI's overloaded `menu` role using positive activation evidence.
+///
+/// GTK 3 reports both popup menu containers and submenu-bearing entries as
+/// `menu`. Its entries implement Action with `click`, while the GtkMenu
+/// container does not implement Action. Parentage and children cannot separate
+/// the two: GTK reparents the popup under its owning entry and exposes submenu
+/// items directly as children of that same entry.
+fn refine_menu_role(role: Role, actions: &[String]) -> Role {
+    if role == Role::Menu && actions.iter().any(|action| action == "press") {
+        Role::MenuItem
+    } else {
+        role
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -2590,6 +3136,35 @@ mod tests {
     }
 
     #[test]
+    fn menu_with_native_activation_is_a_menu_item() {
+        assert_eq!(
+            refine_menu_role(Role::Menu, &["press".to_string()]),
+            Role::MenuItem
+        );
+    }
+
+    #[test]
+    fn non_activatable_menu_stays_a_container() {
+        assert_eq!(refine_menu_role(Role::Menu, &[]), Role::Menu);
+        assert_eq!(
+            refine_menu_role(Role::Menu, &["show_menu".to_string()]),
+            Role::Menu
+        );
+    }
+
+    #[test]
+    fn activation_does_not_change_other_roles() {
+        assert_eq!(
+            refine_menu_role(Role::MenuBar, &["press".to_string()]),
+            Role::MenuBar
+        );
+        assert_eq!(
+            refine_menu_role(Role::MenuItem, &["press".to_string()]),
+            Role::MenuItem
+        );
+    }
+
+    #[test]
     fn test_numeric_role_mapping() {
         // ToggleButton (62) must map to Switch, not Button.
         // GTK4's Gtk.Switch and Gtk.ToggleButton both report numeric role 62.
@@ -2598,6 +3173,39 @@ mod tests {
         assert_eq!(map_atspi_role_number(43), Role::Button); // PushButton
         assert_eq!(map_atspi_role_number(7), Role::CheckBox);
         assert_eq!(map_atspi_role_number(67), Role::Unknown); // AT-SPI Unknown
+    }
+
+    #[test]
+    fn grab_focus_notsupported_is_action_not_supported() {
+        // The GTK4 adapter answers a button GrabFocus with the D-Bus
+        // NotSupported error instead of a false reply (issue #98); the
+        // classifier must surface it as ActionNotSupported so the suites'
+        // xfail contract holds, and keep everything else a platform error
+        // (tenet 1).
+        let declined = grab_focus_error(
+            "org.freedesktop.DBus.Error.NotSupported".into(),
+            "focusing",
+            "focus",
+            Role::Button,
+        );
+        match declined {
+            Error::ActionNotSupported { action, role } => {
+                assert_eq!(action, "focus");
+                assert_eq!(role, Role::Button);
+            }
+            other => panic!("expected ActionNotSupported, got {other:?}"),
+        }
+
+        let broken = grab_focus_error(
+            "org.freedesktop.DBus.Error.UnknownMethod".into(),
+            "activating",
+            "activate",
+            Role::Window,
+        );
+        match broken {
+            Error::Platform { code, .. } => assert_eq!(code, -1),
+            other => panic!("expected Platform error, got {other:?}"),
+        }
     }
 
     /// The full AtspiRole enum (atspi 2.52) as (number, GetRoleName-style

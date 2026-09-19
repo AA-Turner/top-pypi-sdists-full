@@ -28,6 +28,7 @@ class SessionDetails:
     user_id: str
     project_id: str
     cloud_location: CloudLocation | None = None
+    termination_reason: str | None = None
 
     @classmethod
     def from_json(cls, data: dict[str, Any]) -> SessionDetails:
@@ -37,6 +38,7 @@ class SessionDetails:
         instance_id = data.get("instance_id")
         database_id = data.get("database_id")
         cloud_location = CloudLocation(data["cloud_provider"], data["region"]) if data.get("cloud_provider") else None
+        termination_reason = data.get("termination_reason")
 
         return cls(
             id=id,
@@ -48,17 +50,35 @@ class SessionDetails:
             host=data["host"],
             expiry_date=TimeParser.fromisoformat(expiry_date) if expiry_date else None,
             created_at=TimeParser.fromisoformat(data["created_at"]),
-            ttl=Timedelta(ttl).to_pytimedelta() if ttl else None,  # datetime has no support for parsing timedelta
+            ttl=cls._parse_ttl(ttl),
             project_id=data["project_id"],
             user_id=data["user_id"],
             cloud_location=cloud_location,
+            termination_reason=termination_reason if termination_reason else None,
         )
+
+    @staticmethod
+    def _parse_ttl(ttl: Any | None) -> timedelta | None:
+        # datetime has no support for parsing timedelta, so we rely on pandas.
+        # The Aura API encodes days with a lowercase "d" (e.g. "1d8h1m2s"), but pandas >= 3.0
+        # deprecates the lowercase day unit in favour of the uppercase "D".
+        if not ttl:
+            return None
+        if isinstance(ttl, str):
+            ttl = ttl.replace("d", "D")
+        return Timedelta(ttl).to_pytimedelta()
 
     def bolt_connection_url(self) -> str:
         return f"neo4j+s://{self.host}"
 
     def is_ready(self) -> bool:
         return self.status.lower() == "ready"
+
+    def is_failed(self) -> bool:
+        return self.status.lower() == "failed"
+
+    def is_deleted(self) -> bool:
+        return self.status.lower() == "deleted"
 
 
 @dataclass(repr=True, frozen=True)
@@ -75,6 +95,7 @@ class SessionDetailsWithErrors(SessionDetails):
         instance_id = data.get("instance_id")
         database_id = data.get("database_id")
         cloud_location = CloudLocation(data["cloud_provider"], data["region"]) if data.get("cloud_provider") else None
+        termination_reason = data.get("termination_reason")
 
         return cls(
             id=id,
@@ -86,10 +107,11 @@ class SessionDetailsWithErrors(SessionDetails):
             host=data["host"],
             expiry_date=TimeParser.fromisoformat(expiry_date) if expiry_date else None,
             created_at=TimeParser.fromisoformat(data["created_at"]),
-            ttl=Timedelta(ttl).to_pytimedelta() if ttl else None,  # datetime has no support for parsing timedelta
+            ttl=cls._parse_ttl(ttl),
             project_id=data["project_id"],
             user_id=data["user_id"],
             cloud_location=cloud_location,
+            termination_reason=termination_reason if termination_reason else None,
             errors=session_errors,
         )
 
@@ -117,6 +139,9 @@ class SessionErrorData:
 
     def __str__(self) -> str:
         return f"Reason: {self.reason}, Message: {self.message}"
+
+    def is_out_of_memory(self) -> bool:
+        return self.reason.lower() == "outofmemory"
 
 
 @dataclass(repr=True, frozen=True)

@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import platform
 import socket
 import struct
@@ -124,6 +125,14 @@ def run_native_messaging_host(
     stdout: BinaryIO | None = None,
     stderr: TextIO | None = None,
 ) -> int:
+    if sys.platform == "win32":
+        import msvcrt  # noqa: PLC0415 - Windows-only stdlib
+
+        # Text-mode CRLF translation corrupts the binary length prefix.
+        if stdin is None:
+            msvcrt.setmode(sys.stdin.fileno(), os.O_BINARY)
+        if stdout is None:
+            msvcrt.setmode(sys.stdout.fileno(), os.O_BINARY)
     input_stream = stdin or sys.stdin.buffer
     output_stream = stdout or sys.stdout.buffer
     error_stream = stderr or sys.stderr

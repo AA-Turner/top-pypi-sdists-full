@@ -29,7 +29,6 @@ from langgraph_grpc_common import serde as _grpc_serde
 from langgraph_grpc_common.conversion import checkpoint as ckpt_conv
 from langgraph_grpc_common.conversion.config import (
     config_from_proto,
-    config_to_proto,
     convert_dict_to_json_bytes,
 )
 from langgraph_grpc_common.proto import checkpointer_pb2
@@ -146,7 +145,9 @@ class GrpcCheckpointer(BaseCheckpointSaver):
 
     async def aget_tuple(self, config: RunnableConfig) -> CheckpointTuple | None:
         with self._scoped():
-            request = checkpointer_pb2.GetTupleRequest(config=config_to_proto(config))
+            request = checkpointer_pb2.GetTupleRequest(
+                config=ckpt_conv.checkpoint_config_to_proto(config)
+            )
 
         async def _request() -> CheckpointTuple | None:
             response = await (await self._stub()).GetTuple(request)
@@ -183,7 +184,7 @@ class GrpcCheckpointer(BaseCheckpointSaver):
     ) -> RunnableConfig:
         with self._scoped():
             request = checkpointer_pb2.PutRequest(
-                config=config_to_proto(config),
+                config=ckpt_conv.checkpoint_config_to_proto(config),
                 checkpoint=ckpt_conv.checkpoint_to_proto(checkpoint),
                 metadata=ckpt_conv.checkpoint_metadata_to_proto(metadata),
                 new_versions={k: str(v) for k, v in new_versions.items()},
@@ -218,7 +219,7 @@ class GrpcCheckpointer(BaseCheckpointSaver):
     ) -> None:
         with self._scoped():
             request = checkpointer_pb2.PutWritesRequest(
-                config=config_to_proto(config),
+                config=ckpt_conv.checkpoint_config_to_proto(config),
                 writes=ckpt_conv.writes_to_proto(writes),
                 task_id=task_id,
                 task_path=task_path,
@@ -272,9 +273,9 @@ class GrpcCheckpointer(BaseCheckpointSaver):
     ) -> AsyncIterator[CheckpointTuple]:
         with self._scoped():
             request = checkpointer_pb2.ListRequest(
-                config=config_to_proto(config) if config is not None else None,
+                config=ckpt_conv.checkpoint_config_to_proto(config),
                 filter_json=convert_dict_to_json_bytes(filter) or b"",
-                before=config_to_proto(before) if before is not None else None,
+                before=ckpt_conv.checkpoint_config_to_proto(before),
             )
         if limit is not None:
             request.limit = limit

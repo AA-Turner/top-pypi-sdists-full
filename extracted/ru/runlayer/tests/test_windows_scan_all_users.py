@@ -18,6 +18,11 @@ from unittest.mock import MagicMock
 import pytest
 
 from runlayer_cli.scan import windows_users
+from runlayer_cli.scan.container_limits import HOST_CONTAINER_PHASE_MAX_TIME_BUDGET_S
+from runlayer_cli.scan.containers.docker_cli import SCAN_MAX_TIME_BUDGET_S
+from runlayer_cli.scan.wsl_exec import WSL_CONTAINER_SCAN_TIME_BUDGET_S
+from runlayer_cli.scan.wsl_presence import WSL_PRESENCE_TIME_BUDGET_S
+from runlayer_cli.scan.wsl_projects import WSL_SCAN_MAX_TIME_BUDGET_S
 from runlayer_cli.scan.windows_users import (
     EXIT_MISCONFIG,
     RealUserProfile,
@@ -139,6 +144,7 @@ class TestScanArgv:
             "scan",
             "--username",
             "alice",
+            "--machine-scope",
             "--project-timeout",
             "60",
             "--project-depth",
@@ -173,6 +179,27 @@ class TestScanArgv:
         assert argv[argv.index("--memory-limit-mb") + 1] == "512"
 
     @pytest.mark.parametrize(
+        ("machine_scope", "expected_flag"),
+        [(True, "--machine-scope"), (False, "--no-machine-scope")],
+    )
+    def test_emits_explicit_machine_scope_pair(
+        self, machine_scope: bool, expected_flag: str
+    ):
+        argv = _scan_argv(
+            "alice",
+            scan_projects=True,
+            project_timeout=60,
+            project_depth=7,
+            machine_scope=machine_scope,
+            **_CAPS,
+        )
+
+        assert expected_flag in argv
+        assert (
+            "--no-machine-scope" if machine_scope else "--machine-scope"
+        ) not in argv
+
+    @pytest.mark.parametrize(
         ("enabled", "expected_flag"),
         [
             (True, "--artifact-lookup-cache"),
@@ -194,6 +221,29 @@ class TestScanArgv:
         )
 
         assert expected_flag in argv
+
+    @pytest.mark.parametrize(
+        ("system_profile", "expected_flag"),
+        [(False, None), (True, "--windows-system-profile")],
+    )
+    def test_forwards_sid_and_explicit_system_profile_context(
+        self,
+        system_profile: bool,
+        expected_flag: str | None,
+    ):
+        argv = _scan_argv(
+            "alice",
+            scan_projects=True,
+            project_timeout=60,
+            project_depth=7,
+            windows_user_sid="S-1-5-21-1-2-3-1001",
+            windows_system_profile=system_profile,
+            **_CAPS,
+        )
+
+        assert argv[argv.index("--windows-user-sid") + 1] == "S-1-5-21-1-2-3-1001"
+        assert ("--windows-system-profile" in argv) is system_profile
+        assert expected_flag is None or expected_flag in argv
 
 
 class TestProfileEnv:
@@ -230,6 +280,9 @@ class TestRunScanAsSystem:
         assert code == 0
         assert "--username" in captured["argv"]
         assert "alice" in captured["argv"]
+        assert "--windows-user-sid" in captured["argv"]
+        assert "S-1-5-21-1-2-3-1001" in captured["argv"]
+        assert "--windows-system-profile" in captured["argv"]
         assert "--no-artifact-lookup-cache" in captured["argv"]
         assert captured["env"]["USERPROFILE"] == r"C:\Users\alice"
 
@@ -265,11 +318,21 @@ class TestLaunchScanAsUser:
 
     @staticmethod
     def _fake_windll() -> MagicMock:
+        import ctypes
+
         windll = MagicMock()
         windll.wtsapi32.WTSQueryUserToken.return_value = 1  # token acquired
-        windll.userenv.CreateEnvironmentBlock.return_value = 0  # have_env False
+
+        def create_environment_block(environment, _token, _inherit):
+            ctypes.cast(
+                environment, ctypes.POINTER(ctypes.c_void_p)
+            ).contents.value = 1234
+            return 1
+
+        windll.userenv.CreateEnvironmentBlock.side_effect = create_environment_block
         windll.advapi32.CreateProcessAsUserW.return_value = 1  # spawn ok
         windll.kernel32.WaitForSingleObject.return_value = 0  # _WAIT_OBJECT_0
+        windll.kernel32.GetExitCodeProcess.return_value = 1
         return windll
 
     def test_lp_command_line_is_writable_buffer_not_const_pointer(
@@ -298,6 +361,7 @@ class TestLaunchScanAsUser:
         assert isinstance(lp_command_line, ctypes.Array)
         assert lp_command_line._type_ is ctypes.c_wchar
         assert not isinstance(lp_command_line, ctypes.c_wchar_p)
+        assert call.args[7].value == 1234
 
         expected = subprocess.list2cmdline(
             [
@@ -307,6 +371,7 @@ class TestLaunchScanAsUser:
                     scan_projects=True,
                     project_timeout=60,
                     project_depth=7,
+                    windows_user_sid="S-1-12-1-1-2-3-4",
                     **_CAPS,
                 ),
             ]
@@ -338,6 +403,31 @@ class TestLaunchScanAsUser:
         assert isinstance(lp_application_name, ctypes.c_wchar_p)
         assert lp_application_name.value == sys.executable
 
+    def test_environment_block_failure_raises_before_spawn_and_closes_token(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        import ctypes
+
+        windll = self._fake_windll()
+        windll.userenv.CreateEnvironmentBlock.side_effect = None
+        windll.userenv.CreateEnvironmentBlock.return_value = 0
+        monkeypatch.setattr(ctypes, "windll", windll, raising=False)
+
+        with pytest.raises(OSError, match="CreateEnvironmentBlock failed"):
+            windows_users.launch_scan_as_user(
+                3,
+                _profile("S-1-12-1-1-2-3-4", r"C:\Users\alice", "alice"),
+                scan_projects=True,
+                project_timeout=60,
+                project_depth=7,
+                timeout=180,
+                **_CAPS,
+            )
+
+        windll.advapi32.CreateProcessAsUserW.assert_not_called()
+        windll.userenv.DestroyEnvironmentBlock.assert_not_called()
+        windll.kernel32.CloseHandle.assert_called_once()
+
     def test_logged_on_scan_forwards_enabled_artifact_cache(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -363,6 +453,11 @@ class TestLaunchScanAsUser:
 
         assert code == 0
         assert "--artifact-lookup-cache" in captured["argv"]
+        assert (
+            captured["argv"][captured["argv"].index("--windows-user-sid") + 1]
+            == "S-1-12-1-1-2-3-4"
+        )
+        assert "--windows-system-profile" not in captured["argv"]
 
     def test_wait_failed_terminates_child_and_raises(
         self, monkeypatch: pytest.MonkeyPatch
@@ -561,6 +656,102 @@ class TestRunAllUsersScanOrchestration:
         assert launched == [(3, "alice")]  # logged-on Entra user -> token drop
         assert system_scanned == ["bob"]  # logged-off -> SYSTEM env-pointed
 
+    def test_child_timeout_covers_every_container_and_wsl_time_budget(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        """The per-profile cap must outlast the phases the child runs (ISS-12).
+
+        Parity: with container detection on the child spends up to one host
+        container budget per runtime (docker, podman, nerdctl) and then the WSL
+        project, presence and container budgets, all *on top of* its own
+        project scan. A cap of project_timeout + 120s killed container- or
+        WSL-heavy profiles mid-scan and lost the whole profile.
+        """
+        alice = _profile("S-1-12-1-1-2-3-4", r"C:\Users\alice", "alice")
+        monkeypatch.setattr(
+            windows_users, "enumerate_real_user_profiles", lambda: [alice]
+        )
+        monkeypatch.setattr(
+            windows_users, "active_session_sids", lambda: {alice.sid: 3}
+        )
+        seen: dict[str, int] = {}
+
+        def fake_launch(session_id, profile, **kwargs):
+            seen["timeout"] = kwargs["timeout"]
+            return 0
+
+        monkeypatch.setattr(windows_users, "launch_scan_as_user", fake_launch)
+
+        run_all_users_scan(
+            scan_projects=True, project_timeout=60, project_depth=7, **_CAPS
+        )
+
+        assert HOST_CONTAINER_PHASE_MAX_TIME_BUDGET_S >= 3 * SCAN_MAX_TIME_BUDGET_S
+        worst_case = (
+            HOST_CONTAINER_PHASE_MAX_TIME_BUDGET_S
+            + WSL_SCAN_MAX_TIME_BUDGET_S
+            + WSL_PRESENCE_TIME_BUDGET_S
+            + WSL_CONTAINER_SCAN_TIME_BUDGET_S
+        )
+        assert seen["timeout"] >= 60 + worst_case + 120
+
+    def test_machine_scope_runs_for_exactly_one_profile(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        profiles = [
+            _profile("S-1-5-21-1-2-3-1001", r"C:\Users\alice", "alice"),
+            _profile("S-1-5-21-1-2-3-1002", r"C:\Users\bob", "bob"),
+        ]
+        monkeypatch.setattr(
+            windows_users,
+            "enumerate_real_user_profiles",
+            lambda: profiles,
+        )
+        monkeypatch.setattr(windows_users, "active_session_sids", lambda: {})
+        machine_scopes: list[bool] = []
+
+        def fake_system(_profile, **kwargs):
+            machine_scopes.append(kwargs["machine_scope"])
+            return 0
+
+        monkeypatch.setattr(windows_users, "run_scan_as_system", fake_system)
+
+        code = run_all_users_scan(
+            scan_projects=True, project_timeout=60, project_depth=7, **_CAPS
+        )
+
+        assert code == 0
+        assert machine_scopes == [True, False]
+
+    def test_machine_scope_retries_after_failed_profile(
+        self, monkeypatch: pytest.MonkeyPatch
+    ):
+        profiles = [
+            _profile("S-1-5-21-1-2-3-1001", r"C:\Users\alice", "alice"),
+            _profile("S-1-5-21-1-2-3-1002", r"C:\Users\bob", "bob"),
+            _profile("S-1-5-21-1-2-3-1003", r"C:\Users\carol", "carol"),
+        ]
+        monkeypatch.setattr(
+            windows_users,
+            "enumerate_real_user_profiles",
+            lambda: profiles,
+        )
+        monkeypatch.setattr(windows_users, "active_session_sids", lambda: {})
+        machine_scopes: list[bool] = []
+
+        def fake_system(_profile, **kwargs):
+            machine_scopes.append(kwargs["machine_scope"])
+            return 1 if len(machine_scopes) == 1 else 0
+
+        monkeypatch.setattr(windows_users, "run_scan_as_system", fake_system)
+
+        code = run_all_users_scan(
+            scan_projects=True, project_timeout=60, project_depth=7, **_CAPS
+        )
+
+        assert code == 1
+        assert machine_scopes == [True, True, False]
+
     def test_forwards_cache_setting_only_to_non_elevated_child(
         self,
         monkeypatch: pytest.MonkeyPatch,
@@ -702,13 +893,15 @@ class TestRunAllUsersScanOrchestration:
             windows_users, "active_session_sids", lambda: {alice.sid: 3}
         )
 
+        launched_scopes: list[bool] = []
+        system_scopes: list[bool] = []
+
         def boom_launch(session_id, profile, **kwargs):
+            launched_scopes.append(kwargs["machine_scope"])
             raise OSError("WTSQueryUserToken failed")
 
-        system_scanned: list[str] = []
-
-        def fake_system(profile, **kwargs):
-            system_scanned.append(profile.username)
+        def fake_system(_profile, **kwargs):
+            system_scopes.append(kwargs["machine_scope"])
             return 0
 
         monkeypatch.setattr(windows_users, "launch_scan_as_user", boom_launch)
@@ -719,7 +912,8 @@ class TestRunAllUsersScanOrchestration:
         )
 
         assert code == 0  # fallback succeeded, profile counted as scanned
-        assert system_scanned == ["alice"]
+        assert launched_scopes == [True]
+        assert system_scopes == [True]
 
     def test_logged_on_nonzero_exit_does_not_fall_back(
         self, monkeypatch: pytest.MonkeyPatch

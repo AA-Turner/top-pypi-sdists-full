@@ -28,8 +28,32 @@ license:
 
 import unittest
 from math import pi
+from scipy.linalg import norm as scipy_norm
+from scipy.spatial.transform import Rotation as scipy_Rotation
 from build123d import *
-from build123d import WorkplaneList, flatten_sequence
+from build123d import flatten_sequence
+from build123d.build_common import BaseObject, BaseObjectMeta, Builder, LocationList
+
+
+class ContextProbe(BaseObject):
+    """Record contexts visible during an isolated object construction."""
+
+    def __init__(self, nested=False, fail=False):
+        self.object_context = self._get_object_context()
+        self.builder_context = Builder._get_context(log=False)
+        self.explicit_builder_context = Builder._get_context(self, log=False)
+        self.location_context = LocationList._get_context()
+        self.object_locations = self._get_object_locations()
+        if nested:
+            with BuildPart() as internal_builder:
+                self.child = ContextProbe()
+                self.internal_builder_after_child = Builder._get_context(log=False)
+            self.internal_builder = internal_builder
+            self.object_context_after_child = self._get_object_context()
+        else:
+            self.child = None
+        if fail:
+            raise RuntimeError("probe failure")
 
 
 def _assertTupleAlmostEquals(self, expected, actual, places, msg=None):
@@ -63,6 +87,12 @@ class TestFlattenSequence(unittest.TestCase):
             flatten_sequence("a", ("b", "c", "d"), "e"), ["a", "b", "c", "d", "e"]
         )
 
+    def test_iterators(self):
+        self.assertListEqual(flatten_sequence(map(str, range(3))), ["0", "1", "2"])
+        self.assertListEqual(
+            flatten_sequence(str(value) for value in range(3)), ["0", "1", "2"]
+        )
+
     def test_points(self):
         self.assertListEqual(
             flatten_sequence("a", (1, 2, 3), "e"), ["a", (1, 2, 3), "e"]
@@ -94,6 +124,21 @@ class TestFlattenSequence(unittest.TestCase):
 class TestBuilder(unittest.TestCase):
     """Test the Builder base class"""
 
+    def test_label_propagates_to_builder_output(self):
+        """Builder labels are applied to the final output on context exit."""
+        with BuildPart() as part_builder:
+            part_builder.label = "part label"
+            Box(1, 1, 1)
+
+        with BuildSketch() as sketch_builder:
+            sketch_builder.label = "sketch label"
+            Rectangle(1, 1)
+
+        self.assertEqual(part_builder.label, "part label")
+        self.assertEqual(sketch_builder.label, "sketch label")
+        self.assertEqual(part_builder.part.label, "part label")
+        self.assertEqual(sketch_builder.sketch.label, "sketch label")
+
     def test_exit(self):
         """test transferring objects to parent"""
         with BuildPart() as outer:
@@ -105,6 +150,56 @@ class TestBuilder(unittest.TestCase):
                     CenterArc((0, 0), 1, 0, 360)
                 make_face()
             self.assertEqual(len(outer.pending_faces), 2)
+
+    def test_base_object_context_firewall(self):
+        with BuildPart() as builder:
+            Box(1, 1, 1)
+            with Locations((1, 2, 3)):
+                probe = ContextProbe(nested=True)
+
+                self.assertIsNone(probe.builder_context)
+                self.assertIs(probe.explicit_builder_context, builder)
+                self.assertEqual(probe.location_context.locations, [Location()])
+                self.assertIs(probe.object_context.owner.root, probe)
+                self.assertIsNot(probe.child.object_context, probe.object_context)
+                self.assertIs(probe.child.object_context.owner.root, probe.child)
+                self.assertIs(
+                    probe.child.object_context.parent.parent,
+                    probe.object_context,
+                )
+                self.assertIs(
+                    probe.child.object_context.publication_target,
+                    probe.internal_builder,
+                )
+                self.assertIsNone(probe.child.builder_context)
+                self.assertIs(
+                    probe.internal_builder_after_child, probe.internal_builder
+                )
+                self.assertIs(probe.object_context_after_child, probe.object_context)
+                self.assertEqual(
+                    probe.object_context.publication_locations,
+                    (Location((1, 2, 3)),),
+                )
+                self.assertEqual(probe.object_locations, (Location((1, 2, 3)),))
+                self.assertIs(Builder._get_context(log=False), builder)
+                self.assertIsNotNone(LocationList._get_context())
+
+    def test_base_object_context_restored_after_exception(self):
+        with BuildPart() as builder:
+            Box(1, 1, 1)
+            with Locations((1, 2, 3)):
+                with self.assertRaisesRegex(RuntimeError, "probe failure"):
+                    ContextProbe(fail=True)
+
+                self.assertIs(Builder._get_context(log=False), builder)
+                self.assertIsNotNone(LocationList._get_context())
+
+    def test_base_object_algebra_fast_path(self):
+        probe = ContextProbe()
+
+        self.assertIsNone(probe.object_context)
+        self.assertIsNone(probe.builder_context)
+        self.assertEqual(probe.object_locations, ())
 
     def test_plane_with_no_x(self):
         with BuildPart() as p:
@@ -174,7 +269,7 @@ class TestBuilder(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, "Expected exactly one solid"):
                 p.solid()
 
-    def test_workplanes_as_list(self):
+    def test_placements_as_list(self):
         with BuildPart() as p:
             Box(1, 1, 1)
             with BuildSketch(p.faces() >> Axis.Z):
@@ -209,8 +304,138 @@ class TestBuilder(unittest.TestCase):
         with self.assertRaises(AttributeError):
             a.export_stl("invalid.stl")
 
+    def test_invalid_placement(self):
+        with self.assertRaisesRegex(ValueError, "does not accept placement"):
+            BuildPart(5)
 
-class TestBuilderExit(unittest.TestCase):
+    def test_select_last_excludes_faces_the_operation_only_rebuilt(self):
+        """A cylinder standing on a box: the box top gets a circle cut into it
+        but it is not a face the operation created."""
+        with BuildPart() as builder:
+            Box(10, 10, 10)
+            with Locations((0, 0, 5)):
+                Cylinder(2, 5, align=(Align.CENTER, Align.CENTER, Align.MIN))
+            last = builder.faces(Select.LAST)
+            self.assertEqual(len(last), 2)
+            self.assertEqual(
+                {f.geom_type for f in last}, {GeomType.CYLINDER, GeomType.PLANE}
+            )
+            self.assertTrue(all(f.center().Z > 5 for f in last))
+            # the edges of the new faces, including the circle shared with the top
+            self.assertEqual(len(builder.edges(Select.LAST)), 3)
+
+    def test_select_last_and_new_after_a_cut(self):
+        with BuildPart() as builder:
+            Box(10, 10, 10)
+            Hole(1)
+            # the hole wall was brought in by the cutter; the circles are new
+            self.assertEqual(len(builder.faces(Select.LAST)), 1)
+            self.assertEqual(builder.faces(Select.LAST)[0].geom_type, GeomType.CYLINDER)
+            self.assertEqual(len(builder.faces(Select.NEW)), 0)
+            self.assertEqual(len(builder.edges(Select.NEW)), 2)
+            self.assertTrue(
+                all(e.geom_type == GeomType.CIRCLE for e in builder.edges(Select.NEW))
+            )
+
+    def test_select_last_after_a_fillet_is_the_fillet(self):
+        with BuildPart() as builder:
+            Box(10, 10, 10)
+            fillet(builder.edges().filter_by(Axis.Z), 1)
+            last = builder.faces(Select.LAST)
+            self.assertEqual(len(last), 4)
+            self.assertTrue(all(f.geom_type == GeomType.CYLINDER for f in last))
+            self.assertEqual(len(builder.faces(Select.NEW)), 4)
+            # the fillets' seams and arcs, but not the trimmed box edges
+            self.assertEqual(len(builder.edges(Select.NEW)), 16)
+            self.assertEqual(len(builder.edges(Select.LAST)), 16)
+
+    def test_select_last_includes_shared_vertices_of_new_edges(self):
+        """The vertex a new edge shares with an old one belongs to the new edge."""
+        with BuildLine() as builder:
+            Line((0, 0), (1, 0))
+            Line((1, 0), (1, 1))
+            self.assertEqual(len(builder.vertices(Select.LAST)), 2)
+            # but neither vertex is new: both existed on the edge that was added
+            self.assertEqual(len(builder.vertices(Select.NEW)), 0)
+
+    def test_select_without_a_record_treats_the_unfamiliar_as_new(self):
+        """A replacement that arrives with no record of how it was made is
+        compared with what was there: identical sub-shapes are untouched, the
+        rest are new."""
+        with BuildPart() as builder:
+            Box(10, 10, 10)
+            add(Box(20, 20, 20), mode=Mode.REPLACE)
+            self.assertEqual(len(builder.faces(Select.LAST)), 6)
+            self.assertEqual(len(builder.faces(Select.NEW)), 6)
+            self.assertEqual(len(builder.solids(Select.NEW)), 1)
+
+    def test_new_edges_is_deprecated(self):
+        with BuildPart() as builder:
+            Box(1, 1, 1)
+            Cylinder(0.25, 3)
+            with self.assertWarns(DeprecationWarning):
+                self.assertEqual(len(builder.new_edges), 2)
+
+    def test_select_after_a_sketch_chamfer(self):
+        """A 2D chamfer records: the chamfer edges are new, the face was rebuilt."""
+        with BuildSketch() as sketch:
+            Rectangle(10, 10)
+            chamfer(sketch.vertices(), 1)
+            self.assertEqual(len(sketch.edges(Select.NEW)), 4)
+            self.assertEqual(len(sketch.edges(Select.LAST)), 4)
+            self.assertEqual(len(sketch.faces(Select.LAST)), 0)
+
+    def test_select_after_a_sketch_fillet(self):
+        """The custom 2D fillet records: arcs new, trimmed edges and face rebuilt."""
+        with BuildSketch() as sketch:
+            Rectangle(10, 10)
+            fillet(sketch.vertices(), 1)
+            self.assertEqual(len(sketch.edges()), 8)
+            self.assertEqual(len(sketch.edges(Select.NEW)), 4)
+            self.assertEqual(len(sketch.edges(Select.LAST)), 4)
+            self.assertEqual(len(sketch.faces(Select.LAST)), 0)
+            self.assertEqual(len(sketch.vertices(Select.NEW)), 8)
+
+    def test_select_after_a_partial_line_fillet(self):
+        """One corner filleted: one arc and its two ends are new, nothing else."""
+        with BuildLine() as line:
+            Polyline((0, 0), (10, 0), (10, 10), (0, 10), close=True)
+            fillet(line.vertices().sort_by_distance((10, 10, 0))[0:1], 2)
+            self.assertEqual(len(line.edges()), 5)
+            self.assertEqual(len(line.edges(Select.NEW)), 1)
+            self.assertEqual(line.edges(Select.NEW)[0].geom_type, GeomType.CIRCLE)
+            self.assertEqual(len(line.vertices(Select.NEW)), 2)
+            self.assertEqual(len(line.edges(Select.LAST)), 1)
+
+    def test_select_after_a_line_chamfer(self):
+        """The record rides on the wire the operation returns, not on the edges
+        the builder breaks it into."""
+        with BuildLine() as line:
+            Polyline((0, 0), (10, 0), (10, 10), (0, 10), close=True)
+            chamfer(line.vertices(), 1)
+            self.assertEqual(len(line.edges()), 8)
+            self.assertEqual(len(line.edges(Select.NEW)), 4)
+
+    def test_select_new_for_every_shape_type(self):
+        """Select.NEW answers for every type once an operation has a history."""
+        with BuildPart() as builder:
+            Box(1, 1, 1)
+            for selector in (
+                builder.vertices,
+                builder.edges,
+                builder.faces,
+                builder.solids,
+            ):
+                with self.subTest(selector=selector.__name__):
+                    self.assertEqual(len(selector(Select.NEW)), 0)
+            Cylinder(0.25, 3)
+            # the two circles where the cylinder meets the box, and the merged solid
+            self.assertEqual(len(builder.edges(Select.NEW)), 2)
+            self.assertEqual(len(builder.vertices(Select.NEW)), 2)
+            self.assertEqual(len(builder.faces(Select.NEW)), 0)
+            self.assertEqual(len(builder.solids(Select.NEW)), 1)
+            self.assertEqual(len(builder.wires(Select.NEW)), 2)
+
     def test_multiple(self):
         with BuildPart() as test:
             with BuildLine() as l:
@@ -322,7 +547,7 @@ class TestLocations(unittest.TestCase):
         hex = RegularPolygon(1, 6)
         with BuildSketch() as s:
             with HexLocations(1, 3, 3, major_radius=True) as hloc:
-                add(hex)
+                insert(hex)
         self.assertAlmostEqual(s.sketch.face().area, hex.area * 9, 7)
         self.assertAlmostEqual(hloc.radius, 1, 7)
         self.assertAlmostEqual(hloc.diagonal, 2, 7)
@@ -422,6 +647,17 @@ class TestLocations(unittest.TestCase):
         self.assertTupleAlmostEquals(locs.locations[2].position, (4, 5, 0), 5)
         self.assertTupleAlmostEquals(locs.locations[3].position, (6, 7, 0), 5)
 
+    def test_iterator_input(self):
+        for points in (
+            map(lambda value: (value, 0), [10, 20, 30]),
+            ((value, 0) for value in [10, 20, 30]),
+        ):
+            locs = Locations(points)
+            self.assertListEqual(
+                [tuple(location.position) for location in locs.locations],
+                [(10, 0, 0), (20, 0, 0), (30, 0, 0)],
+            )
+
 
 class TestProperties(unittest.TestCase):
     def test_vector_properties(self):
@@ -455,6 +691,67 @@ class TestRotation(unittest.TestCase):
         self.assertTupleAlmostEquals(
             tuple(box_vertices[7]), (0.3169872, 1.2745190, 0.52451905), 5
         )
+
+    def test_init_by_axis_angle(self):
+        # Rotation with about Intrinsic XYZ with each angle 30 degrees
+        rot = scipy_Rotation.from_euler("XYZ", [30, 30, 30], degrees=True)
+        rot_vec = rot.as_rotvec(degrees=True)
+        angle = scipy_norm(rot_vec)
+        vec_normalized = tuple(rot_vec / angle)
+        axis = Axis((0, 0, 0), vec_normalized)
+
+        thirty_by_three = Rotation(axis, angle)
+        box_vertices = Solid.make_box(1, 1, 1).moved(thirty_by_three).vertices()
+
+        self.assertTupleAlmostEquals(tuple(box_vertices[0]), (0.5, -0.4330127, 0.75), 5)
+        self.assertTupleAlmostEquals(tuple(box_vertices[1]), (0.0, 0.0, 0.0), 7)
+        self.assertTupleAlmostEquals(
+            tuple(box_vertices[2]), (0.0669872, 0.191987, 1.399519), 5
+        )
+        self.assertTupleAlmostEquals(
+            tuple(box_vertices[3]), (-0.4330127, 0.625, 0.6495190), 5
+        )
+        self.assertTupleAlmostEquals(
+            tuple(box_vertices[4]), (1.25, 0.2165063, 0.625), 5
+        )
+        self.assertTupleAlmostEquals(
+            tuple(box_vertices[5]), (0.75, 0.649519, -0.125), 5
+        )
+        self.assertTupleAlmostEquals(
+            tuple(box_vertices[6]), (0.816987, 0.841506, 1.274519), 5
+        )
+        self.assertTupleAlmostEquals(
+            tuple(box_vertices[7]), (0.3169872, 1.2745190, 0.52451905), 5
+        )
+
+    def test_init_by_axis_angle_arguments(self):
+        for rotation in (
+            Rotation(Axis.Z, 30),
+            Rotation(Axis.Z, angle=30),
+            Rotation(axis=Axis.Z, angle=30),
+        ):
+            self.assertTupleAlmostEquals(rotation.orientation, (0, 0, 30), 5)
+
+        # As with other overloaded constructors, a keyword overrides the
+        # corresponding positional value.
+        self.assertTupleAlmostEquals(
+            Rotation(Axis.Z, 30, angle=40).orientation, (0, 0, 40), 5
+        )
+        self.assertTupleAlmostEquals(Rotation(Axis.Z, 0).orientation, (0, 0, 0), 7)
+
+        invalid_rotations = (
+            lambda: Rotation(Axis.Z),
+            lambda: Rotation(axis=Axis.Z),
+            lambda: Rotation(angle=30),
+            lambda: Rotation(30, axis=Axis.Z),
+            lambda: Rotation(axis="Z", angle=30),
+            lambda: Rotation(axis=Axis.Z, angle="30"),
+            lambda: Rotation(Axis.Z, 30, 40),
+            lambda: Rotation(axis=Axis.Z, angle=30, X=10),
+        )
+        for invalid_rotation in invalid_rotations:
+            with self.assertRaises(TypeError):
+                invalid_rotation()
 
 
 class TestShapeList(unittest.TestCase):
@@ -702,6 +999,12 @@ class TestShapeList(unittest.TestCase):
 
 
 class TestValidateInputs(unittest.TestCase):
+    def test_object_without_builder_restriction(self):
+        class UnrestrictedObject:
+            pass
+
+        BaseObjectMeta._validate_builder(UnrestrictedObject, BuildPart())
+
     def test_wrong_builder(self):
         with self.assertRaises(RuntimeError) as rte:
             with BuildPart():
@@ -710,6 +1013,20 @@ class TestValidateInputs(unittest.TestCase):
             "BuildPart doesn't have a Circle object or operation (Circle applies to ['BuildSketch'])",
             str(rte.exception),
         )
+
+    def test_wrong_builder_rejected_before_construction(self):
+        class IncompatibleCircle(Circle):
+            constructed = False
+
+            def __init__(self):
+                type(self).constructed = True
+                super().__init__(1)
+
+        with self.assertRaises(RuntimeError):
+            with BuildPart():
+                IncompatibleCircle()
+
+        self.assertFalse(IncompatibleCircle.constructed)
 
     def test_no_sequence(self):
         with self.assertRaises(ValueError) as rte:
@@ -723,6 +1040,18 @@ class TestValidateInputs(unittest.TestCase):
             with BuildPart() as p:
                 Box(1, 1, 1)
                 fillet(4, radius=1)
+
+    def test_wrong_builder_for_an_existing_object(self):
+        """An object built elsewhere and then handed to the wrong builder."""
+        circle = Circle(1)
+        with BuildPart() as builder:
+            with self.assertRaisesRegex(RuntimeError, "applies to \\['BuildSketch'\\]"):
+                builder.validate_inputs(circle)
+
+    def test_wrong_builder_for_an_operation(self):
+        with BuildLine() as builder:
+            with self.assertRaisesRegex(RuntimeError, "extrude doesn't apply to"):
+                builder.validate_inputs("extrude")
 
 
 class TestVectorExtensions(unittest.TestCase):
@@ -742,63 +1071,65 @@ class TestVectorExtensions(unittest.TestCase):
         with self.assertRaises(ValueError):
             Vector(1, 2, 3) - "four"
 
-        with BuildLine(Plane.YZ):
-            self.assertTupleAlmostEquals(WorkplaneList.localize((1, 2)), (0, 1, 2), 5)
-            self.assertTupleAlmostEquals(
-                WorkplaneList.localize(Vector(1, 1, 1) + (1, 2)),
-                (1, 2, 3),
-                5,
-            )
-            self.assertTupleAlmostEquals(
-                WorkplaneList.localize(Vector(3, 3, 3) - (1, 2)),
-                (3, 2, 1),
-                5,
-            )
-
     def test_relative_addition_with_non_zero_origin(self):
         pln = Plane.XZ
         pln.origin = (0, 0, -35)
 
-        with BuildLine(pln):
+        with BuildLine(pln) as line_builder:
             n3 = Line((-50, -40), (0, 0))
             n4 = Line(n3 @ 1, n3 @ 1 + (0, 10))
-            self.assertTupleAlmostEquals((n4 @ 1), (0, 0, -25), 5)
+            self.assertTupleAlmostEquals((n4 @ 1), (0, 10, 0), 5)
+        self.assertIn(
+            Vector(0, 0, -25),
+            [Vector(vertex) for vertex in line_builder.line.vertices()],
+        )
 
 
-class TestWorkplaneList(unittest.TestCase):
-    def test_iter(self):
-        for i, plane in enumerate(WorkplaneList(Plane.XY, Plane.YZ)):
-            if i == 0:
-                self.assertTrue(plane == Plane.XY)
-            elif i == 1:
-                self.assertTrue(plane == Plane.YZ)
-
-    def test_localize(self):
-        with BuildLine(Plane.YZ):
-            pnts = WorkplaneList.localize((1, 2), (2, 3))
-        self.assertTupleAlmostEquals(pnts[0], (0, 1, 2), 5)
-        self.assertTupleAlmostEquals(pnts[1], (0, 2, 3), 5)
-
-    def test_invalid_workplane(self):
-        with self.assertRaises(ValueError):
-            WorkplaneList(Vector(1, 1, 1))
-
-
-class TestWorkplaneStorage(unittest.TestCase):
-    def test_store_workplanes(self):
+class TestPlacementStorage(unittest.TestCase):
+    def test_store_placements(self):
         with BuildPart(Face.make_rect(5, 5, Plane.XZ)) as p1:
             Box(1, 1, 1)
             with BuildSketch(*p1.faces()) as s1:
                 with BuildLine(Location()) as l1:
                     CenterArc((0, 0), 0.2, 0, 360)
-                    self.assertEqual(len(l1.workplanes), 1)
-                    self.assertTrue(l1.workplanes[0] == Plane.XY)
+                    self.assertEqual(l1.placements, (Location(),))
                 make_face()
-                # Circle(0.2)
-                self.assertEqual(len(s1.workplanes), 6)
-                self.assertTrue(all([isinstance(p, Plane) for p in s1.workplanes]))
+                self.assertEqual(len(s1.placements), 6)
             extrude(amount=0.1)
-        self.assertTrue(p1.workplanes[0] == Plane.XZ)
+        self.assertEqual(p1.placements, (Plane.XZ.location,))
+
+
+class TestPublicationTarget(unittest.TestCase):
+    def test_unsupported_target(self):
+        """A builder that isn't a part, sketch or line builder can't be
+        published into."""
+
+        class _TestBuilder(Builder):
+            _tag = "TestBuilder"
+
+            @property
+            def _obj(self):
+                return None
+
+            @property
+            def _obj_name(self):
+                return "test"
+
+            def __init__(self, mode: Mode = Mode.ADD):
+                # Builder.__init__ walks two frames back to find its caller, so
+                # a subclass must supply the intermediate __init__.
+                super().__init__(mode=mode)
+
+            def _add_to_context(self, *args, **kwargs):
+                pass
+
+            def _add_to_pending(self, *args, **kwargs):
+                pass
+
+        with self.assertRaisesRegex(RuntimeError, "Unsupported publication target"):
+            with _TestBuilder():
+                with BuildPart():
+                    Box(1, 1, 1)
 
 
 class TestContextAwareSelectors(unittest.TestCase):
@@ -824,6 +1155,12 @@ class TestContextAwareSelectors(unittest.TestCase):
             with GridLocations(2, 0, 2, 1):
                 Circle(0.5)
                 self.assertEqual(wires(), p.wires())
+
+    def test_selectors_require_a_builder_context(self):
+        for selector in (solids, faces, wires, edges, vertices):
+            with self.subTest(selector=selector.__name__):
+                with self.assertRaisesRegex(RuntimeError, "requires a Builder cont"):
+                    selector()
 
 
 if __name__ == "__main__":

@@ -1,11 +1,16 @@
 """Tests for functionality that is only supported by lexbor backend."""
 
+from gc import collect as gc_collect
 from inspect import cleandoc
 
 import pytest
 
-
-from selectolax.lexbor import LexborHTMLParser, SelectolaxError, parse_fragment
+from selectolax.lexbor import (
+    LexborDocumentOptions,
+    LexborHTMLParser,
+    SelectolaxError,
+    parse_fragment,
+)
 
 
 def clean_doc(text: str) -> str:
@@ -182,6 +187,21 @@ def test_text_honors_skip_empty_flag():
     assert title is not None
     assert title.text(deep=False, skip_empty=False) == "\n   \n"
     assert title.text(deep=False, skip_empty=True) == ""
+
+
+def test_text_lexbor_on_empty_strings():
+    parser = LexborHTMLParser("<div></div>")
+    div = parser.css_first("div")
+    assert div is not None
+    assert div.text_lexbor() == ""
+
+    parser = LexborHTMLParser("<div><p></p><p>foo</p></div>")
+    div = parser.css_first("div")
+    assert div is not None
+    assert div.text_lexbor() == "foo"
+
+    parser = LexborHTMLParser("")
+    assert parser.root.text_lexbor() == ""
 
 
 def test_attrs_reject_non_element_nodes():
@@ -748,10 +768,7 @@ def test_css_selector_invalid_syntax():
     root = parser.root
     assert root is not None
 
-    try:
-        root.css("[invalid")
-    except Exception:
-        pass
+    root.css("[invalid")
 
 
 def test_selector_attribute_longer_than_edge_cases():
@@ -953,3 +970,241 @@ def test_strip_tags_then_text_many_iterations():
         parser.strip_tags(["style", "script"])
         text = parser.root.text(separator=" ", strip=True)
         assert f"Content {i}" in text
+
+
+SELECTED_CONTENT_HTML = (
+    "<select><button><selectedcontent></selectedcontent></button>"
+    "<option>a</option><option selected>b</option></select>"
+)
+
+
+def test_document_options_enum_values():
+    assert LexborDocumentOptions.UNDEF == 0
+    assert LexborDocumentOptions.WO_EVENTS == 1
+
+
+def test_document_options_default_enables_events():
+    parser = LexborHTMLParser(SELECTED_CONTENT_HTML)
+    selectedcontent = parser.css_first("selectedcontent")
+    assert selectedcontent.html == "<selectedcontent>b</selectedcontent>"
+
+
+def test_document_options_wo_events_disables_events():
+    parser = LexborHTMLParser(
+        SELECTED_CONTENT_HTML, options=LexborDocumentOptions.WO_EVENTS
+    )
+    selectedcontent = parser.css_first("selectedcontent")
+    assert selectedcontent.html == "<selectedcontent></selectedcontent>"
+
+
+def test_document_options_accepts_plain_int():
+    parser = LexborHTMLParser(
+        SELECTED_CONTENT_HTML, options=int(LexborDocumentOptions.WO_EVENTS)
+    )
+    selectedcontent = parser.css_first("selectedcontent")
+    assert selectedcontent.html == "<selectedcontent></selectedcontent>"
+
+
+def test_document_options_combined_with_bitwise_or():
+    options = LexborDocumentOptions.WO_EVENTS | LexborDocumentOptions.UNDEF
+    assert options == LexborDocumentOptions.WO_EVENTS
+    parser = LexborHTMLParser(SELECTED_CONTENT_HTML, options=options)
+    selectedcontent = parser.css_first("selectedcontent")
+    assert selectedcontent.html == "<selectedcontent></selectedcontent>"
+
+
+def test_document_options_combined_as_plain_int():
+    options = LexborDocumentOptions.WO_EVENTS.value | LexborDocumentOptions.UNDEF.value
+    parser = LexborHTMLParser(SELECTED_CONTENT_HTML, options=options)
+    selectedcontent = parser.css_first("selectedcontent")
+    assert selectedcontent.html == "<selectedcontent></selectedcontent>"
+
+
+def test_document_options_fragment_wo_events():
+    parser = LexborHTMLParser(
+        SELECTED_CONTENT_HTML,
+        is_fragment=True,
+        options=LexborDocumentOptions.WO_EVENTS,
+    )
+    selectedcontent = parser.css_first("selectedcontent")
+    assert selectedcontent.html == "<selectedcontent></selectedcontent>"
+
+
+def test_document_options_property_reflects_constructor_argument():
+    parser = LexborHTMLParser(SELECTED_CONTENT_HTML)
+    assert parser.options == LexborDocumentOptions.UNDEF
+
+    parser = LexborHTMLParser(
+        SELECTED_CONTENT_HTML, options=LexborDocumentOptions.WO_EVENTS
+    )
+    assert parser.options == LexborDocumentOptions.WO_EVENTS
+
+
+def test_document_options_clone_preserves_options():
+    parser = LexborHTMLParser(
+        SELECTED_CONTENT_HTML, options=LexborDocumentOptions.WO_EVENTS
+    )
+    cloned = parser.clone()
+    assert cloned.options == LexborDocumentOptions.WO_EVENTS
+    selectedcontent = cloned.css_first("selectedcontent")
+    assert selectedcontent.html == "<selectedcontent></selectedcontent>"
+
+
+def test_document_options_clone_preserves_default_options():
+    parser = LexborHTMLParser(SELECTED_CONTENT_HTML)
+    cloned = parser.clone()
+    assert cloned.options == LexborDocumentOptions.UNDEF
+
+
+def test_document_options_clone_preserves_fragment_options():
+    parser = LexborHTMLParser(
+        SELECTED_CONTENT_HTML,
+        is_fragment=True,
+        options=LexborDocumentOptions.WO_EVENTS,
+    )
+    cloned = parser.clone()
+    assert cloned.options == LexborDocumentOptions.WO_EVENTS
+    selectedcontent = cloned.css_first("selectedcontent")
+    assert selectedcontent.html == "<selectedcontent></selectedcontent>"
+
+
+def test_clone_preserves_head_and_body():
+    parser = LexborHTMLParser(
+        "<html><head><title>t</title></head><body><div>hi</div></body></html>"
+    )
+    cloned = parser.clone()
+    assert cloned.head is not None
+    assert cloned.body is not None
+    assert cloned.head.tag == "head"
+    assert cloned.body.tag == "body"
+    assert cloned.head.html == "<head><title>t</title></head>"
+    assert cloned.body.html == "<body><div>hi</div></body>"
+
+
+def test_clone_preserves_generated_head_and_body():
+    parser = LexborHTMLParser("<div>hi</div>")
+    assert parser.head is not None
+    assert parser.body is not None
+    cloned = parser.clone()
+    assert cloned.head is not None
+    assert cloned.body is not None
+
+
+def test_clone_head_and_body_are_independent_copies():
+    parser = LexborHTMLParser("<html><head></head><body><div>hi</div></body></html>")
+    cloned = parser.clone()
+    cloned.body.attrs["id"] = "cloned"
+    cloned.head.attrs["id"] = "cloned"
+    assert parser.body.attributes.get("id") is None
+    assert parser.head.attributes.get("id") is None
+    assert cloned.body.attributes["id"] == "cloned"
+    assert cloned.head.attributes["id"] == "cloned"
+
+
+def test_clone_fragment_has_no_head_and_body():
+    parser = LexborHTMLParser("<div>hi</div>", is_fragment=True)
+    assert parser.head is None
+    assert parser.body is None
+    cloned = parser.clone()
+    assert cloned.head is None
+    assert cloned.body is None
+
+
+@pytest.mark.parametrize(
+    "html,is_fragment",
+    [
+        ("", False),
+        ("", True),
+        ("   ", True),
+        ("<div>hi</div>", False),
+        ("<div>hi</div>", True),
+        ("<!DOCTYPE html><html><head></head><body><p>x</p></body></html>", False),
+        (
+            "<!-- top --><html><head></head>"
+            "<body>hello<!-- c --><b>bold</b></body></html>",
+            False,
+        ),
+        ("<!DOCTYPE html><!-- c --><html><head></head><body>x</body></html>", False),
+        ("<div>a</div><span>b</span>", True),
+        ("hello <!-- c --> world", True),
+        ("<!-- c -->", True),
+        ("<html><body><p>&amp; &lt; &#169; &nbsp;</p></body></html>", False),
+        (
+            "<html><head><style>a{color:red}</style></head>"
+            "<body><script>if (a < b) {}</script></body></html>",
+            False,
+        ),
+        ("<html><body><p>one<p>two<div>three", False),
+        (
+            "<html><body>" + "<div>" * 30 + "deep" + "</div>" * 30 + "</body></html>",
+            False,
+        ),
+    ],
+)
+def test_clone_round_trips_html(html, is_fragment):
+    parser = LexborHTMLParser(html, is_fragment=is_fragment)
+    cloned = parser.clone()
+    assert cloned.html == parser.html
+    assert cloned.raw_html == parser.raw_html
+
+
+def test_clone_preserves_doctype():
+    html = "<!DOCTYPE html><html><head></head><body><p>x</p></body></html>"
+    cloned = LexborHTMLParser(html).clone()
+    assert cloned.html == html
+    assert cloned.html.startswith("<!DOCTYPE html>")
+
+
+def test_clone_preserves_document_level_comments():
+    html = "<!-- first --><html><head></head><body><!-- second -->x</body></html>"
+    cloned = LexborHTMLParser(html).clone()
+    assert cloned.html == html
+    assert cloned.css_first("body").html == "<body><!-- second -->x</body>"
+
+
+def test_clone_of_empty_fragment_is_empty():
+    parser = LexborHTMLParser("", is_fragment=True)
+    cloned = parser.clone()
+    assert cloned.html == ""
+    assert cloned.root is None
+
+
+def test_clone_of_fragment_with_multiple_roots():
+    parser = LexborHTMLParser("<div>a</div><span>b</span>", is_fragment=True)
+    cloned = parser.clone()
+    assert cloned.html == "<div>a</div><span>b</span>"
+    assert [node.tag for node in cloned.css("div, span")] == ["div", "span"]
+
+
+def test_clone_reflects_changes_made_before_cloning():
+    parser = LexborHTMLParser("<html><body><div>a</div></body></html>")
+    parser.css_first("div").attrs["x"] = "1"
+    cloned = parser.clone()
+    assert cloned.css_first("div").attributes == {"x": "1"}
+
+
+def test_clone_is_independent_from_original():
+    parser = LexborHTMLParser("<html><body><div id='a'><p>one</p></div></body></html>")
+    cloned = parser.clone()
+    cloned.css_first("p").replace_with("changed")
+    cloned.css_first("div").attrs["id"] = "b"
+    assert parser.css_first("p") is not None
+    assert parser.css_first("div").attrs["id"] == "a"
+    assert cloned.css_first("p") is None
+
+
+def test_clone_remains_usable_after_original_is_collected():
+    parser = LexborHTMLParser("<html><body><div id='keep'>x</div></body></html>")
+    cloned = parser.clone()
+    del parser
+    gc_collect()
+    assert cloned.css_first("div").attrs["id"] == "keep"
+
+
+def test_node_clone_is_independent():
+    parser = LexborHTMLParser("<div><span>a</span></div>")
+    node = parser.css_first("span")
+    cloned = node.clone()
+    cloned.attrs["id"] = "c"
+    assert node.attrs.get("id") is None
+    assert cloned.attrs["id"] == "c"

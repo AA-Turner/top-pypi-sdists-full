@@ -459,10 +459,29 @@ def resolve_auto_update(managed: ManagedConfig | None = None) -> bool:
     return bool(managed.get("auto_update", True))
 
 
+def _declares_other_host(result: ManagedConfig, parsed: ManagedConfig) -> bool:
+    """Whether *parsed* names a ``Host`` that differs from the merged one."""
+    merged_host = result.get("host")
+    parsed_host = parsed.get("host")
+    if not merged_host or not parsed_host:
+        return False
+    return merged_host.rstrip("/") != parsed_host.rstrip("/")
+
+
 def _merge_first_wins(result: ManagedConfig, parsed: ManagedConfig) -> None:
     parsed_dict = cast(dict[str, object], parsed)
     result_dict = cast(dict[str, object], result)
+    # A secret is provisioned for the host it was pushed alongside. Filling
+    # ``org_api_key`` from a source whose own ``Host`` lost to a higher source
+    # would pair that tenant's key with another tenant's host and the
+    # host-match gate in ``config._get_mdm_managed_key`` could not tell —
+    # the merged dict already carries the other host. Sources that supply
+    # only a key, or only a host, still fall back onto each other (the
+    # documented CLI-domain → AI Watch-domain contract).
+    skip_secrets = _declares_other_host(result, parsed)
     for _, attr in _STRING_FIELDS:
+        if skip_secrets and attr in SECRET_FIELDS:
+            continue
         if attr in parsed_dict and attr not in result_dict:
             result_dict[attr] = parsed_dict[attr]
 

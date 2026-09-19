@@ -121,10 +121,13 @@ class TestUnreachableCauseRendering:
         assert user == "Runlayer verification request failed (HTTP 503)"
 
     def test_http_403_renders_answered_request_too(self):
+        """A proxy or WAF can answer 403 per request, so only 401 is treated
+        as a credential rejection; 403 keeps the answered-request wording."""
         user, agent = messages.tool_api_unreachable(
             failure=_ctx(kind="http", status_code=403, elapsed_s=0.2)
         )
         assert "was answered with HTTP 403" in agent
+        assert "credentials" not in agent
         assert "Failed to contact" not in user
 
     def test_http_407_names_the_proxy_not_the_api(self):
@@ -152,7 +155,60 @@ class TestUnreachableCauseRendering:
         assert "Failed to contact" not in agent
         assert "temporarily unreachable" not in agent
         assert "refreshed" not in agent
-        assert user == "Runlayer API rejected this machine's credentials (HTTP 401)"
+        assert user == (
+            "Runlayer API rejected this machine's credentials (HTTP 401). "
+            "Nothing to fix locally — contact your Runlayer administrator"
+        )
+
+    def test_managed_credential_rejection_points_at_the_administrator(self):
+        """Org-key install: nothing to do locally, where the administrator
+        identifies the revoked key (Settings → MDM configuration + audit log),
+        and the hostname for the helpdesk ticket."""
+        user, agent = messages.api_unreachable(
+            tool_name="mcp__jira__search",
+            failure=_ctx(kind="http", status_code=401, elapsed_s=0.2),
+            hostname="LAPTOP-42",
+            managed_credential=True,
+        )
+        assert user.endswith("(device: LAPTOP-42)")
+        assert "- Device hostname: LAPTOP-42" in agent
+        assert "Nothing on this machine can fix this" in agent
+        assert (
+            "identify the revoked organization API key from Settings → MDM "
+            "configuration and the audit log" in agent
+        )
+        assert "re-deploy a current configuration to this device" in agent
+        # Product rule (ENG-6549): there is no per-device "credential
+        # rejected" marker, so the footer must not send anyone to look for one.
+        assert "Shadow → Devices" not in agent
+        assert 'Quote the device hostname "LAPTOP-42" when opening' in agent
+        assert "Unverified actions are blocked (fail-closed)" in agent
+        assert messages.AGENT_GUARDRAILS in agent
+
+    def test_user_key_rejection_points_at_runlayer_login(self):
+        """Per-user secret (no org key): signing in again is the fix, so the
+        message must not claim nothing can be done locally."""
+        user, agent = messages.tool_api_unreachable(
+            failure=_ctx(kind="http", status_code=401),
+            hostname="USERBOX",
+            managed_credential=False,
+        )
+        assert user == (
+            "Runlayer API rejected this machine's credentials (HTTP 401). "
+            "Run 'runlayer login' to refresh them (device: USERBOX)"
+        )
+        assert "Run 'runlayer login' to refresh this machine's Runlayer credentials" in agent
+        assert "Nothing on this machine can fix this" not in agent
+        assert "device management" not in agent
+        assert "Runlayer administrator" in agent
+
+    def test_credential_rejection_without_hostname_omits_the_line(self):
+        user, agent = messages.tool_api_unreachable(
+            failure=_ctx(kind="http", status_code=401), hostname=None
+        )
+        assert "Device hostname" not in agent
+        assert "(device:" not in user
+        assert "this machine's hostname" in agent
 
     def test_no_context_renders_legacy_message_unchanged(self):
         user, agent = messages.tool_api_unreachable(tool_name="Bash")

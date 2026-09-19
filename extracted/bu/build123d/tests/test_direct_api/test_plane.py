@@ -33,6 +33,7 @@ import random
 import unittest
 
 from OCP.gp import gp_Ax2
+from OCP.TopoDS import TopoDS_Builder, TopoDS_CompSolid
 import numpy as np
 from OCP.BRepGProp import BRepGProp
 from OCP.GProp import GProp_GProps
@@ -43,7 +44,7 @@ from build123d.build_sketch import BuildSketch
 from build123d.geometry import Axis, Location, Plane, Pos, Vector
 from build123d.objects_part import Box, Cylinder
 from build123d.objects_sketch import Circle, Rectangle
-from build123d.operations_generic import fillet, add
+from build123d.operations_generic import fillet, insert
 from build123d.operations_part import extrude
 from build123d.topology import Edge, Face, Solid, Vertex
 
@@ -233,6 +234,20 @@ class TestPlane(unittest.TestCase):
             self.assertAlmostEqual(p.x_dir, expected[i][0], 6)
             self.assertAlmostEqual(p.y_dir, expected[i][1], 6)
             self.assertAlmostEqual(p.z_dir, expected[i][2], 6)
+
+    def test_plane_from_face_with_origin_warns(self):
+        face = Face.make_rect(1, 1)
+        for args, kwargs in [
+            ((face,), {"origin": (1, 2, 3)}),
+            ((), {"face": face, "origin": (1, 2, 3)}),
+        ]:
+            with self.subTest(args=args, kwargs=kwargs):
+                with self.assertWarnsRegex(
+                    UserWarning,
+                    "origin parameter is ignored when creating a Plane from a Face",
+                ):
+                    plane = Plane(*args, **kwargs)
+                self.assertAlmostEqual(plane.origin, (0, 0, 0), 6)
 
     def test_plane_from_axis(self):
         origin = Vector(1, 2, 3)
@@ -464,7 +479,7 @@ class TestPlane(unittest.TestCase):
         top = cyl.faces().sort_by(Axis.Z)[-1]
         pln = Plane(top).shift_origin(Axis.Z)
         with BuildPart() as p:
-            add(cyl)
+            insert(cyl)
             with BuildSketch(pln):
                 with Locations((1, 1)):
                     Circle(0.5)
@@ -478,7 +493,7 @@ class TestPlane(unittest.TestCase):
             front.vertices().group_by(Axis.Z)[-1].sort_by(Axis.Y)[-1]
         )
         with BuildPart() as p:
-            add(box)
+            insert(box)
             with BuildSketch(pln):
                 with Locations((-0.5, 0.5)):
                     Circle(0.5)
@@ -737,6 +752,23 @@ class TestPlane(unittest.TestCase):
         # bad y_dir type
         with self.assertRaises(TypeError):
             Plane(origin=o, x_dir=(1, 0, 0), y_dir="up")
+
+
+class TestPlaneValidation(unittest.TestCase):
+    def test_constructor_wraps_unexpected_errors(self):
+        """A non-TypeError raised while interpreting the arguments is
+        re-reported as a TypeError."""
+        with self.assertRaisesRegex(TypeError, "Expected gp_Pln"):
+            Plane((0, 0, 0), (0, 0, 0))
+
+    def test_local_coords_of_an_unknown_shape_type(self):
+        """TopoDS_CompSolid has no entry in the downcast table."""
+        comp_solid = TopoDS_CompSolid()
+        TopoDS_Builder().MakeCompSolid(comp_solid)
+        holder = Solid()
+        holder.wrapped = comp_solid
+        with self.assertRaisesRegex(ValueError, "Unknown object type"):
+            Plane.XY.to_local_coords(holder)
 
 
 if __name__ == "__main__":

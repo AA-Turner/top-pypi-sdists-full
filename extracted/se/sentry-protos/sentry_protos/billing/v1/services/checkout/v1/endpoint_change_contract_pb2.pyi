@@ -8,6 +8,7 @@ import collections.abc
 import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
+import sentry_protos.billing.v1.common.v1.stripe_verification_pb2
 import sentry_protos.billing.v1.services.contract.v1.pricing_config_pb2
 import typing
 
@@ -63,18 +64,24 @@ class ChangeContractResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     INVOICE_ID_FIELD_NUMBER: builtins.int
+    VERIFICATION_FIELD_NUMBER: builtins.int
     invoice_id: builtins.int
     """The invoice created for an immediate change (a prorated upgrade charge).
     Unset when the change is deferred to the next billing period or applies no
     charge (e.g. a PAYG-only change), which the caller returns as an empty 204.
     """
+    @property
+    def verification(self) -> sentry_protos.billing.v1.common.v1.stripe_verification_pb2.StripeVerification:
+        """Set when the bank wants the customer to verify the payment."""
+
     def __init__(
         self,
         *,
         invoice_id: builtins.int | None = ...,
+        verification: sentry_protos.billing.v1.common.v1.stripe_verification_pb2.StripeVerification | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_invoice_id", b"_invoice_id", "invoice_id", b"invoice_id"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_invoice_id", b"_invoice_id", "invoice_id", b"invoice_id"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_invoice_id", b"_invoice_id", "invoice_id", b"invoice_id", "verification", b"verification"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_invoice_id", b"_invoice_id", "invoice_id", b"invoice_id", "verification", b"verification"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["_invoice_id", b"_invoice_id"]) -> typing.Literal["invoice_id"] | None: ...
 
 global___ChangeContractResponse = ChangeContractResponse

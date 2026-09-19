@@ -28,3 +28,13 @@ class TestQuoteRecoveryArgument:
             result = _quote_recovery_argument("model\r\nwith\nlines")
 
         assert result == "'model with lines'"
+
+    def test_quotes_windows_recovery_command_arguments(self):
+        """Windows recovery commands quote both the path and branch arguments."""
+        with patch("agentic_devtools.cli.workflows.worktree_setup.platform.system", return_value="Windows"):
+            result = " ".join(
+                _quote_recovery_argument(value)
+                for value in (r"C:\team's wt\PROJECT-1", "feature/PROJECT-1/implementation")
+            )
+
+        assert result == "'C:\\team''s wt\\PROJECT-1' 'feature/PROJECT-1/implementation'"

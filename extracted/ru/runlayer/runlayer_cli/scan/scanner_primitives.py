@@ -21,6 +21,7 @@ from collections.abc import Callable, Generator, Iterable, Mapping
 from pathlib import Path
 from typing import Literal, TypedDict, TypeVar
 
+from runlayer_cli.scan.completeness import CompletionStatusSink
 from runlayer_cli.skill_identifier import SkillFileInput, compute_skill_identifier
 
 MAX_PLUGIN_NAME_LENGTH = 255
@@ -34,6 +35,11 @@ _WINDOWS_REPARSE_POINT = getattr(stat, "FILE_ATTRIBUTE_REPARSE_POINT", 0x400)
 _CONTEXT = TypeVar("_CONTEXT")
 _ITEM = TypeVar("_ITEM")
 PluginArtifactKind = Literal["jetbrains_plugin", "vscode_extension"]
+SymlinkFollowClaimStatus = Literal[
+    "claimed",
+    "unavailable",
+    "capacity_exhausted",
+]
 
 
 class _SymlinkTargetDetails(TypedDict):
@@ -57,13 +63,22 @@ class SymlinkFollowBudget:
     def __init__(self, max_followed: int) -> None:
         self._max_followed = max(0, max_followed)
         self._targets: set[str] = set()
+        self._exhausted = False
         self._lock = threading.Lock()
+
+    @property
+    def exhausted(self) -> bool:
+        with self._lock:
+            return self._exhausted
 
     def can_claim(self, target_key: str) -> bool:
         with self._lock:
-            return (
+            allowed = (
                 target_key in self._targets or len(self._targets) < self._max_followed
             )
+            if not allowed:
+                self._exhausted = True
+            return allowed
 
     def claim(self, target_key: str) -> bool:
         return self.claim_many((target_key,))
@@ -73,6 +88,7 @@ class SymlinkFollowBudget:
         with self._lock:
             new_keys = unique_keys - self._targets
             if len(self._targets) + len(new_keys) > self._max_followed:
+                self._exhausted = True
                 return False
             self._targets.update(new_keys)
             return True
@@ -125,6 +141,10 @@ class SymlinkFollowPolicy:
         with self._lock:
             if area not in self._scan_areas:
                 self._scan_areas.append(area)
+
+    @property
+    def follow_budget_exhausted(self) -> bool:
+        return self._follow_budget.exhausted
 
     def _covered_by_scan_area(
         self,
@@ -208,6 +228,22 @@ class SymlinkFollowPolicy:
             target_is_walk_root=target_is_walk_root,
         )
 
+    def inspect_candidate(
+        self,
+        link_path: Path,
+        *,
+        target_is_walk_root: bool = True,
+    ) -> Path | None:
+        """Resolve an eligible target without checking follow capacity."""
+        target = self._resolve_link_target(link_path)
+        if target is None:
+            return None
+        return self._inspect_target(
+            target,
+            target_is_walk_root=target_is_walk_root,
+            check_capacity=False,
+        )
+
     def inspect_covered_link(self, link_path: Path) -> Path | None:
         """Resolve a usable link only when another scan already covers it."""
         target = self._resolve_link_target(link_path)
@@ -233,6 +269,19 @@ class SymlinkFollowPolicy:
         target_is_walk_root: bool = True,
     ) -> Path | None:
         """Inspect an already resolved target without consuming capacity."""
+        return self._inspect_target(
+            target,
+            target_is_walk_root=target_is_walk_root,
+            check_capacity=True,
+        )
+
+    def _inspect_target(
+        self,
+        target: Path,
+        *,
+        target_is_walk_root: bool,
+        check_capacity: bool,
+    ) -> Path | None:
         if self._windows_system_context:
             return None
         target_details = self._inspect_target_details(target)
@@ -251,7 +300,10 @@ class SymlinkFollowPolicy:
                     target_details["key"],
                     target_is_walk_root=target_is_walk_root,
                 )
-                or not self._follow_budget.can_claim(target_details["key"])
+                or (
+                    check_capacity
+                    and not self._follow_budget.can_claim(target_details["key"])
+                )
             ):
                 return None
         return target
@@ -263,31 +315,44 @@ class SymlinkFollowPolicy:
         target_is_walk_root: bool = True,
     ) -> bool:
         """Atomically consume one follow slot for an inspected target."""
+        return (
+            self.claim_with_status(
+                target,
+                target_is_walk_root=target_is_walk_root,
+            )
+            == "claimed"
+        )
+
+    def claim_with_status(
+        self,
+        target: Path,
+        *,
+        target_is_walk_root: bool = True,
+    ) -> SymlinkFollowClaimStatus:
+        """Atomically claim a target and expose capacity-only rejection."""
         try:
             target_realpath = os.path.realpath(target)
             target_key = _normalize_realpath_key(target_realpath)
             target_is_directory = stat.S_ISDIR(Path(target_realpath).stat().st_mode)
         except OSError:
-            return False
+            return "unavailable"
         with self._lock:
-            if (
-                self._covered_by_scan_area(
-                    target_key,
-                    target_is_directory=target_is_directory,
-                    include_root=target_is_walk_root,
-                    include_ancestors=target_is_walk_root,
-                )
-                or self._was_visited(
-                    target_key,
-                    target_is_walk_root=target_is_walk_root,
-                )
-                or not self._follow_budget.claim(target_key)
+            if self._covered_by_scan_area(
+                target_key,
+                target_is_directory=target_is_directory,
+                include_root=target_is_walk_root,
+                include_ancestors=target_is_walk_root,
+            ) or self._was_visited(
+                target_key,
+                target_is_walk_root=target_is_walk_root,
             ):
-                return False
+                return "unavailable"
+            if not self._follow_budget.claim(target_key):
+                return "capacity_exhausted"
             self._visited.add(target_key)
             if not target_is_walk_root:
                 self._artifact_visited.add(target_key)
-            return True
+            return "claimed"
 
     def admit_targets(self, targets: Iterable[Path]) -> bool:
         """Claim uncovered targets, accepting ones already covered or visited."""
@@ -325,14 +390,37 @@ class SymlinkFollowPolicy:
         return target if target is not None and self.claim(target) else None
 
 
+def link_or_reparse_status_or_raise(path: Path) -> bool:
+    """Return link status while preserving metadata access errors."""
+    info = path.lstat()
+    attributes = getattr(info, "st_file_attributes", 0)
+    return stat.S_ISLNK(info.st_mode) or bool(attributes & _WINDOWS_REPARSE_POINT)
+
+
 def link_or_reparse_status(path: Path) -> bool | None:
     """Return link status, or ``None`` when metadata cannot be inspected."""
     try:
-        info = path.lstat()
+        return link_or_reparse_status_or_raise(path)
     except OSError:
         return None
-    attributes = getattr(info, "st_file_attributes", 0)
-    return stat.S_ISLNK(info.st_mode) or bool(attributes & _WINDOWS_REPARSE_POINT)
+
+
+def mark_path_unresolved_if_present(
+    path: Path,
+    scan_status: CompletionStatusSink | None,
+    reason: str,
+) -> None:
+    """Mark an unresolved existing path, distinguishing absence from access errors."""
+    if scan_status is None:
+        return
+    try:
+        path.lstat()
+    except FileNotFoundError:
+        return
+    except OSError:
+        scan_status.mark_incomplete(f"{reason}_access")
+    else:
+        scan_status.mark_incomplete(reason)
 
 
 def is_link_or_reparse(path: Path) -> bool:
@@ -624,7 +712,7 @@ class SymlinkLayoutResolver:
                         candidate,
                         current=current,
                     )
-                    followed_intermediate = target is not None
+                    followed_intermediate = claim_final and target is not None
                 else:
                     target = self.resolve_policy_link(
                         candidate,
@@ -900,11 +988,17 @@ def commit_approved_links(
     return True
 
 
-def iter_directory_entries(directory: Path) -> Generator[Path, None, None]:
-    """Yield directory entries, treating unreadable directories as empty."""
+def iter_directory_entries(
+    directory: Path,
+    *,
+    on_error: Callable[[OSError], None] | None = None,
+) -> Generator[Path, None, None]:
+    """Yield entries and report unreadable directories to interested callers."""
     try:
         yield from directory.iterdir()
-    except OSError:
+    except OSError as exc:
+        if on_error is not None:
+            on_error(exc)
         return
 
 
@@ -925,6 +1019,28 @@ def plugin_artifact_identifier(
     ).root
 
 
+class RoundRobinDrainResult(TypedDict):
+    """Outcome of fairly draining bounded generators."""
+
+    entries_consumed: int
+    max_entries_exceeded: bool
+
+
+def _round_robin_has_remaining_entry(
+    iterators: deque[tuple[_CONTEXT, Generator[_ITEM, None, None]]],
+) -> bool:
+    """Probe fairly for one omitted entry while retaining generators for cleanup."""
+    while iterators:
+        context, candidates = iterators.popleft()
+        try:
+            next(candidates)
+        except StopIteration:
+            continue
+        iterators.appendleft((context, candidates))
+        return True
+    return False
+
+
 def drain_round_robin(
     iterators: deque[tuple[_CONTEXT, Generator[_ITEM, None, None]]],
     *,
@@ -932,18 +1048,21 @@ def drain_round_robin(
     max_entries: int | None = None,
     should_stop: Callable[[], bool] | None = None,
     checkpoint: Callable[[], None] | None = None,
-) -> int:
+) -> RoundRobinDrainResult:
     """Interleave generators fairly, visiting one item per turn.
 
     Stops when every generator is exhausted, ``max_entries`` items were
     consumed, or ``should_stop`` returns True. Generators left suspended by an
     early stop are always closed, so ``os.scandir`` handles held inside them
-    never leak. Returns the number of items consumed.
+    never leak. A max-entry stop probes for one omitted item without visiting
+    or checkpointing it, distinguishing exact capacity from truncation.
     """
     consumed = 0
+    max_entries_exceeded = False
     try:
         while iterators:
             if max_entries is not None and consumed >= max_entries:
+                max_entries_exceeded = _round_robin_has_remaining_entry(iterators)
                 break
             if should_stop is not None and should_stop():
                 break
@@ -960,7 +1079,10 @@ def drain_round_robin(
     finally:
         for _context, candidates in iterators:
             candidates.close()
-    return consumed
+    return {
+        "entries_consumed": consumed,
+        "max_entries_exceeded": max_entries_exceeded,
+    }
 
 
 class BoundedPluginMetadata(TypedDict):

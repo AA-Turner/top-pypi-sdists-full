@@ -28,6 +28,8 @@ license:
 
 import unittest
 from math import pi, sqrt
+from unittest.mock import patch
+
 from build123d import *
 from build123d import Builder, LocationList
 
@@ -60,38 +62,34 @@ class _TestBuilder(Builder):
     def _add_to_pending(self):
         pass
 
-    @classmethod
-    def _get_context(cls) -> "BuildLine":
-        return cls._current.get(None)
 
+class InsertTests(unittest.TestCase):
+    """Test inserting objects"""
 
-class AddTests(unittest.TestCase):
-    """Test adding objects"""
-
-    def test_add_to_line(self):
-        # Add Edge
+    def test_insert_to_line(self):
+        # Insert Edge
         with BuildLine() as test:
-            add(Edge.make_line((0, 0, 0), (1, 1, 1)))
+            insert(Edge.make_line((0, 0, 0), (1, 1, 1)))
         self.assertTupleAlmostEquals(test.wires()[0] @ 1, (1, 1, 1), 5)
-        # Add Wire
+        # Insert Wire
         with BuildLine() as wire:
             Polyline((0, 0, 0), (1, 1, 1), (2, 0, 0), (3, 1, 1))
         with BuildLine() as test:
-            add(wire.wires()[0])
+            insert(wire.wires()[0])
         self.assertEqual(len(test.line.edges()), 3)
 
-    def test_add_to_sketch(self):
+    def test_insert_to_sketch(self):
         with BuildSketch() as test:
-            add(Face.make_rect(10, 10))
+            insert(Face.make_rect(10, 10))
         self.assertAlmostEqual(test.sketch.area, 100, 5)
 
-    def test_add_to_part(self):
-        # Add Solid
+    def test_insert_to_part(self):
+        # Insert Solid
         with BuildPart() as test:
-            add(Solid.make_box(10, 10, 10))
+            insert(Solid.make_box(10, 10, 10))
         self.assertAlmostEqual(test.part.volume, 1000, 5)
         with BuildPart() as test:
-            add(Solid.make_box(10, 10, 10), rotation=(0, 0, 45))
+            insert(Solid.make_box(10, 10, 10), rotation=(0, 0, 45))
         self.assertAlmostEqual(test.part.volume, 1000, 5)
         self.assertTupleAlmostEquals(
             test.part.edges()
@@ -103,9 +101,9 @@ class AddTests(unittest.TestCase):
             5,
         )
 
-        # Add Compound
+        # Insert Compound
         with BuildPart() as test:
-            add(
+            insert(
                 Compound(
                     [
                         Solid.make_box(10, 10, 10),
@@ -115,31 +113,31 @@ class AddTests(unittest.TestCase):
             )
         self.assertAlmostEqual(test.part.volume, 1125, 5)
         with BuildPart() as test:
-            add(Compound([Edge.make_line((0, 0), (1, 1))]))
+            insert(Compound([Edge.make_line((0, 0), (1, 1))]))
         self.assertEqual(len(test.pending_edges), 1)
 
-        # Add Wire
+        # Insert Wire
         with BuildLine() as wire:
             Polyline((0, 0, 0), (1, 1, 1), (2, 0, 0), (3, 1, 1))
         with BuildPart() as test:
-            add(wire.wires()[0])
+            insert(wire.wires()[0])
         self.assertEqual(len(test.pending_edges), 3)
 
     def test_errors(self):
         with self.assertRaises(RuntimeError):
-            add(Edge.make_line((0, 0, 0), (1, 1, 1)))
+            insert(Edge.make_line((0, 0, 0), (1, 1, 1)))
 
         with BuildPart() as test:
             with self.assertRaises(ValueError):
-                add(Box(1, 1, 1), rotation=90)
+                insert(Box(1, 1, 1), rotation=90)
 
     def test_unsupported_builder(self):
         with self.assertRaises(RuntimeError):
             with _TestBuilder():
-                add(Edge.make_line((0, 0, 0), (1, 1, 1)))
+                insert(Edge.make_line((0, 0, 0), (1, 1, 1)))
 
     def test_local_global_locations(self):
-        """Check that add is using a local location list"""
+        """Check that insert is using a local location list"""
         with BuildSketch() as vertwalls:
             Rectangle(40, 90)
 
@@ -149,7 +147,7 @@ class AddTests(unittest.TestCase):
             extrude(amount=10)
             topf = mainp.faces().sort_by(Axis.Z)[-1]
             with BuildSketch(topf):
-                add(vertwalls.sketch)
+                insert(vertwalls.sketch)
             extrude(amount=15)
 
         self.assertEqual(len(mainp.solids()), 1)
@@ -160,22 +158,58 @@ class AddTests(unittest.TestCase):
         ]
         with BuildPart(Plane.XY, Plane.YZ) as multiple:
             with Locations((1, 1), (-1, -1)) as locs:
-                add(faces)
-            self.assertEqual(len(multiple.pending_faces), 16)
+                insert(faces)
+            self.assertEqual(len(multiple.pending_faces), 4)
 
-    def test_add_builder(self):
+    def test_insert_builder(self):
         with BuildSketch() as s1:
             Rectangle(1, 1)
 
         with BuildSketch() as s2:
             with Locations((1, 0)):
                 Rectangle(1, 1)
-            add(s1)
+            insert(s1)
 
         self.assertAlmostEqual(s2.sketch.area, 2, 5)
 
+    def test_deprecated_add(self):
+        with self.assertWarnsRegex(DeprecationWarning, "use insert"):
+            with BuildPart() as test:
+                add(Solid.make_box(1, 1, 1))
+        self.assertAlmostEqual(test.part.volume, 1, 5)
+
+    def test_no_locations_context(self):
+        with BuildPart():
+            with patch("build123d.operations_generic.LocationList") as location_list:
+                location_list._get_context.return_value = None
+                with self.assertRaisesRegex(RuntimeError, "no active Locations"):
+                    insert(Face.make_rect(1, 1))
+
+    def test_unsupported_builder(self):
+        """A builder that isn't a part, sketch or line builder."""
+
+        class _Unsupported:
+            pass
+
+        with BuildLine():
+            with patch.multiple(
+                "build123d.operations_generic",
+                BuildPart=_Unsupported,
+                BuildSketch=_Unsupported,
+                BuildLine=_Unsupported,
+            ):
+                with self.assertRaisesRegex(RuntimeError, "is unsupported"):
+                    insert(Edge.make_line((0, 0), (1, 0)))
+
 
 class BoundingBoxTests(unittest.TestCase):
+    def test_uses_the_builder_object_by_default(self):
+        """Called with no argument inside a builder, it boxes what is there."""
+        with BuildPart() as builder:
+            Box(10, 5, 2)
+            box = bounding_box()
+        self.assertAlmostEqual(box.volume, 100, 5)
+
     def test_boundingbox_to_sketch(self):
         """Test using bounding box to locate objects"""
         with BuildSketch() as mickey:
@@ -341,6 +375,17 @@ class ChamferTests(unittest.TestCase):
                 Polyline((0, 0), (10, 0), (10, 10))
                 chamfer(test.edges()[0], length=1)
 
+    def test_nothing_to_chamfer(self):
+        """An edge with no topological parent."""
+        with self.assertRaisesRegex(ValueError, "Nothing to chamfer"):
+            chamfer(Edge.make_line((0, 0), (1, 0)), length=0.1)
+
+    def test_invalid_dimension(self):
+        """A parent compound of mixed dimension has no _dim to dispatch on."""
+        mixed = Compound([Box(1, 1, 1).solid(), Edge.make_line((5, 0), (6, 0))])
+        with self.assertRaisesRegex(ValueError, "Invalid object dimension"):
+            chamfer(mixed.edges()[0], length=0.1)
+
 
 class FilletTests(unittest.TestCase):
     def test_part_chamfer(self):
@@ -378,6 +423,27 @@ class FilletTests(unittest.TestCase):
             with BuildSketch() as square:
                 Rectangle(1, 1)
                 fillet(square.edges(), radius=1)
+
+    def test_no_objects(self):
+        with self.assertRaisesRegex(ValueError, "No objects provided"):
+            fillet(None, radius=1)
+
+    def test_nothing_to_fillet(self):
+        """An edge with no topological parent."""
+        with self.assertRaisesRegex(ValueError, "Nothing to fillet"):
+            fillet(Edge.make_line((0, 0), (1, 0)), radius=0.1)
+
+    def test_1d_requires_vertices(self):
+        with BuildLine() as line:
+            Polyline((0, 0), (5, 0), (5, 5))
+        with self.assertRaisesRegex(ValueError, "takes only Vertices"):
+            fillet(line.line.edges(), radius=1)
+
+    def test_invalid_dimension(self):
+        """A parent compound of mixed dimension has no _dim to dispatch on."""
+        mixed = Compound([Box(1, 1, 1).solid(), Edge.make_line((5, 0), (6, 0))])
+        with self.assertRaisesRegex(ValueError, "Invalid object dimension"):
+            fillet(mixed.edges()[0], radius=0.1)
 
 
 class HexArrayTests(unittest.TestCase):
@@ -487,6 +553,10 @@ class MirrorTests(unittest.TestCase):
             construction_face = p.faces().sort_by(Axis.Z)[0]
             self.assertEqual(construction_face.geom_type, GeomType.PLANE)
 
+    def test_no_objects(self):
+        with self.assertRaisesRegex(ValueError, "objects must be provided"):
+            mirror()
+
 
 class OffsetTests(unittest.TestCase):
     def test_single_line_offset(self):
@@ -595,7 +665,16 @@ class OffsetTests(unittest.TestCase):
         line = FilletPolyline(*pts, radius=3.177)
         self.assertEqual(len(line.edges()), 11)
         o_line = offset(line, amount=2)
-        self.assertEqual(len(o_line.edges()), 26)
+        self.assertEqual(len(o_line.edges()), 24)
+
+    def test_offset_curve(self):
+        s = Bezier((0, 0), (1, 5), (0, 10))
+        s = offset(s, 1)
+        s = s - Rectangle(100, 100, align=(Align.MAX, Align.CENTER))
+        self.assertTrue(isinstance(s, Curve))
+        s = offset(s, 1)
+        self.assertIsNotNone(s._wrapped)
+        self.assertGreater(len(s.edges()), 4)
 
     def test_offset_face_with_inner_wire(self):
         # offset amount causes the inner wire to have zero length
@@ -617,6 +696,16 @@ class OffsetTests(unittest.TestCase):
         c = offset(c, amount=0.125, min_edge_length=0.1)
         self.assertAlmostEqual(c.area, pi * (0.5 + 0.125) ** 2, 5)
         self.assertEqual(len(c.face().inner_wires()), 0)
+
+    def test_offset_a_bare_solid(self):
+        """A Solid rather than the Part a builder would hand back."""
+        hollowed = offset(Solid.make_box(10, 10, 10), amount=-1, openings=[])
+        self.assertAlmostEqual(hollowed.volume, 8**3, 5)
+
+    def test_offset_returns_a_curve_for_edges(self):
+        result = offset(Edge.make_line((0, 0), (10, 0)), amount=1, side=Side.LEFT)
+        self.assertIsInstance(result, Curve)
+        self.assertGreater(len(result.edges()), 1)
 
     def test_offset_bad_type(self):
         with self.assertRaises(TypeError):
@@ -640,6 +729,10 @@ class OffsetTests(unittest.TestCase):
             self.assertTupleAlmostEquals(
                 tuple(original_face.normal_at()), tuple(offset_face.normal_at()), 3
             )
+
+    def test_no_objects(self):
+        with self.assertRaisesRegex(ValueError, "objects must be provided"):
+            offset(amount=1)
 
 
 class PolarLocationsTests(unittest.TestCase):
@@ -726,6 +819,19 @@ class ProjectionTests(unittest.TestCase):
             with BuildLine():
                 pnt = project(Vertex(1, 2, 3))[0]
 
+    def test_no_target(self):
+        """A part builder with nothing built yet has no projection target."""
+        with self.assertRaisesRegex(ValueError, "target object could not be dete"):
+            with BuildPart():
+                project(Face.make_rect(1, 1))
+
+    def test_parallel_projection_axis(self):
+        """The projection axis is normal to the working plane by construction,
+        so a parallel intersection can only be simulated."""
+        with patch.object(Plane, "intersect", return_value=Axis.Z):
+            with self.assertRaisesRegex(RuntimeError, "are parallel"):
+                project([Vector(1, 1, 1)], workplane=Plane.XY, mode=Mode.PRIVATE)
+
 
 class RectangularArrayTests(unittest.TestCase):
     def test_errors(self):
@@ -741,6 +847,15 @@ class ScaleTests(unittest.TestCase):
             Line((0, 0), (1, 0))
             scale(by=2, mode=Mode.REPLACE)
         self.assertAlmostEqual(test.edges()[0].length, 2.0, 5)
+
+    def test_algebra_mode_return_types(self):
+        curve = scale(Edge.make_line((0, 0), (1, 0)), 2)
+        self.assertIsInstance(curve, Curve)
+        self.assertAlmostEqual(sum(e.length for e in curve.edges()), 2, 5)
+
+        sketch = scale(Rectangle(1, 1).face(), 2)
+        self.assertIsInstance(sketch, Sketch)
+        self.assertAlmostEqual(sketch.area, 4, 5)
 
     def test_sketch(self):
         with BuildSketch() as test:
@@ -780,7 +895,44 @@ class ScaleTests(unittest.TestCase):
             scale(by=2)
 
 
+class SplitReturnTypeTests(unittest.TestCase):
+    """split returns the type matching the dimension it was given."""
+
+    def test_returns_a_sketch_for_faces(self):
+        result = split(Rectangle(10, 10).face(), Plane.YZ, keep=Keep.TOP)
+        self.assertIsInstance(result, Sketch)
+        self.assertAlmostEqual(result.area, 50, 5)
+
+    def test_returns_a_curve_for_edges(self):
+        result = split(Edge.make_line((-5, 0), (5, 0)), Plane.YZ, keep=Keep.TOP)
+        self.assertIsInstance(result, Curve)
+        self.assertAlmostEqual(sum(e.length for e in result.edges()), 5, 5)
+
+    def test_returns_a_part_for_solids(self):
+        result = split(Box(10, 10, 10).solid(), Plane.YZ, keep=Keep.TOP)
+        self.assertIsInstance(result, Part)
+        self.assertAlmostEqual(result.volume, 500, 5)
+
+    def test_keeping_both_halves(self):
+        result = split(Rectangle(10, 10).face(), Plane.YZ, keep=Keep.BOTH)
+        self.assertIsInstance(result, Sketch)
+        self.assertEqual(len(result.faces()), 2)
+        self.assertAlmostEqual(result.area, 100, 5)
+
+
 class TestSweep(unittest.TestCase):
+    def test_fixed_normal(self):
+        """normal= holds the section's orientation instead of letting it follow
+        the path's own framing, which gives a different solid."""
+        path = Spline((0, 0, 0), (5, 3, 5), (10, 0, 10)).edge()
+        section = Plane(origin=(0, 0, 0), z_dir=path.tangent_at(0)) * Rectangle(2, 1)
+
+        following = sweep(section, path)
+        fixed = sweep(section, path, normal=(0, 0, 1))
+
+        self.assertGreater(abs(following.volume - fixed.volume), 1e-6)
+        self.assertAlmostEqual(fixed.volume, 20, 3)
+
     def test_single_section(self):
         with BuildPart() as test:
             with BuildLine():

@@ -421,8 +421,9 @@ def _install_browser_extension_step(managed: ManagedConfig) -> tuple[bool, bool]
         if ext.written:
             wrote_any = True
             policy_path = ext.policy_path or ext.force_policy_path
+            location = f" at {policy_path}" if policy_path else ""
             typer.secho(
-                f"{OK} browser_extension: browser policies reconciled at {policy_path}.",
+                f"{OK} browser_extension: browser policies reconciled{location}.",
                 fg=typer.colors.GREEN,
                 err=True,
             )

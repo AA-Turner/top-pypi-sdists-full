@@ -22,18 +22,19 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
+from sentry_protos.billing.v1.common.v1 import stripe_verification_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_stripe__verification__pb2
 from sentry_protos.billing.v1.services.contract.v1 import pricing_config_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v1_dot_pricing__config__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nUsentry_protos/billing/v1/services/invoicer/v1/endpoint_create_and_bill_contract.proto\x12-sentry_protos.billing.v1.services.invoicer.v1\x1a\x42sentry_protos/billing/v1/services/contract/v1/pricing_config.proto\"\xb5\x01\n\x1c\x43reateAndBillContractRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x13\n\x0bpackage_uid\x18\x02 \x01(\t\x12O\n\x0cuser_configs\x18\x03 \x03(\x0b\x32\x39.sentry_protos.billing.v1.services.contract.v1.UserConfig\x12\x16\n\x0emonth_interval\x18\x04 \x01(\r\"0\n\x1d\x43reateAndBillContractResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nUsentry_protos/billing/v1/services/invoicer/v1/endpoint_create_and_bill_contract.proto\x12-sentry_protos.billing.v1.services.invoicer.v1\x1a<sentry_protos/billing/v1/common/v1/stripe_verification.proto\x1a\x42sentry_protos/billing/v1/services/contract/v1/pricing_config.proto\"\xb5\x01\n\x1c\x43reateAndBillContractRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x13\n\x0bpackage_uid\x18\x02 \x01(\t\x12O\n\x0cuser_configs\x18\x03 \x03(\x0b\x32\x39.sentry_protos.billing.v1.services.contract.v1.UserConfig\x12\x16\n\x0emonth_interval\x18\x04 \x01(\r\"\xa6\x01\n\x1d\x43reateAndBillContractResponse\x12\x0f\n\x07success\x18\x01 \x01(\x08\x12\x17\n\ninvoice_id\x18\x02 \x01(\x04H\x00\x88\x01\x01\x12L\n\x0cverification\x18\x03 \x01(\x0b\x32\x36.sentry_protos.billing.v1.common.v1.StripeVerificationB\r\n\x0b_invoice_idb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.invoicer.v1.endpoint_create_and_bill_contract_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_CREATEANDBILLCONTRACTREQUEST']._serialized_start=205
-  _globals['_CREATEANDBILLCONTRACTREQUEST']._serialized_end=386
-  _globals['_CREATEANDBILLCONTRACTRESPONSE']._serialized_start=388
-  _globals['_CREATEANDBILLCONTRACTRESPONSE']._serialized_end=436
+  _globals['_CREATEANDBILLCONTRACTREQUEST']._serialized_start=267
+  _globals['_CREATEANDBILLCONTRACTREQUEST']._serialized_end=448
+  _globals['_CREATEANDBILLCONTRACTRESPONSE']._serialized_start=451
+  _globals['_CREATEANDBILLCONTRACTRESPONSE']._serialized_end=617
 # @@protoc_insertion_point(module_scope)

@@ -7,6 +7,15 @@ use pulldown_cmark::{Event, Options, Parser, Tag, TagEnd};
 use super::types::*;
 use super::{ListItemMap, SkipByteRanges};
 
+/// The indices of the lines a byte range touches.
+pub(super) fn spanned_lines(lines: &[LineInfo], start: usize, end: usize) -> std::ops::Range<usize> {
+    let first = lines
+        .partition_point(|line| line.byte_offset <= start)
+        .saturating_sub(1);
+    let touched = lines[first..].iter().take_while(|line| line.byte_offset < end).count();
+    first..first + touched
+}
+
 /// Pre-compute basic line information (without headings/blockquotes)
 /// Also returns emphasis spans detected during the pulldown-cmark parse
 pub(super) fn compute_basic_line_info(
@@ -133,6 +142,13 @@ pub(super) fn compute_basic_line_info(
 
         let in_pymdown_block = flavor == MarkdownFlavor::MkDocs
             && crate::utils::pymdown_blocks::is_within_block_ranges(skip_ranges.pymdown_block_ranges, byte_offset);
+        // A block's fences are its structure: `/// note` opens the block and
+        // `///` closes it, and neither is text of the body between them. The
+        // flavor passes add the markers of the containers they detect.
+        let is_container_marker = in_pymdown_block
+            && !in_code_block
+            && (crate::utils::pymdown_blocks::is_block_open(line)
+                || crate::utils::pymdown_blocks::is_block_close(line));
 
         lines.push(LineInfo {
             byte_offset,
@@ -148,6 +164,7 @@ pub(super) fn compute_basic_line_info(
             in_html_comment,
             list_item,
             heading: None,
+            is_setext_heading_text: false,
             blockquote: None,
             in_mkdocstrings,
             in_esm_block: false,
@@ -156,6 +173,7 @@ pub(super) fn compute_basic_line_info(
             in_math_block,
             in_pandoc_div,
             is_div_marker,
+            is_container_marker,
             in_jsx_expression: false,
             in_mdx_comment: false,
             in_admonition: false,
@@ -274,7 +292,7 @@ fn filter_code_blocks_starting_in_extension_blocks(
 }
 
 /// Pre-compute which lines are in code blocks - O(m*n) where m=code_blocks, n=lines
-/// Returns a Vec<bool> where index i indicates if line i is in a code block
+/// Returns a `Vec<bool>` where index i indicates if line i is in a code block
 pub(super) fn compute_code_block_line_map(
     content: &str,
     line_offsets: &[usize],

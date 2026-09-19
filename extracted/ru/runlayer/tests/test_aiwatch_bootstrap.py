@@ -421,8 +421,21 @@ class TestMDMDefault:
 
         assert result.exit_code == 4, result.output
 
-    def test_check_ignores_absent_clients(self, tmp_path, monkeypatch):
+    def _invoke_check_with_no_clients_detected(self, tmp_path, monkeypatch, *, clients):
+        """``bootstrap --check --mdm`` with every presence probe failing.
+
+        Enterprise dirs are pinned under *tmp_path* so the check never reads
+        the host's real ``/Library`` / ``/etc`` files.
+        """
+        from runlayer_cli.hook_install import clients as clients_module
+
         monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+        for client in clients_module.iter_supported_clients():
+            monkeypatch.setattr(
+                clients_module,
+                f"enterprise_{client.value.replace('-', '_')}_dir",
+                lambda client=client: tmp_path / "managed" / client.value,
+            )
         console_home = tmp_path / "ConsoleUser"
         marker = enrollment_marker_path("https://t.example.com", home=console_home)
         marker.parent.mkdir(parents=True)
@@ -454,6 +467,10 @@ class TestMDMDefault:
                 return_value=console_home,
             ),
             patch(
+                "runlayer_cli.hook_install.check.iter_supported_clients",
+                return_value=clients,
+            ),
+            patch(
                 "runlayer_cli.scan.client_presence.detect_client_presence",
                 return_value=[],
             ),
@@ -462,10 +479,33 @@ class TestMDMDefault:
                 return_value=(True, "ok"),
             ),
         ):
-            result = runner.invoke(aiwatch_app, ["bootstrap", "--check", "--mdm"])
+            return runner.invoke(aiwatch_app, ["bootstrap", "--check", "--mdm"])
+
+    def test_check_ignores_absent_console_home_clients(self, tmp_path, monkeypatch):
+        from runlayer_cli.hook_install.clients import CONSOLE_HOME_CLIENTS
+
+        result = self._invoke_check_with_no_clients_detected(
+            tmp_path, monkeypatch, clients=tuple(sorted(CONSOLE_HOME_CLIENTS, key=str))
+        )
 
         assert result.exit_code == 0, result.output
         assert "client_not_installed" not in result.output
+        assert "no supported AI clients installed" in result.output
+
+    def test_check_reports_absent_enterprise_dir_files_as_missing(
+        self, tmp_path, monkeypatch
+    ):
+        """ENG-6643: an enterprise-dir client's never-written file is drift the
+        check must surface, not hide behind a failed presence probe."""
+        from runlayer_cli.hook_install.clients import Client
+
+        result = self._invoke_check_with_no_clients_detected(
+            tmp_path, monkeypatch, clients=(Client.CURSOR, Client.CLAUDE_CODE)
+        )
+
+        assert result.exit_code == 1, result.output
+        assert "hooks: cursor missing (no hooks.json)" in result.output
+        assert "claude_code" not in result.output
 
 
 # ── Sessions MDM key → include_pipeline resolution ─────────────────────

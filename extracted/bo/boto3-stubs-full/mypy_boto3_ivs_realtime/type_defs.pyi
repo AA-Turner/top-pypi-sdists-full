@@ -784,6 +784,13 @@ class ListParticipantEventsResponseTypeDef(TypedDict):
     nextToken: NotRequired[str]
 
 class CreateIngestConfigurationResponseTypeDef(TypedDict):
+    accessControlAllowOrigin: str
+    accessControlExposeHeaders: str
+    cacheControl: str
+    contentSecurityPolicy: str
+    strictTransportSecurity: str
+    xContentTypeOptions: str
+    xFrameOptions: str
     ingestConfiguration: IngestConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
@@ -792,6 +799,13 @@ class GetIngestConfigurationResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateIngestConfigurationResponseTypeDef(TypedDict):
+    accessControlAllowOrigin: str
+    accessControlExposeHeaders: str
+    cacheControl: str
+    contentSecurityPolicy: str
+    strictTransportSecurity: str
+    xContentTypeOptions: str
+    xFrameOptions: str
     ingestConfiguration: IngestConfigurationTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 

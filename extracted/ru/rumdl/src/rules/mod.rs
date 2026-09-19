@@ -721,6 +721,12 @@ const RULES: &[RuleEntry] = &[
         ctor: MD091NoMarkdownInHtml::from_config,
         opt_in: true,
     },
+    RuleEntry {
+        name: "MD092",
+        primary_alias: "merge-conflict",
+        ctor: crate::merge_conflict::MD092MergeConflict::from_config,
+        opt_in: false,
+    },
 ];
 
 /// Returns all rule instances (including opt-in) for config validation and CLI
@@ -760,6 +766,31 @@ pub fn create_rule_by_name(name: &str, config: &crate::config::Config) -> Option
         .iter()
         .find(|entry| entry.name == name)
         .map(|entry| (entry.ctor)(config))
+}
+
+/// The rules a document reconfigures, built with the settings it asks for.
+///
+/// A rule's fix capability can depend on its settings, and an inline
+/// `rumdl-configure-file` comment changes those settings for one file. The fixer
+/// runs the reconfigured rule, so whatever decides or reports what a run fixes
+/// reads the capability from the same instance. Empty for the documents that
+/// carry no inline configuration, which is nearly all of them.
+pub fn rules_reconfigured_by_document(
+    rules: &[Box<dyn Rule>],
+    config: &crate::config::Config,
+    content: &str,
+) -> Vec<Box<dyn Rule>> {
+    let inline_config = crate::inline_config::InlineConfig::from_content(content);
+    if inline_config.get_all_rule_configs().is_empty() {
+        return Vec::new();
+    }
+
+    let merged = config.merge_with_inline_config(&inline_config);
+    rules
+        .iter()
+        .filter(|rule| inline_config.get_rule_config(rule.name()).is_some())
+        .filter_map(|rule| create_rule_by_name(rule.name(), &merged))
+        .collect()
 }
 
 // Filter rules based on config (moved from main.rs)

@@ -19,6 +19,7 @@ import json
 import math
 import os
 import socket
+import ssl
 import stat
 import sys
 import tempfile
@@ -75,9 +76,6 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
         newurl: str,
     ) -> None:
         return None
-
-
-_OPENER = urllib.request.build_opener(_NoRedirect())
 
 
 def credential_path(home: Path) -> Path:
@@ -322,15 +320,31 @@ def _device_token_from_body(body: bytes) -> DeviceToken:
     }
 
 
+def _is_cert_verification_error(exc: BaseException) -> bool:
+    if isinstance(exc, ssl.SSLCertVerificationError):
+        return True
+    reason = getattr(exc, "reason", None)
+    return isinstance(reason, ssl.SSLCertVerificationError)
+
+
 def request_device_token(
     host: str,
     credential: str,
     *,
     budget: float = HELPER_TIMEOUT_SECONDS,
-    urlopen: Callable[..., Any] = _OPENER.open,
+    urlopen: Callable[..., Any] | None = None,
     monotonic: Callable[[], float] = time.monotonic,
 ) -> DeviceToken:
     """POST the credential exchange within *budget* seconds and return its token."""
+    deadline = monotonic() + max(_MIN_BUDGET_SECONDS, budget)
+    open_request = urlopen
+    if open_request is None:
+        # Built per exchange, after the entrypoint's truststore injection: since
+        # Python 3.12 HTTPSHandler captures its SSLContext at construction, so a
+        # module-level opener would freeze a pre-injection context (frozen builds
+        # have no usable OpenSSL default CA paths and would fail every handshake).
+        open_request = urllib.request.build_opener(_NoRedirect()).open
+
     try:
         request = urllib.request.Request(
             host + DEVICE_TOKENS_PATH,
@@ -346,7 +360,6 @@ def request_device_token(
     except ValueError as exc:
         raise CredentialHelperError("device token exchange failed") from exc
 
-    deadline = monotonic() + max(_MIN_BUDGET_SECONDS, budget)
     transport_errors = (
         urllib.error.URLError,
         socket.timeout,
@@ -357,11 +370,15 @@ def request_device_token(
     for attempt in range(2):
         timeout = max(0.1, deadline - monotonic())
         try:
-            with urlopen(request, timeout=timeout) as response:
+            with open_request(request, timeout=timeout) as response:
                 body = response.read(_MAX_RESPONSE_BYTES + 1)
         except urllib.error.HTTPError as exc:
             raise CredentialHelperError(_http_error_message(exc, credential)) from exc
         except transport_errors as exc:
+            if _is_cert_verification_error(exc):
+                raise CredentialHelperError(
+                    "device token exchange failed: TLS certificate verification failed"
+                ) from exc
             remaining = deadline - monotonic()
             if attempt == 1 or remaining <= _RETRY_MIN_REMAINING_SECONDS:
                 raise CredentialHelperError("device token exchange failed") from exc

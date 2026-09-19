@@ -32,13 +32,11 @@ license:
 import os
 import re
 import unicodedata
-import warnings
 from os import PathLike, fsdecode
 from pathlib import Path
-from typing import Literal, TextIO, overload
+from typing import Literal, TextIO
 
 import svgpathtools
-from typing_extensions import deprecated
 from OCP.Bnd import Bnd_Box
 from OCP.BRep import BRep_Builder
 from OCP.BRepBndLib import BRepBndLib
@@ -72,7 +70,7 @@ from OCP.XCAFDoc import (
 )
 from ocpsvg import ColorAndLabel, import_svg_document
 
-from build123d.build_common import CM, FT, IN, MC, MM, M
+from build123d.build_constants import CM, FT, IN, MC, MM, M
 from build123d.build_enums import Align, Unit
 from build123d.geometry import (
     TOL_DIGITS,
@@ -149,7 +147,9 @@ def import_step(filename: PathLike | str | bytes) -> Compound:
         """Extract name and format"""
         name = ""
         std_name = TDataStd_Name()
-        if label.FindAttribute(TDataStd_Name.GetID_s(), std_name):
+        if label.IsAttribute(TDataStd_Name.GetID_s()) and label.FindAttribute(
+            TDataStd_Name.GetID_s(), std_name
+        ):
             name = TCollection_AsciiString(std_name.Get()).ToCString()
         # Remove characters that cause ocp_vscode to fail
         clean_name = "".join(ch for ch in name if unicodedata.category(ch)[0] != "C")
@@ -258,9 +258,12 @@ def import_step(filename: PathLike | str | bytes) -> Compound:
 
     root = Compound()
     root.children = build_assembly()
-    # Remove empty Compound wrapper if single free object
+    # Remove empty Compound wrapper if single free object. Detach it from
+    # the wrapper too — a shape returned with a stale anytree parent makes
+    # export_step build an empty document (its label lookup walks .parent).
     if len(root.children) == 1:
         root = root.children[0]
+        root.parent = None
 
     return root
 
@@ -396,7 +399,6 @@ def import_svg_as_buildline_code(
     return ("\n".join(buildline_code), builder_name)
 
 
-@overload
 def import_svg(
     svg_file: str | Path | TextIO,
     *,
@@ -404,33 +406,6 @@ def import_svg(
     align: Align | tuple[Align, Align] | None = Align.MIN,
     ignore_visibility: bool = False,
     label_by: Literal["id", "class", "inkscape:label"] | str = "id",
-) -> ShapeList[Wire | Face]: ...
-
-
-@overload
-@deprecated(
-    "The 'is_inkscape_label' parameter is deprecated and will be removed in "
-    "build123d 1.0. Use 'label_by=\"inkscape:label\"' instead."
-)
-def import_svg(
-    svg_file: str | Path | TextIO,
-    *,
-    flip_y: bool = True,
-    align: Align | tuple[Align, Align] | None = Align.MIN,
-    ignore_visibility: bool = False,
-    label_by: Literal["id", "class", "inkscape:label"] | str = "id",
-    is_inkscape_label: bool | None = None,
-) -> ShapeList[Wire | Face]: ...
-
-
-def import_svg(
-    svg_file: str | Path | TextIO,
-    *,
-    flip_y: bool = True,
-    align: Align | tuple[Align, Align] | None = Align.MIN,
-    ignore_visibility: bool = False,
-    label_by: Literal["id", "class", "inkscape:label"] | str = "id",
-    is_inkscape_label: bool | None = None,
 ) -> ShapeList[Wire | Face]:
     """import_svg
 
@@ -450,13 +425,6 @@ def import_svg(
     Returns:
         ShapeList[Union[Wire, Face]]: objects contained in svg
     """
-    if is_inkscape_label is not None:
-        msg = "`is_inkscape_label` parameter is deprecated"
-        if is_inkscape_label:
-            label_by = "inkscape:" + label_by
-            msg += f", use `label_by={label_by!r}` instead"
-        warnings.warn(msg, stacklevel=2)
-
     shapes = []
     label_by = re.sub(
         r"^inkscape:(.+)", r"{http://www.inkscape.org/namespaces/inkscape}\1", label_by

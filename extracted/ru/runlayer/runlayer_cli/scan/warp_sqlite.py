@@ -22,7 +22,6 @@ safe inside the ``aiwatch`` PyInstaller bundle closure.
 
 from __future__ import annotations
 
-import json
 import sqlite3
 from pathlib import Path
 from typing import Any
@@ -36,6 +35,8 @@ from runlayer_cli.scan.config_parser import (
     MCPServerConfig,
     parse_server_entry,
 )
+from runlayer_cli.scan.completeness import ScanCompletionStatus
+from runlayer_cli.safe_parse import parse_json
 
 logger = structlog.get_logger(__name__)
 
@@ -59,7 +60,10 @@ def _warp_sqlite_paths() -> list[Path]:
     return warp.get_resolved_sqlite_paths()
 
 
-def _open_readonly(path: Path) -> sqlite3.Connection | None:
+def _open_readonly(
+    path: Path,
+    scan_status: ScanCompletionStatus | None = None,
+) -> sqlite3.Connection | None:
     """Open *path* read-only without locking a running Warp instance.
 
     ``mode=ro`` avoids creating the file; ``immutable=1`` skips locking so a live
@@ -68,6 +72,8 @@ def _open_readonly(path: Path) -> sqlite3.Connection | None:
     try:
         return sqlite3.connect(f"file:{path}?mode=ro&immutable=1", uri=True)
     except sqlite3.Error as e:
+        if scan_status is not None:
+            scan_status.mark_incomplete("warp_sqlite_open_failed")
         logger.debug("Failed to open warp sqlite", path=str(path), error=str(e))
         return None
 
@@ -103,10 +109,7 @@ def _decode_cell(cell: Any) -> Any:
     """JSON-decode a row cell if it is a string, else return None."""
     if not isinstance(cell, str):
         return None
-    try:
-        return json.loads(cell)
-    except (ValueError, TypeError):
-        return None
+    return parse_json(cell)["value"]
 
 
 def _build_variable_map(variable_values: dict[str, Any] | None) -> dict[str, str]:
@@ -181,10 +184,10 @@ def _parse_installation_row(row: sqlite3.Row) -> list[MCPServerConfig]:
     inner_raw = template.get("json")
     if not isinstance(inner_raw, str):
         return []
-    try:
-        inner = json.loads(inner_raw)
-    except (ValueError, TypeError):
+    outcome = parse_json(inner_raw)
+    if outcome["error"] is not None:
         return []
+    inner = outcome["value"]
     if not isinstance(inner, dict):
         return []
 
@@ -205,13 +208,16 @@ def _parse_installation_row(row: sqlite3.Row) -> list[MCPServerConfig]:
     return servers
 
 
-def _read_db_servers(db_path: Path) -> list[MCPServerConfig]:
+def _read_db_servers(
+    db_path: Path,
+    scan_status: ScanCompletionStatus | None = None,
+) -> list[MCPServerConfig]:
     """Read enabled MCP servers from a single ``warp.sqlite`` file.
 
     Returns an empty list on any failure (missing table, corrupt db, locked
     file) so a scan never breaks on one bad db.
     """
-    conn = _open_readonly(db_path)
+    conn = _open_readonly(db_path, scan_status)
     if conn is None:
         return []
 
@@ -224,6 +230,8 @@ def _read_db_servers(db_path: Path) -> list[MCPServerConfig]:
                 continue
             servers.extend(_parse_installation_row(row))
     except sqlite3.Error as e:
+        if scan_status is not None:
+            scan_status.mark_incomplete("warp_sqlite_query_failed")
         logger.debug("Failed to query warp sqlite", path=str(db_path), error=str(e))
         return []
     finally:
@@ -232,7 +240,9 @@ def _read_db_servers(db_path: Path) -> list[MCPServerConfig]:
     return servers
 
 
-def scan_warp_sqlite() -> MCPClientConfig | None:
+def scan_warp_sqlite(
+    scan_status: ScanCompletionStatus | None = None,
+) -> MCPClientConfig | None:
     """Scan Warp's sqlite db(s) for MCP server installations.
 
     Reads MCP servers from **all** existing candidate dbs (e.g. both the Stable
@@ -248,10 +258,16 @@ def scan_warp_sqlite() -> MCPClientConfig | None:
     source_path: str | None = None
 
     for db_path in _warp_sqlite_paths():
-        if not db_path.exists():
+        try:
+            exists = db_path.exists()
+        except OSError:
+            if scan_status is not None:
+                scan_status.mark_incomplete("warp_sqlite_root_access_failed")
+            continue
+        if not exists:
             continue
 
-        db_servers = _read_db_servers(db_path)
+        db_servers = _read_db_servers(db_path, scan_status)
         if not db_servers:
             continue
 
@@ -315,6 +331,7 @@ def _merge_into_global_warp(
 
 def enrich_configurations_with_warp_sqlite(
     configurations: list[MCPClientConfig],
+    scan_status: ScanCompletionStatus | None = None,
 ) -> None:
     """Supplement Warp's file config with its in-app gallery sqlite installs.
 
@@ -322,6 +339,6 @@ def enrich_configurations_with_warp_sqlite(
     result into the global ``warp`` config in *configurations* (in place). No-op
     when no sqlite-sourced servers are found.
     """
-    sqlite_config = scan_warp_sqlite()
+    sqlite_config = scan_warp_sqlite(scan_status)
     if sqlite_config and sqlite_config.servers:
         _merge_into_global_warp(configurations, sqlite_config)

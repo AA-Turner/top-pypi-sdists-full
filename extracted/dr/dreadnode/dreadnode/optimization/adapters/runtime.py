@@ -43,6 +43,7 @@ import typing as t
 
 from pydantic import Field, PrivateAttr
 
+from dreadnode.app.config import DEFAULT_AUTONOMOUS_MAX_STEPS
 from dreadnode.optimization.adapters._env_eval import (
     build_trajectory_record,
     numeric_metrics,
@@ -91,10 +92,15 @@ class SessionRuntimeAdapter(StackAwareCapabilityAdapter):
     """
 
     # --- Production-fidelity wiring -----------------------------------------
-    policy: str | dict[str, t.Any] = "headless"
+    policy: str | dict[str, t.Any] = Field(
+        default_factory=lambda: {
+            "name": "headless",
+            "max_steps": DEFAULT_AUTONOMOUS_MAX_STEPS,
+        }
+    )
     """Policy name or dict passed to ``RuntimeClient.create_session``.
-    The headless policy contributes a ``max_steps`` hook automatically;
-    pass a dict to override e.g. ``{"name": "headless", "max_steps": 10}``."""
+    Runtime trials use an explicit step budget by default; pass a different
+    policy spec to override it."""
     system_prompt_append: str | None = None
     """Mirrors the CLI ``--system-prompt`` overlay; threaded into
     :class:`ManagedRuntimeClient` at boot."""

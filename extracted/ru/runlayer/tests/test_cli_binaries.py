@@ -13,6 +13,7 @@ import pytest
 from runlayer_cli.scan.cli_binaries import (
     _nvm_bin_roots,
     _resolved_from_path,
+    _windows_versioned_node_roots,
     get_cli_version,
     locate_cli_binary,
 )
@@ -158,6 +159,59 @@ def test_locate_cli_binary_finds_windows_nvm_version_install(tmp_path, monkeypat
     )
 
     assert locate_cli_binary("copilot", home=tmp_path, system="Windows") == binary
+
+
+def test_windows_version_manager_roots_are_bounded_at_enumeration(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    versions = tmp_path / "AppData" / "Roaming" / "nvm"
+    for index in range(128):
+        (versions / f"v{index}").mkdir(parents=True)
+    listed = 0
+    real_scandir = os.scandir
+
+    class CountingScandir:
+        def __init__(self, path: Path | str) -> None:
+            self._iterator = real_scandir(path)
+
+        def __enter__(self):
+            self._iterator.__enter__()
+            return self
+
+        def __exit__(self, *exc):
+            return self._iterator.__exit__(*exc)
+
+        def __iter__(self):
+            for entry in self._iterator:
+                nonlocal listed
+                listed += 1
+                yield entry
+
+    monkeypatch.setattr(
+        "runlayer_cli.scan.cli_binaries.os.scandir",
+        CountingScandir,
+    )
+
+    roots = _windows_versioned_node_roots(tmp_path)
+
+    assert listed == 65
+    assert len(roots) == 64
+
+
+def test_windows_version_manager_exact_cap_is_not_truncated(tmp_path: Path) -> None:
+    versions = tmp_path / "AppData" / "Roaming" / "nvm"
+    for index in range(64):
+        (versions / f"v{index}").mkdir(parents=True)
+    truncations: list[bool] = []
+
+    roots = _windows_versioned_node_roots(
+        tmp_path,
+        on_truncated=lambda: truncations.append(True),
+    )
+
+    assert len(roots) == 64
+    assert truncations == []
 
 
 def test_locate_cli_binary_ignores_windows_non_executable_suffix(tmp_path, monkeypatch):

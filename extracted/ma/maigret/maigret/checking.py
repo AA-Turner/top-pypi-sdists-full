@@ -946,7 +946,7 @@ def make_site_result(
     if "url" not in site.__dict__:
         logger.error("No URL for site %s", site.name)
 
-    if kwargs.get('retry') and hasattr(site, "mirrors"):
+    if kwargs.get('retry') and site.mirrors:
         site.url_main = random.choice(site.mirrors)
         logger.info(f"Use {site.url_main} as a main url of site {site}")
 
@@ -1037,10 +1037,13 @@ def make_site_result(
         else:
             # There is a special URL for probing existence separate
             # from where the user profile normally can be found.
+            # Encode the username here just like the display URL above does:
+            # a raw "#" otherwise turns the rest of it into a fragment and the
+            # probe silently lands on a different account's URL.
             url_probe = url_probe.format(
                 urlMain=site.url_main,
                 urlSubpath=site.url_subpath,
-                username=username,
+                username=quote(username),
             )
 
         for k, v in site.get_params.items():
@@ -1462,6 +1465,7 @@ async def site_self_check(
     auto_disable=False,
     diagnose=False,
     cloudflare_bypass: Optional[Dict[str, Any]] = None,
+    dns_resolver: str = 'async',
 ):
     """
     Self-check a site configuration.
@@ -1503,6 +1507,7 @@ async def site_self_check(
                     i2p_proxy=i2p_proxy,
                     cookies=cookies,
                     cloudflare_bypass=cloudflare_bypass,
+                    dns_resolver=dns_resolver,
                 )
 
                 # don't disable entries with other ids types
@@ -1631,6 +1636,7 @@ async def self_check(
     diagnose=False,
     no_progressbar=False,
     cloudflare_bypass: Optional[Dict[str, Any]] = None,
+    dns_resolver: str = 'async',
 ) -> dict:
     """
     Run self-check on sites.
@@ -1661,6 +1667,7 @@ async def self_check(
             site, logger, sem, db, silent, proxy, tor_proxy, i2p_proxy,
             skip_errors=True, auto_disable=auto_disable, diagnose=diagnose,
             cloudflare_bypass=cloudflare_bypass,
+            dns_resolver=dns_resolver,
         )
         future = asyncio.ensure_future(check_coro)
         tasks.append((site.name, future))

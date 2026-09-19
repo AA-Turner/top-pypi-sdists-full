@@ -4,7 +4,7 @@ from pandas import DataFrame
 from pydantic import BaseModel
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.catalog.scaler_config import ScalerConfig
 from graphdatascience.procedure_surface.api.centrality.pagerank_endpoints import (
     PageRankEndpoints,
@@ -30,7 +30,7 @@ class PageRankCypherEndpoints(PageRankEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         damping_factor: float = 0.85,
         tolerance: float = 1.0e-7,
@@ -72,13 +72,13 @@ class PageRankCypherEndpoints(PageRankEndpoints):
 
         cypher_result = self._query_runner.call_procedure(
             endpoint="gds.pageRank.mutate", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return PageRankMutateResult(**cypher_result.to_dict())
+        return PageRankMutateResult(**cypher_result)
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         damping_factor: float = 0.85,
         tolerance: float = 1.0e-7,
         max_iterations: int = 20,
@@ -118,13 +118,13 @@ class PageRankCypherEndpoints(PageRankEndpoints):
 
         cypher_result = self._query_runner.call_procedure(
             endpoint="gds.pageRank.stats", params=params, logging=log_progress
-        ).squeeze()  # type: ignore
+        ).iloc[0]  # type: ignore
 
-        return PageRankStatsResult(**cypher_result.to_dict())
+        return PageRankStatsResult(**cypher_result)
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         damping_factor: float = 0.85,
         tolerance: float = 1.0e-7,
         max_iterations: int = 20,
@@ -166,7 +166,7 @@ class PageRankCypherEndpoints(PageRankEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         damping_factor: float = 0.85,
         tolerance: float = 1.0e-7,
@@ -211,13 +211,13 @@ class PageRankCypherEndpoints(PageRankEndpoints):
 
         result = self._query_runner.call_procedure(
             endpoint="gds.pageRank.write", params=params, logging=log_progress
-        ).squeeze()  # type: ignore
+        ).iloc[0]  # type: ignore
 
-        return PageRankWriteResult(**result.to_dict())
+        return PageRankWriteResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         damping_factor: float = 0.85,
         tolerance: float = 1.0e-7,
         max_iterations: int = 20,

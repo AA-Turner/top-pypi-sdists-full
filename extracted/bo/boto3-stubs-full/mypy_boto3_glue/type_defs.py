@@ -119,6 +119,7 @@ from .literals import (
     PropertyLocationType,
     PropertyTypeType,
     QuoteCharType,
+    RecommendationModeType,
     RecrawlBehaviorType,
     RegistryStatusType,
     ResourceActionType,
@@ -7901,6 +7902,7 @@ class DataQualityRuleRecommendationRunDescriptionTypeDef(TypedDict):
     StartedOn: NotRequired[datetime]
     DataSource: NotRequired[DataSourceOutputTypeDef]
     CreatedRulesetName: NotRequired[str]
+    RecommendationMode: NotRequired[RecommendationModeType]
 
 
 class DataQualityRulesetEvaluationRunDescriptionTypeDef(TypedDict):
@@ -7926,6 +7928,7 @@ class GetDataQualityRuleRecommendationRunResponseTypeDef(TypedDict):
     CreatedRulesetName: str
     DataQualitySecurityConfiguration: str
     AdditionalRunOptions: DataQualityRuleRecommendationRunAdditionalRunOptionsTypeDef
+    RecommendationMode: RecommendationModeType
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -10094,6 +10097,7 @@ class StartDataQualityRuleRecommendationRunRequestTypeDef(TypedDict):
     DataQualitySecurityConfiguration: NotRequired[str]
     ClientToken: NotRequired[str]
     AdditionalRunOptions: NotRequired[DataQualityRuleRecommendationRunAdditionalRunOptionsTypeDef]
+    RecommendationMode: NotRequired[RecommendationModeType]
 
 
 class StartDataQualityRulesetEvaluationRunRequestTypeDef(TypedDict):

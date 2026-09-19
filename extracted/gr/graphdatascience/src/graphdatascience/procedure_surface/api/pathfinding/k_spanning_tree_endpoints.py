@@ -3,7 +3,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 
@@ -21,7 +21,7 @@ class KSpanningTreeEndpoints(ABC):
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         k: int,
         write_property: str,
         source_node: int,
@@ -51,7 +51,7 @@ class KSpanningTreeEndpoints(ABC):
             Node id to use as the starting point.
         relationship_weight_property
             Name of the property to be used as weights.
-        objective : str, default="minimum"
+        objective
             The objective function to optimize. Either "minimum" or "maximum".
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.

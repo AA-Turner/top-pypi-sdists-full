@@ -2,7 +2,7 @@ from collections import OrderedDict
 from typing import Any
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.query_runner.query_runner import QueryRunner
 
@@ -10,7 +10,7 @@ from graphdatascience.query_runner.query_runner import QueryRunner
 def estimate_algorithm(
     endpoint: str,
     query_runner: QueryRunner,
-    G: GraphV2 | dict[str, Any],
+    G: Graph | dict[str, Any],
     algo_config: dict[str, Any] | None = None,
 ) -> EstimationResult:
     """
@@ -21,15 +21,15 @@ def estimate_algorithm(
 
     Parameters
     ----------
-    query_runner : QueryRunner
+    query_runner
         The query runner to use for the estimation call
-    endpoint : str
+    endpoint
         The full endpoint name for the estimation procedure (e.g., "gds.kcore.stats.estimate")
-    G : GraphV2 | None, optional
+    G
         The graph to be used in the estimation
-    projection_config : dict[str, Any] | None, optional
+    projection_config
         Configuration dictionary for the projection
-    algo_config : dict[str, Any] | None, optional
+    algo_config
         Additional algorithm-specific configuration parameters
 
     Returns
@@ -44,7 +44,7 @@ def estimate_algorithm(
     """
     config: dict[str, Any] = OrderedDict()
 
-    if isinstance(G, GraphV2):
+    if isinstance(G, Graph):
         config["graphNameOrConfiguration"] = G.name()
     elif isinstance(G, dict):
         config["graphNameOrConfiguration"] = G
@@ -55,6 +55,6 @@ def estimate_algorithm(
 
     params = CallParameters(**config)
 
-    result = query_runner.call_procedure(endpoint=endpoint, params=params).squeeze()
+    result = query_runner.call_procedure(endpoint=endpoint, params=params).iloc[0]
 
-    return EstimationResult(**result.to_dict())
+    return EstimationResult(**result)

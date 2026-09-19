@@ -51,6 +51,8 @@ class TestSyncMetricsResponse(unittest.TestCase):
                 next_sync_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 seconds_since_last_sync = 56,
                 is_stale = True,
+                intervals_since_last_sync = 1.337,
+                stale_after_seconds = 56,
                 failure_rate = 1.337,
                 healthy = True,
                 dlq_total = 56,

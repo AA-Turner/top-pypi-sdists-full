@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: fsspec
-Version: 2026.7.0
+Version: 2026.9.0
 Summary: File-system specification
 Project-URL: Changelog, https://filesystem-spec.readthedocs.io/en/latest/changelog.html
 Project-URL: Documentation, https://filesystem-spec.readthedocs.io/en/latest/
@@ -105,6 +105,7 @@ Requires-Dist: dask[dataframe,test]; extra == 'test-downstream'
 Requires-Dist: moto[server]<5,>4; extra == 'test-downstream'
 Requires-Dist: pytest-timeout; extra == 'test-downstream'
 Requires-Dist: xarray; extra == 'test-downstream'
+Requires-Dist: zarr; extra == 'test-downstream'
 Provides-Extra: test-full
 Requires-Dist: adlfs; extra == 'test-full'
 Requires-Dist: aiohttp!=4.0.0a0,!=4.0.0a1; extra == 'test-full'

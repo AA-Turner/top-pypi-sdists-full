@@ -70,7 +70,9 @@ def command_hash(argv: Sequence[str]) -> str:
     line that is retained; the readable argv is the redacted form.
     """
     payload = "\x1f".join(argv)
-    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    # argv may carry surrogateescape code points (undecodable bytes from
+    # /proc or os.fsdecode); backslashreplace keeps the hash total and stable.
+    return hashlib.sha256(payload.encode("utf-8", "backslashreplace")).hexdigest()
 
 
 def redact_cwd_project(cwd: str | None, *, usernames: Sequence[str] = ()) -> str | None:

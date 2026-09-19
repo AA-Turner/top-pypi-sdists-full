@@ -516,6 +516,19 @@ class TestStrongSignals:
         assert out[0].wsl_distro == "Ubuntu"
         assert out[0].to_api_payload()["wsl_distro"] == "Ubuntu"
 
+    def test_windows_owner_attribution_reaches_normalized_process_only(self):
+        cand = ProcessCandidate(
+            pid=202,
+            exe="/usr/local/bin/npx",
+            argv=["npx", "-y", "@modelcontextprotocol/server-filesystem", "/tmp"],
+            owner_sid="S-1-5-21-1-2-3-1001",
+        )
+
+        [sighting] = classify_processes([cand], ClassifierContext())
+
+        assert sighting.owner_sid == "S-1-5-21-1-2-3-1001"
+        assert "owner_sid" not in sighting.to_api_payload()
+
     def test_client_executable(self):
         cand = ProcessCandidate(
             pid=201, ppid=1, exe=_CURSOR_EXE, argv=[_CURSOR_EXE, "--enable-crashpad"]
@@ -621,6 +634,40 @@ class TestStrongSignals:
         assert ref.cwd == "/Users/alice/project"
         assert ref.user == "alice"
         assert ref.mcp_config == "user_data_dir"
+
+    def test_extensions_dir_override_keeps_raw_local_root(self):
+        vscode = get_client_by_name("vscode")
+        assert vscode is not None
+        executable = "/usr/share/code/code"
+        candidate = ProcessCandidate(
+            pid=213,
+            exe=executable,
+            argv=[
+                executable,
+                "--extensions-dir",
+                "/home/alice/custom-extensions",
+            ],
+            user="alice",
+            cwd="/home/alice/project",
+        )
+
+        result = classify_processes_with_overrides(
+            [candidate],
+            build_context([], [vscode], detect_agents=False),
+            usernames=["alice"],
+        )
+
+        assert result.processes[0].settings_overrides == [
+            {
+                "flag": "--extensions-dir",
+                "value": "/home/<redacted>/custom-extensions",
+            }
+        ]
+        [ref] = result.extension_root_refs
+        assert ref.client == "vscode"
+        assert ref.value == "/home/alice/custom-extensions"
+        assert ref.cwd == "/home/alice/project"
+        assert ref.user == "alice"
 
     def test_wsl_override_config_ref_preserves_distro(self):
         claude = get_client_by_name("claude_code")

@@ -419,6 +419,18 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
     ) {
         crate::node_key::set_actor_identity(actor);
     }
+    // Where the OWNER's pen lives, for every consent path that has no HTTP owner
+    // session — the fold's author door, the migration below (CIRISServer#599).
+    crate::node_key::set_user_seed_dir(
+        crate::user_seed_dir(&cfg),
+        format!("{}-user", cfg.keystore_alias),
+    );
+    // Where the OWNER's pen lives, for every consent path that has no HTTP owner
+    // session — the fold's author door, the migration below (CIRISServer#599).
+    crate::node_key::set_user_seed_dir(
+        crate::user_seed_dir(&cfg),
+        format!("{}-user", cfg.keystore_alias),
+    );
     if node_resolution.did_split() {
         // The owner-binding named the ACTOR key. Re-subject it to the node key
         // using the owner's own signer, which a claimed node holds — installing
@@ -463,27 +475,62 @@ pub async fn serve_with_adapter(cfg: ServerConfig, adapter: Arc<dyn Adapter>) ->
             ),
         }
 
-        // The topology follows the identity that reads it (CIRISServer#312), and
-        // it needs only the NODE's signer — NOT the owner's.
-        //
-        // This was nested inside the owner-signer arm above, so a split node with
-        // existing actor-authored grants and no owner seed on disk skipped it
-        // entirely: the wire identity moved to the node key while the grants
-        // stayed under the actor, and consent lookup returned zero peers under a
-        // healthy transport. Boot-environment peering can create grants before a
-        // node is ever claimed, so that is a reachable state, not a hypothetical
-        // (Codex on #489).
-        if let Some(node_signer) = node_resolution.signer.clone() {
-            crate::node_key::reauthor_consent_as_node(
-                &engine,
-                node_signer,
-                &actor_key_id,
-                &node_resolution.node_key_id,
-            )
-            .await?;
-        }
+        // 0.5.203 re-authored the actor's consent onto the node key here. Gone in
+        // 0.5.211 (CIRISServer#601): every consent read is keyed by the engine's
+        // (actor's) key, and persist's by-principals fold does not count a node's
+        // row for the agent — the redirect moved rows OFF the key that reads
+        // them. The owner's re-sign below (`migrate_consent_to_owner`) is the
+        // migration.
     }
 
+    // Consent is by humans: any live grant a machine key authored (the engine key
+    // before 0.5.203, the node key 0.5.203–0.5.209, or a provisional pre-claim
+    // grant) is re-signed by the owner when the owner's pen is on disk. Unowned
+    // nodes and bare harnesses are a no-op here (CIRISServer#599).
+    match if crate::peer::owner_authored_consent_enabled() {
+        crate::node_key::migrate_consent_to_owner(&engine).await
+    } else {
+        Ok(Vec::new())
+    } {
+        Ok(moved) if !moved.is_empty() => {
+            tracing::info!(peers = ?moved, "boot: machine-authored consent re-signed by the owner")
+        }
+        Ok(_) => {}
+        Err(e) => tracing::warn!(
+            error = %e,
+            "boot: consent re-sign as owner failed — machine-authored grants stay as \
+             legacy grantors until the owner's pen is reachable"
+        ),
+    }
+    // Split home: anchor the agent to its human before consent is re-signed —
+    // the human's grant names the agent, and the fold finds it only through
+    // this anchor (CIRISServer#601 items 7–8). No-op elsewhere.
+    match crate::node_key::anchor_agent_to_owner(&engine).await {
+        Ok(Some(pair)) => {
+            tracing::info!(bilateral_pair_id = %pair, "boot: agent anchored to owner")
+        }
+        Ok(None) => {}
+        Err(e) => tracing::warn!(error = %e, "boot: agent login ceremony failed (non-fatal)"),
+    }
+    // Consent is by humans: any live grant a machine key authored (the engine key
+    // before 0.5.203, the node key 0.5.203–0.5.209, or a provisional pre-claim
+    // grant) is re-signed by the owner when the owner's pen is on disk. Unowned
+    // nodes and bare harnesses are a no-op here (CIRISServer#599).
+    match if crate::peer::owner_authored_consent_enabled() {
+        crate::node_key::migrate_consent_to_owner(&engine).await
+    } else {
+        Ok(Vec::new())
+    } {
+        Ok(moved) if !moved.is_empty() => {
+            tracing::info!(peers = ?moved, "boot: machine-authored consent re-signed by the owner")
+        }
+        Ok(_) => {}
+        Err(e) => tracing::warn!(
+            error = %e,
+            "boot: consent re-sign as owner failed — machine-authored grants stay as \
+             legacy grantors until the owner's pen is reachable"
+        ),
+    }
     // STAGE 1 (FSD/GENESIS_TO_SCORE.md) — install the baked trust root and accept
     // it. Two acts on purpose: installing records makes the root KNOWN; accepting
     // it is this node's own signed `trust:accepts` edge, and the one row an
@@ -2554,6 +2601,38 @@ async fn publish_self_identity_occurrence(engine: &Arc<Engine>, edge: &Edge, cfg
 /// keeps a growing directory from turning into a growing starvation window.
 const PRIME_YIELD_EVERY: usize = 16;
 
+/// The key ids that are THIS node, for the boot primes to skip (CIRISServer#607).
+///
+/// A node must never hold itself in its edge peers map. Edge attributes an
+/// inbound link by matching the link's DESTINATION against that map (Branch B
+/// of `resolve_link_attribution`), and every link a peer dials to us carries
+/// our own announced destination — so a self-entry makes every inbound round
+/// resolve to us, fail `Rooted∧owns_key`, and (for bootstrap kinds) build a
+/// responder that sends its reply to our own key: "no route to peer". The
+/// production canonical served ZERO anti-entropy rounds from 0.5.107 to
+/// 0.5.211 because `prime_canonical_bootstrap_peers` primed its own key under
+/// a comment that called the self-entry benign — true for the SEND side it was
+/// written against, false for the attribution side added later.
+///
+/// Both of the node's identities are excluded: the wire identity (the Reticulum
+/// signer — the node key on a three-key install) and the actor identity (the
+/// engine's key, distinct from the node key on such an install).
+pub(crate) fn own_key_ids(edge: &Edge) -> Vec<String> {
+    let mut own = vec![edge.signer_key_id().to_string()];
+    if let Some(actor) = crate::node_key::actor_identity() {
+        if !own.iter().any(|k| k == actor) {
+            own.push(actor.to_string());
+        }
+    }
+    if let Some(held) = crate::node_key::held_node_signer() {
+        let node = held.derived_key_id();
+        if !own.contains(&node) {
+            own.push(node);
+        }
+    }
+    own
+}
+
 async fn prime_trusted_peers(engine: &Engine, edge: &Edge) {
     use ciris_persist::federation::self_at_login::BindingProvenance;
     let Some(transport) = edge.reticulum_transport() else {
@@ -2589,7 +2668,13 @@ async fn prime_trusted_peers(engine: &Engine, edge: &Edge) {
     let mut primed = 0usize;
     let mut refused = 0usize;
     let directory = engine.federation_directory();
+    let own = own_key_ids(edge);
     for (i, (key_id, peer_dests)) in trusted.iter().enumerate() {
+        // Our own published transport row is Rooted too; it must not become a
+        // peer entry (CIRISServer#607 — see `own_key_ids`).
+        if own.iter().any(|k| k == key_id) {
+            continue;
+        }
         // Tokio only reschedules at an await that actually PENDS. Every await in
         // this loop can resolve ready (cached lookup, in-memory transport), so
         // without an explicit yield the loop owns its worker until the last peer —
@@ -2702,11 +2787,20 @@ async fn prime_canonical_bootstrap_peers(engine: &Engine, edge: &Edge) {
     };
     let canonical_key_ids = crate::federation_delivery::distinct_canonical_key_ids(&hints);
     let mut primed = 0usize;
+    let own = own_key_ids(edge);
     for key_id in &canonical_key_ids {
-        // NB: on the canonical node ITSELF this primes its own key_id. That is
-        // benign (a self-entry in the peers map is never a delivery target) and is
-        // the same behaviour `prime_trusted_peers` already has — so we don't special
-        // -case it rather than thread the node's own key_id down here for nothing.
+        // On the canonical node ITSELF the hint list names this node. It is NOT
+        // primed: a self-entry in the peers map turns every inbound link into a
+        // link "from ourselves" and the responder replies to its own key
+        // (CIRISServer#607 — see `own_key_ids`).
+        if own.iter().any(|k| k == key_id) {
+            tracing::info!(
+                canonical = %key_id,
+                "canonical prime: this node IS that canonical — not priming itself as a peer \
+                 (CIRISServer#607)"
+            );
+            continue;
+        }
         let rec = match engine
             .federation_directory()
             .lookup_public_key(key_id)
@@ -3569,7 +3663,7 @@ pub(crate) async fn build_self_key_record(
 /// off the live Edge.
 async fn setup_peer_replication(
     engine: &Arc<Engine>,
-    edge: &Edge,
+    edge: &Arc<Edge>,
 ) -> Result<Option<Arc<ciris_edge::replication::ReplicationRuntime>>> {
     // Server 0.5 (zero env): there is NO env peer-bootstrap branch. The replication
     // topology is owner-authored consent ONLY — a peer is admitted + a
@@ -3741,7 +3835,7 @@ pub(crate) fn held_replication_runtime() -> Option<Arc<ciris_edge::replication::
 /// [`crate::federation_delivery`] for the full ordering note.
 pub(crate) async fn start_replication_runtime(
     engine: &Arc<Engine>,
-    edge: &Edge,
+    edge: &Arc<Edge>,
     node_key_id: &str,
 ) -> Result<Option<Arc<ciris_edge::replication::ReplicationRuntime>>> {
     use ciris_edge::replication::{ReplicationRuntime, ReplicationRuntimeConfig};
@@ -3890,9 +3984,21 @@ pub(crate) async fn start_replication_runtime(
     // withheld from every peer (it logs "replication runtime has no local_key_id").
     // Same `node_key_id` already threaded into `replication_peers_from_consent` and
     // the publish-own `self_provider` above.
+    // edge v25.0.0 (CIRISServer#602 items 5 + 6): the BlobPuller and the
+    // revocation wiring. Nothing pulls a blob until the puller is spawned; an
+    // attestation carrying a BlobPointer in this node's audience is what
+    // triggers a gated fetch (CIRISEdge#601/#615). Community and family
+    // content is held and announced — blobs anti-entropy into the roster and
+    // are available on demand; the commons stays declined until an operator
+    // opts in. The revocation register lets an authorized `withdraws` make the
+    // chunk source refuse and the backend evict (CIRISEdge#614).
+    let (pull_sink, revocations) =
+        crate::backend::spawn_blob_puller(engine, Arc::clone(edge), node_key_id).await;
     let runtime_config = ReplicationRuntimeConfig {
         metrics: Some(edge.metrics()),
         local_key_id: Some(node_key_id.to_string()),
+        pull_sink,
+        revocations,
         ..ReplicationRuntimeConfig::default()
     };
     let runtime = ReplicationRuntime::start(
@@ -4637,5 +4743,40 @@ mod self_occurrence_instant_tests {
         let parsed = chrono::DateTime::parse_from_rfc3339(rendered).expect("rfc3339");
         assert_eq!(parsed.timestamp_millis(), now.timestamp_millis());
         assert_eq!(rendered, "2027-01-15T08:00:00.123Z");
+    }
+}
+
+#[cfg(test)]
+mod own_key_ids_tests {
+    /// The two boot primes and the runtime re-prime must all consult the node's
+    /// own identities before rooting a hint as a peer (CIRISServer#607). Pinned
+    /// by source because the peers map is only reachable through a live
+    /// Reticulum transport no in-process fixture builds; the traceflow ladder
+    /// asserts the live half (the canonical serves the agent's round).
+    #[test]
+    fn every_prime_skips_the_nodes_own_keys() {
+        let compose = include_str!("compose.rs");
+        for f in [
+            "async fn prime_trusted_peers(",
+            "async fn prime_canonical_bootstrap_peers(",
+        ] {
+            let start = compose.find(f).unwrap_or_else(|| panic!("{f} exists"));
+            let body = &compose[start..start + 4_000];
+            assert!(
+                body.contains("own_key_ids(edge)"),
+                "{f} must consult own_key_ids before rooting a hint as a peer (#607)"
+            );
+        }
+        let delivery = include_str!("federation_delivery.rs");
+        let start = delivery
+            .find("for canonical in &canonical_key_ids {")
+            .expect("the runtime re-prime loop");
+        assert!(
+            delivery[start.saturating_sub(600)..start + 400].contains("own_key"),
+            "the runtime re-prime must skip the node's own key (#607)"
+        );
+        // (A negative check on the old "benign" comment cannot live in the file
+        // it scrapes — its own needle is a match. The positive checks above are
+        // the teeth; the traceflow ladder's `served` stage is the live one.)
     }
 }

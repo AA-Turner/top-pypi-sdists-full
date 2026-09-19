@@ -12,7 +12,7 @@ from pathlib import Path
 from typing import Any, NoReturn, cast
 
 from runlayer_cli import __version__, flow_spool, flow_trace, regex_safe
-from runlayer_cli.hook import hook_io, messages
+from runlayer_cli.hook import credential_state, hook_io, host_override, messages
 from runlayer_cli.hook.clients import (
     Client,
     HookResponse,
@@ -51,15 +51,19 @@ from runlayer_cli.hook.mcp_lookup import (
     resolve_github_copilot_cli_mcp_tool,
     resolve_hermes_mcp_tool,
 )
+from runlayer_cli.hook.failure import FailureContext
 from runlayer_cli.hook.relay import (
     RelayError,
     check_tool_lifecycle,
+    current_credential_fingerprint,
+    device_hostname,
     enforce,
     forward_event,
     forward_mcp_usage_metadata,
     forward_stop_event,
     forward_tool_lifecycle,
     start_transcript_stream,
+    uses_managed_credential,
 )
 from runlayer_cli.hook.windsurf_payload import adapt_windsurf_payload
 from runlayer_cli.mdm_config import (
@@ -68,6 +72,7 @@ from runlayer_cli.mdm_config import (
     resolve_mcp_usage_metadata_only,
     resolve_mode,
 )
+from runlayer_cli.safe_parse import parse_json
 from runlayer_cli.skills.marker import (
     CANONICAL_BASE,
     SKILLS_DIR_MAP,
@@ -140,6 +145,108 @@ def _policy_violation(check: Callable[[], None]) -> FilePolicyViolation | None:
         except FilePolicyViolation as e:
             return e
     return None
+
+
+def _credential_deny_kwargs(failure: FailureContext | None) -> dict[str, Any]:
+    """Hostname + credential kind for the 401 deny only; empty otherwise."""
+    if (
+        failure is None
+        or failure.kind != "http"
+        or failure.status_code != credential_state.CREDENTIAL_REJECTED_STATUS
+    ):
+        return {}
+    return {
+        "hostname": device_hostname(),
+        "managed_credential": uses_managed_credential(),
+    }
+
+
+# Flow error type for "Monitor device, credentials rejected, call allowed".
+# The flow summary has no mode field, so the mode rides in the error type
+# (log-only on the backend; the http_401 category is the metric label).
+_MONITOR_CREDENTIAL_REJECTED_ERROR = "HookCredentialRejectedMonitor"
+_POST_TOOL_HOOK_TYPES = frozenset({"PostToolUse", "PostToolUseFailure"})
+
+
+def _mark_monitor_credential_rejection() -> None:
+    status = credential_state.CREDENTIAL_REJECTED_STATUS
+    flow_trace.mark_error(
+        _MONITOR_CREDENTIAL_REJECTED_ERROR,
+        override=True,
+        category=f"http_{status}",
+        http_status=status,
+    )
+
+
+def _monitor_silent_response(resp: HookResponse, hook_type: str) -> str | None:
+    """What the normal Monitor path writes for this event: observational for
+    post-tool and unknown events, allow for the rest."""
+    if hook_type in _POST_TOOL_HOOK_TYPES or hook_type not in _DISPATCH_TABLE:
+        return resp.observational()
+    return resp.allow()
+
+
+def _allow_monitor_credentials_rejected(resp: HookResponse, hook_type: str) -> None:
+    """Monitor negative cache: answer without re-asking an API that rejected
+    this credential inside the TTL; the user hears about it once an hour.
+    The cached allow stays an ok flow with a marker; only the flow whose relay
+    call was answered 401 reports the error, so a rejected device reports one
+    failure per negative-cache window instead of one per tool call."""
+    flow_trace.marker("credential_rejected_cached")
+    notice = resp.allow_with_notice(messages.MONITOR_CREDENTIALS_REJECTED_NOTICE)
+    if notice is not None and credential_state.claim_notice():
+        _write(notice)
+        return
+    _write(_monitor_silent_response(resp, hook_type))
+
+
+def _attach_host_override_notice(resp: HookResponse, *, notify: bool) -> None:
+    """Managed device whose ``runlayer login`` host differs from the MDM host:
+    stamp the flow (hooks still go to the MDM host, see ``host_override``) and,
+    when ``notify``, tell the user once an hour on clients with a notice
+    channel.
+
+    ``notify`` is False on the Monitor credential-rejected path: its cached
+    allow must not say hooks "still report to" the MDM host when monitoring is
+    in fact offline. The hourly budget is claimed lazily, inside the callable
+    ``allow()`` runs only when it emits: this hook may still end as an
+    observational answer (PostToolUse, SessionStart) or a deny, neither of
+    which carries a notice, and the budget must survive for the next allow the
+    user actually sees."""
+    detail = host_override.current()
+    if detail is None:
+        return
+    flow_trace.marker("host_override")
+    user_host = detail["user_host"]
+    managed_host = detail["managed_host"]
+    if notify and resp.has_notice_channel and user_host and managed_host:
+        text = messages.host_override_notice(user_host, managed_host)
+        resp.attach_notice(
+            lambda: text if credential_state.claim_notice("host_override") else None
+        )
+
+
+def _label_monitor_credential_rejection() -> None:
+    """Name the outcome when a best-effort Monitor relay call was answered 401
+    (the relay swallowed the error and stamped the status on the flow)."""
+    trace = flow_trace.current_flow()
+    if (
+        trace is not None
+        and trace.error_http_status == credential_state.CREDENTIAL_REJECTED_STATUS
+    ):
+        _mark_monitor_credential_rejection()
+
+
+def _monitor_credentials_rejected() -> bool:
+    """Whether the credential this hook would send was rejected inside the TTL
+    (cheap file read first; the credential load only runs when a record exists)."""
+    if credential_state.read_rejection() is None:
+        return False
+    fingerprint = current_credential_fingerprint()
+    return (
+        fingerprint is not None
+        and credential_state.recent_rejection(fingerprint) is not None
+    )
 
 
 def _deny_and_exit(resp: HookResponse, user_msg: str, agent_msg: str) -> NoReturn:
@@ -503,10 +610,10 @@ def _coerce_tool_input(value: Any) -> dict[str, Any]:
     if isinstance(value, dict):
         return value
     if isinstance(value, str):
-        try:
-            parsed = json.loads(value)
-        except (json.JSONDecodeError, ValueError):
-            return {}
+        # Exception-complete: a deep-nested string raises RecursionError, not
+        # JSONDecodeError. Undecodable tool_input coerces to {} like any other
+        # non-object value.
+        parsed = parse_json(value)["value"]
         if isinstance(parsed, dict):
             return parsed
     return {}
@@ -653,7 +760,11 @@ def _check_tool_lifecycle(
             u, a = messages.tool_auth_required(tool_name=tool_name)
         else:
             flow_trace.mark_error("HookInfraDeny", override=True)
-            u, a = messages.tool_api_unreachable(tool_name=tool_name, failure=e.failure)
+            u, a = messages.tool_api_unreachable(
+                tool_name=tool_name,
+                failure=e.failure,
+                **_credential_deny_kwargs(e.failure),
+            )
         if target == "tool-post":
             _write(
                 resp.block_output(
@@ -794,10 +905,12 @@ def run_hook() -> None:
         )
         return
 
-    try:
-        input_data: dict[str, Any] = json.loads(raw_input) if raw_input else {}
-    except json.JSONDecodeError:
-        input_data = {}
+    # Undecodable stdin is fail-open on purpose: an empty payload carries no
+    # hook_event_name, so the hook exits 0 below exactly as it always has for
+    # malformed JSON. Deep nesting (RecursionError) and a non-object document
+    # now take the same path instead of a traceback.
+    decoded = parse_json(raw_input)["value"] if raw_input else {}
+    input_data: dict[str, Any] = decoded if isinstance(decoded, dict) else {}
 
     if client == Client.WINDSURF:
         # Cascade nests detail under tool_info and names the event
@@ -864,6 +977,13 @@ def run_hook() -> None:
             # Includes version-skew drain windows: rollout spikes are expected;
             # sustained elevation indicates supervision failure.
             flow_trace.marker("daemon_fallback")
+        credentials_rejected = (
+            mode is AIWatchMode.MONITOR and _monitor_credentials_rejected()
+        )
+        _attach_host_override_notice(resp, notify=not credentials_rejected)
+        if credentials_rejected:
+            _allow_monitor_credentials_rejected(resp, hook_type)
+            return
         _dispatch(
             hook_type=hook_type,
             original_hook_type=original_hook_type,
@@ -874,6 +994,10 @@ def run_hook() -> None:
             debug=debug,
             mode=mode,
         )
+        if mode is AIWatchMode.MONITOR:
+            # Monitor handlers return (never exit) after their best-effort
+            # relay calls, so this runs for every Monitor flow.
+            _label_monitor_credential_rejection()
 
 
 @dataclass(frozen=True)
@@ -1367,7 +1491,11 @@ def _mcp_enforce_and_respond(
         if e.exit_code == 1:
             u, a = messages.auth_required(tool_name=tool_name)
         else:
-            u, a = messages.api_unreachable(tool_name=tool_name, failure=e.failure)
+            u, a = messages.api_unreachable(
+                tool_name=tool_name,
+                failure=e.failure,
+                **_credential_deny_kwargs(e.failure),
+            )
         _deny_and_exit(resp, u, a)
 
     try:

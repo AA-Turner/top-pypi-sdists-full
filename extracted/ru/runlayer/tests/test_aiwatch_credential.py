@@ -6,6 +6,7 @@ import io
 import json
 import os
 import socket
+import ssl
 import stat
 import threading
 import subprocess
@@ -103,6 +104,45 @@ def _run_main_with_urlopen(
     return aiwatch_credential.main(
         [client], started_at=started_at, clock=clock or time.time
     )
+
+
+def test_module_does_not_construct_an_opener_at_import_time() -> None:
+    # An import-time opener captures the pre-truststore SSL context on Python 3.12+.
+    assert not hasattr(aiwatch_credential, "_OPENER")
+
+
+def test_default_opener_is_built_after_prepare(
+    helper_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _write_credential(helper_home)
+    prepared = False
+    build_states: list[bool] = []
+
+    def prepare() -> None:
+        nonlocal prepared
+        prepared = True
+
+    def urlopen(_request: urllib.request.Request, *, timeout: float) -> _Response:
+        return _Response(b'{"token":"rlt_x","expires_in_seconds":900}')
+
+    class FakeOpener:
+        open = staticmethod(urlopen)
+
+    def build_opener(*_handlers: object) -> FakeOpener:
+        build_states.append(prepared)
+        return FakeOpener()
+
+    monkeypatch.setattr(urllib.request, "build_opener", build_opener)
+
+    exit_code = aiwatch_credential.main(["claude"], prepare=prepare)
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert captured.out == "rlt_x"
+    assert captured.err == ""
+    assert build_states == [True]
 
 
 def test_cache_hit_prints_cached_token_without_request(
@@ -651,8 +691,38 @@ def test_transport_error_twice_fails_after_one_retry(
     captured = capsys.readouterr()
     assert exit_code == 1
     assert captured.out == ""
-    assert "device token exchange failed" in captured.err
+    assert captured.err == "aiwatch credential claude: device token exchange failed\n"
     assert calls == 2
+
+
+@pytest.mark.parametrize("wrapped", [False, True], ids=["direct", "urlerror"])
+def test_certificate_verification_error_has_distinct_message_without_retry(
+    wrapped: bool,
+    helper_home: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    _write_credential(helper_home)
+    calls = 0
+
+    def urlopen(_request: urllib.request.Request, *, timeout: float) -> _Response:
+        nonlocal calls
+        calls += 1
+        error = ssl.SSLCertVerificationError(1, "certificate verify failed")
+        if wrapped:
+            raise urllib.error.URLError(error)
+        raise error
+
+    exit_code = _run_main_with_urlopen(monkeypatch, urlopen)
+
+    captured = capsys.readouterr()
+    assert exit_code == 1
+    assert captured.out == ""
+    assert captured.err == (
+        "aiwatch credential claude: device token exchange failed: "
+        "TLS certificate verification failed\n"
+    )
+    assert calls == 1
 
 
 def test_timeout_with_no_budget_left_is_not_retried(

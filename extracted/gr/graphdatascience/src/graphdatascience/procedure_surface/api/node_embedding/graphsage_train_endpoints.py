@@ -3,18 +3,18 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
-from graphdatascience.procedure_surface.api.model.graphsage_model import GraphSageModelV2
+from graphdatascience.procedure_surface.api.node_embedding.graphsage_model import GraphSageModel
 
 
 class GraphSageTrainEndpoints(ABC):
     @abstractmethod
     def __call__(
         self,
-        G: GraphV2,
+        G: Graph,
         model_name: str,
         feature_properties: list[str],
         *,
@@ -42,12 +42,12 @@ class GraphSageTrainEndpoints(ABC):
         batch_size: int = 100,
         relationship_weight_property: str | None = None,
         random_seed: int | None = None,
-    ) -> tuple[GraphSageModelV2, GraphSageTrainResult]: ...
+    ) -> tuple[GraphSageModel, GraphSageTrainResult]: ...
 
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2,
+        G: Graph,
         model_name: str,
         feature_properties: list[str],
         *,
@@ -87,37 +87,37 @@ class GraphSageTrainEndpoints(ABC):
         ----------
         G
            Graph object to use
-        model_name : str
+        model_name
             Name of the trained model.
-        feature_properties : list[str]
-            The names of the node properties to use as input features
-        activation_function : str = "SIGMOID"
+        feature_properties
+            Names of the node properties to use as input features
+        activation_function
             The activation function to apply after each layer
-        negative_sample_weight : int = 20
+        negative_sample_weight
             Weight of negative samples in the loss function
-        embedding_dimension : int = 64
-            The dimension of the generated embeddings
+        embedding_dimension
+            Output dimensionality of the embeddings
         tolerance
             Minimum change in loss between iterations for early stopping an epoch.
-        learning_rate : float = 0.1
+        learning_rate
             Learning rate for the training optimization
         max_iterations
             Maximum number of iterations to run.
-        sample_sizes : list[int] | None = None
+        sample_sizes
             Number of neighbors to sample at each layer. Defaults to [25, 10] if not specified
-        aggregator : str = "MEAN"
+        aggregator
             The aggregator function for neighborhood aggregation
-        penalty_l2 : float = 0.0
+        penalty_l2
             L2 regularization penalty
-        search_depth : int = 5
+        search_depth
             Maximum search depth for neighbor sampling
-        epochs : int = 1
+        epochs
             Number of training epochs
-        projected_feature_dimension : int | None = None
+        projected_feature_dimension
             Dimension to project input features to before training
-        batch_sampling_ratio : float | None = None
+        batch_sampling_ratio
             Ratio of nodes to sample for each training batch
-        store_model_to_disk : bool = False
+        store_model_to_disk
             Whether to persist the model to disk
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.

@@ -29,6 +29,7 @@ class ListUserWorkspacesResponse200WorkspacesItem:
         dev_workspace_label (Union[Unset, None, str]): Environment label of the dev workspace, e.g. 'dev' or 'staging';
             null defaults to 'dev'
         created_by (Union[Unset, None, str]):
+        is_service_account (Union[Unset, bool]): Whether this membership is a service account.
     """
 
     id: str
@@ -41,6 +42,7 @@ class ListUserWorkspacesResponse200WorkspacesItem:
     parent_workspace_id: Union[Unset, None, str] = UNSET
     dev_workspace_label: Union[Unset, None, str] = UNSET
     created_by: Union[Unset, None, str] = UNSET
+    is_service_account: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -57,6 +59,7 @@ class ListUserWorkspacesResponse200WorkspacesItem:
         parent_workspace_id = self.parent_workspace_id
         dev_workspace_label = self.dev_workspace_label
         created_by = self.created_by
+        is_service_account = self.is_service_account
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -78,6 +81,8 @@ class ListUserWorkspacesResponse200WorkspacesItem:
             field_dict["dev_workspace_label"] = dev_workspace_label
         if created_by is not UNSET:
             field_dict["created_by"] = created_by
+        if is_service_account is not UNSET:
+            field_dict["is_service_account"] = is_service_account
 
         return field_dict
 
@@ -117,6 +122,8 @@ class ListUserWorkspacesResponse200WorkspacesItem:
 
         created_by = d.pop("created_by", UNSET)
 
+        is_service_account = d.pop("is_service_account", UNSET)
+
         list_user_workspaces_response_200_workspaces_item = cls(
             id=id,
             name=name,
@@ -128,6 +135,7 @@ class ListUserWorkspacesResponse200WorkspacesItem:
             parent_workspace_id=parent_workspace_id,
             dev_workspace_label=dev_workspace_label,
             created_by=created_by,
+            is_service_account=is_service_account,
         )
 
         list_user_workspaces_response_200_workspaces_item.additional_properties = d

@@ -96,8 +96,69 @@ class TestSetupWorktreeInBackgroundSync:
             )
 
         assert result.success is False
-        assert result.worktree_path == "/repos/PROJECT-1234"
+        assert result.worktree_path == "/repos/wt/PROJECT-1234"
         assert result.branch_name == "feature/PROJECT-1234/implementation"
+        assert result.error_message == (
+            "Unable to verify existing worktree: git worktree list failed with exit code 128: fatal: lookup failed"
+        )
+
+    def test_returns_validation_failure_when_worktree_lookup_rejects_config(self):
+        """Config validation failures are returned directly before any setup continues."""
+        with patch(
+            "agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists",
+            side_effect=ValueError("invalid worktree_folder"),
+        ):
+            result = setup_worktree_in_background_sync(
+                issue_key="PROJECT-1234",
+                branch_prefix="feature",
+                workflow_name="work-on-jira-issue",
+                headless=True,
+            )
+
+        assert result.success is False
+        assert result.worktree_path == ""
+        assert result.error_message == "invalid worktree_folder"
+
+    def test_lookup_failure_without_repo_parent_leaves_diagnostic_path_blank(self):
+        """Diagnostic fallback stays empty when the repository parent directory cannot be resolved."""
+        with (
+            patch(
+                "agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists",
+                side_effect=GitError(128, "fatal: lookup failed", ["worktree", "list"]),
+            ),
+            patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir", return_value=None),
+            patch("agentic_devtools.cli.workflows.worktree_setup.get_main_repo_root", return_value=None),
+        ):
+            result = setup_worktree_in_background_sync(
+                issue_key="PROJECT-1234",
+                branch_prefix="feature",
+                workflow_name="work-on-jira-issue",
+                headless=True,
+            )
+
+        assert result.success is False
+        assert result.worktree_path == ""
+
+    def test_lookup_failure_with_invalid_worktree_folder_leaves_diagnostic_path_blank(self):
+        """A diagnostic-path resolver validation error must not replace the original lookup failure."""
+        with (
+            patch(
+                "agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists",
+                side_effect=GitError(128, "fatal: lookup failed", ["worktree", "list"]),
+            ),
+            patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir", return_value="/repos"),
+            patch("agentic_devtools.cli.workflows.worktree_setup.get_main_repo_root", return_value=None),
+            patch("agentic_devtools.cli.git.worktree_paths.get_effective_project_config_raw_value", return_value=False),
+        ):
+            result = setup_worktree_in_background_sync(
+                issue_key="PROJECT-1234",
+                branch_prefix="feature",
+                workflow_name="work-on-jira-issue",
+                headless=True,
+            )
+
+        assert result.success is False
+        assert result.worktree_path == ""
         assert result.error_message == (
             "Unable to verify existing worktree: git worktree list failed with exit code 128: fatal: lookup failed"
         )

@@ -1092,6 +1092,23 @@ class combine_list_item_remove(bpy.ops._BPyOpsSubModOp):
         :return: Result of the operator call.
         """
 
+class comment_edit(bpy.ops._BPyOpsSubModOp):
+    def __new__(
+        cls,
+        execution_context: int | str | None = None,
+        undo: bool | None = None,
+        /,
+        *,
+        use_active: bool | None = False,
+    ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+        """Enter edit mode for the comment node under the cursor
+
+        :param execution_context:
+        :param undo:
+        :param use_active: Use Active, Edit the active comment node, rather than the one under the cursor (optional)
+        :return: Result of the operator call.
+        """
+
 class connect_to_output(bpy.ops._BPyOpsSubModOp):
     def __new__(
         cls,

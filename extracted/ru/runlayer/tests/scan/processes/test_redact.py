@@ -110,3 +110,12 @@ class TestRedactExe:
             redact_exe("/Users/alice/.local/bin/uvx")
             == "/Users/<redacted>/.local/bin/uvx"
         )
+
+
+def test_command_hash_tolerates_surrogateescape_argv():
+    """argv decoded with surrogateescape must hash, not raise UnicodeEncodeError (ISS-16)."""
+    argv = ["node", "agent\udcff\udcfe.js"]
+    digest = command_hash(argv)
+    assert len(digest) == 64
+    assert digest == command_hash(list(argv))
+    assert digest != command_hash(["node", "agent.js"])

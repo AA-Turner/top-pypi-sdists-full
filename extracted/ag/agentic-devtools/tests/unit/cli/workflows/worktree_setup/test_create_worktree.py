@@ -17,13 +17,28 @@ class TestCreateWorktree:
         """Default successful metadata verification for created worktrees."""
         self._check_worktree_exists_patcher = patch(
             "agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists",
-            return_value="/repos/PROJECT-1234",
+            return_value="/repos/wt/PROJECT-1234",
         )
         self.mock_check_worktree_exists = self._check_worktree_exists_patcher.start()
+        self._worktree_folder_patcher = patch(
+            "agentic_devtools.cli.git.worktree_paths.get_effective_project_config_raw_value",
+            side_effect=lambda *args, **kwargs: kwargs.get("default"),
+        )
+        self.mock_worktree_folder = self._worktree_folder_patcher.start()
+        self._main_repo_root_patcher = patch(
+            "agentic_devtools.cli.workflows.worktree_setup.get_main_repo_root",
+            return_value=None,
+        )
+        self.mock_main_repo_root = self._main_repo_root_patcher.start()
+        self._makedirs_patcher = patch("agentic_devtools.cli.workflows.worktree_setup.os.makedirs")
+        self.mock_makedirs = self._makedirs_patcher.start()
 
     def teardown_method(self):
         """Stop the shared worktree-verification patch."""
         self._check_worktree_exists_patcher.stop()
+        self._worktree_folder_patcher.stop()
+        self._main_repo_root_patcher.stop()
+        self._makedirs_patcher.stop()
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.get_main_repo_root")
     @patch("agentic_devtools.cli.workflows.worktree_setup.is_in_worktree")
@@ -58,7 +73,40 @@ class TestCreateWorktree:
         call_args = mock_run.call_args[0][0]
         assert "worktree" in call_args
         assert "add" in call_args
-        mock_seed_trust.assert_called_once_with(os.path.join("/repos", "PROJECT-1234"), repos_parent="/repos")
+        self.mock_makedirs.assert_called_once_with("/repos/wt", exist_ok=True)
+        mock_seed_trust.assert_called_once_with(os.path.join("/repos", "wt", "PROJECT-1234"), repos_parent="/repos")
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_main_repo_root")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.is_in_worktree")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_current_branch")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.subprocess.run")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir")
+    @patch("agentic_devtools.cli.git.worktree_paths.get_effective_project_config_raw_value", return_value=None)
+    @patch("os.path.exists")
+    def test_explicit_null_uses_legacy_direct_sibling_without_creating_parent_folder(
+        self,
+        mock_exists,
+        _mock_config,
+        mock_parent,
+        mock_run,
+        mock_get_branch,
+        mock_in_worktree,
+        mock_main_repo,
+    ):
+        """Explicit null keeps the legacy direct-sibling location and skips parent creation."""
+        mock_parent.return_value = "/repos"
+        mock_exists.return_value = False
+        mock_run.return_value = MagicMock(returncode=0)
+        mock_get_branch.return_value = "main"
+        mock_in_worktree.return_value = False
+        mock_main_repo.return_value = None
+        self.mock_check_worktree_exists.return_value = "/repos/PROJECT-1234"
+
+        result = create_worktree("PROJECT-1234", "feature")
+
+        assert result.success is True
+        assert result.worktree_path == "/repos/PROJECT-1234"
+        self.mock_makedirs.assert_not_called()
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir")
     def test_returns_error_when_parent_not_found(self, mock_parent):
@@ -69,6 +117,16 @@ class TestCreateWorktree:
 
         assert result.success is False
         assert "Could not determine" in result.error_message
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir", return_value="/repos")
+    @patch("agentic_devtools.cli.git.worktree_paths.get_effective_project_config_raw_value", return_value=False)
+    def test_returns_validation_error_for_invalid_worktree_folder_config(self, _mock_config, mock_parent):
+        """Invalid worktree-folder config values fail before any filesystem mutation."""
+        result = create_worktree("PROJECT-1234", "feature")
+
+        assert result.success is False
+        assert "worktree_folder" in (result.error_message or "")
+        self.mock_makedirs.assert_not_called()
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.get_current_branch")
     @patch("agentic_devtools.cli.workflows.worktree_setup.is_in_worktree")
@@ -106,6 +164,20 @@ class TestCreateWorktree:
         assert result.success is False
         assert "Unable to verify existing worktree" in result.error_message
 
+    @patch("agentic_devtools.cli.workflows.worktree_setup.check_worktree_exists")
+    @patch("os.path.exists", return_value=True)
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir", return_value="/repos")
+    def test_returns_validation_error_when_existing_worktree_lookup_rejects_config(
+        self, mock_parent, mock_exists, mock_check
+    ):
+        """Validation errors from worktree lookup are surfaced without a git wrapper message."""
+        mock_check.side_effect = ValueError("invalid worktree_folder")
+
+        result = create_worktree("PROJECT-1234", "feature")
+
+        assert result.success is False
+        assert result.error_message == "invalid worktree_folder"
+
     @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir")
     @patch("agentic_devtools.cli.copilot.trust.seed_worktree_trust_result")
     @patch("os.path.exists")
@@ -121,7 +193,25 @@ class TestCreateWorktree:
 
         assert result.success is True
         assert "PROJECT-1234" in result.worktree_path
-        mock_seed_trust.assert_called_once_with(os.path.join("/repos", "PROJECT-1234"), repos_parent="/repos")
+        mock_seed_trust.assert_called_once_with(os.path.join("/repos", "wt", "PROJECT-1234"), repos_parent="/repos")
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_current_branch")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.is_in_worktree")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir", return_value="/repos")
+    @patch("os.path.exists", return_value=False)
+    def test_returns_error_when_creating_configured_parent_directory_fails(
+        self, mock_exists, mock_parent, mock_in_worktree, mock_get_branch
+    ):
+        """A configured parent-directory creation failure is returned with the resolved target path."""
+        mock_get_branch.return_value = "main"
+        mock_in_worktree.return_value = False
+        self.mock_makedirs.side_effect = OSError("disk full")
+
+        result = create_worktree("PROJECT-1234", "feature")
+
+        assert result.success is False
+        assert result.worktree_path == "/repos/wt/PROJECT-1234"
+        assert "Failed to create configured worktree parent directory /repos/wt" in (result.error_message or "")
 
     @patch("agentic_devtools.cli.workflows.worktree_setup._propagate_agdt_cache")
     @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir")
@@ -136,7 +226,7 @@ class TestCreateWorktree:
         result = create_worktree("PROJECT-1234", "feature")
 
         assert result.success is True
-        expected_worktree_path = os.path.join("/repos", "PROJECT-1234")
+        expected_worktree_path = os.path.join("/repos", "wt", "PROJECT-1234")
         mock_propagate_agdt_cache.assert_called_once_with(expected_worktree_path, worktree_key="PROJECT-1234")
 
     @patch("agentic_devtools.cli.workflows.worktree_setup._propagate_agdt_cache")
@@ -263,7 +353,7 @@ class TestCreateWorktree:
 
         assert result.success is False
         assert "git worktree list --porcelain" in (result.error_message or "")
-        assert mock_run.call_args_list[1][0][0] == ["git", "worktree", "remove", "--force", "/repos/PROJECT-1234"]
+        assert mock_run.call_args_list[1][0][0] == ["git", "worktree", "remove", "--force", "/repos/wt/PROJECT-1234"]
         assert mock_run.call_args_list[2][0][0] == ["git", "branch", "-D", "feature/PROJECT-1234/implementation"]
 
     @patch("agentic_devtools.cli.git.operations.rename_local_branch")
@@ -330,8 +420,49 @@ class TestCreateWorktree:
         result = create_worktree("PROJECT-1234", "feature")
 
         assert result.success is False
-        assert "registered /repos/PROJECT-1234-alt instead of /repos/PROJECT-1234" in (result.error_message or "")
-        assert mock_run.call_args_list[1][0][0] == ["git", "worktree", "remove", "--force", "/repos/PROJECT-1234"]
+        assert "registered /repos/PROJECT-1234-alt instead of /repos/wt/PROJECT-1234" in (result.error_message or "")
+        assert mock_run.call_args_list[1][0][0] == ["git", "worktree", "remove", "--force", "/repos/wt/PROJECT-1234"]
+
+    @patch("agentic_devtools.cli.git.operations.rename_local_branch")
+    @patch("agentic_devtools.cli.git.operations.check_branch_safe_to_recreate")
+    @patch("agentic_devtools.cli.git.operations.fetch_branch")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.is_in_worktree")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_current_branch")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.subprocess.run")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir")
+    @patch("os.path.exists")
+    def test_diverged_branch_validation_error_reverts_temp_branch_name(
+        self,
+        mock_exists,
+        mock_parent,
+        mock_run,
+        mock_get_branch,
+        mock_in_worktree,
+        mock_fetch,
+        mock_safety_check,
+        mock_rename,
+    ):
+        """Validation errors after temp-rename cleanup still restore the original branch name."""
+        mock_parent.return_value = "/repos"
+        mock_exists.return_value = False
+        mock_get_branch.return_value = "main"
+        mock_in_worktree.return_value = False
+        mock_safety_check.return_value = BranchSafetyCheckResult(
+            BranchSafetyCheckResult.DIVERGED_FROM_ORIGIN,
+            "Diverged.",
+            "feature/PROJECT-1234/pr-review",
+        )
+        mock_run.return_value = MagicMock(returncode=0)
+        mock_rename.return_value = True
+        self.mock_check_worktree_exists.side_effect = ValueError("invalid worktree_folder")
+
+        result = create_worktree(
+            "PROJECT-1234", "feature", branch_name="feature/PROJECT-1234/pr-review", use_existing_branch=True
+        )
+
+        assert result.success is False
+        assert result.error_message == "invalid worktree_folder"
+        assert mock_rename.call_args_list[-1][0][1] == "feature/PROJECT-1234/pr-review"
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.get_main_repo_root")
     @patch("agentic_devtools.cli.workflows.worktree_setup.is_in_worktree")
@@ -784,7 +915,7 @@ class TestCreateWorktree:
         mock_get_branch.return_value = "main"
         mock_in_worktree.return_value = False
         mock_main_repo.return_value = str(main_repo_dir)
-        self.mock_check_worktree_exists.return_value = str(tmp_path / "PROJECT-1234")
+        self.mock_check_worktree_exists.return_value = str(tmp_path / "wt" / "PROJECT-1234")
 
         result = create_worktree("PROJECT-1234", "feature")
 
@@ -839,7 +970,7 @@ class TestCreateWorktree:
         mock_in_worktree.return_value = False
         mock_main_repo.return_value = str(main_repo_dir)
         mock_copy.side_effect = OSError("permission denied")
-        self.mock_check_worktree_exists.return_value = str(tmp_path / "PROJECT-1234")
+        self.mock_check_worktree_exists.return_value = str(tmp_path / "wt" / "PROJECT-1234")
 
         result = create_worktree("PROJECT-1234", "feature")
 
@@ -945,8 +1076,8 @@ class TestCreateWorktree:
         )
 
         assert result.success is False
-        assert "registered /repos/PROJECT-1234-alt instead of /repos/PROJECT-1234" in (result.error_message or "")
-        assert mock_run.call_args_list[1][0][0] == ["git", "worktree", "remove", "--force", "/repos/PROJECT-1234"]
+        assert "registered /repos/PROJECT-1234-alt instead of /repos/wt/PROJECT-1234" in (result.error_message or "")
+        assert mock_run.call_args_list[1][0][0] == ["git", "worktree", "remove", "--force", "/repos/wt/PROJECT-1234"]
         assert mock_rename.call_args_list[-1][0][1] == "feature/PROJECT-1234/pr-review"
 
     @patch("agentic_devtools.cli.workflows.worktree_setup.get_main_repo_root")
@@ -990,8 +1121,8 @@ class TestCreateWorktree:
         )
 
         assert result.success is False
-        assert "did not register /repos/PROJECT-1234" in (result.error_message or "")
-        assert mock_run.call_args_list[1][0][0] == ["git", "worktree", "remove", "--force", "/repos/PROJECT-1234"]
+        assert "did not register /repos/wt/PROJECT-1234" in (result.error_message or "")
+        assert mock_run.call_args_list[1][0][0] == ["git", "worktree", "remove", "--force", "/repos/wt/PROJECT-1234"]
         assert mock_rename.call_args_list[-1][0][1] == "feature/PROJECT-1234/pr-review"
 
     # -------------------------------------------------------------------------
@@ -1857,7 +1988,7 @@ class TestCreateWorktree:
         mock_run.return_value = MagicMock(returncode=0)
         mock_hash.return_value = "abc1234"
         mock_rename.return_value = True
-        self.mock_check_worktree_exists.return_value = str(tmp_path / "PROJECT-1234")
+        self.mock_check_worktree_exists.return_value = str(tmp_path / "wt" / "PROJECT-1234")
 
         result = create_worktree(
             "PROJECT-1234", "feature", branch_name="feature/PROJECT-1234/pr-review", use_existing_branch=True
@@ -1913,7 +2044,7 @@ class TestCreateWorktree:
         mock_hash.return_value = "abc1234"
         mock_rename.return_value = True
         mock_copy.side_effect = OSError("permission denied")
-        self.mock_check_worktree_exists.return_value = str(tmp_path / "PROJECT-1234")
+        self.mock_check_worktree_exists.return_value = str(tmp_path / "wt" / "PROJECT-1234")
 
         result = create_worktree(
             "PROJECT-1234", "feature", branch_name="feature/PROJECT-1234/pr-review", use_existing_branch=True
@@ -1945,7 +2076,7 @@ class TestCreateWorktree:
             "git",
             "worktree",
             "add",
-            os.path.join("/repos", "PROJECT-1234"),
+            os.path.join("/repos", "wt", "PROJECT-1234"),
             "-b",
             "feature/PROJECT-1234/implementation",
             "origin/main",
@@ -1975,7 +2106,32 @@ class TestCreateWorktree:
             "git",
             "worktree",
             "add",
-            os.path.join("/repos", "PROJECT-1234"),
+            os.path.join("/repos", "wt", "PROJECT-1234"),
             "-b",
             "feature/PROJECT-1234/implementation",
         ]
+
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_main_repo_root")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.is_in_worktree")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_current_branch")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.subprocess.run")
+    @patch("agentic_devtools.cli.workflows.worktree_setup.get_repos_parent_dir")
+    @patch("os.path.exists")
+    def test_standard_create_validation_error_cleans_up_created_worktree(
+        self, mock_exists, mock_parent, mock_run, mock_get_branch, mock_in_worktree, mock_main_repo
+    ):
+        """Validation errors after standard creation trigger cleanup and preserve the target path."""
+        mock_parent.return_value = "/repos"
+        mock_exists.return_value = False
+        mock_get_branch.return_value = "main"
+        mock_in_worktree.return_value = False
+        mock_main_repo.return_value = None
+        mock_run.return_value = MagicMock(returncode=0)
+        self.mock_check_worktree_exists.side_effect = ValueError("invalid worktree_folder")
+
+        result = create_worktree("PROJECT-1234", "feature")
+
+        assert result.success is False
+        assert result.worktree_path == "/repos/wt/PROJECT-1234"
+        assert result.error_message == "invalid worktree_folder"
+        assert mock_run.call_args_list[1][0][0] == ["git", "worktree", "remove", "--force", "/repos/wt/PROJECT-1234"]

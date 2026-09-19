@@ -10,6 +10,7 @@ import google.protobuf.message
 import google.protobuf.timestamp_pb2
 import sentry_protos.billing.v1.common.v1.payment_config_pb2
 import sentry_protos.billing.v1.common.v1.stripe_charge_pb2
+import sentry_protos.billing.v1.common.v1.stripe_verification_pb2
 import sys
 import typing
 
@@ -73,12 +74,14 @@ class CaptureChargeRequest(google.protobuf.message.Message):
     INVOICE_GUID_FIELD_NUMBER: builtins.int
     PAYMENT_CONFIG_FIELD_NUMBER: builtins.int
     STRIPE_CHARGE_FIELD_NUMBER: builtins.int
+    PAYMENT_INTENT_FIELD_NUMBER: builtins.int
     charge_method: global___ChargeMethod.ValueType
     amount_cents: builtins.int
     description: builtins.str
     organization_id: builtins.int
     invoice_id: builtins.str
     invoice_guid: builtins.str
+    payment_intent: builtins.str
     @property
     def current_ts(self) -> google.protobuf.timestamp_pb2.Timestamp: ...
     @property
@@ -99,9 +102,10 @@ class CaptureChargeRequest(google.protobuf.message.Message):
         invoice_guid: builtins.str | None = ...,
         payment_config: sentry_protos.billing.v1.common.v1.payment_config_pb2.PaymentConfig | None = ...,
         stripe_charge: sentry_protos.billing.v1.common.v1.stripe_charge_pb2.StripeCharge | None = ...,
+        payment_intent: builtins.str | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_description", b"_description", "_invoice_guid", b"_invoice_guid", "_invoice_id", b"_invoice_id", "_payment_config", b"_payment_config", "_stripe_charge", b"_stripe_charge", "current_ts", b"current_ts", "description", b"description", "invoice_guid", b"invoice_guid", "invoice_id", b"invoice_id", "payment_config", b"payment_config", "stripe_charge", b"stripe_charge"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_description", b"_description", "_invoice_guid", b"_invoice_guid", "_invoice_id", b"_invoice_id", "_payment_config", b"_payment_config", "_stripe_charge", b"_stripe_charge", "amount_cents", b"amount_cents", "charge_method", b"charge_method", "current_ts", b"current_ts", "description", b"description", "invoice_guid", b"invoice_guid", "invoice_id", b"invoice_id", "organization_id", b"organization_id", "payment_config", b"payment_config", "stripe_charge", b"stripe_charge"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_description", b"_description", "_invoice_guid", b"_invoice_guid", "_invoice_id", b"_invoice_id", "_payment_config", b"_payment_config", "_payment_intent", b"_payment_intent", "_stripe_charge", b"_stripe_charge", "current_ts", b"current_ts", "description", b"description", "invoice_guid", b"invoice_guid", "invoice_id", b"invoice_id", "payment_config", b"payment_config", "payment_intent", b"payment_intent", "stripe_charge", b"stripe_charge"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_description", b"_description", "_invoice_guid", b"_invoice_guid", "_invoice_id", b"_invoice_id", "_payment_config", b"_payment_config", "_payment_intent", b"_payment_intent", "_stripe_charge", b"_stripe_charge", "amount_cents", b"amount_cents", "charge_method", b"charge_method", "current_ts", b"current_ts", "description", b"description", "invoice_guid", b"invoice_guid", "invoice_id", b"invoice_id", "organization_id", b"organization_id", "payment_config", b"payment_config", "payment_intent", b"payment_intent", "stripe_charge", b"stripe_charge"]) -> None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_description", b"_description"]) -> typing.Literal["description"] | None: ...
     @typing.overload
@@ -110,6 +114,8 @@ class CaptureChargeRequest(google.protobuf.message.Message):
     def WhichOneof(self, oneof_group: typing.Literal["_invoice_id", b"_invoice_id"]) -> typing.Literal["invoice_id"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_payment_config", b"_payment_config"]) -> typing.Literal["payment_config"] | None: ...
+    @typing.overload
+    def WhichOneof(self, oneof_group: typing.Literal["_payment_intent", b"_payment_intent"]) -> typing.Literal["payment_intent"] | None: ...
     @typing.overload
     def WhichOneof(self, oneof_group: typing.Literal["_stripe_charge", b"_stripe_charge"]) -> typing.Literal["stripe_charge"] | None: ...
 
@@ -121,16 +127,22 @@ class CaptureChargeResponse(google.protobuf.message.Message):
 
     PAID_FIELD_NUMBER: builtins.int
     FAILURE_CODE_FIELD_NUMBER: builtins.int
+    VERIFICATION_FIELD_NUMBER: builtins.int
     paid: builtins.bool
     failure_code: builtins.str
+    @property
+    def verification(self) -> sentry_protos.billing.v1.common.v1.stripe_verification_pb2.StripeVerification:
+        """Set when the bank wants the customer to verify the payment."""
+
     def __init__(
         self,
         *,
         paid: builtins.bool = ...,
         failure_code: builtins.str | None = ...,
+        verification: sentry_protos.billing.v1.common.v1.stripe_verification_pb2.StripeVerification | None = ...,
     ) -> None: ...
-    def HasField(self, field_name: typing.Literal["_failure_code", b"_failure_code", "failure_code", b"failure_code"]) -> builtins.bool: ...
-    def ClearField(self, field_name: typing.Literal["_failure_code", b"_failure_code", "failure_code", b"failure_code", "paid", b"paid"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_failure_code", b"_failure_code", "failure_code", b"failure_code", "verification", b"verification"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_failure_code", b"_failure_code", "failure_code", b"failure_code", "paid", b"paid", "verification", b"verification"]) -> None: ...
     def WhichOneof(self, oneof_group: typing.Literal["_failure_code", b"_failure_code"]) -> typing.Literal["failure_code"] | None: ...
 
 global___CaptureChargeResponse = CaptureChargeResponse

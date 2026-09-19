@@ -42,14 +42,16 @@ class SyncMetricsResponse(BaseModel):
     last_sync_at: Optional[datetime] = None
     next_sync_at: Optional[datetime] = None
     seconds_since_last_sync: Optional[StrictInt] = Field(default=None, description="Age of last successful sync; None if never synced.")
-    is_stale: Optional[StrictBool] = Field(default=False, description="True when a continuous sync hasn't progressed within ~3x its polling interval.")
+    is_stale: Optional[StrictBool] = Field(default=False, description="True when a continuous sync has not progressed for more than TWO of its own polling intervals. Previously the bar was three intervals OR 600 seconds, whichever was larger, so a one-minute sync could miss ten consecutive runs and still read healthy while an hourly one got three. Read it beside intervals_since_last_sync and stale_after_seconds rather than on its own.")
+    intervals_since_last_sync: Optional[Union[StrictFloat, StrictInt]] = Field(default=None, description="How overdue the sync is, measured in its OWN polling intervals: seconds_since_last_sync / polling_interval_seconds. 1.0 means one interval has elapsed, which is normal for a sync about to run. None when the sync has never run. Present so a caller can judge lateness without knowing where the threshold happens to sit.")
+    stale_after_seconds: Optional[StrictInt] = Field(default=None, description="The threshold is_stale was evaluated against, in seconds, so the verdict can be checked rather than trusted. max(2 * polling_interval_seconds, 120).")
     failure_rate: Optional[Union[StrictFloat, StrictInt]] = Field(default=0.0, description="total_files_failed / total_files_discovered (0..1).")
-    healthy: Optional[StrictBool] = Field(default=True, description="Composite: active, not paused, no consecutive failures, not stale.")
+    healthy: Optional[StrictBool] = Field(default=True, description="Composite: active, not paused, no consecutive failures, not stale. Because it folds in is_stale, a sync more than two intervals overdue reports healthy=false rather than true.")
     dlq_total: Optional[StrictInt] = Field(default=0, description="Objects stuck after all retries.")
     dlq_by_error: Optional[Dict[str, StrictInt]] = Field(default=None, description="DLQ counts grouped by normalized error reason (IDs stripped).")
     running_job: Optional[StrictBool] = False
     last_job: Optional[Dict[str, Any]] = Field(default=None, description="Summary of the most recent job: status, files_synced/failed, throughput_files_per_min, duration_seconds.")
-    __properties: ClassVar[List[str]] = ["sync_config_id", "status", "is_active", "paused", "total_files_discovered", "total_files_synced", "total_files_failed", "batches_created", "sync_run_counter", "consecutive_failures", "last_error", "last_sync_at", "next_sync_at", "seconds_since_last_sync", "is_stale", "failure_rate", "healthy", "dlq_total", "dlq_by_error", "running_job", "last_job"]
+    __properties: ClassVar[List[str]] = ["sync_config_id", "status", "is_active", "paused", "total_files_discovered", "total_files_synced", "total_files_failed", "batches_created", "sync_run_counter", "consecutive_failures", "last_error", "last_sync_at", "next_sync_at", "seconds_since_last_sync", "is_stale", "intervals_since_last_sync", "stale_after_seconds", "failure_rate", "healthy", "dlq_total", "dlq_by_error", "running_job", "last_job"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -117,6 +119,8 @@ class SyncMetricsResponse(BaseModel):
             "next_sync_at": obj.get("next_sync_at"),
             "seconds_since_last_sync": obj.get("seconds_since_last_sync"),
             "is_stale": obj.get("is_stale") if obj.get("is_stale") is not None else False,
+            "intervals_since_last_sync": obj.get("intervals_since_last_sync"),
+            "stale_after_seconds": obj.get("stale_after_seconds"),
             "failure_rate": obj.get("failure_rate") if obj.get("failure_rate") is not None else 0.0,
             "healthy": obj.get("healthy") if obj.get("healthy") is not None else True,
             "dlq_total": obj.get("dlq_total") if obj.get("dlq_total") is not None else 0,

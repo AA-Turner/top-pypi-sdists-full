@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import json
 import os
 import posixpath
 from dataclasses import dataclass, field
@@ -16,7 +15,9 @@ from runlayer_cli.scan.config_parser import MCPClientConfig
 from runlayer_cli.scan.project_tree_match import (
     _posix_path_within as _container_path_within,
 )
+from runlayer_cli.scan.plugin_scanner import DiscoveredPluginArtifact
 from runlayer_cli.scan.skill_scanner import DiscoveredSkillArtifact
+from runlayer_cli.safe_parse import parse_json
 
 # Cross-service cap: the backend mirrors this as MAX_CONTAINERS_PER_SCAN;
 # test_container_cap_contract.py enforces equality. Change both together.
@@ -32,6 +33,10 @@ MAX_LABEL_VALUE_CHARS = 2048
 MAX_ENTRYPOINT_ITEMS = 32
 MAX_ENTRYPOINT_ITEM_CHARS = 1024
 MAX_IMAGE_CONFIG_METADATA_CHARS = 4 * 1024 * 1024
+MAX_CONTAINER_SCAN_ERROR_CHARS = 200
+CONTAINER_SCAN_UNAVAILABLE_REASON = "Container runtime unavailable or access denied"
+CONTAINER_SCAN_INCOMPLETE_REASON = "Container inventory incomplete"
+CONTAINER_SCAN_UNEXPECTED_REASON = "Container scan failed unexpectedly"
 PRIORITY_IMAGE_LABEL_KEYS = (
     "io.modelcontextprotocol.server.name",
     "org.opencontainers.image.source",
@@ -40,6 +45,15 @@ PRIORITY_IMAGE_LABEL_KEYS = (
 _ENV_VAR_RE = regex_safe.compile(
     r"\$(?:\{([A-Za-z_][A-Za-z0-9_]*)\}|([A-Za-z_][A-Za-z0-9_]*))"
 )
+
+
+def sanitize_container_scan_error(reason: str | None) -> str | None:
+    """Bound one safe display reason without carrying runtime diagnostics."""
+    if reason is None:
+        return None
+    printable = "".join(char if char.isprintable() else " " for char in reason)
+    sanitized = " ".join(printable.split())
+    return sanitized[:MAX_CONTAINER_SCAN_ERROR_CHARS] or None
 
 
 @dataclass(frozen=True)
@@ -130,8 +144,12 @@ class ContainerScanResult:
     configurations: list[MCPClientConfig] = field(default_factory=list)
     detected_clients: list[DetectedClient] = field(default_factory=list)
     skills: list[DiscoveredSkillArtifact] = field(default_factory=list)
+    plugins: list[DiscoveredPluginArtifact] = field(default_factory=list)
     agent_definitions: list[DiscoveredAgentDefinition] = field(default_factory=list)
     scan_succeeded: bool = False
+    failure_reason: str | None = None
+    artifact_scan_succeeded: bool = False
+    artifact_failure_reason: str | None = None
     stopped_containers_succeeded: bool = False
     container_images_succeeded: bool = False
     # A truncated image list is not an authoritative snapshot: the backend must
@@ -162,11 +180,11 @@ def _parse_docker_ps_inventory(text: str) -> DockerPSInventory:
     truncated = False
     malformed = False
     for line in text.splitlines():
-        try:
-            row = json.loads(line)
-        except (TypeError, ValueError):
+        outcome = parse_json(line)
+        if outcome["error"] is not None:
             malformed = True
             continue
+        row = outcome["value"]
         if not isinstance(row, dict):
             malformed = True
             continue
@@ -193,11 +211,9 @@ def _parse_docker_ps_inventory(text: str) -> DockerPSInventory:
 
 def _parse_docker_engine_inventory(text: str) -> DockerPSInventory:
     """Parse the Engine API ``/containers/json`` response."""
-    try:
-        rows = json.loads(text)
-    except (TypeError, ValueError):
-        rows = None
-    if not isinstance(rows, list):
+    outcome = parse_json(text)
+    rows = outcome["value"]
+    if outcome["error"] is not None or not isinstance(rows, list):
         return {
             "container_ids": [],
             "truncated": False,
@@ -236,10 +252,10 @@ def _parse_docker_engine_inventory(text: str) -> DockerPSInventory:
 
 def parse_image_digests(text: str) -> dict[str, str]:
     """Map Docker image IDs to repository/content digests."""
-    try:
-        rows = json.loads(text)
-    except (TypeError, ValueError):
+    outcome = parse_json(text)
+    if outcome["error"] is not None:
         return {}
+    rows = outcome["value"]
     if isinstance(rows, dict):
         rows = [rows]
     if not isinstance(rows, list):
@@ -283,10 +299,10 @@ def parse_image_config_metadata(
     """Parse bounded OCI config signals keyed by immutable image id."""
     if max_metadata_chars is None:
         max_metadata_chars = MAX_IMAGE_CONFIG_METADATA_CHARS
-    try:
-        rows = json.loads(text)
-    except (TypeError, ValueError):
+    outcome = parse_json(text)
+    if outcome["error"] is not None:
         return {}
+    rows = outcome["value"]
     if isinstance(rows, dict):
         rows = [rows]
     if not isinstance(rows, list):
@@ -372,10 +388,10 @@ def parse_docker_image_ls(text: str) -> ContainerImageInventory | None:
     seen: set[tuple[str, str | None, str | None]] = set()
     truncated = False
     for line in text.splitlines():
-        try:
-            row = json.loads(line)
-        except (TypeError, ValueError):
+        outcome = parse_json(line)
+        if outcome["error"] is not None:
             return None
+        row = outcome["value"]
         if not isinstance(row, dict):
             return None
         raw_repository = row.get("Repository")
@@ -409,10 +425,10 @@ def parse_docker_image_ls(text: str) -> ContainerImageInventory | None:
 
 def parse_docker_engine_images(text: str) -> ContainerImageInventory | None:
     """Parse Engine API image summaries into repository identities."""
-    try:
-        rows = json.loads(text)
-    except (TypeError, ValueError):
+    outcome = parse_json(text)
+    if outcome["error"] is not None:
         return None
+    rows = outcome["value"]
     if not isinstance(rows, list):
         return None
 

@@ -150,6 +150,15 @@ class TestSetupNodeInfra:
         assert result["setup_complete"] is False
         assert result["setup_result"].error.category == "context_mismatch"
 
+    def test_invalid_worktree_folder_setting_blocks_before_fetch(self, base_patches):
+        """An invalid worktree_folder config value blocks as context_mismatch before fetch."""
+        with patch(f"{_MOD}.resolve_worktree_path", side_effect=ValueError("bad worktree_folder")):
+            result = setup_node({"issue_key": "42"})
+        assert result["setup_complete"] is False
+        assert result["setup_result"].error.category == "context_mismatch"
+        assert "bad worktree_folder" in result["setup_result"].error.message
+        base_patches["run_safe"].assert_not_called()
+
     def test_dry_run_returns_simulated_result_without_git_mutations(self, base_patches):
         """dry_run=True returns a simulated SetupResult without fetch/create/ls-remote."""
         result = setup_node({"issue_key": "42", "dry_run": True})

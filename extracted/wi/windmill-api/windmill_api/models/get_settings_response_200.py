@@ -69,6 +69,8 @@ class GetSettingsResponse200:
             workspace. Mutually exclusive with `guest_jwt_jwks_url`.
         guest_jwt_jwks_url (Union[Unset, str]): JWKS URL a guest JWT (`jwt_guest_`) is verified against for this
             workspace. Mutually exclusive with `guest_jwt_public_key`.
+        add_admins_and_developers_to_forks (Union[Unset, bool]): Whether every new fork of this workspace starts with
+            its admins and developers as members, keeping their role.
     """
 
     workspace_id: Union[Unset, str] = UNSET
@@ -104,6 +106,7 @@ class GetSettingsResponse200:
     guest_access_enabled: Union[Unset, bool] = UNSET
     guest_jwt_public_key: Union[Unset, str] = UNSET
     guest_jwt_jwks_url: Union[Unset, str] = UNSET
+    add_admins_and_developers_to_forks: Union[Unset, bool] = UNSET
     additional_properties: Dict[str, Any] = _attrs_field(init=False, factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
@@ -176,6 +179,7 @@ class GetSettingsResponse200:
         guest_access_enabled = self.guest_access_enabled
         guest_jwt_public_key = self.guest_jwt_public_key
         guest_jwt_jwks_url = self.guest_jwt_jwks_url
+        add_admins_and_developers_to_forks = self.add_admins_and_developers_to_forks
 
         field_dict: Dict[str, Any] = {}
         field_dict.update(self.additional_properties)
@@ -246,6 +250,8 @@ class GetSettingsResponse200:
             field_dict["guest_jwt_public_key"] = guest_jwt_public_key
         if guest_jwt_jwks_url is not UNSET:
             field_dict["guest_jwt_jwks_url"] = guest_jwt_jwks_url
+        if add_admins_and_developers_to_forks is not UNSET:
+            field_dict["add_admins_and_developers_to_forks"] = add_admins_and_developers_to_forks
 
         return field_dict
 
@@ -393,6 +399,8 @@ class GetSettingsResponse200:
 
         guest_jwt_jwks_url = d.pop("guest_jwt_jwks_url", UNSET)
 
+        add_admins_and_developers_to_forks = d.pop("add_admins_and_developers_to_forks", UNSET)
+
         get_settings_response_200 = cls(
             workspace_id=workspace_id,
             slack_name=slack_name,
@@ -427,6 +435,7 @@ class GetSettingsResponse200:
             guest_access_enabled=guest_access_enabled,
             guest_jwt_public_key=guest_jwt_public_key,
             guest_jwt_jwks_url=guest_jwt_jwks_url,
+            add_admins_and_developers_to_forks=add_admins_and_developers_to_forks,
         )
 
         get_settings_response_200.additional_properties = d

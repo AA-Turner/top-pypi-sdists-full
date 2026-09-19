@@ -7,6 +7,7 @@ from unittest import mock
 import pytest
 
 from runlayer_cli.scan import wsl_exec
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.device import DiscoveredWSLDistro
 from runlayer_cli.scan.processes import enumerate as process_enumerate
 from runlayer_cli.scan.processes.enumerate import enumerate_wsl_process_tables
@@ -377,9 +378,8 @@ def test_parses_podman_id_row_once_and_preserves_metadata(monkeypatch) -> None:
             "Image": "quay.io/example/mcp:latest",
         }
     )
-    original_loads = json.loads
-    parse_json = mock.Mock(wraps=original_loads)
-    monkeypatch.setattr(wsl_exec.json, "loads", parse_json)
+    parse_json = mock.Mock(wraps=wsl_exec.parse_json)
+    monkeypatch.setattr(wsl_exec, "parse_json", parse_json)
 
     containers, complete = wsl_exec._parse_container_rows(
         output,
@@ -531,17 +531,61 @@ def test_container_scan_stops_at_aggregate_deadline(monkeypatch) -> None:
     assert result.scanned_distros == ["Ubuntu"]
 
 
+def test_container_scan_deadline_invalidates_empty_runtime_inventory(
+    monkeypatch,
+) -> None:
+    clock = 0.0
+    calls: list[tuple[str, str]] = []
+
+    def fake_run(distro: str, command, **_kwargs):
+        nonlocal clock
+        calls.append((distro, command[0]))
+        clock = 1.0
+        return WSLCommandResult(stdout="")
+
+    monkeypatch.setattr(time, "monotonic", lambda: clock)
+    monkeypatch.setattr(wsl_exec, "WSL_CONTAINER_SCAN_TIME_BUDGET_S", 1.0)
+    monkeypatch.setattr(wsl_exec, "run_wsl_command", fake_run)
+
+    result = scan_wsl_containers(
+        [
+            DiscoveredWSLDistro(name="Ubuntu", wsl_version=2, is_running=True),
+            DiscoveredWSLDistro(name="Debian", wsl_version=2, is_running=True),
+        ]
+    )
+
+    assert calls == [("Ubuntu", "docker")]
+    assert result.scanned_distros == []
+    assert result.complete is False
+    assert result.incomplete_reasons == ["wsl_container_scan_timed_out"]
+
+
 @pytest.mark.parametrize(
-    ("container_runtimes", "expected_scanned_distros"),
+    (
+        "container_runtimes",
+        "expected_scanned_distros",
+        "expected_complete",
+        "expected_reasons",
+    ),
     [
-        (("docker",), ["Ubuntu"]),
-        (("docker", "podman"), []),
+        (("docker",), ["Ubuntu"], True, []),
+        (
+            ("docker", "podman"),
+            [],
+            False,
+            [
+                "wsl_container_scan_timed_out",
+                "wsl_container_inventory_incomplete",
+            ],
+        ),
     ],
 )
 def test_container_scan_deadline_only_invalidates_unprobed_expected_runtime(
     monkeypatch,
     container_runtimes: tuple[str, ...],
     expected_scanned_distros: list[str],
+    expected_complete: bool,
+    expected_reasons: list[str],
 ) -> None:
     clock = 0.0
     calls: list[str] = []
@@ -573,6 +617,79 @@ def test_container_scan_deadline_only_invalidates_unprobed_expected_runtime(
 
     assert calls == ["docker"]
     assert result.scanned_distros == expected_scanned_distros
+    assert result.complete is expected_complete
+    assert result.incomplete_reasons == expected_reasons
+
+
+def test_container_scan_ignores_expired_deadline_after_last_runnable_distro(
+    monkeypatch,
+) -> None:
+    clock = 0.0
+    calls: list[tuple[str, str]] = []
+
+    def fake_run(distro: str, command, **_kwargs):
+        nonlocal clock
+        calls.append((distro, command[0]))
+        if command[0] == "podman":
+            clock = 1.0
+        return WSLCommandResult(stdout="")
+
+    monkeypatch.setattr(time, "monotonic", lambda: clock)
+    monkeypatch.setattr(wsl_exec, "WSL_CONTAINER_SCAN_TIME_BUDGET_S", 1.0)
+    monkeypatch.setattr(wsl_exec, "run_wsl_command", fake_run)
+
+    result = scan_wsl_containers(
+        [
+            DiscoveredWSLDistro(name="Ubuntu", wsl_version=2, is_running=True),
+            DiscoveredWSLDistro(name="Debian", wsl_version=2, is_running=False),
+            DiscoveredWSLDistro(
+                name="docker-desktop",
+                wsl_version=2,
+                is_running=True,
+            ),
+        ]
+    )
+
+    assert calls == [("Ubuntu", "docker"), ("Ubuntu", "podman")]
+    assert result.scanned_distros == ["Ubuntu"]
+    assert result.complete is True
+    assert result.incomplete_reasons == []
+
+
+def test_container_scan_marks_expired_deadline_before_next_runnable_distro(
+    monkeypatch,
+) -> None:
+    clock = 0.0
+    calls: list[tuple[str, str]] = []
+
+    def fake_run(distro: str, command, **_kwargs):
+        nonlocal clock
+        calls.append((distro, command[0]))
+        if command[0] == "podman":
+            clock = 1.0
+        return WSLCommandResult(stdout="")
+
+    monkeypatch.setattr(time, "monotonic", lambda: clock)
+    monkeypatch.setattr(wsl_exec, "WSL_CONTAINER_SCAN_TIME_BUDGET_S", 1.0)
+    monkeypatch.setattr(wsl_exec, "run_wsl_command", fake_run)
+
+    result = scan_wsl_containers(
+        [
+            DiscoveredWSLDistro(name="Ubuntu", wsl_version=2, is_running=True),
+            DiscoveredWSLDistro(name="Debian", wsl_version=2, is_running=False),
+            DiscoveredWSLDistro(
+                name="docker-desktop",
+                wsl_version=2,
+                is_running=True,
+            ),
+            DiscoveredWSLDistro(name="Fedora", wsl_version=2, is_running=True),
+        ]
+    )
+
+    assert calls == [("Ubuntu", "docker"), ("Ubuntu", "podman")]
+    assert result.scanned_distros == ["Ubuntu"]
+    assert result.complete is False
+    assert result.incomplete_reasons == ["wsl_container_scan_timed_out"]
 
 
 def test_skips_stopped_and_docker_desktop_distros(monkeypatch) -> None:
@@ -603,6 +720,155 @@ def test_skips_stopped_and_docker_desktop_distros(monkeypatch) -> None:
     assert result.scanned_distros == []
 
 
+def test_container_distro_cap_ignores_skippable_rows(monkeypatch) -> None:
+    monkeypatch.setattr(wsl_exec, "MAX_WSL_DISTROS", 1)
+    monkeypatch.setattr(
+        wsl_exec,
+        "run_wsl_command",
+        lambda *_args, **_kwargs: WSLCommandResult(stdout=""),
+    )
+
+    result = scan_wsl_containers(
+        [
+            DiscoveredWSLDistro(name="Ubuntu", wsl_version=2, is_running=True),
+            DiscoveredWSLDistro(name="Stopped", wsl_version=2, is_running=False),
+            DiscoveredWSLDistro(
+                name="docker-desktop",
+                wsl_version=2,
+                is_running=True,
+            ),
+        ]
+    )
+
+    assert result.scanned_distros == ["Ubuntu"]
+    assert result.complete is True
+    assert result.incomplete_reasons == []
+
+
+def test_per_distro_outcome_centralizes_expected_runtime_failure(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(time, "monotonic", lambda: 0.0)
+    monkeypatch.setattr(
+        wsl_exec,
+        "run_wsl_command",
+        lambda _distro, command, **_kwargs: (
+            WSLCommandResult(stdout="") if command[0] == "docker" else None
+        ),
+    )
+    accumulator = wsl_exec._ContainerAccumulator(limit=2, containers=[])
+
+    outcome = wsl_exec._scan_wsl_container_distro(
+        DiscoveredWSLDistro(
+            name="Ubuntu",
+            wsl_version=2,
+            is_running=True,
+            container_runtimes=("docker", "podman"),
+        ),
+        deadline=1.0,
+        timeout=1.0,
+        accumulator=accumulator,
+        has_remaining_distros=False,
+        checkpoint=None,
+    )
+
+    assert outcome.scanned is False
+    assert outcome.stop is False
+    assert outcome.incomplete_reasons == ["wsl_container_inventory_incomplete"]
+
+
+def test_parse_incomplete_marks_inventory_when_runtime_expectations_unknown(
+    monkeypatch,
+) -> None:
+    monkeypatch.setattr(time, "monotonic", lambda: 0.0)
+    monkeypatch.setattr(
+        wsl_exec,
+        "run_wsl_command",
+        lambda _distro, command, **_kwargs: WSLCommandResult(
+            stdout="not-json" if command[0] == "docker" else ""
+        ),
+    )
+    accumulator = wsl_exec._ContainerAccumulator(limit=2, containers=[])
+
+    outcome = wsl_exec._scan_wsl_container_distro(
+        DiscoveredWSLDistro(
+            name="Ubuntu",
+            wsl_version=2,
+            is_running=True,
+            container_runtimes=(),
+        ),
+        deadline=1.0,
+        timeout=1.0,
+        accumulator=accumulator,
+        has_remaining_distros=False,
+        checkpoint=None,
+    )
+
+    assert outcome.scanned is False
+    assert outcome.incomplete_reasons == ["wsl_container_inventory_incomplete"]
+
+
+@pytest.mark.parametrize(
+    ("row_count", "scanned_distros", "reasons"),
+    [
+        (1, ["Ubuntu"], []),
+        (2, [], ["wsl_container_scan_capped"]),
+    ],
+)
+def test_container_capacity_requires_true_overflow(
+    monkeypatch,
+    row_count: int,
+    scanned_distros: list[str],
+    reasons: list[str],
+) -> None:
+    rows = "\n".join(
+        json.dumps({"ID": str(index), "Names": str(index)})
+        for index in range(row_count)
+    )
+    monkeypatch.setattr(
+        wsl_exec,
+        "run_wsl_command",
+        lambda _distro, command, **_kwargs: (
+            WSLCommandResult(stdout=rows) if command[0] == "docker" else None
+        ),
+    )
+
+    result = scan_wsl_containers(
+        [DiscoveredWSLDistro(name="Ubuntu", wsl_version=2, is_running=True)],
+        max_containers=1,
+    )
+
+    assert result.scanned_distros == scanned_distros
+    assert result.incomplete_reasons == reasons
+    assert result.incomplete_reasons is result.completion.reasons
+
+
+def test_container_distro_iterable_stops_after_overflow_probe(monkeypatch) -> None:
+    consumed: list[str] = []
+    monkeypatch.setattr(wsl_exec, "MAX_WSL_DISTROS", 1)
+    monkeypatch.setattr(
+        wsl_exec,
+        "run_wsl_command",
+        lambda *_args, **_kwargs: WSLCommandResult(stdout=""),
+    )
+
+    def distros():
+        for distro in (
+            DiscoveredWSLDistro(name="Stopped", wsl_version=2, is_running=False),
+            DiscoveredWSLDistro(name="Ubuntu", wsl_version=2, is_running=True),
+            DiscoveredWSLDistro(name="Debian", wsl_version=2, is_running=True),
+        ):
+            consumed.append(distro.name)
+            yield distro
+        raise AssertionError("bounded scan consumed beyond overflow probe")
+
+    result = scan_wsl_containers(distros())
+
+    assert consumed == ["Stopped", "Ubuntu", "Debian"]
+    assert result.scanned_distros == ["Ubuntu"]
+    assert result.incomplete_reasons == ["wsl_container_distro_scan_capped"]
+
+
 def test_container_scan_respects_cross_distro_result_cap(monkeypatch) -> None:
     calls: list[str] = []
 
@@ -625,6 +891,12 @@ def test_container_scan_respects_cross_distro_result_cap(monkeypatch) -> None:
     result = scan_wsl_containers(
         [
             DiscoveredWSLDistro(name="Ubuntu", wsl_version=2, is_running=True),
+            DiscoveredWSLDistro(name="Stopped", wsl_version=2, is_running=False),
+            DiscoveredWSLDistro(
+                name="docker-desktop",
+                wsl_version=2,
+                is_running=True,
+            ),
             DiscoveredWSLDistro(name="Debian", wsl_version=2, is_running=True),
         ],
         max_containers=1,
@@ -633,6 +905,8 @@ def test_container_scan_respects_cross_distro_result_cap(monkeypatch) -> None:
     assert [container.wsl_distro for container in result.containers] == ["Ubuntu"]
     assert result.scanned_distros == ["Ubuntu"]
     assert "Debian" not in calls
+    assert result.complete is False
+    assert result.incomplete_reasons == ["wsl_container_scan_capped"]
 
 
 def test_enumerates_and_attributes_wsl_processes(monkeypatch) -> None:
@@ -654,6 +928,37 @@ def test_enumerates_and_attributes_wsl_processes(monkeypatch) -> None:
     assert candidates[0].pid == 123
     assert candidates[0].argv == ["/usr/local/bin/claude", "--mcp-server"]
     assert candidates[0].wsl_distro == "Ubuntu"
+
+
+@pytest.mark.parametrize(
+    ("candidate_count", "expected_reasons"),
+    [(2, []), (3, ["wsl_process_candidate_scan_capped"])],
+    ids=["exact-cap", "overflow"],
+)
+def test_wsl_process_candidate_cap_uses_overflow_sentinel(
+    monkeypatch: pytest.MonkeyPatch,
+    candidate_count: int,
+    expected_reasons: list[str],
+) -> None:
+    process_rows = "".join(
+        f"{pid} 1 alice Wed Jul 15 09:27:01 2026 /usr/bin/codex\n"
+        for pid in range(1, candidate_count + 1)
+    )
+    monkeypatch.setattr(process_enumerate, "MAX_CANDIDATES", 2)
+    monkeypatch.setattr(
+        process_enumerate,
+        "run_wsl_command",
+        lambda *_args, **_kwargs: WSLCommandResult(stdout=process_rows),
+    )
+    status = ScanCompletionStatus()
+
+    candidates = enumerate_wsl_process_tables(
+        [DiscoveredWSLDistro(name="Ubuntu", wsl_version=2, is_running=True)],
+        scan_status=status,
+    )
+
+    assert [candidate.pid for candidate in candidates] == [1, 2]
+    assert status.reasons == expected_reasons
 
 
 def test_wsl_process_failure_isolated_per_distro(monkeypatch) -> None:
@@ -714,6 +1019,39 @@ def test_wsl_process_enumeration_stops_at_aggregate_deadline(monkeypatch) -> Non
     assert calls == ["Ubuntu", "Debian"]
     assert timeouts == pytest.approx([1.0, 0.4])
     assert candidates == []
+
+
+def test_wsl_process_checkpoint_timeout_marks_scan_incomplete(monkeypatch) -> None:
+    clock = 0.0
+    calls: list[str] = []
+    status = ScanCompletionStatus()
+
+    def checkpoint() -> None:
+        nonlocal clock
+        clock = 1.0
+
+    monkeypatch.setattr(time, "monotonic", lambda: clock)
+    monkeypatch.setattr(
+        process_enumerate,
+        "WSL_PROCESS_SCAN_TIME_BUDGET_S",
+        1.0,
+        raising=False,
+    )
+    monkeypatch.setattr(
+        process_enumerate,
+        "run_wsl_command",
+        lambda distro, *_args, **_kwargs: calls.append(distro),
+    )
+
+    candidates = enumerate_wsl_process_tables(
+        [DiscoveredWSLDistro(name="Ubuntu", wsl_version=2, is_running=True)],
+        checkpoint=checkpoint,
+        scan_status=status,
+    )
+
+    assert candidates == []
+    assert calls == []
+    assert status.reasons == ["wsl_process_scan_timed_out"]
 
 
 def test_wsl_process_checkpoint_runs_before_execution_and_propagates(

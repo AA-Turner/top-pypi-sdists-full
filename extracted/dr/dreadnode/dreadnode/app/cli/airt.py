@@ -405,7 +405,9 @@ def create(
     ] = None,
     runtime_id: t.Annotated[
         str | None,
-        cyclopts.Parameter(help="Runtime ID. Required when the project has multiple runtimes."),
+        cyclopts.Parameter(
+            help="Runtime ID. Defaults to your own runtime in the project; a runtime you don't own is ignored."
+        ),
     ] = None,
     description: t.Annotated[str | None, cyclopts.Parameter(help="Assessment description")] = None,
     session_id: t.Annotated[str | None, cyclopts.Parameter(help="Session ID to associate")] = None,

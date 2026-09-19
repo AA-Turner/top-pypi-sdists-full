@@ -182,6 +182,8 @@ if typing.TYPE_CHECKING:
     from .workspace_configuration_response_out import WorkspaceConfigurationResponseOut
     from .workspace_disclaimer_out import WorkspaceDisclaimerOut
     from .workspace_info_out import WorkspaceInfoOut
+    from .workspace_member_out import WorkspaceMemberOut
+    from .workspace_member_search_response_out import WorkspaceMemberSearchResponseOut
     from .workspace_share_access import WorkspaceShareAccess
     from .workspace_tool_registry_response_out import WorkspaceToolRegistryResponseOut
     from .workspace_tool_registry_tool_out import WorkspaceToolRegistryToolOut
@@ -363,6 +365,8 @@ _dynamic_imports: typing.Dict[str, str] = {
     "WorkspaceConfigurationResponseOut": ".workspace_configuration_response_out",
     "WorkspaceDisclaimerOut": ".workspace_disclaimer_out",
     "WorkspaceInfoOut": ".workspace_info_out",
+    "WorkspaceMemberOut": ".workspace_member_out",
+    "WorkspaceMemberSearchResponseOut": ".workspace_member_search_response_out",
     "WorkspaceShareAccess": ".workspace_share_access",
     "WorkspaceToolRegistryResponseOut": ".workspace_tool_registry_response_out",
     "WorkspaceToolRegistryToolOut": ".workspace_tool_registry_tool_out",
@@ -568,6 +572,8 @@ __all__ = [
     "WorkspaceConfigurationResponseOut",
     "WorkspaceDisclaimerOut",
     "WorkspaceInfoOut",
+    "WorkspaceMemberOut",
+    "WorkspaceMemberSearchResponseOut",
     "WorkspaceShareAccess",
     "WorkspaceToolRegistryResponseOut",
     "WorkspaceToolRegistryToolOut",

@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -15,7 +15,7 @@ class TriangleCountEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         *,
         concurrency: int | None = None,
@@ -43,12 +43,12 @@ class TriangleCountEndpoints(ABC):
             Number of concurrent threads to use.
         job_id
             Identifier for the computation.
-        label_filter : list[str] | None, default=None
+        label_filter
             Filter triangles by node labels. Only triangles where all nodes have one of the specified
             labels will be counted.
         log_progress
             Display progress logging.
-        max_degree : int | None, default=None
+        max_degree
             Maximum degree of nodes to consider. Nodes with higher degrees will be excluded from
             triangle counting to improve performance.
         node_labels
@@ -69,7 +69,7 @@ class TriangleCountEndpoints(ABC):
     @abstractmethod
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         job_id: str | None = None,
@@ -95,12 +95,12 @@ class TriangleCountEndpoints(ABC):
             Number of concurrent threads to use.
         job_id
             Identifier for the computation.
-        label_filter : list[str] | None, default=None
+        label_filter
             Filter triangles by node labels. Only triangles where all nodes have one of the specified
             labels will be counted.
         log_progress
             Display progress logging.
-        max_degree : int | None, default=None
+        max_degree
             Maximum degree of nodes to consider. Nodes with higher degrees will be excluded from
             triangle counting to improve performance.
         node_labels
@@ -121,7 +121,7 @@ class TriangleCountEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         job_id: str | None = None,
@@ -147,12 +147,12 @@ class TriangleCountEndpoints(ABC):
             Number of concurrent threads to use.
         job_id
             Identifier for the computation.
-        label_filter : list[str] | None, default=None
+        label_filter
             Filter triangles by node labels. Only triangles where all nodes have one of the specified
             labels will be counted.
         log_progress
             Display progress logging.
-        max_degree : int | None, default=None
+        max_degree
             Maximum degree of nodes to consider. Nodes with higher degrees will be excluded from
             triangle counting to improve performance.
         node_labels
@@ -166,7 +166,7 @@ class TriangleCountEndpoints(ABC):
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             A DataFrame with columns:
             - nodeId: The node identifier
             - triangleCount: The number of triangles the node participates in
@@ -175,7 +175,7 @@ class TriangleCountEndpoints(ABC):
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         *,
         concurrency: int | None = None,
@@ -205,12 +205,12 @@ class TriangleCountEndpoints(ABC):
             Number of concurrent threads to use.
         job_id
             Identifier for the computation.
-        label_filter : list[str] | None, default=None
+        label_filter
             Filter triangles by node labels. Only triangles where all nodes have one of the specified
             labels will be counted.
         log_progress
             Display progress logging.
-        max_degree : int | None, default=None
+        max_degree
             Maximum degree of nodes to consider. Nodes with higher degrees will be excluded from
             triangle counting to improve performance.
         node_labels
@@ -233,7 +233,7 @@ class TriangleCountEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         *,
         concurrency: int | None = None,
         label_filter: list[str] | None = None,
@@ -253,10 +253,10 @@ class TriangleCountEndpoints(ABC):
            Graph object to use or a dictionary representing the graph dimensions.
         concurrency
             Number of concurrent threads to use.
-        label_filter : list[str] | None, default=None
+        label_filter
             Filter triangles by node labels. Only triangles where all nodes have one of the specified
             labels will be counted.
-        max_degree : int | None, default=None
+        max_degree
             Maximum degree of nodes to consider. Nodes with higher degrees will be excluded from
             triangle counting to improve performance.
         node_labels

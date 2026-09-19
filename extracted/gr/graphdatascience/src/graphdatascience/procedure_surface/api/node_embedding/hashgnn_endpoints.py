@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -15,7 +15,7 @@ class HashGNNEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         iterations: int,
         embedding_density: int,
         mutate_property: str,
@@ -43,22 +43,22 @@ class HashGNNEndpoints(ABC):
            Graph object to use
         iterations
             Number of iterations to run.
-        embedding_density : int
+        embedding_density
             The density of the generated embeddings (number of bits per embedding)
         mutate_property
             Name of the node property to store the results in.
-        output_dimension : int | None, default=None
+        output_dimension
             The dimension of the output embeddings
-        neighbor_influence : float, default=1.0
+        neighbor_influence
             The influence of neighboring nodes
-        generate_features : dict[str, Any] | None, default=None
+        generate_features
             Configuration for generating synthetic features from existing node properties
-        binarize_features : dict[str, Any] | None, default=None
+        binarize_features
             Configuration for binarizing continuous features
-        heterogeneous : bool, default=False
+        heterogeneous
             Whether to use heterogeneous node processing for different node types
-        feature_properties : list[str] | None, default=None
-            The names of the node properties to use as input features.
+        feature_properties
+            Names of the node properties to use as input features.
             Defaults to [] if not specified
         random_seed
             Seed for random number generation to ensure reproducible results.
@@ -72,7 +72,7 @@ class HashGNNEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         iterations: int,
         embedding_density: int,
         output_dimension: int | None = None,
@@ -99,34 +99,34 @@ class HashGNNEndpoints(ABC):
            Graph object to use
         iterations
             Number of iterations to run.
-        embedding_density : int
+        embedding_density
             The density of the generated embeddings (number of bits per embedding)
-        output_dimension : int | None, default=None
+        output_dimension
             The dimension of the output embeddings
-        neighbor_influence : float, default=1.0
+        neighbor_influence
             The influence of neighboring nodes
-        generate_features : dict[str, Any] | None, default=None
+        generate_features
             Configuration for generating synthetic features from existing node properties
-        binarize_features : dict[str, Any] | None, default=None
+        binarize_features
             Configuration for binarizing continuous features
-        heterogeneous : bool, default=False
+        heterogeneous
             Whether to use heterogeneous node processing for different node types
-        feature_properties : list[str] | None, default=None
-            The names of the node properties to use as input features.
+        feature_properties
+            Names of the node properties to use as input features.
             Defaults to [] if not specified
         random_seed
             Seed for random number generation to ensure reproducible results.
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             DataFrame with node IDs and their embeddings
         """
 
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         iterations: int,
         embedding_density: int,
         write_property: str,
@@ -155,22 +155,22 @@ class HashGNNEndpoints(ABC):
            Graph object to use
         iterations
             Number of iterations to run.
-        embedding_density : int
+        embedding_density
             The density of the generated embeddings (number of bits per embedding)
         write_property
             Name of the node property to store the results in.
-        output_dimension : int | None, default=None
+        output_dimension
             The dimension of the output embeddings. If not specified, defaults to embedding_density / 64
-        neighbor_influence : float, default=1.0
+        neighbor_influence
             The influence of neighboring nodes (0.0 to 1.0)
-        generate_features : dict[str, Any] | None, default=None
+        generate_features
             Configuration for generating synthetic features from existing node properties
-        binarize_features : dict[str, Any] | None, default=None
+        binarize_features
             Configuration for binarizing continuous features
-        heterogeneous : bool, default=False
+        heterogeneous
             Whether to use heterogeneous node processing for different node types
-        feature_properties : list[str] | None, default=None
-            The names of the node properties to use as input features.
+        feature_properties
+            Names of the node properties to use as input features.
             Defaults to [] if not specified
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -200,7 +200,7 @@ class HashGNNEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         iterations: int,
         embedding_density: int,
         output_dimension: int | None = None,
@@ -220,20 +220,20 @@ class HashGNNEndpoints(ABC):
            Graph object to use or a dictionary representing the graph dimensions.
         iterations
             Number of iterations to run.
-        embedding_density : int
+        embedding_density
             The density of the generated embeddings (number of bits per embedding)
-        output_dimension : int | None, default=None
+        output_dimension
             The dimension of the output embeddings.
-        neighbor_influence : float, default=1.0
+        neighbor_influence
             The influence of neighboring nodes.
-        generate_features : dict[str, Any] | None, default=None
+        generate_features
             Configuration for generating synthetic features from existing node properties
-        binarize_features : dict[str, Any] | None, default=None
+        binarize_features
             Configuration for binarizing continuous features
-        heterogeneous : bool, default=False
+        heterogeneous
             Whether to use heterogeneous node processing for different node types
-        feature_properties : list[str] | None, default=None
-            The names of the node properties to use as input features.
+        feature_properties
+            Names of the node properties to use as input features.
             Defaults to [] if not specified
         random_seed
             Seed for random number generation to ensure reproducible results.

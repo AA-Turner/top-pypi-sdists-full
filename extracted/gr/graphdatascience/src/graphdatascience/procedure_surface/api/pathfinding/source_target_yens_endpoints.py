@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -33,7 +33,7 @@ class SourceTargetYensEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         target_node: int,
         k: int,
@@ -57,7 +57,7 @@ class SourceTargetYensEndpoints(ABC):
            Graph object to use
         source_node
             Node id to use as the starting point.
-        target_node : int
+        target_node
             The target node for the shortest path computation.
         k
             Number of shortest paths to find.
@@ -80,14 +80,14 @@ class SourceTargetYensEndpoints(ABC):
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             The shortest path results as a DataFrame with columns for sourceNode, targetNode, totalCost, nodeIds, costs, index.
         """
 
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_relationship_type: str,
         source_node: int,
         target_node: int,
@@ -114,7 +114,7 @@ class SourceTargetYensEndpoints(ABC):
            Name of the relationship type to store the results in.
         source_node
             Node id to use as the starting point.
-        target_node : int
+        target_node
             The target node for the shortest path computation.
         k
             Number of shortest paths to find.
@@ -144,7 +144,7 @@ class SourceTargetYensEndpoints(ABC):
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_relationship_type: str,
         source_node: int,
         target_node: int,
@@ -170,17 +170,17 @@ class SourceTargetYensEndpoints(ABC):
         ----------
         G
            Graph object to use
-        write_relationship_type : str
+        write_relationship_type
             Name of the relationship type to store the results in.
         source_node
             Node id to use as the starting point.
-        target_node : int
+        target_node
             The target node for the shortest path computation.
         k
             Number of shortest paths to find.
-        write_node_ids : bool, default=False
+        write_node_ids
             Whether to write node IDs of the shortest path onto the relationship.
-        write_costs : bool, default=False
+        write_costs
             Whether to write costs of the shortest path onto the relationship.
         relationship_weight_property
             Name of the property to be used as weights.
@@ -208,7 +208,7 @@ class SourceTargetYensEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         source_node: int,
         target_node: int,
         k: int,
@@ -230,7 +230,7 @@ class SourceTargetYensEndpoints(ABC):
            Graph object to use or a dictionary representing the graph dimensions.
         source_node
             Node id to use as the starting point.
-        target_node : int
+        target_node
             The target node for the shortest path computation.
         k
             Number of shortest paths to find.

@@ -6,6 +6,7 @@ import httpx
 from ... import errors
 from ...client import AuthenticatedClient, Client
 from ...models.edit_data_table_config_json_body import EditDataTableConfigJsonBody
+from ...models.edit_data_table_config_response_200 import EditDataTableConfigResponse200
 from ...types import Response
 
 
@@ -27,16 +28,22 @@ def _get_kwargs(
     }
 
 
-def _parse_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Optional[Any]:
+def _parse_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Optional[EditDataTableConfigResponse200]:
     if response.status_code == HTTPStatus.OK:
-        return None
+        response_200 = EditDataTableConfigResponse200.from_dict(response.json())
+
+        return response_200
     if client.raise_on_unexpected_status:
         raise errors.UnexpectedStatus(response.status_code, response.content)
     else:
         return None
 
 
-def _build_response(*, client: Union[AuthenticatedClient, Client], response: httpx.Response) -> Response[Any]:
+def _build_response(
+    *, client: Union[AuthenticatedClient, Client], response: httpx.Response
+) -> Response[EditDataTableConfigResponse200]:
     return Response(
         status_code=HTTPStatus(response.status_code),
         content=response.content,
@@ -50,7 +57,7 @@ def sync_detailed(
     *,
     client: Union[AuthenticatedClient, Client],
     json_body: EditDataTableConfigJsonBody,
-) -> Response[Any]:
+) -> Response[EditDataTableConfigResponse200]:
     """edit datatable settings
 
     Args:
@@ -62,7 +69,7 @@ def sync_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any]
+        Response[EditDataTableConfigResponse200]
     """
 
     kwargs = _get_kwargs(
@@ -77,12 +84,12 @@ def sync_detailed(
     return _build_response(client=client, response=response)
 
 
-async def asyncio_detailed(
+def sync(
     workspace: str,
     *,
     client: Union[AuthenticatedClient, Client],
     json_body: EditDataTableConfigJsonBody,
-) -> Response[Any]:
+) -> Optional[EditDataTableConfigResponse200]:
     """edit datatable settings
 
     Args:
@@ -94,7 +101,34 @@ async def asyncio_detailed(
         httpx.TimeoutException: If the request takes longer than Client.timeout.
 
     Returns:
-        Response[Any]
+        EditDataTableConfigResponse200
+    """
+
+    return sync_detailed(
+        workspace=workspace,
+        client=client,
+        json_body=json_body,
+    ).parsed
+
+
+async def asyncio_detailed(
+    workspace: str,
+    *,
+    client: Union[AuthenticatedClient, Client],
+    json_body: EditDataTableConfigJsonBody,
+) -> Response[EditDataTableConfigResponse200]:
+    """edit datatable settings
+
+    Args:
+        workspace (str):
+        json_body (EditDataTableConfigJsonBody):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        Response[EditDataTableConfigResponse200]
     """
 
     kwargs = _get_kwargs(
@@ -105,3 +139,32 @@ async def asyncio_detailed(
     response = await client.get_async_httpx_client().request(**kwargs)
 
     return _build_response(client=client, response=response)
+
+
+async def asyncio(
+    workspace: str,
+    *,
+    client: Union[AuthenticatedClient, Client],
+    json_body: EditDataTableConfigJsonBody,
+) -> Optional[EditDataTableConfigResponse200]:
+    """edit datatable settings
+
+    Args:
+        workspace (str):
+        json_body (EditDataTableConfigJsonBody):
+
+    Raises:
+        errors.UnexpectedStatus: If the server returns an undocumented status code and Client.raise_on_unexpected_status is True.
+        httpx.TimeoutException: If the request takes longer than Client.timeout.
+
+    Returns:
+        EditDataTableConfigResponse200
+    """
+
+    return (
+        await asyncio_detailed(
+            workspace=workspace,
+            client=client,
+            json_body=json_body,
+        )
+    ).parsed

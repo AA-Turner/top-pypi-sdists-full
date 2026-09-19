@@ -5,7 +5,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.job_handle import JobHandle
@@ -22,8 +22,7 @@ from graphdatascience.procedure_surface.arrow.relationship_endpoints_helper impo
 from graphdatascience.procedure_surface.arrow.similarity.node_similarity_filtered_arrow_endpoints import (
     NodeSimilarityFilteredArrowEndpoints,
 )
-from graphdatascience.procedure_surface.arrow.stream_result_mapper import rename_similarity_stream_result
-from graphdatascience.query_runner.protocol.write_protocols import WriteProtocol
+from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
 class NodeSimilarityArrowEndpoints(NodeSimilarityEndpoints):
@@ -47,7 +46,7 @@ class NodeSimilarityArrowEndpoints(NodeSimilarityEndpoints):
 
     def compute(
         self,
-        G: GraphV2,
+        G: Graph,
         top_k: int = 10,
         bottom_k: int = 10,
         top_n: int = 0,
@@ -75,21 +74,21 @@ class NodeSimilarityArrowEndpoints(NodeSimilarityEndpoints):
            Graph object to use
         top_k
             Number of most similar nodes to return for each node.
-        bottom_k : int, default=10
+        bottom_k
             The maximum number of neighbors with the lowest similarity scores to compute per node.
-        top_n : int, default=0
+        top_n
             The maximum number of neighbors to select globally based on similarity scores.
-        bottom_n : int, default=0
+        bottom_n
             The maximum number of neighbors to select globally based on lowest similarity scores.
         similarity_cutoff
             The threshold for similarity scores.
-        degree_cutoff : int, default=1
+        degree_cutoff
             The minimum degree a node must have to be considered.
-        upper_degree_cutoff : int, default=2147483647
+        upper_degree_cutoff
             The maximum degree a node can have to be considered.
-        similarity_metric : str, default="JACCARD"
+        similarity_metric
             The similarity metric to use for computation.
-        use_components : bool | str, default=False
+        use_components
             Whether to compute similarity within connected components. Given a string uses the node property stored in the graph
         relationship_weight_property
             Name of the property to be used as weights.
@@ -138,7 +137,7 @@ class NodeSimilarityArrowEndpoints(NodeSimilarityEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_relationship_type: str,
         mutate_property: str,
         top_k: int = 10,
@@ -188,7 +187,7 @@ class NodeSimilarityArrowEndpoints(NodeSimilarityEndpoints):
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         top_k: int = 10,
         bottom_k: int = 10,
         top_n: int = 0,
@@ -239,7 +238,7 @@ class NodeSimilarityArrowEndpoints(NodeSimilarityEndpoints):
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         top_k: int = 10,
         bottom_k: int = 10,
         top_n: int = 0,
@@ -279,14 +278,11 @@ class NodeSimilarityArrowEndpoints(NodeSimilarityEndpoints):
             jobId=job_id,
         )
 
-        result = self._endpoints_helper.run_job_and_stream("v2/similarity.nodeSimilarity", G, config)
-
-        rename_similarity_stream_result(result)
-        return result
+        return self._endpoints_helper.run_job_and_stream("v2/similarity.nodeSimilarity", G, config)
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_relationship_type: str,
         write_property: str,
         top_k: int = 10,
@@ -344,7 +340,7 @@ class NodeSimilarityArrowEndpoints(NodeSimilarityEndpoints):
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         top_k: int = 10,
         bottom_k: int = 10,
         top_n: int = 0,

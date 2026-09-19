@@ -24,7 +24,6 @@ Standard-library only (``subprocess`` to OS tools, ``os``/``pathlib`` for
 
 from __future__ import annotations
 
-import json
 import os
 import platform
 import subprocess
@@ -35,10 +34,13 @@ from pathlib import Path
 
 import structlog
 
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.device import DiscoveredWSLDistro
 from runlayer_cli.scan.processes.models import BindScope, ProcessCandidate
+from runlayer_cli.scan.resource_governor import ScanResourceLimitExceeded
 from runlayer_cli.scan.wsl_exec import WSL_PS_ARGS, run_wsl_command
 from runlayer_cli.scan.wsl_limits import MAX_WSL_DISTROS
+from runlayer_cli.safe_parse import parse_json
 
 logger = structlog.get_logger(__name__)
 
@@ -233,12 +235,16 @@ def _read_linux_pid(pid_dir: Path, pid: int) -> ProcessCandidate | None:
     )
 
 
-def _enumerate_linux_proc() -> list[ProcessCandidate]:
+def _enumerate_linux_proc(
+    scan_status: ScanCompletionStatus | None = None,
+) -> list[ProcessCandidate]:
     candidates: list[ProcessCandidate] = []
     proc = Path("/proc")
     try:
         entries = list(proc.iterdir())
     except OSError:
+        if scan_status is not None:
+            scan_status.mark_incomplete("process_table_enumeration_failed")
         return candidates
     for entry in entries:
         if not entry.name.isdigit():
@@ -249,9 +255,11 @@ def _enumerate_linux_proc() -> list[ProcessCandidate]:
             continue
         if candidate is not None:
             candidates.append(candidate)
-        if len(candidates) >= MAX_CANDIDATES:
+        if len(candidates) > MAX_CANDIDATES:
+            if scan_status is not None:
+                scan_status.mark_incomplete("process_candidate_scan_capped")
             break
-    return candidates
+    return candidates[:MAX_CANDIDATES]
 
 
 def _tokenize_windows_cmdline(cmdline: str) -> list[str]:
@@ -286,10 +294,10 @@ def parse_windows_cim(text: str) -> list[ProcessCandidate]:
     resolved here -- ``GetOwner()`` is a per-process WMI call that is too costly
     for a poll and is deferred; ``user`` stays ``None`` on Windows for v1.
     """
-    try:
-        data = json.loads(text)
-    except (ValueError, TypeError):
+    outcome = parse_json(text)
+    if outcome["error"] is not None:
         return []
+    data = outcome["value"]
     if isinstance(data, dict):
         data = [data]
     if not isinstance(data, list):
@@ -321,7 +329,9 @@ def parse_windows_cim(text: str) -> list[ProcessCandidate]:
                 discovery_source="proc_table",
             )
         )
-        if len(candidates) >= MAX_CANDIDATES:
+        # Retain one overflow sentinel so the runner can distinguish an exact
+        # cap-sized table from one where work must be omitted.
+        if len(candidates) > MAX_CANDIDATES:
             break
     return candidates
 
@@ -444,12 +454,18 @@ def _build_inode_pid_index() -> dict[int, int]:
 # Best-effort OS-tool runners
 # ---------------------------------------------------------------------------
 def _run(cmd: list[str], *, timeout: int) -> str | None:
-    """Run an OS tool, returning stdout or ``None`` on any failure."""
+    """Run an OS tool, returning stdout or ``None`` on any failure.
+
+    Decodes with ``errors="replace"``: one process whose argv is not valid in
+    the locale encoding must degrade to U+FFFD in that row, not raise
+    ``UnicodeDecodeError`` and lose the whole process channel.
+    """
     try:
         result = subprocess.run(
             cmd,
             capture_output=True,
             text=True,
+            errors="replace",
             timeout=timeout,
             check=False,
         )
@@ -460,7 +476,10 @@ def _run(cmd: list[str], *, timeout: int) -> str | None:
     return result.stdout
 
 
-def _enumerate_ps(timeout: int) -> list[ProcessCandidate]:
+def _enumerate_ps(
+    timeout: int,
+    scan_status: ScanCompletionStatus | None = None,
+) -> list[ProcessCandidate]:
     output = _run(
         ["/bin/ps", "-axww", "-o", "pid=,ppid=,user=,lstart=,args="],
         timeout=timeout,
@@ -471,8 +490,13 @@ def _enumerate_ps(timeout: int) -> list[ProcessCandidate]:
             timeout=timeout,
         )
     if output is None:
+        if scan_status is not None:
+            scan_status.mark_incomplete("process_table_command_failed")
         return []
-    candidates = parse_ps_table(output)[:MAX_CANDIDATES]
+    parsed = parse_ps_table(output)
+    if len(parsed) > MAX_CANDIDATES and scan_status is not None:
+        scan_status.mark_incomplete("process_candidate_scan_capped")
+    candidates = parsed[:MAX_CANDIDATES]
     for candidate in candidates:
         if candidate.exe is None:
             continue
@@ -485,7 +509,10 @@ def _enumerate_ps(timeout: int) -> list[ProcessCandidate]:
     return candidates
 
 
-def _enumerate_windows_processes(timeout: int) -> list[ProcessCandidate]:
+def _enumerate_windows_processes(
+    timeout: int,
+    scan_status: ScanCompletionStatus | None = None,
+) -> list[ProcessCandidate]:
     output = _run(
         [
             "powershell",
@@ -499,26 +526,44 @@ def _enumerate_windows_processes(timeout: int) -> list[ProcessCandidate]:
         timeout=timeout,
     )
     if output is None:
+        if scan_status is not None:
+            scan_status.mark_incomplete("process_table_command_failed")
         return []
-    return parse_windows_cim(output)
+    candidates = parse_windows_cim(output)
+    if len(candidates) > MAX_CANDIDATES and scan_status is not None:
+        scan_status.mark_incomplete("process_candidate_scan_capped")
+    return candidates[:MAX_CANDIDATES]
 
 
-def _listeners_lsof(timeout: int) -> list[ListenerSocket]:
+def _listeners_lsof(
+    timeout: int,
+    scan_status: ScanCompletionStatus | None = None,
+) -> list[ListenerSocket]:
     output = _run(
         ["lsof", "-nP", "-iTCP", "-sTCP:LISTEN", "-Fpn"],
         timeout=timeout,
     )
     if output is None:
+        if scan_status is not None:
+            scan_status.mark_incomplete("listener_command_failed")
         return []
     return parse_lsof(output)
 
 
-def _listeners_linux() -> list[ListenerSocket]:
+def _listeners_linux(
+    scan_status: ScanCompletionStatus | None = None,
+) -> list[ListenerSocket]:
     rows: list[tuple[int, int, BindScope]] = []
     for name in ("tcp", "tcp6"):
         try:
             text = Path("/proc/net", name).read_text()
+        except FileNotFoundError:
+            if name == "tcp" and scan_status is not None:
+                scan_status.mark_incomplete("listener_proc_read_failed")
+            continue
         except OSError:
+            if scan_status is not None:
+                scan_status.mark_incomplete("listener_proc_read_failed")
             continue
         rows.extend(parse_proc_net_tcp(text))
     if not rows:
@@ -532,11 +577,16 @@ def _listeners_linux() -> list[ListenerSocket]:
     return listeners
 
 
-def _listeners_netstat(timeout: int) -> list[ListenerSocket]:
+def _listeners_netstat(
+    timeout: int,
+    scan_status: ScanCompletionStatus | None = None,
+) -> list[ListenerSocket]:
     output = _run(["netstat", "-ano", "-p", "TCP"], timeout=timeout)
     if output is None:
         output = _run(["netstat", "-ano"], timeout=timeout)
     if output is None:
+        if scan_status is not None:
+            scan_status.mark_incomplete("listener_command_failed")
         return []
     return parse_netstat(output)
 
@@ -545,17 +595,21 @@ def _listeners_netstat(timeout: int) -> list[ListenerSocket]:
 # Public entry points
 # ---------------------------------------------------------------------------
 def enumerate_process_table(
-    *, timeout: int = SUBPROCESS_TIMEOUT_S
+    *,
+    timeout: int = SUBPROCESS_TIMEOUT_S,
+    scan_status: ScanCompletionStatus | None = None,
 ) -> list[ProcessCandidate]:
     """Source A: enumerate the process table for the current platform."""
     system = platform.system()
     try:
         if system == "Linux":
-            return _enumerate_linux_proc()
+            return _enumerate_linux_proc(scan_status)
         if system == "Windows":
-            return _enumerate_windows_processes(timeout)
-        return _enumerate_ps(timeout)
+            return _enumerate_windows_processes(timeout, scan_status)
+        return _enumerate_ps(timeout, scan_status)
     except Exception as exc:  # never raise into the scan
+        if scan_status is not None:
+            scan_status.mark_incomplete("process_table_enumeration_failed")
         logger.debug("process_table_enumeration_failed", error=str(exc))
         return []
 
@@ -565,12 +619,18 @@ def enumerate_wsl_process_tables(
     *,
     timeout: int = SUBPROCESS_TIMEOUT_S,
     checkpoint: Callable[[], None] | None = None,
+    scan_status: ScanCompletionStatus | None = None,
 ) -> list[ProcessCandidate]:
     """Enumerate process tables of bounded running WSL distros."""
     candidates: list[ProcessCandidate] = []
     deadline = time.monotonic() + WSL_PROCESS_SCAN_TIME_BUDGET_S
-    for distro in tuple(distros)[:MAX_WSL_DISTROS]:
+    distro_list = tuple(distros)
+    if len(distro_list) > MAX_WSL_DISTROS and scan_status is not None:
+        scan_status.mark_incomplete("wsl_process_distro_scan_capped")
+    for distro in distro_list[:MAX_WSL_DISTROS]:
         if time.monotonic() >= deadline:
+            if scan_status is not None:
+                scan_status.mark_incomplete("wsl_process_scan_timed_out")
             break
         if not distro.is_running or distro.name.casefold() == "docker-desktop":
             continue
@@ -578,6 +638,8 @@ def enumerate_wsl_process_tables(
             checkpoint()
         remaining = deadline - time.monotonic()
         if remaining <= 0:
+            if scan_status is not None:
+                scan_status.mark_incomplete("wsl_process_scan_timed_out")
             break
         try:
             result = run_wsl_command(
@@ -585,7 +647,11 @@ def enumerate_wsl_process_tables(
                 ("ps", *WSL_PS_ARGS),
                 timeout=min(timeout, remaining),
             )
+        except ScanResourceLimitExceeded:
+            raise
         except Exception as exc:
+            if scan_status is not None:
+                scan_status.mark_incomplete("wsl_process_command_failed")
             logger.debug(
                 "wsl_process_table_enumeration_failed",
                 distro=distro.name,
@@ -593,26 +659,36 @@ def enumerate_wsl_process_tables(
             )
             continue
         if result is None:
+            if scan_status is not None:
+                scan_status.mark_incomplete("wsl_process_command_failed")
             continue
         distro_candidates = parse_ps_table(result.stdout)
         for candidate in distro_candidates:
             candidate.wsl_distro = distro.name
             candidates.append(candidate)
-            if len(candidates) >= MAX_CANDIDATES:
-                return candidates
+            if len(candidates) > MAX_CANDIDATES:
+                if scan_status is not None:
+                    scan_status.mark_incomplete("wsl_process_candidate_scan_capped")
+                return candidates[:MAX_CANDIDATES]
     return candidates
 
 
-def enumerate_listeners(*, timeout: int = SUBPROCESS_TIMEOUT_S) -> list[ListenerSocket]:
+def enumerate_listeners(
+    *,
+    timeout: int = SUBPROCESS_TIMEOUT_S,
+    scan_status: ScanCompletionStatus | None = None,
+) -> list[ListenerSocket]:
     """Source B: enumerate listening TCP sockets -> owning pid."""
     system = platform.system()
     try:
         if system == "Linux":
-            return _listeners_linux()
+            return _listeners_linux(scan_status)
         if system == "Windows":
-            return _listeners_netstat(timeout)
-        return _listeners_lsof(timeout)
+            return _listeners_netstat(timeout, scan_status)
+        return _listeners_lsof(timeout, scan_status)
     except Exception as exc:  # never raise into the scan
+        if scan_status is not None:
+            scan_status.mark_incomplete("listener_enumeration_failed")
         logger.debug("listener_enumeration_failed", error=str(exc))
         return []
 
@@ -658,9 +734,11 @@ def union_by_pid(
 
 
 def enumerate_candidates(
-    *, timeout: int = SUBPROCESS_TIMEOUT_S
+    *,
+    timeout: int = SUBPROCESS_TIMEOUT_S,
+    scan_status: ScanCompletionStatus | None = None,
 ) -> list[ProcessCandidate]:
     """Run both sources and return the pid-unioned candidate set (never raises)."""
-    processes = enumerate_process_table(timeout=timeout)
-    listeners = enumerate_listeners(timeout=timeout)
+    processes = enumerate_process_table(timeout=timeout, scan_status=scan_status)
+    listeners = enumerate_listeners(timeout=timeout, scan_status=scan_status)
     return union_by_pid(processes, listeners)

@@ -53,7 +53,7 @@ class RawSpeechToTextRealtimeStreamingClient:
     ) -> typing.Iterator[SpeechToTextRealtimeStreamingSocketClient]:
         """
         WebSocket channel for real-time speech to text streaming powered by the
-        `saaras:v3-realtime` (default) or `saaras:v4-realtime` model.
+        `saaras:v3-realtime` (default) or `saaras:v4` model.
 
         **Authentication:** Pass your API subscription key via the
         `API-SUBSCRIPTION-KEY` header, or (in browsers) via the WebSocket
@@ -69,7 +69,7 @@ class RawSpeechToTextRealtimeStreamingClient:
         language_code : SpeechToTextRealtimeStreamingLanguageCode
             BCP-47 language code of the input audio. **Required.**
 
-            **Supported languages (saaras:v3-realtime and saaras:v4-realtime):**
+            **Supported languages (saaras:v3-realtime and saaras:v4):**
             - `auto`: Adaptive automatic language detection
             - `en-IN`: English
             - `hi-IN`: Hindi
@@ -96,7 +96,7 @@ class RawSpeechToTextRealtimeStreamingClient:
             - `doi-IN`: Dogri
 
         model : typing.Optional[SpeechToTextRealtimeStreamingModel]
-            Speech-to-text model for this endpoint. `saaras:v3-realtime` (default) or `saaras:v4-realtime`.
+            Speech-to-text model for this endpoint. `saaras:v3-realtime` (default) or `saaras:v4`.
 
         stream_type : typing.Optional[SpeechToTextRealtimeStreamingStreamType]
             Controls audio chunking and latency behaviour.
@@ -246,7 +246,7 @@ class AsyncRawSpeechToTextRealtimeStreamingClient:
     ) -> typing.AsyncIterator[AsyncSpeechToTextRealtimeStreamingSocketClient]:
         """
         WebSocket channel for real-time speech to text streaming powered by the
-        `saaras:v3-realtime` (default) or `saaras:v4-realtime` model.
+        `saaras:v3-realtime` (default) or `saaras:v4` model.
 
         **Authentication:** Pass your API subscription key via the
         `API-SUBSCRIPTION-KEY` header, or (in browsers) via the WebSocket
@@ -262,7 +262,7 @@ class AsyncRawSpeechToTextRealtimeStreamingClient:
         language_code : SpeechToTextRealtimeStreamingLanguageCode
             BCP-47 language code of the input audio. **Required.**
 
-            **Supported languages (saaras:v3-realtime and saaras:v4-realtime):**
+            **Supported languages (saaras:v3-realtime and saaras:v4):**
             - `auto`: Adaptive automatic language detection
             - `en-IN`: English
             - `hi-IN`: Hindi
@@ -289,7 +289,7 @@ class AsyncRawSpeechToTextRealtimeStreamingClient:
             - `doi-IN`: Dogri
 
         model : typing.Optional[SpeechToTextRealtimeStreamingModel]
-            Speech-to-text model for this endpoint. `saaras:v3-realtime` (default) or `saaras:v4-realtime`.
+            Speech-to-text model for this endpoint. `saaras:v3-realtime` (default) or `saaras:v4`.
 
         stream_type : typing.Optional[SpeechToTextRealtimeStreamingStreamType]
             Controls audio chunking and latency behaviour.

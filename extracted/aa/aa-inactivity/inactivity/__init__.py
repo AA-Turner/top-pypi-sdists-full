@@ -3,6 +3,6 @@
 # pylint: disable = invalid-name
 default_app_config = "inactivity.apps.InactivityConfig"
 
-__version__ = "3.0.2"
+__version__ = "3.1.0"
 
 __title__ = "Inactivity"

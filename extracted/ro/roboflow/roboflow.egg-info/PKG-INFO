@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: roboflow
-Version: 1.4.2
+Version: 1.5.0
 Summary: Official Python package for working with the Roboflow API
 Home-page: https://github.com/roboflow-ai/roboflow-python
 Author: Roboflow
@@ -19,7 +19,6 @@ Requires-Dist: matplotlib
 Requires-Dist: numpy<2.4,>=1.18.5
 Requires-Dist: opencv-python-headless>=4.10.0
 Requires-Dist: Pillow>=7.1.2
-Requires-Dist: pi-heif<2; python_version >= "3.10"
 Requires-Dist: pillow-avif-plugin<2
 Requires-Dist: python-dateutil
 Requires-Dist: python-dotenv
@@ -34,6 +33,8 @@ Requires-Dist: typer<0.26,>=0.12.0
 Requires-Dist: click>=8.0
 Provides-Extra: desktop
 Requires-Dist: opencv-python==4.8.0.74; extra == "desktop"
+Provides-Extra: heic
+Requires-Dist: pillow-heif>=1.7.0; extra == "heic"
 Provides-Extra: dev
 Requires-Dist: mypy; extra == "dev"
 Requires-Dist: responses; extra == "dev"
@@ -106,6 +107,14 @@ For desktop features, use:
 ```bash
 pip install "roboflow[desktop]"
 ```
+
+To decode HEIC/HEIF images locally (for example `model.predict("photo.heic")`), use:
+
+```bash
+pip install "roboflow[heic]"
+```
+
+This installs [pillow-heif](https://pypi.org/project/pillow-heif/), whose binary wheels are GPL-2.0 licensed because they bundle the x265 encoder. Uploading HEIC images works without it, since the server decodes them.
 
 
 <details>

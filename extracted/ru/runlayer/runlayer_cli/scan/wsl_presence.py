@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import errno
+import stat
 import time
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -10,22 +12,28 @@ from pathlib import Path
 
 from runlayer_cli.scan.cli_binaries import posix_bin_roots
 from runlayer_cli.scan.clients import MCPClientDefinition
+from runlayer_cli.scan.completeness import CompletionStatusSink
 from runlayer_cli.scan.device import (
     DiscoveredWSLDistro,
     get_wsl_distro_root,
     get_wsl_user_homes,
 )
-from runlayer_cli.scan.wsl_limits import MAX_WSL_DISTROS, MAX_WSL_HOMES
+from runlayer_cli.scan.wsl_limits import MAX_WSL_DISTROS, WSL_PRESENCE_TIME_BUDGET_S
 from runlayer_cli.scan.wsl_paths import parse_wsl_unc_path
 
 MAX_WSL_BINARY_CANDIDATES_PER_DISTRO = 4096
-WSL_PRESENCE_TIME_BUDGET_S = 30.0
 
 _SYSTEM_BIN_ROOTS = (
     ("usr", "local", "bin"),
     ("usr", "bin"),
     ("snap", "bin"),
     ("nix", "var", "nix", "profiles", "default", "bin"),
+)
+_DEFINITE_ABSENCE_ERRNOS = (
+    errno.ENOENT,
+    errno.ENOTDIR,
+    errno.EBADF,
+    errno.ELOOP,
 )
 
 
@@ -50,10 +58,15 @@ class WSLBinaryFinding:
     context: WSLClientContext
 
 
-def _safe_is_file(path: Path) -> bool:
+def _safe_is_file(
+    path: Path,
+    scan_status: CompletionStatusSink | None = None,
+) -> bool:
     try:
-        return path.is_file()
-    except OSError:
+        return stat.S_ISREG(path.stat().st_mode)
+    except OSError as exc:
+        if scan_status is not None and exc.errno not in _DEFINITE_ABSENCE_ERRNOS:
+            scan_status.mark_incomplete("wsl_binary_access_failed")
         return False
 
 
@@ -81,6 +94,7 @@ def scan_wsl_cli_binaries(
     distros: Iterable[DiscoveredWSLDistro],
     *,
     checkpoint: Callable[[], None] | None = None,
+    scan_status: CompletionStatusSink | None = None,
 ) -> list[WSLBinaryFinding]:
     """Find registered CLI basenames without executing WSL-owned files."""
     client_binaries = [
@@ -95,19 +109,37 @@ def scan_wsl_cli_binaries(
     deadline = time.monotonic() + WSL_PRESENCE_TIME_BUDGET_S
     findings: list[WSLBinaryFinding] = []
     seen: set[tuple[str, str, str | None, str]] = set()
-    for distro in tuple(distros)[:MAX_WSL_DISTROS]:
+    runnable_distros = (
+        distro
+        for distro in distros
+        if distro.is_running and distro.name.casefold() != "docker-desktop"
+    )
+    distro_list = tuple(islice(runnable_distros, MAX_WSL_DISTROS + 1))
+    if len(distro_list) > MAX_WSL_DISTROS and scan_status is not None:
+        scan_status.mark_incomplete("wsl_binary_distro_capped")
+    for distro in distro_list[:MAX_WSL_DISTROS]:
         if time.monotonic() >= deadline:
+            if scan_status is not None:
+                scan_status.mark_incomplete("wsl_binary_scan_timed_out")
             break
-        if not distro.is_running:
-            continue
         distro_root = get_wsl_distro_root(distro.name)
         if distro_root is None:
+            if scan_status is not None:
+                scan_status.mark_incomplete("wsl_binary_root_unreachable")
             continue
         if time.monotonic() >= deadline:
+            if scan_status is not None:
+                scan_status.mark_incomplete("wsl_binary_scan_timed_out")
             break
 
-        homes = tuple(islice(get_wsl_user_homes(distro.name), MAX_WSL_HOMES))
+        homes = (
+            get_wsl_user_homes(distro.name)
+            if scan_status is None
+            else get_wsl_user_homes(distro.name, scan_status=scan_status)
+        )
         if time.monotonic() >= deadline:
+            if scan_status is not None:
+                scan_status.mark_incomplete("wsl_binary_scan_timed_out")
             break
         candidates_checked = 0
         for client, binary in client_binaries:
@@ -134,12 +166,19 @@ def scan_wsl_cli_binaries(
                     time.monotonic() >= deadline
                     or candidates_checked >= MAX_WSL_BINARY_CANDIDATES_PER_DISTRO
                 ):
+                    if scan_status is not None:
+                        reason = (
+                            "wsl_binary_scan_timed_out"
+                            if time.monotonic() >= deadline
+                            else "wsl_binary_candidate_capped"
+                        )
+                        scan_status.mark_incomplete(reason)
                     break
                 candidates_checked += 1
                 if checkpoint is not None:
                     checkpoint()
                 key = (client, context.distro.casefold(), context.user, str(path))
-                if key in seen or not _safe_is_file(path):
+                if key in seen or not _safe_is_file(path, scan_status):
                     continue
                 seen.add(key)
                 findings.append(

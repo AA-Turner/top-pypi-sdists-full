@@ -13,6 +13,7 @@ import orjson
 import structlog
 from google.protobuf.empty_pb2 import Empty  # ty: ignore[unresolved-import]
 from langgraph_grpc_common.conversion.checkpoint import (
+    checkpoint_config_to_proto,
     checkpoint_from_proto,
     checkpoint_metadata_from_proto,
     checkpoint_tuple_to_proto,
@@ -22,7 +23,6 @@ from langgraph_grpc_common.conversion.checkpoint import (
 from langgraph_grpc_common.conversion.config import (
     config_from_proto,
     config_from_proto_optional,
-    config_to_proto,
 )
 from langgraph_grpc_common.proto import checkpointer_pb2
 from langgraph_grpc_common.proto.checkpointer_pb2_grpc import CheckpointerServicer
@@ -64,7 +64,7 @@ class CheckpointerServicerImpl(CheckpointerServicer):
             next_config = await checkpointer.aput(
                 config, checkpoint, metadata, new_versions
             )
-            next_config_pb = config_to_proto(next_config)
+            next_config_pb = checkpoint_config_to_proto(next_config)
             if next_config_pb is None:
                 return checkpointer_pb2.PutResponse()
             return checkpointer_pb2.PutResponse(next_config=next_config_pb)

@@ -83,7 +83,9 @@ fn pip_compile_baseline() {
     PipCompileSettings {
         format: None,
         src_file: [
-            "requirements.in",
+            Local(
+                "requirements.in",
+            ),
         ],
         constraints: [],
         overrides: [],
@@ -99,6 +101,7 @@ fn pip_compile_baseline() {
         required_environments: SupportedEnvironments(
             [],
         ),
+        minimum_libc_version: None,
         refresh: None(
             Timestamp(
                 SystemTime {
@@ -457,7 +460,9 @@ fn pip_install_baseline() {
     PipInstallSettings {
         package: [],
         requirements: [
-            "requirements.in",
+            Local(
+                "requirements.in",
+            ),
         ],
         editables: [],
         editable: None,
@@ -2715,7 +2720,7 @@ fn resolve_config_file() -> anyhow::Result<()> {
                |
              1 | [project]
                |  ^^^^^^^
-             unknown field `project`, expected one of `required-version`, `system-certs`, `native-tls`, `offline`, `no-cache`, `cache-dir`, `preview`, `preview-features`, `python-preference`, `python-downloads`, `concurrent-downloads`, `concurrent-builds`, `concurrent-installs`, `index`, `index-url`, `extra-index-url`, `no-index`, `find-links`, `index-strategy`, `keyring-provider`, `http-proxy`, `https-proxy`, `no-proxy`, `allow-insecure-host`, `resolution`, `prerelease`, `prerelease-package`, `fork-strategy`, `dependency-metadata`, `config-settings`, `config-settings-package`, `no-build-isolation`, `no-build-isolation-package`, `extra-build-dependencies`, `extra-build-variables`, `exclude-newer`, `exclude-newer-package`, `link-mode`, `compile-bytecode`, `no-sources`, `no-sources-package`, `upgrade`, `upgrade-package`, `reinstall`, `reinstall-package`, `no-build`, `no-build-package`, `no-binary`, `no-binary-package`, `torch-backend`, `python-install-mirror`, `pypy-install-mirror`, `python-downloads-json-url`, `publish-url`, `trusted-publishing`, `check-url`, `add-bounds`, `audit`, `pip`, `cache-keys`, `override-dependencies`, `exclude-dependencies`, `constraint-dependencies`, `build-constraint-dependencies`, `environments`, `required-environments`, `conflicts`, `workspace`, `sources`, `managed`, `package`, `default-groups`, `dependency-groups`, `dev-dependencies`, `build-backend`
+             unknown field `project`, expected one of `required-version`, `system-certs`, `native-tls`, `offline`, `no-cache`, `cache-dir`, `preview`, `preview-features`, `python-preference`, `python-downloads`, `concurrent-downloads`, `concurrent-builds`, `concurrent-installs`, `index`, `index-url`, `extra-index-url`, `no-index`, `find-links`, `index-strategy`, `keyring-provider`, `http-proxy`, `https-proxy`, `no-proxy`, `allow-insecure-host`, `resolution`, `prerelease`, `prerelease-package`, `fork-strategy`, `dependency-metadata`, `config-settings`, `config-settings-package`, `no-build-isolation`, `no-build-isolation-package`, `extra-build-dependencies`, `extra-build-variables`, `exclude-newer`, `exclude-newer-package`, `link-mode`, `compile-bytecode`, `no-sources`, `no-sources-package`, `upgrade`, `upgrade-package`, `reinstall`, `reinstall-package`, `no-build`, `no-build-package`, `no-binary`, `no-binary-package`, `torch-backend`, `python-install-mirror`, `pypy-install-mirror`, `python-downloads-json-url`, `publish-url`, `trusted-publishing`, `check-url`, `add-bounds`, `audit`, `pip`, `cache-keys`, `override-dependencies`, `exclude-dependencies`, `constraint-dependencies`, `build-constraint-dependencies`, `environments`, `required-environments`, `minimum-libc-version`, `conflicts`, `workspace`, `sources`, `managed`, `package`, `default-groups`, `dependency-groups`, `dev-dependencies`, `build-backend`
     "
     );
 
@@ -3808,6 +3813,7 @@ fn preview_features() {
     +            ContentAddressedCache,
     +            MissingExcludeNewerPackageLock,
     +            BatchExport,
+    +            MinimumLibcVersion,
     +        ],
          },
          python_preference: Managed,

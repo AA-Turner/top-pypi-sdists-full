@@ -12,6 +12,7 @@ from .opt_in_mode import (
 )
 from .project_config import (
     SYNC_ELIGIBLE_KEYS,
+    get_effective_project_config_raw_value,
     get_effective_project_config_value,
     get_project_config_value,
     load_effective_project_config,
@@ -28,6 +29,7 @@ __all__ = [
     "SYNC_ELIGIBLE_KEYS",
     "config_mode_cmd",
     "get_config_mode",
+    "get_effective_project_config_raw_value",
     "get_effective_project_config_value",
     "get_project_config_value",
     "load_effective_project_config",

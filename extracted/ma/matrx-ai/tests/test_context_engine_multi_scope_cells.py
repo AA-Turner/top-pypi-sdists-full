@@ -12,10 +12,14 @@ from __future__ import annotations
 from typing import Any
 
 from matrx_ai.context_engine import (
+    CONTEXT_RESOLVER_FAILURE_KIND,
     LEGACY_CONTEXT_CELL_SHAPE_ERROR_KIND,
     AgentContext,
+    ContextResolverUnavailable,
     _apply_ambient,
     _normalize_cell_values,
+    build_agent_context,
+    configure_context_resolver,
 )
 
 ITEM_A = "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa"
@@ -35,6 +39,19 @@ def _ctx(direct: dict[str, Any]) -> AgentContext:
         tool_variables={},
         searchable_variables={},
     )
+
+
+def _stub_context_rpc(monkeypatch) -> None:
+    async def fake_call_function(*_args: Any, **_kwargs: Any) -> dict[str, Any]:
+        return {
+            "variables": {"account_name": {"value": "Acme", "inject_as": "direct"}},
+            "context": {},
+            "scope_labels": {},
+            "cell_values": {},
+        }
+
+    monkeypatch.setattr("matrx_ai.context_engine._resolve_context_database", lambda: "test")
+    monkeypatch.setattr("matrx_orm.call_function", fake_call_function)
 
 
 def test_two_scopes_both_appear_in_the_prompt_block_with_their_scope_names():
@@ -132,4 +149,61 @@ async def test_a_single_dict_cell_from_the_old_rpc_creates_structured_error(monk
     assert captures[0][1]["context"] == {
         "affected_item_count": 1,
         "required_migration": "ctx_resolve_full_context_lossless_cells_per_scope",
+    }
+
+
+async def test_deliberately_unavailable_resolver_uses_legacy_tiers_without_error_or_capture(
+    monkeypatch, caplog
+):
+    _stub_context_rpc(monkeypatch)
+    captures: list[tuple[BaseException, dict[str, Any]]] = []
+
+    async def fake_capture_error(exc: BaseException, **fields: Any) -> None:
+        captures.append((exc, fields))
+
+    async def unavailable(**_kwargs: Any) -> dict[str, Any]:
+        raise ContextResolverUnavailable("campaign is intentionally disabled")
+
+    monkeypatch.setattr("matrx_connect.streaming.error_capture.capture_error", fake_capture_error)
+    configure_context_resolver(unavailable)
+    try:
+        with caplog.at_level("ERROR"):
+            result = await build_agent_context("user-1", "conversation", "entity-1")
+    finally:
+        configure_context_resolver(None)
+
+    assert result.direct_variables["account_name"]["value"] == "Acme"
+    assert captures == []
+    assert not [record for record in caplog.records if record.levelname == "ERROR"]
+
+
+async def test_real_resolver_failure_is_captured_with_safe_context(monkeypatch, caplog):
+    _stub_context_rpc(monkeypatch)
+    captures: list[tuple[BaseException, dict[str, Any]]] = []
+
+    async def fake_capture_error(exc: BaseException, **fields: Any) -> None:
+        captures.append((exc, fields))
+
+    async def broken(**_kwargs: Any) -> dict[str, Any]:
+        raise RuntimeError("forced resolver failure")
+
+    monkeypatch.setattr("matrx_connect.streaming.error_capture.capture_error", fake_capture_error)
+    configure_context_resolver(broken)
+    try:
+        with caplog.at_level("ERROR"):
+            result = await build_agent_context("user-1", "conversation", "entity-1")
+    finally:
+        configure_context_resolver(None)
+
+    assert result.direct_variables["account_name"]["value"] == "Acme"
+    assert any("merge-field resolver refused" in record.message for record in caplog.records)
+    assert len(captures) == 1
+    assert isinstance(captures[0][0], RuntimeError)
+    assert captures[0][1] == {
+        "kind": CONTEXT_RESOLVER_FAILURE_KIND,
+        "route": "build_agent_context",
+        "error_type": "RuntimeError",
+        "error_text": "The injected context resolver failed; the direct tier split was used.",
+        "user_id": "user-1",
+        "context": {"entity_type": "conversation"},
     }

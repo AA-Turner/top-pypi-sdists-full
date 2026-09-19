@@ -9,6 +9,7 @@ import platform
 import socket
 import sqlite3
 import sys
+import tarfile
 import tempfile
 import threading
 import time
@@ -141,6 +142,27 @@ async def test_file_read_bytes(test_file: Path) -> None:
         assert isinstance(f, io.BufferedReader)
         with pytest.raises(BlockingError, match=r"io.BufferedReader.read"):
             f.read(1)
+
+
+@pytest.fixture
+def tar_member() -> Iterator[io.BufferedReader]:
+    with tempfile.TemporaryDirectory() as tmp_dir:
+        member = Path(tmp_dir) / "member.txt"
+        member.write_bytes(b"foo")
+        tar_path = Path(tmp_dir) / "archive.tar"
+        with tarfile.open(tar_path, mode="w") as tar:
+            tar.add(member, arcname=member.name)
+        with tarfile.open(tar_path) as tar:
+            fileobj = tar.extractfile(member.name)
+            assert isinstance(fileobj, io.BufferedReader)
+            yield fileobj
+
+
+async def test_tar_member_read(tar_member: io.BufferedReader) -> None:
+    # The raw object behind a `tarfile.ExFileObject` implements neither `fileno`
+    # nor `isatty`, but the read goes through to the archive file.
+    with pytest.raises(BlockingError, match=r"Blocking call to io.BufferedReader.read"):
+        tar_member.read(1)
 
 
 async def test_file_write_bytes(test_file: Path) -> None:
@@ -447,12 +469,15 @@ async def test_os_listdir() -> None:
         os.listdir("/1")
 
 
-@pytest.mark.skipif(sys.version_info < (3, 9), reason="requires Python 3.9+")
 async def test_os_scandir() -> None:
-    with os.scandir(tempfile.tempdir) as files, pytest.raises(
-        BlockingError, match=r"Blocking call to ScandirIterator.__next__"
-    ):
-        next(files)
+    with os.scandir(tempfile.tempdir) as files:
+        if (3, 9) <= sys.version_info < (3, 15):
+            with pytest.raises(
+                BlockingError, match=r"Blocking call to ScandirIterator.__next__"
+            ):
+                next(files)
+        else:
+            next(files)
 
 
 async def test_os_access() -> None:

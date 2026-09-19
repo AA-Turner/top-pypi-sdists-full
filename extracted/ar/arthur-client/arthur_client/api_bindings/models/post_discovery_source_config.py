@@ -17,7 +17,7 @@ import pprint
 import re  # noqa: F401
 import json
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from arthur_client.api_bindings.models.discovery_query_language import DiscoveryQueryLanguage
 from typing import Optional, Set
@@ -35,7 +35,8 @@ class PostDiscoverySourceConfig(BaseModel):
     schedule_timezone: Optional[StrictStr] = Field(default='UTC', description="IANA timezone the cron expression is evaluated in.")
     lookback_window_seconds: StrictInt = Field(description="How far back each run looks, in seconds. Should comfortably exceed the gap between two scheduled runs.")
     engine_ids: Optional[List[StrictStr]] = Field(default=None, description="IDs of the engines (data planes) this config runs on. One config can run on several engines across different workspaces.")
-    __properties: ClassVar[List[str]] = ["discovery_source_id", "name", "query", "query_language", "schedule_cron", "schedule_timezone", "lookback_window_seconds", "engine_ids"]
+    is_enabled: Optional[StrictBool] = Field(default=True, description="Whether this config is scheduled. Disabling one config stops that query alone: the other configs on the same source keep running, which is the difference between this switch and the source's. Disabling the source pauses every config it backs regardless of this flag.")
+    __properties: ClassVar[List[str]] = ["discovery_source_id", "name", "query", "query_language", "schedule_cron", "schedule_timezone", "lookback_window_seconds", "engine_ids", "is_enabled"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -95,7 +96,8 @@ class PostDiscoverySourceConfig(BaseModel):
             "schedule_cron": obj.get("schedule_cron"),
             "schedule_timezone": obj.get("schedule_timezone") if obj.get("schedule_timezone") is not None else 'UTC',
             "lookback_window_seconds": obj.get("lookback_window_seconds"),
-            "engine_ids": obj.get("engine_ids")
+            "engine_ids": obj.get("engine_ids"),
+            "is_enabled": obj.get("is_enabled") if obj.get("is_enabled") is not None else True
         })
         return _obj
 

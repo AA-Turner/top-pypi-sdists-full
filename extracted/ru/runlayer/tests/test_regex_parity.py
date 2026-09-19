@@ -407,6 +407,7 @@ _POSITIVE_SEEDS: dict[str, list[str]] = {
     "config_redact._SCAFFOLD_WORD": ["Bearer", "token"],
     "inspect_parse._ENV_VAR_RE": ["${A}", "$B_1"],
     "device._WSL_VERBOSE_ROW": ["* Ubuntu   Running  2"],
+    "device._CONSOLE_USERNAME_RE": ["awfrazer", "jane.doe-1_x"],
     "probes._LAUNCHCTL_PID_RE": ["  pid = 42  ", "pid=7"],
     "probes._LAUNCHCTL_RUNNING_RE": ["  state = running  "],
     "device_sync._MANAGED_INSTALL_NAME_RE": ["ok-name1", "a"],

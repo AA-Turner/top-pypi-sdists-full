@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -15,7 +15,7 @@ class LouvainEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         tolerance: float = 0.0001,
         max_levels: int = 10,
@@ -47,9 +47,9 @@ class LouvainEndpoints(ABC):
             Name of the node property to store the results in.
         tolerance
             Minimum change in scores between iterations.
-        max_levels : int, default=10
+        max_levels
             The maximum number of levels in the hierarchy
-        include_intermediate_communities : bool, default=False
+        include_intermediate_communities
             Whether to include intermediate communities
         max_iterations
             Maximum number of iterations to run per level.
@@ -65,7 +65,7 @@ class LouvainEndpoints(ABC):
             As an administrator, impersonate a different user for accessing their graphs.
         concurrency
             Number of concurrent threads to use.
-        job_id : str | None, default=None
+        job_id
             Identifier for the computation.
         seed_property
             Name of the property to be used to for the initial value of a node.
@@ -84,7 +84,7 @@ class LouvainEndpoints(ABC):
     @abstractmethod
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         tolerance: float = 0.0001,
         max_levels: int = 10,
         include_intermediate_communities: bool = False,
@@ -109,9 +109,9 @@ class LouvainEndpoints(ABC):
            Graph object to use
         tolerance
             Minimum change in scores between iterations.
-        max_levels : int, default=10
+        max_levels
             The maximum number of levels in the hierarchy
-        include_intermediate_communities : bool, default=False
+        include_intermediate_communities
             Whether to include intermediate community assignments
         max_iterations
             Maximum number of iterations to run per level.
@@ -146,7 +146,7 @@ class LouvainEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         tolerance: float = 0.0001,
         max_levels: int = 10,
         include_intermediate_communities: bool = False,
@@ -172,9 +172,9 @@ class LouvainEndpoints(ABC):
            Graph object to use
         tolerance
             Minimum change in scores between iterations.
-        max_levels : int, default=10
+        max_levels
             The maximum number of levels in the hierarchy
-        include_intermediate_communities : bool, default=False
+        include_intermediate_communities
             Whether to include intermediate community assignments
         max_iterations
             Maximum number of iterations to run per level.
@@ -203,7 +203,7 @@ class LouvainEndpoints(ABC):
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             DataFrame with the algorithm results
         """
         pass
@@ -211,7 +211,7 @@ class LouvainEndpoints(ABC):
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         tolerance: float = 0.0001,
         max_levels: int = 10,
@@ -241,9 +241,9 @@ class LouvainEndpoints(ABC):
             Name of the node property to store the results in.
         tolerance
             Minimum change in scores between iterations.
-        max_levels : int, default=10
+        max_levels
             The maximum number of levels in the hierarchy
-        include_intermediate_communities : bool, default=False
+        include_intermediate_communities
             Whether to include intermediate community assignments
         max_iterations
             Maximum number of iterations to run per level.
@@ -282,7 +282,7 @@ class LouvainEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         tolerance: float = 0.0001,
         max_levels: int = 10,
         include_intermediate_communities: bool = False,
@@ -303,9 +303,9 @@ class LouvainEndpoints(ABC):
            Graph object to use or a dictionary representing the graph dimensions.
         tolerance
             Minimum change in scores between iterations.
-        max_levels : int, default=10
+        max_levels
             The maximum number of levels in the hierarchy
-        include_intermediate_communities : bool, default=False
+        include_intermediate_communities
             Whether to include intermediate community assignments
         max_iterations
             Maximum number of iterations to run per level.

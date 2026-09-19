@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -15,7 +15,7 @@ class Node2VecEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         iterations: int = 1,
         negative_sampling_rate: int = 5,
@@ -52,21 +52,21 @@ class Node2VecEndpoints(ABC):
             Name of the node property to store the results in.
         iterations
             Number of iterations to run.
-        negative_sampling_rate : int, default=5
+        negative_sampling_rate
             Number of negative samples for each positive sample
-        positive_sampling_factor : float, default=0.001
+        positive_sampling_factor
             Factor to multiply positive sampling weights
-        embedding_dimension : int, default=128
-            The dimension of the generated embeddings
-        embedding_initializer : str, default="NORMALIZED"
+        embedding_dimension
+            Output dimensionality of the embeddings
+        embedding_initializer
             Strategy for initializing node embeddings. Either "UNIFORM" or "NORMALIZED"
-        initial_learning_rate : float, default=0.025
+        initial_learning_rate
             The initial learning rate
-        min_learning_rate : float, default=0.0001
+        min_learning_rate
             The minimum learning rate
-        window_size : int, default=10
+        window_size
             Size of the context window
-        negative_sampling_exponent : float, default=0.75
+        negative_sampling_exponent
             Exponent for negative sampling probability distribution
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -82,15 +82,15 @@ class Node2VecEndpoints(ABC):
             Number of concurrent threads to use.
         job_id
             Identifier for the computation.
-        walk_length : int, default=80
+        walk_length
             The length of each random walk
-        walks_per_node : int, default=10
+        walks_per_node
             Number of walks to sample for each node
-        in_out_factor : float, default=1.0
+        in_out_factor
             Controls the likelihood of immediately revisiting a node in the walk
-        return_factor : float, default=1.0
+        return_factor
             Controls the likelihood of visiting already visited nodes
-        walk_buffer_size : int, default=1000
+        walk_buffer_size
             Buffer size for walk sampling
         relationship_weight_property
             Name of the property to be used as weights.
@@ -106,7 +106,7 @@ class Node2VecEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         iterations: int = 1,
         negative_sampling_rate: int = 5,
         positive_sampling_factor: float = 0.001,
@@ -140,21 +140,21 @@ class Node2VecEndpoints(ABC):
            Graph object to use
         iterations
             Number of iterations to run.
-        negative_sampling_rate : int, default=5
+        negative_sampling_rate
             Number of negative samples for each positive sample
-        positive_sampling_factor : float, default=0.001
+        positive_sampling_factor
             Factor to multiply positive sampling weights
-        embedding_dimension : int, default=128
-            The dimension of the generated embeddings
-        embedding_initializer : str, default="NORMALIZED"
+        embedding_dimension
+            Output dimensionality of the embeddings
+        embedding_initializer
             Strategy for initializing node embeddings. Either "UNIFORM" or "NORMALIZED"
-        initial_learning_rate : float, default=0.025
+        initial_learning_rate
             The initial learning rate
-        min_learning_rate : float, default=0.0001
+        min_learning_rate
             The minimum learning rate
-        window_size : int, default=10
+        window_size
             Size of the context window
-        negative_sampling_exponent : float, default=0.75
+        negative_sampling_exponent
             Exponent for negative sampling probability distribution
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -170,15 +170,15 @@ class Node2VecEndpoints(ABC):
             Number of concurrent threads to use.
         job_id
             Identifier for the computation.
-        walk_length : int, default=80
+        walk_length
             The length of each random walk
-        walks_per_node : int, default=10
+        walks_per_node
             Number of walks to sample for each node
-        in_out_factor : float, default=1.0
+        in_out_factor
             Controls the likelihood of immediately revisiting a node in the walk
-        return_factor : float, default=1.0
+        return_factor
             Controls the likelihood of visiting already visited nodes
-        walk_buffer_size : int, default=1000
+        walk_buffer_size
             Buffer size for walk sampling
         relationship_weight_property
             Name of the property to be used as weights.
@@ -187,14 +187,14 @@ class Node2VecEndpoints(ABC):
 
         Returns
         -------
-        DataFrame
+        pandas.DataFrame
             Embeddings as a stream with columns nodeId and embedding
         """
 
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         iterations: int = 1,
         negative_sampling_rate: int = 5,
@@ -232,21 +232,21 @@ class Node2VecEndpoints(ABC):
             Name of the node property to store the results in.
         iterations
             Number of iterations to run.
-        negative_sampling_rate : int, default=5
+        negative_sampling_rate
             Number of negative samples for each positive sample
-        positive_sampling_factor : float, default=0.001
+        positive_sampling_factor
             Factor to multiply positive sampling weights
-        embedding_dimension : int, default=128
-            The dimension of the generated embeddings
-        embedding_initializer : str, default="NORMALIZED"
+        embedding_dimension
+            Output dimensionality of the embeddings
+        embedding_initializer
             Strategy for initializing node embeddings. Either "UNIFORM" or "NORMALIZED"
-        initial_learning_rate : float, default=0.025
+        initial_learning_rate
             The initial learning rate
-        min_learning_rate : float, default=0.0001
+        min_learning_rate
             The minimum learning rate
-        window_size : int, default=10
+        window_size
             Size of the context window
-        negative_sampling_exponent : float, default=0.75
+        negative_sampling_exponent
             Exponent for negative sampling probability distribution
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -262,15 +262,15 @@ class Node2VecEndpoints(ABC):
             Number of concurrent threads to use.
         job_id
             Identifier for the computation.
-        walk_length : int, default=80
+        walk_length
             The length of each random walk
-        walks_per_node : int, default=10
+        walks_per_node
             Number of walks to sample for each node
-        in_out_factor : float, default=1.0
+        in_out_factor
             Controls the likelihood of immediately revisiting a node in the walk
-        return_factor : float, default=1.0
+        return_factor
             Controls the likelihood of visiting already visited nodes
-        walk_buffer_size : int, default=1000
+        walk_buffer_size
             Buffer size for walk sampling
         relationship_weight_property
             Name of the property to be used as weights.
@@ -286,7 +286,7 @@ class Node2VecEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         iterations: int = 1,
         negative_sampling_rate: int = 5,
         positive_sampling_factor: float = 0.001,
@@ -316,21 +316,21 @@ class Node2VecEndpoints(ABC):
            Graph object to use or a dictionary representing the graph dimensions.
         iterations
             Number of iterations to run.
-        negative_sampling_rate : int, default=5
+        negative_sampling_rate
             Number of negative samples for each positive sample
-        positive_sampling_factor : float, default=0.001
+        positive_sampling_factor
             Factor to multiply positive sampling weights
-        embedding_dimension : int, default=128
-            The dimension of the generated embeddings
-        embedding_initializer : str, default="NORMALIZED"
+        embedding_dimension
+            Output dimensionality of the embeddings
+        embedding_initializer
             Strategy for initializing node embeddings. Either "UNIFORM" or "NORMALIZED"
-        initial_learning_rate : float, default=0.025
+        initial_learning_rate
             The initial learning rate
-        min_learning_rate : float, default=0.0001
+        min_learning_rate
             The minimum learning rate
-        window_size : int, default=10
+        window_size
             Size of the context window
-        negative_sampling_exponent : float, default=0.75
+        negative_sampling_exponent
             Exponent for negative sampling probability distribution
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -338,15 +338,15 @@ class Node2VecEndpoints(ABC):
             Filter the graph using the given node labels. Nodes with any of the given labels will be included.
         concurrency
             Number of concurrent threads to use.
-        walk_length : int, default=80
+        walk_length
             The length of each random walk
-        walks_per_node : int, default=10
+        walks_per_node
             Number of walks to sample for each node
-        in_out_factor : float, default=1.0
+        in_out_factor
             Controls the likelihood of immediately revisiting a node in the walk
-        return_factor : float, default=1.0
+        return_factor
             Controls the likelihood of visiting already visited nodes
-        walk_buffer_size : int, default=1000
+        walk_buffer_size
             Buffer size for walk sampling
         relationship_weight_property
             Name of the property to be used as weights.

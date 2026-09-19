@@ -17,8 +17,9 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 from typing_extensions import Annotated
 
 from pydantic import Field, StrictBool, StrictStr
-from typing import Optional
+from typing import Dict, Optional
 from typing_extensions import Annotated
+from arthur_client.api_bindings.models.discovery_scan import DiscoveryScan
 from arthur_client.api_bindings.models.discovery_source import DiscoverySource
 from arthur_client.api_bindings.models.discovery_source_config import DiscoverySourceConfig
 from arthur_client.api_bindings.models.discovery_source_config_sort import DiscoverySourceConfigSort
@@ -28,6 +29,7 @@ from arthur_client.api_bindings.models.discovery_source_type_schema import Disco
 from arthur_client.api_bindings.models.discovery_source_vendor import DiscoverySourceVendor
 from arthur_client.api_bindings.models.patch_discovery_source import PatchDiscoverySource
 from arthur_client.api_bindings.models.patch_discovery_source_config import PatchDiscoverySourceConfig
+from arthur_client.api_bindings.models.post_discovery_scan import PostDiscoveryScan
 from arthur_client.api_bindings.models.post_discovery_source import PostDiscoverySource
 from arthur_client.api_bindings.models.post_discovery_source_config import PostDiscoverySourceConfig
 from arthur_client.api_bindings.models.post_discovery_source_config_engines import PostDiscoverySourceConfigEngines
@@ -1456,6 +1458,276 @@ class DiscoverySourcesV1Api:
 
 
     @validate_call
+    def get_discovery_scan(
+        self,
+        scan_id: Annotated[StrictStr, Field(description="The ID of the scan.")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> DiscoveryScan:
+        """Get Discovery Scan
+
+        Returns one on-demand scan and the status of each config it dispatched. The scan reads as completed only once every one of those jobs has stopped, and reports per-source status rather than a single verdict: a source that failed while its siblings collected normally is the part worth seeing. Requires organization_trigger_discovery_scan permission.
+
+        :param scan_id: The ID of the scan. (required)
+        :type scan_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_discovery_scan_serialize(
+            scan_id=scan_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DiscoveryScan",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def get_discovery_scan_with_http_info(
+        self,
+        scan_id: Annotated[StrictStr, Field(description="The ID of the scan.")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[DiscoveryScan]:
+        """Get Discovery Scan
+
+        Returns one on-demand scan and the status of each config it dispatched. The scan reads as completed only once every one of those jobs has stopped, and reports per-source status rather than a single verdict: a source that failed while its siblings collected normally is the part worth seeing. Requires organization_trigger_discovery_scan permission.
+
+        :param scan_id: The ID of the scan. (required)
+        :type scan_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_discovery_scan_serialize(
+            scan_id=scan_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DiscoveryScan",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def get_discovery_scan_without_preload_content(
+        self,
+        scan_id: Annotated[StrictStr, Field(description="The ID of the scan.")],
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Get Discovery Scan
+
+        Returns one on-demand scan and the status of each config it dispatched. The scan reads as completed only once every one of those jobs has stopped, and reports per-source status rather than a single verdict: a source that failed while its siblings collected normally is the part worth seeing. Requires organization_trigger_discovery_scan permission.
+
+        :param scan_id: The ID of the scan. (required)
+        :type scan_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._get_discovery_scan_serialize(
+            scan_id=scan_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DiscoveryScan",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _get_discovery_scan_serialize(
+        self,
+        scan_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if scan_id is not None:
+            _path_params['scan_id'] = scan_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='GET',
+            resource_path='/api/v1/discovery_scans/{scan_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
     def get_discovery_source(
         self,
         discovery_source_id: StrictStr,
@@ -2273,6 +2545,7 @@ class DiscoverySourcesV1Api:
         discovery_source_id: Annotated[Optional[StrictStr], Field(description="Filter configs by the discovery source they belong to.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter configs by name (case-insensitive partial match).")] = None,
         engine_id: Annotated[Optional[StrictStr], Field(description="Filter configs by an engine they are assigned to.")] = None,
+        is_enabled: Annotated[Optional[StrictBool], Field(description="Filter configs by whether they are scheduled. Left off, both scheduled and paused configs are returned.")] = None,
         include_deleted: Annotated[Optional[StrictBool], Field(description="When true, include soft-deleted records. Deleted sources are retained so findings already collected keep resolving to them.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
@@ -2303,6 +2576,8 @@ class DiscoverySourcesV1Api:
         :type name: str
         :param engine_id: Filter configs by an engine they are assigned to.
         :type engine_id: str
+        :param is_enabled: Filter configs by whether they are scheduled. Left off, both scheduled and paused configs are returned.
+        :type is_enabled: bool
         :param include_deleted: When true, include soft-deleted records. Deleted sources are retained so findings already collected keep resolving to them.
         :type include_deleted: bool
         :param page: The page to return starting from 1 up to total_pages.
@@ -2337,6 +2612,7 @@ class DiscoverySourcesV1Api:
             discovery_source_id=discovery_source_id,
             name=name,
             engine_id=engine_id,
+            is_enabled=is_enabled,
             include_deleted=include_deleted,
             page=page,
             page_size=page_size,
@@ -2370,6 +2646,7 @@ class DiscoverySourcesV1Api:
         discovery_source_id: Annotated[Optional[StrictStr], Field(description="Filter configs by the discovery source they belong to.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter configs by name (case-insensitive partial match).")] = None,
         engine_id: Annotated[Optional[StrictStr], Field(description="Filter configs by an engine they are assigned to.")] = None,
+        is_enabled: Annotated[Optional[StrictBool], Field(description="Filter configs by whether they are scheduled. Left off, both scheduled and paused configs are returned.")] = None,
         include_deleted: Annotated[Optional[StrictBool], Field(description="When true, include soft-deleted records. Deleted sources are retained so findings already collected keep resolving to them.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
@@ -2400,6 +2677,8 @@ class DiscoverySourcesV1Api:
         :type name: str
         :param engine_id: Filter configs by an engine they are assigned to.
         :type engine_id: str
+        :param is_enabled: Filter configs by whether they are scheduled. Left off, both scheduled and paused configs are returned.
+        :type is_enabled: bool
         :param include_deleted: When true, include soft-deleted records. Deleted sources are retained so findings already collected keep resolving to them.
         :type include_deleted: bool
         :param page: The page to return starting from 1 up to total_pages.
@@ -2434,6 +2713,7 @@ class DiscoverySourcesV1Api:
             discovery_source_id=discovery_source_id,
             name=name,
             engine_id=engine_id,
+            is_enabled=is_enabled,
             include_deleted=include_deleted,
             page=page,
             page_size=page_size,
@@ -2467,6 +2747,7 @@ class DiscoverySourcesV1Api:
         discovery_source_id: Annotated[Optional[StrictStr], Field(description="Filter configs by the discovery source they belong to.")] = None,
         name: Annotated[Optional[StrictStr], Field(description="Filter configs by name (case-insensitive partial match).")] = None,
         engine_id: Annotated[Optional[StrictStr], Field(description="Filter configs by an engine they are assigned to.")] = None,
+        is_enabled: Annotated[Optional[StrictBool], Field(description="Filter configs by whether they are scheduled. Left off, both scheduled and paused configs are returned.")] = None,
         include_deleted: Annotated[Optional[StrictBool], Field(description="When true, include soft-deleted records. Deleted sources are retained so findings already collected keep resolving to them.")] = None,
         page: Annotated[Optional[Annotated[int, Field(strict=True, ge=1)]], Field(description="The page to return starting from 1 up to total_pages.")] = None,
         page_size: Annotated[Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]], Field(description="The number of records per page. The max is 1000.")] = None,
@@ -2497,6 +2778,8 @@ class DiscoverySourcesV1Api:
         :type name: str
         :param engine_id: Filter configs by an engine they are assigned to.
         :type engine_id: str
+        :param is_enabled: Filter configs by whether they are scheduled. Left off, both scheduled and paused configs are returned.
+        :type is_enabled: bool
         :param include_deleted: When true, include soft-deleted records. Deleted sources are retained so findings already collected keep resolving to them.
         :type include_deleted: bool
         :param page: The page to return starting from 1 up to total_pages.
@@ -2531,6 +2814,7 @@ class DiscoverySourcesV1Api:
             discovery_source_id=discovery_source_id,
             name=name,
             engine_id=engine_id,
+            is_enabled=is_enabled,
             include_deleted=include_deleted,
             page=page,
             page_size=page_size,
@@ -2559,6 +2843,7 @@ class DiscoverySourcesV1Api:
         discovery_source_id,
         name,
         engine_id,
+        is_enabled,
         include_deleted,
         page,
         page_size,
@@ -2603,6 +2888,10 @@ class DiscoverySourcesV1Api:
         if engine_id is not None:
             
             _query_params.append(('engine_id', engine_id))
+            
+        if is_enabled is not None:
+            
+            _query_params.append(('is_enabled', is_enabled))
             
         if include_deleted is not None:
             
@@ -3614,6 +3903,556 @@ class DiscoverySourcesV1Api:
         return self.api_client.param_serialize(
             method='DELETE',
             resource_path='/api/v1/discovery_source_configs/{discovery_source_config_id}/engines/{engine_id}',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def retrieve_discovery_source_credentials(
+        self,
+        discovery_source_config_id: StrictStr,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> Dict[str, Optional[str]]:
+        """Retrieve Source Credentials
+
+        Returns current sensitive fields only to an authenticated data-plane account assigned to this config in the same organization. Disabled or deleted sources/configs are denied. Never place the result in job parameters.
+
+        :param discovery_source_config_id: (required)
+        :type discovery_source_config_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._retrieve_discovery_source_credentials_serialize(
+            discovery_source_config_id=discovery_source_config_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "Dict[str, Optional[str]]",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def retrieve_discovery_source_credentials_with_http_info(
+        self,
+        discovery_source_config_id: StrictStr,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[Dict[str, Optional[str]]]:
+        """Retrieve Source Credentials
+
+        Returns current sensitive fields only to an authenticated data-plane account assigned to this config in the same organization. Disabled or deleted sources/configs are denied. Never place the result in job parameters.
+
+        :param discovery_source_config_id: (required)
+        :type discovery_source_config_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._retrieve_discovery_source_credentials_serialize(
+            discovery_source_config_id=discovery_source_config_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "Dict[str, Optional[str]]",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def retrieve_discovery_source_credentials_without_preload_content(
+        self,
+        discovery_source_config_id: StrictStr,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Retrieve Source Credentials
+
+        Returns current sensitive fields only to an authenticated data-plane account assigned to this config in the same organization. Disabled or deleted sources/configs are denied. Never place the result in job parameters.
+
+        :param discovery_source_config_id: (required)
+        :type discovery_source_config_id: str
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._retrieve_discovery_source_credentials_serialize(
+            discovery_source_config_id=discovery_source_config_id,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "Dict[str, Optional[str]]",
+            '500': "InternalServerError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _retrieve_discovery_source_credentials_serialize(
+        self,
+        discovery_source_config_id,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        if discovery_source_config_id is not None:
+            _path_params['discovery_source_config_id'] = discovery_source_config_id
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v1/discovery_source_configs/{discovery_source_config_id}/credentials',
+            path_params=_path_params,
+            query_params=_query_params,
+            header_params=_header_params,
+            body=_body_params,
+            post_params=_form_params,
+            files=_files,
+            auth_settings=_auth_settings,
+            collection_formats=_collection_formats,
+            _host=_host,
+            _request_auth=_request_auth
+        )
+
+
+
+
+    @validate_call
+    def trigger_discovery_scan(
+        self,
+        post_discovery_scan: PostDiscoveryScan,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> DiscoveryScan:
+        """Scan Now
+
+        Runs every enabled discovery source config assigned to one engine, right now, without waiting for its schedule. One scan job is enqueued per config - the same fan-out the schedule performs - so one source failing leaves its siblings untouched. The response reports each config separately and is complete only once every job has finished; poll the returned scan ID for that. Requires organization_trigger_discovery_scan permission.
+
+        :param post_discovery_scan: (required)
+        :type post_discovery_scan: PostDiscoveryScan
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._trigger_discovery_scan_serialize(
+            post_discovery_scan=post_discovery_scan,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DiscoveryScan",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        ).data
+
+
+    @validate_call
+    def trigger_discovery_scan_with_http_info(
+        self,
+        post_discovery_scan: PostDiscoveryScan,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> ApiResponse[DiscoveryScan]:
+        """Scan Now
+
+        Runs every enabled discovery source config assigned to one engine, right now, without waiting for its schedule. One scan job is enqueued per config - the same fan-out the schedule performs - so one source failing leaves its siblings untouched. The response reports each config separately and is complete only once every job has finished; poll the returned scan ID for that. Requires organization_trigger_discovery_scan permission.
+
+        :param post_discovery_scan: (required)
+        :type post_discovery_scan: PostDiscoveryScan
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._trigger_discovery_scan_serialize(
+            post_discovery_scan=post_discovery_scan,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DiscoveryScan",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        response_data.read()
+        return self.api_client.response_deserialize(
+            response_data=response_data,
+            response_types_map=_response_types_map,
+        )
+
+
+    @validate_call
+    def trigger_discovery_scan_without_preload_content(
+        self,
+        post_discovery_scan: PostDiscoveryScan,
+        _request_timeout: Union[
+            None,
+            Annotated[StrictFloat, Field(gt=0)],
+            Tuple[
+                Annotated[StrictFloat, Field(gt=0)],
+                Annotated[StrictFloat, Field(gt=0)]
+            ]
+        ] = None,
+        _request_auth: Optional[Dict[StrictStr, Any]] = None,
+        _content_type: Optional[StrictStr] = None,
+        _headers: Optional[Dict[StrictStr, Any]] = None,
+        _host_index: Annotated[StrictInt, Field(ge=0, le=0)] = 0,
+    ) -> RESTResponseType:
+        """Scan Now
+
+        Runs every enabled discovery source config assigned to one engine, right now, without waiting for its schedule. One scan job is enqueued per config - the same fan-out the schedule performs - so one source failing leaves its siblings untouched. The response reports each config separately and is complete only once every job has finished; poll the returned scan ID for that. Requires organization_trigger_discovery_scan permission.
+
+        :param post_discovery_scan: (required)
+        :type post_discovery_scan: PostDiscoveryScan
+        :param _request_timeout: timeout setting for this request. If one
+                                 number provided, it will be total request
+                                 timeout. It can also be a pair (tuple) of
+                                 (connection, read) timeouts.
+        :type _request_timeout: int, tuple(int, int), optional
+        :param _request_auth: set to override the auth_settings for an a single
+                              request; this effectively ignores the
+                              authentication in the spec for a single request.
+        :type _request_auth: dict, optional
+        :param _content_type: force content-type for the request.
+        :type _content_type: str, Optional
+        :param _headers: set to override the headers for a single
+                         request; this effectively ignores the headers
+                         in the spec for a single request.
+        :type _headers: dict, optional
+        :param _host_index: set to override the host_index for a single
+                            request; this effectively ignores the host_index
+                            in the spec for a single request.
+        :type _host_index: int, optional
+        :return: Returns the result object.
+        """ # noqa: E501
+
+        _param = self._trigger_discovery_scan_serialize(
+            post_discovery_scan=post_discovery_scan,
+            _request_auth=_request_auth,
+            _content_type=_content_type,
+            _headers=_headers,
+            _host_index=_host_index
+        )
+
+        _response_types_map: Dict[str, Optional[str]] = {
+            '200': "DiscoveryScan",
+            '500': "InternalServerError",
+            '404': "NotFoundError",
+            '422': "HTTPValidationError",
+        }
+        response_data = self.api_client.call_api(
+            *_param,
+            _request_timeout=_request_timeout
+        )
+        return response_data.response
+
+
+    def _trigger_discovery_scan_serialize(
+        self,
+        post_discovery_scan,
+        _request_auth,
+        _content_type,
+        _headers,
+        _host_index,
+    ) -> RequestSerialized:
+
+        _host = None
+
+        _collection_formats: Dict[str, str] = {
+        }
+
+        _path_params: Dict[str, str] = {}
+        _query_params: List[Tuple[str, str]] = []
+        _header_params: Dict[str, Optional[str]] = _headers or {}
+        _form_params: List[Tuple[str, str]] = []
+        _files: Dict[
+            str, Union[str, bytes, List[str], List[bytes], List[Tuple[str, bytes]]]
+        ] = {}
+        _body_params: Optional[bytes] = None
+
+        # process the path parameters
+        # process the query parameters
+        # process the header parameters
+        # process the form parameters
+        # process the body parameter
+        if post_discovery_scan is not None:
+            _body_params = post_discovery_scan
+
+
+        # set the HTTP header `Accept`
+        if 'Accept' not in _header_params:
+            _header_params['Accept'] = self.api_client.select_header_accept(
+                [
+                    'application/json'
+                ]
+            )
+
+        # set the HTTP header `Content-Type`
+        if _content_type:
+            _header_params['Content-Type'] = _content_type
+        else:
+            _default_content_type = (
+                self.api_client.select_header_content_type(
+                    [
+                        'application/json'
+                    ]
+                )
+            )
+            if _default_content_type is not None:
+                _header_params['Content-Type'] = _default_content_type
+
+        # authentication setting
+        _auth_settings: List[str] = [
+            'OAuth2AuthorizationCode'
+        ]
+
+        return self.api_client.param_serialize(
+            method='POST',
+            resource_path='/api/v1/discovery_scans',
             path_params=_path_params,
             query_params=_query_params,
             header_params=_header_params,

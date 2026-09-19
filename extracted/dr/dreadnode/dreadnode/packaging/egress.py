@@ -24,6 +24,7 @@ thing wherever it is written (``TSK-EGR-007``, ``RT-SBX-006``).
 import ipaddress
 import re
 import typing as t
+from urllib.parse import urlsplit
 
 # Mirrors the platform's ``MAX_EGRESS_TARGETS``.
 MAX_EGRESS_TARGETS = 50
@@ -70,6 +71,29 @@ def validate_target(value: t.Any, *, where: str = "egress target") -> str:
         raise EgressTargetError(f"{where} must be a non-empty target")
     if any(ch.isspace() for ch in stripped):
         raise EgressTargetError(f"{where} {value!r} must not contain whitespace")
+
+    if stripped.startswith("tcp://"):
+        try:
+            endpoint = urlsplit(stripped)
+            port = endpoint.port
+        except ValueError as exc:
+            raise EgressTargetError(f"{where} has an invalid TCP endpoint: {exc}") from exc
+        if (
+            not endpoint.hostname
+            or port is None
+            or port == 0
+            or endpoint.username is not None
+            or endpoint.password is not None
+            or endpoint.path
+            or endpoint.query
+            or endpoint.fragment
+        ):
+            raise EgressTargetError(f"{where} must be tcp://<host>:<port> with port 1-65535")
+        host = validate_target(endpoint.hostname, where=where)
+        if "/" in host:
+            raise EgressTargetError(f"{where} cannot combine a CIDR and TCP port")
+        authority = f"[{host}]" if ":" in host else host
+        return f"tcp://{authority}:{port}"
 
     # Catch the shapes people reach for that are not targets, before the
     # grammar rejects them with a less useful message.

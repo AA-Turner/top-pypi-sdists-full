@@ -7,7 +7,6 @@ import io
 import json
 import os
 import platform
-import re
 import typing as t
 import zipfile
 from dataclasses import dataclass
@@ -15,55 +14,13 @@ from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 
 from dreadnode.app import paths
+from dreadnode.app.diagnostics import redact_sensitive_text
 from dreadnode.core.log import LogEntry
 from dreadnode.version import VERSION
 
 MAX_BUNDLE_BYTES = 2 * 1024 * 1024
 MAX_CATEGORY_BYTES = 384 * 1024
 MAX_TOTAL_CONTENT_BYTES = 1536 * 1024
-
-_REDACTED = "[REDACTED]"
-_SECRET_ASSIGNMENT_RE = re.compile(
-    r"""(?ix)
-    (?P<prefix>
-        ["']?\b
-        (?:[a-z0-9]+[_-])*
-        (?:authorization|proxy-authorization|x-api-key|api[_-]?key|
-           access[_-]?token|refresh[_-]?token|id[_-]?token|password|
-           passwd|client[_-]?secret|secret)
-        \b["']?\s*[=:]\s*
-    )
-    (?:
-        (?P<double_quote>") (?:\\.|[^"\\\r\n])* "
-        |
-        (?P<single_quote>') (?:\\.|[^'\\\r\n])* '
-        |
-        (?:Bearer\s+)?[^\s,;}\]"']+
-    )
-    """
-)
-_BEARER_RE = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+")
-_KNOWN_TOKEN_RE = re.compile(
-    r"\b(?:sk-[A-Za-z0-9_-]{12,}|dn_[A-Za-z0-9_-]{12,}|"
-    r"ghp_[A-Za-z0-9]{12,}|github_pat_[A-Za-z0-9_]{12,}|"
-    r"xox[baprs]-[A-Za-z0-9-]{12,})\b"
-)
-_URL_CREDENTIAL_RE = re.compile(r"(?i)(https?://[^\s/:@]+:)([^\s@]+)(@)")
-
-
-def redact_sensitive_text(value: str) -> str:
-    """Redact common credentials without dumping or inspecting environment state."""
-
-    def redact_assignment(match: re.Match[str]) -> str:
-        quote = match.group("double_quote") or match.group("single_quote") or ""
-        return f"{match.group('prefix')}{quote}{_REDACTED}{quote}"
-
-    value = _SECRET_ASSIGNMENT_RE.sub(redact_assignment, value)
-    value = _BEARER_RE.sub(f"Bearer {_REDACTED}", value)
-    value = _KNOWN_TOKEN_RE.sub(_REDACTED, value)
-    return _URL_CREDENTIAL_RE.sub(
-        lambda match: f"{match.group(1)}{_REDACTED}{match.group(3)}", value
-    )
 
 
 @dataclass(frozen=True, slots=True)

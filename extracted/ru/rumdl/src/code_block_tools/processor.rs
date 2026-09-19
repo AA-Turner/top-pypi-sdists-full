@@ -17,6 +17,11 @@ use pulldown_cmark::{CodeBlockKind, Event, Parser, Tag, TagEnd};
 /// external execution since it's handled by embedded markdown linting.
 pub const RUMDL_BUILTIN_TOOL: &str = "rumdl";
 
+/// Embedded Markdown tools are handled in-process, never as external commands.
+pub fn is_rumdl_builtin(tool_id: &str) -> bool {
+    matches!(tool_id, RUMDL_BUILTIN_TOOL | "rumdl:lint" | "rumdl:format")
+}
+
 /// Check if a language is markdown (handles common variations).
 fn is_markdown_language(lang: &str) -> bool {
     matches!(lang.to_lowercase().as_str(), "markdown" | "md")
@@ -747,7 +752,7 @@ impl<'a> CodeBlockToolProcessor<'a> {
             // Run each lint tool
             for tool_id in lint_tools {
                 // Skip built-in "rumdl" tool for markdown - handled separately by embedded markdown linting
-                if tool_id == RUMDL_BUILTIN_TOOL && is_markdown_language(&canonical_lang) {
+                if is_rumdl_builtin(tool_id) && is_markdown_language(&canonical_lang) {
                     continue;
                 }
 
@@ -842,6 +847,16 @@ impl<'a> CodeBlockToolProcessor<'a> {
     /// With `on-missing-*` = `fail`, errors are collected but formatting continues.
     /// With `on-missing-*` = `fail-fast`, returns Err immediately on first error.
     pub fn format(&self, content: &str) -> Result<FormatOutput, ProcessorError> {
+        self.format_with_config(content, &crate::config::Config::default(), None)
+    }
+
+    /// Format with the document's conflict-marker configuration and per-file exceptions.
+    pub fn format_with_config(
+        &self,
+        content: &str,
+        config: &crate::config::Config,
+        path: Option<&std::path::Path>,
+    ) -> Result<FormatOutput, ProcessorError> {
         let no_output = FormatOutput {
             content: content.to_string(),
             had_errors: false,
@@ -849,7 +864,7 @@ impl<'a> CodeBlockToolProcessor<'a> {
             failures: Vec::new(),
         };
 
-        if crate::merge_conflict::detect(content).is_some() {
+        if crate::merge_conflict::detect_configured(content, config, path).is_some() {
             return Ok(no_output);
         }
 
@@ -950,7 +965,7 @@ impl<'a> CodeBlockToolProcessor<'a> {
             let mut tool_ran = false;
             for tool_id in format_tools {
                 // Skip built-in "rumdl" tool for markdown - handled separately by embedded markdown formatting
-                if tool_id == RUMDL_BUILTIN_TOOL && is_markdown_language(&canonical_lang) {
+                if is_rumdl_builtin(tool_id) && is_markdown_language(&canonical_lang) {
                     continue;
                 }
 
@@ -1071,7 +1086,7 @@ impl<'a> CodeBlockToolProcessor<'a> {
     /// every axis that matters (exit code, whether the diff goes to stdout, whether the
     /// flag survives alongside the stdin argument the tool also needs).
     ///
-    /// The comparison mirrors the one [`Self::format_blocks`] makes before rewriting a
+    /// The comparison mirrors the one [`Self::format`] makes before rewriting a
     /// block, so `check` reports exactly the blocks `fmt` would change.
     fn format_check_diagnostics(
         &self,
@@ -1502,7 +1517,7 @@ impl<'a> CodeBlockToolProcessor<'a> {
         })
     }
 
-    /// Parse "Error: <message>" or "Warning: <message>" lines.
+    /// Parse `Error: <message>` or `Warning: <message>` lines.
     ///
     /// Used for tools like tombi that output multi-line diagnostics where the
     /// error message and position are on separate lines. Only matches capitalized
@@ -3393,6 +3408,7 @@ console.log('hi');
     fn merge_conflict_prevents_external_formatting() {
         use super::super::config::{LanguageToolConfig, ToolDefinition};
         let mut config = default_config();
+        config.on_missing_tool_binary = OnMissing::Fail;
         config.languages.insert(
             "testlang".to_string(),
             LanguageToolConfig {
@@ -3413,6 +3429,16 @@ console.log('hi');
         assert_eq!(output.content, content);
         assert!(!output.had_errors);
         assert!(output.failures.is_empty());
+
+        // Disabling the safety rule must let the formatter run, rather than
+        // silently skipping every code block because of a documented marker.
+        let mut document_config = crate::config::Config::default();
+        document_config.global.disable.push("MD092".into());
+        let output = processor.format_with_config(content, &document_config, None).unwrap();
+        assert!(output.had_errors);
+        assert!(!output.failures.is_empty());
+        let suppressed = format!("<!-- rumdl-disable MD092 -->\n{content}");
+        assert!(processor.format(&suppressed).unwrap().had_errors);
     }
 
     /// A linter that enforces a trailing newline (like ryl/yamllint

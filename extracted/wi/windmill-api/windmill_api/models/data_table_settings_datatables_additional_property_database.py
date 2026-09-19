@@ -13,10 +13,12 @@ T = TypeVar("T", bound="DataTableSettingsDatatablesAdditionalPropertyDatabase")
 
 @_attrs_define
 class DataTableSettingsDatatablesAdditionalPropertyDatabase:
-    """
-    Attributes:
-        resource_type (DataTableSettingsDatatablesAdditionalPropertyDatabaseResourceType):
-        resource_path (Union[Unset, str]):
+    """Set on an entry that owns its database. Absent on a fork's entry, which points at another workspace's data table
+    instead.
+
+        Attributes:
+            resource_type (DataTableSettingsDatatablesAdditionalPropertyDatabaseResourceType):
+            resource_path (Union[Unset, str]):
     """
 
     resource_type: DataTableSettingsDatatablesAdditionalPropertyDatabaseResourceType

@@ -1008,6 +1008,83 @@ def test_enterprise_claude_code_managed_dir(
     assert paths.enterprise_claude_code_managed_dir() == expected
 
 
+@pytest.mark.parametrize(
+    ("system", "expected"),
+    [
+        ("Darwin", Path("/etc/codex/managed_config.toml")),
+        ("Linux", Path("/etc/codex/managed_config.toml")),
+        # Codex's Windows System layer is ``%ProgramData%\OpenAI\Codex\config.toml``;
+        # ``managed_config.toml`` is only read from ``~/.codex`` there.
+        ("Windows", Path("C:/ProgramData/OpenAI/Codex/config.toml")),
+    ],
+)
+def test_codex_mdm_routing_targets_system_layer_toml(
+    system: str,
+    expected: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    from runlayer_cli.hook_install.clients import _codex_features_toml_file
+
+    monkeypatch.setattr(paths.platform, "system", lambda: system)
+    monkeypatch.setattr(
+        Path,
+        "home",
+        classmethod(lambda cls: Path("C:/Windows/system32/config/systemprofile")),
+    )
+
+    assert _codex_features_toml_file(InstallScope.MDM) == expected
+
+
+def test_windows_mdm_codex_route_shares_config_toml_with_hooks_feature(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Hook enablement and LLM routing both land in the one ProgramData
+    ``config.toml``; routing must keep ``[features] hooks = true`` intact."""
+    from runlayer_cli.hook_install import clients as clients_module
+
+    codex_dir = tmp_path / "ProgramData" / "OpenAI" / "Codex"
+    codex_path = codex_dir / "config.toml"
+    monkeypatch.setattr(paths.platform, "system", lambda: "Windows")
+    monkeypatch.setattr(clients_module, "enterprise_codex_dir", lambda: codex_dir)
+    monkeypatch.setattr(
+        llm_routing,
+        "_claude_code_config_file",
+        lambda _scope: tmp_path / "claude" / "managed-settings.json",
+    )
+    monkeypatch.setattr(
+        llm_routing,
+        "resolve_credential_helper",
+        lambda _scope: {
+            "executable": "C:/Program Files/Runlayer/aiwatch.exe",
+            "args": [],
+        },
+    )
+    monkeypatch.setattr(llm_routing, "_reown_to_console_user", lambda _path: None)
+    monkeypatch.setattr(
+        llm_routing,
+        "is_unsafe_windows_mdm_path",
+        lambda *_args, **_kwargs: False,
+    )
+    clients_module._enable_codex_hooks_feature(
+        clients_module._codex_features_toml_file(InstallScope.MDM)
+    )
+
+    result = llm_routing.route_detailed(
+        "https://gateway.example.com",
+        scope=InstallScope.MDM,
+    )
+
+    assert result[llm_routing.CODEX_CLIENT] is llm_routing.RouteResult.DRIFTED
+    content = codex_path.read_text()
+    assert 'model_provider = "runlayer"' in content
+    assert "[features]" in content
+    assert "hooks = true" in content
+    assert "[model_providers.runlayer]" in content
+    assert not (codex_dir / "managed_config.toml").exists()
+    assert clients_module._toml_has_features_hooks_true(content)
+
+
 def test_resolve_credential_helper_mdm_uses_protected_symlink(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -1103,3 +1180,211 @@ def test_credential_subcommand_constants_agree() -> None:
         == paths._CREDENTIAL_SUBCOMMAND
         == aiwatch_credential.CREDENTIAL_SUBCOMMAND
     )
+
+
+# --- Trailing inline comment on a table header (spec-valid TOML) ---
+#
+# The hand-rolled TOML parser used to reject any header carrying a trailing
+# ` # ...` comment, so a runlayer-managed file annotated by an operator like
+# `[model_providers.runlayer] # provider` was misclassified as foreign content.
+# That made reconcile emit a second clean `[model_providers.runlayer]` table
+# beside it (invalid TOML: duplicate table), `_codex_matches` then self-matched
+# the corrupt output so reconcile never repaired it, and unroute left the
+# orphaned commented-header block behind. The tests below pin the fix.
+
+
+def test_is_table_header_recognizes_trailing_inline_comment() -> None:
+    assert llm_routing._is_table_header("[model_providers.runlayer] # provider")
+    assert llm_routing._is_table_header("[model_providers.runlayer.auth] # auth")
+    assert llm_routing._is_table_header(
+        "[model_providers.runlayer]  #  two-space comment  "
+    )
+    # Leading and trailing whitespace around the whole line are tolerated.
+    assert llm_routing._is_table_header("  [model_providers.runlayer] # provider  ")
+
+
+def test_is_table_header_still_rejects_non_headers_and_full_line_comments() -> None:
+    # Full-line comments must not be mistaken for headers even if they look
+    # like one after the `#`.
+    assert not llm_routing._is_table_header("# [model_providers.runlayer]")
+    assert not llm_routing._is_table_header('name = "Runlayer" # not a header')
+    assert not llm_routing._is_table_header("[model_providers.runlayer")
+    assert not llm_routing._is_table_header("model_providers.runlayer]")
+    assert not llm_routing._is_table_header("")
+
+
+def test_table_name_strips_trailing_inline_comment() -> None:
+    assert (
+        llm_routing._table_name("[model_providers.runlayer] # provider")
+        == llm_routing._CODEX_PROVIDER_TABLE
+    )
+    assert (
+        llm_routing._table_name("[model_providers.runlayer.auth] # auth")
+        == llm_routing._CODEX_AUTH_TABLE
+    )
+    # A quoted foreign key keeps its content; only the comment is stripped.
+    assert (
+        llm_routing._table_name('[model_providers."run layer"] # foreign')
+        == "[model_providers.run layer]"
+    )
+
+
+def _codex_provider_auth() -> tuple[dict[str, str], dict[str, str]]:
+    provider = {
+        "name": llm_routing._toml_string("Runlayer"),
+        "base_url": llm_routing._toml_string("https://gateway.example.com/openai/v1"),
+        "wire_api": llm_routing._toml_string("responses"),
+    }
+    auth = {
+        "command": llm_routing._toml_string("/usr/local/bin/aiwatch"),
+        "args": llm_routing._toml_array(["credential", "codex"]),
+        "timeout_ms": "5000",
+        "refresh_interval_ms": "240000",
+    }
+    return provider, auth
+
+
+def test_codex_matches_ignores_trailing_comment_on_table_header() -> None:
+    """A spec-valid trailing comment on [model_providers.runlayer] must not
+    break _codex_matches / _render_codex_route / _without_runlayer_codex_config."""
+    try:
+        import tomllib
+    except ImportError:
+        import tomli as tomllib  # type: ignore[no-redef]
+
+    provider, auth = _codex_provider_auth()
+
+    # Clean canonical file (what _render_codex_route produces).
+    clean = (
+        'model_provider = "runlayer"\n'
+        "\n"
+        "[model_providers.runlayer]\n"
+        'name = "Runlayer"\n'
+        'base_url = "https://gateway.example.com/openai/v1"\n'
+        'wire_api = "responses"\n'
+        "\n"
+        "[model_providers.runlayer.auth]\n"
+        'command = "/usr/local/bin/aiwatch"\n'
+        'args = ["credential", "codex"]\n'
+        "timeout_ms = 5000\n"
+        "refresh_interval_ms = 240000\n"
+    )
+    # Human adds a trailing comment to the provider table header.
+    commented = clean.replace(
+        "[model_providers.runlayer]\n",
+        "[model_providers.runlayer] # provider\n",
+    )
+
+    # (a) The file IS correctly managed — the comment does not change semantics.
+    assert llm_routing._codex_matches(commented, provider, auth)
+
+    # (b) If reconcile rewrites anyway, the output must remain valid TOML and
+    #     contain exactly one [model_providers.runlayer] table (no duplicates).
+    rendered = llm_routing._render_codex_route(commented, provider, auth)
+    parsed = tomllib.loads(rendered)  # raises on duplicate-table corruption
+    assert parsed["model_provider"] == "runlayer"
+    assert "runlayer" in parsed["model_providers"]
+    assert rendered.count("[model_providers.runlayer]") == 1
+    assert rendered.count("[model_providers.runlayer.auth]") == 1
+
+    # (c) Unroute removes the runlayer provider block even when its header was
+    #     commented, leaving no stale residue and no top-level routing pointer.
+    unrouted = llm_routing._without_runlayer_codex_config(rendered)
+    assert "model_providers.runlayer" not in unrouted
+    assert 'model_provider = "runlayer"' not in unrouted
+    if unrouted.strip():
+        tomllib.loads(unrouted)
+
+
+def test_route_preserves_commented_codex_header_without_drift(
+    routing_paths: dict[str, Path],
+) -> None:
+    """Once the file is correctly managed, a trailing comment on the provider
+    header is not drift: reconcile leaves it in place (no rewrite, no backup),
+    and the file stays valid TOML with exactly one runlayer table."""
+    try:
+        import tomllib
+    except ImportError:
+        import tomli as tomllib  # type: ignore[no-redef]
+
+    llm_routing.route("https://gateway.example.com", scope=InstallScope.MDM)
+    path = routing_paths["codex"]
+    commented = path.read_text().replace(
+        "[model_providers.runlayer]\n",
+        "[model_providers.runlayer] # provider\n",
+    )
+    path.write_text(commented)
+
+    result = llm_routing.route("https://gateway.example.com", scope=InstallScope.MDM)
+
+    assert result is llm_routing.RouteResult.UNCHANGED
+    # File untouched (comment preserved) and no backup taken for a no-op.
+    assert path.read_text() == commented
+    assert not list(path.parent.glob(f"{path.stem}.backup_*{path.suffix}"))
+    parsed = tomllib.loads(path.read_text())
+    assert parsed["model_provider"] == "runlayer"
+    assert list(parsed["model_providers"]) == ["runlayer"]
+
+
+def test_route_repairs_commented_codex_header_with_drift(
+    routing_paths: dict[str, Path],
+) -> None:
+    """A commented runlayer header with wrong values drift-detects and
+    rewrites to valid TOML (one table), not a duplicate-table corruption."""
+    try:
+        import tomllib
+    except ImportError:
+        import tomli as tomllib  # type: ignore[no-redef]
+
+    llm_routing.route("https://gateway.example.com", scope=InstallScope.MDM)
+    path = routing_paths["codex"]
+    drifted = (
+        path.read_text()
+        .replace(
+            "[model_providers.runlayer]\n",
+            "[model_providers.runlayer] # provider\n",
+        )
+        .replace(
+            "https://gateway.example.com/openai/v1",
+            "https://other.example.com/openai/v1",
+        )
+    )
+    path.write_text(drifted)
+
+    result = llm_routing.route("https://gateway.example.com", scope=InstallScope.MDM)
+
+    assert result is llm_routing.RouteResult.DRIFTED
+    final = path.read_text()
+    tomllib.loads(final)  # must be valid TOML
+    assert final.count("[model_providers.runlayer]") == 1
+    assert final.count("[model_providers.runlayer.auth]") == 1
+    assert "other.example.com" not in final
+    assert "[model_providers.runlayer] # provider" not in final
+    assert len(list(path.parent.glob(f"{path.stem}.backup_*{path.suffix}"))) == 1
+
+
+def test_unroute_removes_commented_runlayer_block(
+    routing_paths: dict[str, Path],
+) -> None:
+    """Unroute strips a runlayer provider block whose header carries a trailing
+    comment, not just clean headers; nothing of the runlayer provider lingers."""
+    try:
+        import tomllib
+    except ImportError:
+        import tomli as tomllib  # type: ignore[no-redef]
+
+    llm_routing.route("https://gateway.example.com", scope=InstallScope.MDM)
+    path = routing_paths["codex"]
+    commented = path.read_text().replace(
+        "[model_providers.runlayer]\n",
+        "[model_providers.runlayer] # provider\n",
+    )
+    path.write_text(commented)
+
+    llm_routing.unroute(scope=InstallScope.MDM)
+
+    final = path.read_text()
+    assert "model_providers.runlayer" not in final
+    assert 'model_provider = "runlayer"' not in final
+    if final.strip():
+        tomllib.loads(final)

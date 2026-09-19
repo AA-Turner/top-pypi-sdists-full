@@ -19,6 +19,10 @@ DEFAULT_CONFIG_PATH = Path.home() / ".dreadnode" / "config.yaml"
 # Default platform URL when no profile or override is set
 DEFAULT_PLATFORM_URL = "https://app.dreadnode.io"
 
+# Product safety budget for unattended CLI and TUI workflows. Session policies
+# remain budget-neutral unless a caller supplies this value explicitly.
+DEFAULT_AUTONOMOUS_MAX_STEPS = 100
+
 # Hostnames that are equivalent for URL comparison
 _LOCALHOST_ALIASES = frozenset({"localhost", "127.0.0.1", "::1"})
 

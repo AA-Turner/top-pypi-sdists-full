@@ -46,6 +46,7 @@ from dreadnode_workflow_core import (
 from loguru import logger
 from pydantic import BaseModel
 
+from dreadnode.app.config import DEFAULT_AUTONOMOUS_MAX_STEPS
 from dreadnode.workflows.context import AgentResult
 from dreadnode.workflows.workflow import StepDef, Workflow
 
@@ -262,6 +263,7 @@ class WorkflowHost:
         run_label: str = "",
         run_id: str | None = None,
         session_group_id: str | None = None,
+        default_model: str | None = None,
         heartbeat_interval: float = DEFAULT_HEARTBEAT_INTERVAL,
         fact_retry_initial: float = DEFAULT_FACT_RETRY_INITIAL,
         fact_retry_max: float = DEFAULT_FACT_RETRY_MAX,
@@ -272,6 +274,7 @@ class WorkflowHost:
         self.client = client
         self.sink = sink or MemoryFactSink()
         self.capability = capability
+        self.default_model = default_model
         self.run_label = run_label
         self.run_id = run_id
         self.heartbeat_interval = heartbeat_interval
@@ -688,6 +691,23 @@ class WorkflowHost:
         if self.client is None:
             raise RuntimeError("this workflow calls ctx.agent() but the host has no runtime client")
 
+        if model is None and self.default_model is not None:
+            # Resolve against the executing runtime, whose installed agent owns
+            # the pin. An explicit step model still overrides that pin.
+            info = await self.client.fetch_runtime_info()
+            capability = _bare_capability(self.capability)
+            pinned_model = next(
+                (
+                    agent.model
+                    for cap in info.capabilities
+                    if capability is None or cap.name == capability
+                    for agent in cap.agents
+                    if agent.name == name and agent.model and agent.model != "inherit"
+                ),
+                None,
+            )
+            model = pinned_model or self.default_model
+
         session_labels: dict[str, list[str]] = {
             "workflow": [self.workflow.name],
             "workflow_node": [unit.node_key],
@@ -707,7 +727,10 @@ class WorkflowHost:
             capability=_bare_capability(self.capability),
             agent=name,
             model=model,
-            policy={"name": "headless", **({"max_steps": max_steps} if max_steps else {})},
+            policy={
+                "name": "headless",
+                "max_steps": max_steps if max_steps is not None else DEFAULT_AUTONOMOUS_MAX_STEPS,
+            },
             labels=session_labels,
             group_id=self.session_group_id,
         )

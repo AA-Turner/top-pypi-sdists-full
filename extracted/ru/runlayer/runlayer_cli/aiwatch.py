@@ -191,9 +191,27 @@ def _apply_managed_config() -> None:
 
 
 def main() -> None:
+    if len(sys.argv) >= 2 and sys.argv[1] == "__publish_managed_policy__":
+        from runlayer_cli.managed_policy_publication import main as publish  # noqa: PLC0415
+
+        raise SystemExit(publish())
+
     from runlayer_cli.runtime import mark_aiwatch_runtime  # noqa: PLC0415
 
     mark_aiwatch_runtime()
+
+    if sys.platform == "win32" and sys.argv[1:] == ["__remove-browser-policies"]:
+        from runlayer_cli.hook_install.windows_browser_policy import (  # noqa: PLC0415
+            BrowserExtensionMisconfiguration,
+            install_windows_extensions,
+        )
+
+        try:
+            install_windows_extensions({"browser_extension_enabled": False})
+        except (OSError, BrowserExtensionMisconfiguration) as exc:
+            print(f"Browser policy cleanup failed: {exc}", file=sys.stderr)
+            raise SystemExit(1) from exc
+        return
 
     if len(sys.argv) >= 2 and sys.argv[1] == TRANSCRIPT_STREAM_WORKER_SENTINEL:
         _inject_truststore()

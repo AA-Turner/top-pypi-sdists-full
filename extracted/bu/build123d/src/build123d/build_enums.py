@@ -28,15 +28,28 @@ license:
 
 from __future__ import annotations
 
-from enum import Enum, auto, IntEnum, unique
+import sys
+from enum import Enum, IntEnum, auto, unique
 from typing import TypeAlias
 
 from OCP.GccEnt import (
-    GccEnt_unqualified,
-    GccEnt_enclosing,
     GccEnt_enclosed,
+    GccEnt_enclosing,
     GccEnt_outside,
+    GccEnt_unqualified,
 )
+
+# enum.StrEnum arrived in 3.11 and build123d supports 3.10; drop this when the
+# minimum version moves up
+if sys.version_info >= (3, 11):
+    from enum import StrEnum
+else:
+
+    class StrEnum(str, Enum):
+        """Polyfill for Python < 3.11 StrEnum behavior."""
+
+        def __str__(self) -> str:
+            return self.value
 
 
 class Align(Enum):
@@ -108,6 +121,30 @@ class ContinuityLevel(IntEnum):
     C0 = 0
     C1 = 1
     C2 = 2
+
+
+class Convexity(Enum):
+    """How the material of a shape sits around one of its elements.
+
+    Classifies a vertex, edge or face relative to the shape it was selected
+    from - it is a property of that relationship, not of the element alone.
+    A straight edge is convex on a box, concave at the inner corner of an L,
+    and smooth where a fillet meets the face it blends into.
+
+    - CONVEX: the material closes around the element by less than half a
+      turn - the outer edge of a box, the corner of a plate, a boss
+    - CONCAVE: by more than half a turn - the inner corner of a pocket, a hole
+    - SMOOTH: the boundary passes through without bending - a fillet seam, a
+      planar face, a vertex where two edges meet in line
+    - SADDLE: both senses are present - an edge whose dihedral angle crosses
+      half a turn along its length, a vertex where convex and concave edges
+      meet, a face with principal curvatures of opposite sign
+    """
+
+    CONVEX = auto()
+    CONCAVE = auto()
+    SMOOTH = auto()
+    SADDLE = auto()
 
 
 class Extrinsic(Enum):
@@ -355,7 +392,16 @@ class PrecisionMode(Enum):
 
 
 class Select(Enum):
-    """Selector scope - all, last operation or new objects"""
+    """How much of a shape a selector returns.
+
+    - ALL: every feature of the kind
+    - LAST: the features the last operation brought in or created; a feature it
+      merely rebuilt is not included
+    - NEW: only the features that existed in no input of the last operation
+
+    LAST and NEW read the record an operation leaves on its result, so they work
+    on builders and on the shapes Algebra mode operations return alike.
+    """
 
     ALL = auto()
     LAST = auto()
@@ -414,15 +460,18 @@ class Transition(Enum):
         return f"<{self.__class__.__name__}.{self.name}>"
 
 
-class Unit(Enum):
+class Unit(StrEnum):
     """Standard Units"""
 
-    MC = auto()  # MICRO
-    MM = auto()  # MILLIMETER
-    CM = auto()  # CENTIMETER
-    M = auto()  # METER
-    IN = auto()  # INCH
-    FT = auto()  # FOOT
+    MC = "µm"  # MICRO
+    MM = "mm"  # MILLIMETER
+    CM = "cm"  # CENTIMETER
+    M = "m"  # METER
+    IN = "in"  # INCH
+    FT = "ft"  # FOOT
+    G = "g"  # GRAM
+    KG = "kg"  # KILOGRAM
+    LB = "lb"  # POUND
 
     def __repr__(self):
         return f"<{self.__class__.__name__}.{self.name}>"

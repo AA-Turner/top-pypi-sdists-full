@@ -177,6 +177,59 @@ def test_lazy_enrollment_no_enrollment_key_raises(fake_runlayer_dir: Path):
     assert not (fake_runlayer_dir / ".enrollment-attempt").exists()
 
 
+def test_lazy_enrollment_key_not_exchanged_without_managed_host(
+    fake_runlayer_dir: Path,
+):
+    """Managed ``EnrollmentKey`` but no managed ``Host`` (malformed profile) +
+    a user-selected ``default_host``: the key is bound to its provisioned host
+    like the org key, so it must never be exchanged at the user's host —
+    that would mint a per-user key on an unprovisioned tenant."""
+    cfg = Config(default_host="https://user-picked.example.com")
+
+    with (
+        patch.object(relay, "load_config", return_value=cfg),
+        patch.object(
+            relay,
+            "read_managed_config",
+            return_value={"enrollment_key": "rl_enroll_abc"},
+        ),
+        patch.object(relay, "exchange_enrollment_key") as mock_ex,
+    ):
+        with pytest.raises(relay.RelayError) as exc:
+            relay._load_credentials()
+
+    assert exc.value.exit_code == 1
+    mock_ex.assert_not_called()
+    assert not (fake_runlayer_dir / ".enrollment-attempt").exists()
+
+
+def test_lazy_enrollment_key_not_exchanged_at_other_host(fake_runlayer_dir: Path):
+    """Managed ``Host`` + ``EnrollmentKey``: the relay resolves the managed
+    host, so the key only ever reaches that host, never the YAML one."""
+    cfg = Config(default_host="https://user-picked.example.com")
+
+    with (
+        patch.object(relay, "load_config", return_value=cfg),
+        patch.object(
+            relay,
+            "read_managed_config",
+            return_value={
+                "host": "https://t.example.com",
+                "enrollment_key": "rl_enroll_abc",
+            },
+        ),
+        patch.object(
+            relay, "exchange_enrollment_key", return_value=_ok_result("k")
+        ) as mock_ex,
+        patch("runlayer_cli.config.save_config", lambda *_: None),
+        patch.object(Config, "set_host_credentials", lambda *a, **k: True),
+    ):
+        host_, _secret = relay._load_credentials()
+
+    assert host_ == "https://t.example.com"
+    assert mock_ex.call_args.kwargs["host"] == "https://t.example.com"
+
+
 def test_lazy_enrollment_cooldown_skips_exchange(fake_runlayer_dir: Path):
     """Recent attempt → skip the exchange, fail closed."""
     cooldown_file = fake_runlayer_dir / ".enrollment-attempt"

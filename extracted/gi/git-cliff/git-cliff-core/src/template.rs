@@ -1,8 +1,11 @@
 use std::collections::{HashMap, HashSet};
 use std::error::Error as ErrorImpl;
 
+use indexmap::IndexMap;
 use regex::Regex;
+use semver::Version;
 use serde::Serialize;
+use serde_json::{Map, json};
 use tera::{Context as TeraContext, Result as TeraResult, Tera, Value, ast};
 
 use crate::config::TextProcessor;
@@ -43,12 +46,75 @@ impl Template {
         tera.register_filter("split_regex", Self::split_regex);
         tera.register_filter("replace_regex", Self::replace_regex);
         tera.register_filter("find_regex", Self::find_regex);
+        tera.register_filter("commit_groups", Self::commit_groups);
+        tera.register_filter("group_by_scope", Self::group_by_scope);
 
         Ok(Self {
             name: name.to_string(),
             variables: Self::get_template_variables(name, &tera)?,
             tera,
         })
+    }
+
+    /// Groups commits by their `group` field while preserving ordering.
+    ///
+    /// Behaves like Tera's built-in `group_by(attribute="group")` filter, but
+    /// yields entries as an array so iteration order is well-defined. Each
+    /// entry has a `group` (the group name) and `commits` (the matching
+    /// commits, in their original order).
+    ///
+    /// When the optional `groups` argument is provided (an array of group
+    /// names, typically the order of `commit_parsers` in the configuration),
+    /// the output is sorted to match that order. Any group not listed in
+    /// `groups` is appended after the listed ones, in first-appearance order.
+    /// When `groups` is omitted, the output preserves the first-appearance
+    /// order of groups in the input list (which mirrors commit chronology).
+    ///
+    /// Commits whose `group` is null or missing are skipped, matching the
+    /// behavior of the built-in `group_by` filter.
+    fn commit_groups(value: &Value, args: &HashMap<String, Value>) -> TeraResult<Value> {
+        let arr = tera::try_get_value!("commit_groups", "value", Vec<Value>, value);
+
+        let group_priority: Option<HashMap<String, usize>> = match args.get("groups") {
+            Some(val) => {
+                let groups =
+                    tera::try_get_value!("commit_groups", "groups", Vec<String>, val.clone());
+                let mut map = HashMap::with_capacity(groups.len());
+                for (idx, name) in groups.into_iter().enumerate() {
+                    map.entry(name).or_insert(idx);
+                }
+                Some(map)
+            }
+            None => None,
+        };
+
+        let mut grouped: IndexMap<String, Vec<Value>> = IndexMap::new();
+        for val in arr {
+            let key_val = match val.get("group") {
+                Some(v) if !v.is_null() => v.clone(),
+                _ => continue,
+            };
+            let str_key = match key_val.as_str() {
+                Some(k) => k.to_owned(),
+                None => format!("{key_val}"),
+            };
+            grouped.entry(str_key).or_default().push(val);
+        }
+
+        if let Some(priority) = &group_priority {
+            let next_priority = priority.len();
+            grouped.sort_by(|a_name, _, b_name, _| {
+                let a = priority.get(a_name).copied().unwrap_or(next_priority);
+                let b = priority.get(b_name).copied().unwrap_or(next_priority);
+                a.cmp(&b)
+            });
+        }
+
+        let result: Vec<Value> = grouped
+            .into_iter()
+            .map(|(group, commits)| json!({ "group": group, "commits": commits }))
+            .collect();
+        Ok(tera::to_value(result)?)
     }
 
     /// Filter for making the first character of a string uppercase.
@@ -136,6 +202,42 @@ impl Template {
         })?;
         let result: Vec<&str> = re.split(&s).collect();
         Ok(tera::to_value(result)?)
+    }
+
+    /// Groups releases by the semantic version scope of their `version` field.
+    fn group_by_scope(value: &Value, args: &HashMap<String, Value>) -> TeraResult<Value> {
+        let releases = tera::try_get_value!("group_by_scope", "value", Vec<Value>, value);
+        if releases.is_empty() {
+            return Ok(Map::new().into());
+        }
+
+        let scope = VersionScope::from_args(args)?;
+        let prefix = match args.get("prefix") {
+            Some(value) => tera::try_get_value!("group_by_scope", "prefix", String, value),
+            None => String::new(),
+        };
+
+        let mut grouped = Map::new();
+        for release in releases {
+            let key = match release.get("version") {
+                Some(Value::String(version)) => version.clone(),
+                Some(Value::Null) => String::new(), // For unreleased changes
+                Some(version) => version.to_string(),
+                None => continue,
+            };
+            let key = scoped_version(&key, &prefix, scope).unwrap_or(key);
+
+            let releases = grouped
+                .entry(key)
+                .or_insert_with(|| Value::Array(Vec::new()))
+                .as_array_mut()
+                .ok_or_else(|| {
+                    tera::Error::msg("Filter `group_by_scope` expected grouped values to be arrays")
+                })?;
+            releases.push(release);
+        }
+
+        Ok(grouped.into())
     }
 
     /// Recursively finds the identifiers from the AST.
@@ -252,12 +354,69 @@ impl Template {
     }
 }
 
+#[derive(Clone, Copy)]
+enum VersionScope {
+    Major,
+    Minor,
+    Patch,
+}
+
+impl VersionScope {
+    fn from_args(args: &HashMap<String, Value>) -> TeraResult<Self> {
+        let scope = match args.get("scope") {
+            Some(value) => tera::try_get_value!("group_by_scope", "scope", String, value),
+            None => String::from("minor"),
+        };
+        match scope.as_str() {
+            "major" => Ok(Self::Major),
+            "minor" => Ok(Self::Minor),
+            "patch" => Ok(Self::Patch),
+            _ => Err(tera::Error::msg(
+                "Filter `group_by_scope` expected `scope` to be `major`, `minor`, or `patch`",
+            )),
+        }
+    }
+}
+
+fn scoped_version(version: &str, prefix: &str, scope: VersionScope) -> Option<String> {
+    let version = version.strip_prefix(prefix)?;
+    let version = Version::parse(version).ok()?;
+    Some(format_scoped_version(prefix, &version, scope))
+}
+
+fn format_scoped_version(prefix: &str, version: &Version, scope: VersionScope) -> String {
+    match scope {
+        VersionScope::Major => format!("{prefix}{}", version.major),
+        VersionScope::Minor => format!("{prefix}{}.{}", version.major, version.minor),
+        VersionScope::Patch => format!(
+            "{prefix}{}.{}.{}",
+            version.major, version.minor, version.patch
+        ),
+    }
+}
+
 #[cfg(test)]
 mod test {
 
     use super::*;
     use crate::commit::Commit;
     use crate::release::Release;
+
+    fn release_with_commits(version: Option<&str>, commits: &[&str]) -> Release<'static> {
+        Release {
+            version: version.map(String::from),
+            commits: commits
+                .iter()
+                .enumerate()
+                .filter_map(|(index, message)| {
+                    let mut commit = Commit::new(index.to_string(), String::from(*message));
+                    commit.committer.timestamp = index as i64;
+                    commit.into_conventional().ok()
+                })
+                .collect(),
+            ..Release::default()
+        }
+    }
 
     fn get_fake_release_data() -> Release<'static> {
         Release {
@@ -402,6 +561,128 @@ mod test {
         ])?;
 
         assert_eq!("[hello, world,, hello, universe]", r);
+        Ok(())
+    }
+
+    /// Builds a release whose commits would be sorted alphabetically by the
+    /// built-in `group_by` filter. Reproduces the scenario from
+    /// <https://github.com/orhun/git-cliff/issues/9>.
+    fn release_with_emoji_groups() -> Release<'static> {
+        let mut release = get_fake_release_data();
+        release.commits = vec![
+            {
+                let mut c = Commit::new(String::from("000001"), String::from("perf: speed"));
+                c.group = Some(String::from("\u{26A1} Performance"));
+                c
+            },
+            {
+                let mut c = Commit::new(String::from("000002"), String::from("fix: bug"));
+                c.group = Some(String::from("\u{1F41B} Bug Fixes"));
+                c
+            },
+            {
+                let mut c = Commit::new(String::from("000003"), String::from("feat: new"));
+                c.group = Some(String::from("\u{1F680} Features"));
+                c
+            },
+            {
+                let mut c = Commit::new(String::from("000004"), String::from("feat: another"));
+                c.group = Some(String::from("\u{1F680} Features"));
+                c
+            },
+        ];
+        release
+    }
+
+    #[test]
+    fn test_commit_groups_filter_preserves_first_appearance_when_no_groups() -> Result<()> {
+        let template = "{% for entry in commits | commit_groups %}{{ entry.group }}|{{ \
+                        entry.commits | length }};{% endfor %}";
+        let template = Template::new("test", template.to_string(), true)?;
+        let release = release_with_emoji_groups();
+        let r = template.render(&release, Option::<HashMap<&str, String>>::None.as_ref(), &[
+        ])?;
+        assert_eq!(
+            "\u{26A1} Performance|1;\u{1F41B} Bug Fixes|1;\u{1F680} Features|2;",
+            r
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_commit_groups_filter_uses_groups_argument() -> Result<()> {
+        let template = "{% for entry in commits | commit_groups(groups=order) %}{{ entry.group \
+                        }}|{{ entry.commits | length }};{% endfor %}";
+        let template = Template::new("test", template.to_string(), true)?;
+        let release = release_with_emoji_groups();
+        let mut additional: HashMap<&str, Vec<&str>> = HashMap::new();
+        additional.insert("order", vec![
+            "\u{1F680} Features",
+            "\u{1F41B} Bug Fixes",
+            "\u{26A1} Performance",
+        ]);
+        let r = template.render(&release, Some(&additional), &[])?;
+        assert_eq!(
+            "\u{1F680} Features|2;\u{1F41B} Bug Fixes|1;\u{26A1} Performance|1;",
+            r
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_commit_groups_filter_appends_unknown_groups() -> Result<()> {
+        let template = "{% for entry in commits | commit_groups(groups=order) %}{{ entry.group \
+                        }};{% endfor %}";
+        let template = Template::new("test", template.to_string(), true)?;
+        let release = release_with_emoji_groups();
+        let mut additional: HashMap<&str, Vec<&str>> = HashMap::new();
+        additional.insert("order", vec!["\u{1F680} Features"]);
+        let r = template.render(&release, Some(&additional), &[])?;
+        assert_eq!(
+            "\u{1F680} Features;\u{26A1} Performance;\u{1F41B} Bug Fixes;",
+            r
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_commit_groups_filter_skips_null_groups() -> Result<()> {
+        let template = "{% for entry in commits | commit_groups %}{{ entry.group }}|{{ \
+                        entry.commits | length }};{% endfor %}";
+        let template = Template::new("test", template.to_string(), true)?;
+        let mut release = get_fake_release_data();
+        release.commits = vec![
+            {
+                let mut c = Commit::new(String::from("a"), String::from("a"));
+                c.group = Some(String::from("kept"));
+                c
+            },
+            Commit::new(String::from("b"), String::from("b")),
+        ];
+        let r = template.render(&release, Option::<HashMap<&str, String>>::None.as_ref(), &[
+        ])?;
+        assert_eq!("kept|1;", r);
+        Ok(())
+    }
+
+    #[test]
+    fn test_group_by_scope_filter() -> Result<()> {
+        let releases = vec![
+            release_with_commits(Some("v1.0.2"), &["fix(api): fix endpoint"]),
+            release_with_commits(Some("v1.0.1"), &[
+                "feat(api): add endpoint",
+                "fix(ui): fix button",
+            ]),
+            release_with_commits(Some("v0.9.0"), &["docs: update docs"]),
+            release_with_commits(None, &["chore: unreleased change"]),
+        ];
+        let mut context = HashMap::new();
+        context.insert("releases", releases);
+        let template = r#"{% for version, releases in releases | group_by_scope(prefix="v") %}{{ version }}={{ releases | length }}:{% set_global commits = [] %}{% for release in releases %}{% set_global commits = commits | concat(with=release.commits) %}{% endfor %}{{ commits | length }}:{% for group, commits in commits | group_by(attribute="group") %}{{ group }}={{ commits | length }},{% endfor %};{% endfor %}"#;
+        let template = Template::new("test", template.to_string(), true)?;
+        let r = template.render(&get_fake_release_data(), Some(&context), &[])?;
+
+        assert_eq!("=1:1:chore=1,;v0.9=1:1:docs=1,;v1.0=2:3:feat=1,fix=2,;", r);
         Ok(())
     }
 }

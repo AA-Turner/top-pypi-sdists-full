@@ -506,6 +506,7 @@ bpy.types.GeometryNodeGridLaplacian.rst
 bpy.types.GeometryNodeGridMean.rst
 bpy.types.GeometryNodeGridMedian.rst
 bpy.types.GeometryNodeGridPrune.rst
+bpy.types.GeometryNodeGridSolvePoisson.rst
 bpy.types.GeometryNodeGridToMesh.rst
 bpy.types.GeometryNodeGridToPoints.rst
 bpy.types.GeometryNodeGridTopologyBoolean.rst
@@ -1995,6 +1996,7 @@ bpy.types.GeometryNode.rst
 bpy.types.NodeClosureInput.rst
 bpy.types.NodeClosureOutput.rst
 bpy.types.NodeCombineBundle.rst
+bpy.types.NodeComment.rst
 bpy.types.NodeEnableOutput.rst
 bpy.types.NodeEvaluateClosure.rst
 bpy.types.NodeFrame.rst
@@ -45971,6 +45973,63 @@ class GeometryNodeGridPrune(GeometryNode, NodeInternal, Node, bpy_struct):
         :return: The class or default when not found.
         """
 
+class GeometryNodeGridSolvePoisson(GeometryNode, NodeInternal, Node, bpy_struct):
+    """Solve the Poisson equation for a scalar field. Computes a grid whose Laplacian equals the input scalar grid."""
+
+    inputs: _GeometryNodeGridSolvePoisson_NodeInputs | None
+    outputs: _GeometryNodeGridSolvePoisson_NodeOutputs | None
+
+    @classmethod
+    def is_registered_node_type(cls) -> bool:
+        """True if a registered node type
+
+        :return: Result
+        """
+
+    @classmethod
+    def input_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Input socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def output_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Output socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
 class GeometryNodeGridToMesh(GeometryNode, NodeInternal, Node, bpy_struct):
     """Generate a mesh on the "surface" of a volume grid"""
 
@@ -73494,6 +73553,63 @@ class NodeCombineBundleItem(bpy_struct):
         bpy.stub_internal.rna_enums.NodeSocketStructureTypeItems
     ]
     """ What kind of higher order types are expected to flow through this socket (default 'AUTO')"""
+
+    @classmethod
+    def bl_rna_get_subclass(
+        cls,
+        id: str | None,
+        default: None | Struct | None = None,
+        /,
+    ) -> Struct:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The RNA type or default when not found.
+        """
+
+    @classmethod
+    def bl_rna_get_subclass_py(
+        cls,
+        id: str | None,
+        default: None | typing.Any | None = None,
+        /,
+    ) -> typing.Any:
+        """
+
+        :param id: The RNA type identifier.
+        :param default: The value to return when not found.
+        :return: The class or default when not found.
+        """
+
+class NodeComment(NodeInternal, Node, bpy_struct):
+    """Add explanations to the node group"""
+
+    text: str
+    """ Text to show in the node (default "", never None)"""
+
+    @classmethod
+    def is_registered_node_type(cls) -> bool:
+        """True if a registered node type
+
+        :return: Result
+        """
+
+    @classmethod
+    def input_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Input socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
+
+    @classmethod
+    def output_template(cls, index: int | None) -> NodeInternalSocketTemplate | None:
+        """Output socket template
+
+        :param index: Index, (in [0, inf])
+        :return: result
+        """
 
     @classmethod
     def bl_rna_get_subclass(
@@ -129309,6 +129425,87 @@ class _GeometryNodeGridPrune_NodeInputs(NodeInputs):
         :return:
         """
 
+class _GeometryNodeGridSolvePoisson_NodeInputs(NodeInputs):
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[0] | typing.Literal["Grid"]
+    ) -> NodeSocketFloat:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[1] | typing.Literal["Max Iterations"]
+    ) -> NodeSocketInt:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[2] | typing.Literal["Error Threshold"]
+    ) -> NodeSocketFloat:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[3] | typing.Literal["Threshold Mode"]
+    ) -> NodeSocketMenu:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[4] | typing.Literal["Boundary"]
+    ) -> NodeSocketMenu:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[5] | typing.Literal["Boundary Value"]
+    ) -> NodeSocketFloat:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[6] | typing.Literal["Boundary Gradient"]
+    ) -> NodeSocketVector:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[7] | typing.Literal["Boundary Factor"]
+    ) -> NodeSocketFloatFactor:
+        """
+
+        :param key:
+        :return:
+        """
+
 class _GeometryNodeGridToMesh_NodeInputs(NodeInputs):
     @typing.overload
     def __getitem__(
@@ -142195,6 +142392,87 @@ class _GeometryNodeGridPrune_NodeOutputs(NodeOutputs):
         :return:
         """
 
+class _GeometryNodeGridSolvePoisson_NodeOutputs(NodeOutputs):
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[0] | typing.Literal["Solution"]
+    ) -> NodeSocketFloat:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[1] | typing.Literal["Success"]
+    ) -> NodeSocketBool:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[2] | typing.Literal["Iterations"]
+    ) -> NodeSocketInt:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[3] | typing.Literal["Absolute Error"]
+    ) -> NodeSocketFloat:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[4] | typing.Literal["Relative Error"]
+    ) -> NodeSocketFloat:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[5] | typing.Literal["Debug Boundary Value"]
+    ) -> NodeSocketFloat:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[6] | typing.Literal["Debug Boundary Gradient"]
+    ) -> NodeSocketVector:
+        """
+
+        :param key:
+        :return:
+        """
+
+    @typing.overload
+    def __getitem__(
+        self, key: typing.Literal[7] | typing.Literal["Debug Boundary Factor"]
+    ) -> NodeSocketFloat:
+        """
+
+        :param key:
+        :return:
+        """
+
 class _GeometryNodeGridToMesh_NodeOutputs(NodeOutputs):
     @typing.overload
     def __getitem__(
@@ -151402,6 +151680,10 @@ VIEW3D_PT_copy_global_transform_mirror: (
 
 VIEW3D_PT_copy_global_transform_relative: (
     bl_ui.space_view3d_sidebar.VIEW3D_PT_copy_global_transform_relative
+)
+
+VIEW3D_PT_copy_world_space_animation: (
+    bl_ui.space_view3d_sidebar.VIEW3D_PT_copy_world_space_animation
 )
 
 VIEW3D_PT_curves_sculpt_add_shape: bl_ui.space_view3d.VIEW3D_PT_curves_sculpt_add_shape

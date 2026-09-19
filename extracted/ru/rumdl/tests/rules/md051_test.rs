@@ -17,6 +17,18 @@ fn test_valid_link_fragment() {
 }
 
 #[test]
+fn test_heading_below_front_matter_holding_a_tag_is_a_target() {
+    // A tag inside front matter opens no HTML block over the document below it,
+    // so the setext heading after the front matter is a link target.
+    let rule = MD051LinkFragments::new();
+    let content = "---\nhtml: |\n\n  <span>\n---\nTitle\n===\n\n[link](#title) and [other](#missing)\n";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let messages: Vec<_> = rule.check(&ctx).unwrap().into_iter().map(|w| w.message).collect();
+    assert_eq!(messages.len(), 1, "{messages:?}");
+    assert!(messages[0].contains("#missing"), "{messages:?}");
+}
+
+#[test]
 fn test_invalid_link_fragment() {
     // Test internal link with wrong fragment - should flag as invalid
     let ctx = LintContext::new(
@@ -3627,4 +3639,35 @@ mod same_doc_html_anchor_consistency_tests {
             "ignore_case=true must accept same-doc HTML anchor exact-case match, got {warnings:?}"
         );
     }
+}
+
+/// A setext underline makes a heading of the whole paragraph above it, so the
+/// anchor comes from the joined text of every line. A link to the last line
+/// alone has no target.
+#[test]
+fn test_multi_line_setext_heading_anchors_its_joined_text() {
+    let content = "First line\nsecond line\n===\n\n[a](#first-line-second-line)\n[b](#second-line)\n";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let rule = MD051LinkFragments::new();
+    let result = rule.check(&ctx).unwrap();
+    assert_eq!(
+        result.len(),
+        1,
+        "only the link to the last line alone is broken: {result:?}"
+    );
+    assert_eq!(result[0].line, 6);
+}
+
+/// `{#id}` written inside a heading's text is literal text on every line but
+/// the last, where it is the heading's custom id. A line of the paragraph a
+/// setext underline ends is heading text, not a paragraph carrying an
+/// attribute anchor, so it defines no anchor of its own.
+#[test]
+fn test_attribute_anchor_inside_setext_heading_text_is_not_a_target() {
+    let content = "First {#id}\nsecond line\n===\n\n[x](#id)\n";
+    let ctx = LintContext::new(content, rumdl_lib::config::MarkdownFlavor::Standard, None);
+    let rule = MD051LinkFragments::new();
+    let result = rule.check(&ctx).unwrap();
+    assert_eq!(result.len(), 1, "the heading defines no `#id` anchor: {result:?}");
+    assert_eq!(result[0].line, 5);
 }

@@ -2289,11 +2289,56 @@ class TestClientDetection:
             with patch("sys.argv", ["/home/user/.copilot/hooks/aiwatch-hook"]):
                 assert detect_client() == Client.VSCODE
 
-    def test_detect_claude_code_fallback(self):
-        env = {k: v for k, v in os.environ.items() if k != "CURSOR_VERSION"}
-        with patch.dict(os.environ, env, clear=True):
-            with patch("sys.argv", ["/home/user/hooks/aiwatch-enforce"]):
-                assert detect_client() == Client.CLAUDE_CODE
+    @pytest.mark.parametrize(
+        "argv",
+        [
+            ["/home/user/hooks/aiwatch-enforce"],
+            ["/usr/local/bin/aiwatch", "hook"],
+            ["/usr/local/bin/aiwatch", "hook", "--client", "unrecognized"],
+            ["/usr/local/bin/aiwatch", "hook", "--client=unrecognized"],
+            ["/usr/local/bin/aiwatch", "hook", "--client"],
+        ],
+    )
+    def test_unrecognized_hook_keeps_generic_identity(self, argv):
+        with (
+            patch.object(hook_io, "argv", return_value=argv),
+            patch.object(
+                hook_io, "getenv", side_effect=lambda name, default=None: default
+            ),
+        ):
+            assert detect_client().value == "unknown"
+
+    def test_unrecognized_client_env_keeps_generic_identity(self):
+        with (
+            patch.dict(
+                os.environ, {"RUNLAYER_HOOK_CLIENT": "unrecognized"}, clear=True
+            ),
+            patch("sys.argv", ["/usr/local/bin/aiwatch", "hook"]),
+        ):
+            assert detect_client().value == "unknown"
+
+    @pytest.mark.parametrize("client_name", ["claude_code", "codex", "unknown"])
+    def test_explicit_client_env_is_preserved(self, client_name):
+        with (
+            patch.dict(os.environ, {"RUNLAYER_HOOK_CLIENT": client_name}, clear=True),
+            patch("sys.argv", ["/usr/local/bin/aiwatch", "hook"]),
+        ):
+            assert detect_client().value == client_name
+
+    @pytest.mark.parametrize("client_name", ["claude_code", "codex", "unknown"])
+    def test_explicit_client_arg_takes_precedence_over_host_hints(self, client_name):
+        with (
+            patch.dict(
+                os.environ,
+                {"RUNLAYER_HOOK_CLIENT": "vscode", "CURSOR_VERSION": "1.0.0"},
+                clear=True,
+            ),
+            patch(
+                "sys.argv",
+                ["/home/user/.claude/aiwatch-hook", f"--client={client_name}"],
+            ),
+        ):
+            assert detect_client().value == client_name
 
     def test_detect_codex_from_path(self):
         env = {k: v for k, v in os.environ.items() if k != "CURSOR_VERSION"}
@@ -4850,10 +4895,16 @@ class TestTranscriptStream:
 
         monkeypatch.setattr(transcript_stream, "load_config", lambda: _FakeConfig())
         monkeypatch.setattr(transcript_stream, "http_client", lambda: _FailingClient())
+        # The org key is released only alongside the MDM host (the managed
+        # host wins over ``default_host``), so a managed device is required
+        # for org-key mode.
         monkeypatch.setattr(
             transcript_stream,
             "read_managed_config",
-            lambda: {"org_api_key": "org-key-123"},
+            lambda: {
+                "host": "https://managed.runlayer.test",
+                "org_api_key": "org-key-123",
+            },
         )
         monkeypatch.setattr(
             "runlayer_cli.hook.relay._build_device_context",
@@ -4864,6 +4915,7 @@ class TestTranscriptStream:
         with pytest.raises(RuntimeError, match="network down"):
             poster("claude_code", "message.updated", {"session_id": "s1"})
 
+        assert captured["url"].startswith("https://managed.runlayer.test/")
         assert captured["kwargs"]["headers"]["x-runlayer-api-key"] == "org-key-123"
         body = json.loads(captured["kwargs"]["content"])
         assert body["device"] == {"device_id": "dev-1", "username": "alice"}
@@ -5339,6 +5391,76 @@ class TestSkillPayloadEnrichment:
         _, checks = self._run_pre(monkeypatch, payload)
 
         assert "skill_id" not in checks[0][4]
+
+
+class TestUnknownClientHooks:
+    @pytest.mark.parametrize("mode", [AIWatchMode.MONITOR, AIWatchMode.ENFORCE])
+    @pytest.mark.parametrize(
+        ("event_name", "tool_name", "targets"),
+        [
+            ("SessionStart", "", {"event"}),
+            ("UserPromptSubmit", "", {"event"}),
+            ("Stop", "", {"event"}),
+            ("PreToolUse", "Edit", {"event", "tool-pre"}),
+            ("PostToolUse", "Edit", {"event", "tool-post"}),
+            ("PreToolUse", "mcp__github__search", {"event"}),
+        ],
+    )
+    def test_unrecognized_hook_forwards_neutral_identity(
+        self, monkeypatch, event_name, tool_name, targets, mode
+    ):
+        captured: list[tuple[str, dict]] = []
+
+        def forward(target, wrapper, **kwargs):
+            captured.append((target, json.loads(wrapper)))
+
+        def post(host, secret, wrapper, *, target, **kwargs):
+            forward(target, wrapper)
+            return '{"permission":"allow","blocked":false}'
+
+        monkeypatch.setattr(relay, "_forward_post", forward)
+        monkeypatch.setattr(relay, "_post", post)
+        monkeypatch.setattr(
+            relay, "_load_credentials", lambda: ("https://example.com", "test")
+        )
+        monkeypatch.setattr(relay, "_deferred_event_sender", None)
+        monkeypatch.setattr(hook_dispatch, "_resolve_mode", lambda: mode)
+        monkeypatch.setattr(hook_dispatch, "_resolve_metadata_only", lambda: False)
+        monkeypatch.setattr(hook_dispatch, "_resolve_scan_only", lambda: False)
+        monkeypatch.setattr(hook_dispatch.flow_spool, "spool_append", lambda *_: None)
+        payload = {
+            "hook_event_name": event_name,
+            "session_id": "unknown-client-session",
+            "model": "gpt-6-astra",
+            "tool_name": tool_name,
+            "tool_input": {"path": "README.md"},
+            "tool_response": {"ok": True},
+        }
+        stdout = StringIO()
+        stderr = StringIO()
+        with (
+            patch.object(hook_dispatch, "start_transcript_stream") as stream,
+            patch.object(hook_dispatch, "lookup_mcp_server") as claude_lookup,
+            hook_io.scoped(
+                hook_io.HookIO(
+                    argv=["/usr/local/bin/aiwatch", "hook"],
+                    stdin_text=json.dumps(payload),
+                    stdout=stdout,
+                    stderr=stderr,
+                )
+            ),
+        ):
+            hook_dispatch.run_hook()
+
+        assert {target for target, _ in captured} == targets
+        assert all(wrapper["client"] == "unknown" for _, wrapper in captured)
+        assert all(
+            wrapper["payload"]["model"] == "gpt-6-astra" for _, wrapper in captured
+        )
+        stream.assert_not_called()
+        claude_lookup.assert_not_called()
+        assert stdout.getvalue() == ""
+        assert stderr.getvalue() == ""
 
 
 class TestToolLifecycleRouting:

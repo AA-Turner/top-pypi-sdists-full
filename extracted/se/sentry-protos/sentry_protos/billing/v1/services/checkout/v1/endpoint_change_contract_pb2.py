@@ -22,18 +22,19 @@ _runtime_version.ValidateProtobufRuntimeVersion(
 _sym_db = _symbol_database.Default()
 
 
+from sentry_protos.billing.v1.common.v1 import stripe_verification_pb2 as sentry__protos_dot_billing_dot_v1_dot_common_dot_v1_dot_stripe__verification__pb2
 from sentry_protos.billing.v1.services.contract.v1 import pricing_config_pb2 as sentry__protos_dot_billing_dot_v1_dot_services_dot_contract_dot_v1_dot_pricing__config__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nLsentry_protos/billing/v1/services/checkout/v1/endpoint_change_contract.proto\x12-sentry_protos.billing.v1.services.checkout.v1\x1a\x42sentry_protos/billing/v1/services/contract/v1/pricing_config.proto\"\xdb\x01\n\x15\x43hangeContractRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x18\n\x0bpackage_uid\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x1b\n\x0emonth_interval\x18\x03 \x01(\rH\x01\x88\x01\x01\x12O\n\x0cuser_configs\x18\x04 \x03(\x0b\x32\x39.sentry_protos.billing.v1.services.contract.v1.UserConfigB\x0e\n\x0c_package_uidB\x11\n\x0f_month_interval\"@\n\x16\x43hangeContractResponse\x12\x17\n\ninvoice_id\x18\x01 \x01(\x04H\x00\x88\x01\x01\x42\r\n\x0b_invoice_idb\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\nLsentry_protos/billing/v1/services/checkout/v1/endpoint_change_contract.proto\x12-sentry_protos.billing.v1.services.checkout.v1\x1a<sentry_protos/billing/v1/common/v1/stripe_verification.proto\x1a\x42sentry_protos/billing/v1/services/contract/v1/pricing_config.proto\"\xdb\x01\n\x15\x43hangeContractRequest\x12\x17\n\x0forganization_id\x18\x01 \x01(\x04\x12\x18\n\x0bpackage_uid\x18\x02 \x01(\tH\x00\x88\x01\x01\x12\x1b\n\x0emonth_interval\x18\x03 \x01(\rH\x01\x88\x01\x01\x12O\n\x0cuser_configs\x18\x04 \x03(\x0b\x32\x39.sentry_protos.billing.v1.services.contract.v1.UserConfigB\x0e\n\x0c_package_uidB\x11\n\x0f_month_interval\"\x8e\x01\n\x16\x43hangeContractResponse\x12\x17\n\ninvoice_id\x18\x01 \x01(\x04H\x00\x88\x01\x01\x12L\n\x0cverification\x18\x02 \x01(\x0b\x32\x36.sentry_protos.billing.v1.common.v1.StripeVerificationB\r\n\x0b_invoice_idb\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
 _builder.BuildTopDescriptorsAndMessages(DESCRIPTOR, 'sentry_protos.billing.v1.services.checkout.v1.endpoint_change_contract_pb2', _globals)
 if not _descriptor._USE_C_DESCRIPTORS:
   DESCRIPTOR._loaded_options = None
-  _globals['_CHANGECONTRACTREQUEST']._serialized_start=196
-  _globals['_CHANGECONTRACTREQUEST']._serialized_end=415
-  _globals['_CHANGECONTRACTRESPONSE']._serialized_start=417
-  _globals['_CHANGECONTRACTRESPONSE']._serialized_end=481
+  _globals['_CHANGECONTRACTREQUEST']._serialized_start=258
+  _globals['_CHANGECONTRACTREQUEST']._serialized_end=477
+  _globals['_CHANGECONTRACTRESPONSE']._serialized_start=480
+  _globals['_CHANGECONTRACTRESPONSE']._serialized_end=622
 # @@protoc_insertion_point(module_scope)

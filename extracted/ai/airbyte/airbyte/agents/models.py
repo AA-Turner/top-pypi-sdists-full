@@ -149,7 +149,7 @@ class AgentSkillDocs(BaseModel):
 class AgentConnectorDetails(BaseModel):
     """Connector metadata returned by the Agents API `inspect` endpoint."""
 
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="allow", populate_by_name=True)
 
     connector_id: str
     """The connector ID."""
@@ -166,8 +166,8 @@ class AgentConnectorDetails(BaseModel):
     source_definition_id: str | None = None
     """The ID of the underlying Airbyte source definition."""
 
-    source_definition_name: str | None = None
-    """The name of the underlying Airbyte source definition, for example `GitHub`."""
+    integration_name: str | None = Field(default=None, alias="source_definition_name")
+    """Name of the underlying integration, for example `GitHub` or `Snowflake`."""
 
     docs_skill_id: str | None = None
     """Skill ID to pass to `AgentWorkspace.get_skill(...).read_docs()` (MCP:
@@ -216,7 +216,9 @@ class AgentConnectorMetadata(BaseModel):
     """Whether more entities are available after this page, when the connector reports it."""
 
     end_cursor: str | None = None
-    """The cursor to pass as `cursor` to fetch the next page, when one is available."""
+    """The cursor for the next page, when one is available. Pass it as `cursor` for Context Store
+    `search`, or as the connector's own cursor argument in `api_args` for direct connector
+    actions."""
 
 
 class AgentExecuteResult(BaseModel):

@@ -28,6 +28,7 @@ from runlayer_cli.scan.wsl_limits import (
     MAX_WSL_HOMES,
     MAX_WSL_HOME_PROBES,
 )
+from runlayer_cli.scan.completeness import CompletionStatusSink
 
 if sys.platform == "win32":
     import winreg
@@ -327,6 +328,7 @@ class DeviceContext(TypedDict):
     username: str | None
     org_device_id: str | None
     serial_number: str | None
+    windows_user_sid: NotRequired[str | None]
 
 
 class InstalledTool(TypedDict):
@@ -344,6 +346,23 @@ def get_installed_tools() -> list[InstalledTool]:
     ]
 
 
+def detect_hostname() -> str | None:
+    """Hostname for device attribution; ``None`` when the OS cannot say.
+
+    RUNLAYER_HOSTNAME overrides the detected hostname: a K8s DaemonSet pod's
+    hostname is the pod name, not the node; feeding the node name in via the
+    downward API (spec.nodeName) attributes scans to the node the user homes
+    actually live on.
+    """
+    hostname = os.environ.get("RUNLAYER_HOSTNAME") or None
+    if not hostname:
+        try:
+            hostname = socket.gethostname()
+        except Exception:
+            pass
+    return hostname
+
+
 def get_device_metadata() -> DeviceMetadata:
     """Collect device metadata for the scan payload."""
     system = platform.system().lower()
@@ -353,16 +372,7 @@ def get_device_metadata() -> DeviceMetadata:
         "linux": "linux",
     }.get(system, system)
 
-    # RUNLAYER_HOSTNAME overrides the detected hostname for device attribution.
-    # A K8s DaemonSet pod's hostname is the pod name, not the node; feeding the
-    # node name in via the downward API (spec.nodeName) attributes scans to the
-    # node the user homes actually live on.
-    hostname = os.environ.get("RUNLAYER_HOSTNAME") or None
-    if not hostname:
-        try:
-            hostname = socket.gethostname()
-        except Exception:
-            pass
+    hostname = detect_hostname()
 
     username = None
     try:
@@ -575,7 +585,10 @@ def _parse_wsl_verbose_output(text: str) -> WSLDistroInventory:
             malformed = True
             continue
         normalized_name = name.casefold()
-        if normalized_name == "docker-desktop-data" or normalized_name in seen_names:
+        if (
+            normalized_name.startswith("docker-desktop")
+            or normalized_name in seen_names
+        ):
             continue
         if len(parsed) >= MAX_WSL_DISTROS:
             over_cap = True
@@ -645,7 +658,10 @@ def _quiet_fallback_inventory() -> WSLDistroInventory:
         if not name:
             continue
         normalized_name = name.casefold()
-        if normalized_name == "docker-desktop-data" or normalized_name in seen_names:
+        if (
+            normalized_name.startswith("docker-desktop")
+            or normalized_name in seen_names
+        ):
             continue
         if len(parsed) >= MAX_WSL_DISTROS:
             over_cap = True
@@ -694,7 +710,9 @@ def get_wsl_distro_inventory() -> WSLDistroInventory:
     return _apply_wsl_registry_metadata(verbose_inventory)
 
 
-def list_wsl_distros() -> list[str]:
+def list_wsl_distros(
+    scan_status: CompletionStatusSink | None = None,
+) -> list[str]:
     """List installed WSL distributions (Windows host only).
 
     Uses the shared inventory so WSL home expansion and first-class inventory
@@ -709,11 +727,16 @@ def list_wsl_distros() -> list[str]:
     """
     inventory = get_wsl_distro_inventory()
     if not inventory.success:
+        if scan_status is not None:
+            scan_status.mark_incomplete("wsl_distro_inventory_failed")
         return []
     return [distro.name for distro in inventory.distros]
 
 
-def get_wsl_user_homes(distro: str) -> list[Path]:
+def get_wsl_user_homes(
+    distro: str,
+    scan_status: CompletionStatusSink | None = None,
+) -> list[Path]:
     """Resolve Linux user home directories inside a WSL distro from Windows.
 
     Lists ``\\\\wsl.localhost\\<distro>\\home\\*`` plus ``/root`` (falls back
@@ -721,32 +744,44 @@ def get_wsl_user_homes(distro: str) -> list[Path]:
     capped listing prefix; selection is stable when the listing fits the cap.
     Returns each reachable home dir; tolerates missing and access-denied paths.
     """
+    failed_attempt_reasons: list[str] = []
     for unc_root in (Rf"\\wsl.localhost\{distro}", Rf"\\wsl$\{distro}"):
         homes: list[Path] = []
+        attempt_reasons: list[str] = []
         root_home = Path(unc_root) / "root"
         try:
             if root_home.is_dir():
                 homes.append(root_home)
         except OSError:
-            pass
+            attempt_reasons.append("wsl_home_access_failed")
         home_base = Path(unc_root) / "home"
         try:
             if home_base.is_dir():
-                probes_remaining = MAX_WSL_HOME_PROBES
-                for entry in sorted(islice(home_base.iterdir(), MAX_WSL_HOME_PROBES)):
-                    if len(homes) >= MAX_WSL_HOMES or probes_remaining <= 0:
+                entries = list(islice(home_base.iterdir(), MAX_WSL_HOME_PROBES + 1))
+                if len(entries) > MAX_WSL_HOME_PROBES:
+                    attempt_reasons.append("wsl_home_probe_capped")
+                for entry in sorted(entries[:MAX_WSL_HOME_PROBES]):
+                    if len(homes) >= MAX_WSL_HOMES:
+                        attempt_reasons.append("wsl_home_discovery_capped")
                         break
-                    probes_remaining -= 1
                     try:
                         is_directory = entry.is_dir()
                     except OSError:
+                        attempt_reasons.append("wsl_home_access_failed")
                         continue
                     if is_directory:
                         homes.append(entry)
         except OSError:
-            pass
+            attempt_reasons.append("wsl_home_enumeration_failed")
         if homes:
+            if scan_status is not None:
+                for reason in dict.fromkeys(attempt_reasons):
+                    scan_status.mark_incomplete(reason)
             return homes
+        failed_attempt_reasons.extend(attempt_reasons)
+    if scan_status is not None:
+        for reason in dict.fromkeys(failed_attempt_reasons):
+            scan_status.mark_incomplete(reason)
     return []
 
 
@@ -762,18 +797,31 @@ def get_wsl_distro_root(distro: str) -> Path | None:
     return None
 
 
+# Conservative POSIX short-name shape. GNU coreutils ``stat -f`` (--file-system)
+# on PATH prints a multi-line filesystem report for ``%Su``; anything that isn't
+# a plain single-token account name is rejected so it never ships as
+# ``username`` and poisons user mapping.
+_CONSOLE_USERNAME_RE = regex_safe.compile(r"^[A-Za-z0-9._-]{1,255}$")
+
+
 def _get_macos_console_user() -> str | None:
-    """Get the logged-in console user on macOS via stat /dev/console."""
+    """Get the logged-in console user on macOS via ``/usr/bin/stat /dev/console``.
+
+    Absolute path on purpose: Homebrew gnubin / Nix / uutils can shadow Apple's
+    ``stat`` on PATH, and their ``-f`` flag means something else entirely.
+    """
     try:
         result = subprocess.run(
-            ["stat", "-f", "%Su", "/dev/console"],
+            ["/usr/bin/stat", "-f", "%Su", "/dev/console"],
             capture_output=True,
             text=True,
             timeout=5,
         )
-        user = result.stdout.strip()
-        if user and user not in SYSTEM_USERNAMES:
-            return user
     except Exception:
-        pass
-    return None
+        return None
+    if result.returncode != 0:
+        return None
+    user = result.stdout.strip()
+    if not _CONSOLE_USERNAME_RE.fullmatch(user) or user in SYSTEM_USERNAMES:
+        return None
+    return user

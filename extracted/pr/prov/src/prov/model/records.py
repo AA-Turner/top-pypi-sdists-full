@@ -10,8 +10,15 @@ import os
 import re
 import typing
 from collections import defaultdict
-from collections.abc import Callable, Iterable, Iterator, MutableSet
-from typing import IO, TYPE_CHECKING, Any, Final, Union, cast
+from collections.abc import (
+    Callable,
+    Iterable,
+    Iterator,
+    MutableSet,
+    Sequence,
+    Set as AbstractSet,
+)
+from typing import IO, TYPE_CHECKING, Any, Final, Protocol, TypeVar, Union, cast
 
 from prov import Error
 from prov.constants import (
@@ -99,9 +106,6 @@ GenerationRef: typing.TypeAlias = Union["ProvGeneration", QualifiedNameCandidate
 UsageRef: typing.TypeAlias = Union["ProvUsage", QualifiedNameCandidate]
 NameValuePair: typing.TypeAlias = tuple[QualifiedName, Any]
 AttributePair: typing.TypeAlias = tuple[QualifiedNameCandidate, Any]
-RecordAttributesArg: typing.TypeAlias = (
-    dict[QualifiedNameCandidate, Any] | Iterable[AttributePair]
-)
 DatetimeOrStr: typing.TypeAlias = datetime.datetime | str
 NSCollection: typing.TypeAlias = dict[str, str] | Iterable[Namespace]
 PathLike: typing.TypeAlias = str | bytes | os.PathLike[str]
@@ -566,6 +570,45 @@ CoercedAttributeValue: typing.TypeAlias = (
     QualifiedName | datetime.datetime | Literal | SupportedXSDParsedTypes
 )
 
+_K_co = TypeVar("_K_co", covariant=True)
+_V_co = TypeVar("_V_co", covariant=True)
+
+
+class _SupportsItems(Protocol[_K_co, _V_co]):
+    # `Mapping` is invariant in its key type, so `dict[QualifiedName, str]` is
+    # no `Mapping[QualifiedNameCandidate, ...]`. This protocol is covariant in
+    # both parameters.
+
+    def items(self) -> AbstractSet[tuple[_K_co, _V_co]]: ...
+
+
+AttributeValue: typing.TypeAlias = Union[
+    "ProvRecord", QualifiedName, datetime.datetime, Literal, SupportedXSDParsedTypes
+]
+"""A value accepted for a record attribute, before coercion."""
+
+# `Iterable` is absent on purpose. A dict is itself an iterable, so an `Iterable`
+# member makes a dict literal's target ambiguous to mypy and breaks its
+# inference (#474). Pair values are `Any` because mypy joins the mixed values
+# of a prebuilt list to `object`, which no precise type accepts.
+RecordAttributesArg: typing.TypeAlias = (
+    _SupportsItems[QualifiedNameCandidate, AttributeValue]
+    | Sequence[AttributePair]
+    | AbstractSet[AttributePair]
+    | Iterator[AttributePair]
+)
+
+
+def _attribute_pairs(attributes: RecordAttributesArg) -> Iterable[AttributePair]:
+    # `dict` is tested first because it is the common case on the
+    # record-construction hot path.
+    if isinstance(attributes, dict):
+        return attributes.items()
+    items = getattr(attributes, "items", None)
+    if callable(items):
+        return cast("Iterable[AttributePair]", items())
+    return cast("Iterable[AttributePair]", attributes)
+
 
 # Exceptions and warnings
 class ProvException(Error):
@@ -627,7 +670,7 @@ class ProvRecord:
             bundle: The bundle owning this PROV record.
             identifier: The (unique) identifier of the record.
             attributes: Attributes to associate with the record, as a dict or
-                an iterable of ``(name, value)`` pairs (default: ``None``).
+                a list of ``(name, value)`` pairs (default: ``None``).
         """
         self._bundle = bundle
         self._identifier = identifier
@@ -938,9 +981,10 @@ class ProvRecord:
         are skipped.
 
         Args:
-            attributes: The attributes to add, either as a dict keyed by
-                qualified-name identifiers or an iterable of ``(name, value)``
-                pairs whose names satisfy the same condition.
+            attributes: The attributes to add, as a mapping keyed by
+                qualified-name identifiers, or as a sequence, set or iterator
+                of ``(name, value)`` pairs whose names satisfy the same
+                condition.
 
         Raises:
             ProvExceptionInvalidQualifiedName: If an attribute name cannot be
@@ -950,21 +994,17 @@ class ProvRecord:
                 (non-collection) attribute.
         """
         if attributes:
-            if isinstance(attributes, dict):
-                # Converting the dictionary into a list of tuples
-                # (i.e. attribute-value pairs)
-                attributes = cast(
-                    "dict[QualifiedNameCandidate, Any]", attributes
-                ).items()
+            # Two passes follow, so a one-shot iterator is copied first.
+            pairs = list(_attribute_pairs(attributes))
 
             # Check if one of the attributes specifies that the current type
             # is a collection. In that case multiple attributes of the same
             # type are allowed.
             is_collection = any(
-                attr_name == PROV_ATTR_COLLECTION for attr_name, _ in attributes
+                attr_name == PROV_ATTR_COLLECTION for attr_name, _ in pairs
             )
 
-            for attr_name, original_value in attributes:
+            for attr_name, original_value in pairs:
                 if original_value is None:
                     continue
 
@@ -1118,7 +1158,7 @@ class ProvEntity(ProvElement):
                 :class:`datetime.datetime` or an ``xsd:dateTime`` string accepted by
                 :func:`~prov.model.parse_xsd_datetime` (default: ``None``).
             attributes: Optional extra attributes for the record, as a dict or
-                an iterable of ``(name, value)`` pairs (default: ``None``).
+                a list of ``(name, value)`` pairs (default: ``None``).
 
         Returns:
             This entity (to allow chaining).
@@ -1141,7 +1181,7 @@ class ProvEntity(ProvElement):
                 :class:`datetime.datetime` or an ``xsd:dateTime`` string accepted by
                 :func:`~prov.model.parse_xsd_datetime` (default: ``None``).
             attributes: Optional extra attributes for the record, as a dict or
-                an iterable of ``(name, value)`` pairs (default: ``None``).
+                a list of ``(name, value)`` pairs (default: ``None``).
 
         Returns:
             This entity (to allow chaining).
@@ -1168,7 +1208,7 @@ class ProvEntity(ProvElement):
             usage: Optional usage record qualifying the derivation through an
                 internal usage (default: ``None``).
             attributes: Optional extra attributes for the record, as a dict or
-                an iterable of ``(name, value)`` pairs (default: ``None``).
+                a list of ``(name, value)`` pairs (default: ``None``).
 
         Returns:
             This entity (to allow chaining).
@@ -1187,7 +1227,7 @@ class ProvEntity(ProvElement):
             agent: The agent (or its string identifier) involved in the
                 attribution.
             attributes: Optional extra attributes for the record, as a dict or
-                an iterable of ``(name, value)`` pairs (default: ``None``).
+                a list of ``(name, value)`` pairs (default: ``None``).
 
         Returns:
             This entity (to allow chaining).
@@ -1251,7 +1291,7 @@ class ProvEntity(ProvElement):
             usage: Optional usage record qualifying the derivation
                 (default: ``None``).
             attributes: Optional extra attributes for the record, as a dict or
-                an iterable of ``(name, value)`` pairs (default: ``None``).
+                a list of ``(name, value)`` pairs (default: ``None``).
 
         Returns:
             This entity (to allow chaining).
@@ -1280,7 +1320,7 @@ class ProvEntity(ProvElement):
             usage: Optional usage record qualifying the derivation
                 (default: ``None``).
             attributes: Optional extra attributes for the record, as a dict or
-                an iterable of ``(name, value)`` pairs (default: ``None``).
+                a list of ``(name, value)`` pairs (default: ``None``).
 
         Returns:
             This entity (to allow chaining).
@@ -1309,7 +1349,7 @@ class ProvEntity(ProvElement):
             usage: Optional usage record qualifying the derivation
                 (default: ``None``).
             attributes: Optional extra attributes for the record, as a dict or
-                an iterable of ``(name, value)`` pairs (default: ``None``).
+                a list of ``(name, value)`` pairs (default: ``None``).
 
         Returns:
             This entity (to allow chaining).
@@ -1345,7 +1385,7 @@ class ProvEntity(ProvElement):
             influencer: The influencing entity, activity or agent (or its
                 string identifier).
             attributes: Optional extra attributes for the record, as a dict or
-                an iterable of ``(name, value)`` pairs (default: ``None``).
+                a list of ``(name, value)`` pairs (default: ``None``).
 
         Returns:
             This entity (to allow chaining).
@@ -1411,7 +1451,7 @@ class ProvActivity(ProvElement):
                 :func:`~prov.model.parse_xsd_datetime`
                 (default: ``None``).
             attributes: Optional extra attributes for the record, as a dict or
-                an iterable of ``(name, value)`` pairs (default: ``None``).
+                a list of ``(name, value)`` pairs (default: ``None``).
 
         Returns:
             This activity (to allow chaining).
@@ -1427,7 +1467,7 @@ class ProvActivity(ProvElement):
         Args:
             informant: The informing activity (relationship source).
             attributes: Optional extra attributes for the record, as a dict or
-                an iterable of ``(name, value)`` pairs (default: ``None``).
+                a list of ``(name, value)`` pairs (default: ``None``).
 
         Returns:
             This activity (to allow chaining).
@@ -1456,7 +1496,7 @@ class ProvActivity(ProvElement):
                 :func:`~prov.model.parse_xsd_datetime`
                 (default: ``None``).
             attributes: Optional extra attributes for the record, as a dict or
-                an iterable of ``(name, value)`` pairs (default: ``None``).
+                a list of ``(name, value)`` pairs (default: ``None``).
 
         Returns:
             This activity (to allow chaining).
@@ -1483,7 +1523,7 @@ class ProvActivity(ProvElement):
                 :func:`~prov.model.parse_xsd_datetime`
                 (default: ``None``).
             attributes: Optional extra attributes for the record, as a dict or
-                an iterable of ``(name, value)`` pairs (default: ``None``).
+                a list of ``(name, value)`` pairs (default: ``None``).
 
         Returns:
             This activity (to allow chaining).
@@ -1505,7 +1545,7 @@ class ProvActivity(ProvElement):
             plan: Optional entity qualifying the association through an
                 internal plan (default: ``None``).
             attributes: Optional extra attributes for the record, as a dict or
-                an iterable of ``(name, value)`` pairs (default: ``None``).
+                a list of ``(name, value)`` pairs (default: ``None``).
 
         Returns:
             This activity (to allow chaining).
@@ -1524,7 +1564,7 @@ class ProvActivity(ProvElement):
             influencer: The influencing entity, activity or agent (or its
                 string identifier).
             attributes: Optional extra attributes for the record, as a dict or
-                an iterable of ``(name, value)`` pairs (default: ``None``).
+                a list of ``(name, value)`` pairs (default: ``None``).
 
         Returns:
             This activity (to allow chaining).
@@ -1628,7 +1668,7 @@ class ProvAgent(ProvElement):
             activity: Optional activity qualifying the delegation
                 (default: ``None``).
             attributes: Optional extra attributes for the record, as a dict or
-                an iterable of ``(name, value)`` pairs (default: ``None``).
+                a list of ``(name, value)`` pairs (default: ``None``).
 
         Returns:
             This agent (to allow chaining).
@@ -1649,7 +1689,7 @@ class ProvAgent(ProvElement):
             influencer: The influencing entity, activity or agent (or its
                 string identifier).
             attributes: Optional extra attributes for the record, as a dict or
-                an iterable of ``(name, value)`` pairs (default: ``None``).
+                a list of ``(name, value)`` pairs (default: ``None``).
 
         Returns:
             This agent (to allow chaining).

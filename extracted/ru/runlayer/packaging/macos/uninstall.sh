@@ -24,6 +24,17 @@ DAEMON_LABELS=(
     com.runlayer.aiwatch.update
 )
 
+cleanup_edge_policy() {
+    local managed_dir="$1"
+    local policy="$managed_dir/com.microsoft.Edge.plist"
+    [ -L "$managed_dir" ] && return
+    if [ -f "$policy" ] && [ ! -L "$policy" ]; then
+        /usr/libexec/PlistBuddy -c 'Delete :ExtensionSettings:jijfcalfdbnjfpfcalkodmgmfijpfddi' \
+            "$policy" >/dev/null 2>&1 || true
+    fi
+    rm -f "$managed_dir/com.microsoft.Edge.extensions.jijfcalfdbnjfpfcalkodmgmfijpfddi.plist"
+}
+
 # Stop every discovered user's loaded agents and remove the daemon endpoint.
 # Console + who cover logged-in directory users; local dscl records provide a
 # final best-effort pass for background sessions.
@@ -93,7 +104,9 @@ rm -f /Library/LaunchDaemons/com.runlayer.aiwatch.bootstrap.plist
 rm -f /Library/LaunchDaemons/com.runlayer.aiwatch.update.plist
 
 # Browser native-messaging hosts installed by the .pkg.
+cleanup_edge_policy "/Library/Managed Preferences"
 rm -f /Library/Google/Chrome/NativeMessagingHosts/com.runlayer.aiwatch.json
+rm -f /Library/Microsoft/Edge/NativeMessagingHosts/com.runlayer.aiwatch.json
 rm -f "/Library/Application Support/Mozilla/NativeMessagingHosts/com.runlayer.aiwatch.json"
 
 # Install-window stamp dir (see runlayer_cli/install_window.py).

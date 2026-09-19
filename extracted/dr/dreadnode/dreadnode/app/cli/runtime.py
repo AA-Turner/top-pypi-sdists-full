@@ -104,6 +104,51 @@ def _field_value(item: t.Any, key: str) -> t.Any:
     return getattr(item, key, None)
 
 
+def _select_own_project_runtime(
+    items: t.Sequence[dict[str, t.Any]],
+    project_key: t.Any,
+) -> dict[str, t.Any] | None:
+    """Pick the runtime in a project that this caller may start, if any.
+
+    Each member holds their own runtimes in a project, so "the project's runtime" is not
+    something a client can look up; only "mine here" is. Returns ``None`` when
+    the caller holds none, which the caller reads as "ensure one".
+
+    Ownership is judged from the flag the server computes, not from having
+    asked for an owner-filtered listing: the filter travels as a query
+    parameter, and a server that does not recognise it answers with everything
+    rather than an error. A row that does not say it is mine is not selected.
+
+    That check is what makes the owner filter more than a request, but it is
+    not a guarantee on its own. A server old enough to omit the flag also
+    predates owner-scoped runtime keys, so the ensure path this returns ``None``
+    into can still hand back whichever runtime holds the project's key. Against
+    such a server there is no answer to "which of these is mine" to be had, in
+    this function or anywhere else.
+
+    Among the caller's own, a running runtime wins, then a paused one, then the
+    one keyed to the project, then the newest. That is the runtime selection
+    rule in specs/runtimes.md, which the platform resolver and the web chat
+    apply too, so starting a project here lands on the runtime an evaluation or
+    a chat session on it would use. Selection never depends on the order rows
+    arrive in. A caller who wants a different runtime passes ``--runtime-id``.
+    """
+    owned = [item for item in items if item.get("owned_by_me") is True]
+    if not owned:
+        return None
+    status_rank = {"running": 2, "paused": 1}
+    keyed = isinstance(project_key, str) and bool(project_key)
+    return max(
+        owned,
+        key=lambda item: (
+            status_rank.get(str(item.get("status")), 0),
+            keyed and item.get("key") == project_key,
+            str(item.get("created_at") or ""),
+            str(item.get("id") or ""),
+        ),
+    )
+
+
 def _resolve_secret_ids(api: t.Any, selectors: list[str]) -> list[str] | None:
     if not selectors:
         return None
@@ -599,18 +644,32 @@ def start(
         "description",
     )
     runtime_target = runtime_id
+    unowned_runtime_probe = False
     if runtime_target is None and target:
-        # The platform resolves a runtime key or UUID on this path, so probe it
-        # as a runtime first and fall back to treating <target> as a project.
-        # Previously this was gated on the target looking like a UUID, which
-        # meant a runtime key only ever started by accident — via the project
-        # branch below, and only when the project happened to share its name.
+        # <target> is ambiguous by design: a runtime key, a runtime UUID, or a
+        # project. The platform resolves runtime keys and UUIDs on this path, so
+        # probe it as a runtime first and read it as a project otherwise.
+        #
+        # A runtime the caller is known not to own does not settle the
+        # ambiguity. Runtime keys resolve across the workspace, and the first
+        # member to get a runtime in a project takes the project's own key for
+        # it — so the plain `dn runtime start <project>` that works for that
+        # member probes straight onto their runtime for everyone else. Reading
+        # the name as a project instead finds the caller's own runtime there.
+        #
+        # Only an explicit denial redirects. A server that says nothing about
+        # ownership has not said no, and the caller did name this runtime, so it
+        # is started as asked — unlike picking one for them out of a listing,
+        # where silence is a reason not to choose.
         try:
-            api.get_runtime(profile.org_key, profile.workspace_key, target)
+            probed = api.get_runtime(profile.org_key, profile.workspace_key, target)
         except NotFoundError:
             runtime_target = None
         else:
-            runtime_target = target
+            if _field_value(probed, "owned_by_me") is False:
+                unowned_runtime_probe = True
+            else:
+                runtime_target = target
 
     if runtime_target is not None:
         payload = api.start_runtime(
@@ -656,7 +715,18 @@ def start(
             raise ValueError(
                 "Pass a runtime id or project, or set --project in your platform scope."
             )
-        project = api.get_project(profile.org_key, profile.workspace_key, resolved_project)
+        try:
+            project = api.get_project(profile.org_key, profile.workspace_key, resolved_project)
+        except NotFoundError:
+            if unowned_runtime_probe:
+                # The name matched a runtime, just not one this caller can
+                # operate, and it names no project either. Reporting a missing
+                # project would send them looking for the wrong thing.
+                raise ValueError(
+                    f"'{resolved_project}' is a runtime owned by someone else, and is not a "
+                    f"project. Run `dn runtime list --mine` to see the runtimes you can start."
+                ) from None
+            raise
         project_id = _field_value(project, "id")
         if not isinstance(project_id, str) or not project_id:
             raise ValueError(f"Project '{resolved_project}' did not include an id")
@@ -664,22 +734,26 @@ def start(
             profile.org_key,
             profile.workspace_key,
             project_id=project_id,
+            owner="me",
             limit=100,
         )
-        items = runtimes_payload.get("items", [])
-        if len(items) == 0:
+        selected = _select_own_project_runtime(
+            runtimes_payload.get("items", []),
+            _field_value(project, "key"),
+        )
+        if selected is None:
             created = api.create_runtime(
                 profile.org_key,
                 profile.workspace_key,
                 resolved_project,
             )
             runtime_to_start = t.cast("str", created["id"])
-        elif len(items) == 1:
-            runtime_to_start = t.cast("str", items[0]["id"])
         else:
-            raise ValueError(
-                "Project has multiple runtimes. Pass --runtime-id or ensure a specific runtime with --key/--name."
-            )
+            runtime_to_start = t.cast("str", selected["id"])
+            if selected.get("status") == "paused":
+                # Start hands back a paused sandbox as it is. Waking it is its
+                # own call; start then issues the credential for it.
+                api.resume_runtime(profile.org_key, profile.workspace_key, runtime_to_start)
 
     payload = api.start_runtime(
         profile.org_key,

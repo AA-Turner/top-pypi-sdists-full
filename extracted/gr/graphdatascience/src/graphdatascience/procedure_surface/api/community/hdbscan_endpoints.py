@@ -5,7 +5,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.base_result import BaseResult
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
@@ -15,7 +15,7 @@ class HdbscanEndpoints(ABC):
     @abstractmethod
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         node_property: str,
         mutate_property: str,
         *,
@@ -40,15 +40,15 @@ class HdbscanEndpoints(ABC):
         ----------
         G
            Graph object to use
-        node_property : str
-            The node property to use for clustering (required)
+        node_property
+            The node property to use for clustering
         mutate_property
             Name of the node property to store the results in.
-        leaf_size : int | None, default=None
+        leaf_size
             The maximum leaf size of the tree structure used in the algorithm
-        samples : int | None, default=None
+        samples
             The number of samples used for density estimation
-        min_cluster_size : int | None, default=None
+        min_cluster_size
             The minimum size of clusters
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -74,7 +74,7 @@ class HdbscanEndpoints(ABC):
     @abstractmethod
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         node_property: str,
         *,
         leaf_size: int = 1,
@@ -98,13 +98,13 @@ class HdbscanEndpoints(ABC):
         ----------
         G
            Graph object to use
-        node_property : str
-            The node property to use for clustering (required)
-        leaf_size : int | None, default=None
+        node_property
+            The node property to use for clustering
+        leaf_size
             The maximum leaf size of the tree structure used in the algorithm
-        samples : int | None, default=None
+        samples
             The number of samples used for density estimation
-        min_cluster_size : int | None, default=None
+        min_cluster_size
             The minimum size of clusters
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -130,7 +130,7 @@ class HdbscanEndpoints(ABC):
     @abstractmethod
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         node_property: str,
         *,
         leaf_size: int = 1,
@@ -154,13 +154,13 @@ class HdbscanEndpoints(ABC):
         ----------
         G
            Graph object to use
-        node_property : str
-            The node property to use for clustering (required)
-        leaf_size : int | None, default=None
+        node_property
+            The node property to use for clustering
+        leaf_size
             The maximum leaf size of the tree structure used in the algorithm
-        samples : int | None, default=None
+        samples
             The number of samples used for density estimation
-        min_cluster_size : int | None, default=None
+        min_cluster_size
             The minimum size of clusters
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -179,14 +179,14 @@ class HdbscanEndpoints(ABC):
 
         Returns
         -------
-        pd.DataFrame
+        pandas.DataFrame
             A DataFrame with columns 'nodeId' and 'label'
         """
 
     @abstractmethod
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         node_property: str,
         write_property: str,
         *,
@@ -209,15 +209,15 @@ class HdbscanEndpoints(ABC):
         ----------
         G
            Graph object to use
-        node_property : str
-            The node property to use for clustering (required)
+        node_property
+            The node property to use for clustering
         write_property
             Name of the node property to store the results in.
-        leaf_size : int | None, default=None
+        leaf_size
             The maximum leaf size of the tree structure used in the algorithm
-        samples : int | None, default=None
+        samples
             The number of samples used for density estimation
-        min_cluster_size : int | None, default=None
+        min_cluster_size
             The minimum size of clusters
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.
@@ -245,7 +245,7 @@ class HdbscanEndpoints(ABC):
     @abstractmethod
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         node_property: str,
         *,
         leaf_size: int = 1,
@@ -266,13 +266,13 @@ class HdbscanEndpoints(ABC):
         ----------
         G
            Graph object to use or a dictionary representing the graph dimensions.
-        node_property : str
-            The node property to use for clustering (required)
-        leaf_size : int | None, default=None
+        node_property
+            The node property to use for clustering
+        leaf_size
             The maximum leaf size of the tree structure used in the algorithm
-        samples : int | None, default=None
+        samples
             The number of samples used for density estimation
-        min_cluster_size : int | None, default=None
+        min_cluster_size
             The minimum size of clusters
         relationship_types
             Filter the graph using the given relationship types. Relationships with any of the given types will be included.

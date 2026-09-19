@@ -69,10 +69,10 @@ def _subs_wrapper(subs_map, i, length, site):
                 # and generate a new sample otherwise
                 return lax.cond(
                     i < shape[0],
+                    lambda val, _: val[0][val[1]],
+                    lambda _, key: site["fn"](rng_key=key, sample_shape=sample_shape),
                     (value, i),
-                    lambda val: val[0][val[1]],
                     rng_key,
-                    lambda val: site["fn"](rng_key=val, sample_shape=sample_shape),
                 )
             else:
                 raise RuntimeError(
@@ -136,6 +136,9 @@ def scan_enum(
         markov,
         trace as packed_trace,
     )
+
+    if substitute_stack is None:
+        substitute_stack = []
 
     # amount number of steps to unroll
     history = min(history, length)
@@ -222,7 +225,7 @@ def scan_enum(
                 # shape so we don't need to record them here
                 if (i >= history - 1) and (len(carry_shapes) < history + 1):
                     carry_shapes.append(
-                        jnp.shape(x) for x in jax.tree.flatten(wrapped_carry[-1])[0]
+                        [jnp.shape(x) for x in jax.tree.flatten(wrapped_carry[-1])[0]]
                     )
             else:
                 # this is the last rolling step
@@ -248,7 +251,7 @@ def scan_enum(
         # we haven't promote shapes of values yet during `lax.scan`, so we do it here
         site["value"] = _promote_scanned_value_shapes(site["value"], site["fn"])
 
-        # XXX: site['infer']['dim_to_name'] is not enough to determine leftmost dimension because
+        # Note: site['infer']['dim_to_name'] is not enough to determine leftmost dimension because
         # we don't record 1-size dimensions in this field
         time_dim = -min(
             len(site["fn"].batch_shape), jnp.ndim(site["value"]) - site["fn"].event_dim

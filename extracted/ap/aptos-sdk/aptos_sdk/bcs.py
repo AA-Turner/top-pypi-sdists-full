@@ -14,6 +14,8 @@ from typing import Dict, List
 
 from typing_extensions import Protocol
 
+from .errors import DeserializationError, SerializationError
+
 MAX_U8 = 2**8 - 1
 MAX_U16 = 2**16 - 1
 MAX_U32 = 2**32 - 1
@@ -30,8 +32,8 @@ class Deserializable(Protocol):
         der = Deserializer(indata)
         return der.struct(cls)
 
-    @staticmethod
-    def deserialize(deserializer: Deserializer) -> Deserializable: ...
+    @classmethod
+    def deserialize(cls, deserializer: Deserializer) -> Deserializable: ...
 
 
 class Serializable(Protocol):
@@ -63,7 +65,7 @@ class Deserializer:
         elif value == 1:
             return True
         else:
-            raise Exception("Unexpected boolean value: ", value)
+            raise DeserializationError(f"Unexpected boolean value: {value}")
 
     def to_bytes(self) -> bytes:
         return self._read(self.uleb128())
@@ -130,7 +132,7 @@ class Deserializer:
             shift += 7
 
         if value > MAX_U32:
-            raise Exception("Unexpectedly large uleb128 value")
+            raise DeserializationError("Unexpectedly large uleb128 value")
 
         return value
 
@@ -138,10 +140,8 @@ class Deserializer:
         value = self._input.read(length)
         if value is None or len(value) < length:
             actual_length = 0 if value is None else len(value)
-            error = (
-                f"Unexpected end of input. Requested: {length}, found: {actual_length}"
-            )
-            raise Exception(error)
+            error = f"Unexpected end of input. Requested: {length}, found: {actual_length}"
+            raise DeserializationError(error)
         return value
 
     def _read_int(self, length: int) -> int:
@@ -173,17 +173,15 @@ class Serializer:
         key_encoder: typing.Callable[[Serializer, typing.Any], None],
         value_encoder: typing.Callable[[Serializer, typing.Any], None],
     ):
-        encoded_values = []
+        encoded_pairs = []
         for key, value in values.items():
-            encoded_values.append(
-                (encoder(key, key_encoder), encoder(value, value_encoder))
-            )
-        encoded_values.sort(key=lambda item: item[0])
+            encoded_pairs.append((encoder(key, key_encoder), value))
+        encoded_pairs.sort(key=lambda item: item[0])
 
-        self.uleb128(len(encoded_values))
-        for key, value in encoded_values:
-            self.fixed_bytes(key)
-            self.fixed_bytes(value)
+        self.uleb128(len(encoded_pairs))
+        for encoded_key, value in encoded_pairs:
+            self.fixed_bytes(encoded_key)
+            value_encoder(self, value)
 
     @staticmethod
     def sequence_serializer(
@@ -198,7 +196,7 @@ class Serializer:
     ):
         self.uleb128(len(values))
         for value in values:
-            self.fixed_bytes(encoder(value, value_encoder))
+            value_encoder(self, value)
 
     def str(self, value: str):
         self.to_bytes(value.encode())
@@ -208,43 +206,43 @@ class Serializer:
 
     def u8(self, value: int):
         if value > MAX_U8:
-            raise Exception(f"Cannot encode {value} into u8")
+            raise SerializationError(f"Cannot encode {value} into u8")
 
         self._write_int(value, 1)
 
     def u16(self, value: int):
         if value > MAX_U16:
-            raise Exception(f"Cannot encode {value} into u16")
+            raise SerializationError(f"Cannot encode {value} into u16")
 
         self._write_int(value, 2)
 
     def u32(self, value: int):
         if value > MAX_U32:
-            raise Exception(f"Cannot encode {value} into u32")
+            raise SerializationError(f"Cannot encode {value} into u32")
 
         self._write_int(value, 4)
 
     def u64(self, value: int):
         if value > MAX_U64:
-            raise Exception(f"Cannot encode {value} into u64")
+            raise SerializationError(f"Cannot encode {value} into u64")
 
         self._write_int(value, 8)
 
     def u128(self, value: int):
         if value > MAX_U128:
-            raise Exception(f"Cannot encode {value} into u128")
+            raise SerializationError(f"Cannot encode {value} into u128")
 
         self._write_int(value, 16)
 
     def u256(self, value: int):
         if value > MAX_U256:
-            raise Exception(f"Cannot encode {value} into u256")
+            raise SerializationError(f"Cannot encode {value} into u256")
 
         self._write_int(value, 32)
 
     def uleb128(self, value: int):
         if value > MAX_U32:
-            raise Exception(f"Cannot encode {value} into uleb128")
+            raise SerializationError(f"Cannot encode {value} into uleb128")
 
         while value >= 0x80:
             # Write 7 (lowest) bits of data and set the 8th bit to 1.
@@ -314,6 +312,28 @@ class Test(unittest.TestCase):
         out_value = der.map(Deserializer.str, Deserializer.u32)
 
         self.assertEqual(in_value, out_value)
+
+    def test_struct_args_are_not_maps(self):
+        """Struct entry-function args serialize field values, not field-name maps."""
+        from .account_address import AccountAddress
+
+        collection = "0xd42cd397c41a62eaf03e83ad0324ff6822178a3e40aa596c4b9930561d4753e5"
+        address = AccountAddress.from_str(collection)
+
+        ser_map = Serializer()
+        ser_map.map({"inner": collection}, Serializer.str, Serializer.str)
+        map_bytes = ser_map.output()
+
+        ser_struct = Serializer()
+        address.serialize(ser_struct)
+        struct_bytes = ser_struct.output()
+
+        self.assertNotEqual(map_bytes, struct_bytes)
+        self.assertEqual(struct_bytes.hex(), collection.removeprefix("0x"))
+        self.assertEqual(
+            Deserializer(map_bytes).map(Deserializer.str, Deserializer.str),
+            {"inner": collection},
+        )
 
     def test_sequence(self):
         in_value = ["a", "abc", "def", "ghi"]

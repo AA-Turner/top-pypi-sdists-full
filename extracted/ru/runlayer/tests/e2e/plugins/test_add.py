@@ -82,7 +82,7 @@ def test_plugins_add_by_namespace(
     entries = lock["plugins"]
     match = [e for e in entries if e["id"] == plugin.id]
     assert len(match) == 1
-    assert match[0]["install_mode"] == "native"
+    assert match[0]["install_mode"] == "native_claude_marketplace"
     assert match[0]["client"] == "claude_code"
 
 

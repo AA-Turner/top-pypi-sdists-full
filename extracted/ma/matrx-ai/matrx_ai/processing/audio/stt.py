@@ -97,6 +97,32 @@ class STTClient(Protocol):
     async def execute(self, request: STTRequest, profile: ResolvedCallProfile) -> STTResult: ...
 
 
+#: The containers the STT providers actually accept, verbatim from the 400 a
+#: Groq transcription returns for anything else:
+#: ``file must be one of the following types: [flac mp3 mp4 mpeg mpga m4a ogg
+#: opus wav webm]`` (reproduced 2026-09-17). OpenAI's Whisper endpoint accepts
+#: the same set. The provider decides by the multipart FILENAME's extension,
+#: not by sniffing the bytes — an M4B audiobook is byte-identical MP4/AAC and
+#: is still refused purely for being called ``.m4b``.
+PROVIDER_ACCEPTED_AUDIO_SUFFIXES: frozenset[str] = frozenset({
+    ".flac", ".mp3", ".mp4", ".mpeg", ".mpga", ".m4a", ".ogg", ".opus",
+    ".wav", ".webm",
+})
+
+
+def provider_accepts_audio_container(filename: str) -> bool:
+    """Would an STT provider accept a file under this NAME?
+
+    🚨 The whole audiobook class, 2026-09-17: a two-hour ``.m4b`` under the
+    byte ceiling was handed to the provider untouched because the only
+    question anyone asked was "is it small enough?". The provider answered
+    ``400 unsupported_audio_format`` and the person read "We couldn't
+    transcribe that recording (APIStatusError)". Callers holding an arbitrary
+    file ask THIS question first and transcode when the answer is no.
+    """
+    return Path(filename).suffix.lower() in PROVIDER_ACCEPTED_AUDIO_SUFFIXES
+
+
 async def prepare_audio_file(
     audio_source: str | bytes | io.BytesIO,
     *,
@@ -127,6 +153,15 @@ async def prepare_audio_file(
         filename = "audio.wav"
     else:
         raise TypeError(f"Unsupported audio_source type: {type(audio_source).__name__}")
+    if not provider_accepts_audio_container(filename):
+        # Never spend a paid round-trip to be told this, and never let the
+        # provider's own wording be the first honest sentence about it.
+        raise ValueError(
+            f"Audio container {Path(filename).suffix or '(none)'!r} is not one the "
+            f"transcription provider accepts "
+            f"({', '.join(sorted(PROVIDER_ACCEPTED_AUDIO_SUFFIXES))}). "
+            "Transcode the audio before transcription."
+        )
     size_mb = len(audio_data) / (1024 * 1024)
     if size_mb > max_file_size_mb:
         raise ValueError(
@@ -155,6 +190,7 @@ async def execute_stt(request: STTRequest) -> STTResult:
 
 
 __all__ = [
+    "PROVIDER_ACCEPTED_AUDIO_SUFFIXES",
     "STTClient",
     "STTRequest",
     "STTResult",
@@ -162,4 +198,5 @@ __all__ = [
     "execute_stt",
     "duration_to_stt_input_units",
     "prepare_audio_file",
+    "provider_accepts_audio_container",
 ]

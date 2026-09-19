@@ -27,12 +27,14 @@ import sys
 import time
 from pathlib import Path
 from typing import Any
+from unittest.mock import MagicMock
 
 import pytest
 from click.testing import CliRunner
 
 from coord import state
 from coord.cli import main
+from coord.models import Assignment
 from coord.drive import tmux_session_alive as _REAL_TMUX_SESSION_ALIVE
 from coord.drive_queue import (
     DEFAULT_MAX_ATTEMPTS,
@@ -2329,7 +2331,14 @@ def test_back_to_back_ticks_launch_exactly_one_drive(cli, seed, launches):
     assert "died without landing the work" not in second.output
     assert "retry" not in second.output
     assert "starting" in second.output
-    assert "1/1 occupied" in second.output
+    # #3388: no `--max-parallel` given, so the global ceiling is derived from
+    # this config's fleet shape — 2 repos * the default 1/repo ceiling,
+    # clamped to `concurrency.max_workers` (2) — rather than the old
+    # hardcoded 1. One entry occupying a slot out of that derived capacity
+    # of 2 is exactly what "exactly one drive, and the ceiling did not
+    # collapse to 1 just because only one repo has anything queued" looks
+    # like; see coord.drive_queue.default_max_parallel.
+    assert "1/2 occupied" in second.output
 
 
 def test_a_still_starting_drive_is_reported_not_escalated(cli, seed, launches):
@@ -3587,6 +3596,15 @@ def test_auto_revalidate_surfaces_but_never_reruns_an_entry_blocked_on_stale_che
     assert entries[0]["issue"] == 2534
     assert entries[0]["repo"] == REPO
 
+    # #3396 review: the escalation's `proposed_command` must be a command
+    # `coord escalate run` can actually execute — `--only` is a single-value
+    # Click option that takes the durable `repo#issue` key (#1477), not two
+    # space-separated positional-looking tokens (Click would reject the
+    # latter with "Got unexpected extra argument").
+    escalation = state._get_drive_escalation_local(REPO, 2534)
+    assert escalation is not None
+    assert escalation["proposed_command"] == f"coord merge --only {REPO}#2534"
+
 
 def test_auto_revalidate_keeps_surfacing_an_already_exhausted_entry(
     cli_no_gates, coord_db, stale_ci_backend,
@@ -3617,6 +3635,151 @@ def test_auto_revalidate_keeps_surfacing_an_already_exhausted_entry(
     entries = query_audit_log(event_type="merge_checks_stale_parked")["entries"]
     assert len(entries) == 1
     assert entries[0]["issue"] == 2534
+
+    # #3396 review: same `proposed_command` check as the sibling test above —
+    # this path (dispatch declined) writes the escalation too.
+    escalation = state._get_drive_escalation_local(REPO, 2534)
+    assert escalation is not None
+    assert escalation["proposed_command"] == f"coord merge --only {REPO}#2534"
+
+
+# ── #3396: auto-revalidate now DISPATCHES the stale-rebase worker, rather
+# than only ever reporting the block — see `_run_auto_revalidate_checks_
+# stale`'s docstring. `coord.conflict_fix.dispatch_conflict_fix` itself is
+# stubbed (never a real `/assign` POST) — the SAME seam
+# `tests/test_stalled_pipeline.py`'s equivalent `coord.notify` arm tests use,
+# since this tick's local import binds it fresh on every call.
+
+
+def test_auto_revalidate_dispatches_a_stale_rebase_worker_with_no_live_drive(
+    cli_no_gates, coord_db, stale_ci_backend, monkeypatch,
+):
+    """#3396 acceptance: a gate-READY `checks_stale` row with NO drive-queue
+    counterpart at all (this row is a bare `merge_queue` entry, exactly like
+    quadraui#1001 after its owning drive exhausted its attempts and exited)
+    still gets the SAME stale-rebase worker a live drive or `coord notify`'s
+    stalled-pipeline sweep would dispatch — no operator action."""
+    _seed_pending_merge_row(coord_db, 2534, pr_number=42)
+    set_board_meta(coord_db, "board_initialized", "1")
+
+    fix_assignment = Assignment(
+        machine_name="dellserver", repo_name=REPO, issue_number=2534,
+        issue_title="[stale-rebase-fix] issue 2534", assignment_id="cf-3396",
+        status="pending", type="conflict-fix",
+    )
+    stub = MagicMock(return_value=fix_assignment)
+    monkeypatch.setattr("coord.conflict_fix.dispatch_conflict_fix", stub)
+
+    result = cli_no_gates("tick")
+    assert result.exit_code == 0, result.output
+    assert "dispatched a stale-rebase conflict-fix" in result.output
+    assert "cf-3396" in result.output
+
+    stub.assert_called_once()
+    _, call_kwargs = stub.call_args
+    assert call_kwargs["stale_rebase"] is True
+
+    from coord.audit import query_audit_log
+
+    entries = query_audit_log(
+        event_type="merge_checks_stale_auto_rebase_dispatched"
+    )["entries"]
+    assert len(entries) == 1
+    assert entries[0]["issue"] == 2534
+
+    # Never escalated — a fresh dispatch is progress, not a stuck block.
+    assert state._get_drive_escalation_local(REPO, 2534) is None
+
+
+def test_auto_revalidate_dismisses_a_prior_decline_escalation_once_dispatch_succeeds(
+    cli_no_gates, coord_db, stale_ci_backend, monkeypatch,
+):
+    """#3396 review: an EARLIER tick may have already written a
+    `checks_stale` escalation for this entry (dispatch declined that time —
+    no machine, no repo_path). Once a LATER tick finds dispatch available
+    and actually fires the stale-rebase worker, that stale "needs a human"
+    record must not keep sitting in `coord escalate list`/the TUI — the
+    entry now has a worker actively running against it, not a stuck block
+    only a human can move."""
+    _seed_pending_merge_row(coord_db, 2534, pr_number=42)
+    set_board_meta(coord_db, "board_initialized", "1")
+    state._record_drive_escalation_local(
+        REPO, 2534, stage="checks_stale",
+        reason="dispatch declined: no machine available",
+        gate_readings="gate: READY",
+        proposed_command=f"coord merge --only {REPO}#2534",
+    )
+    assert state._get_drive_escalation_local(REPO, 2534) is not None
+
+    fix_assignment = Assignment(
+        machine_name="dellserver", repo_name=REPO, issue_number=2534,
+        issue_title="[stale-rebase-fix] issue 2534", assignment_id="cf-3396b",
+        status="pending", type="conflict-fix",
+    )
+    stub = MagicMock(return_value=fix_assignment)
+    monkeypatch.setattr("coord.conflict_fix.dispatch_conflict_fix", stub)
+
+    result = cli_no_gates("tick")
+    assert result.exit_code == 0, result.output
+    assert "dispatched a stale-rebase conflict-fix" in result.output
+
+    assert state._get_drive_escalation_local(REPO, 2534) is None
+
+
+def test_auto_revalidate_escalates_once_a_prior_stale_rebase_attempt_failed(
+    cli_no_gates, coord_db, stale_ci_backend,
+):
+    """#3396 item 2: once a conflict-fix already failed against this exact
+    block (the retry cap `has_prior_conflict_fix` enforces), re-diagnosing it
+    every ~3 minutes forever — the issue's own reported symptom — must stop.
+    It escalates into the durable `drive_escalations` table instead, the
+    same one `coord escalate list`/`coord escalate run` already serve."""
+    _seed_pending_merge_row(coord_db, 2534, pr_number=42)
+    set_board_meta(coord_db, "board_initialized", "1")
+    coord_db.execute(
+        "INSERT INTO assignments "
+        "(assignment_id, repo_name, issue_number, issue_title, machine_name, "
+        " type, status, review_of_assignment_id, dispatched_at) "
+        "VALUES (?, ?, ?, ?, 'dellserver', 'conflict-fix', 'failed', ?, ?)",
+        ("cf-prior", REPO, 2534, "issue 2534", "w2534", 200.0),
+    )
+    coord_db.commit()
+
+    result = cli_no_gates("tick")
+    assert result.exit_code == 0, result.output
+    assert "needs a human" in result.output
+
+    escalation = state._get_drive_escalation_local(REPO, 2534)
+    assert escalation is not None
+    assert escalation["stage"] == "checks_stale"
+    assert escalation["proposed_command"] == f"coord merge --only {REPO}#2534"
+
+    from coord.audit import query_audit_log
+
+    entries = query_audit_log(event_type="merge_checks_stale_human_required")["entries"]
+    assert len(entries) == 1
+    assert entries[0]["issue"] == 2534
+
+
+def test_auto_revalidate_dismisses_a_stale_escalation_once_the_block_clears(
+    cli_no_gates, coord_db, stale_ci_backend,
+):
+    """The other half of #3396 item 2: an escalation must not outlive the
+    condition it describes, or `coord escalate list` rots into exactly the
+    kind of noise the issue's own `alert: (none)` complaint was about in the
+    other direction. Nothing in the merge queue names issue 9999 any more
+    (resolved since the escalation was written) — the tick's cleanup pass
+    must drop it even though this run finds zero `checks_stale` candidates."""
+    state._record_drive_escalation_local(
+        REPO, 9999, stage="checks_stale", reason="stale",
+        gate_readings="", proposed_command="coord merge --only x 9999",
+    )
+    assert state._get_drive_escalation_local(REPO, 9999) is not None
+
+    result = cli_no_gates("tick")
+    assert result.exit_code == 0, result.output
+
+    assert state._get_drive_escalation_local(REPO, 9999) is None
 
 
 def test_a_repeatedly_dead_drive_still_reaches_blocked_and_escalates(
@@ -5934,3 +6097,152 @@ def test_diagnose_does_not_call_a_never_polled_machine_unreachable(
     assert "agent-unreachable" not in result.output
     assert "dead-leg" not in result.output
     assert "/health dellserver: not read" in result.output
+
+
+# ── #3395: direction-aware overlap ordering against a QUEUED entry ──────────
+#
+# vimcode#1117 / vimcode#1090: both declared `src/harness.rs` and
+# `src/tui_main/shell_app.rs`. #1090 was queued first and sat `waiting`
+# behind a chain; #1117 was added later at `--position 0`, ahead of it. The
+# predictor found the overlap but chained #1117 `--after` #1090 — the normal
+# direction, correct only when the newcomer runs SECOND. Here it runs FIRST
+# (that is the whole point of `--position 0`), so #1090 carried no edge
+# naming #1117 and both ran concurrently: #1117 merged first and emptied a
+# list in `src/harness.rs`; #1090's stale copy conflicted on merge (PR #1121,
+# `HUMAN_REQUIRED`). These assert the edge lands on the INCUMBENT (#1090)
+# instead, fixing the direction rather than merely detecting the collision
+# (which unfixed `main` already does — see the module docstring's #3395
+# paragraph).
+
+
+def test_inserting_ahead_of_a_queued_overlap_orders_the_incumbent_after_it(
+    cli, declare,
+):
+    # Queue A (files X, Y) — queued first, sits at position 0.
+    declare(1090, "src/harness.rs", "src/tui_main/shell_app.rs")
+    assert cli("add", REPO, "1090").exit_code == 0
+
+    # Queue B (files X, Z) at --position 0, ahead of A. Fails against
+    # unfixed main: the edge previously landed on B (`1117 after 1090`), not
+    # on A — the newcomer positioned to run FIRST was the one made to wait.
+    declare(1117, "src/harness.rs", "src/tui_main/shell_app.rs")
+    result = cli("add", REPO, "1117", "--position", "0")
+
+    assert result.exit_code == 0, result.output
+    # The edge exists, and on the correct side: A (already queued, now
+    # pushed behind B in dispatch order) waits on B, not the other way
+    # around.
+    assert queued(1090)["after_json"] == [f"{REPO}#1117"]
+    assert queued(1117)["after_json"] == []
+    # B is genuinely positioned first.
+    positions = {r["issue_number"]: r["position"] for r in state._list_drive_queue_local()}
+    assert positions[1117] < positions[1090]
+    # The reason is recorded on the row that actually changed, and names why
+    # the direction is reversed.
+    assert "predicted file overlap (#2247)" in result.output
+    assert f"ordered {REPO}#1090 --after {REPO}#1117" in result.output
+    assert "positioned ahead of an existing queued entry" in result.output
+    assert "predicted file overlap (#2247)" in queued(1090)["last_reason"]
+
+
+def test_appending_after_a_queued_overlap_keeps_the_normal_forward_direction(
+    cli, declare,
+):
+    # Same two declarations, but B appended at the tail (no --position) —
+    # the ordinary case #2247's original tests already cover. Direction must
+    # stay forward: B waits on A, since B genuinely runs second.
+    declare(1090, "src/harness.rs", "src/tui_main/shell_app.rs")
+    assert cli("add", REPO, "1090").exit_code == 0
+
+    declare(1117, "src/harness.rs", "src/tui_main/shell_app.rs")
+    result = cli("add", REPO, "1117")
+
+    assert result.exit_code == 0, result.output
+    assert queued(1117)["after_json"] == [f"{REPO}#1090"]
+    assert queued(1090)["after_json"] == []
+
+
+def test_reject_after_drops_a_reversed_edge_too(cli, declare):
+    declare(1090, "src/harness.rs")
+    assert cli("add", REPO, "1090").exit_code == 0
+
+    declare(1117, "src/harness.rs")
+    result = cli(
+        "add", REPO, "1117", "--position", "0", "--reject-after", "1090",
+    )
+
+    assert result.exit_code == 0, result.output
+    # Named by the OTHER entry's key either way — the operator doesn't need
+    # to know which direction rule 2 picked to veto it.
+    assert queued(1090)["after_json"] == []
+    assert queued(1117)["after_json"] == []
+    assert f"rejected via --reject-after (not applied): {REPO}#1090" in result.output
+
+
+def test_repositioning_an_already_queued_entry_reevaluates_the_direction(
+    cli, declare,
+):
+    # #3395 review: none of the tests above reposition an entry that is
+    # ALREADY queued — they only insert a brand-new one at `--position 0`,
+    # where there is nothing to remove first. Repositioning is exactly rule
+    # 3's case, and it needs its own comparison: `_move_drive_queue_entry_
+    # local` removes the target from its OLD slot before reinserting it,
+    # shifting every entry originally after it down by one — a comparison
+    # against the other entry's STALE, pre-removal position picks the WRONG
+    # direction here.
+    #
+    # T queued first (position 0), O queued second (position 1), same
+    # declared file. O's own `add` would normally auto-chain `O --after T`
+    # (the ordinary forward case, correct at the time — T ran first) —
+    # `--reject-after` skips that here so the queue starts with NO edge
+    # between them, isolating what this test is actually about: the
+    # direction rule 2 picks when T is repositioned, not whatever edge O's
+    # own earlier `add` happened to leave behind.
+    #
+    # Re-adding T with `--position 1` is a SWAP, not "T stays ahead of O": O
+    # ends up dispatching FIRST, T SECOND. The correct edge is therefore the
+    # ordinary forward one (T --after O). Unfixed code compares T's
+    # requested --position (1) against O's raw pre-move position (also 1),
+    # calls that a tie, and reverses it (O --after T) — ordering the entry
+    # that actually dispatches first to wait on the one that actually
+    # dispatches second.
+    declare(2001, "src/shared.rs")
+    assert cli("add", REPO, "2001").exit_code == 0  # T, lands at position 0
+
+    declare(2002, "src/shared.rs")
+    assert (
+        cli("add", REPO, "2002", "--reject-after", "2001").exit_code == 0
+    )  # O, lands at position 1, no edge yet
+
+    result = cli("add", REPO, "2001", "--position", "1")
+
+    assert result.exit_code == 0, result.output
+    positions = {r["issue_number"]: r["position"] for r in state._list_drive_queue_local()}
+    assert positions[2002] < positions[2001]  # O genuinely runs first now
+    assert queued(2001)["after_json"] == [f"{REPO}#2002"]  # forward: T after O
+    assert queued(2002)["after_json"] == []
+
+
+def test_a_reversed_edge_is_never_applied_against_an_in_flight_branch(
+    cli, declare, seed, branch_diff,
+):
+    # A `[branch]` overlap (already running) must never reverse — it started
+    # before this add regardless of queue position, so the newcomer always
+    # waits on it, exactly like before #3395.
+    seed(
+        issues={2230: "open"},
+        assignments=[{"issue_number": 2230, "status": "running"}],
+    )
+    from coord.db import get_connection
+
+    get_connection().execute(
+        "UPDATE assignments SET branch = 'issue-2230' WHERE issue_number = 2230"
+    )
+    get_connection().commit()
+    branch_diff({"issue-2230": ["coord/drive_queue.py"]})
+    declare(2234, "coord/drive_queue.py")
+
+    result = cli("add", REPO, "2234", "--position", "0")
+
+    assert result.exit_code == 0, result.output
+    assert queued(2234)["after_json"] == [f"{REPO}#2230"]

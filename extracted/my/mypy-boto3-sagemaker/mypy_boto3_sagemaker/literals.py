@@ -2393,6 +2393,7 @@ ResourceTypeType = Literal[
     "ExperimentTrialComponent",
     "FeatureGroup",
     "FeatureMetadata",
+    "HubContent",
     "HyperParameterTuningJob",
     "Image",
     "ImageVersion",

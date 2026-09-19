@@ -5,7 +5,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.pathfinding.single_source_dijkstra_endpoints import (
@@ -24,7 +24,7 @@ class SingleSourceDijkstraCypherEndpoints(SingleSourceDijkstraEndpoints):
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         *,
         relationship_weight_property: str | None = None,
@@ -59,7 +59,7 @@ class SingleSourceDijkstraCypherEndpoints(SingleSourceDijkstraEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         mutate_relationship_type: str,
         *,
@@ -91,11 +91,11 @@ class SingleSourceDijkstraCypherEndpoints(SingleSourceDijkstraEndpoints):
             "gds.allShortestPaths.dijkstra.mutate", params=params, logging=log_progress
         ).iloc[0]
 
-        return SingleSourceDijkstraMutateResult(**result.to_dict())
+        return SingleSourceDijkstraMutateResult(**result)
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         write_relationship_type: str,
         *,
@@ -133,11 +133,11 @@ class SingleSourceDijkstraCypherEndpoints(SingleSourceDijkstraEndpoints):
             "gds.allShortestPaths.dijkstra.write", params=params, logging=log_progress
         ).iloc[0]
 
-        return SingleSourceDijkstraWriteResult(**result.to_dict())
+        return SingleSourceDijkstraWriteResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         source_node: int,
         *,
         relationship_weight_property: str | None = None,

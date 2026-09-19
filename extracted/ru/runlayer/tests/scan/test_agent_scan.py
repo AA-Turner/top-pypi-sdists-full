@@ -14,6 +14,7 @@ from runlayer_cli.scan.agent_scan import (
     filter_static_skill_descendants,
     parse_crawl_manifests,
 )
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.agents.detect import (
     METHOD_INSTALL,
     METHOD_STATIC,
@@ -210,6 +211,53 @@ def test_discover_static_agents_swallows_errors(monkeypatch, tmp_path):
     assert discover_static_agents([tmp_path]) == []
 
 
+def test_finished_static_agent_scan_is_complete_after_deadline(
+    monkeypatch,
+    tmp_path,
+):
+    clock = 0.0
+    status = ScanCompletionStatus()
+
+    def complete_scan(*_args, **_kwargs):
+        nonlocal clock
+        clock = 2.0
+        return []
+
+    monkeypatch.setattr(agent_scan.time, "monotonic", lambda: clock)
+    monkeypatch.setattr(agent_scan, "collect_agents", complete_scan)
+
+    assert (
+        discover_static_agents(
+            [tmp_path],
+            time_budget_s=1.0,
+            scan_status=status,
+        )
+        == []
+    )
+    assert status.reasons == []
+
+
+def test_skipped_static_agent_work_marks_incomplete(monkeypatch, tmp_path):
+    status = ScanCompletionStatus()
+
+    def skip_work(*_args, on_deadline_exhausted=None, **_kwargs):
+        assert on_deadline_exhausted is not None
+        on_deadline_exhausted()
+        return []
+
+    monkeypatch.setattr(agent_scan, "collect_agents", skip_work)
+
+    assert (
+        discover_static_agents(
+            [tmp_path],
+            time_budget_s=1.0,
+            scan_status=status,
+        )
+        == []
+    )
+    assert status.reasons == ["agent_static_scan_truncated"]
+
+
 def test_discover_static_agents_detects_framework(tmp_path):
     proj = _make_langchain(tmp_path / "proj")
 
@@ -242,6 +290,25 @@ def test_install_agents_empty_when_not_detected(monkeypatch):
     result = discover_install_agents()
 
     assert result.agents == []
+
+
+def test_discover_agents_uses_canonical_completion_status(monkeypatch):
+    def fail_probe():
+        raise RuntimeError("probe failed")
+
+    failed_probe = InstallProbe(
+        name="broken",
+        detect=fail_probe,
+        build_agent=build_openclaw_agent,
+        runtime=INSTALL_PROBES[0].runtime,
+    )
+    monkeypatch.setattr(agent_scan, "INSTALL_PROBES", (failed_probe, failed_probe))
+
+    result = discover_agents(detect_static=False)
+
+    assert result.completion.reasons == ["agent_install_probe_failed:broken"]
+    assert result.complete is False
+    assert result.incomplete_reasons is result.completion.reasons
 
 
 # ── discover_agents: one flag, two channels (F4) ─────────────────────────────

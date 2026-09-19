@@ -6,6 +6,7 @@ import pytest
 from typer.testing import CliRunner
 
 from runlayer_cli.config import Config
+from runlayer_cli.commands import auth as auth_commands
 from runlayer_cli.credential_store import KeyringCredentialStore, reset_credential_store
 from runlayer_cli.main import app
 
@@ -124,6 +125,124 @@ def test_login_displays_user_code():
 
                     # Should display the user code
                     assert "ABCD-1234" in result.output
+
+
+def _login_success(managed: dict, *, login_host: str) -> str:
+    """Drive a successful device-flow login with ``managed`` as the MDM config."""
+    mock_authorize_response = MagicMock()
+    mock_authorize_response.status_code = 200
+    mock_authorize_response.json.return_value = {
+        "device_code": "test_device_code",
+        "user_code": "ABCD-1234",
+        "verification_uri": f"{login_host}/device",
+        "verification_uri_complete": f"{login_host}/device?user_code=ABCD-1234",
+        "expires_in": 300,
+        "interval": 5,
+    }
+    mock_token_response = MagicMock()
+    mock_token_response.status_code = 200
+    mock_token_response.json.return_value = {"api_key": "test_api_key_123"}
+
+    with (
+        patch("runlayer_cli.commands.auth.load_config") as mock_load,
+        patch("runlayer_cli.config.save_config"),
+        patch("runlayer_cli.commands.auth.httpx.Client") as mock_client_class,
+        patch("runlayer_cli.commands.auth.webbrowser.open"),
+        patch("runlayer_cli.commands.auth.time.sleep"),
+        patch("runlayer_cli.commands.auth.read_managed_config", return_value=managed),
+    ):
+        mock_load.return_value = _create_mock_config(default_host=login_host)
+        mock_client = MagicMock()
+        mock_client.__enter__ = MagicMock(return_value=mock_client)
+        mock_client.__exit__ = MagicMock(return_value=False)
+        mock_client.post.side_effect = [mock_authorize_response, mock_token_response]
+        mock_client_class.return_value = mock_client
+
+        result = runner.invoke(app, ["login"])
+
+    assert result.exit_code == 0, result.output
+    assert "Successfully authenticated" in result.output
+    return result.output
+
+
+def test_login_warns_when_managed_host_differs():
+    """Managed device: say that hooks stay on the MDM host, not the login host."""
+    output = _login_success(
+        {"host": "https://prod.example.com/"}, login_host="https://staging.example.com"
+    )
+    assert "managed by Runlayer (https://prod.example.com)" in output
+    assert "keep reporting to https://prod.example.com" in output
+    assert "interactive commands use https://staging.example.com" in output
+
+
+def test_login_silent_when_managed_host_matches():
+    output = _login_success(
+        {"host": "https://prod.example.com/"}, login_host="https://prod.example.com"
+    )
+    assert "managed by Runlayer" not in output
+
+
+def test_login_silent_when_managed_host_matches_case_variant():
+    """A login host whose only difference from the MDM host is alphabetic case
+    is the same backend, so the managed-host warning must not fire."""
+    output = _login_success(
+        {"host": "https://prod.example.com/"}, login_host="https://Prod.Example.com"
+    )
+    assert "managed by Runlayer" not in output
+
+
+class TestManagedHostWarning:
+    """Direct tests for ``_warn_if_managed_host_differs``: the login-time note
+    must fire only on a genuine host/scheme/port deviation, never on a pure
+    case variant of the same backend."""
+
+    def test_silent_on_case_variant(self, monkeypatch, capsys):
+        monkeypatch.setattr(
+            auth_commands,
+            "read_managed_config",
+            lambda: {"host": "https://prod.example.com"},
+        )
+        auth_commands._warn_if_managed_host_differs("https://Prod.Example.com")
+        assert capsys.readouterr().err == ""
+
+    def test_warns_on_genuine_host_deviation(self, monkeypatch, capsys):
+        monkeypatch.setattr(
+            auth_commands,
+            "read_managed_config",
+            lambda: {"host": "https://prod.example.com"},
+        )
+        auth_commands._warn_if_managed_host_differs("https://staging.example.com")
+        err = capsys.readouterr().err
+        assert "managed by Runlayer (https://prod.example.com)" in err
+        assert "interactive commands use https://staging.example.com" in err
+
+    def test_warns_on_scheme_deviation(self, monkeypatch, capsys):
+        """http vs https on the same host is a meaningful endpoint deviation."""
+        monkeypatch.setattr(
+            auth_commands,
+            "read_managed_config",
+            lambda: {"host": "https://prod.example.com"},
+        )
+        auth_commands._warn_if_managed_host_differs("http://prod.example.com")
+        err = capsys.readouterr().err
+        assert "managed by Runlayer (https://prod.example.com)" in err
+        assert "interactive commands use http://prod.example.com" in err
+
+    def test_warns_on_port_deviation(self, monkeypatch, capsys):
+        """A non-default port is a real deviation."""
+        monkeypatch.setattr(
+            auth_commands,
+            "read_managed_config",
+            lambda: {"host": "https://prod.example.com"},
+        )
+        auth_commands._warn_if_managed_host_differs("https://prod.example.com:8443")
+        err = capsys.readouterr().err
+        assert "managed by Runlayer (https://prod.example.com)" in err
+
+
+def test_login_silent_on_unmanaged_device():
+    output = _login_success({}, login_host="https://staging.example.com")
+    assert "managed by Runlayer" not in output
 
 
 def test_login_success_saves_credentials():

@@ -49,6 +49,21 @@ class OverrideConfigRef:
     user: str | None
     cwd: str | None = None
     wsl_distro: str | None = None
+    owner_sid: str | None = None
+
+
+@dataclass(frozen=True)
+class ExtensionRootRef:
+    """Raw local-only extension root referenced by a client launch flag."""
+
+    client: str
+    flag: str
+    value: str
+    pid: int | None
+    user: str | None
+    cwd: str | None = None
+    wsl_distro: str | None = None
+    owner_sid: str | None = None
 
 
 @dataclass
@@ -74,6 +89,7 @@ class ProcessCandidate:
     # framework ids; values are non-sensitive signal labels (service/docker).
     agent_runtime_signals: dict[str, list[str]] = field(default_factory=dict)
     wsl_distro: str | None = None
+    owner_sid: str | None = None
 
 
 @dataclass
@@ -84,7 +100,8 @@ class DiscoveredProcess:
     (never surfaced as readable text). ``config_hash`` is set when the process
     correlates to a configured MCP server from the filesystem channel. Evidence
     tokens in ``ai_signals`` explain the classification so an analyst can trust
-    (or dismiss) the finding.
+    (or dismiss) the finding. ``owner_sid`` is local-only profile-attribution
+    metadata and is intentionally omitted from serialized views.
     """
 
     pid: int | None
@@ -109,6 +126,7 @@ class DiscoveredProcess:
     cwd_project: str | None
     settings_overrides: list[SettingsOverridePayload] = field(default_factory=list)
     wsl_distro: str | None = None
+    owner_sid: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Serializable view for display and scan submission.
@@ -161,3 +179,6 @@ class ProcessDiscoveryResult:
 
     processes: list[DiscoveredProcess] = field(default_factory=list)
     override_config_refs: list[OverrideConfigRef] = field(default_factory=list)
+    extension_root_refs: list[ExtensionRootRef] = field(default_factory=list)
+    complete: bool = True
+    incomplete_reasons: list[str] = field(default_factory=list)

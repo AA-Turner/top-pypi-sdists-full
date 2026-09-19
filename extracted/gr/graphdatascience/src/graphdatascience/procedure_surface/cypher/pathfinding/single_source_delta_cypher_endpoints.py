@@ -5,7 +5,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, ALL_TYPES
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.pathfinding.single_source_delta_endpoints import (
@@ -25,7 +25,7 @@ class DeltaSteppingCypherEndpoints(SingleSourceDeltaEndpoints):
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         *,
         delta: float = 2.0,
@@ -62,7 +62,7 @@ class DeltaSteppingCypherEndpoints(SingleSourceDeltaEndpoints):
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         delta: float = 2.0,
         relationship_weight_property: str | None = None,
@@ -93,11 +93,11 @@ class DeltaSteppingCypherEndpoints(SingleSourceDeltaEndpoints):
             "gds.allShortestPaths.delta.stats", params=params, logging=log_progress
         ).iloc[0]
 
-        return DeltaSteppingStatsResult(**result.to_dict())
+        return DeltaSteppingStatsResult(**result)
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         mutate_relationship_type: str,
         *,
@@ -131,11 +131,11 @@ class DeltaSteppingCypherEndpoints(SingleSourceDeltaEndpoints):
             "gds.allShortestPaths.delta.mutate", params=params, logging=log_progress
         ).iloc[0]
 
-        return DeltaSteppingMutateResult(**result.to_dict())
+        return DeltaSteppingMutateResult(**result)
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         source_node: int,
         write_relationship_type: str,
         *,
@@ -175,11 +175,11 @@ class DeltaSteppingCypherEndpoints(SingleSourceDeltaEndpoints):
             "gds.allShortestPaths.delta.write", params=params, logging=log_progress
         ).iloc[0]
 
-        return DeltaSteppingWriteResult(**result.to_dict())
+        return DeltaSteppingWriteResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         source_node: int,
         *,
         delta: float = 2.0,

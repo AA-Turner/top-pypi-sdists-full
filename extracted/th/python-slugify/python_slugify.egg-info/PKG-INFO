@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-slugify
-Version: 9.0.0
+Version: 9.1.0
 Summary: A Python slugify application that also handles Unicode
 Author-email: Val Neekman <info@neekware.com>
 License-Expression: MIT
@@ -36,14 +36,14 @@ Unicode-aware slug generation for Python, with explicit transliteration choices.
 
 ## Quickstart
 
-This checkout targets **9.0.0** and has not been published.
-Install from this checkout to use the new APIs demonstrated below.
+**9.0.0 is available on [PyPI](https://pypi.org/project/python-slugify/9.0.0/).**
+Legacy behavior remains the default; improved rules require `algorithm='modern'`.
 See the [migration guide](docs/release-9/migration.md) before changing persisted URLs or keys.
 
 Install **python-slugify**, import **slugify**. Other similarly named distributions are not this package.
 
 ```sh
-python -m pip install -e .
+python -m pip install --upgrade python-slugify
 ```
 
 ```python
@@ -63,8 +63,7 @@ slugify --regex-pattern '[^-a-z0-9_]+' '___This is a test___'
 # ___this-is-a-test___
 ```
 
-The ordinary `python -m pip install python-slugify` command installs the published release,
-which does not yet include the new candidate APIs.
+The examples above work with the published 9.0.0 release. Python 3.10 or newer is required.
 
 ## Python support
 
@@ -73,7 +72,7 @@ which does not yet include the new candidate APIs.
 | 2.7–3.5 | below 5 |
 | 3.6 | 5–6 |
 | 3.7–3.9 | 7–8 (check each release's Requires-Python) |
-| 3.10+ | 9 development series |
+| 3.10+ | 9.x |
 
 The configured release-9 test matrix covers CPython 3.10–3.14 and PyPy 3.11.
 Configuration is not proof of a successful run; see [local verification](docs/release-9/verification.md).
@@ -85,8 +84,8 @@ Older applications can stay on a pinned 8.x release rather than upgrading Python
 | --- | --- | --- |
 | `auto` (default) | Installed Unidecode first, otherwise text-unidecode | Base install includes text-unidecode |
 | `text-unidecode` | Only text-unidecode | Included in base install |
-| `unidecode` | Only Unidecode | `python -m pip install -e '.[unidecode]'` |
-| `anyascii` | Only AnyASCII | `python -m pip install -e '.[anyascii]'` |
+| `unidecode` | Only Unidecode | `python -m pip install 'python-slugify[unidecode]'` |
+| `anyascii` | Only AnyASCII | `python -m pip install 'python-slugify[anyascii]'` |
 
 Explicit selection never silently falls back. A missing selected module raises `ModuleNotFoundError`.
 Backend imports are lazy; `allow_unicode=True` bypasses transliteration entirely.
@@ -112,8 +111,11 @@ slugify(
 ```
 
 - `algorithm`: `'legacy'` is the permanent default, preserving the historical output pipeline. `'modern'` explicitly opts into the changes below. Unknown values raise `ValueError`.
+
+  > **Note for contributors:** the legacy algorithm is frozen. Its behavior and output are intentionally kept as-is for backward compatibility, and we do **not** accept changes that alter legacy output — please do not open PRs to "fix" or "improve" legacy. All improvements target `algorithm='modern'`.
+
 - `text`: `str`, or UTF-8 `bytes`/`bytearray` (invalid bytes ignored). Other objects raise `TypeError`.
-- `entities`, `decimal`, `hexadecimal`: independently decode named HTML entities, decimal references, and lowercase-`x` hexadecimal references. Legacy decodes after transliteration and numeric substitutions are all-or-nothing per reference kind. Modern decodes before transliteration and handles invalid references independently.
+- `entities`, `decimal`, `hexadecimal`: independently decode named HTML entities, decimal references, and hexadecimal references. Legacy accepts lowercase `x`; modern accepts both `x` and `X` as specified by HTML. Legacy decodes after transliteration and numeric substitutions are all-or-nothing per reference kind. Modern decodes before transliteration and handles invalid references independently.
 - `max_length`: legacy budgets internal dashes before separator mapping, so wide separators can exceed the limit. Modern budgets final Python characters, including emitted delimiters. Nonpositive means unlimited for slugify; this is not a byte or grapheme limit.
 - `word_boundary`: prefer whole words; shorter later words can fill the budget. If none fit, use a hard cut.
 - `save_order`: with word boundaries, stop at the first oversized word instead of skipping it.
@@ -202,4 +204,6 @@ about your application's obligations. Evaluate the actual versions, distribution
 
 ## Sponsors
 
-[Neekware Inc.](https://neekware.com)
+[Neekware Inc.](https://neekware.com) — creator of [Dojo Workspace](https://heydojo.ai), your AI workspace for building, learning, and getting things done.
+
+🚀 Created with [Dojo](https://heydojo.ai) ⛩️

@@ -209,6 +209,7 @@ def _make_agent_link_tool(
     extra_tools: list[t.Any] | None,
     extra_hooks: list[t.Any] | None,
     kind: str,
+    runtime_registry: t.Callable[[], capability_manager.CapabilityRegistry | None] | None = None,
 ) -> t.Any:
     """Create a synthetic tool that delegates work to another capability agent."""
     from dreadnode.agents.tools import Tool
@@ -221,6 +222,7 @@ def _make_agent_link_tool(
             extra_tools=extra_tools,
             extra_hooks=extra_hooks,
             system_prompt_append=get_state().system_prompt_append,
+            runtime_registry=runtime_registry,
         )
         return await delegated_agent.chat(task)
 
@@ -419,6 +421,7 @@ def create_agent(
     system_prompt_append: str | None = None,
     engine: str | None = None,
     background_context: str | None = None,
+    runtime_registry: t.Callable[[], capability_manager.CapabilityRegistry | None] | None = None,
 ) -> Agent:
     """Create an agent from a loaded capability.
 
@@ -433,6 +436,8 @@ def create_agent(
     rules since hooks aren't agent-scoped.
     """
     from dreadnode.agents import Agent
+    from dreadnode.agents.tools import Tool
+    from dreadnode.app.server.runtime_inspection import RuntimeInspection
     from dreadnode.capabilities.tool_rules import filter_tools
     from dreadnode.tools import default_tools
 
@@ -472,19 +477,21 @@ def create_agent(
     if tooling_health:
         instructions = instructions + "\n" + tooling_health
 
-    # Append CLI --system-prompt content as the final layer
-    if system_prompt_append:
-        instructions = instructions + "\n\n" + system_prompt_append
-
-    if background_context:
-        instructions = instructions + "\n\n" + background_context
-
     # 1. Inherent tools — always present. Item mutation tools are capability
     # opt-in and added below only when the manifest selects output types.
     base = default_tools(additional_toolsets=inherent_toolsets, include_items=False)
 
     pool: list[t.Any] = list(base.values())
     pool_names = set(base.keys())
+
+    inspection = RuntimeInspection(
+        registry=runtime_registry or (lambda: get_state().capability_registry),
+        agent=lambda: agent,
+        capability=(capability.name, capability.version or "") if capability else None,
+    )
+    inspection_tool = Tool.from_callable(inspection.runtime_info)
+    pool.append(inspection_tool)
+    pool_names.add(inspection_tool.name)
 
     # Bundled @dreadnode gets the CLI helper, but it is not a global inherent tool.
     if (
@@ -532,6 +539,7 @@ def create_agent(
                 extra_tools=extra_tools,
                 extra_hooks=extra_hooks,
                 kind=link.kind,
+                runtime_registry=runtime_registry,
             )
             name = _tool_name(tool)
             if name and name not in pool_names:
@@ -586,6 +594,15 @@ def create_agent(
     # 3. Apply agent's tool rules (empty dict = all tools pass)
     rules = agent_def.tools if agent_def else {}
     tools = filter_tools(pool, rules, name_fn=_tool_name)
+    if inspection_tool in tools:
+        instructions += "\n\n" + inspection.to_prompt()
+
+    # Keep caller-provided content after all host guidance.
+    if system_prompt_append:
+        instructions = instructions + "\n\n" + system_prompt_append
+
+    if background_context:
+        instructions = instructions + "\n\n" + background_context
 
     # Engine (loop owner): explicit override > agent_def declaration > native.
     # ``inherit``/empty falls through to the native engine (``None``).
@@ -2602,6 +2619,7 @@ class SessionRuntime:
             # ``None`` falls through to agent_def.engine then native.
             engine=self._engine,
             background_context=self._project_memory_background_context,
+            runtime_registry=lambda: self._registry,
         )
 
         self._wire_server_tools(agent)
@@ -3383,6 +3401,11 @@ class SessionRuntime:
                 # this helper is constructed and consumed within a single turn.
                 await request.stream.publish(event)  # noqa: B023
 
+            # Set when the failure below was reported by the agent itself on
+            # its terminal ``AgentEnd`` (already delivered to raw-event
+            # consumers) rather than raised by the runtime.
+            agent_reported_error = False
+
             try:
                 if request.model and request.model != self.model:
                     self.model = request.model
@@ -3527,7 +3550,7 @@ class SessionRuntime:
                 self.persistence.begin_turn()
                 # Local import to match the existing lazy-import style in
                 # this module and avoid eager event-module import at startup.
-                from dreadnode.agents.events import GenerationStep
+                from dreadnode.agents.events import AgentEnd, GenerationStep
 
                 try:
                     # Workflow attribution rides on the agent's own spans rather
@@ -3603,6 +3626,15 @@ class SessionRuntime:
                                 if isinstance(event, GenerationStep):
                                     flush_task = asyncio.create_task(self._persist_state_locked())
                                     self.persistence.track_flush_task(flush_task)
+                                # Engines report terminal errors on AgentEnd rather
+                                # than raising. Route them through the failed-turn
+                                # handler so terminal-envelope consumers see
+                                # turn.failed instead of an empty turn.completed.
+                                if isinstance(event, AgentEnd) and event.error is not None:
+                                    agent_reported_error = True
+                                    if isinstance(event.error, Exception):
+                                        raise event.error
+                                    raise RuntimeError(str(event.error))
                 finally:
                     reset_human_prompt_handler(token)
 
@@ -3723,12 +3755,17 @@ class SessionRuntime:
                 except Exception:
                     logger.opt(exception=True).debug("error-path persist raised")
 
-                error_event: EventPayload = {"type": "error", "error": str(exc)}
-                await _emit_turn_event(error_event)
-                await self._publish_broker_raw_event(
-                    turn_id=request.turn_id,
-                    raw_event=error_event,
-                )
+                # Raw-event consumers (TUI, eval worker, SSE chat) render the
+                # ``error`` event as a failure line. When the agent reported
+                # the error on its own AgentEnd they already have that line;
+                # emitting another would show the same error twice.
+                if not agent_reported_error:
+                    error_event: EventPayload = {"type": "error", "error": str(exc)}
+                    await _emit_turn_event(error_event)
+                    await self._publish_broker_raw_event(
+                        turn_id=request.turn_id,
+                        raw_event=error_event,
+                    )
                 turn_events = _turn_slice()
                 await self._publish_broker_event(
                     kind=runtime_events.EVENT_TURN_FAILED,

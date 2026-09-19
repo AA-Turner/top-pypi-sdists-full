@@ -1,12 +1,16 @@
-from io import StringIO
+from io import BytesIO, StringIO
 import os
 from os import fsencode, fsdecode
 import unittest
 import urllib.request
 import tempfile
+import zipfile
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import pytest
+from OCP.TopoDS import TopoDS_Edge
 
 from build123d import (
     BuildLine,
@@ -28,7 +32,7 @@ from build123d.importers import (
 from build123d.geometry import Pos, Vector
 from build123d.exporters import ExportSVG
 from build123d.exporters3d import export_brep, export_step
-from build123d.build_common import UNITS_PER_METER
+from build123d.build_constants import UNITS_PER_METER
 from build123d.build_enums import Align, GeomType, Unit
 
 
@@ -93,24 +97,6 @@ class ImportSVG(unittest.TestCase):
             self.assertEqual(len(list(base_faces)), 1)
             self.assertEqual(len(list(hole_faces)), 2)
             self.assertEqual(len(list(test_wires)), 1)
-
-    def test_import_svg_deprecated_param(self):  # TODO remove for `1.0` release
-        svg_file = Path(__file__).parent / "../tests/svg_import_test.svg"
-
-        with self.assertWarns(UserWarning):
-            svg = import_svg(svg_file, label_by="label", is_inkscape_label=True)
-
-            # Exact the shape of the plate & holes
-            base_faces = svg.filter_by(lambda f: "base" in f.label)
-            hole_faces = svg.filter_by(lambda f: "hole" in f.label)
-            test_wires = svg.filter_by(lambda f: "wire" in f.label)
-
-            self.assertEqual(len(list(base_faces)), 1)
-            self.assertEqual(len(list(hole_faces)), 2)
-            self.assertEqual(len(list(test_wires)), 1)
-
-        with self.assertWarns(UserWarning):
-            svg = import_svg(svg_file, is_inkscape_label=False)
 
     def test_import_svg_colors(self):
         svg_file = StringIO(
@@ -230,6 +216,24 @@ class ImportSTEP(unittest.TestCase):
         # If the parts where placed correctly they all touch and can be fused
         self.assertEqual(len(fused.solids()), 1)
 
+    def test_unnamed_component(self):
+        file_name = "nist_ctc_02_asme1_ap242-e2.stp"
+        temp_dir = tempfile.gettempdir()
+        file_path = os.path.join(temp_dir, "NIST-PMI-STEP-Files", file_name)
+        if not os.path.exists(file_path):
+            request = urllib.request.Request(
+                "https://www.nist.gov/system/files/documents/noindex/2024/06/19/NIST-PMI-STEP-Files.zip",
+                headers={"User-Agent": "build123d test suite"},
+            )
+            with urllib.request.urlopen(request) as response:
+                with zipfile.ZipFile(BytesIO(response.read())) as archive:
+                    archive.extract(f"NIST-PMI-STEP-Files/{file_name}", temp_dir)
+
+        imported = import_step(file_path)
+
+        self.assertIsInstance(imported, Compound)
+        self.assertIn("", [child.label for child in imported.children])
+
     def test_roundtrip_nested_labels_colors(self):
         a = Solid.make_sphere(1)
         a.label = "sphere"
@@ -302,6 +306,35 @@ class ImportSTEP(unittest.TestCase):
         self.assertAlmostEqual(p.Y, -2.0, 6)
         self.assertAlmostEqual(p.Z, -3.0, 6)
 
+    def test_reexport_imported_assembly(self):
+        """import_step's result must be exportable again: the single-free-
+        shape unwrap has to detach the root from its temporary wrapper
+        (a stale parent made export_step build an empty document)."""
+        leaf = Solid.make_box(1, 1, 1)
+        leaf.label = "leaf"
+        leaf.color = Color(0, 0, 1)
+        sub = Compound(children=[leaf])
+        sub.label = "sub"
+        root = Compound(children=[Pos(10, 0, 0) * sub])
+        root.label = "root"
+        export_step(root, "test.step")
+        imported = import_step("test.step")
+        os.remove("test.step")
+
+        self.assertIsNone(imported.parent)
+
+        export_step(imported, "test.step")  # raised RuntimeError before
+        reimported = import_step("test.step")
+        os.remove("test.step")
+
+        # geometry round-trips at the correct world position
+        bb = reimported.bounding_box()
+        self.assertAlmostEqual(bb.min.X, 10.0, 6)
+        self.assertAlmostEqual(bb.max.X, 11.0, 6)
+        leaf2 = reimported.children[0].children[0]
+        self.assertEqual(leaf2.label, "leaf")
+        self.assertEqual(tuple(leaf2.color), (0, 0, 1, 1))
+
 
 @pytest.mark.parametrize(
     "format", (Path, fsencode, fsdecode), ids=["path", "bytes", "str"]
@@ -358,6 +391,24 @@ def test_stl_import_rescale_units_invalid(unit="invalid"):
     stl_file = Path(__file__).parent / "cyl_w_rect_hole.stl"
     with pytest.raises(ValueError):
         importer = import_stl(stl_file, unit)
+
+
+class ImportSVGValidation(unittest.TestCase):
+    def test_unexpected_shape_type(self):
+        """The SVG document only ever yields wires and faces; the guard is a
+        defensive check on that contract."""
+
+        class _FakeDocument:
+            viewbox = SimpleNamespace(x=0, y=0, width=10, height=10)
+
+            def __iter__(self):
+                yield (TopoDS_Edge(), MagicMock())
+
+        with patch(
+            "build123d.importers.import_svg_document", return_value=_FakeDocument()
+        ):
+            with self.assertRaisesRegex(ValueError, "unexpected shape type"):
+                import_svg("unused.svg")
 
 
 if __name__ == "__main__":

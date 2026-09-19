@@ -1,6 +1,6 @@
 [project]
 name = "dreadnode"
-version = "2.0.46"
+version = "2.0.47"
 description = "Dreadnode SDK"
 authors = [{ name = "Dreadnode Team", email = "support@dreadnode.io" }]
 readme = "README.md"
@@ -34,7 +34,7 @@ dependencies = [
     "fastapi>=0.115.0",
     "starlette>=1.3.1,<1.4.0",
     "uvicorn>=0.34.0",
-    "websockets>=14.0",
+    "websockets>=15.0.1",
     "jsonpath-ng>=1.7.0",
     "xmltodict>=1.0.2",
     "litellm>=1.84.0,<=1.84.0",
@@ -127,6 +127,7 @@ dev = [
     "pre-commit>=4.0.0,<5.0.0",
     "pytest>=9.0.3,<9.1.0",
     "pytest-asyncio>=1.3.0,<1.4.0",
+    "pytest-timeout>=2.4.0,<3",
     "types-protobuf>=5.29.1.20250208",
     "pandas-stubs>=2.2.3.250308",
     "types-requests>=2.32.0.20250306",
@@ -194,13 +195,25 @@ asyncio_default_fixture_loop_scope = "function"
 # helper module beside them changes, would otherwise hit staging or prod from
 # a developer's shell. The API package has had this filter since it grew the
 # same suite. `ci-sdk-deploy` passes its own -m, which overrides this.
-addopts = "-m 'not deploy'"
+# Per-test cap. The slowest test in the suite runs in about 6s locally (MCP
+# servers spawned through uv/npx) and the MCP integration file takes ~34s in
+# total on CI, so 60s is a hang, not a slow day. packages/api uses 10s; this
+# suite is 60s because it has subprocess-spawning integration tests in the
+# default selection and the API does not. The thread method cannot interrupt a
+# blocked test; it dumps every thread's stack and ends the run, which is the
+# point: the job fails in a minute naming the test instead of sitting at
+# GitHub's 6h cap. Job-level caps live in ci-sdk.yml. The live post-deploy
+# tests under tests/deploy/ get their own cap from that directory's conftest.
+addopts = "-m 'not deploy' --timeout=60 --timeout-method=thread"
+timeout_func_only = true
 markers = [
     "integration: self-contained integration tests (spawn local subprocesses)",
     "ray_integration: tests that require a properly configured Ray cluster",
     "server: tests that require a running server at http://localhost:8000",
     "rpc: tests for RPC endpoint integration",
     "deploy: live deploy validation tests for post-deploy CI checks",
+    "deploy_artifact: live SDK artifact upload and download journey",
+    "deploy_candidate: bounded SaaS candidate access, inference and artifact journeys",
     "deploy_tui: live TUI deploy validation tests",
     "deploy_tui_write: live TUI write-journey tests (sandbox, secrets, evaluations)",
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",

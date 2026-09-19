@@ -11,16 +11,16 @@ from .role import Role
 class ChatCompletionResponseMessage(UniversalBaseModel):
     content: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The contents of the message.
+    Assistant message text. May be `null` when `tool_calls` is present.
     """
 
     refusal: typing.Optional[str] = None
     reasoning_content: typing.Optional[str] = pydantic.Field(default=None)
     """
-    The contents of the reasoning message.
+    Visible reasoning trace from the model, when supported. Billed as completion tokens.
     """
 
-    role: Role = pydantic.Field(default="assistant")
+    role: Role = pydantic.Field()
     """
     The role of the author of this message.
     """

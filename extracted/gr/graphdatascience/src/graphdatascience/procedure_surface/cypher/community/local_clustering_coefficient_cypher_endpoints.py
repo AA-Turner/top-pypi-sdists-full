@@ -1,7 +1,7 @@
 from pandas import DataFrame
 
 from graphdatascience.call_parameters import CallParameters
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.community.local_clustering_coefficient_endpoints import (
     LocalClusteringCoefficientEndpoints,
     LocalClusteringCoefficientMutateResult,
@@ -21,7 +21,7 @@ class LocalClusteringCoefficientCypherEndpoints(LocalClusteringCoefficientEndpoi
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         mutate_property: str,
         concurrency: int | None = None,
@@ -51,13 +51,13 @@ class LocalClusteringCoefficientCypherEndpoints(LocalClusteringCoefficientEndpoi
 
         cypher_result = self._query_runner.call_procedure(
             endpoint="gds.localClusteringCoefficient.mutate", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return LocalClusteringCoefficientMutateResult(**cypher_result.to_dict())
+        return LocalClusteringCoefficientMutateResult(**cypher_result)
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         job_id: str | None = None,
@@ -85,13 +85,13 @@ class LocalClusteringCoefficientCypherEndpoints(LocalClusteringCoefficientEndpoi
 
         cypher_result = self._query_runner.call_procedure(
             endpoint="gds.localClusteringCoefficient.stats", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return LocalClusteringCoefficientStatsResult(**cypher_result.to_dict())
+        return LocalClusteringCoefficientStatsResult(**cypher_result)
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         job_id: str | None = None,
@@ -123,7 +123,7 @@ class LocalClusteringCoefficientCypherEndpoints(LocalClusteringCoefficientEndpoi
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         write_property: str,
         concurrency: int | None = None,
@@ -155,13 +155,13 @@ class LocalClusteringCoefficientCypherEndpoints(LocalClusteringCoefficientEndpoi
 
         cypher_result = self._query_runner.call_procedure(
             endpoint="gds.localClusteringCoefficient.write", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return LocalClusteringCoefficientWriteResult(**cypher_result.to_dict())
+        return LocalClusteringCoefficientWriteResult(**cypher_result)
 
     def estimate(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         concurrency: int | None = None,
         job_id: str | None = None,

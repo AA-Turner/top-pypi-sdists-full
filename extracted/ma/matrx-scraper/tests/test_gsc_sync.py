@@ -370,6 +370,10 @@ async def test_resolve_google_credential_calls_aidream(
     assert call["params"] == {"connection_id": "conn-1", "organization_id": "org-1"}
     assert call["headers"]["Authorization"] == "Bearer svc-token"
     assert call["headers"]["X-Matrx-User-Id"] == "user-1"
+    # The organization crosses the boundary as a header — aidream's bridge
+    # refuses a server-to-server call without it (the query param is only the
+    # confirming claim).
+    assert call["headers"]["X-Organization-Id"] == "org-1"
     client = build_gsc_client(credential)
     assert client.refresh_token == "1//refresh"
     assert client.client_id == "abc.apps.googleusercontent.com"
@@ -511,3 +515,25 @@ def test_gsc_sync_summary_shape() -> None:
         "skipped_out_of_scope": 0,
         "errors": [],
     }
+
+
+@pytest.mark.asyncio
+async def test_resolve_google_credential_refuses_without_an_organization(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """THE REQUEST CONTEXT IS CARRIED, NEVER REBUILT: this hop never sends a
+    token-authenticated, organization-less call to aidream."""
+    monkeypatch.setenv("AIDREAM_URL", "https://server.example/")
+    monkeypatch.setenv("AIDREAM_SERVICE_TOKEN", "svc-token")
+
+    def _never(**_kwargs: object) -> object:  # pragma: no cover - must not run
+        raise AssertionError("an organization-less credential call reached the wire")
+
+    monkeypatch.setattr("matrx_scraper.web_crawl.gsc_sync.httpx.AsyncClient", _never)
+
+    with pytest.raises(RuntimeError, match="X-Organization-Id"):
+        await resolve_google_credential(
+            credential_ref="conn-1",
+            site_organization_id="",
+            user_id="user-1",
+        )

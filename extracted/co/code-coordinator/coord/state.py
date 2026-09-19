@@ -52,6 +52,7 @@ from coord.db import (
     is_lock_contention_error,
     retry_on_locked,
     rollback_after_driver_error,
+    undo_pending_write,
 )
 from coord.models import (
     WORK_LIKE_TYPES,
@@ -1471,6 +1472,18 @@ def _record_test_verdict_local(
     conn = get_connection()
 
     def _write() -> None:
+        # #3386 review: fetched INSIDE `_write` (not just in the post-write
+        # SELECT below) so the repo_name needed for the streak update is
+        # available in the SAME transaction/`retry_on_locked` attempt as the
+        # verdict UPDATE — see the comment on that fold just below for why a
+        # separate transaction was worth closing. Harmless to look up twice:
+        # this one is never used for anything the post-write SELECT below
+        # doesn't already redo for the staleness anchor / audit-log fields.
+        streak_row = sql.execute(conn,
+            "SELECT repo_name FROM assignments WHERE assignment_id=?",
+            (assignment_id,),
+        ).fetchone()
+
         sql.execute(conn,
             "UPDATE assignments SET test_state=?, test_reason=?, test_toolchain=?, "
             "test_confirmation=? WHERE assignment_id=?",
@@ -1484,6 +1497,57 @@ def _record_test_verdict_local(
                 "WHERE assignment_id=?",
                 (smoke_test, smoke_test_reason, assignment_id),
             )
+
+        # #3386 (item 3 of #3378): keep the per-repo consecutive
+        # baseline-red streak in lockstep with the verdict this function is
+        # the SINGLE write choke point for (#1337) — both the automatic
+        # `SMOKE: baseline-red` path (`coord.notify._confirmed_pass_verdict`)
+        # and the human-attended `coord test --skipped ... --reason
+        # "baseline-red (#2170): ..."` remedy (`coord.commands.test_gate`)
+        # funnel through here, so incrementing here (rather than at either
+        # call site) means neither can silently dodge the count the way
+        # each independently rendered as an indistinguishable "passed"
+        # before #3378 item 2. A genuine (non-baseline-red) `passed` resets
+        # the streak: real, positive evidence the CURRENT merge base is not
+        # red.
+        #
+        # #3386 review: folded into THIS `_write` (one `retry_on_locked`
+        # call, one `conn.commit()`) rather than calling the public
+        # `record_baseline_red_classification`/`clear_baseline_red_streak`
+        # (each its own transaction) after the fact — a crash between two
+        # separate commits would leave a recorded skip whose classification
+        # never got counted (or a `passed` verdict whose streak-clear never
+        # landed), undercounting the streak rather than breaking
+        # correctness, but there was no reason to accept even that once
+        # both writes are already on the same connection.
+        if streak_row is not None and streak_row["repo_name"]:
+            # Mirrors `coord.confirm_test.TEST_CONFIRMATION_BASELINE_RED` —
+            # kept as a literal (not an import) because `coord.confirm_test`
+            # imports `coord.revalidate`, which imports `coord.merge_queue`,
+            # which imports THIS module (for `COORD_DIR`), so a module-level
+            # import of `coord.confirm_test` here would be circular. Pinned
+            # against drift by `tests/test_state.py::
+            # TestRecordTestVerdictBaselineRedStreak::
+            # test_literal_matches_the_canonical_confirm_test_constant`.
+            if test_state == "skipped" and test_confirmation == "baseline_red":
+                _record_baseline_red_classification_raw(conn, streak_row["repo_name"])
+            elif test_state == "passed" and test_confirmation != "unconfirmed":
+                # #3386 review: an UNCONFIRMED "passed" (`coord.confirm_test`'s
+                # #2464 fallback — `coord.notify._confirmed_pass_verdict`
+                # stamps this whenever no independent re-run was possible on
+                # this machine, e.g. missing toolchain or a confirmation
+                # timeout) is zero evidence the merge base is clean.
+                # Clearing the streak on one of these would let an ordinary
+                # environmental hiccup on an unrelated, later assignment
+                # silently reset a repo already at the #3386 limit back to
+                # 0 — reproducing the exact silent bypass this streak
+                # exists to close, just gated on a flaky runner instead of
+                # permanent silence. Only a genuinely confirmed (or
+                # unattended-but-real, i.e. `None`/`"confirmed"`) `passed`
+                # counts as real, positive evidence the CURRENT merge base
+                # is not, in fact, red.
+                _clear_baseline_red_streak_raw(conn, streak_row["repo_name"])
+
         conn.commit()
 
     # #2802: ride out transient `database is locked` contention the same way
@@ -1513,6 +1577,7 @@ def _record_test_verdict_local(
             issue_number=row["issue_number"],
             branch=row["branch"],
         )
+
     if row is not None and test_state is not None:
         # #1605: `test_state=None` (clearing a verdict for re-dispatch, not
         # recording one) isn't a verdict to audit — `f"test_{test_state}"`
@@ -1541,6 +1606,227 @@ def _record_test_verdict_local(
             f"Test FAILED: {test_reason.strip()}",
             source="test",
         )
+
+
+# ── #3386 (item 3 of #3378): bound the baseline-red bypass ──────────────────
+#
+# #3378 item 2 made a `baseline-red` (#2170) skip machine-readable via
+# `test_confirmation`, but a machine-readable bypass is still a bypass:
+# `coord.merge_queue.evaluate_smoke_verdict` treats ANY `"skipped"` verdict
+# as an unconditional merge-gate pass (#1732), so the branch merges with its
+# Test stage never having actually run. #2170's bypass is defensible for as
+# long as it takes to notice `main` is red and fix it — hours, not days. It
+# ran 33 days live, unnoticed, merging every branch dispatched against
+# `claude-coordinator` the whole time (confirmed live on #3383, 2026-09-18).
+#
+# The fix is a per-repo streak: every `baseline_red`-confirmed skip
+# increments it (`record_baseline_red_classification`, called above from
+# the single write choke point `_record_test_verdict_local` — #1337), and
+# any genuine (non-baseline-red) `passed` verdict for that repo resets it to
+# zero (`clear_baseline_red_streak`) — proof the CURRENT merge base is not,
+# in fact, red. `coord.merge_queue.evaluate_smoke_verdict` reads the SAME
+# streak (`baseline_red_merge_blocked`) before trusting a fresh
+# baseline-red skip, so `coord merge` and `coord gates` can never disagree
+# about whether a repo has crossed the line (#2096: one question, one
+# answer).
+#
+# Persisted in `board_meta` (one JSON blob under one key), the same seam
+# `save_milestone_gate` above uses — unlike the *advisory*, fail-soft flat
+# files `coord.confirm_test`'s chronic-inconclusive-count tally uses, this
+# streak directly GATES a merge, so it needs the same durability and
+# same-transaction atomicity every other correctness-critical board write
+# gets, not a best-effort file that degrades silently on a torn write.
+# Deliberately does NOT live in `coord.confirm_test`: that module imports
+# `coord.revalidate`, which imports `coord.merge_queue`, which imports THIS
+# module — so `coord.merge_queue.evaluate_smoke_verdict` (the actual merge
+# refusal) can import these functions directly, with no circular-import
+# deferral needed.
+_BASELINE_RED_STREAKS_META_KEY = "baseline_red_streaks"
+
+#: How many CONSECUTIVE `baseline_red`-confirmed skips one repo may
+#: accumulate — with no genuine `passed` verdict in between — before its
+#: Test gate stops being a bypass and starts being a hard merge refusal
+#: (#3386). The issue's own bound is "hours, not days"; 3 is small enough
+#: that a chronic outage cannot hide behind it for weeks, and large enough
+#: that one noisy, quickly-fixed CI blip doesn't halt a repo outright.
+#: Pinned by test — raising it raises the outage-tolerance ceiling (and the
+#: unattended-merge risk) for every repo at once, which must be a
+#: deliberate act, never an accident of drift.
+BASELINE_RED_STREAK_LIMIT = 3
+
+
+def _load_baseline_red_streaks_raw(conn) -> dict[str, int]:
+    """Best-effort decode of the persisted ``{repo: streak}`` map.
+
+    A missing row, corrupt JSON, or an unexpected shape all read as "no
+    streak yet" — a decode failure here must never itself block (or wrongly
+    un-block) a merge.
+    """
+    row = sql.execute(
+        conn, "SELECT value FROM board_meta WHERE key = ?",
+        (_BASELINE_RED_STREAKS_META_KEY,),
+    ).fetchone()
+    if row is None or not row["value"]:
+        return {}
+    try:
+        data = json.loads(row["value"])
+    except ValueError:
+        return {}
+    if not isinstance(data, dict):
+        return {}
+    return {
+        repo: count for repo, count in data.items()
+        if isinstance(repo, str) and isinstance(count, int) and count > 0
+    }
+
+
+def _save_baseline_red_streaks_raw(conn, streaks: dict[str, int]) -> None:
+    sql.upsert(
+        conn, "board_meta", ["key", "value"],
+        (_BASELINE_RED_STREAKS_META_KEY, json.dumps(streaks)),
+        conflict_columns=["key"],
+    )
+
+
+def _record_baseline_red_classification_raw(conn, repo_name: str) -> int:
+    """Increment *repo_name*'s streak on *conn* — no commit, no locking retry.
+
+    Shared by :func:`record_baseline_red_classification` (its own commit)
+    and :func:`_record_test_verdict_local` (folded into the SAME commit as
+    the verdict UPDATE, per the #3386 review — see that function's docstring
+    for why they must not be two separate transactions).
+    """
+    streaks = _load_baseline_red_streaks_raw(conn)
+    new_count = int(streaks.get(repo_name, 0)) + 1
+    streaks[repo_name] = new_count
+    _save_baseline_red_streaks_raw(conn, streaks)
+    return new_count
+
+
+def _clear_baseline_red_streak_raw(conn, repo_name: str) -> None:
+    """Reset *repo_name*'s streak on *conn* — no commit, no locking retry.
+
+    Shared by :func:`clear_baseline_red_streak` (its own commit) and
+    :func:`_record_test_verdict_local` (folded into the SAME commit as the
+    verdict UPDATE) — see :func:`_record_baseline_red_classification_raw`.
+    """
+    streaks = _load_baseline_red_streaks_raw(conn)
+    if repo_name in streaks:
+        del streaks[repo_name]
+        _save_baseline_red_streaks_raw(conn, streaks)
+
+
+def record_baseline_red_classification(repo_name: str | None) -> int:
+    """Increment and persist *repo_name*'s consecutive baseline-red streak (#3386).
+
+    Called exactly once per `baseline_red`-confirmed skip recorded for the
+    repo — from :func:`_record_test_verdict_local`, the single write choke
+    point BOTH the automatic path (a headless worker's `SMOKE: baseline-red`
+    marker, via `coord.notify._confirmed_pass_verdict`) and the
+    human-attended remedy (`coord test --skipped ... --reason
+    "baseline-red (#2170): ..."`, via `coord.commands.test_gate`) route
+    through (#1337) — so neither path can silently bypass the count the way
+    each independently bypassed the merge gate before #3378 item 2.
+
+    Returns the new streak so a caller can log/escalate inline without a
+    second read. A falsy *repo_name* is a no-op returning ``0``.
+
+    Standalone caller (e.g. a test, or a future direct call site) — not the
+    one `_record_test_verdict_local` uses internally, which folds the raw
+    write into its own transaction instead of calling this.
+    """
+    if not repo_name:
+        return 0
+    conn = get_connection()
+    new_count = 0
+
+    def _write() -> None:
+        nonlocal new_count
+        new_count = _record_baseline_red_classification_raw(conn, repo_name)
+        conn.commit()
+
+    # #2802: ride out transient `database is locked` contention the same
+    # way every neighbouring write in this module does — see
+    # `_record_test_verdict_local`, this function's only caller.
+    retry_on_locked(_write)
+    return new_count
+
+
+def clear_baseline_red_streak(repo_name: str | None) -> None:
+    """Reset *repo_name*'s consecutive baseline-red streak to zero (#3386).
+
+    Called when a genuine (non-`baseline_red`) ``passed`` verdict is
+    recorded for the repo — real, positive evidence that the CURRENT merge
+    base is not, in fact, red, so whatever streak this repo was
+    accumulating no longer describes reality. A `"failed"` verdict
+    deliberately does **not** reset it: it says the branch under test is
+    broken, not that the base is clean.
+
+    Standalone caller — see the note on :func:`record_baseline_red_classification`.
+    """
+    if not repo_name:
+        return
+    conn = get_connection()
+
+    def _write() -> None:
+        _clear_baseline_red_streak_raw(conn, repo_name)
+        conn.commit()
+
+    retry_on_locked(_write)
+
+
+def baseline_red_streak(repo_name: str) -> int:
+    """*repo_name*'s persisted consecutive baseline-red streak (0 if none) (#3386).
+
+    **Local-DB read only** — like :func:`has_review_claim`, this does NOT
+    route to the daemon via ``board_service``: ``board_meta`` lives on the
+    canonical board (the ``coord serve`` daemon's DB), so a thin client's
+    local ``~/.coord/coord.db`` copy is empty/stale for it exactly like it
+    is for ``build_board()`` (#615). The real merge refusal
+    (:func:`baseline_red_merge_blocked`, called from
+    ``coord.merge_queue.evaluate_smoke_verdict``) always runs on the
+    daemon/coordinator host where the local DB IS canonical, so this
+    limitation never affects an actual merge decision — only an advisory
+    echo (e.g. ``coord.commands.test_gate``'s streak note) read from a thin
+    client, which is why :func:`_thin_client_local_board_guard` fires here:
+    it flags exactly that case instead of silently printing a stale count.
+    """
+    _thin_client_local_board_guard("baseline_red_streak")
+    return _load_baseline_red_streaks_raw(get_connection()).get(repo_name, 0)
+
+
+def baseline_red_streaks(repo_name: str | None = None) -> dict[str, int]:
+    """The persisted ``{repo: streak}`` map (#3386).
+
+    *repo_name* narrows to ``{repo_name: streak}`` (``{}`` if it has none);
+    ``None`` (the default) returns the whole fleet-wide map. This is the
+    seam a `coord doctor`/`coord status` repo-level alert (#3386 item 5)
+    reads to surface a chronically-red merge base without an operator
+    having to go looking for it one issue at a time, the way #3378 itself
+    was only found (33 days late, on #3383).
+
+    Same **local-DB read only** limitation as :func:`baseline_red_streak`
+    above — see its docstring.
+    """
+    _thin_client_local_board_guard("baseline_red_streaks")
+    streaks = _load_baseline_red_streaks_raw(get_connection())
+    if repo_name is not None:
+        return {repo_name: streaks[repo_name]} if repo_name in streaks else {}
+    return streaks
+
+
+def baseline_red_merge_blocked(repo_name: str | None) -> bool:
+    """True when *repo_name* has hit the #3386 consecutive-streak limit.
+
+    The ONE predicate both the real merge refusal
+    (:func:`coord.merge_queue.evaluate_smoke_verdict`) and any repo-level
+    alert surface (#3386 item 5) must call — never a second,
+    independently-derived comparison against :data:`BASELINE_RED_STREAK_LIMIT`
+    (#2096: one question, one answer).
+    """
+    if not repo_name:
+        return False
+    return baseline_red_streak(repo_name) >= BASELINE_RED_STREAK_LIMIT
 
 
 def record_uat_verdict(
@@ -2344,15 +2630,63 @@ def _claim_review_dispatch_local(of_assignment_id: str) -> bool:
     """Local-DB write for :func:`claim_review_dispatch`.
 
     Called directly by the daemon endpoint so it never re-routes back over
-    HTTP — mirrors every other ``_*_local`` write in this module.
+    HTTP — mirrors every other ``_*_local`` write in this module. The
+    ``/review-claim`` endpoint itself calls this synchronously, not via
+    ``run_in_threadpool`` — the two review-claim endpoints can't race each
+    other's writes — but ``coord.db.get_connection()``'s connection is the
+    same process-wide SQLite singleton every OTHER ``_*_local`` writer this
+    process dispatches through ``run_in_threadpool`` on a real OS worker
+    thread uses too (#3382 review).
+
+    #3382: wrapped in :func:`coord.db.retry_on_locked`, unlike this
+    function's original shape which had no lock-contention handling at all
+    — a `database is locked` collision raised straight out to the caller as
+    a 503 with nothing retried. On top of the retry, when the `INSERT OR
+    IGNORE` applied but the `conn.commit()` after it raised, the closure
+    undoes its own just-inserted row via
+    :func:`coord.db.undo_pending_write` before re-raising — see that
+    function's docstring for why the undo is a compensating statement
+    naming THIS row rather than any transaction-level rollback (neither a
+    bare ``conn.rollback()`` nor ``ROLLBACK TO SAVEPOINT`` can express
+    "mine only" on a connection several threads write through). Without it,
+    a `conn.commit()` failure leaves a just-applied insert pending on the
+    shared connection for a wholly unrelated handler's next commit to
+    durably persist later — the incident this issue reports, a
+    `review_claims` row held by neither of the two calls that raced for it,
+    wedging vimcode#1086's review for ~13.5h.
     """
-    conn = get_connection()
-    cur = sql.insert_ignore(
-        conn, "review_claims", ["of_assignment_id", "claimed_at"],
-        (of_assignment_id, time.time()),
-    )
-    conn.commit()
-    return (cur.rowcount or 0) > 0
+
+    def _write() -> int:
+        conn = get_connection()
+        claimed_at = time.time()
+        inserted = 0
+        try:
+            cur = sql.insert_ignore(
+                conn, "review_claims", ["of_assignment_id", "claimed_at"],
+                (of_assignment_id, claimed_at),
+            )
+            inserted = cur.rowcount or 0
+            conn.commit()
+        except sql.driver_errors() as exc:  # #2784: was sqlite3.OperationalError only
+            if inserted:
+                # Only this call's own row: `claimed_at` is the stamp THIS
+                # attempt generated, so a claim another process legitimately
+                # holds (different stamp) is never touched. `inserted == 0`
+                # means the insert either lost the race or never applied at
+                # all — nothing of ours to compensate for.
+                undo_pending_write(
+                    conn, exc,
+                    undo=lambda: sql.execute(
+                        conn,
+                        "DELETE FROM review_claims "
+                        "WHERE of_assignment_id=? AND claimed_at=?",
+                        (of_assignment_id, claimed_at),
+                    ),
+                )
+            raise
+        return inserted
+
+    return retry_on_locked(_write) > 0
 
 
 def has_review_claim(of_assignment_id: str) -> bool:
@@ -2388,6 +2722,36 @@ def has_review_claim(of_assignment_id: str) -> bool:
     return row is not None
 
 
+def review_claim_age_secs(of_assignment_id: str) -> float | None:
+    """Seconds since *of_assignment_id*'s ``review_claims`` row was taken, or
+    ``None`` when no claim is held (#3383).
+
+    Sibling read to :func:`has_review_claim`, used by ``coord diagnose
+    --stage review`` to gate a claim release on age: a claim taken
+    microseconds ago by an in-flight :func:`claim_review_dispatch` call that
+    has not yet inserted its review ``assignments`` row is indistinguishable,
+    from a single read, from a genuinely leaked claim — exactly the
+    false-positive window already documented on the terminal-review-row path
+    in ``diagnose._recover_review`` (#3206). Comparing ``claimed_at`` against
+    a short grace period lets the caller tell "just claimed, dispatch still
+    running" apart from "claimed a long time ago, nothing is coming".
+
+    Same local-DB-only caveat as :func:`has_review_claim` — reads the local
+    connection, not the daemon, so it undercounts on a thin client.
+    """
+    if not of_assignment_id:
+        return None
+    conn = get_connection()
+    row = sql.execute(
+        conn,
+        "SELECT claimed_at FROM review_claims WHERE of_assignment_id=?",
+        (of_assignment_id,),
+    ).fetchone()
+    if row is None or row[0] is None:
+        return None
+    return time.time() - row[0]
+
+
 def release_review_dispatch_claim(of_assignment_id: str) -> None:
     """Release a claim taken by :func:`claim_review_dispatch`.
 
@@ -2415,11 +2779,48 @@ def _release_review_dispatch_claim_local(of_assignment_id: str) -> None:
     Called directly by the daemon endpoint so it never re-routes back over
     HTTP, and by ``coord.issue_store._update_local_state`` (which always runs
     against whatever DB is local to that process — the canonical one, when
-    that process is the daemon or a non-thin-client host).
+    that process is the daemon or a non-thin-client host, and which CAN run
+    on a ``run_in_threadpool`` worker thread — #3382 review).
+
+    #3382: same `retry_on_locked` + undo-this-row-on-commit-failure
+    treatment as :func:`_claim_review_dispatch_local` — see that function's
+    docstring and :func:`coord.db.undo_pending_write`'s for why the undo is
+    a compensating statement rather than any transaction-level rollback.
+    This write had neither before, and a lock collision here left a stray
+    `DELETE` pending on the shared connection for the same reason the claim
+    write did — so the undo here is the mirror image: put back the ONE row
+    this call deleted, with the `claimed_at` it read back before deleting,
+    leaving every other row (and every other thread's pending statement)
+    exactly as it found them.
     """
-    conn = get_connection()
-    sql.execute(conn, "DELETE FROM review_claims WHERE of_assignment_id=?", (of_assignment_id,))
-    conn.commit()
+
+    def _write() -> None:
+        conn = get_connection()
+        row = sql.execute(
+            conn,
+            "SELECT claimed_at FROM review_claims WHERE of_assignment_id=?",
+            (of_assignment_id,),
+        ).fetchone()
+        claimed_at = row[0] if row is not None else None
+        deleted = 0
+        try:
+            cur = sql.execute(
+                conn, "DELETE FROM review_claims WHERE of_assignment_id=?", (of_assignment_id,)
+            )
+            deleted = cur.rowcount or 0
+            conn.commit()
+        except sql.driver_errors() as exc:  # #2784: was sqlite3.OperationalError only
+            if deleted and claimed_at is not None:
+                undo_pending_write(
+                    conn, exc,
+                    undo=lambda: sql.insert_ignore(
+                        conn, "review_claims", ["of_assignment_id", "claimed_at"],
+                        (of_assignment_id, claimed_at),
+                    ),
+                )
+            raise
+
+    retry_on_locked(_write)
 
 
 def release_review_claim_if_row_is_review(assignment_id: str) -> None:
@@ -2528,16 +2929,43 @@ def _claim_smoke_dispatch_local(work_assignment_id: str, capability_partition: s
     """Local-DB write for :func:`claim_smoke_dispatch`.
 
     Called directly by the daemon endpoint so it never re-routes back over
-    HTTP — mirrors :func:`_claim_review_dispatch_local`.
+    HTTP — mirrors :func:`_claim_review_dispatch_local`, including its
+    #3382 `retry_on_locked` + row-scoped
+    :func:`coord.db.undo_pending_write` treatment: this write is the
+    same "INSERT OR IGNORE, then commit" exclusive-claim shape, so it was
+    exposed to the identical 503-after-successful-write class that issue
+    reports for the review claim table, and to the same review-flagged risk
+    of a transaction-level rollback discarding an unrelated writer's own
+    pending statement on the shared connection.
     """
-    conn = get_connection()
-    cur = sql.insert_ignore(
-        conn, "smoke_claims",
-        ["work_assignment_id", "capability_partition", "claimed_at"],
-        (work_assignment_id, capability_partition, time.time()),
-    )
-    conn.commit()
-    return (cur.rowcount or 0) > 0
+
+    def _write() -> int:
+        conn = get_connection()
+        claimed_at = time.time()
+        inserted = 0
+        try:
+            cur = sql.insert_ignore(
+                conn, "smoke_claims",
+                ["work_assignment_id", "capability_partition", "claimed_at"],
+                (work_assignment_id, capability_partition, claimed_at),
+            )
+            inserted = cur.rowcount or 0
+            conn.commit()
+        except sql.driver_errors() as exc:  # #2784: was sqlite3.OperationalError only
+            if inserted:
+                undo_pending_write(
+                    conn, exc,
+                    undo=lambda: sql.execute(
+                        conn,
+                        "DELETE FROM smoke_claims WHERE work_assignment_id=? "
+                        "AND capability_partition=? AND claimed_at=?",
+                        (work_assignment_id, capability_partition, claimed_at),
+                    ),
+                )
+            raise
+        return inserted
+
+    return retry_on_locked(_write) > 0
 
 
 def release_smoke_dispatch_claim(work_assignment_id: str, capability_partition: str) -> None:
@@ -2572,15 +3000,44 @@ def _release_smoke_dispatch_claim_local(
 
     Called directly by the daemon endpoint so it never re-routes back over
     HTTP, and by :func:`release_smoke_claim_if_row_is_smoke_leg` (which
-    always runs against whatever DB is local to that process).
+    always runs against whatever DB is local to that process, and CAN run
+    on a ``run_in_threadpool`` worker thread — #3382 review).
+
+    #3382: same `retry_on_locked` + undo-this-row-on-commit-failure
+    treatment as :func:`_release_review_dispatch_claim_local`.
     """
-    conn = get_connection()
-    sql.execute(
-        conn,
-        "DELETE FROM smoke_claims WHERE work_assignment_id=? AND capability_partition=?",
-        (work_assignment_id, capability_partition),
-    )
-    conn.commit()
+
+    def _write() -> None:
+        conn = get_connection()
+        row = sql.execute(
+            conn,
+            "SELECT claimed_at FROM smoke_claims "
+            "WHERE work_assignment_id=? AND capability_partition=?",
+            (work_assignment_id, capability_partition),
+        ).fetchone()
+        claimed_at = row[0] if row is not None else None
+        deleted = 0
+        try:
+            cur = sql.execute(
+                conn,
+                "DELETE FROM smoke_claims WHERE work_assignment_id=? AND capability_partition=?",
+                (work_assignment_id, capability_partition),
+            )
+            deleted = cur.rowcount or 0
+            conn.commit()
+        except sql.driver_errors() as exc:  # #2784: was sqlite3.OperationalError only
+            if deleted and claimed_at is not None:
+                undo_pending_write(
+                    conn, exc,
+                    undo=lambda: sql.insert_ignore(
+                        conn, "smoke_claims",
+                        ["work_assignment_id", "capability_partition", "claimed_at"],
+                        (work_assignment_id, capability_partition, claimed_at),
+                    ),
+                )
+            raise
+
+    retry_on_locked(_write)
 
 
 def release_smoke_claim_if_row_is_smoke_leg(assignment_id: str) -> None:
@@ -7248,11 +7705,17 @@ def _upsert_open_issues_local(repo_name: str, issues: list[dict]) -> None:
         milestone = issue.get("milestone") or {}
         milestone_number = milestone.get("number") if milestone else None
         milestone_title = milestone.get("title") if milestone else None
+        # #3384: `gh issue list --json stateReason` — `"reopened"` when a
+        # human explicitly reopened this issue, `""`/null for an issue that
+        # has simply never been closed. Lowercased on write so
+        # `coord.drive_queue.build_board_view`'s `== "reopened"` compare
+        # never has to guess GitHub's casing.
+        state_reason = str(issue.get("stateReason") or "").lower()
         sql.execute(conn,
             """
             INSERT INTO issues (repo_name, number, title, body, state, labels, synced_at,
-                                milestone_number, milestone_title)
-            VALUES (?, ?, ?, ?, 'open', ?, ?, ?, ?)
+                                milestone_number, milestone_title, state_reason)
+            VALUES (?, ?, ?, ?, 'open', ?, ?, ?, ?, ?)
             ON CONFLICT (repo_name, number) DO UPDATE SET
                 title            = excluded.title,
                 body             = excluded.body,
@@ -7260,7 +7723,8 @@ def _upsert_open_issues_local(repo_name: str, issues: list[dict]) -> None:
                 labels           = excluded.labels,
                 synced_at        = excluded.synced_at,
                 milestone_number = excluded.milestone_number,
-                milestone_title  = excluded.milestone_title
+                milestone_title  = excluded.milestone_title,
+                state_reason     = excluded.state_reason
             """,
             (
                 repo_name,
@@ -7271,6 +7735,7 @@ def _upsert_open_issues_local(repo_name: str, issues: list[dict]) -> None:
                 now,
                 milestone_number,
                 milestone_title,
+                state_reason,
             ),
         )
     # #603: the per-issue context digest is short-lived — drop it for any issue

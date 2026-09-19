@@ -16,6 +16,7 @@ from any_llm.types.batch import Batch, BatchRequestCounts, BatchResult, BatchRes
 from any_llm.types.completion import (
     ChatCompletionChunk,
     ChoiceDelta,
+    ChoiceDeltaAudio,
     ChoiceDeltaToolCall,
     ChoiceDeltaToolCallFunction,
     ChunkChoice,
@@ -23,6 +24,7 @@ from any_llm.types.completion import (
     CompletionUsage,
     CreateEmbeddingResponse,
     Embedding,
+    ImageContent,
     PromptTokensDetails,
     Reasoning,
     Usage,
@@ -205,23 +207,28 @@ def _parse_data_uri(data_uri: str, field_name: str, provider_name: str) -> tuple
         msg = f"{field_name} is missing a MIME type"
         raise InvalidRequestError(msg, provider_name=provider_name)
 
-    encoded_data = data_uri.split("base64,", 1)[1]
+    return mime_type, _decode_base64(data_uri.split("base64,", 1)[1], field_name, provider_name)
+
+
+def _decode_base64(encoded_data: str, field_name: str, provider_name: str) -> bytes:
+    """Decode strict base64 within the inline upload limit, reporting bad input as an invalid request.
+
+    The decoded size is computed from the encoded length and padding, so an oversized payload is
+    rejected before anything is decoded.
+    """
     if not encoded_data:
         msg = f"{field_name} is missing base64 data"
         raise InvalidRequestError(msg, provider_name=provider_name)
+    decoded_size = len(encoded_data) * 3 // 4 - encoded_data[-2:].count("=")
+    if decoded_size > _INLINE_SIZE_LIMIT:
+        msg = f"{field_name} exceeds the 20 MB inline upload limit for {provider_name} ({decoded_size} bytes)"
+        raise InvalidRequestError(msg, provider_name=provider_name)
 
     try:
-        raw_data = base64.b64decode(encoded_data, validate=True)
-    except binascii.Error as exc:
+        return base64.b64decode(encoded_data, validate=True)
+    except (binascii.Error, ValueError) as exc:
         msg = f"{field_name} contains invalid base64 data"
         raise InvalidRequestError(msg, exc, provider_name) from exc
-    return mime_type, raw_data
-
-
-def _validate_inline_size(raw_data: bytes, field_name: str, provider_name: str) -> None:
-    if len(raw_data) > _INLINE_SIZE_LIMIT:
-        msg = f"{field_name} exceeds the 20 MB inline upload limit for {provider_name} ({len(raw_data)} bytes)"
-        raise InvalidRequestError(msg, provider_name=provider_name)
 
 
 def _convert_image_url_to_part(block: dict[str, Any], provider_name: str) -> types.Part:
@@ -232,11 +239,25 @@ def _convert_image_url_to_part(block: dict[str, Any], provider_name: str) -> typ
 
     if url.startswith("data:"):
         mime_type, raw_data = _parse_data_uri(url, "image_url.url", provider_name)
-        _validate_inline_size(raw_data, "image_url.url", provider_name)
         return types.Part.from_bytes(data=raw_data, mime_type=mime_type)
 
     guessed_type, _ = mimetypes.guess_type(url)
     return types.Part.from_uri(file_uri=url, mime_type=guessed_type or "image/jpeg")
+
+
+def _convert_input_audio_to_part(block: dict[str, Any], provider_name: str) -> types.Part:
+    """OpenAI's input_audio part: base64 data plus a format name, which Gemini spells as audio/<format>."""
+    audio = block.get("input_audio")
+    if not isinstance(audio, dict):
+        audio = {}
+    data = audio.get("data")
+    audio_format = audio.get("format")
+    if not isinstance(data, str) or not isinstance(audio_format, str) or not audio_format:
+        msg = "input_audio.data and input_audio.format are required for audio content"
+        raise InvalidRequestError(msg, provider_name=provider_name)
+
+    raw_data = _decode_base64(data, "input_audio.data", provider_name)
+    return types.Part.from_bytes(data=raw_data, mime_type=f"audio/{audio_format.lower()}")
 
 
 def _convert_file_to_part(block: dict[str, Any], provider_name: str) -> types.Part:
@@ -247,7 +268,6 @@ def _convert_file_to_part(block: dict[str, Any], provider_name: str) -> types.Pa
 
     if file_data.startswith("data:"):
         mime_type, raw_data = _parse_data_uri(file_data, "file.file_data", provider_name)
-        _validate_inline_size(raw_data, "file.file_data", provider_name)
         return types.Part.from_bytes(data=raw_data, mime_type=mime_type)
 
     guessed_type, _ = mimetypes.guess_type(file_data)
@@ -320,6 +340,8 @@ def _convert_messages(
                         parts.append(_convert_image_url_to_part(content, provider_name))
                     elif content["type"] == "file":
                         parts.append(_convert_file_to_part(content, provider_name))
+                    elif content["type"] == "input_audio":
+                        parts.append(_convert_input_audio_to_part(content, provider_name))
                     else:
                         logger.debug("Skipping unsupported Gemini content block type: %s", content.get("type"))
             formatted_messages.append(types.Content(role="user", parts=parts))
@@ -425,6 +447,86 @@ def _thought_signature_extra_content(part: types.Part) -> dict[str, Any] | None:
     return None
 
 
+def _inline_data_image(part: types.Part) -> dict[str, Any] | None:
+    """Convert Gemini inline data into an OpenAI-compatible data URL."""
+    blob = part.inline_data
+    if (
+        blob is None
+        or not isinstance(blob.data, bytes)
+        or not blob.data
+        or not isinstance(blob.mime_type, str)
+        or not blob.mime_type.startswith("image/")
+    ):
+        return None
+    return {
+        "type": "image_url",
+        "image_url": {"url": f"data:{blob.mime_type};base64,{base64.b64encode(blob.data).decode('ascii')}"},
+    }
+
+
+def _inline_audio_blob(part: types.Part) -> types.Blob | None:
+    """Return the part's non-empty audio blob, if it has one."""
+    blob = part.inline_data
+    if (
+        blob is None
+        or not isinstance(blob.data, bytes)
+        or not blob.data
+        or not isinstance(blob.mime_type, str)
+        or not blob.mime_type.startswith("audio/")
+    ):
+        return None
+    return blob
+
+
+def _wav_from_pcm(pcm: bytes, mime_type: str) -> bytes:
+    """Wrap headerless 16-bit mono PCM in a WAV header."""
+    rate = 24000
+    for parameter in mime_type.split(";"):
+        parameter = parameter.strip()
+        if parameter.startswith("rate="):
+            with suppress(ValueError):
+                parsed_rate = int(parameter.removeprefix("rate="))
+                if parsed_rate > 0:
+                    rate = parsed_rate
+            break
+    return (
+        b"RIFF"
+        + (36 + len(pcm)).to_bytes(4, "little")
+        + b"WAVE"
+        + b"fmt "
+        + (16).to_bytes(4, "little")
+        + (1).to_bytes(2, "little")
+        + (1).to_bytes(2, "little")
+        + rate.to_bytes(4, "little")
+        + (rate * 2).to_bytes(4, "little")
+        + (2).to_bytes(2, "little")
+        + (16).to_bytes(2, "little")
+        + b"data"
+        + len(pcm).to_bytes(4, "little")
+        + pcm
+    )
+
+
+def _inline_data_audio(blobs: list[types.Blob], transcript: str, *, playable: bool) -> dict[str, Any] | None:
+    """Convert Gemini audio blobs into an OpenAI-compatible audio object.
+
+    Complete audio/L16 responses are wrapped as WAV so the sample rate from the MIME
+    type is retained. Streaming chunks stay raw because their total length is unknown.
+    """
+    if not blobs:
+        return None
+    data = b"".join(cast("bytes", blob.data) for blob in blobs)
+    mime_type = cast("str", blobs[0].mime_type)
+    if playable and mime_type.startswith("audio/L16"):
+        data = _wav_from_pcm(data, mime_type)
+    return {
+        "id": "google_genai_audio",
+        "data": base64.b64encode(data).decode("ascii"),
+        "expires_at": 0,
+        "transcript": transcript,
+    }
+
+
 _FINISH_REASON_MAP: dict[types.FinishReason, Literal["stop", "length", "content_filter"]] = {
     types.FinishReason.STOP: "stop",
     types.FinishReason.MAX_TOKENS: "length",
@@ -492,15 +594,17 @@ def _convert_response_to_response_dict(response: types.GenerateContentResponse) 
         reasoning = None
         tool_calls_list: list[dict[str, Any]] = []
         text_content = None
+        images: list[dict[str, Any]] = []
+        audio_blobs: list[types.Blob] = []
         # Gemini 3 signs the last non-function-call part of a text answer. It rides message.extra_content,
         # the same spelling Google's OpenAI-compatible endpoint uses.
         message_extra_content = None
         parts = candidate.content.parts if candidate.content else None
 
         for part in parts or []:
-            if getattr(part, "thought", None):
+            if part.thought:
                 reasoning = (reasoning or "") + (part.text or "")
-            elif function_call := getattr(part, "function_call", None):
+            elif function_call := part.function_call:
                 args_dict = {}
                 if args := getattr(function_call, "args", None):
                     for key, value in args.items():
@@ -521,14 +625,20 @@ def _convert_response_to_response_dict(response: types.GenerateContentResponse) 
 
                 tool_calls_list.append(tool_call_dict)
             else:
+                if image := _inline_data_image(part):
+                    images.append(image)
+                if audio_blob := _inline_audio_blob(part):
+                    audio_blobs.append(audio_blob)
                 if part.text:
                     text_content = (text_content or "") + part.text
                 message_extra_content = _thought_signature_extra_content(part) or message_extra_content
 
+        audio = _inline_data_audio(audio_blobs, text_content or "", playable=True)
+
         # Truncated or filtered responses produce a choice even without content or tool
         # calls, e.g. a thinking model that spent the whole max_output_tokens budget on
         # reasoning, so callers see the terminal reason instead of an empty choices list.
-        if tool_calls_list or text_content or mapped_finish_reason in ("length", "content_filter"):
+        if tool_calls_list or text_content or images or audio or mapped_finish_reason in ("length", "content_filter"):
             choices.append(
                 {
                     "message": {
@@ -536,6 +646,8 @@ def _convert_response_to_response_dict(response: types.GenerateContentResponse) 
                         "content": text_content,
                         "reasoning": reasoning or None,
                         "tool_calls": tool_calls_list or None,
+                        "images": images or None,
+                        "audio": audio,
                         "extra_content": message_extra_content,
                         "refusal": _GEMINI_CONTENT_FILTER_REFUSAL if mapped_finish_reason == "content_filter" else None,
                     },
@@ -613,6 +725,8 @@ def _create_openai_chunk_from_google_chunk(
     reasoning_content = ""
     tool_calls_list: list[ChoiceDeltaToolCall] = []
     message_extra_content = None
+    images: list[dict[str, Any]] = []
+    audio_blobs: list[types.Blob] = []
 
     # Content can be absent on terminal chunks, e.g. when the response is truncated or
     # filtered before any part is produced; the finish reason must still be surfaced.
@@ -647,8 +761,16 @@ def _create_openai_chunk_from_google_chunk(
                 )
             )
         else:
+            if image := _inline_data_image(part):
+                images.append(image)
+            if audio_blob := _inline_audio_blob(part):
+                audio_blobs.append(audio_blob)
             content += part.text or ""  # the signed final part may carry empty text
             message_extra_content = _thought_signature_extra_content(part) or message_extra_content
+
+    audio = None
+    if converted_audio := _inline_data_audio(audio_blobs, content, playable=False):
+        audio = ChoiceDeltaAudio(data=converted_audio["data"], transcript=converted_audio["transcript"] or None)
 
     # Unmapped reasons stay None so non-final chunks are not forced to a terminal reason.
     mapped_finish_reason = _map_finish_reason(candidate.finish_reason) if candidate else None
@@ -664,6 +786,8 @@ def _create_openai_chunk_from_google_chunk(
         reasoning=Reasoning(content=reasoning_content) if reasoning_content else None,
         tool_calls=tool_calls_list or None,
         extra_content=message_extra_content,
+        images=cast("list[ImageContent] | None", images or None),
+        audio=audio,
     )
 
     choice = ChunkChoice(

@@ -7,7 +7,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "posthoganalytics"
-version = "7.56.0"
+version = "7.58.0"
 description = "Integrate PostHog into any python application."
 authors = [
     { name = "PostHog", email = "engineering@posthog.com" },
@@ -117,12 +117,14 @@ packages = [
     "posthoganalytics.ai.claude_agent_sdk",
     "posthoganalytics.ai.otel",
     "posthoganalytics.mcp",
+    "posthoganalytics.tracing",
     "posthoganalytics.test",
     "posthoganalytics.test.ai",
     "posthoganalytics.test.ai.openai_agents",
     "posthoganalytics.test.ai.claude_agent_sdk",
     "posthoganalytics.test.ai.otel",
     "posthoganalytics.test.mcp",
+    "posthoganalytics.test.tracing",
     "posthoganalytics.integrations",
 ]
 

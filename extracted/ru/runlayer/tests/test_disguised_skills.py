@@ -9,6 +9,7 @@ import pytest
 import structlog
 
 from runlayer_cli.scan import disguised_skills as disguised_skills_module
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.disguised_skills import scan_disguised_skills
 from runlayer_cli.scan.hidden_space_sweep import scan_hidden_spaces
 from runlayer_cli.scan.skill_scanner import _scan_skill_md_dir
@@ -1395,3 +1396,140 @@ def test_probe_does_not_descend_beyond_depth_cap(tmp_path: Path):
     (too_deep / "skill.dat").write_text(SKILL_CONTENT)
 
     assert scan_disguised_skills(home=tmp_path) == []
+
+
+def test_byte_budget_exhaustion_marks_scan_incomplete(monkeypatch, tmp_path: Path):
+    """Exhausting the total byte budget drops unread candidates and must
+    revoke absence authority.
+
+    Two valid disguised skills share an allowlisted cache; the byte budget
+    fits exactly one. The first candidate consumes the budget, the second
+    is dropped by ``_artifact_from_candidate`` on the
+    ``remaining_budget <= 0`` path. Before the fix that path returned
+    ``None`` without setting ``budget.truncated``, so the scan falsely
+    reported ``complete=True`` while a real skill went unread.
+    """
+    cache_dir = tmp_path / ".cache" / "chromium" / "Default" / "Cache"
+    cache_dir.mkdir(parents=True)
+    first_skill = cache_dir / "skill-a.dat"
+    first_skill.write_text(SKILL_CONTENT)
+    second_skill = cache_dir / "skill-b.dat"
+    second_skill.write_text(SKILL_CONTENT)
+    monkeypatch.setattr(
+        disguised_skills_module,
+        "MAX_TOTAL_CANDIDATE_BYTES",
+        len(SKILL_CONTENT.encode()),
+    )
+    scan_status = ScanCompletionStatus()
+
+    artifacts = scan_disguised_skills(
+        home=tmp_path,
+        hidden_candidates=(),
+        scan_status=scan_status,
+    )
+
+    assert len(artifacts) == 1
+    assert Path(artifacts[0].path) in {first_skill, second_skill}
+    assert scan_status.complete is False
+    assert "disguised_skill_scan_truncated" in scan_status.reasons
+
+
+def test_candidate_exceeding_remaining_byte_budget_marks_scan_incomplete(
+    monkeypatch, tmp_path: Path
+):
+    """A candidate larger than the remaining byte budget is dropped on the
+    ``size > remaining_budget`` path (with budget still positive), which
+    must also mark the scan incomplete.
+
+    Candidates are fed through the sorted hidden-candidate stream with probe
+    roots disabled, so visitation order is deterministic: the small skill is
+    read first and survives, the larger skill exceeds the remaining budget
+    and is dropped without being read.
+    """
+    cache_dir = tmp_path / ".cache" / "chromium" / "Default" / "Cache"
+    cache_dir.mkdir(parents=True)
+    small_skill = cache_dir / "skill-a.dat"
+    small_skill.write_text(SKILL_CONTENT)
+    larger_skill = cache_dir / "skill-b.dat"
+    larger_skill.write_text(SKILL_CONTENT + ("x" * 200))
+    monkeypatch.setattr(disguised_skills_module, "_ALLOWLISTED_ROOT_PATTERNS", ())
+    monkeypatch.setattr(
+        disguised_skills_module,
+        "MAX_TOTAL_CANDIDATE_BYTES",
+        len(SKILL_CONTENT.encode()) + 150,
+    )
+    scan_status = ScanCompletionStatus()
+
+    artifacts = scan_disguised_skills(
+        home=tmp_path,
+        hidden_candidates=(small_skill, larger_skill),
+        scan_status=scan_status,
+    )
+
+    assert [Path(artifact.path) for artifact in artifacts] == [small_skill]
+    assert scan_status.complete is False
+    assert "disguised_skill_scan_truncated" in scan_status.reasons
+
+
+def test_disguised_scan_remains_complete_within_byte_budget(
+    monkeypatch, tmp_path: Path
+):
+    """When every candidate fits inside the byte budget the scan must keep
+    absence authority: ``complete`` stays ``True`` and no truncation reason
+    is recorded. Guards against the fix over-flagging ordinary runs.
+    """
+    cache_dir = tmp_path / ".cache" / "chromium" / "Default" / "Cache"
+    cache_dir.mkdir(parents=True)
+    first_skill = cache_dir / "skill-a.dat"
+    first_skill.write_text(SKILL_CONTENT)
+    second_skill = cache_dir / "skill-b.dat"
+    second_skill.write_text(SKILL_CONTENT)
+    monkeypatch.setattr(
+        disguised_skills_module,
+        "MAX_TOTAL_CANDIDATE_BYTES",
+        len(SKILL_CONTENT.encode()) * 4,
+    )
+    scan_status = ScanCompletionStatus()
+
+    artifacts = scan_disguised_skills(
+        home=tmp_path,
+        hidden_candidates=(),
+        scan_status=scan_status,
+    )
+
+    assert {Path(artifact.path) for artifact in artifacts} == {
+        first_skill,
+        second_skill,
+    }
+    assert scan_status.complete is True
+    assert "disguised_skill_scan_truncated" not in scan_status.reasons
+
+
+def test_candidate_cap_still_marks_scan_incomplete(monkeypatch, tmp_path: Path):
+    """The pre-existing ``MAX_CANDIDATES`` truncation path must still flow
+    through ``scan_status`` after the byte-budget fix, proving the trailing
+    completeness gate remains wired for every truncation source.
+    """
+    cache_dir = tmp_path / ".cache" / "chromium" / "Default" / "Cache"
+    cache_dir.mkdir(parents=True)
+    first_skill = cache_dir / "skill-a.dat"
+    first_skill.write_text(SKILL_CONTENT)
+    second_skill = cache_dir / "skill-b.dat"
+    second_skill.write_text(SKILL_CONTENT)
+    monkeypatch.setattr(disguised_skills_module, "MAX_CANDIDATES", 1)
+    monkeypatch.setattr(
+        disguised_skills_module,
+        "MAX_TOTAL_CANDIDATE_BYTES",
+        len(SKILL_CONTENT.encode()) * 4,
+    )
+    scan_status = ScanCompletionStatus()
+
+    artifacts = scan_disguised_skills(
+        home=tmp_path,
+        hidden_candidates=(),
+        scan_status=scan_status,
+    )
+
+    assert len(artifacts) == 1
+    assert scan_status.complete is False
+    assert "disguised_skill_scan_truncated" in scan_status.reasons

@@ -24,6 +24,7 @@ import yaml
 from runlayer_cli import regex_safe
 from runlayer_cli.hook_install.paths import (
     InstallScope,
+    codex_toml_file_name,
     enterprise_claude_code_dir,
     enterprise_cline_cli_dir,
     enterprise_codex_dir,
@@ -104,8 +105,8 @@ def iter_supported_clients() -> tuple[Client, ...]:
 # Clients whose MDM destination is the console user's home (ENG-3204). Their
 # root/SYSTEM reads and writes must be link-safe (ENG-3217); on Windows that
 # means refusing paths that cross a reparse point. Cursor/Codex MDM target real
-# root-owned enterprise dirs (``/Library``, ``/etc``), which are not symlink
-# battlegrounds and use plain path ops.
+# root-owned enterprise dirs (``/Library``, ``/etc``, ``%ProgramData%``), which
+# are not symlink battlegrounds and use plain path ops.
 CONSOLE_HOME_CLIENTS = frozenset(
     {
         Client.VSCODE,
@@ -120,6 +121,33 @@ CONSOLE_HOME_CLIENTS = frozenset(
         Client.DEVIN_CLI,
     }
 )
+
+# Clients whose MDM destination is a root-owned enterprise dir the client reads
+# machine-wide. Writing that file for an absent client is harmless (nothing
+# loads it), so MDM install/check never presence-gate these: gating made the
+# write order-dependent on the client install and left Cursor unmonitored when
+# the executable probe missed an app outside /Applications (ENG-6643). Every
+# supported client must land in exactly one of this set or CONSOLE_HOME_CLIENTS.
+ENTERPRISE_DIR_CLIENTS = frozenset(
+    {
+        Client.CURSOR,
+        Client.CODEX,
+        Client.GITHUB_COPILOT_CLI,
+        Client.WINDSURF,
+        Client.QWEN_CODE,
+        Client.GEMINI_CLI,
+    }
+)
+
+
+def presence_gates_install(client: Client, scope: InstallScope) -> bool:
+    """Whether a failed presence probe should skip install/check for *client*.
+
+    Console-home clients are always gated: their MDM target is the user's home,
+    where an unsolicited config write is user-visible. User scope is always
+    gated (manual dev use; writes land in the caller's own home).
+    """
+    return not (scope == InstallScope.MDM and client in ENTERPRISE_DIR_CLIENTS)
 
 
 def expected_event_names(
@@ -713,8 +741,10 @@ def _codex_config_file(scope: InstallScope) -> Path:
 
 
 def _codex_features_toml_file(scope: InstallScope) -> Path:
-    name = "managed_config.toml" if scope == InstallScope.MDM else "config.toml"
-    return client_config_dir(Client.CODEX, scope) / name
+    """TOML layer for ``[features] hooks`` + LLM routing; rule in ``paths``."""
+    return client_config_dir(Client.CODEX, scope) / codex_toml_file_name(
+        mdm=scope == InstallScope.MDM
+    )
 
 
 def _hermes_config_file(scope: InstallScope) -> Path:
@@ -1293,7 +1323,7 @@ def install_client(
             unsafe_path,
         )
 
-    if skip_when_missing:
+    if skip_when_missing and presence_gates_install(client, scope):
         from runlayer_cli.hook_install.presence import (  # noqa: PLC0415
             client_is_installed,
         )
@@ -2343,6 +2373,38 @@ def _write_claude_code(
     return path
 
 
+def _uninstall_codex_console_user_hooks() -> None:
+    """Best-effort: strip Runlayer entries from the console user's ``~/.codex/hooks.json``.
+
+    Windows MDM now writes the managed System layer; a user-layer copy would
+    sit in Codex's ``/hooks`` trust review and, once trusted, fire twice.
+    ``_uninstall_codex(scope=USER)`` resolves ``Path.home()`` — SYSTEM's own
+    profile — so this resolves the console home explicitly. The dir is
+    user-controlled, so the Windows reparse-point preflight applies and any
+    failure is skipped rather than blocking the ProgramData write.
+    """
+    # Lazy: ``console_user`` pulls in ``credential_gate`` and would risk a
+    # circular import at module load (same reason ``_reown_to_console_user``
+    # defers its import).
+    from runlayer_cli.hook_install.console_user import find_console_user_home  # noqa: PLC0415
+
+    console_home = find_console_user_home()
+    if console_home is None:
+        return
+    try:
+        _uninstall_json_hooks(
+            client=Client.CODEX,
+            path=console_home / ".codex" / "hooks.json",
+            home=None,
+            filter_hooks=_filter_runlayer_claude_hooks,
+            remove_empty_file=True,
+            reown=True,
+            mdm=True,
+        )
+    except OSError:
+        return
+
+
 def _write_codex(
     hook_command: str,
     *,
@@ -2350,6 +2412,9 @@ def _write_codex(
     include_pipeline: bool,
     metadata_only: bool = False,
 ) -> Path:
+    if scope == InstallScope.MDM and platform.system() == "Windows":
+        _uninstall_codex_console_user_hooks()
+
     path = _codex_config_file(scope)
     path.parent.mkdir(parents=True, exist_ok=True)
 
@@ -2572,6 +2637,7 @@ _UNINSTALLERS: dict[Client, Callable[..., UninstallResult]] = {
 
 __all__ = [
     "CONSOLE_HOME_CLIENTS",
+    "ENTERPRISE_DIR_CLIENTS",
     "GROK_CLI_ENFORCEMENT_HOOKS",
     "GROK_CLI_PIPELINE_HOOKS",
     "Client",
@@ -2583,5 +2649,6 @@ __all__ = [
     "install_client",
     "iter_supported_clients",
     "hook_command_for_client",
+    "presence_gates_install",
     "uninstall_client",
 ]

@@ -48,6 +48,7 @@ from runlayer_cli.plugins.layouts import (
     NATIVE_PLUGIN_CLIENTS,
     build_plugin_proxy_servers,
     cleanup_native_install,
+    codex_plugin_mcp_config_is_current,
     native_layout,
     project_scope_unsupported_reason,
     purge_owned_content,
@@ -987,6 +988,15 @@ async def update_plugins(
             )
             if (
                 not native_mode_changed
+                and codex_plugin_mcp_config_is_current(
+                    remote,
+                    canonical_dir,
+                    install_name=entry.install_name,
+                    client_name=client_name,
+                    install_mode=entry.install_mode,
+                    host=host,
+                    secret=secret if install_scope == "global" else None,
+                )
                 and entry.updated_at
                 and remote.updated_at
                 and remote.updated_at <= entry.updated_at

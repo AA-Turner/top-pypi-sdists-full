@@ -10,6 +10,7 @@ from itertools import islice, zip_longest
 from pathlib import Path
 from typing import Protocol
 
+from runlayer_cli.scan.completeness import CompletionStatusSink
 from runlayer_cli.scan.hidden_space_sweep import scan_hidden_spaces
 from runlayer_cli.scan.scanner_primitives import (
     SymlinkFollowPolicy,
@@ -18,6 +19,7 @@ from runlayer_cli.scan.scanner_primitives import (
     has_link_or_reparse_component,
     is_real_directory,
     is_regular_file,
+    mark_path_unresolved_if_present,
     read_bounded,
     resolve_approved_path,
     resolve_relative_components,
@@ -468,6 +470,7 @@ def scan_pip_global_packages(
     wsl_homes: Iterable[Path] = (),
     discover_hidden: bool = True,
     checkpoint: Callable[[], None] | None = None,
+    scan_status: CompletionStatusSink | None = None,
 ) -> dict[str, PipGlobalPackage]:
     """Return first validated hit per exact allowlisted distribution identity."""
     package_list = tuple(packages)
@@ -479,17 +482,23 @@ def scan_pip_global_packages(
     if not package_map:
         return {}
     windows_system = is_windows_system_context()
-    env_roots = list(islice(python_env_roots, MAX_CHILD_ENTRIES))
+    bounded_env_roots = list(islice(python_env_roots, MAX_CHILD_ENTRIES + 1))
+    if len(bounded_env_roots) > MAX_CHILD_ENTRIES and scan_status is not None:
+        scan_status.mark_incomplete("client_pip_environment_roots_capped")
+    env_roots = bounded_env_roots[:MAX_CHILD_ENTRIES]
     if discover_hidden:
-        env_roots.extend(
-            scan_hidden_spaces(
-                home=home,
-                system=system,
-                include_files=False,
-                temp_roots=(),
-                checkpoint=checkpoint,
-            ).python_env_roots
+        hidden_result = scan_hidden_spaces(
+            home=home,
+            system=system,
+            include_files=False,
+            temp_roots=(),
+            checkpoint=checkpoint,
         )
+        env_roots.extend(hidden_result.python_env_roots)
+        if (
+            hidden_result.truncated or hidden_result.python_env_roots_truncated
+        ) and scan_status is not None:
+            scan_status.mark_incomplete("client_pip_hidden_scan_truncated")
     site_package_groups = [
         _site_packages_roots(
             home=home,
@@ -501,7 +510,10 @@ def scan_pip_global_packages(
         )
     ]
     if system == "Windows":
-        for wsl_home in islice(wsl_homes, MAX_WSL_HOMES_TOTAL):
+        bounded_wsl_homes = tuple(islice(wsl_homes, MAX_WSL_HOMES_TOTAL + 1))
+        if len(bounded_wsl_homes) > MAX_WSL_HOMES_TOTAL and scan_status is not None:
+            scan_status.mark_incomplete("client_pip_wsl_homes_capped")
+        for wsl_home in bounded_wsl_homes[:MAX_WSL_HOMES_TOTAL]:
             site_package_groups.append(
                 _site_packages_roots(
                     home=wsl_home,
@@ -513,7 +525,7 @@ def scan_pip_global_packages(
                     include_system=False,
                 )
             )
-    site_packages_roots = list(
+    bounded_site_packages_roots = list(
         islice(
             (
                 path
@@ -521,9 +533,12 @@ def scan_pip_global_packages(
                 for path in group
                 if path is not None
             ),
-            MAX_SITE_PACKAGES,
+            MAX_SITE_PACKAGES + 1,
         )
     )
+    if len(bounded_site_packages_roots) > MAX_SITE_PACKAGES and scan_status is not None:
+        scan_status.mark_incomplete("client_pip_site_packages_capped")
+    site_packages_roots = bounded_site_packages_roots[:MAX_SITE_PACKAGES]
     scan_areas = [
         (site_packages, 0)
         for site_packages in site_packages_roots
@@ -553,17 +568,28 @@ def scan_pip_global_packages(
             max_components=MAX_PATH_COMPONENTS,
         )
         if site_packages is None or not is_real_directory(site_packages):
+            mark_path_unresolved_if_present(
+                site_packages_path,
+                scan_status,
+                "client_pip_site_packages_resolution_failed",
+            )
             continue
         entry_names: list[str] = []
         try:
             with os.scandir(site_packages) as entries:
                 for index, entry in enumerate(islice(entries, MAX_SITE_ENTRIES + 1)):
                     if index == MAX_SITE_ENTRIES:
+                        if scan_status is not None:
+                            scan_status.mark_incomplete(
+                                "client_pip_site_entries_capped"
+                            )
                         break
                     if checkpoint is not None:
                         checkpoint()
                     entry_names.append(entry.name)
         except OSError:
+            if scan_status is not None:
+                scan_status.mark_incomplete("client_pip_site_packages_read_failed")
             continue
         for entry_name in sorted(
             entry_names,
@@ -587,6 +613,11 @@ def scan_pip_global_packages(
                 max_components=MAX_PATH_COMPONENTS,
             )
             if dist_info is None or not is_real_directory(dist_info):
+                mark_path_unresolved_if_present(
+                    site_packages / entry_name,
+                    scan_status,
+                    "client_pip_distribution_resolution_failed",
+                )
                 continue
             symlink_policy.add_scan_area(dist_info, 0)
             metadata_path = resolve_relative_components(
@@ -598,9 +629,16 @@ def scan_pip_global_packages(
                 follow_final_symlink=False,
             )
             if metadata_path is None or not is_regular_file(metadata_path):
+                mark_path_unresolved_if_present(
+                    dist_info / "METADATA",
+                    scan_status,
+                    "client_pip_metadata_classification_failed",
+                )
                 continue
             raw = read_bounded(metadata_path, max_bytes=MAX_METADATA_BYTES)
             if raw is None:
+                if scan_status is not None:
+                    scan_status.mark_incomplete("client_pip_metadata_read_failed")
                 continue
             validated = _validated_metadata(raw, package_map)
             if validated is None:

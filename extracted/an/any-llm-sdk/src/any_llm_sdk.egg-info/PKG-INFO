@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: any-llm-sdk
-Version: 1.27.2
+Version: 1.28.0
 License: Apache-2.0
 Project-URL: Documentation, https://docs.mozilla.ai/any-llm/
 Project-URL: Issues, https://github.com/mozilla-ai/any-llm/issues
@@ -9,9 +9,9 @@ Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: pydantic<3,>2
-Requires-Dist: openai>=2.18.0
+Requires-Dist: openai<4,>=2.18.0
 Requires-Dist: openresponses-types<3,>=2.4.0
-Requires-Dist: anthropic<1,>=0.119.0
+Requires-Dist: anthropic<1,>=0.124.0
 Requires-Dist: rich
 Requires-Dist: httpx
 Requires-Dist: typing_extensions>=4.5.0
@@ -34,7 +34,7 @@ Requires-Dist: google-cloud-storage; extra == "vertexai"
 Provides-Extra: vertexaianthropic
 Requires-Dist: anthropic[vertex]<1,>=0.119.0; extra == "vertexaianthropic"
 Provides-Extra: azureanthropic
-Requires-Dist: anthropic<1,>=0.119.0; extra == "azureanthropic"
+Requires-Dist: anthropic<1,>=0.124.0; extra == "azureanthropic"
 Provides-Extra: huggingface
 Requires-Dist: huggingface-hub; extra == "huggingface"
 Provides-Extra: cohere
@@ -69,7 +69,7 @@ Provides-Extra: deepseek
 Provides-Extra: fireworks
 Provides-Extra: gmi
 Provides-Extra: otari
-Requires-Dist: otari>=0.3.0; extra == "otari"
+Requires-Dist: otari<0.5,>=0.4.0; extra == "otari"
 Provides-Extra: github
 Provides-Extra: inception
 Provides-Extra: kenari

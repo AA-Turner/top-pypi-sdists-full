@@ -39,7 +39,7 @@ use futures::stream::BoxStream;
 use futures::{Future, StreamExt, TryStreamExt};
 use indexmap::IndexMap;
 use itertools::Itertools;
-use num_cpus;
+
 use parquet::basic::{Compression, ZstdLevel};
 use parquet::errors::ParquetError;
 use parquet::file::properties::WriterProperties;
@@ -47,8 +47,8 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer, de::Error as DeErr
 use tracing::*;
 use uuid::Uuid;
 
-use super::write::writer::{PartitionWriter, PartitionWriterConfig};
 use super::{CustomExecuteHandler, Operation};
+use crate::datafile::writer::{PartitionWriter, PartitionWriterConfig, UploadBudget};
 use crate::delta_datafusion::{
     DataFusionMixins, DeltaScanConfig, DeltaScanNext, SessionFallbackPolicy, SessionResolveContext,
     create_session_state_with_spill_config, resolve_session_state, update_datafusion_session,
@@ -63,7 +63,10 @@ use crate::protocol::DeltaOperation;
 use crate::table::config::TablePropertiesExt as _;
 use crate::table::state::DeltaTableState;
 use crate::writer::utils::arrow_schema_without_partitions;
-use crate::{DeltaTable, ObjectMeta, PartitionFilter, to_kernel_predicate};
+use crate::{
+    DeltaTable, FilterLiteral, ObjectMeta, conjunction_to_kernel_predicate,
+    literal_to_predicate_string,
+};
 
 /// Planner used by optimize.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -280,7 +283,7 @@ pub struct OptimizeBuilder<'a> {
     /// Delta object store for handling data files
     log_store: LogStoreRef,
     /// Filters to select specific table partitions to be optimized
-    filters: &'a [PartitionFilter],
+    filters: &'a [FilterLiteral<'a>],
     /// Desired file size after bin-packing files
     target_size: Option<NonZeroU64>,
     /// Properties passed to underlying parquet writer
@@ -317,7 +320,9 @@ impl<'a> OptimizeBuilder<'a> {
             target_size: None,
             writer_properties: None,
             commit_properties: CommitProperties::default(),
-            max_concurrent_tasks: num_cpus::get(),
+            max_concurrent_tasks: std::thread::available_parallelism()
+                .map(|n| n.get())
+                .unwrap_or(1),
             optimize_type: OptimizeType::Compact,
             min_commit_interval: None,
             session: None,
@@ -332,8 +337,9 @@ impl<'a> OptimizeBuilder<'a> {
         self
     }
 
-    /// Only optimize files that return true for the specified partition filter
-    pub fn with_filters(mut self, filters: &'a [PartitionFilter]) -> Self {
+    /// Only optimize files matching the given conjunction of `(column, op, value)`
+    /// partition filter literals
+    pub fn with_filters(mut self, filters: &'a [FilterLiteral<'a>]) -> Self {
         self.filters = filters;
         self
     }
@@ -605,6 +611,8 @@ pub struct MergeTaskParameters {
     num_indexed_cols: DataSkippingNumIndexedCols,
     /// Stats columns, specific columns to collect stats from, takes precedence over num_indexed_cols
     stats_columns: Option<Vec<String>>,
+    /// Budget for rolled files awaiting upload, shared by every task of this optimize run.
+    upload_budget: UploadBudget,
 }
 
 /// A stream of record batches, with a ParquetError on failure.
@@ -703,7 +711,8 @@ impl MergePlan {
             None,
             None,
             None,
-        )?;
+        )?
+        .with_upload_budget(task_parameters.upload_budget.clone());
         let mut writer = PartitionWriter::try_with_config(
             object_store,
             writer_config,
@@ -877,7 +886,11 @@ impl MergePlan {
                     .boxed()
             }
             OptimizeOperations::ZOrder(zorder_columns, bins) => {
-                debug!("Starting zorder with the columns: {zorder_columns:?} {bins:?}");
+                debug!(
+                    zorder_columns = ?zorder_columns,
+                    num_partitions = bins.len(),
+                    "starting zorder"
+                );
 
                 let exec_context = Arc::new(zorder::ZOrderExecContext::new(
                     zorder_columns,
@@ -1010,7 +1023,7 @@ pub async fn create_merge_plan(
     log_store: &dyn LogStore,
     optimize_type: OptimizeType,
     snapshot: &EagerSnapshot,
-    filters: &[PartitionFilter],
+    filters: &[FilterLiteral<'_>],
     target_size: Option<NonZeroU64>,
     writer_properties: WriterProperties,
     session: SessionState,
@@ -1043,9 +1056,13 @@ pub async fn create_merge_plan(
         "merge plan created"
     );
 
+    // rendered predicate strings land in operationParameters in the commit log;
+    // the format is pinned, e.g. `key = 'value'` and `key IN ('a', 'b')`
+    let rendered_filters: Vec<String> = filters.iter().map(literal_to_predicate_string).collect();
+    let upload_budget = UploadBudget::for_write(Some(target_size));
     let input_parameters = OptimizeInput {
         target_size,
-        predicate: serde_json::to_string(filters).ok(),
+        predicate: serde_json::to_string(&rendered_filters).ok(),
     };
     let file_schema = arrow_schema_without_partitions(
         &Arc::new(snapshot.schema().as_ref().try_into_arrow()?),
@@ -1066,6 +1083,7 @@ pub async fn create_merge_plan(
                 .data_skipping_stats_columns
                 .as_ref()
                 .map(|v| v.iter().map(|v| v.to_string()).collect::<Vec<String>>()),
+            upload_budget,
         }),
         read_table_version: snapshot.version(),
         read_session: Arc::new(session),
@@ -1196,7 +1214,7 @@ fn plan_compaction_bins_in_stable_order(
 async fn build_compaction_plan(
     log_store: &dyn LogStore,
     snapshot: &EagerSnapshot,
-    filters: &[PartitionFilter],
+    filters: &[FilterLiteral<'_>],
     target_size: NonZeroU64,
 ) -> Result<(OptimizeOperations, Metrics, PlannerStats), DeltaTableError> {
     type PartitionFileEntry = (IndexMap<String, Scalar>, usize, Vec<OrderedFileCandidate>);
@@ -1210,7 +1228,7 @@ async fn build_compaction_plan(
     let predicate = if filters.is_empty() {
         None
     } else {
-        Some(Arc::new(to_kernel_predicate(
+        Some(Arc::new(conjunction_to_kernel_predicate(
             filters,
             snapshot.schema().as_ref(),
         )?))
@@ -1312,7 +1330,7 @@ async fn build_zorder_plan(
     zorder_columns: Vec<String>,
     snapshot: &EagerSnapshot,
     partition_keys: &[String],
-    filters: &[PartitionFilter],
+    filters: &[FilterLiteral<'_>],
 ) -> Result<(OptimizeOperations, Metrics, PlannerStats), DeltaTableError> {
     if zorder_columns.is_empty() {
         return Err(DeltaTableError::Generic(
@@ -1341,7 +1359,7 @@ async fn build_zorder_plan(
     let predicate = if filters.is_empty() {
         None
     } else {
-        Some(Arc::new(to_kernel_predicate(
+        Some(Arc::new(conjunction_to_kernel_predicate(
             filters,
             snapshot.schema().as_ref(),
         )?))
@@ -1357,7 +1375,10 @@ async fn build_zorder_plan(
             .or_insert_with(|| (partition_values, MergeBin::new()))
             .1
             .add(file.to_add());
-        debug!("partition_files inside the zorder plan: {partition_files:?}");
+        debug!(
+            num_partitions = partition_files.len(),
+            "built zorder partition plan"
+        );
     }
     metrics.partitions_optimized = partition_files.len() as u64;
 
@@ -1590,7 +1611,7 @@ pub(super) mod zorder {
         fn zorder_key_datafusion(
             columns: &[ColumnarValue],
         ) -> Result<ColumnarValue, DataFusionError> {
-            debug!("zorder_key_datafusion: {columns:#?}");
+            debug!(num_columns = columns.len(), "zorder_key_datafusion invoked");
             let length = columns
                 .iter()
                 .map(|col| match col {

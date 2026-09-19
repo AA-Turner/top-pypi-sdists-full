@@ -3,6 +3,7 @@ import sys
 from datetime import date
 from datetime import datetime
 from datetime import time
+from decimal import Decimal
 
 import pytest
 
@@ -278,6 +279,19 @@ def test_numbers():
     y("a {:f} b", "a -.121 b", -0.121)
     n("a {:f} b", "a 12 b", None)
 
+    # issue249: {:F} is Decimal and, like {:f}, must accept a sign.
+    y("a {:F} b", "a 12.0 b", Decimal("12.0"), str_equals=True)
+    y("a {:F} b", "a -12.1 b", Decimal("-12.1"), str_equals=True)
+    y("a {:F} b", "a +12.1 b", Decimal("12.1"), str_equals=True)
+
+    # issue249: {:f}/{:F} accept nan/inf, the way {:e}/{:g} already do.
+    y("a {:f} b", "a nan b", float("nan"), str_equals=True)
+    y("a {:f} b", "a inf b", float("inf"), str_equals=True)
+    y("a {:f} b", "a -inf b", float("-inf"), str_equals=True)
+    y("a {:F} b", "a nan b", Decimal("nan"), str_equals=True)
+    y("a {:F} b", "a inf b", Decimal("inf"), str_equals=True)
+    y("a {:F} b", "a -inf b", Decimal("-inf"), str_equals=True)
+
     # precision 0 formats without a decimal point, so parse must accept it (issue #159)
     y("a {:.0f} b", "a 12 b", 12.0)
     y("foo_{:02.0f}t", "foo_20t", 20.0)
@@ -299,10 +313,22 @@ def test_numbers():
     y("a {:e} b", "a +INF b", float("inf"))
     y("a {:e} b", "a -INF b", float("-inf"))
 
+    # uppercase E/G/X behave like their lowercase counterparts, so that the
+    # output of str.format() round-trips back through parse (issue #137)
+    y("a {:E} b", "a 1.0E10 b", 1.0e10)
+    y("a {:E} b", "a 1.0e10 b", 1.0e10)
+    y("a {:E} b", "a 1.10000E10 b", 1.1e10)
+    y("a {:E} b", "a 1.0E-10 b", 1.0e-10)
+    y("a {:E} b", "a -1.0E10 b", -1.0e10)
+    y("a {:E} b", "a INF b", float("inf"))
+
     y("a {:g} b", "a 1 b", 1)
     y("a {:g} b", "a 1e10 b", 1e10)
     y("a {:g} b", "a 1.0e10 b", 1.0e10)
     y("a {:g} b", "a 1.0E10 b", 1.0e10)
+    y("a {:G} b", "a 1 b", 1)
+    y("a {:G} b", "a 1E10 b", 1e10)
+    y("a {:G} b", "a 1.0E10 b", 1.0e10)
 
     y("a {:b} b", "a 1000 b", 8)
     y("a {:b} b", "a 0b1000 b", 8)
@@ -312,6 +338,9 @@ def test_numbers():
     y("a {:x} b", "a 1234567890ABCDEF b", 0x1234567890ABCDEF)
     y("a {:x} b", "a 0x1234567890abcdef b", 0x1234567890ABCDEF)
     y("a {:x} b", "a 0x1234567890ABCDEF b", 0x1234567890ABCDEF)
+    y("a {:X} b", "a 1234567890ABCDEF b", 0x1234567890ABCDEF)
+    y("a {:X} b", "a 1234567890abcdef b", 0x1234567890ABCDEF)
+    y("a {:X} b", "a 0X1234567890ABCDEF b", 0x1234567890ABCDEF)
 
     y("a {:05d} b", "a 00001 b", 1)
     y("a {:05d} b", "a -00001 b", -1)

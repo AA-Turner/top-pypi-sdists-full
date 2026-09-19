@@ -3,7 +3,7 @@ from typing import Any
 from pandas import DataFrame
 
 from graphdatascience.arrow_client.authenticated_flight_client import AuthenticatedArrowClient
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.community.sllpa_endpoints import (
     SllpaEndpoints,
     SllpaMutateResult,
@@ -14,7 +14,7 @@ from graphdatascience.procedure_surface.api.default_values import ALL_LABELS, AL
 from graphdatascience.procedure_surface.api.estimation_result import EstimationResult
 from graphdatascience.procedure_surface.api.job_handle import JobHandle
 from graphdatascience.procedure_surface.arrow.node_property_endpoints import NodePropertyEndpointsHelper
-from graphdatascience.query_runner.protocol.write_protocols import WriteProtocol
+from graphdatascience.session.remote_ops.write_protocols import WriteProtocol
 
 
 class SllpaArrowEndpoints(SllpaEndpoints):
@@ -30,7 +30,7 @@ class SllpaArrowEndpoints(SllpaEndpoints):
 
     def compute(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         max_iterations: int,
         concurrency: int | None = None,
@@ -60,7 +60,7 @@ class SllpaArrowEndpoints(SllpaEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         *,
         max_iterations: int,
@@ -94,7 +94,7 @@ class SllpaArrowEndpoints(SllpaEndpoints):
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         max_iterations: int,
         concurrency: int | None = None,
@@ -127,7 +127,7 @@ class SllpaArrowEndpoints(SllpaEndpoints):
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         *,
         max_iterations: int,
         concurrency: int | None = None,
@@ -158,7 +158,7 @@ class SllpaArrowEndpoints(SllpaEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         *,
         max_iterations: int,
@@ -200,7 +200,7 @@ class SllpaArrowEndpoints(SllpaEndpoints):
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         *,
         max_iterations: int,
         concurrency: int | None = None,

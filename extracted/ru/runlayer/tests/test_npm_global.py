@@ -12,6 +12,8 @@ import pytest
 
 from runlayer_cli.scan import npm_global as npm_global_module
 from runlayer_cli.scan.clients import NpmPackage
+from runlayer_cli.scan.completeness import ScanCompletionStatus
+from runlayer_cli.scan.hidden_space_sweep import HiddenSpaceScanResult
 from runlayer_cli.scan.npm_global import (
     MAX_NODE_MODULES_PATHS,
     MAX_PREFIXES,
@@ -20,6 +22,7 @@ from runlayer_cli.scan.npm_global import (
     scan_npm_global_packages,
 )
 from runlayer_cli.scan.wsl_limits import MAX_WSL_HOMES, MAX_WSL_HOMES_TOTAL
+from tests.hostile_inputs import DEEP_NESTING_BYTES
 
 _ALLOWLISTED_PACKAGES = [
     NpmPackage("@anthropic-ai/claude-code", "claude"),
@@ -29,6 +32,173 @@ _ALLOWLISTED_PACKAGES = [
     NpmPackage("opencode-ai", "opencode"),
     NpmPackage("@smithery/cli", "smithery"),
 ]
+
+
+def test_manager_entry_cap_marks_presence_incomplete(tmp_path: Path) -> None:
+    manager_root = tmp_path / "manager"
+    for index in range(npm_global_module.MAX_MANAGER_ENTRIES + 1):
+        (manager_root / f"v{index}").mkdir(parents=True)
+    status = ScanCompletionStatus()
+
+    npm_global_module._bounded_child_dirs(
+        manager_root,
+        scan_status=status,
+    )
+
+    assert status.reasons == ["client_npm_manager_entries_capped"]
+
+
+@pytest.mark.parametrize(
+    ("entry_count", "expected_reasons"),
+    [
+        (npm_global_module.MAX_PATH_PREFIXES, []),
+        (
+            npm_global_module.MAX_PATH_PREFIXES + 1,
+            ["client_npm_path_prefixes_capped"],
+        ),
+    ],
+)
+def test_windows_path_prefix_cap_marks_presence_incomplete(
+    tmp_path: Path,
+    entry_count: int,
+    expected_reasons: list[str],
+) -> None:
+    status = ScanCompletionStatus()
+    environment = {
+        "PATH": ";".join(
+            str(tmp_path / f"prefix-{index}") for index in range(entry_count)
+        )
+    }
+
+    prefixes = npm_global_module._path_prefixes(
+        home=tmp_path,
+        system="Windows",
+        environment=environment,
+        scan_status=status,
+    )
+
+    assert len(prefixes) == min(entry_count, npm_global_module.MAX_PATH_PREFIXES)
+    assert status.reasons == expected_reasons
+
+
+def test_hidden_node_modules_path_cap_marks_presence_incomplete(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    hidden_result = HiddenSpaceScanResult(
+        node_modules_paths=[
+            tmp_path / f"hidden-{index}" / "node_modules"
+            for index in range(MAX_NODE_MODULES_PATHS)
+        ],
+        node_modules_paths_truncated=True,
+        truncated=False,
+    )
+    monkeypatch.setattr(
+        npm_global_module,
+        "scan_hidden_spaces",
+        lambda **_kwargs: hidden_result,
+    )
+    status = ScanCompletionStatus()
+
+    scan_npm_global_packages(
+        [NpmPackage("@openai/codex", "codex")],
+        home=tmp_path,
+        system="Linux",
+        environment={},
+        scan_status=status,
+    )
+
+    assert "client_npm_hidden_scan_truncated" in status.reasons
+
+
+def test_package_probe_failure_marks_presence_incomplete(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    status = ScanCompletionStatus()
+    monkeypatch.setattr(
+        npm_global_module,
+        "_read_valid_package",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(PermissionError("denied")),
+    )
+
+    findings = scan_npm_global_packages(
+        [NpmPackage("@openai/codex", "codex")],
+        home=tmp_path,
+        system="Linux",
+        environment={},
+        discover_hidden=False,
+        scan_status=status,
+    )
+
+    assert findings == {}
+    assert "client_npm_package_probe_failed" in status.reasons
+
+
+def test_npmrc_stat_failure_marks_presence_incomplete(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    npmrc = tmp_path / ".npmrc"
+    npmrc.write_text("prefix=/opt/npm\n")
+    status = ScanCompletionStatus()
+    monkeypatch.setattr(
+        npm_global_module,
+        "link_or_reparse_status_or_raise",
+        lambda _path: False,
+    )
+    monkeypatch.setattr(
+        Path,
+        "stat",
+        lambda _self: (_ for _ in ()).throw(PermissionError("denied")),
+    )
+
+    prefix = npm_global_module._npmrc_prefix(
+        npmrc,
+        home=tmp_path,
+        environment={},
+        scan_status=status,
+    )
+
+    assert prefix is None
+    assert status.reasons == ["client_npmrc_stat_failed"]
+
+
+def test_missing_npmrc_preserves_presence_completeness(tmp_path: Path) -> None:
+    status = ScanCompletionStatus()
+
+    prefix = npm_global_module._npmrc_prefix(
+        tmp_path / ".npmrc",
+        home=tmp_path,
+        environment={},
+        scan_status=status,
+    )
+
+    assert prefix is None
+    assert status.complete is True
+    assert status.reasons == []
+
+
+def test_npmrc_metadata_failure_marks_presence_incomplete(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    status = ScanCompletionStatus()
+    monkeypatch.setattr(
+        npm_global_module,
+        "link_or_reparse_status_or_raise",
+        lambda _path: (_ for _ in ()).throw(PermissionError("denied")),
+    )
+
+    prefix = npm_global_module._npmrc_prefix(
+        tmp_path / ".npmrc",
+        home=tmp_path,
+        environment={},
+        scan_status=status,
+    )
+
+    assert prefix is None
+    assert status.reasons == ["client_npmrc_classification_failed"]
 
 
 def _install_package(
@@ -1183,23 +1353,96 @@ def test_wsl_home_iterator_is_capped_before_materialization(tmp_path):
     assert any(root.layout == "unix" for root in roots)
 
 
+@pytest.mark.parametrize(
+    ("prefix_cap", "expected_root_count", "expected_reasons"),
+    [
+        pytest.param(8, 7, [], id="below-cap"),
+        pytest.param(
+            4,
+            4,
+            ["client_npm_roots_capped"],
+            id="at-cap-with-wsl-roots-remaining",
+        ),
+        pytest.param(
+            3,
+            3,
+            ["client_npm_roots_capped"],
+            id="over-cap-before-wsl",
+        ),
+    ],
+)
+def test_wsl_discovery_respects_prefix_cap_boundary(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    prefix_cap: int,
+    expected_root_count: int,
+    expected_reasons: list[str],
+) -> None:
+    monkeypatch.setattr(npm_global_module, "MAX_PREFIXES", prefix_cap)
+    windows_home = tmp_path / "windows"
+    wsl_home = tmp_path / "wsl-home"
+    windows_home.mkdir()
+    wsl_home.mkdir()
+    status = ScanCompletionStatus()
+
+    roots = resolve_npm_global_roots(
+        home=windows_home,
+        system="Windows",
+        environment={},
+        wsl_homes=[wsl_home],
+        scan_status=status,
+    )
+
+    assert len(roots) == expected_root_count
+    assert status.reasons == expected_reasons
+
+
+def test_wsl_prefix_overflow_marks_presence_incomplete(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(npm_global_module, "MAX_PREFIXES", 5)
+    monkeypatch.setattr(
+        npm_global_module, "_npmrc_prefix", lambda *_args, **_kwargs: None
+    )
+    status = ScanCompletionStatus()
+    windows_home = tmp_path / "windows"
+    wsl_home = tmp_path / "wsl-home"
+    windows_home.mkdir()
+    wsl_home.mkdir()
+
+    roots = resolve_npm_global_roots(
+        home=windows_home,
+        system="Windows",
+        environment={},
+        wsl_homes=[wsl_home],
+        scan_status=status,
+    )
+
+    assert len(roots) == 5
+    assert status.reasons == ["client_npm_roots_capped"]
+
+
 def test_direct_node_modules_iterator_is_capped_before_materialization(tmp_path):
     package = NpmPackage("@openai/codex", "codex")
 
     def node_modules_paths():
-        for index in range(MAX_NODE_MODULES_PATHS):
+        for index in range(MAX_NODE_MODULES_PATHS + 1):
             yield tmp_path / f"prefix-{index}" / "node_modules"
         raise AssertionError("node_modules iterator exceeded cap")
 
+    status = ScanCompletionStatus()
     findings = scan_npm_global_packages(
         [package],
         home=tmp_path,
         system="Linux",
         environment={},
         node_modules_paths=node_modules_paths(),
+        scan_status=status,
     )
 
     assert findings == {}
+    assert "client_npm_node_modules_capped" in status.reasons
 
 
 def test_scan_propagates_resource_checkpoint(tmp_path):
@@ -1261,3 +1504,9 @@ def test_scanner_never_executes_npm_node_or_package_shims(tmp_path):
 
     assert package.name in findings
     run.assert_not_called()
+
+
+def test_deeply_nested_npm_manifest_is_rejected_not_raised():
+    """RecursionError from json.loads must stay inside the validator (ISS-01)."""
+    package = NpmPackage(name="@anthropic-ai/claude-code", bin_name="claude")
+    assert npm_global_module.validate_npm_manifest(DEEP_NESTING_BYTES, package) is None

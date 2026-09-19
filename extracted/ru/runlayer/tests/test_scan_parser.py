@@ -12,14 +12,18 @@ from runlayer_cli.scan.clients import (
     get_all_clients,
     get_client_by_name,
 )
+from runlayer_cli.scan.completeness import ScanCompletionStatus
 from runlayer_cli.scan.config_parser import (
     _ENTRY_PARSERS,
     MCPServerConfig,
     compute_config_hash,
     normalize_transport,
     parse_client_mcp_entries,
+    parse_config_content,
     parse_config_file,
+    parse_plugin_mcp_file,
 )
+from tests.hostile_inputs import DEEP_NESTING, DEEP_NESTING_TOML
 
 
 def make_client_def(servers_key: str = "mcpServers") -> MCPClientDefinition:
@@ -325,6 +329,39 @@ class TestParseConfigFile:
         result = parse_config_file(client_def, tmp_path / "nonexistent.json")
         assert result is None
 
+    def test_access_error_is_not_treated_as_missing_on_older_python(
+        self,
+        monkeypatch: pytest.MonkeyPatch,
+        tmp_path: Path,
+    ) -> None:
+        config_path = tmp_path / "denied.json"
+        original_exists = Path.exists
+        original_stat = Path.stat
+
+        def swallowed_exists(path: Path) -> bool:
+            if path == config_path:
+                return False
+            return original_exists(path)
+
+        def denied_stat(path: Path, *args: object, **kwargs: object):
+            if path == config_path:
+                raise PermissionError("denied")
+            return original_stat(path, *args, **kwargs)
+
+        monkeypatch.setattr(Path, "exists", swallowed_exists)
+        monkeypatch.setattr(Path, "stat", denied_stat)
+        status = ScanCompletionStatus()
+
+        assert (
+            parse_config_file(
+                make_client_def(),
+                config_path,
+                scan_status=status,
+            )
+            is None
+        )
+        assert status.reasons == ["config_path_enumeration_failed"]
+
     def test_invalid_json_returns_none(self, tmp_path):
         """Invalid JSON returns None."""
         config_file = tmp_path / "config.json"
@@ -332,6 +369,22 @@ class TestParseConfigFile:
         client_def = make_client_def()
         result = parse_config_file(client_def, config_file)
         assert result is None
+
+    def test_deeply_nested_json_is_a_parse_failure_not_a_crash(self, tmp_path):
+        """A crafted ``~/.warp/.mcp.json`` must not empty the whole global phase.
+
+        ``json5.loads`` raises ``RecursionError`` (a ``RuntimeError``) on deep
+        nesting; the reader used to catch only ``ValueError`` so the exception
+        escaped through the orchestrator and every sibling client was lost.
+        """
+        config_file = tmp_path / "config.json"
+        config_file.write_text(DEEP_NESTING)
+        status = ScanCompletionStatus()
+
+        result = parse_config_file(make_client_def(), config_file, scan_status=status)
+
+        assert result is None
+        assert status.reasons == ["config_parse_failed"]
 
     @pytest.mark.skipif(
         os.name == "nt" or getattr(os, "geteuid", lambda: -1)() == 0,
@@ -999,6 +1052,22 @@ class TestParseYAMLConfig:
         result = parse_config_file(client_def, config_file)
         assert result is None
 
+    def test_deeply_nested_yaml_is_a_parse_failure_not_a_crash(self, tmp_path):
+        config_file = tmp_path / "config.yaml"
+        config_file.write_text(DEEP_NESTING)
+        client_def = MCPClientDefinition(
+            name="goose",
+            display_name="Goose",
+            paths=[],
+            servers_key="extensions",
+            config_format="yaml",
+            entry_format="goose",
+        )
+        status = ScanCompletionStatus()
+
+        assert parse_config_file(client_def, config_file, scan_status=status) is None
+        assert status.reasons == ["config_parse_failed"]
+
     def test_empty_yaml_returns_none(self, tmp_path):
         """Empty YAML file returns None."""
         config_file = tmp_path / "config.yaml"
@@ -1501,6 +1570,16 @@ class TestParseCodexConfig:
         result = parse_config_file(client_def, config_file)
         assert result is None
 
+    def test_deeply_nested_toml_is_a_parse_failure_not_a_crash(self, tmp_path):
+        config_file = tmp_path / "config.toml"
+        config_file.write_text(DEEP_NESTING_TOML)
+        client_def = get_client_by_name("codex")
+        assert client_def is not None
+        status = ScanCompletionStatus()
+
+        assert parse_config_file(client_def, config_file, scan_status=status) is None
+        assert status.reasons == ["config_parse_failed"]
+
     def test_toml_no_mcp_servers_key_returns_none(self, tmp_path):
         config_file = tmp_path / "config.toml"
         config_file.write_text('[some_other_section]\nfoo = "bar"\n')
@@ -1823,3 +1902,26 @@ class TestNewClientDisabledServerHandling:
         names = {server.name for server in result.servers}
         assert "turned-off" not in names
         assert "legacy-disabled" not in names
+
+
+class TestDeepNestingInMemoryParsers:
+    """Plugin and container readers decode untrusted text too."""
+
+    def test_plugin_mcp_file_deep_nesting_returns_empty(self, tmp_path):
+        mcp_path = tmp_path / ".mcp.json"
+        mcp_path.write_text(DEEP_NESTING)
+        assert parse_plugin_mcp_file(mcp_path, "hostile-plugin") == []
+
+    @pytest.mark.parametrize(
+        ("client_name", "content"),
+        [
+            ("cursor", DEEP_NESTING),
+            ("goose", DEEP_NESTING),
+            ("codex", DEEP_NESTING_TOML),
+        ],
+        ids=["json", "yaml", "toml"],
+    )
+    def test_config_content_deep_nesting_returns_empty(self, client_name, content):
+        client_def = get_client_by_name(client_name)
+        assert client_def is not None
+        assert parse_config_content(client_def, content.encode()) == []

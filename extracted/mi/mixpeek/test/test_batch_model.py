@@ -223,7 +223,8 @@ class TestBatchModel(unittest.TestCase):
                             balanced = True, 
                             notes = [
                                 ''
-                                ], ), 
+                                ], 
+                            durability = 'confirmed', ), 
                         audit_override_reason = '', )
                     ],
                 current_tier = 0.0,

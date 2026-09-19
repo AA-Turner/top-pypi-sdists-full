@@ -8,6 +8,7 @@ import collections.abc
 import google.protobuf.descriptor
 import google.protobuf.internal.containers
 import google.protobuf.message
+import sentry_protos.billing.v1.common.v1.stripe_verification_pb2
 import sentry_protos.billing.v1.services.contract.v1.pricing_config_pb2
 import typing
 
@@ -43,12 +44,23 @@ class CreateAndBillContractResponse(google.protobuf.message.Message):
     DESCRIPTOR: google.protobuf.descriptor.Descriptor
 
     SUCCESS_FIELD_NUMBER: builtins.int
+    INVOICE_ID_FIELD_NUMBER: builtins.int
+    VERIFICATION_FIELD_NUMBER: builtins.int
     success: builtins.bool
+    invoice_id: builtins.int
+    @property
+    def verification(self) -> sentry_protos.billing.v1.common.v1.stripe_verification_pb2.StripeVerification:
+        """Set when the bank wants the customer to verify the payment."""
+
     def __init__(
         self,
         *,
         success: builtins.bool = ...,
+        invoice_id: builtins.int | None = ...,
+        verification: sentry_protos.billing.v1.common.v1.stripe_verification_pb2.StripeVerification | None = ...,
     ) -> None: ...
-    def ClearField(self, field_name: typing.Literal["success", b"success"]) -> None: ...
+    def HasField(self, field_name: typing.Literal["_invoice_id", b"_invoice_id", "invoice_id", b"invoice_id", "verification", b"verification"]) -> builtins.bool: ...
+    def ClearField(self, field_name: typing.Literal["_invoice_id", b"_invoice_id", "invoice_id", b"invoice_id", "success", b"success", "verification", b"verification"]) -> None: ...
+    def WhichOneof(self, oneof_group: typing.Literal["_invoice_id", b"_invoice_id"]) -> typing.Literal["invoice_id"] | None: ...
 
 global___CreateAndBillContractResponse = CreateAndBillContractResponse

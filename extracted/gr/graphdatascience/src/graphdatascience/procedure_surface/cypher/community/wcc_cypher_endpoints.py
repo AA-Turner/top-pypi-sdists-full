@@ -2,7 +2,7 @@ from typing import Any
 
 from pandas import DataFrame
 
-from graphdatascience.graph.v2.graph_api import GraphV2
+from graphdatascience.graph.graph_api import Graph
 from graphdatascience.procedure_surface.api.community.wcc_endpoints import (
     WccEndpoints,
     WccMutateResult,
@@ -29,7 +29,7 @@ class WccCypherEndpoints(WccEndpoints):
 
     def mutate(
         self,
-        G: GraphV2,
+        G: Graph,
         mutate_property: str,
         threshold: float = 0.0,
         relationship_types: list[str] = ALL_TYPES,
@@ -63,13 +63,13 @@ class WccCypherEndpoints(WccEndpoints):
 
         cypher_result = self._query_runner.call_procedure(
             endpoint="gds.wcc.mutate", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return WccMutateResult(**cypher_result.to_dict())
+        return WccMutateResult(**cypher_result)
 
     def stats(
         self,
-        G: GraphV2,
+        G: Graph,
         threshold: float = 0.0,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,
@@ -101,13 +101,13 @@ class WccCypherEndpoints(WccEndpoints):
 
         cypher_result = self._query_runner.call_procedure(
             endpoint="gds.wcc.stats", params=params, logging=log_progress
-        ).squeeze()
+        ).iloc[0]
 
-        return WccStatsResult(**cypher_result.to_dict())
+        return WccStatsResult(**cypher_result)
 
     def stream(
         self,
-        G: GraphV2,
+        G: Graph,
         min_component_size: int | None = None,
         threshold: float = 0.0,
         relationship_types: list[str] = ALL_TYPES,
@@ -143,7 +143,7 @@ class WccCypherEndpoints(WccEndpoints):
 
     def write(
         self,
-        G: GraphV2,
+        G: Graph,
         write_property: str,
         min_component_size: int | None = None,
         threshold: float = 0.0,
@@ -179,15 +179,15 @@ class WccCypherEndpoints(WccEndpoints):
         params = CallParameters(graph_name=G.name(), config=config)
         params.ensure_job_id_in_config()
 
-        result = self._query_runner.call_procedure(
-            endpoint="gds.wcc.write", params=params, logging=log_progress
-        ).squeeze()  # type: ignore
+        result = self._query_runner.call_procedure(endpoint="gds.wcc.write", params=params, logging=log_progress).iloc[
+            0
+        ]  # type: ignore
 
-        return WccWriteResult(**result.to_dict())
+        return WccWriteResult(**result)
 
     def estimate(
         self,
-        G: GraphV2 | dict[str, Any],
+        G: Graph | dict[str, Any],
         threshold: float = 0.0,
         relationship_types: list[str] = ALL_TYPES,
         node_labels: list[str] = ALL_LABELS,

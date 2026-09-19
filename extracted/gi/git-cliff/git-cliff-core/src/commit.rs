@@ -71,8 +71,8 @@ pub struct Signature {
 impl<'a> From<CommitSignature<'a>> for Signature {
     fn from(signature: CommitSignature<'a>) -> Self {
         Self {
-            name: signature.name().map(String::from),
-            email: signature.email().map(String::from),
+            name: signature.name().ok().map(String::from),
+            email: signature.email().ok().map(String::from),
             timestamp: signature.when().seconds(),
         }
     }
@@ -174,17 +174,17 @@ pub struct Commit<'a> {
 
 impl From<String> for Commit<'_> {
     fn from(message: String) -> Self {
-        if let Some(captures) = SHA1_REGEX.captures(&message) {
-            if let (Some(id), Some(message)) = (
+        if let Some(captures) = SHA1_REGEX.captures(&message) &&
+            let (Some(id), Some(message)) = (
                 captures.get(1).map(|v| v.as_str()),
                 captures.get(2).map(|v| v.as_str()),
-            ) {
-                return Commit {
-                    id: id.to_string(),
-                    message: message.to_string(),
-                    ..Default::default()
-                };
-            }
+            )
+        {
+            return Commit {
+                id: id.to_string(),
+                message: message.to_string(),
+                ..Default::default()
+            };
         }
         Commit {
             id: String::new(),
@@ -329,9 +329,20 @@ impl Commit<'_> {
         let lookup_context = serde_json::to_value(&self).map_err(|e| {
             AppError::FieldError(format!("failed to convert context into value: {e}",))
         })?;
-        for parser in parsers {
+        // Set when a `continue` parser matches, so the commit isn't filtered out
+        // at the end even though no parser returned early.
+        let mut matched = false;
+        'parsers: for parser in parsers {
+            if let Some(sha) = parser.sha.as_ref() &&
+                sha.to_lowercase() != self.id
+            {
+                continue 'parsers;
+            }
             let mut regex_checks = Vec::new();
             if let Some(message_regex) = parser.message.as_ref() {
+                if !message_regex.is_match(self.message.trim()) {
+                    continue 'parsers;
+                }
                 regex_checks.push((message_regex, self.message.clone()));
             }
             let body = self
@@ -340,13 +351,24 @@ impl Commit<'_> {
                 .and_then(ConventionalCommit::body)
                 .map(ToString::to_string);
             if let Some(body_regex) = parser.body.as_ref() {
-                regex_checks.push((body_regex, body.clone().unwrap_or_default()));
+                let body_text = body.clone().unwrap_or_default();
+                if !body_regex.is_match(body_text.trim()) {
+                    continue 'parsers;
+                }
+                regex_checks.push((body_regex, body_text));
             }
-            if let (Some(footer_regex), Some(footers)) = (
-                parser.footer.as_ref(),
-                self.conv.as_ref().map(ConventionalCommit::footers),
-            ) {
-                regex_checks.extend(footers.iter().map(|f| (footer_regex, f.to_string())));
+            if let Some(footer_regex) = parser.footer.as_ref() {
+                let Some(footers) = self.conv.as_ref().map(ConventionalCommit::footers) else {
+                    continue 'parsers;
+                };
+                let Some(matched_footer) = footers
+                    .iter()
+                    .map(ToString::to_string)
+                    .find(|f| footer_regex.is_match(f.trim()))
+                else {
+                    continue 'parsers;
+                };
+                regex_checks.push((footer_regex, matched_footer));
             }
             if let (Some(field_name), Some(pattern_regex)) =
                 (parser.field.as_ref(), parser.pattern.as_ref())
@@ -354,10 +376,15 @@ impl Commit<'_> {
                 let values = if field_name == "body" {
                     vec![body.clone()].into_iter().collect()
                 } else {
-                    tera::dotted_pointer(&lookup_context, field_name).and_then(|v| match v {
+                    let Some(field_value) = tera::dotted_pointer(&lookup_context, field_name)
+                    else {
+                        tracing::trace!("Field '{field_name}' is absent; trying the next parser");
+                        continue 'parsers;
+                    };
+                    match field_value {
                         Value::String(s) => Some(vec![s.clone()]),
                         Value::Number(_) | Value::Bool(_) | Value::Null => {
-                            Some(vec![v.to_string()])
+                            Some(vec![field_value.to_string()])
                         }
                         Value::Array(arr) => {
                             let mut values = Vec::new();
@@ -373,17 +400,20 @@ impl Commit<'_> {
                             Some(values)
                         }
                         Value::Object(_) => None,
-                    })
+                    }
                 };
                 match values {
                     Some(values) => {
                         if values.is_empty() {
                             tracing::trace!("Field '{field_name}' is present but empty");
-                        } else {
-                            for value in values {
-                                regex_checks.push((pattern_regex, value));
-                            }
                         }
+                        let Some(matched_value) = values
+                            .into_iter()
+                            .find(|v| pattern_regex.is_match(v.trim()))
+                        else {
+                            continue 'parsers;
+                        };
+                        regex_checks.push((pattern_regex, matched_value));
                     }
                     None => {
                         return Err(AppError::FieldError(format!(
@@ -393,36 +423,66 @@ impl Commit<'_> {
                     }
                 }
             }
-            if parser.sha.clone().map(|v| v.to_lowercase()).as_deref() == Some(&self.id) {
+            if regex_checks.is_empty() {
+                if parser.sha.is_none() {
+                    continue 'parsers;
+                }
                 if self.skip_commit(parser, protect_breaking) {
                     return Err(AppError::GroupError(String::from("Skipping commit")));
                 } else {
                     self.group = parser.group.clone().or(self.group);
                     self.scope = parser.scope.clone().or(self.scope);
                     self.default_scope = parser.default_scope.clone().or(self.default_scope);
+                    if parser.r#continue.unwrap_or(false) {
+                        matched = true;
+                        continue;
+                    }
                     return Ok(self);
                 }
-            }
-            for (regex, text) in regex_checks {
-                if regex.is_match(text.trim()) {
-                    if self.skip_commit(parser, protect_breaking) {
-                        return Err(AppError::GroupError(String::from("Skipping commit")));
-                    } else {
-                        let regex_replace = |mut value: String| {
-                            for mat in regex.find_iter(&text) {
-                                value = regex.replace(mat.as_str(), value).to_string();
-                            }
-                            value
-                        };
-                        self.group = parser.group.clone().map(regex_replace);
-                        self.scope = parser.scope.clone().map(regex_replace);
-                        self.default_scope.clone_from(&parser.default_scope);
-                        return Ok(self);
+            } else if self.skip_commit(parser, protect_breaking) {
+                return Err(AppError::GroupError(String::from("Skipping commit")));
+            } else {
+                let regex_replace = |mut value: String| {
+                    for (regex, text) in &regex_checks {
+                        for mat in regex.find_iter(text) {
+                            value = regex.replace(mat.as_str(), value).to_string();
+                        }
                     }
+                    value
+                };
+                if parser.r#continue.unwrap_or(false) {
+                    // Only override the fields this parser sets, so later
+                    // parsers can fill in the rest.
+                    if let Some(group) = parser.group.clone() {
+                        self.group = Some(regex_replace(group));
+                    }
+                    if let Some(scope) = parser.scope.clone() {
+                        self.scope = Some(regex_replace(scope));
+                    }
+                    if parser.default_scope.is_some() {
+                        self.default_scope.clone_from(&parser.default_scope);
+                    }
+                    matched = true;
+                    continue 'parsers;
                 }
+                if matched {
+                    // Preserve fields contributed by preceding parsers.
+                    self.group = parser.group.clone().map(regex_replace).or(self.group);
+                    self.scope = parser.scope.clone().map(regex_replace).or(self.scope);
+                    if parser.default_scope.is_some() {
+                        self.default_scope.clone_from(&parser.default_scope);
+                    }
+                } else {
+                    // Keep the original first-match-wins behavior when
+                    // no preceding parser continued.
+                    self.group = parser.group.clone().map(regex_replace);
+                    self.scope = parser.scope.clone().map(regex_replace);
+                    self.default_scope.clone_from(&parser.default_scope);
+                }
+                return Ok(self);
             }
         }
-        if filter {
+        if filter && !matched {
             Err(AppError::GroupError(String::from(
                 "Commit does not belong to any group",
             )))
@@ -604,6 +664,7 @@ mod test {
                 default_scope: Some(String::from("test_scope")),
                 scope: None,
                 skip: None,
+                r#continue: None,
                 field: None,
                 pattern: None,
             }],
@@ -782,8 +843,10 @@ Refs: #123
         };
         commit.remote = Some(crate::contributor::RemoteContributor {
             username: None,
+            pr_author: None,
             pr_title: Some("feat: do something".to_string()),
             pr_number: None,
+            pr_numbers: vec![],
             pr_labels: vec![String::from("feature"), String::from("deprecation")],
             is_first_time: true,
         });
@@ -811,6 +874,7 @@ Refs: #123
                 default_scope: None,
                 scope: None,
                 skip: None,
+                r#continue: None,
                 field: None,
                 pattern: None,
             }],
@@ -843,8 +907,10 @@ Refs: #123
         };
         commit.remote = Some(crate::contributor::RemoteContributor {
             username: None,
+            pr_author: None,
             pr_title: Some("feat: do something".to_string()),
             pr_number: None,
+            pr_numbers: vec![],
             pr_labels: vec![String::from("feature"), String::from("deprecation")],
             is_first_time: true,
         });
@@ -872,6 +938,7 @@ Refs: #123
                 default_scope: None,
                 scope: None,
                 skip: None,
+                r#continue: None,
                 field: Some(String::from("author.name")),
                 pattern: Regex::new("John Doe").ok(),
             }],
@@ -890,6 +957,7 @@ Refs: #123
                 default_scope: None,
                 scope: None,
                 skip: None,
+                r#continue: None,
                 field: Some(String::from("remote.pr_title")),
                 pattern: Regex::new("feat: do something").ok(),
             }],
@@ -908,6 +976,7 @@ Refs: #123
                 default_scope: None,
                 scope: None,
                 skip: None,
+                r#continue: None,
                 field: Some(String::from("body")),
                 pattern: Regex::new("something great").ok(),
             }],
@@ -926,6 +995,7 @@ Refs: #123
                 default_scope: None,
                 scope: None,
                 skip: None,
+                r#continue: None,
                 field: Some(String::from("remote.pr_labels")),
                 pattern: Regex::new("feature|deprecation").ok(),
             }],
@@ -944,6 +1014,7 @@ Refs: #123
                 default_scope: None,
                 scope: None,
                 skip: None,
+                r#continue: None,
                 field: Some(String::from("links")),
                 pattern: Regex::new(".*").ok(),
             }],
@@ -962,6 +1033,7 @@ Refs: #123
                 default_scope: None,
                 scope: None,
                 skip: None,
+                r#continue: None,
                 field: Some(String::from("remote")),
                 pattern: Regex::new(".*").ok(),
             }],
@@ -972,6 +1044,463 @@ Refs: #123
             parse_result.is_err(),
             "Expected error when using unsupported field `remote`, but got Ok"
         );
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_commit_multiple_parsers() -> Result<()> {
+        let commit = Commit::new(
+            String::from("8f55e69eba6e6ce811ace32bd84cc82215673cb6"),
+            String::from("feat(deep): support multiple parsers"),
+        );
+        let commit = commit.into_conventional()?;
+
+        // Without `continue`, the first matching parser wins and short-circuits:
+        // the scope-only parser matches, so the group from the later parser is
+        // never applied.
+        let parsers = vec![
+            CommitParser {
+                sha: None,
+                message: Regex::new("\\(deep\\)").ok(),
+                body: None,
+                footer: None,
+                group: None,
+                default_scope: None,
+                scope: Some(String::from("Deep Scope")),
+                skip: None,
+                r#continue: None,
+                field: None,
+                pattern: None,
+            },
+            CommitParser {
+                sha: None,
+                message: Regex::new("^feat").ok(),
+                body: None,
+                footer: None,
+                group: Some(String::from("Features")),
+                default_scope: None,
+                scope: None,
+                skip: None,
+                r#continue: None,
+                field: None,
+                pattern: None,
+            },
+        ];
+        let parsed = commit.clone().parse(&parsers, false, false)?;
+        assert_eq!(Some(String::from("Deep Scope")), parsed.scope);
+        assert_eq!(None, parsed.group);
+
+        // With `continue = true` on the composing parsers, the commit picks up
+        // the scope from the first and the group from the second.
+        let parsers = vec![
+            CommitParser {
+                sha: None,
+                message: Regex::new("\\(deep\\)").ok(),
+                body: None,
+                footer: None,
+                group: None,
+                default_scope: None,
+                scope: Some(String::from("Deep Scope")),
+                skip: None,
+                r#continue: Some(true),
+                field: None,
+                pattern: None,
+            },
+            CommitParser {
+                sha: None,
+                message: Regex::new("^feat").ok(),
+                body: None,
+                footer: None,
+                group: Some(String::from("Features")),
+                default_scope: None,
+                scope: None,
+                skip: None,
+                r#continue: Some(true),
+                field: None,
+                pattern: None,
+            },
+        ];
+        let parsed = commit.clone().parse(&parsers, false, true)?;
+        assert_eq!(Some(String::from("Deep Scope")), parsed.scope);
+        assert_eq!(Some(String::from("Features")), parsed.group);
+
+        // A `continue` parser that matches keeps the commit even when filtering
+        // is on and it only set a scope (no group).
+        let scope_only = vec![CommitParser {
+            sha: None,
+            message: Regex::new("^feat").ok(),
+            body: None,
+            footer: None,
+            group: None,
+            default_scope: None,
+            scope: Some(String::from("Deep Scope")),
+            skip: None,
+            r#continue: Some(true),
+            field: None,
+            pattern: None,
+        }];
+        let parsed = commit.clone().parse(&scope_only, false, true)?;
+        assert_eq!(Some(String::from("Deep Scope")), parsed.scope);
+        assert_eq!(None, parsed.group);
+
+        // A `continue` parser can set the scope and a following terminal parser
+        // (no `continue`) can set the group without wiping the scope. The
+        // terminal parser only overwrites the fields it actually sets, so the
+        // scope from the first parser is kept instead of being reset to None.
+        let parsers = vec![
+            CommitParser {
+                sha: None,
+                message: Regex::new("\\(deep\\)").ok(),
+                body: None,
+                footer: None,
+                group: None,
+                default_scope: None,
+                scope: Some(String::from("Deep Scope")),
+                skip: None,
+                r#continue: Some(true),
+                field: None,
+                pattern: None,
+            },
+            CommitParser {
+                sha: None,
+                message: Regex::new("^feat").ok(),
+                body: None,
+                footer: None,
+                group: Some(String::from("Features")),
+                default_scope: None,
+                scope: None,
+                skip: None,
+                r#continue: None,
+                field: None,
+                pattern: None,
+            },
+        ];
+        let parsed = commit.clone().parse(&parsers, false, false)?;
+        assert_eq!(Some(String::from("Deep Scope")), parsed.scope);
+        assert_eq!(Some(String::from("Features")), parsed.group);
+
+        // Without a preceding `continue` match, terminal parsers retain the
+        // original behavior of clearing fields they do not set.
+        let mut populated_commit = commit;
+        populated_commit.group = Some(String::from("Old Group"));
+        populated_commit.scope = Some(String::from("Old Scope"));
+        populated_commit.default_scope = Some(String::from("Old Default Scope"));
+        let terminal = vec![CommitParser {
+            message: Regex::new("^feat").ok(),
+            group: Some(String::from("Features")),
+            ..Default::default()
+        }];
+        let parsed = populated_commit.parse(&terminal, false, false)?;
+        assert_eq!(Some(String::from("Features")), parsed.group);
+        assert_eq!(None, parsed.scope);
+        assert_eq!(None, parsed.default_scope);
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_commit_missing_field_falls_through_to_next_parser() -> Result<()> {
+        let commit = Commit::new(
+            String::from("8f55e69eba6e6ce811ace32bd84cc82215673cb6"),
+            String::from("feat: first feature"),
+        );
+        // `commit.remote` is `None` by default (this is a LOCAL / non-PR commit),
+        // so `remote.pr_labels` cannot be resolved.
+        // The first parser must be skipped (not abort the chain) so the
+        // catch-all parser below can still match and group the commit.
+        let parsers = [
+            CommitParser {
+                sha: None,
+                message: Some(Regex::new("^feat")?),
+                body: None,
+                footer: None,
+                group: Some(String::from("Bug fixes")),
+                default_scope: None,
+                scope: None,
+                skip: None,
+                r#continue: None,
+                field: Some(String::from("remote.pr_labels")),
+                pattern: Regex::new("bug").ok(),
+            },
+            CommitParser {
+                sha: None,
+                message: Some(Regex::new(".*")?),
+                body: None,
+                footer: None,
+                group: Some(String::from("Miscellaneous")),
+                default_scope: None,
+                scope: None,
+                skip: None,
+                r#continue: None,
+                field: None,
+                pattern: None,
+            },
+        ];
+        let parsed = commit.parse(&parsers, false, false)?;
+        assert_eq!(
+            Some(String::from("Miscellaneous")),
+            parsed.group,
+            "a missing field on parser #1 must fall through to the catch-all parser #2"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn parse_commit_footer_requires_conventional_data() -> Result<()> {
+        let parsers = [
+            CommitParser {
+                sha: None,
+                message: Regex::new("^feat:.*?remove").ok(),
+                body: None,
+                footer: Regex::new("^BREAKING CHANGE:").ok(),
+                group: Some(String::from("Removed")),
+                default_scope: None,
+                scope: None,
+                skip: None,
+                r#continue: None,
+                field: None,
+                pattern: None,
+            },
+            CommitParser {
+                sha: None,
+                message: Some(Regex::new(".*")?),
+                body: None,
+                footer: None,
+                group: Some(String::from("Miscellaneous")),
+                default_scope: None,
+                scope: None,
+                skip: None,
+                r#continue: None,
+                field: None,
+                pattern: None,
+            },
+        ];
+
+        let commit = Commit::new(
+            String::new(),
+            String::from("feat: remove old api\n\nBREAKING CHANGE: drop legacy support"),
+        )
+        .parse(&parsers, false, false)?;
+        assert_eq!(
+            Some(String::from("Miscellaneous")),
+            commit.group,
+            "footer requires conventional data; must not match the combined parser"
+        );
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_commit_and_semantics_message_footer() -> Result<()> {
+        let parsers = [
+            CommitParser {
+                sha: None,
+                message: Regex::new("^feat:.*?remove").ok(),
+                body: None,
+                footer: Regex::new("^BREAKING CHANGE:").ok(),
+                group: Some(String::from("Removed")),
+                default_scope: None,
+                scope: None,
+                skip: None,
+                r#continue: None,
+                field: None,
+                pattern: None,
+            },
+            CommitParser {
+                sha: None,
+                message: Some(Regex::new(".*")?),
+                body: None,
+                footer: None,
+                group: Some(String::from("Miscellaneous")),
+                default_scope: None,
+                scope: None,
+                skip: None,
+                r#continue: None,
+                field: None,
+                pattern: None,
+            },
+        ];
+
+        let commit = Commit::new(String::new(), String::from("feat: remove old api"))
+            .into_conventional()?
+            .parse(&parsers, false, false)?;
+        assert_eq!(
+            Some(String::from("Miscellaneous")),
+            commit.group,
+            "message matches but footer doesn't; must not match the combined parser"
+        );
+
+        let commit = Commit::new(
+            String::new(),
+            String::from("feat: remove old api\n\nBREAKING CHANGE: drop legacy support"),
+        )
+        .into_conventional()?
+        .parse(&parsers, false, false)?;
+        assert_eq!(Some(String::from("Removed")), commit.group);
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_commit_and_semantics_message_body() -> Result<()> {
+        let parsers = [
+            CommitParser {
+                sha: None,
+                message: Regex::new("^fix:").ok(),
+                body: Regex::new("security").ok(),
+                footer: None,
+                group: Some(String::from("Security")),
+                default_scope: None,
+                scope: None,
+                skip: None,
+                r#continue: None,
+                field: None,
+                pattern: None,
+            },
+            CommitParser {
+                sha: None,
+                message: Some(Regex::new(".*")?),
+                body: None,
+                footer: None,
+                group: Some(String::from("Miscellaneous")),
+                default_scope: None,
+                scope: None,
+                skip: None,
+                r#continue: None,
+                field: None,
+                pattern: None,
+            },
+        ];
+
+        let commit = Commit::new(
+            String::new(),
+            String::from("fix: patch bug\n\nregular body"),
+        )
+        .into_conventional()?
+        .parse(&parsers, false, false)?;
+        assert_eq!(
+            Some(String::from("Miscellaneous")),
+            commit.group,
+            "message matches but body doesn't; must not match the combined parser"
+        );
+
+        let commit = Commit::new(
+            String::new(),
+            String::from("fix: patch bug\n\nfix a security bug"),
+        )
+        .into_conventional()?
+        .parse(&parsers, false, false)?;
+        assert_eq!(Some(String::from("Security")), commit.group);
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_commit_and_semantics_footer_field() -> Result<()> {
+        let parsers = [
+            CommitParser {
+                sha: None,
+                message: None,
+                body: None,
+                footer: Regex::new("^BREAKING CHANGE:").ok(),
+                group: Some(String::from("Removed")),
+                default_scope: None,
+                scope: None,
+                skip: None,
+                r#continue: None,
+                field: Some(String::from("message")),
+                pattern: Regex::new("remove").ok(),
+            },
+            CommitParser {
+                sha: None,
+                message: Some(Regex::new(".*")?),
+                body: None,
+                footer: None,
+                group: Some(String::from("Miscellaneous")),
+                default_scope: None,
+                scope: None,
+                skip: None,
+                r#continue: None,
+                field: None,
+                pattern: None,
+            },
+        ];
+
+        let commit = Commit::new(String::new(), String::from("feat: remove old api"))
+            .into_conventional()?
+            .parse(&parsers, false, false)?;
+        assert_eq!(
+            Some(String::from("Miscellaneous")),
+            commit.group,
+            "field pattern matches but footer doesn't; must not match the combined parser"
+        );
+
+        let commit = Commit::new(
+            String::new(),
+            String::from("feat: remove old api\n\nBREAKING CHANGE: drop legacy support"),
+        )
+        .into_conventional()?
+        .parse(&parsers, false, false)?;
+        assert_eq!(Some(String::from("Removed")), commit.group);
+
+        Ok(())
+    }
+
+    #[test]
+    fn parse_commit_and_semantics_sha_message() -> Result<()> {
+        let sha = String::from("8f55e69eba6e6ce811ace32bd84cc82215673cb6");
+        let parsers = [
+            CommitParser {
+                sha: Some(sha.clone()),
+                message: Regex::new("^feat:").ok(),
+                body: None,
+                footer: None,
+                group: Some(String::from("Added")),
+                default_scope: None,
+                scope: None,
+                skip: None,
+                r#continue: None,
+                field: None,
+                pattern: None,
+            },
+            CommitParser {
+                sha: None,
+                message: Some(Regex::new(".*")?),
+                body: None,
+                footer: None,
+                group: Some(String::from("Miscellaneous")),
+                default_scope: None,
+                scope: None,
+                skip: None,
+                r#continue: None,
+                field: None,
+                pattern: None,
+            },
+        ];
+
+        let commit = Commit::new(sha.clone(), String::from("fix: patch bug"))
+            .parse(&parsers, false, false)?;
+        assert_eq!(
+            Some(String::from("Miscellaneous")),
+            commit.group,
+            "sha matches but message doesn't; must not match the combined parser"
+        );
+
+        let commit = Commit::new(
+            String::from("0000000000000000000000000000000000000000"),
+            String::from("feat: add feature"),
+        )
+        .parse(&parsers, false, false)?;
+        assert_eq!(
+            Some(String::from("Miscellaneous")),
+            commit.group,
+            "message matches but sha doesn't; must not match the combined parser"
+        );
+
+        let commit =
+            Commit::new(sha, String::from("feat: add feature")).parse(&parsers, false, false)?;
+        assert_eq!(Some(String::from("Added")), commit.group);
 
         Ok(())
     }
@@ -993,6 +1522,7 @@ Refs: #123
                 default_scope: None,
                 scope: None,
                 skip: Some(true),
+                r#continue: None,
                 field: None,
                 pattern: None,
             }],
@@ -1018,8 +1548,10 @@ Refs: #123
         };
         commit.remote = Some(crate::contributor::RemoteContributor {
             username: None,
+            pr_author: None,
             pr_title: Some("feat: do something".to_string()),
             pr_number: None,
+            pr_numbers: vec![],
             pr_labels: Vec::new(),
             is_first_time: true,
         });
@@ -1034,6 +1566,7 @@ Refs: #123
                 default_scope: None,
                 scope: None,
                 skip: None,
+                r#continue: None,
                 field: Some(String::from("author.name")),
                 pattern: Regex::new("^John Doe$").ok(),
             }],
@@ -1052,6 +1585,7 @@ Refs: #123
                 default_scope: None,
                 scope: None,
                 skip: None,
+                r#continue: None,
                 field: Some(String::from("remote.pr_title")),
                 pattern: Regex::new("^feat(\\([^)]+\\))?").ok(),
             }],
@@ -1070,6 +1604,7 @@ Refs: #123
                 default_scope: None,
                 scope: None,
                 skip: None,
+                r#continue: None,
                 field: Some(String::from("author.name")),
                 pattern: Regex::new("Something else").ok(),
             }],
