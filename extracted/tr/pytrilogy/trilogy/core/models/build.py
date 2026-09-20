@@ -3362,6 +3362,27 @@ class Factory:
     def _(self, base: Concept) -> BuildConcept:
         return self._build_concept(base)
 
+    def _fd_minimal_lineage(self, lineage: Any) -> Any:
+        """An aggregate's `by` less every member the rest functionally
+        determine, so `count(id) by order.id` and the same count pinned at
+        `Grain<order.id, customer.region>` are one concept: one lineage, one
+        grain, and one canonical name to every canonical-keyed lookup (a
+        summary table's column, above all). The planner carries a determined
+        column beside the aggregate where that is the cheaper read
+        (`GroupBucket.grain_riders`)."""
+        if not isinstance(lineage, BuildAggregateWrapper) or len(lineage.by) < 2:
+            return lineage
+        # A ROLLUP/CUBE key is a subtotal level, not only a grouping key.
+        if lineage.grouping.nulls_grouping_keys:
+            return lineage
+        # Statement joins declare SUBSET/INCOMPARABLE, never EQUAL, so the
+        # closure is the same for a datasource column and a query's concept.
+        graph = assemble_full_graph(self.environment, self.domain_graph)
+        kept = graph.fd_minimal(c.address for c in lineage.by)
+        if len(kept) == len(lineage.by):
+            return lineage
+        return dc_replace(lineage, by=[c for c in lineage.by if c.address in kept])
+
     def _abstract_resolution_grain(self) -> Grain:
         """Factory grain for resolving an abstract aggregate, with any metric
         that is currently mid-build (an ancestor on the build stack) replaced by
@@ -3507,7 +3528,10 @@ class Factory:
             final_grain = Grain(components={x.address for x in stamped_lineage.by})
 
         if new_lineage:
-            build_lineage = self.build(new_lineage)
+            full_lineage = self.build(new_lineage)
+            build_lineage = self._fd_minimal_lineage(full_lineage)
+            if build_lineage is not full_lineage:
+                final_grain = Grain(components={x.address for x in build_lineage.by})
             if isinstance(build_lineage, BuildConcept):
                 merge_concepts = self.scoped_merge_sources_by_target.get(base.address)
                 if not merge_concepts:

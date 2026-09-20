@@ -18,6 +18,24 @@ from .validators.dynamodb import (
 )
 
 
+class Export(AWSObject):
+    """
+    `Export <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-export.html>`__
+    """
+
+    resource_type = "AWS::DynamoDB::Export"
+
+    props: PropsDictType = {
+        "ExportFormat": (str, False),
+        "ExportType": (str, False),
+        "S3Bucket": (str, True),
+        "S3BucketOwner": (str, False),
+        "S3Prefix": (str, False),
+        "S3SseAlgorithm": (str, False),
+        "TableArn": (str, True),
+    }
+
+
 class AttributeDefinition(AWSProperty):
     """
     `AttributeDefinition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-attributedefinition.html>`__
@@ -270,7 +288,8 @@ class ReplicaStreamSpecification(AWSProperty):
     """
 
     props: PropsDictType = {
-        "ResourcePolicy": (ResourcePolicy, True),
+        "ResourcePolicy": (ResourcePolicy, False),
+        "Tags": (Tags, False),
     }
 
 
@@ -305,6 +324,7 @@ class StreamSpecification(AWSProperty):
     props: PropsDictType = {
         "ResourcePolicy": (ResourcePolicy, False),
         "StreamViewType": (str, True),
+        "Tags": (Tags, False),
     }
 
 
@@ -316,6 +336,42 @@ class TimeToLiveSpecification(AWSProperty):
     props: PropsDictType = {
         "AttributeName": (str, False),
         "Enabled": (boolean, True),
+    }
+
+
+class SearchSchemaElement(AWSProperty):
+    """
+    `SearchSchemaElement <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-searchschemaelement.html>`__
+    """
+
+    props: PropsDictType = {
+        "AttributeName": (str, True),
+        "SearchSchemaElementType": (str, True),
+    }
+
+
+class VectorAttribute(AWSProperty):
+    """
+    `VectorAttribute <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-vectorattribute.html>`__
+    """
+
+    props: PropsDictType = {
+        "AttributeName": (str, True),
+    }
+
+
+class VectorIndex(AWSProperty):
+    """
+    `VectorIndex <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-table-vectorindex.html>`__
+    """
+
+    props: PropsDictType = {
+        "Dimensions": (integer, True),
+        "DistanceFunction": (str, True),
+        "IndexName": (str, True),
+        "Projection": (Projection, True),
+        "SearchSchema": ([SearchSchemaElement], False),
+        "VectorAttribute": (VectorAttribute, True),
     }
 
 
@@ -345,12 +401,26 @@ class GlobalTable(AWSObject):
         "StreamSpecification": (StreamSpecification, False),
         "TableName": (str, False),
         "TimeToLiveSpecification": (TimeToLiveSpecification, False),
+        "VectorIndexes": ([VectorIndex], False),
         "WarmThroughput": (WarmThroughput, False),
         "WriteOnDemandThroughputSettings": (WriteOnDemandThroughputSettings, False),
         "WriteProvisionedThroughputSettings": (
             WriteProvisionedThroughputSettings,
             False,
         ),
+    }
+
+
+class Stream(AWSObject):
+    """
+    `Stream <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-dynamodb-stream.html>`__
+    """
+
+    resource_type = "AWS::DynamoDB::Stream"
+
+    props: PropsDictType = {
+        "StreamViewType": (str, False),
+        "TableName": (str, False),
     }
 
 
@@ -477,8 +547,20 @@ class Table(AWSObject):
         "TableName": (str, False),
         "Tags": (Tags, False),
         "TimeToLiveSpecification": (TimeToLiveSpecification, False),
+        "VectorIndexes": ([VectorIndex], False),
         "WarmThroughput": (WarmThroughput, False),
     }
 
     def validate(self):
         validate_table(self)
+
+
+class KeySchemaItems(AWSProperty):
+    """
+    `KeySchemaItems <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-dynamodb-stream-keyschemaitems.html>`__
+    """
+
+    props: PropsDictType = {
+        "AttributeName": (str, True),
+        "KeyType": (str, True),
+    }

@@ -44,6 +44,12 @@ class PawchiveExtractor(Extractor):
         order = self.config("order-revisions")
         self.revisions_reverse = order[0] in {"r", "a"} if order else False
 
+        if deferred := self.config("deferred", True):
+            self.deferred = True
+            self.deferred_only = (deferred == "only")
+        else:
+            self.deferred = self.deferred_only = False
+
         self.api = PawchiveAPI(self)
         self._find_inline = text.re(
             r'src="(?:https?://(?:pawchive\.(?:pw|st)))?(/inline/[^"]+'
@@ -73,8 +79,12 @@ class PawchiveExtractor(Extractor):
         else:
             duplicates = ()
 
-        # prevent files from being sent with gzip compression
-        headers = {"Accept-Encoding": "identity"}
+        headers = {
+            # prevent files from being sent with gzip compression
+            "Accept-Encoding": "identity",
+            # prevent '403 Forbidden' errors
+            "User-Agent"     : util.USERAGENT_GALLERYDL
+        }
 
         posts = self.posts()
         if max_posts := self.config("max-posts"):
@@ -134,7 +144,10 @@ class PawchiveExtractor(Extractor):
                 try:
                     path = file["path"]
                 except KeyError:
-                    if warning:
+                    if file.get("deferred"):
+                        self.log.info("%s: Skipping %s ('deferred')",
+                                      post["id"], file.get("name"))
+                    elif warning:
                         warning = False
                         self.log.debug(file)
                         self.log.warning("%s: Incomplete import", post["id"])
@@ -187,33 +200,43 @@ class PawchiveExtractor(Extractor):
                     else:
                         post_archives.append(archive)
 
+                file["file_id"] = file.pop("id", None)
                 files.append(file)
 
             post["count"] = len(files)
             yield Message.Directory, "", post
             if original:
-                for post["num"], file in enumerate(files, 1):
-                    if "id" in file:
-                        del file["id"]
-                    if not file.get("preview_only"):
-                        url = file["url"]
+                if post.get("deferred") and self.deferred_only:
+                    num = 0
+                    for file in files:
+                        if not file.get("deferred"):
+                            continue
+                        num += 1
+                        file["num"] = num
                         file["original"] = True
-                    elif previews:
-                        url = root_thmb + file["path"]
-                        file["extension"] = "webp"
-                        file["original"] = False
-                    else:
-                        self.log.info("%s: Skipping %s ('preview only')",
-                                      post["id"], file["path"][7:])
-                        continue
-                    post.update(file)
-                    yield Message.Url, url, post
+                        post.update(file)
+                        yield Message.Url, file["url"], post
+                else:
+                    for post["num"], file in enumerate(files, 1):
+                        if not file.get("preview_only"):
+                            url = file["url"]
+                            file["original"] = True
+                            if previews and file["extension"] in exts_thmb:
+                                file["_fallback"] = (root_thmb + file["path"],)
+                        elif previews:
+                            url = root_thmb + file["path"]
+                            file["extension"] = "webp"
+                            file["original"] = False
+                        else:
+                            self.log.info("%s: Skipping %s ('preview only')",
+                                          post["id"], file["path"][7:])
+                            continue
+                        post.update(file)
+                        yield Message.Url, url, post
             else:
                 for post["num"], file in enumerate(files, 1):
                     if file["extension"] in exts_thmb:
                         file["extension"] = "webp"
-                        if "id" in file:
-                            del file["id"]
                         post.update(file)
                         post["original"] = False
                         yield Message.Url, root_thmb + file["path"], post
@@ -231,11 +254,37 @@ class PawchiveExtractor(Extractor):
     def _extract_attachments(self, post):
         for attachment in post["attachments"]:
             attachment["type"] = "attachment"
+            if "deferred" in attachment and attachment["deferred"]:
+                post["deferred"] = True
+                if self.deferred:
+                    self._extract_deferred(post, attachment)
         return post["attachments"]
 
     def _extract_inline(self, post):
         for path in self._find_inline(post.get("content") or ""):
             yield {"path": path, "name": path, "type": "inline"}
+
+    def _extract_deferred(self, post, att):
+        if not (html := post.get("_html")):
+            url = (f"{self.root}/{post['service']}/user/{post['user']}/"
+                   f"post/{post['id']}")
+            html = post["_html"] = self.request(url).text
+        name = text.escape(att["name"])
+        if (pos := html.find("<summary>" + name)) >= 0 and \
+                (source := text.extract(html, "<source", ">", pos)[0]):
+            src = text.unescape(text.extr(source, 'src="', '"'))
+            if text.ext_from_url(src) == "m3u8":
+                att["path"] = "ytdl:" + src
+                att["_ytdl_manifest"] = "hls"
+                att["_ytdl_manifest_headers"] = post["_http_headers"]
+            else:
+                att["path"] = src
+        elif (pos := html.find(f">Download {name}<")) >= 0 and \
+                (href := text.rextr(html, 'href="', '"', pos)):
+            att["path"] = text.unescape(href)
+        else:
+            self.log.warning("Failed to extract 'deferred' file (%s)",
+                             att["name"])
 
     def _build_file_generators(self, filetypes):
         if filetypes is None:
@@ -327,6 +376,17 @@ class PawchiveExtractor(Extractor):
             att.pop("name", None)
         return util.sha1(util.json_dumps(rev))
 
+    def _expand(self, posts):
+        if self.config("expand") or \
+                self.config("endpoint") in {"posts+", "legacy+"}:
+            def gen():
+                creator_post = self.api.creator_post
+                for post in posts:
+                    yield creator_post(
+                        post["service"], post["user"], post["id"])
+            return gen()
+        return posts
+
 
 class PawchiveUserExtractor(PawchiveExtractor):
     """Extractor for all posts from a pawchive user listing"""
@@ -342,13 +402,9 @@ class PawchiveUserExtractor(PawchiveExtractor):
         service, creator_id, query = self.groups
         params = text.parse_query(query)
 
-        if self.config("endpoint") in {"posts+", "legacy+"}:
-            endpoint = self.api.creator_posts_expand
-        else:
-            endpoint = self.api.creator_posts
-
-        return endpoint(service, creator_id,
-                        params.get("o"), params.get("q"), params.get("tag"))
+        return self._expand(self.api.creator_posts(
+            service, creator_id,
+            params.get("o"), params.get("q"), params.get("tag")))
 
 
 class PawchivePostExtractor(PawchiveExtractor):
@@ -386,8 +442,8 @@ class PawchivePostsExtractor(PawchiveExtractor):
 
     def posts(self):
         params = text.parse_query(self.groups[0])
-        return self.api.posts(
-            params.get("o"), params.get("q"), params.get("tag"))
+        return self._expand(self.api.posts(
+            params.get("o"), params.get("q"), params.get("tag")))
 
 
 class PawchiveFavoriteExtractor(PawchiveExtractor):
@@ -512,12 +568,6 @@ class PawchiveAPI():
         endpoint = f"/v1/{service}/user/{creator_id}"
         params = {"o": offset, "tag": tags, "q": query}
         return self._pagination(endpoint, params, 50)
-
-    def creator_posts_expand(self, service, creator_id,
-                             offset=0, query=None, tags=None):
-        for post in self.creator_posts(
-                service, creator_id, offset, query, tags):
-            yield self.creator_post(service, creator_id, post["id"])
 
     def creator_announcements(self, service, creator_id):
         endpoint = f"/v1/{service}/user/{creator_id}/announcements"

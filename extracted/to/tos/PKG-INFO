@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tos
-Version: 2.9.2
+Version: 2.9.3
 Summary: Volc TOS (Tinder Object Storage) SDK
 Home-page: https://www.volcengine.com/
 Author: sunyushan
@@ -44,6 +44,36 @@ bucket_name = "your bucket name"
 object_key = "your object key"
 client = tos.TosClientV2(ak, sk, endpoint, region)     
 ```
+
+### Use VKE IRSA
+
+After enabling VKE IRSA and associating an IAM role with the workload's
+ServiceAccount, `pod-identity-webhook` injects `VOLCENGINE_OIDC_ROLE_TRN`,
+`VOLCENGINE_OIDC_TOKEN_FILE`, and a read-only OIDC token file into the Pod.
+The application can then run without a long-lived AK/SK:
+
+```python
+import tos
+
+client = tos.TosClientV2(
+    endpoint="https://tos-cn-beijing.volces.com",
+    region="cn-beijing",
+    credentials_provider=tos.OIDCCredentialsProvider(),
+)
+```
+
+The provider exchanges the projected token through STS `AssumeRoleWithOIDC`
+and refreshes temporary credentials before they expire. Without the webhook,
+pass `role_trn` and `oidc_token_file` explicitly.
+
+### Use clients with fork
+
+After a fork, the child rebuilds the SDK's default HTTP connection pools,
+bucket-type cache and DNS refresh state. OIDC credentials are fetched again
+on first use in the child.
+
+Other credential providers and application callbacks need their own
+fork-safety guarantees.
 
 ## Create a bucket
 

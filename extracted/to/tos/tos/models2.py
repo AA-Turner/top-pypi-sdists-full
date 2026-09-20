@@ -340,7 +340,7 @@ class CopyObjectOutput(ResponseInfo):
             self.last_modified = parse_modify_time_to_utc_datetime(self.last_modified)
 
         if not self.etag:
-            make_server_error_with_exception(resp, data)
+            raise make_server_error_with_exception(resp, data)
 
 
 class DeleteObjectOutput(ResponseInfo):
@@ -1839,6 +1839,8 @@ class FetchObjectOutput(ResponseInfo):
         self.ssec_key_md5 = get_value(resp.headers, 'x-server-side-encryption-customer-algorithm')
         data = resp.json_read()
         self.etag = get_etag(data)
+        if not self.etag:
+            raise make_server_error_with_exception(resp, data)
 
 
 class PutFetchTaskOutput(ResponseInfo):
@@ -2906,14 +2908,25 @@ class FileResponse:
 
 
 class VectorData(object):
-    def __init__(self, float32: List[float] = None):
+    def __init__(self, float32: List[float] = None, int8: List[int] = None):
         self.float32 = float32
+        self.int8 = int8
 
 
 class Vector(object):
     def __init__(self, key: str = None, data: VectorData = None, metadata: Dict[str, Any] = None):
         self.key = key
         self.data = data
+        self.metadata = metadata
+
+
+class VectorMeta(object):
+    """用于读取响应（GetVectors / ListVectors）。
+
+    服务端已不再返回 vector data，因此该类型只暴露 key / metadata。
+    """
+    def __init__(self, key: str = None, metadata: Dict[str, Any] = None):
+        self.key = key
         self.metadata = metadata
 
 
@@ -2940,17 +2953,7 @@ class GetVectorsOutput(ResponseInfo):
         for vector_data in data.get('vectors', []):
             vector_key = get_value(vector_data, 'key')
             vector_metadata = get_value(vector_data, 'metadata')
-            
-            # 处理 vector data
-            vector_data_obj = None
-            vector_data_dict = get_value(vector_data, 'data')
-            if vector_data_dict:
-                float32_data = get_value(vector_data_dict, 'float32', list)
-                if float32_data:
-                    vector_data_obj = VectorData(float32=float32_data)
-            
-            vector = Vector(key=vector_key, data=vector_data_obj, metadata=vector_metadata)
-            self.vectors.append(vector)
+            self.vectors.append(VectorMeta(key=vector_key, metadata=vector_metadata))
 
 
 class ListVectorsOutput(ResponseInfo):
@@ -2962,17 +2965,7 @@ class ListVectorsOutput(ResponseInfo):
         for vector_data in data.get('vectors', []):
             vector_key = get_value(vector_data, 'key')
             vector_metadata = get_value(vector_data, 'metadata')
-            
-            # 处理 vector data
-            vector_data_obj = None
-            vector_data_dict = get_value(vector_data, 'data')
-            if vector_data_dict:
-                float32_data = get_value(vector_data_dict, 'float32')
-                if float32_data:
-                    vector_data_obj = VectorData(float32=float32_data)
-            
-            vector = Vector(key=vector_key, data=vector_data_obj, metadata=vector_metadata)
-            self.vectors.append(vector)
+            self.vectors.append(VectorMeta(key=vector_key, metadata=vector_metadata))
 
 class DistanceVector(object):
     def __init__(self, key: str = None, data: VectorData = None, distance: float = None, metadata: Dict[str, Any] = None):

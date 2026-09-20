@@ -1240,7 +1240,8 @@ class ServerSSM(SSM):
                 self.ssmSAP.device_info_cache.update_device_info(self.device_info)
 
             elif (
-                self.device_info.segmentation_supported == Segmentation.segmentedTransmit
+                self.device_info.segmentation_supported
+                == Segmentation.segmentedTransmit
             ):
                 if _debug:
                     ServerSSM._debug(
@@ -1615,7 +1616,9 @@ class ApplicationServiceAccessPoint(Client[PDU], ServiceAccessPoint):
                     ApplicationServiceAccessPoint._debug("    - continue with Who-Is")
             else:
                 if _debug:
-                    ApplicationServiceAccessPoint._debug("    - not a Who-Has or Who-Is, dropped")
+                    ApplicationServiceAccessPoint._debug(
+                        "    - not a Who-Has or Who-Is, dropped"
+                    )
                 return
         elif self.dccEnableDisable == "disableInitiation":
             if _debug:
@@ -1828,6 +1831,7 @@ class ApplicationServiceAccessPoint(Client[PDU], ServiceAccessPoint):
                     return
 
                 xpdu = Error(
+                    source=apdu.pduSource,
                     service_choice=apdu.apduService,
                     errorClass="communication",
                     errorCode="invalid-tag",

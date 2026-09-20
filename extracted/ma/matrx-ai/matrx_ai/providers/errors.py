@@ -1137,7 +1137,15 @@ def classify_internal_error(exception: Exception, provider: str) -> RetryableErr
             ),
         )
 
-    if isinstance(exception, _INTERNAL_BUG_EXCEPTIONS):
+    # asyncio lifecycle/affinity failures are deterministic local defects, not
+    # provider congestion. Do not classify every RuntimeError as internal:
+    # adapters also use RuntimeError for actual provider failures.
+    loop_failure = isinstance(exception, RuntimeError) and (
+        str(exception).startswith("There is no current event loop in thread ")
+        or str(exception) in {"no running event loop", "Event loop is closed"}
+        or "attached to a different loop" in str(exception)
+    )
+    if isinstance(exception, _INTERNAL_BUG_EXCEPTIONS) or loop_failure:
         return RetryableError(
             error_type="matrx_internal_error",
             message=str(exception) or type(exception).__name__,

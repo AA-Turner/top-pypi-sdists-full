@@ -82,6 +82,12 @@ _CORE_MESSAGES = {
         "en": "{count} findings, over the {limit} compact lists - call again without compact "
               "for the full list, or narrow paths/select",
     },
+    "report.written-hint": {
+        "ru": "находок: {count}, это больше {limit} строк краткого ответа – полный список "
+              "даст lint_paths по записанным файлам",
+        "en": "{count} findings, over the {limit} a short answer lists - lint_paths on the "
+              "written files gives them all",
+    },
     "code/unused-method.off": {
         "ru": "признак мёртвого кода неотличим от вызова по имени: метод могут звать строкой из HTML-вставки или ключом yaml. Проверка нарочно консервативна, но остаток ложных возможен – включайте, когда ищете мёртвый код целенаправленно",
         "en": "a dead method is indistinguishable from one called by name: a string inside an HTML insert or a yaml key. The check is deliberately conservative, yet false positives remain - enable it when you are hunting dead code on purpose",
@@ -206,6 +212,14 @@ _CORE_MESSAGES = {
               "--prune-baseline",
         "en": "Show the stale entries: --stale-baseline; remove them from the file: "
               "--prune-baseline",
+    },
+    "cli.baseline-reworded": {
+        "ru": "Записей списка принятых с прежним текстом сообщения: {count}. Правило изменило "
+              "формулировку, и запись совпала с находкой по файлу и значениям. Перепишите "
+              "список через --write-baseline: причины записей сохранятся",
+        "en": "Baseline entries with an earlier message text: {count}. The rule reworded its "
+              "message, and each entry matched its finding by file and values. Rewrite the "
+              "baseline with --write-baseline: the reasons of the entries are kept",
     },
     "cli.baseline-not-checked": {
         "ru": "Записей списка принятых не проверено: {count} – их правил не было в наборе этой "
@@ -420,6 +434,25 @@ _CORE_MESSAGES = {
         "en": "write the check report to a UTF-8 file without BOM instead of stdout "
               "(shell redirection on Windows adds a BOM that breaks JSON parsing); "
               "applies to every --format value",
+    },
+    "cli.help.summary": {
+        "ru": "вывести вместо находок их счёт по правилам: правило, число файлов и находок, "
+              "а под таблицей итог запуска",
+        "en": "print the counts by rule instead of the findings: the rule, its files and its "
+              "findings, with the totals of the run below",
+    },
+    "cli.help.compare": {
+        "ru": "сравнить находки с запуском, сохранённым в ФАЙЛ, и вывести только разницу: что "
+              "появилось и что исчезло; этот запуск сохраняется в тот же файл. Первый запуск "
+              "выводит счёт, как --summary",
+        "en": "compare the findings with the run saved in FILE and print only the difference: "
+              "what appeared and what disappeared; this run is saved to the same file. The "
+              "first run prints the counts, as --summary does",
+    },
+    "cli.summary-conflict": {
+        "ru": "--summary и --compare выводят свой отчёт и не сочетаются с {flag}",
+        "en": "--summary and --compare print a report of their own and do not combine "
+              "with {flag}",
     },
     "cli.help.stdin": {
         "ru": "проверить один буфер из stdin (для интеграции с редактором); "

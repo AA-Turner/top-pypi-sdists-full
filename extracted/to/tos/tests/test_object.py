@@ -6,7 +6,7 @@ import unittest
 from unittest import mock
 
 import pytz
-from tos.exceptions import TosError
+from tos.exceptions import TosError, TosServerError
 
 from tests.common import MockResponse, TosTestCase
 
@@ -94,6 +94,22 @@ class TestObject(TosTestCase):
         res = self.client.copy_object(Bucket=self.bucket_name, CopySource=copySource, Key=self.key_name)
         self.assertEqual(res.etag, 'etag')
         self.assertEqual(res.last_modified, datetime.datetime(2021, 1, 1, tzinfo=pytz.utc))
+
+    @mock.patch('requests.Session.request')
+    def test_copy_object_requires_etag(self, mock_request):
+        body = {
+            'Code': 'InternalError',
+            'Message': 'copy failed',
+        }
+        mock_request.return_value = MockResponse(body=json.dumps(body))
+
+        copySource = {
+            'Bucket': 'src-bkt',
+            'Key': 'src-key',
+            'VersionId': 'src_id'
+        }
+        with self.assertRaises(TosServerError):
+            self.client.copy_object(Bucket=self.bucket_name, CopySource=copySource, Key=self.key_name)
 
     @mock.patch('requests.Session.request')
     def test_append_object(self, mock_request):

@@ -17,6 +17,7 @@ from temporalio.client import Client
 from temporalio.worker import Interceptor as TemporalInterceptor
 from temporalio.worker import Worker, WorkerDeploymentConfig, WorkerDeploymentVersion
 from temporalio.worker.workflow_sandbox import SandboxedWorkflowRunner
+from typing_extensions import deprecated
 
 from application_sdk.app.registry import (
     AppRegistry,
@@ -27,6 +28,7 @@ from application_sdk.app.registry import (
 from application_sdk.constants import (
     APP_BUILD_ID,
     APP_DEPLOYMENT_NAME,
+    PREFLIGHT_GATE_MODE_ENV,
     SHUTDOWN_DRAIN_DELAY_SECONDS,
 )
 from application_sdk.execution._temporal.activities import get_all_task_activities
@@ -1049,3 +1051,49 @@ def create_worker(
         primary_app_name=primary_app_name,
         task_queue=task_queue,
     )
+
+
+@deprecated(
+    "_resolve_gate_enforcement is deprecated; use resolve_gate_mode(app_cls) and "
+    "read PreflightGateMode.enforces, which distinguishes the postures a bool "
+    "cannot — will be removed in v3.40.0."
+)
+def _resolve_gate_enforcement(app_cls: type | None) -> bool:
+    """Whether the preflight gate blocks a ``NOT_READY`` verdict for this app.
+
+    .. deprecated:: 3.37
+        Use :func:`~application_sdk.execution._temporal.preflight_gate.resolve_gate_mode`
+        and read :attr:`~application_sdk.handler.contracts.PreflightGateMode.enforces`.
+        Will be removed in v3.40.0.
+
+    #3685 removed this alongside the nine names the preflight_gate shim restored;
+    it was missed because it lived in *this* module rather than that one, and a
+    name-level diff of one file cannot see it. Consumers import it directly, so
+    its absence is an ImportError at lock refresh with no migration window.
+
+    **This reproduces the pre-#3685 resolution exactly, including the
+    ``ATLAN_PREFLIGHT_GATE_MODE`` precedence, and that is deliberate.** The first
+    restore returned the declared posture alone, on the reasoning that #3685 had
+    made the env lever inert for the gate and a deployment setting it was already
+    being ignored. Both halves of that are true and it was still the wrong call:
+    apps test *this function's* contract, not the gate's, and two repos assert
+    that the env var can downgrade to soft without an app release. Dropping the
+    lever turned their green suites red on a lock refresh — the same undeprecated
+    break this shim exists to prevent, reintroduced by the shim itself.
+
+    So the value here is what 3.35 returned, not what the gate now applies. Those
+    diverge only where a deployment still sets the variable, and a caller in that
+    position is already reading a deprecated function; the warning points at
+    :func:`resolve_gate_mode`, which is the one true source for the live posture.
+    Faithfulness is the whole job of a compatibility shim — a caller who wants
+    current behaviour migrates, and the warning tells them how.
+    """
+    declared_env = os.environ.get(PREFLIGHT_GATE_MODE_ENV)
+    if declared_env:
+        return declared_env.strip().lower() == "hard"
+
+    from application_sdk.execution._temporal.preflight_gate import (  # noqa: PLC0415 — lazy: mirrors create_worker's gate import, avoids a module cycle
+        resolve_gate_mode,
+    )
+
+    return resolve_gate_mode(app_cls).enforces

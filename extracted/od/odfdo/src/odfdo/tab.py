@@ -52,6 +52,8 @@ class Tab(MDTab, Element):
         Args:
             position: The position of the tab-stop. If provided,
                 must be a non-negative integer.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init and position is not None and position >= 0:
@@ -66,12 +68,13 @@ class Tab(MDTab, Element):
 
         Returns:
             str: The tab character ("\t").
+
         """
         return "\t"
 
     @text.setter
     def text(self, text: str | None) -> None:
-        """Setting text for a tab is a no-op as it always represents a tab character."""
+        """Ignore text setting as a tab always represents a tab character."""
 
 
 Tab._define_attribut_property()

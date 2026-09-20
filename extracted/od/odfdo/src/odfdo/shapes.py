@@ -112,6 +112,8 @@ class ShapeBase(ListMixin, AnchorMix, SvgMixin, ZMix, Element):
             anchor_page: Physical page number of an anchor if the drawing
                 object is bound to a page within a text document.
             xml_id: The unique XML ID.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -160,6 +162,7 @@ class ShapeBase(ListMixin, AnchorMix, SvgMixin, ZMix, Element):
 
         Returns:
             str: The formatted text content.
+
         """
         result: list[str] = [
             child.get_formatted_text(context) for child in self.children
@@ -192,13 +195,14 @@ class AngleMix(Element):
 
     @property
     def kind(self) -> str:
-        'Get or set the kind, "draw:kind".'
+        """Get or set the kind, "draw:kind"."""
         return self._get_attribute_str_default("draw:kind", "full")
 
     @kind.setter
     def kind(self, kind: str) -> None:
         if kind not in self.KIND_VALUE_CHOICE:
-            raise TypeError(f"'draw:kind' not valid: {kind!r}")
+            msg = f"'draw:kind' not valid: {kind!r}"
+            raise TypeError(msg)
         self._set_attribute_str_default("draw:kind", kind, "full")
 
 
@@ -272,6 +276,8 @@ class LineShape(ShapeBase):
             anchor_page: Physical page number of an anchor if the drawing
                 object is bound to a page within a text document.
             xml_id: The unique XML ID.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         kwargs.update(
             {
@@ -302,7 +308,7 @@ class LineShape(ShapeBase):
 
     @property
     def p1(self) -> tuple[str | None, str | None]:
-        "Get or set the (x1, y1) coordinates of the starting point."
+        """Get or set the (x1, y1) coordinates of the starting point."""
         return (self.x1, self.y1)
 
     @p1.setter
@@ -316,7 +322,7 @@ class LineShape(ShapeBase):
 
     @property
     def p2(self) -> tuple[str | None, str | None]:
-        "Get or set the (x2, y2) coordinates of the ending point."
+        """Get or set the (x2, y2) coordinates of the ending point."""
         return (self.x2, self.y2)
 
     @p2.setter
@@ -395,6 +401,8 @@ class DrawMeasure(LineShape):
             anchor_page: Physical page number of an anchor if the drawing
                 object is bound to a page within a text document.
             xml_id: The unique XML ID.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         kwargs.update(
             {
@@ -498,6 +506,8 @@ class RectangleShape(PosMix, SizeMix, ShapeBase):
             anchor_page: Physical page number of an anchor if the drawing
                 object is bound to a page within a text document.
             xml_id: The unique XML ID.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         kwargs.update(
             {
@@ -608,6 +618,8 @@ class PolylineShape(PosMix, SizeMix, ShapeBase):
             anchor_page: Physical page number of an anchor if the drawing
                 object is bound to a page within a text document.
             xml_id: The unique XML ID.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         kwargs.update(
             {
@@ -649,7 +661,8 @@ PolylineShape._define_attribut_property()
 class PolygonShape(PolylineShape):
     """Represents a polygon, "draw:polygon".
 
-    A polygon is a closed set of straight lines."""
+    A polygon is a closed set of straight lines.
+    """
 
     _tag = "draw:polygon"
 
@@ -714,6 +727,8 @@ class PolygonShape(PolylineShape):
             anchor_page: Physical page number of an anchor if the drawing
                 object is bound to a page within a text document.
             xml_id: The unique XML ID.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         kwargs.update(
             {
@@ -752,7 +767,8 @@ class RegularPolygonShape(PosMix, SizeMix, ShapeBase):
 
     A regular polygon is a polygon that is specified by its number of edges
     (that is equal to the number of its corners), rather than by arbitrary
-    points."""
+    points.
+    """
 
     _tag = "draw:regular-polygon"
     _properties: tuple[PropDef | PropDefBool, ...] = (
@@ -823,6 +839,8 @@ class RegularPolygonShape(PosMix, SizeMix, ShapeBase):
             anchor_page: Physical page number of an anchor if the drawing
                 object is bound to a page within a text document.
             xml_id: The unique XML ID.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         kwargs.update(
             {
@@ -952,6 +970,8 @@ class DrawPath(PosMix, SizeMix, ShapeBase):
             anchor_page: Physical page number of an anchor if the drawing
                 object is bound to a page within a text document.
             xml_id: The unique XML ID.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         kwargs.update(
             {
@@ -1065,6 +1085,8 @@ class DrawCaption(PosMix, SizeMix, ShapeBase):
             anchor_page: Physical page number of an anchor if the drawing
                 object is bound to a page within a text document.
             xml_id: The unique XML ID.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         kwargs.update(
             {
@@ -1102,7 +1124,8 @@ class DrawCaption(PosMix, SizeMix, ShapeBase):
     @property
     def caption_point(self) -> tuple[str | None, str | None]:
         """Get or set the (caption_point_x, caption_point_y) coordinates of the
-        caption point."""
+        caption point.
+        """
         return (self.caption_point_x, self.caption_point_y)
 
     @caption_point.setter
@@ -1207,6 +1230,8 @@ class EllipseShape(AngleMix, PosMix, SizeMix, ShapeBase):
             anchor_page: Physical page number of an anchor if the drawing
                 object is bound to a page within a text document.
             xml_id: The unique XML ID.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         kwargs.update(
             {
@@ -1339,6 +1364,8 @@ class CircleShape(AngleMix, PosMix, SizeMix, ShapeBase):
             anchor_page: Physical page number of an anchor if the drawing
                 object is bound to a page within a text document.
             xml_id: The unique XML ID.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         kwargs.update(
             {
@@ -1381,7 +1408,7 @@ class CircleShape(AngleMix, PosMix, SizeMix, ShapeBase):
 
     @property
     def center(self) -> tuple[str | None, str | None]:
-        "Get or set the center (cx, cy) coordinates of the circle."
+        """Get or set the center (cx, cy) coordinates of the circle."""
         return (self.cx, self.cy)
 
     @center.setter
@@ -1499,6 +1526,8 @@ class ConnectorShape(ShapeBase):
             anchor_page: Physical page number of an anchor if the drawing
                 object is bound to a page within a text document.
             xml_id: The unique XML ID.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         kwargs.update(
             {
@@ -1542,7 +1571,8 @@ class ConnectorShape(ShapeBase):
     @property
     def connected_shapes(self) -> tuple[str | None, str | None]:
         """Get or set the connected shapes ("draw:start-shape",
-        "draw:end-shape")."""
+        "draw:end-shape").
+        """
         get_attr = self.get_attribute_string
         return get_attr("draw:start-shape"), get_attr("draw:end-shape")
 
@@ -1560,7 +1590,8 @@ class ConnectorShape(ShapeBase):
     @property
     def glue_points(self) -> tuple[str | None, str | None]:
         """Get or set the the glue points for connection
-        ("draw:start-glue-point", "draw:end-glue-point")."""
+        ("draw:start-glue-point", "draw:end-glue-point").
+        """
         get_attr = self.get_attribute_string
         return get_attr("draw:start-glue-point"), get_attr("draw:end-glue-point")
 
@@ -1577,7 +1608,7 @@ class ConnectorShape(ShapeBase):
 
     @property
     def p1(self) -> tuple[str | None, str | None]:
-        "Get or set the (x1, y1) coordinates of the starting point."
+        """Get or set the (x1, y1) coordinates of the starting point."""
         return (self.x1, self.y1)
 
     @p1.setter
@@ -1591,7 +1622,7 @@ class ConnectorShape(ShapeBase):
 
     @property
     def p2(self) -> tuple[str | None, str | None]:
-        "Get or set the (x2, y2) coordinates of the ending point."
+        """Get or set the (x2, y2) coordinates of the ending point."""
         return (self.x2, self.y2)
 
     @p2.setter
@@ -1605,13 +1636,14 @@ class ConnectorShape(ShapeBase):
 
     @property
     def draw_type(self) -> str:
-        'Get or set the draw type, "draw:type".'
+        """Get or set the draw type, "draw:type"."""
         return self._get_attribute_str_default("draw:type", "standard")
 
     @draw_type.setter
     def draw_type(self, draw_type: str) -> None:
         if draw_type not in self.DRAW_TYOE_CHOICE:
-            raise TypeError(f"'draw:type' not valid: {draw_type!r}")
+            msg = f"'draw:type' not valid: {draw_type!r}"
+            raise TypeError(msg)
         self._set_attribute_str_default("draw:type", draw_type, "standard")
 
 
@@ -1687,6 +1719,8 @@ class DrawControl(PosMix, SizeMix, ShapeBase):
             anchor_page: Physical page number of an anchor if the drawing
                 object is bound to a page within a text document.
             xml_id: The unique XML ID.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         kwargs.update(
             {
@@ -1799,6 +1833,8 @@ class DrawPageThumbnail(PosMix, SizeMix, ShapeBase):
             anchor_page: Physical page number of an anchor if the drawing
                 object is bound to a page within a text document.
             xml_id: The unique XML ID.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         kwargs.update(
             {
@@ -1931,6 +1967,8 @@ class DrawGroup(SvgMixin, AnchorMix, ZMix, Element):
             anchor_page: Physical page number of an anchor if the drawing
                 object is bound to a page within a text document.
             xml_id: The unique XML ID.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -1975,6 +2013,7 @@ class DrawGroup(SvgMixin, AnchorMix, ZMix, Element):
 
         Returns:
             str: The formatted text content.
+
         """
         result: list[str] = [
             child.get_formatted_text(context) for child in self.children

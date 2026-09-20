@@ -756,6 +756,7 @@ class DownloadJob(Job):
                     archive_format,
                     archive_table,
                     cfg("archive-mode"),
+                    cfg("archive-reuse"),
                     cfg("archive-pragma"),
                     pathfmt,
                 )

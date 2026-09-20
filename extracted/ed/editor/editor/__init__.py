@@ -9,8 +9,8 @@ You can pass a parameter `editor=` to specify an editor or leave it empty, in wh
 case the editor is:
 
 * The contents of the environment variable `VISUAL`, if it's set, otherwise:
-* The the contents of the environment variable `EDITOR`, if it's set, otherwise:
-* The string `'Notepad'`, if the code is running on Windows, otherwise:
+* The contents of the environment variable `EDITOR`, if it's set, otherwise:
+* The string `'notepad'`, if the code is running on Windows, otherwise:
 * The string `'vim'`
 
 ### Example 1: Using a temporary file
@@ -45,25 +45,29 @@ If a filename is provided, then that file gets edited.
 
 import os
 import platform
+import shlex
+import subprocess
 import tempfile
 import traceback
 import typing as t
 from pathlib import Path
 
-import runs
 import xmod
 
-__all__ = 'editor', 'default_editor'
+__all__ = 'EditorCommand', 'editor', 'default_editor'
 
 DEFAULT_EDITOR = 'vim'
 EDITORS = {'Windows': 'notepad'}
+EditorCommand: t.TypeAlias = str | t.Sequence[str]
 
 
 @xmod.xmod(mutable=True)
 def editor(
     text: t.Optional[str] = None,
-    filename: t.Union[None, Path, str] = None,
-    editor: t.Optional[str] = None,
+    filename: Path | str | None = None,
+    editor: EditorCommand | None = None,
+    encoding: str | None = None,
+    errors: str | None = None,
     **kwargs: t.Any,
 ) -> str:
     """
@@ -77,8 +81,12 @@ def editor(
       filename: The name of the file to edit.
           If `None`, a temporary file is used.
 
-      editor: A string containing the command used to invoke the text editor.
-         If `None`, use `editor.default_editor()`.
+      editor: A legacy POSIX-style command string or an argv sequence used to
+          invoke the text editor. The edited path is passed as one final argv
+          element. If `None`, use `editor.default_editor()`.
+
+      encoding, errors: Optional text encoding and decoding error policy for
+          the edited file. If omitted, retain the platform default behavior.
 
       kwargs: Arguments passed on to `subprocess.call()`"""
     editor = editor or default_editor()
@@ -89,21 +97,25 @@ def editor(
         fd, fname = tempfile.mkstemp()
         os.close(fd)
 
+    path = Path(fname)
     try:
-        path = Path(fname)
         if text is not None:
-            path.write_text(text)
+            path.write_text(text, encoding=encoding, errors=errors)
 
-        cmd = f'{editor} "{path.resolve()}"'
-        runs.call(cmd, **kwargs)
-        return path.read_text()
-
-    finally:
+        command = shlex.split(editor) if isinstance(editor, str) else list(editor)
+        subprocess.call([*command, str(path.resolve())], **kwargs)
+        result = path.read_text(encoding=encoding, errors=errors)
+    except BaseException:
         if is_temp:
             try:
                 path.unlink()
-            except Exception:
+            except OSError:
                 traceback.print_exc()
+        raise
+    else:
+        if is_temp:
+            path.unlink(missing_ok=True)
+        return result
 
 
 def default_editor() -> str:

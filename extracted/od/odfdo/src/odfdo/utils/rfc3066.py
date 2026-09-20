@@ -34,7 +34,8 @@ from string import ascii_letters, digits
 
 def get_default_language() -> str:
     """Fetch default locale language code formatted as RFC 3066 or fall back
-    to 'en-US'."""
+    to 'en-US'.
+    """
     with contextlib.suppress(Exception), warnings.catch_warnings():
         warnings.simplefilter("ignore", DeprecationWarning)
         loc = locale.getdefaultlocale()
@@ -46,7 +47,7 @@ def get_default_language() -> str:
 
 
 def is_RFC3066(lang: str) -> bool:
-    """Checks if a string conforms to the RFC 3066 language tag format.
+    """Check if a string conforms to the RFC 3066 language tag format.
 
     Valid formats are "language" or "language-country", where "language" is a
     2 or 3-letter ASCII string, and "country" (and other subtags) are
@@ -57,6 +58,7 @@ def is_RFC3066(lang: str) -> bool:
 
     Returns:
         bool: True if the tag is valid, False otherwise.
+
     """
 
     def test_part1(part1: str) -> bool:

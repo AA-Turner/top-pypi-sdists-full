@@ -1,10 +1,23 @@
 mod arrow_ffi;
 mod arrow_writer;
 mod cell;
+mod charts;
+mod conditional_format;
 mod csv_writer;
 mod data_types;
+mod data_validation;
 mod format;
+mod formula;
 mod helpers;
+mod ignore_errors;
+mod images;
+mod layout;
+mod notes;
+mod options;
+mod outline;
+mod page_setup;
+mod sheet_view;
+mod sparklines;
 mod utils;
 mod worksheet;
 

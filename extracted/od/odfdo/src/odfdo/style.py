@@ -81,17 +81,18 @@ __all__ = [  # noqa: RUF022
 
 
 def _make_thick_string(thick: str | float | int | None) -> str:
-    """Helper to convert a thickness value to a string for border properties.
+    """Convert a thickness value to a string for border properties (helper).
 
     Args:
-        thick: The thickness value. Can be a string
-            (e.g., "1pt"), a float (e.g., 0.5 for 0.5pt), or an int (e.g., 100 for 1.00pt).
+        thick: The thickness value. Can be a string (e.g., "1pt"), a float
+            (e.g., 0.5 for 0.5pt), or an int (e.g., 100 for 1.00pt).
 
     Returns:
         str: The formatted thickness string (e.g., "0.06pt").
 
     Raises:
         ValueError: If the thickness type is not supported.
+
     """
     THICK_DEFAULT = "0.06pt"
     if thick is None:
@@ -105,11 +106,12 @@ def _make_thick_string(thick: str | float | int | None) -> str:
         return f"{thick:.2f}pt"
     if isinstance(thick, int):
         return f"{thick / 100.0:.2f}pt"
-    raise ValueError("Thickness must be None for default or float value (pt)")
+    msg = "Thickness must be None for default or float value (pt)"
+    raise ValueError(msg)
 
 
 def _make_line_string(line: str | None) -> str:
-    """Helper to convert a line style value to a string for border properties.
+    """Convert a line style value to a string for border properties (helper).
 
     Args:
         line: The line style value (e.g., "solid", "dotted").
@@ -119,6 +121,7 @@ def _make_line_string(line: str | None) -> str:
 
     Raises:
         ValueError: If the line style type is not supported.
+
     """
     LINE_DEFAULT = "solid"
     if line is None:
@@ -128,7 +131,8 @@ def _make_line_string(line: str | None) -> str:
         if line:
             return line
         return LINE_DEFAULT
-    raise ValueError("Line style must be None for default or string")
+    msg = "Line style must be None for default or string"
+    raise ValueError(msg)
 
 
 def make_table_cell_border_string(
@@ -150,6 +154,7 @@ def make_table_cell_border_string(
 
     Returns:
         str: A formatted string suitable for the "fo:border" attribute.
+
     """
     thick_string = _make_thick_string(thick)
     line_string = _make_line_string(line)
@@ -203,6 +208,7 @@ def create_table_cell_style(
 
     Returns:
         Style: A Style object configured for a table cell.
+
     """
     if border == "default":
         border = make_table_cell_border_string()  # default border
@@ -242,7 +248,7 @@ def create_table_cell_style(
 
 
 def _new_master_page(*args: Any, **kwargs: Any) -> StyleBase:
-    """Factory function for creating a new StyleMasterPage instance.
+    """Create a new StyleMasterPage instance.
 
     This function is used internally by the Style class's __new__ method
     to create StyleMasterPage objects when the 'family' is 'master-page'.
@@ -253,6 +259,7 @@ def _new_master_page(*args: Any, **kwargs: Any) -> StyleBase:
 
     Returns:
         StyleMasterPage: A new instance of StyleMasterPage.
+
     """
     family = kwargs.pop("family", None)
     if family is None:
@@ -263,7 +270,7 @@ def _new_master_page(*args: Any, **kwargs: Any) -> StyleBase:
 
 
 def _new_page_layout(*args: Any, **kwargs: Any) -> StyleBase:
-    """Factory function for creating a new StylePageLayout instance.
+    """Create a new StylePageLayout instance.
 
     This function is used internally by the Style class's __new__ method
     to create StylePageLayout objects when the 'family' is 'page-layout'.
@@ -274,6 +281,7 @@ def _new_page_layout(*args: Any, **kwargs: Any) -> StyleBase:
 
     Returns:
         StylePageLayout: A new instance of StylePageLayout.
+
     """
     family = kwargs.pop("family", None)
     if family is None:
@@ -336,6 +344,7 @@ class Style(StyleProps):
 
         Returns:
             Style: An instance of Style, StyleMasterPage, or StylePageLayout.
+
         """
         family = kwargs.get("family")
         if family is None and args:
@@ -515,15 +524,18 @@ class Style(StyleProps):
             font_pitch: Font pitch ('variable' or 'fixed'). Defaults to
                 'variable'. ('font-face' property)
             **kwargs: Additional properties to set on the style.
+
         """
         self._family: str | None = None
         tag_or_elem = kwargs.get("tag_or_elem")
         if tag_or_elem is None:
             family = to_str(family)
             if family in {"master-page", "page-layout"}:
-                raise TypeError(f"Wrong initializer for: {family!r}")
+                msg = f"Wrong initializer for: {family!r}"
+                raise TypeError(msg)
             if family not in FAMILY_MAPPING:
-                raise ValueError(f"Unknown family value: {family!r}")
+                msg = f"Unknown family value: {family!r}"
+                raise ValueError(msg)
             kwargs["tag"] = FAMILY_MAPPING[family]
         super().__init__(**kwargs)
         if self._do_init and family not in SUBCLASSED_STYLES:
@@ -548,7 +560,8 @@ class Style(StyleProps):
             # Font face
             elif family == "font-face":
                 if not font_name:
-                    raise ValueError("A font_name is required for 'font-face' style")
+                    msg = "A font_name is required for 'font-face' style"
+                    raise ValueError(msg)
                 self.set_font(
                     font_name,
                     family=font_family,
@@ -621,7 +634,8 @@ class Style(StyleProps):
                     kwargs["style:width"] = width
                 if align:
                     if align not in {"center", "left", "margins", "right"}:
-                        raise ValueError(f"Invalid align value: {align!r}")
+                        msg = f"Invalid align value: {align!r}"
+                        raise ValueError(msg)
                     kwargs["table:align"] = align
             # Graphic
             elif area == "graphic":
@@ -637,6 +651,7 @@ class Style(StyleProps):
 
         Returns:
             str or None: The style family as a string, or None if not set.
+
         """
         if self._family is None:
             self._family = FALSE_FAMILY_MAP_REVERSE.get(
@@ -650,6 +665,7 @@ class Style(StyleProps):
 
         Args:
             family: The style family to set.
+
         """
         self._family = family
         if family in FAMILY_ODF_STD and self.tag == "style:style":
@@ -692,6 +708,7 @@ class Style(StyleProps):
             repeat: How the background image is repeated.
             opacity: The opacity of the background.
             filter: An application-specific filter name.
+
         """
         _set_background(self, color, url, position, repeat, opacity, filter)
 
@@ -708,6 +725,7 @@ class Style(StyleProps):
         Returns:
             Style | None: The Style element for the specified level, or None
             if the style family is not 'list' or the level style is not found.
+
         """
         if self.family != "list":
             return None
@@ -753,6 +771,7 @@ class Style(StyleProps):
 
         Raises:
             ValueError: If an unknown level style type is provided.
+
         """
         if self.family != "list":
             return None
@@ -766,7 +785,8 @@ class Style(StyleProps):
         elif clone is not None:
             level_style_name = clone.tag
         else:
-            raise ValueError("unknown level style type")
+            msg = "Unknown level style type"
+            raise ValueError(msg)
         was_created = False
         # Cloning or reusing an existing element
         level_style: Style | None = None
@@ -806,7 +826,8 @@ class Style(StyleProps):
             if level_style is not None:
                 level_style.text_style = style
             else:  # pragma: nocover
-                raise ValueError("No level style available")
+                msg = "No level style available"
+                raise ValueError(msg)
         # Commit the creation
         if was_created:
             self.append(level_style)
@@ -830,6 +851,7 @@ class Style(StyleProps):
             family: The font family. If None, defaults to `name`.
             family_generic: The generic font family (e.g., 'swiss', 'roman').
             pitch: The font pitch ('variable' or 'fixed'). Defaults to 'variable'.
+
         """
         if self.family != "font-face":
             return
@@ -887,6 +909,7 @@ class BackgroundImage(Style, DrawImage):
             opacity: The opacity of the background image.
             filter: A filter to apply to the image.
             **kwargs: Additional properties to set on the background image style.
+
         """
         kwargs["family"] = "background-image"
         super().__init__(**kwargs)

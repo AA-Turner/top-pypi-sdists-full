@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: troposphere
-Version: 4.10.2
+Version: 4.11.0
 Summary: AWS CloudFormation creation library
 Home-page: https://github.com/cloudtools/troposphere
 Author: Mark Peek

@@ -1335,7 +1335,9 @@ class TestBucket(TosTestBase):
         bucket_name = self.bucket_name + '-inventory'
         self.client.create_bucket(bucket_name)
         self.bucket_delete.append(bucket_name)
-        for i in range(102):
+        inventory_limit = 10
+        expected_ids = {'py-sdk-test' + str(i) for i in range(inventory_limit)}
+        for i in range(inventory_limit):
             inventory_id = "py-sdk-test"+str(i)
             bucket_inventory_configuration = BucketInventoryConfiguration(
                 inventory_id=inventory_id,
@@ -1354,10 +1356,21 @@ class TestBucket(TosTestBase):
             self.assertEqual(resp.status_code, 200)
 
         resp = self.client.list_bucket_inventory(bucket_name)
-        self.assertEqual(len(resp.configurations), 100)
+        self.assertEqual(len(resp.configurations), inventory_limit)
+        self.assertEqual({configuration.inventory_id for configuration in resp.configurations}, expected_ids)
+        self.assertFalse(resp.is_truncated)
 
-        resp = self.client.list_bucket_inventory(bucket_name,continuation_token=resp.next_continuation_token)
-        self.assertEqual(len(resp.configurations), 1)
+        # 第 11 条规则应返回超限错误，且不能影响已有规则。
+        bucket_inventory_configuration.inventory_id = 'py-sdk-test' + str(inventory_limit)
+        with self.assertRaises(TosServerError) as context:
+            self.client.put_bucket_inventory(bucket_name, bucket_inventory_configuration)
+        self.assertEqual(context.exception.status_code, 400)
+        self.assertEqual(context.exception.code, 'InvalidArgument')
+        self.assertEqual(context.exception.ec, '0025-00000016')
+
+        resp = self.client.list_bucket_inventory(bucket_name)
+        self.assertEqual(len(resp.configurations), inventory_limit)
+        self.assertEqual({configuration.inventory_id for configuration in resp.configurations}, expected_ids)
 
 
 

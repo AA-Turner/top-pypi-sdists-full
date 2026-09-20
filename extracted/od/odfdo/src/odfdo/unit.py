@@ -68,10 +68,11 @@ class Unit:
         value (Fraction): The numerical value of the measurement.
         text (str): The str value of the measurement.
         unit (str): The unit of the measurement (e.g., 'cm', 'in').
+
     """
 
     def __init__(self, value: str | float | int | Decimal, unit: str = "cm") -> None:
-        """Initializes a Unit instance.
+        """Initialize a Unit instance.
 
         The constructor can parse a string containing both a value and a unit
         (e.g., "10.5cm") or accept a numerical value and a unit separately.
@@ -82,6 +83,7 @@ class Unit:
             unit: The unit of measurement (e.g., 'cm', 'in', 'pt').
                 Defaults to 'cm'. This is ignored if the unit is present in
                 the `value` string.
+
         """
         if isinstance(value, str):
             digits = []
@@ -107,7 +109,7 @@ class Unit:
         return f"{object.__repr__(self)} {self}"
 
     def _check_other(self, other: Unit) -> None:
-        """Checks if the 'other' object is a compatible Unit for comparison.
+        """Check if the 'other' object is a compatible Unit for comparison.
 
         Args:
             other: The other Unit instance to compare against.
@@ -115,11 +117,14 @@ class Unit:
         Raises:
             TypeError: If 'other' is not a Unit instance.
             NotImplementedError: If the units are different.
+
         """
         if not isinstance(other, Unit):
-            raise TypeError(f"Can only compare Unit: {other!r}")
+            msg = f"Can only compare Unit: {other!r}"
+            raise TypeError(msg)
         if self.unit != other.unit:
-            raise NotImplementedError(f"Conversion not implemented yet {other!r}")
+            msg = f"Conversion not implemented yet {other!r}"
+            raise NotImplementedError(msg)
 
     def __lt__(self, other: Unit) -> bool:
         self._check_other(other)
@@ -132,7 +137,7 @@ class Unit:
         return self.value == other.value
 
     def convert(self, unit: str, dpi: int | Decimal | float = 72) -> Unit:
-        """Converts the current unit to another unit.
+        """Convert the current unit to another unit.
 
         Currently, only conversion to pixels ('px') is supported from various
         length units.
@@ -148,11 +153,14 @@ class Unit:
         Raises:
             NotImplementedError: If conversion to the target `unit` or from
                 the instance's current unit is not supported.
+
         """
         try:
             conversion = INCH_CONVERSION[self.unit]
         except KeyError as e:
-            raise NotImplementedError(f"unit {str(self.unit)!r}") from e
+            msg = f"Unit {str(self.unit)!r}"
+            raise NotImplementedError(msg) from e
         if unit == "px":
             return Unit(int(self.value * conversion * int(dpi)), "px")
-        raise NotImplementedError(f"unit {str(unit)!r}")
+        msg = f"Unit {str(unit)!r}"
+        raise NotImplementedError(msg)

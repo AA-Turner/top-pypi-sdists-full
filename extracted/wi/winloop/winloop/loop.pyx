@@ -11,7 +11,6 @@ from .includes.python cimport (
     PyMem_RawMalloc, PyMem_RawFree,
     PyMem_RawCalloc, PyMem_RawRealloc,
     PyUnicode_EncodeFSDefault,
-    PyErr_SetInterrupt,
     _Py_RestoreSignals,
     Context_CopyCurrent,
     Context_Enter,
@@ -28,14 +27,12 @@ from libc.stdint cimport uint64_t
 from libc.string cimport memset, strerror, memcpy
 from libc cimport errno
 
-# Winloop Comment: We need some cleaver hacky techniques for 
+# Winloop Comment: We need some cleaver hacky techniques for
 # preventing slow spawnning processes for MSVC
-from cpython.pystate cimport (PyGILState_Ensure, PyGILState_Release,
-                              PyGILState_STATE)
-from cpython cimport PyObject
-from cpython cimport PyErr_CheckSignals, PyErr_Occurred
+from cpython.pystate cimport PyGILState_Ensure, PyGILState_Release
+from cpython cimport PyErr_CheckSignals
 from cpython cimport PyThread_get_thread_ident
-from cpython cimport Py_INCREF, Py_DECREF, Py_XDECREF, Py_XINCREF
+from cpython cimport Py_INCREF, Py_DECREF
 from cpython cimport (
     PyObject_GetBuffer, PyBuffer_Release, PyBUF_SIMPLE,
     Py_buffer, PyBytes_AsString, PyBytes_CheckExact,
@@ -123,6 +120,10 @@ cdef inline run_in_context2(context, method, arg1, arg2):
 # *reuse_address* parameter
 _unset = object()
 
+cdef list split_windows_shell_command(object cmd):
+    if isinstance(cmd, bytes):
+        cmd = cmd.decode("utf-8", "surrogateescape")
+    return shlex_split(cmd)
 
 @cython.no_gc_clear
 cdef class Loop:
@@ -510,8 +511,6 @@ cdef class Loop:
             raise convert_error(err)
 
     cdef _run(self, uv.uv_run_mode mode):
-        cdef int err
-
         if self._closed == 1:
             raise RuntimeError('unable to start the loop; it was closed')
 
@@ -833,6 +832,8 @@ cdef class Loop:
         fd = self._fileobj_to_fd(fileobj)
         self._ensure_fd_no_transport(fd)
 
+        # try and except block could possibly be easily removed
+        # in favor of utilizing the PyDict CAPI directly.
         try:
             poll = <UVPoll>(self._polls[fd])
         except KeyError:
@@ -949,12 +950,12 @@ cdef class Loop:
             if fut.cancelled():
                 # Shouldn't happen with _SyncSocketReaderFuture.
                 raise RuntimeError(
-                    f'_sock_recv is called on a cancelled Future')
+                    '_sock_recv is called on a cancelled Future')
 
             if not self._has_reader(sock):
                 raise RuntimeError(
                     f'socket {sock!r} does not have a reader '
-                    f'in the _sock_recv callback')
+                    'in the _sock_recv callback')
 
         try:
             data = sock.recv(n)
@@ -976,12 +977,12 @@ cdef class Loop:
             if fut.cancelled():
                 # Shouldn't happen with _SyncSocketReaderFuture.
                 raise RuntimeError(
-                    f'_sock_recv_into is called on a cancelled Future')
+                    '_sock_recv_into is called on a cancelled Future')
 
             if not self._has_reader(sock):
                 raise RuntimeError(
                     f'socket {sock!r} does not have a reader '
-                    f'in the _sock_recv_into callback')
+                    'in the _sock_recv_into callback')
 
         try:
             data = sock.recv_into(buf)
@@ -1007,12 +1008,12 @@ cdef class Loop:
             if fut.cancelled():
                 # Shouldn't happen with _SyncSocketWriterFuture.
                 raise RuntimeError(
-                    f'_sock_sendall is called on a cancelled Future')
+                    '_sock_sendall is called on a cancelled Future')
 
             if not self._has_writer(sock):
                 raise RuntimeError(
                     f'socket {sock!r} does not have a writer '
-                    f'in the _sock_sendall callback')
+                    'in the _sock_sendall callback')
 
         try:
             n = sock.send(data)
@@ -1091,12 +1092,12 @@ cdef class Loop:
             if fut.cancelled():
                 # Shouldn't happen with _SyncSocketWriterFuture.
                 raise RuntimeError(
-                    f'_sock_connect_cb is called on a cancelled Future')
+                    '_sock_connect_cb is called on a cancelled Future')
 
             if not self._has_writer(sock):
                 raise RuntimeError(
                     f'socket {sock!r} does not have a writer '
-                    f'in the _sock_connect_cb callback')
+                    'in the _sock_connect_cb callback')
 
         try:
             err = sock.getsockopt(uv.SOL_SOCKET, uv.SO_ERROR)
@@ -1320,6 +1321,10 @@ cdef class Loop:
             # infinity for a Python application.
             delay = MAX_SLEEP
 
+
+        # XXX: This section of code has been a problem for a while with
+        # 3.11+ having rounding errors with different tests from uvloop.
+        # Someone is going to have to fix this eventually.
         when = <uint64_t>round(delay * 1000)
         if not args:
             args = None
@@ -1514,6 +1519,18 @@ cdef class Loop:
 
         return future.result()
 
+    # Currently as it stands there is the possibility of bringing the old
+    # ways of libuv and possibly bundling c-ares into the mix.
+
+    # It was removed for some strange reasons but it might prove beneficial
+    # in windows as it would get rid of a bottle-neck with the lru-cache code
+    # and would allow for connections to get whipped up a lot quicker.
+
+    # More Info: https://github.com/joyent/libuv/issues/518
+
+    # getnameinfo & getaddrinfo would have performance benchmarks from
+    # using c-ares straight up and may strengthen bencharks with rsloop.
+
     @cython.iterable_coroutine
     async def getaddrinfo(self, object host, object port, *,
                           int family=0, int type=0, int proto=0, int flags=0):
@@ -1525,6 +1542,7 @@ cdef class Loop:
 
         return await self._getaddrinfo(
             host, port, family, type, proto, flags, 1)
+
 
     @cython.iterable_coroutine
     async def getnameinfo(self, sockaddr, int flags=0):
@@ -2838,10 +2856,17 @@ cdef class Loop:
                 comspec = os_path_join(system_root, 'System32', 'cmd.exe')
                 if not os_path_isabs(comspec):
                     raise FileNotFoundError('shell not found: neither %ComSpec% nor %SystemRoot% is set')
-            
-            args = [comspec]
-            args.append('/c')
-            args.append(cmd)
+
+            args = [comspec, b'/c']
+
+            # XXX: We don't want to change more code than what is
+            # currently required and supporting bytes is better
+            # than windows stdlib (subprocesses.Popen disallows bytes)
+            # so a small workaround with the shlex parser was needed.
+            # Originally it was removed but brought back.
+            # SEE: https://github.com/Vizonex/Winloop/issues/153
+
+            args.extend(split_windows_shell_command(cmd))
 
         return await self.__subprocess_run(protocol_factory, args, shell=True,
                                            **kwargs)
@@ -3314,6 +3339,11 @@ cdef void __loop_alloc_buffer(
 cdef inline void __loop_free_buffer(Loop loop):
     loop._recv_buffer_in_use = 0
 
+
+# TODO: rsloop is beating uvloop & winloop in performance because of a constraint
+# with this section of code here, _SyncSocketReaderFuture would benefit
+# from being turned into a cdef extension class as it may possibly enhance
+# reading and writing functions in general.
 
 class _SyncSocketReaderFuture(aio_Future):
 

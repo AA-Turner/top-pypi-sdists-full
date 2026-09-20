@@ -1008,41 +1008,70 @@ class DnsCacheService(object):
         self.async_started = False
         self.is_shutdown = True
         self.async_lock = threading.Lock()
+        self._pid = os.getpid()
+        self._fork_locks = {self._pid: self.async_lock}
+        self._refresh_config = None
+
+    def _ensure_fork_safe(self, restart=True):
+        current_pid = os.getpid()
+        if self._pid == current_pid:
+            return
+        lock = self._fork_locks.setdefault(current_pid, threading.Lock())
+        with lock:
+            if self._pid == current_pid:
+                return
+            refresh_config = self._refresh_config if self.async_started and not self.is_shutdown else None
+            # Neither the parent's refresh thread nor its lock ownership survives
+            # fork. Discard the inherited cache and publish the PID last.
+            self.cache = {}
+            self.async_lock = lock
+            self.async_started = False
+            self.is_shutdown = True
+            if restart and refresh_config is not None:
+                self._start_refresh_thread(*refresh_config)
+            self._pid = current_pid
 
     def shutdown(self):
+        self._ensure_fork_safe(restart=False)
         with self.async_lock:
             self.async_started = False
             self.is_shutdown = True
 
     def async_refresh_cache(self, dns_cache_time, interval=30):
+        self._ensure_fork_safe(restart=False)
         if self.async_started:
             return False
 
         with self.async_lock:
             if self.async_started:
                 return False
-
-            def _refresh_cache():
-                while not self.is_shutdown:
-                    try:
-                        time.sleep(interval)
-                        for k, v in self.cache.copy().items():
-                            ip_list = resolve_ip_list(v.host, v.port)
-                            if ip_list and len(ip_list) > 0:
-                                self.cache[k] = CacheEntry(v.host, v.port, ip_list, time.time() + dns_cache_time)
-                            else:
-                                v.immortal = True
-                    except Exception as ex:
-                        get_logger().info('_refresh_cache exception, {}'.format(ex))
-
-            self.async_started = True
-            self.is_shutdown = False
-            t = threading.Thread(target=_refresh_cache)
-            t.setDaemon(True)
-            t.start()
+            self._start_refresh_thread(dns_cache_time, interval)
             return True
 
+    def _start_refresh_thread(self, dns_cache_time, interval):
+        # Called with the current process's async/fork lock held.
+        def _refresh_cache():
+            while not self.is_shutdown:
+                try:
+                    time.sleep(interval)
+                    for k, v in self.cache.copy().items():
+                        ip_list = resolve_ip_list(v.host, v.port)
+                        if ip_list and len(ip_list) > 0:
+                            self.cache[k] = CacheEntry(v.host, v.port, ip_list, time.time() + dns_cache_time)
+                        else:
+                            v.immortal = True
+                except Exception as ex:
+                    get_logger().info('_refresh_cache exception, {}'.format(ex))
+
+        self._refresh_config = (dns_cache_time, interval)
+        self.async_started = True
+        self.is_shutdown = False
+        t = threading.Thread(target=_refresh_cache)
+        t.setDaemon(True)
+        t.start()
+
     def get_ip_list(self, host: str, port: int) -> CacheEntry:
+        self._ensure_fork_safe()
         now = int(time.time())
         key = gen_key(host, port)
         if key in self.cache:
@@ -1052,6 +1081,7 @@ class DnsCacheService(object):
             self.cache.pop(key)
 
     def add(self, host, port, ip_list, expire):
+        self._ensure_fork_safe()
         key = gen_key(host, port)
         if key in self.cache:
             return self.cache[key]

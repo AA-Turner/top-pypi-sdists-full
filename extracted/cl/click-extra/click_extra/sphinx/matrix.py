@@ -32,9 +32,10 @@ Two axes are supported:
   `❌`, and a version neither attested nor ruled out renders as `–` (see
   {data}`UNDECLARED_CELL`).
 - **A dependency** (``{matrix} <distribution>``, like ``{matrix} click``): the
-  per-tag constraint is that distribution's requirement specifier; columns are
-  auto-derived from the specifier boundaries plus the `uv.lock` resolved
-  version, and each ✅ / ❌ cell is computed with {mod}`packaging`.
+  per-tag constraint is that distribution's requirement specifier; each
+  column covers a run of that distribution's releases on PyPI (plus the
+  `uv.lock` resolved version) that every range treats alike, and each ✅ / ❌
+  cell is computed with {mod}`packaging`.
 
 The rendered tables back the always-on `matrix` Sphinx directive (see
 {class}`MatrixDirective`), so a project's `install.md` can embed a live matrix
@@ -46,12 +47,15 @@ public API.
 
 from __future__ import annotations
 
+import json
 import re
 import subprocess
 import sys
 from datetime import datetime, timezone
+from http.client import HTTPException
 from pathlib import Path
 from typing import NamedTuple
+from urllib.request import urlopen
 
 from docutils import nodes
 from docutils.statemachine import StringList
@@ -69,7 +73,7 @@ from ..blocks import (
     split_options,
     update_blocks,
 )
-from ..table import TableFormat, render_table
+from ..table import TableFormat, corner_header, render_table
 
 if sys.version_info >= (3, 11):
     import tomllib
@@ -78,7 +82,7 @@ else:
 
 TYPE_CHECKING = False
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator, Mapping
+    from collections.abc import Iterable, Iterator, Mapping, Sequence
     from typing import Any, ClassVar
 
     from sphinx.application import Sphinx
@@ -483,6 +487,9 @@ def _range_label(
     *,
     is_latest: bool,
     full_major: bool = False,
+    split_start: bool = False,
+    split_end: bool = False,
+    first_date: str = "",
 ) -> str:
     """Render the version-range label for a matrix group.
 
@@ -493,19 +500,77 @@ def _range_label(
     `X.Y.Z` version rather than a patch wildcard, so two adjacent patch
     releases never collapse to the same ambiguous label. Other closed groups
     keep precise minor-version bounds.
+
+    `split_start` and `split_end` flag a bound whose minor series the
+    neighboring group shares, where `X.Y.x` would name both groups. That
+    bound shows its exact version instead, and a group inside a single split
+    minor shows both of its versions: `4.6.2` → `4.6.3`.
+
+    `first_date` follows the lower bound, which is the release it dates:
+    `6.0.x` (2025-09-25) → `9.x`.
     """
-    if first_tag == last_tag:
-        return f"`{first_tag.lstrip('v')}`"
-    if full_major:
-        return f"`{first_tag.lstrip('v').split('.')[0]}.x`"
-    first_minor = ".".join(first_tag.lstrip("v").split(".")[:2])
-    last_minor = ".".join(last_tag.lstrip("v").split(".")[:2])
-    if first_minor == last_minor:
-        return f"`{first_minor}.x`"
+    first = first_tag.lstrip("v")
+    last = last_tag.lstrip("v")
+    date = f" ({first_date})" if first_date else ""
+    if first == last:
+        return f"`{first}`{date}"
+    if full_major and not split_start:
+        return f"`{first.split('.')[0]}.x`{date}"
+    first_minor = ".".join(first.split(".")[:2])
+    last_minor = ".".join(last.split(".")[:2])
+    same_minor = first_minor == last_minor
+    if same_minor and not (split_start or split_end):
+        return f"`{first_minor}.x`{date}"
+    low = first if split_start or same_minor else f"{first_minor}.x"
     if is_latest:
-        last_major = last_tag.lstrip("v").split(".")[0]
-        return f"`{first_minor}.x` → `{last_major}.x`"
-    return f"`{first_minor}.x` → `{last_minor}.x`"
+        high = f"{last.split('.')[0]}.x"
+    elif split_end or same_minor:
+        high = last
+    else:
+        high = f"{last_minor}.x"
+    return f"`{low}`{date} → `{high}`"
+
+
+def _same_minor(tag: str, other_tag: str | None) -> bool:
+    """Whether `other_tag` exists and shares the `X.Y` minor series of `tag`."""
+    if other_tag is None:
+        return False
+    return tag.lstrip("v").split(".")[:2] == other_tag.lstrip("v").split(".")[:2]
+
+
+def _range_labels(bounds: list[tuple[str, str, str]]) -> list[str]:
+    """Label each `(first_tag, last_tag, first_date)` group of a newest-first list.
+
+    Each label depends on both neighbors: the newer group decides whether this
+    one is the latest or spans a full major, and either neighbor can split a
+    minor series with it (see {func}`_range_label`).
+    """
+    labels = []
+    for index, (first_tag, last_tag, first_date) in enumerate(bounds):
+        newer_first = bounds[index - 1][0] if index else None
+        older_last = bounds[index + 1][1] if index + 1 < len(bounds) else None
+        labels.append(
+            _range_label(
+                first_tag,
+                last_tag,
+                is_latest=index == 0,
+                full_major=_spans_full_major(first_tag, last_tag, newer_first),
+                split_start=_same_minor(first_tag, older_last),
+                split_end=_same_minor(last_tag, newer_first),
+                first_date=first_date,
+            ),
+        )
+    return labels
+
+
+def _corner_cell(label: str, axis: str) -> str:
+    """Name the release rows and the version columns in the top-left cell.
+
+    The backslash {func}`~click_extra.table.corner_header` places is doubled:
+    `mdformat` escapes a lone one that way, and a refreshed table must survive
+    a formatting pass unchanged. Both spellings render as a single backslash.
+    """
+    return corner_header(f"`{label}`", axis).replace("\\", "\\\\")
 
 
 def _python_cell(version: str, group: PythonMatrixGroup) -> str:
@@ -542,6 +607,7 @@ def python_matrix_table(
     version_floor: str = "",
     column_order: str = NEWEST_FIRST,
     row_order: str = NEWEST_FIRST,
+    show_date: bool = False,
     release_dates: dict[str, str] | None = None,
 ) -> str:
     """Render the Python compatibility matrix as a GitHub-flavored markdown table.
@@ -566,6 +632,8 @@ def python_matrix_table(
         {data}`NEWEST_FIRST` (default) or {data}`OLDEST_FIRST`.
     :param row_order: top-to-bottom ordering of the release rows:
         {data}`NEWEST_FIRST` (default) or {data}`OLDEST_FIRST`.
+    :param show_date: follow each row label with the release date of its
+        first tag, like `6.0.x (2025-09-25) → 9.x`.
     :param release_dates: passed to {func}`python_matrix_groups`.
     :return: rendered markdown table, or the empty string when no group
         was collected.
@@ -598,29 +666,16 @@ def python_matrix_table(
 
     rows = []
     ordered = list(reversed(groups))
-    for index, group in enumerate(ordered):
-        next_first = ordered[index - 1].first_tag if index else None
+    range_labels = _range_labels([
+        (g.first_tag, g.last_tag, g.first_date if show_date else "") for g in ordered
+    ])
+    for range_label, group in zip(range_labels, ordered, strict=True):
         cells = [_python_cell(v, group) for v in all_versions]
-        rows.append(
-            [
-                _range_label(
-                    group.first_tag,
-                    group.last_tag,
-                    is_latest=index == 0,
-                    full_major=_spans_full_major(
-                        group.first_tag,
-                        group.last_tag,
-                        next_first,
-                    ),
-                ),
-                group.first_date,
-                *cells,
-            ],
-        )
+        rows.append([range_label, *cells])
     if row_order == OLDEST_FIRST:
         rows.reverse()
-    headers = [f"`{label}`", "Released", *(f"`{v}`" for v in all_versions)]
-    colalign = ("left", "left", *("center",) * len(all_versions))
+    headers = [_corner_cell(label, "Python"), *(f"`{v}`" for v in all_versions)]
+    colalign = ("left", *("center",) * len(all_versions))
     return render_table(
         rows,
         headers=headers,
@@ -735,10 +790,21 @@ def _extract_requirement(pyproject: str, setup_py: str, dep_name: str) -> str:
     return ""
 
 
-POETRY_CARET_RE = re.compile(r"^\^\s*(\d+)(?:\.(\d+))?(?:\.(\d+))?$")
+POETRY_VERSION_PATTERN: str = (
+    r"(?P<release>\d+(?:\.\d+){0,2})"
+    r"(?P<suffix>(?:[-_.]?[a-z]+\d*)*)"
+)
+"""The version a Poetry caret or tilde range opens on.
+
+Up to three release components, then an optional PEP 440 pre-, post- or
+dev-release suffix. The suffix stays on the floor and plays no part in the
+ceiling, as poetry-core reads it: `^2.0.0.post1` means `>=2.0.0.post1,<3.0.0`.
+"""
+
+POETRY_CARET_RE = re.compile(rf"^\^\s*{POETRY_VERSION_PATTERN}$", re.IGNORECASE)
 """Poetry's [caret range](https://python-poetry.org/docs/dependency-specification/#caret-requirements)."""
 
-POETRY_TILDE_RE = re.compile(r"^~\s*(\d+)(?:\.(\d+))?(?:\.(\d+))?$")
+POETRY_TILDE_RE = re.compile(rf"^~\s*{POETRY_VERSION_PATTERN}$", re.IGNORECASE)
 """Poetry's [tilde range](https://python-poetry.org/docs/dependency-specification/#tilde-requirements).
 
 Deliberately also matches a bare `~X`. It cannot swallow PEP 440's `~=`,
@@ -790,14 +856,12 @@ def _poetry_to_pep440(spec: str) -> str | None:
     """
     m = POETRY_CARET_RE.match(spec)
     if m:
-        parts = tuple(int(part) for part in m.groups() if part is not None)
-        floor = ".".join(str(part) for part in parts)
-        return f">={floor},<{_caret_ceiling(parts)}"
+        parts = tuple(int(part) for part in m["release"].split("."))
+        return f">={m['release']}{m['suffix']},<{_caret_ceiling(parts)}"
     m = POETRY_TILDE_RE.match(spec)
     if m:
-        parts = tuple(int(part) for part in m.groups() if part is not None)
-        floor = ".".join(str(part) for part in parts)
-        return f">={floor},<{_series_ceiling(parts)}"
+        parts = tuple(int(part) for part in m["release"].split("."))
+        return f">={m['release']}{m['suffix']},<{_series_ceiling(parts)}"
     m = POETRY_WILDCARD_RE.match(spec)
     if m:
         parts = tuple(int(part) for part in m.groups() if part is not None)
@@ -827,52 +891,98 @@ def _to_specifier_set(spec: str) -> SpecifierSet | None:
         return None
 
 
-def _spec_floor(spec: str) -> tuple[Version | None, bool]:
-    """Return `(floor_version, patch_precise)` for a specifier.
+def _same_spec(spec: str, other: str) -> bool:
+    """Whether two specifiers accept the same versions, whatever their spelling.
 
-    The floor is where the specifier anchors a column. `patch_precise` says
-    that column has to be a patch-level one, because the specifier
-    distinguishes releases *inside* a minor series: an open `>=X.Y.Z` floor
-    accepts only part of `X.Y`, and an exact pin accepts a single release of
-    it. A range that covers its minor series from some point on, or caps
-    inside it, is served by one `X.Y` column.
+    Both are compared parsed (see {func}`_to_specifier_set`), so Poetry's `^2.0`
+    matches PEP 440's `>=2.0,<3.0.0`. An unparsable specifier only matches the
+    same text, spaces aside.
+    """
+    spec_set = _to_specifier_set(spec)
+    if spec_set is None:
+        return spec.replace(" ", "") == other.replace(" ", "")
+    return spec_set == _to_specifier_set(other)
 
-    A specifier with no lower bound at all (a lone ceiling) anchors nothing:
-    the versions it allows are whichever columns the other release ranges
-    happen to contribute.
+
+def _spec_floor(spec: str) -> Version | None:
+    """Return the lowest version a specifier names, or `None`.
+
+    Without PyPI's release list, the floors of the ranges stand in for the
+    releases the columns bin (see {func}`_column_candidates`). A specifier with
+    no lower bound at all, like a lone ceiling, names none.
     """
     spec = spec.strip()
-    # Poetry ranges all cap at a computed ceiling, so their series stays whole.
     m = POETRY_CARET_RE.match(spec) or POETRY_TILDE_RE.match(spec)
     if m:
-        return _safe_version(".".join(p for p in m.groups() if p is not None)), False
+        return _safe_version(m["release"] + m["suffix"])
     m = POETRY_WILDCARD_RE.match(spec)
     if m:
         parts = [p for p in m.groups() if p is not None]
-        return (_safe_version(".".join(parts)) if parts else None), False
+        return _safe_version(".".join(parts)) if parts else None
     m = re.match(r"^~=\s*(\d+(?:\.\d+){1,2})", spec)
     if m:
-        return _safe_version(m.group(1)), False
-    # A wildcard pin covers a whole series, so the series column serves it.
-    m = re.match(r"^==\s*(\d+(?:\.\d+)?)\.\*$", spec)
+        return _safe_version(m.group(1))
+    # An exact or wildcard pin: its floor is the version it names.
+    m = re.match(r"^={2,3}\s*(\d+(?:\.\d+){0,2})(?:\.\*)?$", spec)
     if m:
-        return _safe_version(m.group(1)), False
-    # An exact pin allows exactly one release, so it needs a column of its own
-    # precision: a whole `X.Y` column would read `❌` for the very version the
-    # release pins.
-    m = re.match(r"^={2,3}\s*(\d+(?:\.\d+){0,2})$", spec)
-    if m:
-        return _safe_version(m.group(1)), True
+        return _safe_version(m.group(1))
     m = re.search(r">=?\s*(\d+(?:\.\d+){0,2})", spec)
-    floor = _safe_version(m.group(1)) if m else None
-    return floor, "<" not in spec
+    return _safe_version(m.group(1)) if m else None
+
+
+PYPI_JSON_URL: str = "https://pypi.org/pypi/{name}/json"
+"""PyPI's JSON API endpoint for a project, formatted with its normalized name."""
+
+PYPI_TIMEOUT: float = 10
+"""Seconds to wait for PyPI before a table goes without the columns it adds."""
+
+
+def _pypi_releases(dep_name: str) -> tuple[Version, ...]:
+    """Return every stable release of `dep_name` on PyPI, oldest first.
+
+    Reads the `releases` mapping of PyPI's JSON API. A release stays when at
+    least one of its files is not yanked, and goes when it is a pre-release, a
+    development release, or not a valid version. An error or a malformed answer
+    yields no release, and the table goes without the columns they add.
+
+    No cooldown applies. The matrix states what an installer accepts, and an
+    installer applies no cooldown by default, so a release is installable as
+    soon as it is published. Reading its version number installs nothing.
+    """
+    url = PYPI_JSON_URL.format(name=canonicalize_name(dep_name))
+    try:
+        with urlopen(url, timeout=PYPI_TIMEOUT) as response:
+            releases = json.load(response)["releases"]
+        stable = sorted(
+            version
+            for version, files in (
+                (_safe_version(str(tag)), files) for tag, files in releases.items()
+            )
+            if version is not None
+            and not version.is_prerelease
+            and any(not file.get("yanked") for file in files)
+        )
+    except (
+        AttributeError,
+        HTTPException,
+        KeyError,
+        OSError,
+        TypeError,
+        ValueError,
+    ) as error:
+        logger.warning(
+            "click_extra.sphinx: matrix cannot read the %s releases from PyPI: %s",
+            dep_name,
+            error,
+        )
+        return ()
+    return tuple(stable)
 
 
 def _latest_locked_version(project_root: Path, dep_name: str) -> str:
     """Return `dep_name`'s resolved version from `uv.lock`, or `""`.
 
-    Offline: reads the lockfile in the working tree (not per tag), only to
-    anchor the right-most column at the version the project resolves today.
+    Reads the lockfile in the working tree, not per tag.
     """
     try:
         text = (project_root / "uv.lock").read_text(encoding="utf-8")
@@ -882,59 +992,48 @@ def _latest_locked_version(project_root: Path, dep_name: str) -> str:
     return m.group(1) if m else ""
 
 
-def _minor_intersects(spec_set: SpecifierSet, major: int, minor: int) -> bool:
-    """Does `spec_set` allow any release in the `major.minor` series?"""
-    low = Version(f"{major}.{minor}.0")
-    high = Version(f"{major}.{minor}.99999")
-    return spec_set.contains(low, prereleases=True) or spec_set.contains(
-        high,
-        prereleases=True,
-    )
+def _column_candidates(
+    specs: Iterable[str], releases: Iterable[Version], locked: str
+) -> set[Version]:
+    """Return the versions of a dependency its matrix columns bin.
 
-
-def _dependency_columns(specs: list[str], latest: str) -> list[tuple[Version, bool]]:
-    """Derive the ordered `(version, is_minor)` columns for a dependency axis.
-
-    A minor series gets a single `X.Y` column unless some spec distinguishes
-    releases inside it (an open `>=` floor at patch level, or an exact pin),
-    in which case it is split into `X.Y.0` plus each such version. Columns are
-    sorted newest-first, so the `latest` locked version anchors the left edge.
+    Every stable release on PyPI (see {func}`_pypi_releases`), plus the version
+    `uv.lock` resolves, which shows what the project tests against. Without the
+    release list, the floors of the ranges stand in for it, so a table rendered
+    offline still shows where each range starts.
     """
-    floors = [
-        (floor, patch_precise)
-        for floor, patch_precise in (_spec_floor(spec) for spec in specs)
-        if floor is not None
-    ]
-    latest_version = _safe_version(latest) if latest else None
+    candidates = set(releases)
+    if not candidates:
+        candidates.update(filter(None, map(_spec_floor, specs)))
+    locked_version = _safe_version(locked) if locked else None
+    if locked_version is not None:
+        candidates.add(locked_version)
+    return candidates
 
-    split: dict[tuple[int, int], bool] = {}
-    for floor, patch_precise in floors:
-        key = (floor.major, floor.minor)
-        split.setdefault(key, False)
-        if patch_precise and floor.micro > 0:
-            split[key] = True
-    if latest_version is not None:
-        split.setdefault((latest_version.major, latest_version.minor), False)
 
-    columns: list[tuple[Version, bool]] = []
-    for key in sorted(split, reverse=True):
-        major, minor = key
-        if not split[key]:
-            columns.append((Version(f"{major}.{minor}"), True))
-            continue
-        patches = {Version(f"{major}.{minor}.0")}
-        patches.update(
-            floor
-            for floor, patch_precise in floors
-            if patch_precise and (floor.major, floor.minor) == key
+def _dependency_columns(
+    spec_sets: Sequence[SpecifierSet | None], candidates: Iterable[Version]
+) -> list[tuple[Version, Version, tuple[bool, ...]]]:
+    """Bin `candidates` into columns of versions every range treats alike.
+
+    Each candidate gets the vector of the ranges accepting it, one entry per
+    item of `spec_sets` (`None` for an unparsable range, which accepts nothing).
+    Consecutive candidates sharing a vector share a column, so a range accepts
+    every version of a column or none of them, and each ✅ / ❌ cell is exact.
+
+    :return: `(first, last, accepted)` bins, oldest first.
+    """
+    bins: list[tuple[Version, Version, tuple[bool, ...]]] = []
+    for version in sorted(set(candidates)):
+        accepted = tuple(
+            spec_set is not None and spec_set.contains(version, prereleases=True)
+            for spec_set in spec_sets
         )
-        if (
-            latest_version is not None
-            and (latest_version.major, latest_version.minor) == key
-        ):
-            patches.add(latest_version)
-        columns.extend((patch, False) for patch in sorted(patches, reverse=True))
-    return columns
+        if bins and bins[-1][2] == accepted:
+            bins[-1] = (bins[-1][0], version, accepted)
+        else:
+            bins.append((version, version, accepted))
+    return bins
 
 
 def dependency_matrix_groups(
@@ -975,6 +1074,7 @@ def dependency_matrix_table(
     dep_name: str,
     *,
     show_spec: bool = False,
+    show_date: bool = False,
     tag_pattern: str = DEFAULT_TAG_PATTERN,
     tags_sort: str = DEFAULT_TAGS_SORT,
     version_floor: str = "",
@@ -983,16 +1083,22 @@ def dependency_matrix_table(
 ) -> str:
     """Render the `dep_name` compatibility matrix as a markdown table.
 
-    Columns are auto-derived from the requirement specifiers across history
-    (see {func}`_dependency_columns`) plus the `uv.lock` resolved version;
-    each ✅ / ❌ cell is computed with {mod}`packaging`. Consecutive ranges
-    whose cells coincide are re-merged into one row. By default newest
+    Each column covers a run of `dep_name` releases that every range treats
+    alike (see {func}`_column_candidates` and {func}`_dependency_columns`),
+    labeled like the rows; each ✅ / ❌ cell is computed with
+    {mod}`packaging`. Consecutive ranges whose cells coincide are re-merged
+    into one row. By default newest
     releases sit on top and newest dependency versions on the left, matching
     the Python axis; `row_order` and `column_order` flip either axis.
 
     :param label: header column name (the documented package, in backticks).
     :param dep_name: the tracked distribution (`"click"`).
-    :param show_spec: add a `Spec` column with each range's raw specifier.
+    :param show_spec: add a `Spec` column with each range's raw specifier. A
+        merged row shows the specifier of its oldest range, so ranges then
+        merge only when they also accept the same versions (see
+        {func}`_same_spec`).
+    :param show_date: follow each row label with the release date of its
+        first tag, like `6.0.x (2025-09-25) → 9.x`.
     :param column_order: left-to-right ordering of the version columns:
         {data}`NEWEST_FIRST` (default) or {data}`OLDEST_FIRST`.
     :param row_order: top-to-bottom ordering of the release rows:
@@ -1011,32 +1117,48 @@ def dependency_matrix_table(
     )
     if not groups:
         return ""
-    columns = _dependency_columns(
-        [g.spec for g in groups],
+    specs = [g.spec for g in groups]
+    spec_sets = [_to_specifier_set(spec) for spec in specs]
+    candidates = _column_candidates(
+        specs,
+        _pypi_releases(dep_name),
         _latest_locked_version(project_root, dep_name),
     )
-    if not columns:
+    bins = _dependency_columns(spec_sets, candidates)
+    if not bins:
         return ""
+    # Label the columns the way the rows are labeled, newest first.
+    newest_first = list(reversed(bins))
+    column_labels = _range_labels([
+        (str(first), str(last), "") for first, last, _ in newest_first
+    ])
+    columns = [
+        (column_label, accepted)
+        for column_label, (*_, accepted) in zip(
+            column_labels, newest_first, strict=True
+        )
+    ]
+    # Drop the oldest columns no range accepts: they only say that the history
+    # starts later. Labeled before the drop, the oldest column left still
+    # names the exact release it starts at.
+    if any(any(accepted) for _, accepted in columns):
+        while not any(columns[-1][1]):
+            columns.pop()
     if column_order == OLDEST_FIRST:
         columns.reverse()
 
-    # Resolve each range's ✅ / ❌ vector, then re-merge consecutive ranges
-    # whose vectors coincide (a floor bump that changes no visible cell).
+    # Read each range's ✅ / ❌ vector off the bins, then re-merge consecutive
+    # ranges whose vectors coincide: they accept the same releases. A merged
+    # row shows the Spec cell of its oldest range, so with that column the
+    # ranges must also accept the same versions beyond the newest release.
     merged: list[list] = []
-    for group in groups:
-        spec_set = _to_specifier_set(group.spec)
+    for index, group in enumerate(groups):
         cells = tuple(
-            SUPPORTED_CELL
-            if spec_set is not None
-            and (
-                _minor_intersects(spec_set, version.major, version.minor)
-                if is_minor
-                else spec_set.contains(version, prereleases=True)
-            )
-            else FORBIDDEN_CELL
-            for version, is_minor in columns
+            SUPPORTED_CELL if accepted[index] else FORBIDDEN_CELL
+            for _, accepted in columns
         )
-        if merged and merged[-1][4] == cells:
+        same = merged and merged[-1][4] == cells
+        if same and (not show_spec or _same_spec(merged[-1][3], group.spec)):
             merged[-1][1] = group.last_tag
         else:
             merged.append(
@@ -1045,22 +1167,21 @@ def dependency_matrix_table(
 
     rows = []
     ordered = list(reversed(merged))
-    for index, (first_tag, last_tag, first_date, spec, cells) in enumerate(ordered):
-        next_first = ordered[index - 1][0] if index else None
-        label_cell = _range_label(
-            first_tag,
-            last_tag,
-            is_latest=index == 0,
-            full_major=_spans_full_major(first_tag, last_tag, next_first),
-        )
+    range_labels = _range_labels([
+        (group[0], group[1], group[2] if show_date else "") for group in ordered
+    ])
+    for label_cell, (*_, spec, cells) in zip(range_labels, ordered, strict=True):
         spec_cell = [f"`{spec.replace(' ', '')}`"] if show_spec else []
-        rows.append([label_cell, first_date, *spec_cell, *cells])
+        rows.append([label_cell, *spec_cell, *cells])
     if row_order == OLDEST_FIRST:
         rows.reverse()
     spec_header = ["Spec"] if show_spec else []
-    headers = [f"`{label}`", "Released", *spec_header, *(f"`{v}`" for v, _ in columns)]
+    headers = [
+        _corner_cell(label, f"`{dep_name}`"),
+        *spec_header,
+        *(column_label for column_label, _ in columns),
+    ]
     colalign = (
-        "left",
         "left",
         *(("left",) if show_spec else ()),
         *("center",) * len(columns),
@@ -1129,12 +1250,14 @@ def _render_block(axis: str, options: Mapping[str, str], base_dir: Path) -> str:
             tag_pattern=tag_pattern,
             column_order=column_order,
             row_order=row_order,
+            show_date="show-date" in options,
         )
     return dependency_matrix_table(
         root,
         package,
         axis,
         show_spec="show-spec" in options,
+        show_date="show-date" in options,
         version_floor=version_floor,
         tag_pattern=tag_pattern,
         column_order=column_order,
@@ -1181,6 +1304,7 @@ class MatrixDirective(SphinxDirective):
       `newest-first` (default) or `oldest-first`.
     - `:python-floor:` — (python axis) drop Python columns below `X.Y`.
     - `:show-spec:` — (dependency axis) add a raw-specifier `Spec` column.
+    - `:show-date:` — follow each row label with its first release date.
 
     The git fallback is resilient: a missing git binary, a non-repository path,
     or a tag-less repository logs a build warning and renders nothing rather
@@ -1199,6 +1323,7 @@ class MatrixDirective(SphinxDirective):
         "column-order": _order_option,
         "row-order": _order_option,
         "show-spec": directives.flag,
+        "show-date": directives.flag,
     }
 
     def run(self) -> list[nodes.Node]:
@@ -1263,7 +1388,8 @@ _FENCE_OPEN_RE = re.compile(
 # shared grammar from `blocks.marker_res`. Unlike the directive fence (which
 # GitHub shows as a code block), this marker form renders as a real table on
 # GitHub and natively in Sphinx. Args are the axis followed by
-# whitespace-separated `key=value` pairs and bare flags (like `show-spec`).
+# whitespace-separated `key=value` pairs and bare flags (like `show-spec`
+# or `show-date`).
 _MARKER_OPEN_RE, _MARKER_CLOSE_RE = marker_res("matrix")
 
 

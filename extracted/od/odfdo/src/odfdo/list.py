@@ -60,6 +60,7 @@ class ListItem(MDListItem, ListMixin, Element):
                 string, a paragraph containing the text is created. If an
                 element, it is appended as a child.
             **kwargs: Additional keyword arguments for the parent `Element` class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -68,7 +69,8 @@ class ListItem(MDListItem, ListMixin, Element):
             elif isinstance(text_or_element, Element):
                 self.append(text_or_element)
             elif text_or_element is not None:
-                raise TypeError(f"Expected str or Element, not {type(text_or_element)}")
+                msg = f"Expected str or Element, not {type(text_or_element)!r}"
+                raise TypeError(msg)
 
     def __str__(self) -> str:
         self._md_initialize_level()
@@ -98,6 +100,7 @@ class ListHeader(ListMixin, Element):
                 string, a paragraph containing the text is created. If an
                 element, it is appended as a child.
             **kwargs: Additional keyword arguments for the parent `Element` class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -109,7 +112,8 @@ class ListHeader(ListMixin, Element):
             elif isinstance(text_or_element, (list, tuple)):
                 actual_list = text_or_element
             else:
-                raise TypeError(f"Expected str or Element, not {text_or_element!r}")
+                msg = f"Expected str or Element, not {text_or_element!r}"
+                raise TypeError(msg)
             for item in reversed(actual_list):
                 if isinstance(item, str):
                     paragraph = Paragraph(item)
@@ -140,6 +144,7 @@ class List(MDList, Element):
                 `ListItem`.
             style: The name of the style to apply to the list.
             **kwargs: Additional keyword arguments for the parent `Element` class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -163,6 +168,7 @@ class List(MDList, Element):
 
         Returns:
             list[Element]: A list of `ListItem` elements that match the criteria.
+
         """
         return self._filtered_elements("text:list-item", content=content)
 
@@ -185,6 +191,7 @@ class List(MDList, Element):
 
         Returns:
             Element | None: The matching `ListItem` element, or `None` if not found.
+
         """
         # Custom implementation because of nested lists
         if content:
@@ -233,6 +240,7 @@ class List(MDList, Element):
         Args:
             text_or_element: The content for the list header. Can be a single
                 string or element, or an iterable of strings and/or elements.
+
         """
         self.list_header = text_or_element
 
@@ -259,6 +267,7 @@ class List(MDList, Element):
 
         Raises:
             ValueError: If no position (`position`, `before`, or `after`) is specified.
+
         """
         if not isinstance(item, ListItem):
             item = ListItem(item)
@@ -269,7 +278,8 @@ class List(MDList, Element):
         elif position is not None:
             self.insert(item, position=position)
         else:
-            raise ValueError("Position must be defined")
+            msg = "Position must be defined"
+            raise ValueError(msg)
 
     def append_item(
         self,
@@ -280,6 +290,7 @@ class List(MDList, Element):
         Args:
             item: The item to append.
                 If not a `ListItem`, it will be wrapped in one.
+
         """
         if not isinstance(item, ListItem):
             item = ListItem(item)
@@ -297,6 +308,7 @@ class List(MDList, Element):
 
         Returns:
             str: The formatted text content of the list.
+
         """
         if context is None:
             context = {

@@ -123,13 +123,24 @@ class AmpConfiguration(AWSProperty):
     }
 
 
+class CloudWatchConfiguration(AWSProperty):
+    """
+    `CloudWatchConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-scraper-cloudwatchconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "DatasetArn": (str, True),
+    }
+
+
 class Destination(AWSProperty):
     """
     `Destination <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aps-scraper-destination.html>`__
     """
 
     props: PropsDictType = {
-        "AmpConfiguration": (AmpConfiguration, True),
+        "AmpConfiguration": (AmpConfiguration, False),
+        "CloudWatchConfiguration": (CloudWatchConfiguration, False),
     }
 
 
@@ -327,7 +338,9 @@ class WorkspaceConfiguration(AWSProperty):
 
     props: PropsDictType = {
         "LimitsPerLabelSets": ([LimitsPerLabelSet], False),
+        "OutOfOrderTimeWindowInSeconds": (integer, False),
         "RetentionPeriodInDays": (integer, False),
+        "RuleQueryOffsetInSeconds": (integer, False),
     }
 
 

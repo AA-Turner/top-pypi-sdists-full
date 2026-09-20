@@ -36,6 +36,7 @@ def test_specialized_catalog_routes_are_not_turn_clients() -> None:
     assert client_attr_for_wire_format("google_live") == "realtime"
     assert client_attr_for_wire_format("google_music_realtime") == "music_realtime"
     assert client_attr_for_wire_format("google_embeddings") == "embedding"
+    assert client_attr_for_wire_format("typesafe_systemone") == "decision"
 
 
 def test_live_defaults_and_lyria_nonzero_weight() -> None:

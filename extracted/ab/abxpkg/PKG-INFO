@@ -1,10 +1,10 @@
 Metadata-Version: 2.5
 Name: abxpkg
-Version: 1.12.127
+Version: 1.12.129
 Summary: System package manager interfaces with Python type hints
-Project-URL: Homepage, https://github.com/ArchiveBox/abxpkg
+Project-URL: Homepage, https://abxpkg.archivebox.io/
 Project-URL: Source, https://github.com/ArchiveBox/abxpkg
-Project-URL: Documentation, https://github.com/ArchiveBox/abxpkg
+Project-URL: Documentation, https://abxpkg.archivebox.io/
 Project-URL: Bug Tracker, https://github.com/ArchiveBox/abxpkg/issues
 Project-URL: Changelog, https://github.com/ArchiveBox/abxpkg/releases
 Project-URL: Donate, https://github.com/ArchiveBox/ArchiveBox/wiki/Donations
@@ -49,7 +49,7 @@ Provides-Extra: rich
 Requires-Dist: rich>=14.0.0; extra == 'rich'
 Description-Content-Type: text/markdown
 
-<h1><a href="http://abxpkg.archivebox.io"><code>abxpkg</code></a> &nbsp; &nbsp; &nbsp; &nbsp; 📦  <small><code>apt</code>&nbsp; <code>brew</code>&nbsp; <code>pip</code>&nbsp; <code>uv</code>&nbsp; <code>npm</code>&nbsp; <code>pnpm</code>&nbsp; <code>yarn</code>&nbsp; <code>bun</code>&nbsp; <code>deno</code>&nbsp; <code>cargo</code>&nbsp; <code>gem</code>&nbsp; <code>goget</code>&nbsp; <code>nix</code>&nbsp; <code>docker</code>&nbsp; <code>bash</code>&nbsp; <code>puppeteer</code>&nbsp; <code>playwright</code>&nbsp; <code>chromewebstore</code>&nbsp; <code>ansible</code>&nbsp; <code>pyinfra</code></small>
+<h1><a href="https://abxpkg.archivebox.io"><code>abxpkg</code></a> &nbsp; &nbsp; &nbsp; &nbsp; 📦  <small><code>apt</code>&nbsp; <code>brew</code>&nbsp; <code>pip</code>&nbsp; <code>uv</code>&nbsp; <code>npm</code>&nbsp; <code>pnpm</code>&nbsp; <code>yarn</code>&nbsp; <code>bun</code>&nbsp; <code>deno</code>&nbsp; <code>cargo</code>&nbsp; <code>gem</code>&nbsp; <code>goget</code>&nbsp; <code>nix</code>&nbsp; <code>docker</code>&nbsp; <code>bash</code>&nbsp; <code>puppeteer</code>&nbsp; <code>playwright</code>&nbsp; <code>chromewebstore</code>&nbsp; <code>ansible</code>&nbsp; <code>pyinfra</code></small>
 <br/><sub>All-in-one multi-package manager CLI + Python API.</sub></h1>
 <br/>
 

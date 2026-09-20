@@ -63,10 +63,11 @@ class UserDefinedMixin(Element):
     """
 
     def get_user_defined_list(self) -> list[UserDefined]:
-        """Returns all user-defined field declarations as a list.
+        """Return all user-defined field declarations as a list.
 
         Returns:
             list[UserDefined]: A list of all UserDefined instances that are descendants of this element.
+
         """
         return cast(
             "list[UserDefined]",
@@ -81,11 +82,12 @@ class UserDefinedMixin(Element):
 
         Returns:
             list[UserDefined]: A list of all UserDefined instances that are descendants of this element.
+
         """
         return self.get_user_defined_list()
 
     def get_user_defined(self, name: str, position: int = 0) -> UserDefined | None:
-        """Returns a single user-defined field declaration that matches the specified criteria.
+        """Return a single user-defined field declaration that matches the specified criteria.
 
         Args:
             name: The name of the user-defined field to retrieve.
@@ -93,6 +95,7 @@ class UserDefinedMixin(Element):
 
         Returns:
             UserDefined | None: A UserDefined instance, or None if no declaration matches the criteria.
+
         """
         return cast(
             "UserDefined | None",
@@ -104,7 +107,7 @@ class UserDefinedMixin(Element):
     def get_user_defined_value(
         self, name: str, value_type: str | None = None
     ) -> bool | str | int | float | Decimal | datetime | timedelta | None:
-        """Returns the value of the specified user-defined field.
+        """Return the value of the specified user-defined field.
 
         Args:
             name: The name of the user-defined field to retrieve its value.
@@ -116,6 +119,7 @@ class UserDefinedMixin(Element):
             bool | str | int | float | Decimal | datetime | timedelta | None:
                 The value of the user-defined field, cast to the most appropriate
                 Python type, or None if the user-defined field is not found.
+
         """
         user_defined = self.get_user_defined(name)
         if user_defined is None:
@@ -133,6 +137,7 @@ class UserFieldGet(ElementTyped):
         name (str): The name of the user field to display.
         style (str, optional): The data style to apply for formatting the
             displayed value.
+
     """
 
     _tag = "text:user-field-get"
@@ -150,7 +155,7 @@ class UserFieldGet(ElementTyped):
         style: str | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initializes the UserFieldGet element.
+        """Initialize the UserFieldGet element.
 
         Args:
             name: The name of the user field to get.
@@ -159,6 +164,8 @@ class UserFieldGet(ElementTyped):
             text: The textual representation to display. If
                 not provided, it's generated from `value`.
             style: The data style name for formatting.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -200,6 +207,7 @@ class UserDefined(ElementTyped):
     Attributes:
         name (str): The name of the user field.
         style (str, optional): The data style to apply for formatting.
+
     """
 
     _tag = "text:user-defined"
@@ -218,7 +226,7 @@ class UserDefined(ElementTyped):
         from_document: Document | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initializes the UserDefined element.
+        """Initialize the UserDefined element.
 
         If a document is provided via `from_document`, the element will be
         populated with the value of the meta user-defined field of the same
@@ -232,6 +240,8 @@ class UserDefined(ElementTyped):
             style: The data style name for formatting.
             from_document: A document from which to load
                 the field's value from the meta section.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:

@@ -5,7 +5,6 @@ Application Module
 from __future__ import annotations
 
 import asyncio
-
 from typing import (
     Callable,
     Dict,
@@ -13,28 +12,26 @@ from typing import (
     Optional,
 )
 
-from ..debugging import bacpypes_debugging, ModuleLogger
-
-from ..pdu import Address, GlobalBroadcast
-
+from ..apdu import (
+    DeviceCommunicationControlRequest,
+    IAmRequest,
+    IHaveRequest,
+    SimpleAckPDU,
+    WhoHasRequest,
+    WhoIsRequest,
+)
+from ..basetypes import WhoHasLimits, WhoHasObject
+from ..debugging import ModuleLogger, bacpypes_debugging
 from ..errors import (
     ExecutionError,
     InconsistentParameters,
     MissingRequiredParameter,
     ParameterOutOfRange,
 )
+from ..pdu import Address, GlobalBroadcast
 from ..primitivedata import (
     CharacterString,
     ObjectIdentifier,
-)
-from ..basetypes import WhoHasLimits, WhoHasObject
-from ..apdu import (
-    WhoIsRequest,
-    IAmRequest,
-    WhoHasRequest,
-    IHaveRequest,
-    DeviceCommunicationControlRequest,
-    SimpleAckPDU,
 )
 
 # some debugging
@@ -127,8 +124,19 @@ class WhoIsFuture:
         if (self.high_limit is not None) and (device_instance > self.high_limit):
             return
 
-        # if we're only looking for one we found it
+        # if we're only looking for one we found it - but the future may
+        # already be resolved: who_is_timeout() can fire (or a previous
+        # matching I-Am can arrive) before who_is_done() has had a chance
+        # to run and remove this future from app._who_is_futures, because
+        # add_done_callback() schedules that removal rather than running
+        # it synchronously with set_result(). A duplicate/retransmitted
+        # I-Am, or simply more than one device replying to the same
+        # Who-Is, hits this every time without the guard.
         if self.only_one:
+            if self.future.done():
+                if _debug:
+                    WhoIsFuture._debug("    - already resolved, ignoring")
+                return
             if _debug:
                 WhoIsFuture._debug("    - found it")
             self.future.set_result([apdu])
@@ -157,6 +165,14 @@ class WhoIsFuture:
         future."""
         if _debug:
             WhoIsFuture._debug("who_is_timeout")
+
+        # match() may have already resolved this future (see the comment
+        # there) if an I-Am arrived in the same event loop iteration that
+        # the timeout was scheduled to fire in
+        if self.future.done():
+            if _debug:
+                WhoIsFuture._debug("    - already resolved, ignoring")
+            return
 
         self.future.set_result(list(self.i_ams.values()))
 
@@ -656,9 +672,7 @@ class DeviceCommunicationControlServices:
             )
 
         if getattr(self.device_object, "_dcc_password", None):
-            if not apdu.password or apdu.password != getattr(
-                self.device_object, "_dcc_password"
-            ):
+            if not apdu.password or apdu.password != self.device_object._dcc_password:
                 raise ExecutionError(errorClass="security", errorCode="passwordFailure")
 
         if apdu.enableDisable == "enable":

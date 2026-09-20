@@ -1,7 +1,9 @@
+from __future__ import annotations
+
 import re
 from base64 import b64encode
 from hashlib import sha224
-from typing import Any, Dict, List, Pattern, TypedDict
+from typing import Any, Pattern, TypedDict
 
 import yaml
 from yaml.tokens import (
@@ -29,11 +31,11 @@ default_loader: Any = getattr(yaml, "CSafeLoader", yaml.SafeLoader)
 class ResolverSpec(TypedDict):
     tag: str
     regexp: Pattern[str]
-    start_chars: List[str]
+    start_chars: list[str]
 
 
 # Note the 1.1 resolver is modified from the default and only safe for use in dumping, not loading.
-core_resolvers: Dict[str, List[ResolverSpec]] = {
+core_resolvers: dict[str, list[ResolverSpec]] = {
     "1.1": [
         {
             "tag": "tag:yaml.org,2002:bool",
@@ -41,7 +43,7 @@ core_resolvers: Dict[str, List[ResolverSpec]] = {
                 r"""^(?:yes|Yes|YES|no|No|NO
             |true|True|TRUE|false|False|FALSE
             |on|On|ON|off|Off|OFF)$""",
-                re.X,
+                re.VERBOSE,
             ),
             "start_chars": list("yYnNtTfFoO"),
         },
@@ -54,7 +56,7 @@ core_resolvers: Dict[str, List[ResolverSpec]] = {
             |[-+]?[0-9][0-9_]*(?::[0-5]?[0-9])+\.[0-9_]*
             |[-+]?\.(?:inf|Inf|INF)
             |\.(?:nan|NaN|NAN))$""",
-                re.X,
+                re.VERBOSE,
             ),
             "start_chars": list("-+0123456789."),
         },
@@ -68,7 +70,7 @@ core_resolvers: Dict[str, List[ResolverSpec]] = {
             |[-+]?(?:0|[1-9][0-9_]*)
             |[-+]?0x[0-9a-fA-F_]+
             |[-+]?[1-9][0-9_]*(?::[0-5]?[0-9])+)$""",
-                re.X,
+                re.VERBOSE,
             ),
             "start_chars": list("-+0123456789"),
         },
@@ -78,7 +80,7 @@ core_resolvers: Dict[str, List[ResolverSpec]] = {
                 r"""^(?: ~
             |null|Null|NULL
             | )$""",
-                re.X,
+                re.VERBOSE,
             ),
             "start_chars": ["~", "n", "N", ""],
         },
@@ -90,7 +92,7 @@ core_resolvers: Dict[str, List[ResolverSpec]] = {
             (?:[Tt]|[ \t]+)[0-9][0-9]?
             :[0-9][0-9] :[0-9][0-9] (?:\.[0-9]*)?
             (?:[ \t]*(?:Z|[-+][0-9][0-9]?(?::[0-9][0-9])?))?)$""",
-                re.X,
+                re.VERBOSE,
             ),
             "start_chars": list("0123456789"),
         },
@@ -99,25 +101,25 @@ core_resolvers: Dict[str, List[ResolverSpec]] = {
     "1.2": [
         {
             "tag": "tag:yaml.org,2002:bool",
-            "regexp": re.compile(r"^(?:|true|True|TRUE|false|False|FALSE)$", re.X),
+            "regexp": re.compile(r"^(?:|true|True|TRUE|false|False|FALSE)$", re.VERBOSE),
             "start_chars": list("tTfF"),
         },
         {
             "tag": "tag:yaml.org,2002:int",
-            "regexp": re.compile(r"^(?:|0o[0-7]+|[-+]?(?:[0-9]+)|0x[0-9a-fA-F]+)$", re.X),
+            "regexp": re.compile(r"^(?:|0o[0-7]+|[-+]?(?:[0-9]+)|0x[0-9a-fA-F]+)$", re.VERBOSE),
             "start_chars": list("-+0123456789"),
         },
         {
             "tag": "tag:yaml.org,2002:float",
             "regexp": re.compile(
-                r"^(?:[-+]?(?:\.[0-9]+|[0-9]+(\.[0-9]*)?)(?:[eE][-+]?[0-9]+)?|[-+]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN))$",  # noqa
-                re.X,
+                r"^(?:[-+]?(?:\.[0-9]+|[0-9]+(\.[0-9]*)?)(?:[eE][-+]?[0-9]+)?|[-+]?\.(?:inf|Inf|INF)|\.(?:nan|NaN|NAN))$",
+                re.VERBOSE,
             ),
             "start_chars": list("-+0123456789."),
         },
         {
             "tag": "tag:yaml.org,2002:null",
-            "regexp": re.compile(r"^(?:~||null|Null|NULL)$", re.X),
+            "regexp": re.compile(r"^(?:~||null|Null|NULL)$", re.VERBOSE),
             "start_chars": ["~", "n", "N", ""],
         },
     ],
@@ -132,7 +134,7 @@ merge_resolver: ResolverSpec = {
 
 def set_yaml_grammar(resolver, grammar_version="1.2", expand_merge_keys=True):
     if grammar_version not in core_resolvers:
-        raise Exception(f"Unknown grammar version {grammar_version}")
+        raise ValueError(f"Unknown grammar version {grammar_version}")
     resolvers = list(core_resolvers[grammar_version])
     if expand_merge_keys:
         resolvers.append(merge_resolver)
@@ -151,9 +153,9 @@ def construct_yaml_1_2_int(loader, node):
     if value[0] in "+-":
         value = value[1:]
     if value.startswith("0o"):
-        return sign * int(value[2:], 8)
+        return sign * int(value, 0)
     if value.startswith("0x"):
-        return sign * int(value[2:], 16)
+        return sign * int(value, 0)
     return sign * int(value, 10)
 
 
@@ -165,7 +167,7 @@ class CustomLoader(yaml.SafeLoader):
     expand_aliases = False
 
     def emit_yq_kv(self, key, value, original_token):
-        marks = dict(start_mark=original_token.start_mark, end_mark=original_token.end_mark)
+        marks = {"start_mark": original_token.start_mark, "end_mark": original_token.end_mark}
         self.tokens.append(FlowMappingStartToken(**marks))
         self.tokens.append(KeyToken(**marks))
         self.tokens.append(ScalarToken(value=key, plain=True, **marks))
@@ -194,7 +196,7 @@ class CommentPreservingCustomLoader(CommentPreservingLoader):
     expand_aliases = False
 
     def emit_yq_kv(self, key, value, original_token):
-        marks = dict(start_mark=original_token.start_mark, end_mark=original_token.end_mark)
+        marks = {"start_mark": original_token.start_mark, "end_mark": original_token.end_mark}
         self.tokens.append(FlowMappingStartToken(**marks))
         self.tokens.append(KeyToken(**marks))
         self.tokens.append(ScalarToken(value=key, plain=True, **marks))
@@ -231,9 +233,9 @@ def get_loader(use_annotations=False, expand_aliases=True, expand_merge_keys=Tru
             for comment in comments[COMMENT_PLACEMENT_INLINE]:
                 annotations.append(make_sequence_comment_annotation(COMMENT_PLACEMENT_INLINE, i, comment))
             if v_node.tag and v_node.tag.startswith("!") and not v_node.tag.startswith("!!") and len(v_node.tag) > 1:
-                annotations.append("__yq_tag_{}_{}__".format(i, v_node.tag))
+                annotations.append(f"__yq_tag_{i}_{v_node.tag}__")
             if isinstance(v_node, yaml.nodes.ScalarNode) and v_node.style:
-                annotations.append("__yq_style_{}_{}__".format(i, v_node.style))
+                annotations.append(f"__yq_style_{i}_{v_node.style}__")
             elif isinstance(v_node, (yaml.nodes.SequenceNode, yaml.nodes.MappingNode)) and v_node.flow_style is True:
                 annotations.append("__yq_style_{}_{}__".format(i, "flow"))
         return [loader.construct_object(i) for i in node.value] + annotations
@@ -255,11 +257,11 @@ def get_loader(use_annotations=False, expand_aliases=True, expand_merge_keys=Tru
                 if values:
                     pairs.append((make_mapping_comment_key(placement, hashed_key), values))
             if v_node.tag and v_node.tag.startswith("!") and not v_node.tag.startswith("!!") and len(v_node.tag) > 1:
-                pairs.append(("__yq_tag_{}__".format(hashed_key), v_node.tag))
+                pairs.append((f"__yq_tag_{hashed_key}__", v_node.tag))
             if isinstance(v_node, yaml.nodes.ScalarNode) and v_node.style:
-                pairs.append(("__yq_style_{}__".format(hashed_key), v_node.style))
+                pairs.append((f"__yq_style_{hashed_key}__", v_node.style))
             elif isinstance(v_node, (yaml.nodes.SequenceNode, yaml.nodes.MappingNode)) and v_node.flow_style is True:
-                pairs.append(("__yq_style_{}__".format(hashed_key), "flow"))
+                pairs.append((f"__yq_style_{hashed_key}__", "flow"))
         return dict(pairs)
 
     def parse_unknown_tags(loader, tag_suffix, node):

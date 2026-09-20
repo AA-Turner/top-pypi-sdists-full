@@ -596,6 +596,7 @@ class FlowOutput(AWSObject):
         "MediaStreamOutputConfigurations": ([MediaStreamOutputConfiguration], False),
         "MinLatency": (integer, False),
         "Name": (str, False),
+        "NdiOutputTimecodeSource": (str, False),
         "NdiProgramName": (str, False),
         "NdiSpeedHqQuality": (integer, False),
         "OutputStatus": (str, False),
@@ -651,6 +652,7 @@ class FlowVpcInterface(AWSObject):
         "RoleArn": (str, True),
         "SecurityGroupIds": ([str], True),
         "SubnetId": (str, True),
+        "Tags": (Tags, False),
     }
 
 
@@ -679,6 +681,26 @@ class Gateway(AWSObject):
     }
 
 
+class Offering(AWSObject):
+    """
+    `Offering <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-offering.html>`__
+    """
+
+    resource_type = "AWS::MediaConnect::Offering"
+
+    props: PropsDictType = {}
+
+
+class Reservation(AWSObject):
+    """
+    `Reservation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediaconnect-reservation.html>`__
+    """
+
+    resource_type = "AWS::MediaConnect::Reservation"
+
+    props: PropsDictType = {}
+
+
 class PreferredDayTimeMaintenanceConfiguration(AWSProperty):
     """
     `PreferredDayTimeMaintenanceConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-preferreddaytimemaintenanceconfiguration.html>`__
@@ -698,6 +720,61 @@ class MaintenanceConfiguration(AWSProperty):
     props: PropsDictType = {
         "Default": (dict, False),
         "PreferredDayTime": (PreferredDayTimeMaintenanceConfiguration, False),
+    }
+
+
+class BlackFramesConfiguration(AWSProperty):
+    """
+    `BlackFramesConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-blackframesconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "State": (str, True),
+        "ThresholdSeconds": (integer, True),
+    }
+
+
+class FrozenFramesConfiguration(AWSProperty):
+    """
+    `FrozenFramesConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-frozenframesconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "State": (str, True),
+        "ThresholdSeconds": (integer, True),
+    }
+
+
+class SilentAudioConfiguration(AWSProperty):
+    """
+    `SilentAudioConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-silentaudioconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "State": (str, True),
+        "ThresholdSeconds": (integer, True),
+    }
+
+
+class ContentQualityAnalysisFeatureConfiguration(AWSProperty):
+    """
+    `ContentQualityAnalysisFeatureConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-contentqualityanalysisfeatureconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "BlackFrames": (BlackFramesConfiguration, False),
+        "FrozenFrames": (FrozenFramesConfiguration, False),
+        "SilentAudio": (SilentAudioConfiguration, False),
+    }
+
+
+class RouterContentQualityAnalysisConfiguration(AWSProperty):
+    """
+    `RouterContentQualityAnalysisConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routerinput-routercontentqualityanalysisconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ContentLevel": (ContentQualityAnalysisFeatureConfiguration, True),
     }
 
 
@@ -932,6 +1009,10 @@ class RouterInput(AWSObject):
     props: PropsDictType = {
         "AvailabilityZone": (str, False),
         "Configuration": (RouterInputConfiguration, True),
+        "ContentQualityAnalysisConfiguration": (
+            RouterContentQualityAnalysisConfiguration,
+            False,
+        ),
         "MaintenanceConfiguration": (MaintenanceConfiguration, False),
         "MaximumBitrate": (integer, True),
         "Name": (str, True),
@@ -997,6 +1078,16 @@ class RouterNetworkInterface(AWSObject):
         "Name": (str, True),
         "RegionName": (str, False),
         "Tags": (Tags, False),
+    }
+
+
+class FabricConfiguration(AWSProperty):
+    """
+    `FabricConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-routeroutput-fabricconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "RecoveryLatencyMode": (str, True),
     }
 
 
@@ -1130,6 +1221,7 @@ class RouterOutput(AWSObject):
     props: PropsDictType = {
         "AvailabilityZone": (str, False),
         "Configuration": (RouterOutputConfiguration, True),
+        "FabricConfiguration": (FabricConfiguration, False),
         "MaintenanceConfiguration": (MaintenanceConfiguration, False),
         "MaximumBitrate": (integer, True),
         "Name": (str, True),
@@ -1137,4 +1229,15 @@ class RouterOutput(AWSObject):
         "RoutingScope": (str, True),
         "Tags": (Tags, False),
         "Tier": (str, True),
+    }
+
+
+class ResourceSpecification(AWSProperty):
+    """
+    `ResourceSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediaconnect-reservation-resourcespecification.html>`__
+    """
+
+    props: PropsDictType = {
+        "ReservedBitrate": (integer, False),
+        "ResourceType": (str, True),
     }

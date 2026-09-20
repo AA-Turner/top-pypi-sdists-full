@@ -843,8 +843,12 @@ class ThreatProtectionOptions(BaseModel):
     explicitly provide replace the team policy's values.
     """
 
-    # "off" disables scanning for this request; "normal" applies the policy.
-    mode: Optional[Literal["off", "normal"]] = None
+    # "off" disables scanning for this request; "manual-only" enforces only the
+    # blacklist / whitelist / blocked TLDs (no provider scan, no scan fee);
+    # "normal" scans with Google Web Risk; "zscaler" classifies through your
+    # organization's Zscaler connection. Enforced teams may raise the mode per
+    # request but never lower it.
+    mode: Optional[Literal["off", "manual-only", "normal", "zscaler"]] = None
     # Block verdicts at or above this risk score (integer 0-100).
     risk_score_threshold: Optional[int] = Field(
         default=None, alias="riskScoreThreshold"
@@ -882,7 +886,7 @@ class ScrapeOptions(BaseModel):
     timeout: Optional[int] = None
     wait_for: Optional[int] = None
     mobile: Optional[bool] = None
-    parsers: Optional[Union[List[str], List[Union[str, "PDFParser"]]]] = None
+    parsers: Optional[Union[List[str], List[Union[str, "PDFParser", "ImageParser"]]]] = None
     actions: Optional[
         List[
             Union[
@@ -925,6 +929,7 @@ class ScrapeOptions(BaseModel):
     # Enables Alexandria domain-tool discovery/execution for this scrape.
     # Omitted from the serialized request entirely when unset or False.
     domain_tools: Optional[bool] = Field(default=None, alias="domainTools")
+    tool_detail: Optional[Literal["compact", "summary", "full"]] = Field(default=None, alias="toolDetail")
 
     model_config = {"populate_by_name": True}
 
@@ -1064,11 +1069,12 @@ class ExchangeSearchResult(BaseModel):
 
 
 class DiscoveredTool(ExchangeSearchResult):
-    credits_cost: int = Field(alias="creditsCost")
+    next: Optional[Dict[str, Any]] = None
+    credits_cost: Optional[int] = Field(default=None, alias="creditsCost")
     id: Optional[str] = None
-    name: str
+    name: Optional[str] = None
     description: str
-    per_record: bool = Field(alias="perRecord")
+    per_record: Optional[bool] = Field(default=None, alias="perRecord")
     options: List[Dict[str, Any]] = Field(default_factory=list)
     requires_one_of: Optional[List[List[str]]] = Field(default=None, alias="requiresOneOf")
     response: Dict[str, Any] = Field(default_factory=dict)
@@ -2173,6 +2179,15 @@ class PDFParser(BaseModel):
         return folded
 
 
+class ImageParser(BaseModel):
+    """Image parser: OCR raster images (PNG, JPEG, JPEG 2000, TIFF, GIF, BMP,
+    WebP, AVIF) as one-page documents. Part of the default parsers list next to
+    "pdf"; takes no options, so the string "image" is equivalent. Omit it from
+    an explicit list to keep image URLs failing as unsupported files."""
+
+    type: Literal["image"] = "image"
+
+
 # Location types
 class Location(BaseModel):
     """Location configuration for scraping."""
@@ -2255,6 +2270,7 @@ class SearchRequest(BaseModel):
 
     query: str
     domain_tools: Optional[bool] = Field(default=None, alias="domainTools")
+    tool_detail: Optional[Literal["compact", "summary", "full"]] = Field(default=None, alias="toolDetail")
     sources: Optional[List[SourceOption]] = None
     categories: Optional[List[CategoryOption]] = None
     include_domains: Optional[List[str]] = None

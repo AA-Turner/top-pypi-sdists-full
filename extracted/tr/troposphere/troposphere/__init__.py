@@ -40,7 +40,7 @@ if TYPE_CHECKING:
     else:
         from typing import Final
 
-__version__ = "4.10.2"
+__version__ = "4.11.0"
 
 # constants for DeletionPolicy and UpdateReplacePolicy
 Delete: Final[str] = "Delete"
@@ -689,6 +689,25 @@ class Condition(AWSHelperFn):
 class ImportValue(AWSHelperFn):
     def __init__(self, data: object) -> None:
         self.data = {"Fn::ImportValue": data}
+
+
+class GetStackOutput(AWSHelperFn):
+    def __init__(
+        self,
+        StackName: object,  # noqa: N803
+        OutputName: object,  # noqa: N803
+        Region: Optional[object] = None,  # noqa: N803
+        RoleArn: Optional[object] = None,  # noqa: N803
+    ) -> None:
+        params: Dict[str, Any] = {
+            "StackName": StackName,
+            "OutputName": OutputName,
+        }
+        if Region is not None:
+            params["Region"] = Region
+        if RoleArn is not None:
+            params["RoleArn"] = RoleArn
+        self.data = {"Fn::GetStackOutput": params}
 
 
 class Tag(AWSHelperFn):

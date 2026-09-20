@@ -969,7 +969,7 @@ class TosClientV2(TosClient):
         :param is_custom_domain: 是否使用自定义域名，默认为False
         :param high_latency_log_threshold: 大于 0 时，代表开启高延迟日志，单位：KB，默认为 100，当单次请求传输总速率低于该值且总请求耗时大于 500 毫秒时打印 WARN 级别日志
         :param socket_timeout: 连接建立成功后，单个请求的 Socket 读写超时时间，单位：秒，默认 30 秒，参考: https://requests.readthedocs.io/en/latest/user/quickstart/#timeouts
-        :param credentials_provider: 通过 credentials_provider 实现永久访问密钥、临时访问密钥、ECS免密登陆、环境变量获取访问密钥等方式
+        :param credentials_provider: 通过 credentials_provider 实现永久访问密钥、临时访问密钥、ECS免密登陆、VKE IRSA、环境变量获取访问密钥等方式
         :param disable_encoding_meta: 是否对用户自定义元数据x-tos-meta-*/Content-Disposition进行编码，默认编码，设置为true时不进行编码
         :param except100_continue_threshold: 大于0时，表示上传对象相关接口对与待上传数据长度大于该阈值的请求（无法预测数据长度的情况统一判断为大于阈值）开启100-continue机制，单位字节，默认65536
         :param user_agent_product_name: 业务方/产品名
@@ -1057,6 +1057,7 @@ class TosClientV2(TosClient):
 
         :return:
         """
+        self._ensure_session_fork_safe()
         self.session.close()
         if self._start_async_refresh_cache:
             _dns_cache.shutdown()
@@ -4502,6 +4503,7 @@ class TosClientV2(TosClient):
     def _req(self, bucket=None, key=None, method=None, data=None, headers=None, params=None, func=None,
              generic_input=None,account_id=None,is_control_req=None):
         consume_body()
+        self._ensure_session_fork_safe()
         # 获取调用方法的名称
         func_name = func or traceback.extract_stack()[-2][2]
         if key is not None and is_control_req is None:

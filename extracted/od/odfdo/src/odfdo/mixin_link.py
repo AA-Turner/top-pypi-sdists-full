@@ -52,7 +52,7 @@ class LinkMixin(Element):
         url: str | None = None,
         content: str | None = None,
     ) -> list[Link]:
-        """Returns all links that match the specified criteria.
+        """Return all links that match the specified criteria.
 
         Args:
             name: The name of the link.
@@ -62,6 +62,7 @@ class LinkMixin(Element):
 
         Returns:
             list[Link]: A list of Link instances matching the criteria.
+
         """
         return self._filtered_elements(
             "descendant::text:a",
@@ -79,7 +80,7 @@ class LinkMixin(Element):
         url: str | None = None,
         content: str | None = None,
     ) -> Link | None:
-        """Returns a single link that matches the specified criteria.
+        """Return a single link that matches the specified criteria.
 
         Args:
             position: The 0-based index of the matching link to return.
@@ -90,6 +91,7 @@ class LinkMixin(Element):
 
         Returns:
             Link | None: A Link instance, or None if no link matches the criteria.
+
         """
         return self._filtered_element(
             "descendant::text:a",

@@ -63,7 +63,8 @@ class TestSharedTriggersModelsListTriggersResponse(unittest.TestCase):
                         description = '', 
                         created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        created_by = '', )
+                        created_by = '', 
+                        is_overdue = True, )
                     ],
                 total = 56,
                 offset = 56,
@@ -98,7 +99,8 @@ class TestSharedTriggersModelsListTriggersResponse(unittest.TestCase):
                         description = '', 
                         created_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
                         updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'), 
-                        created_by = '', )
+                        created_by = '', 
+                        is_overdue = True, )
                     ],
                 total = 56,
                 offset = 56,

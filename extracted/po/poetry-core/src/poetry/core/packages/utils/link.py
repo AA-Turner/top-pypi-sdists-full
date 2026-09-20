@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-import posixpath
+import os
 import re
 import sys
 import urllib.parse as urlparse
@@ -22,6 +22,7 @@ class Link:
         self,
         url: str,
         *,
+        filename: str | None = None,
         requires_python: str | None = None,
         hashes: Mapping[str, str] | None = None,
         metadata: str | bool | dict[str, str] | None = None,
@@ -34,6 +35,12 @@ class Link:
 
         url:
             url of the resource pointed to (href of the link)
+        filename:
+            The filename of the resource.
+            If not provided, it will be derived from the URL.
+            PEP 691 mandates a `filename` field,
+            which does not even have to be part of the URL.
+            Further, using it lets us skip expensive work.
         requires_python:
             String containing the `Requires-Python` metadata field, specified
             in PEP 345. This may be specified by a data-requires-python
@@ -64,6 +71,7 @@ class Link:
             url = path_to_url(url)
 
         self.url = url
+        self._filename = filename
         self.requires_python = requires_python if requires_python else None
         self._hashes = hashes
 
@@ -123,9 +131,14 @@ class Link:
 
     @cached_property
     def filename(self) -> str:
-        _, netloc, path, _, _ = urlparse.urlsplit(self.url)
-        name = posixpath.basename(path.rstrip("/")) or netloc
-        name = urlparse.unquote(name)
+        if self._filename:
+            name = self._filename
+        else:
+            _, netloc, path, _, _ = urlparse.urlsplit(self.url)
+            name = os.path.basename(path.rstrip("/")) or netloc  # noqa: PTH119
+            name = urlparse.unquote(name)
+        if "/" in name or "\\" in name:
+            raise ValueError(f"Invalid filename: '{name}'")
 
         return name
 
@@ -142,7 +155,7 @@ class Link:
         return urlparse.unquote(urlparse.urlsplit(self.url)[2])
 
     def splitext(self) -> tuple[str, str]:
-        return splitext(posixpath.basename(self.path.rstrip("/")))
+        return splitext(self.filename, is_filename=True)
 
     @cached_property
     def ext(self) -> str:
@@ -207,7 +220,7 @@ class Link:
 
     @cached_property
     def show_url(self) -> str:
-        return posixpath.basename(self.url.split("#", 1)[0].split("?", 1)[0])
+        return os.path.basename(self.url.split("#", 1)[0].split("?", 1)[0])  # noqa: PTH119
 
     @cached_property
     def is_wheel(self) -> bool:

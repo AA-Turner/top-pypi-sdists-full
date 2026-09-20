@@ -52,6 +52,8 @@ from parrot.flows.dev_loop.worktree_manager import (  # verified: worktree_manag
     SubWorktreeMergeError,
 )
 from parrot.flows.dev_loop.sdd_coder.fidelity import check_banned_imports, check_fidelity, parse_task_files
+from parrot.flows.dev_loop.test_scope.context import write_attempt_context
+from parrot.flows.dev_loop.test_scope.datatypes import AttemptContext
 from parrot.flows.dev_loop.sdd_coder.jobs import JobTable
 from parrot.flows.dev_loop.sdd_coder.lint import run_lint_pass
 from parrot.flows.dev_loop.sdd_coder.models import (
@@ -1180,7 +1182,15 @@ class SddCoderEngine:
         """
         plan = await self._cached_plan(ctx.feature, ctx.worktree, ctx, execution_id=execution_id)
         assessment = plan.assessments.get(task.task_id)
-        if assessment is None or assessment.classification not in ("complex", "unknown"):
+        if assessment is None:
+            # A task reaching retry was, by definition, just dispatched under SOME
+            # cached plan/assessment (`_run_attempt`'s own admission check just used
+            # one to fail attempt 1). A missing assessment here is an anomaly, never
+            # evidence this task is unrestricted -- fail closed rather than letting
+            # `_select_retry_seat` search the full, unrestricted roster
+            # (issue:e01c03baf493).
+            return set()
+        if assessment.classification not in ("complex", "unknown"):
             return None
         seats = self._executions[execution_id]._seats if execution_id in self._executions else self.seats
         return {s.label for s in eligible_seats(assessment, seats, self.roster.complexity)}
@@ -1210,6 +1220,25 @@ class SddCoderEngine:
         return str(
             Path(self._base_path) / f"{ctx.feature_branch}--pool" / SubWorktreeManager._branch_suffix(worker_id)
         )  # noqa: SLF001
+
+    async def _write_attempt_scope(self, worktree_path: str, task_id: str, task_file: str, base_ref: str) -> None:
+        """Write the task-tier test-scope context into an attempt sub-worktree (FEAT-563).
+
+        The file turns the pytest guard on for that attempt only. A failure is
+        logged and swallowed: without the file the guard is inactive, which is
+        the pre-FEAT-563 behaviour, never a failed attempt.
+
+        Args:
+            worktree_path: The attempt sub-worktree root.
+            task_id: TASK id being implemented.
+            task_file: Repo-relative task markdown path.
+            base_ref: Feature branch the attempt diffs against.
+        """
+        context = AttemptContext(tier="task", task_id=task_id, task_file=task_file, base_ref=base_ref)
+        try:
+            await asyncio.to_thread(write_attempt_context, Path(worktree_path), context)
+        except Exception as exc:  # noqa: BLE001 — guard context is best-effort
+            self.logger.warning("could not write test-scope context for %s in %s: %s", task_id, worktree_path, exc)
 
     def _manager_for(
         self, ctx: _FeatureCtx, task_id: str, attempt: int, execution_id: Optional[str] = None
@@ -1283,6 +1312,7 @@ class SddCoderEngine:
         worker_id = self._worker_id(task_id, 1, execution_id)
         manager = self._manager_for(ctx, task_id, 1, execution_id)
         path = await manager.create(worker_id)
+        await self._write_attempt_scope(path, task_id, planned.task_file, ctx.feature_branch)
         self._native_inflight.add(worker_id)
         branch = self._branch_for(ctx, task_id, 1, execution_id)
         self._feedback_sources[attempt_uid] = (ctx.worktree, task_id, "native", model)
@@ -2034,6 +2064,7 @@ class SddCoderEngine:
             # retry ladder entirely. Moved inside so every failure mode becomes a proper
             # attempt error the ladder can act on.
             await manager.create(self._worker_id(task.task_id, attempt, execution_id))
+            await self._write_attempt_scope(path, task.task_id, task.task_file, ctx.feature_branch)
             dispatcher, profile = self._dispatcher_builder(
                 DevAgentSpec(agent=seat.backend, model=seat.model),
                 redis_url=self._redis_url,
@@ -2424,6 +2455,14 @@ class SddCoderEngine:
                 for seat in pool._seats:
                     from parrot.flows.dev_loop.sdd_coder.pool import _effective_key
 
+                    # A native seat has no dispatcher: `_run_attempt` asserts
+                    # `seat.backend is not None` and `_run_task` never routes a
+                    # retry through `coder_prepare_native`, so selecting one here
+                    # would crash the attempt instead of retrying it (mirrors
+                    # `ChunkAssigner.retry_seat`'s own `kind == "native"` guard,
+                    # issue:e01c03baf493).
+                    if seat.kind == "native":
+                        continue
                     key = _effective_key(seat)
                     if key is None:
                         continue
@@ -2447,6 +2486,8 @@ class SddCoderEngine:
                 for seat in pool._seats:
                     from parrot.flows.dev_loop.sdd_coder.pool import _effective_key
 
+                    if seat.kind == "native":
+                        continue
                     key = _effective_key(seat)
                     if key is None or seat.label in tried_seats:
                         continue

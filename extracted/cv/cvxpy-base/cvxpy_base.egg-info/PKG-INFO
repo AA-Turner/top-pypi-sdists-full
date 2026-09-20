@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cvxpy-base
-Version: 1.9.2
+Version: 1.9.3
 Summary: A domain-specific language for modeling convex optimization problems in Python.
 Author-email: Steven Diamond <stevend2@stanford.edu>, akshayka@cs.stanford.edu, Eric Chu <echu508@stanford.edu>, Stephen Boyd <boyd@stanford.edu>
 License-Expression: Apache-2.0
@@ -11,7 +11,7 @@ License-File: LICENSE
 Requires-Dist: numpy>=2.0.0
 Requires-Dist: scipy>=1.13.0
 Requires-Dist: qdldl>=0.1.7.post0
-Requires-Dist: sparsediffpy<0.4.0,>=0.3.0
+Requires-Dist: sparsediffpy<0.7.0,>=0.6.0
 Provides-Extra: cbc
 Requires-Dist: cylp>=0.91.5; extra == "cbc"
 Provides-Extra: clarabel
@@ -35,6 +35,8 @@ Provides-Extra: gurobi
 Requires-Dist: gurobipy; extra == "gurobi"
 Provides-Extra: highs
 Requires-Dist: highspy; extra == "highs"
+Provides-Extra: moreau
+Requires-Dist: moreau>=0.4.1; extra == "moreau"
 Provides-Extra: mosek
 Requires-Dist: Mosek; extra == "mosek"
 Provides-Extra: osqp

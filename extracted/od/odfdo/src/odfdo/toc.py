@@ -46,6 +46,7 @@ def _toc_entry_style_name(level: int) -> str:
 
     Returns:
         str: The generated style name.
+
     """
     return f"odfto_toc_level_{level}"
 
@@ -70,6 +71,7 @@ class TabStopStyle(Element):
             '1.25cm').
         style_type (str, optional): The alignment type of the tab stop
             (e.g., 'left', 'right').
+
     """
 
     _tag = "style:tab-stop"
@@ -98,7 +100,7 @@ class TabStopStyle(Element):
         style_type: str | None = None,
         **kwargs: Any,
     ):
-        """Initializes a TabStopStyle element.
+        """Initialize a TabStopStyle element.
 
         Args:
             style_char: The character for the tab stop.
@@ -110,6 +112,8 @@ class TabStopStyle(Element):
             leader_width: Width of the leader line.
             style_position: Position of the tab stop.
             style_type: Alignment type of the tab stop.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -146,6 +150,7 @@ def default_toc_level_style(level: int) -> Style:
 
     Returns:
         Style: The generated style for the TOC level.
+
     """
     tab_stop = TabStopStyle(style_type="right", leader_style="dotted", leader_text=".")
     position = 17.5 - (0.5 * level)
@@ -184,6 +189,7 @@ class TOC(MDToc, Element):
         protection_key (str, optional): The key for protection.
         protection_key_digest_algorithm (str, optional): The algorithm for
             the protection key digest.
+
     """
 
     _tag = "text:table-of-content"
@@ -209,7 +215,7 @@ class TOC(MDToc, Element):
         entry_style: str = "Contents_20_%d",
         **kwargs: Any,
     ) -> None:
-        """Initializes a TOC (Table of Contents) element.
+        """Initialize a TOC (Table of Contents) element.
 
         Default parameters are what most people use: protected from manual
         modifications and not limited in title levels.
@@ -230,6 +236,8 @@ class TOC(MDToc, Element):
             title_style: The style for the TOC's main title.
             entry_style: A format string for the style of each TOC
                 entry (e.g., "Contents_20_%d").
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -269,6 +277,7 @@ class TOC(MDToc, Element):
         Returns:
             Element: The newly created 'text:table-of-content-source'
                 element.
+
         """
         toc_source = Element.from_tag("text:table-of-content-source")
         toc_source.set_attribute("text:outline-level", str(outline_level))
@@ -290,7 +299,7 @@ class TOC(MDToc, Element):
         return self.get_formatted_text()
 
     def get_formatted_text(self, context: dict | None = None) -> str:
-        """Returns the formatted text content of the TOC.
+        """Return the formatted text content of the TOC.
 
         Args:
             context: A context dictionary for formatting.
@@ -299,6 +308,7 @@ class TOC(MDToc, Element):
 
         Returns:
             str: The formatted text of the TOC.
+
         """
         index_body = cast("IndexBody | None", self.get_element(IndexBody._tag))
 
@@ -357,10 +367,11 @@ class TOC(MDToc, Element):
         self.append(body)
 
     def get_title(self) -> str:
-        """Returns the title of the TOC.
+        """Return the title of the TOC.
 
         Returns:
             str: The title of the TOC.
+
         """
         index_body = self.body
         if index_body is None:
@@ -376,12 +387,13 @@ class TOC(MDToc, Element):
         style: str | None = None,
         text_style: str | None = None,
     ) -> None:
-        """Sets the title of the TOC.
+        """Set the title of the TOC.
 
         Args:
             title: The new title for the TOC.
             style: The style for the index title element.
             text_style: The style for the title's paragraph.
+
         """
         index_body = self.body
         if index_body is None:
@@ -414,6 +426,7 @@ class TOC(MDToc, Element):
 
         Returns:
             str: The hierarchical number string.
+
         """
         numbers: list[int] = []
         # before header level
@@ -453,6 +466,7 @@ class TOC(MDToc, Element):
                 document.
             use_default_styles: If True, applies default styles to the
                 TOC entries.
+
         """
         # Find the body
         if document is not None:
@@ -460,7 +474,8 @@ class TOC(MDToc, Element):
         else:
             body = self.document_body
         if body is None:
-            raise ValueError("The TOC must be related to a document somehow")
+            msg = "The TOC must be related to a document somehow"
+            raise ValueError(msg)
 
         # Save the title
         index_body = self.body
@@ -519,6 +534,7 @@ class TocEntryTemplate(Element):
 
     Attributes:
         style (str, optional): The style name for the entry.
+
     """
 
     _tag = "text:table-of-content-entry-template"
@@ -530,12 +546,14 @@ class TocEntryTemplate(Element):
         outline_level: int | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initializes a TocEntryTemplate element.
+        """Initialize a TocEntryTemplate element.
 
         Args:
             style: The style name for the TOC entry.
             outline_level: The outline level this template
                 applies to.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -554,7 +572,7 @@ class TocEntryTemplate(Element):
         self.set_attribute("text:outline-level", str(level))
 
     def complete_defaults(self) -> None:
-        """Populates the template with default entry elements.
+        """Populate the template with default entry elements.
 
         This method adds standard elements to the template, such as placeholders
         for chapter number, entry text, and page number, providing a default
@@ -597,6 +615,7 @@ class IndexTitle(ListMixin, TocMixin, SectionMixin):
         protected (bool): Indicates if the index title is protected.
         protection_key (str): The protection key if the title is protected.
         protection_key_digest_algorithm (str): The algorithm used for the protection key.
+
     """
 
     _tag = "text:index-title"
@@ -629,6 +648,7 @@ class IndexTitle(ListMixin, TocMixin, SectionMixin):
             title_text_style: The style name for the title text.
             xml_id: A unique XML identifier for the title.
             **kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -651,6 +671,7 @@ class IndexTitle(ListMixin, TocMixin, SectionMixin):
         Args:
             title_text: The text content to set for the title.
             title_text_style: The style name for the title text.
+
         """
         current = self.get_element("text:p")
         if current:
@@ -681,6 +702,7 @@ class IndexTitleTemplate(Element):
         Args:
             style: The style name for the template.
             **kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init and style:

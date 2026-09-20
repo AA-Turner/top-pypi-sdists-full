@@ -9,7 +9,6 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from deepdiff.diff import DeepDiff
 from poetry.core.pyproject.exceptions import PyProjectError
 
 from poetry.config.config_source import ConfigSource
@@ -66,6 +65,7 @@ def test_list_displays_default_value_if_not_set(
     venv_path = json.dumps(os.path.join("{cache-dir}", "virtualenvs"))
     expected = f"""cache-dir = {cache_dir}
 data-dir = {data_dir}
+installer.builtin-uninstall = false
 installer.max-workers = null
 installer.no-binary = null
 installer.only-binary = null
@@ -104,6 +104,7 @@ def test_list_displays_set_get_setting(
     venv_path = json.dumps(os.path.join("{cache-dir}", "virtualenvs"))
     expected = f"""cache-dir = {cache_dir}
 data-dir = {data_dir}
+installer.builtin-uninstall = false
 installer.max-workers = null
 installer.no-binary = null
 installer.only-binary = null
@@ -163,6 +164,7 @@ def test_unset_setting(
     venv_path = json.dumps(os.path.join("{cache-dir}", "virtualenvs"))
     expected = f"""cache-dir = {cache_dir}
 data-dir = {data_dir}
+installer.builtin-uninstall = false
 installer.max-workers = null
 installer.no-binary = null
 installer.only-binary = null
@@ -200,6 +202,7 @@ def test_unset_repo_setting(
     venv_path = json.dumps(os.path.join("{cache-dir}", "virtualenvs"))
     expected = f"""cache-dir = {cache_dir}
 data-dir = {data_dir}
+installer.builtin-uninstall = false
 installer.max-workers = null
 installer.no-binary = null
 installer.only-binary = null
@@ -384,6 +387,7 @@ def test_list_displays_set_get_local_setting(
     venv_path = json.dumps(os.path.join("{cache-dir}", "virtualenvs"))
     expected = f"""cache-dir = {cache_dir}
 data-dir = {data_dir}
+installer.builtin-uninstall = false
 installer.max-workers = null
 installer.no-binary = null
 installer.only-binary = null
@@ -430,6 +434,7 @@ def test_list_must_not_display_sources_from_pyproject_toml(
     venv_path = json.dumps(os.path.join("{cache-dir}", "virtualenvs"))
     expected = f"""cache-dir = {cache_dir}
 data-dir = {data_dir}
+installer.builtin-uninstall = false
 installer.max-workers = null
 installer.no-binary = null
 installer.only-binary = null
@@ -649,7 +654,7 @@ def test_config_installer_binary_filter_config(
     tester.execute(f"{setting} '{value}'")
 
     config = Config.create(reload=True)
-    assert not DeepDiff(config.get(setting), expected, ignore_order=True)
+    assert sorted(config.get(setting)) == sorted(expected)
 
 
 def test_config_solver_lazy_wheel(
@@ -818,27 +823,22 @@ def test_config_installer_build_config_settings(
     value = {"CC": "gcc", "--build-option": ["--one", "--two"]}
 
     tester.execute(f"{config_key} '{json.dumps(value)}'")
-    assert not DeepDiff(config.config_source.get_property(config_key), value)
+    assert config.config_source.get_property(config_key) == value
 
     value_two = {"CC": "g++"}
     tester.execute(f"{config_key} '{json.dumps(value_two)}'")
-    assert not DeepDiff(
-        config.config_source.get_property(config_key), {**value, **value_two}
-    )
+    assert config.config_source.get_property(config_key) == {**value, **value_two}
 
     value_three = {
         "--build-option": ["--three", "--four"],
         "--package-option": ["--name=foo"],
     }
     tester.execute(f"{config_key} '{json.dumps(value_three)}'")
-    assert not DeepDiff(
-        config.config_source.get_property(config_key),
-        {
-            **value,
-            **value_two,
-            **value_three,
-        },
-    )
+    assert config.config_source.get_property(config_key) == {
+        **value,
+        **value_two,
+        **value_three,
+    }
 
     tester.execute(f"{config_key} --unset")
 

@@ -10,7 +10,7 @@ import hashlib
 import itertools
 import json
 import time
-from collections.abc import AsyncGenerator, AsyncIterator
+from collections.abc import AsyncGenerator, AsyncIterator, Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -39,14 +39,33 @@ from vllm.sampling_params import RequestOutputKind, StructuredOutputsParams
 
 from smg_grpc_servicer import mm_shm
 from smg_grpc_servicer.tokenizer_bundle import CHUNK_SIZE, build_tokenizer_zip
+from smg_grpc_servicer.vllm import attach_vllm_logging
+from smg_grpc_servicer.vllm.admin import flush_cache
+from smg_grpc_servicer.vllm.errors import grpc_code_for
 from smg_grpc_servicer.vllm.kv_events import (
     endpoint_for_rank,
     resolve_kv_events_config,
     stream_kv_events,
 )
-from smg_grpc_servicer.vllm.kv_transfer import params_from_request, params_to_response_fields
+from smg_grpc_servicer.vllm.kv_transfer import (
+    pairing_fields,
+    params_from_request,
+    params_to_response_fields,
+    resolve_pd_connector,
+)
+from smg_grpc_servicer.vllm.media_refs import parse_media_refs, validate_schemes
+from smg_grpc_servicer.vllm.mm_processor import (
+    ENV_PROCESSOR,
+    MmProcessorUnavailable,
+    build_mm_processor,
+)
+from smg_grpc_servicer.vllm.mm_salt import has_preprocessed_mm_payload, mm_identity_cache_salt
+
+from ..pd_pairing import pairing_protocol_from_env
+from .mm_keys import mm_batches, modality_key, modality_name, primary_encoder_key
 
 logger = init_logger(__name__)
+attach_vllm_logging()
 SAMPLING_DEFAULT_KEYS = (
     "temperature",
     "top_p",
@@ -151,7 +170,17 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
         # Resolve KV-event publishing config from the engine. Non-None only when
         # vLLM was started with --kv-events-config enabling the ZMQ publisher.
         self._kv_events_config = resolve_kv_events_config(async_llm)
-        logger.info("VllmEngineServicer initialized")
+        # Worker-side media processing (media_refs); None keeps refs rejected.
+        self._mm_processor = build_mm_processor(async_llm)
+        self._mm_inflight = (
+            asyncio.Semaphore(self._mm_processor.max_inflight)
+            if self._mm_processor is not None
+            else None
+        )
+        logger.info(
+            "VllmEngineServicer initialized (mm_processor=%s)",
+            self._mm_processor.name if self._mm_processor is not None else "off",
+        )
 
     async def Generate(
         self,
@@ -173,15 +202,23 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
         """
         request_id = request.request_id
         input_type = request.WhichOneof("input")
-        has_preprocessed_mm = request.HasField("mm_inputs") and request.mm_inputs.HasField(
-            "pixel_values"
-        )
+        # One batch per modality: `mm_inputs`, then `extra_mm_inputs` for a
+        # request that mixes image and video. A pixel-less mm payload with
+        # grid tensors is the PD decode leg's form: enough to rebuild mm
+        # features (positions + block hashing).
+        preprocessed_batches = [
+            batch for batch in mm_batches(request) if has_preprocessed_mm_payload(batch)
+        ]
+        has_preprocessed_mm = bool(preprocessed_batches)
+        media_ref_count = len(request.media_refs.items) if request.HasField("media_refs") else 0
         logger.info(
-            "Generate request %s: input_type=%s, stream=%s, preprocessed_mm=%s, dp_rank=%s",
+            "Generate request %s: input_type=%s, stream=%s, preprocessed_mm=%s, "
+            "media_refs=%d, dp_rank=%s",
             request_id,
             input_type,
             request.stream,
             has_preprocessed_mm,
+            media_ref_count,
             request.data_parallel_rank if request.HasField("data_parallel_rank") else None,
         )
 
@@ -191,16 +228,73 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
             arrival_time = time.time()
             kv_transfer_params = params_from_request(request)
 
-            if has_preprocessed_mm and input_type == "tokenized":
+            if request.HasField("media_refs"):
+                # Media references from the router: the worker fetches and runs
+                # vLLM's own processor over the unexpanded placeholder anchors.
+                if input_type != "tokenized" or request.HasField("mm_inputs"):
+                    raise ValueError(
+                        "media_refs requires tokenized input and is mutually exclusive "
+                        "with mm_inputs"
+                    )
+                if self._mm_processor is None:
+                    raise ValueError(
+                        f"media_refs sent but {ENV_PROCESSOR} is off on this worker; check the "
+                        "router's SMG_MM_PROCESSING and this worker's mm_processor label"
+                    )
+                items = parse_media_refs(request.media_refs)
+                validate_schemes(items, self._mm_processor.accepted_schemes)
+                async with self._mm_inflight:
+                    prompt = await self._mm_processor.process(
+                        list(request.tokenized.input_ids),
+                        request.tokenized.original_text or None,
+                        items,
+                        arrival_time,
+                        request_id=request_id,
+                    )
+            elif has_preprocessed_mm and input_type == "tokenized":
+                # A pixel-less payload (PD decode leg) is only decodable with
+                # remote KV: a local recompute would schedule the vision
+                # encoder with no pixels and crash the engine.
+                has_pixels = any(batch.HasField("pixel_values") for batch in preprocessed_batches)
+                if not has_pixels and kv_transfer_params is None:
+                    logger.warning(
+                        "Request %s: pixel-less multimodal payload with no kv_transfer_params; "
+                        "rejecting (prefill worker did not hand off KV?)",
+                        request_id,
+                    )
+                    raise ValueError(
+                        "multimodal payload carries grid tensors but no pixel_values and "
+                        "no kv_transfer_params; a pixel-less leg requires remote KV"
+                    )
                 # Preprocessed multimodal from Rust router.
                 # Token IDs already have expanded placeholders; tensors are
-                # ready for the model. Bypass the renderer entirely.
-                prompt = self._build_preprocessed_mm_inputs(request.tokenized, request.mm_inputs)
+                # ready for the model. Bypass the renderer entirely. The tensor
+                # copies and dtype casts scale with the payload (hundreds of
+                # megabytes for a many-image request), so they run off the
+                # event loop and health checks keep being answered meanwhile.
+                prompt = await asyncio.to_thread(
+                    self._build_preprocessed_mm_inputs, request.tokenized, preprocessed_batches
+                )
                 prompt["arrival_time"] = arrival_time
             elif input_type == "tokenized":
                 prompt: TokensPrompt = {"prompt_token_ids": list(request.tokenized.input_ids)}
                 if request.tokenized.original_text:
                     prompt["prompt"] = request.tokenized.original_text
+                # Tensor-less mm payload (grid-less PD decode leg): fold the
+                # kept mm hashes into cache_salt so different images cannot
+                # alias. Grid-carrying legs took the preprocessed path above.
+                if request.HasField("mm_inputs"):
+                    all_hashes = [h for batch in mm_batches(request) for h in batch.mm_hashes]
+                    cache_salt = mm_identity_cache_salt(all_hashes)
+                    if cache_salt is not None:
+                        prompt["cache_salt"] = cache_salt
+                    model_config = getattr(self.engine, "model_config", None)
+                    if model_config is not None and getattr(model_config, "uses_mrope", False):
+                        logger.warning(
+                            "Request %s carries mm identity but no grid tensors on an "
+                            "M-RoPE model; decode-side positions will be text-only",
+                            request_id,
+                        )
                 prompt = self.engine.renderer.process_for_engine(prompt, arrival_time=arrival_time)
             else:
                 prompt = request.text
@@ -265,14 +359,19 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
                             num_prompt_logprobs=num_prompt_logprobs,
                         )
 
-        except ValueError as e:
-            # Invalid request error (equiv to 400).
+        except MmProcessorUnavailable as e:
+            # Retryable: the router re-selects a worker on UNAVAILABLE.
+            logger.warning("Media processing unavailable for request %s: %s", request_id, e)
             await self._notify_kv_transfer_rejected(request_id, kv_transfer_params, engine_started)
-            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(e))
+            await context.abort(grpc.StatusCode.UNAVAILABLE, str(e))
         except Exception as e:
-            logger.exception("Error in Generate for request %s", request_id)
+            code = grpc_code_for(e)
+            if code is grpc.StatusCode.INTERNAL:
+                logger.exception("Error in Generate for request %s", request_id)
+            else:
+                logger.warning("Generate request %s rejected (%s): %s", request_id, code.name, e)
             await self._notify_kv_transfer_rejected(request_id, kv_transfer_params, engine_started)
-            await context.abort(grpc.StatusCode.INTERNAL, str(e))
+            await context.abort(code, str(e))
 
     async def _notify_kv_transfer_rejected(
         self,
@@ -357,12 +456,13 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
 
         except grpc.aio.AbortError:
             raise
-        except ValueError as e:
-            logger.warning("Embed invalid request %s: %s", request_id, e)
-            await context.abort(grpc.StatusCode.INVALID_ARGUMENT, str(e))
         except Exception as e:
-            logger.exception("Embed failed for request %s", request_id)
-            await context.abort(grpc.StatusCode.INTERNAL, str(e))
+            code = grpc_code_for(e)
+            if code is grpc.StatusCode.INTERNAL:
+                logger.exception("Embed failed for request %s", request_id)
+            else:
+                logger.warning("Embed request %s rejected (%s): %s", request_id, code.name, e)
+            await context.abort(code, str(e))
 
     async def HealthCheck(
         self,
@@ -385,6 +485,13 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
         logger.info("HealthCheck request: healthy=%s, message=%s", is_healthy, message)
 
         return vllm_engine_pb2.HealthCheckResponse(healthy=is_healthy, message=message)
+
+    async def FlushCache(
+        self,
+        request: common_pb2.FlushCacheRequest,
+        context: grpc.aio.ServicerContext,
+    ) -> common_pb2.FlushCacheResponse:
+        return await flush_cache(self.engine, request, context)
 
     async def Abort(
         self,
@@ -478,11 +585,21 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
         parallel = self.engine.vllm_config.parallel_config
         kv_transfer_config = self.engine.vllm_config.kv_transfer_config
         if kv_transfer_config is not None:
-            kv_connector = kv_transfer_config.kv_connector or ""
+            kv_connector, kv_engine_id = resolve_pd_connector(kv_transfer_config)
             kv_role = kv_transfer_config.kv_role or ""
-            # Base engine_id; with DP the engine cores serve `{id}_dp{rank}` and
-            # the router derives the suffix from the rank it pins per request
-            kv_engine_id = getattr(kv_transfer_config, "engine_id", "") or ""
+            # Effective PD engine_id; with DP the engine cores serve
+            # `{id}_dp{rank}` and the router derives the suffix from the rank it
+            # pins per request.
+
+        mm_processor = ""
+        mm_media_ref_schemes = ""
+        if (
+            self._mm_processor is not None
+            and self.engine.model_config.is_multimodal_model
+            and await self._mm_processor.probe()
+        ):
+            mm_processor = self._mm_processor.name
+            mm_media_ref_schemes = self._mm_processor.schemes
 
         return vllm_engine_pb2.GetServerInfoResponse(
             kv_connector=kv_connector,
@@ -490,6 +607,10 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
             kv_engine_id=kv_engine_id,
             data_parallel_size=parallel.data_parallel_size,
             shm_namespace_id=mm_shm.shm_namespace_id(),
+            mm_processor=mm_processor,
+            mm_media_ref_schemes=mm_media_ref_schemes,
+            pairing_protocol=pairing_protocol_from_env(),
+            **pairing_fields(self.engine.vllm_config),
         )
 
     async def GetLoads(
@@ -604,101 +725,118 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
     def _build_preprocessed_mm_inputs(
         self,
         tokenized: vllm_engine_pb2.TokenizedInput,
-        mm_proto: vllm_engine_pb2.MultimodalInputs,
+        mm_protos: Sequence[vllm_engine_pb2.MultimodalInputs],
     ) -> VllmMultiModalInput:
         """Build vLLM MultiModalInput from preprocessed proto data.
 
-        Bypasses HF processor entirely — pixel values and model-specific
-        tensors were already computed by the Rust router.  Field layouts
-        (batched / flat / shared) are also determined by the router via
-        ``batched_keys`` and ``flat_keys`` proto fields.
+        Bypasses HF processor entirely — the tensors were already computed by
+        the Rust router. Pixel values are optional: the PD decode leg carries
+        only the grid tensors (positions + block hashing need no pixels).
+        Field layouts (batched / flat / shared) are also determined by the
+        router via ``batched_keys`` and ``flat_keys`` proto fields.
+
+        Each batch is one modality; a request mixing image and video brings
+        one batch each, and their tensors, hashes and placeholders are keyed
+        by modality the way vLLM's own processors lay them out.
         """
         prompt_token_ids = list(tokenized.input_ids)
-        num_items = len(mm_proto.mm_placeholders)
-
-        # Image vs video: vLLM routes each modality to a different encoder and
-        # expects the pixel tensor under a modality-specific key. The router sends
-        # the generic ``pixel_values`` field; rename it to ``pixel_values_videos``
-        # for the video path (grid/size tensors already carry video-specific keys).
-        is_video = mm_proto.modality == common_pb2.VIDEO
-        mm_modality = "video" if is_video else "image"
-
-        def mm_key(key: str) -> str:
-            if is_video and key == "pixel_values":
-                return "pixel_values_videos"
-            return key
-
-        # Deserialize all tensors from proto
-        hf_dict: dict[str, torch.Tensor] = {
-            mm_key("pixel_values"): _tensor_from_proto(mm_proto.pixel_values),
-        }
-        for key, td in mm_proto.model_specific_tensors.items():
-            hf_dict[mm_key(key)] = _tensor_from_proto(td)
-
+        prompt_ids_tensor: torch.Tensor | None = None
         # Cast floating-point tensors to model dtype (e.g. bfloat16).
         # This mirrors _postprocess_output in multimodal/processing/context.py
         # which is skipped when bypassing the HF processor.
         model_dtype = self.engine.model_config.dtype
-        for key in hf_dict:
-            if hf_dict[key].is_floating_point():
-                hf_dict[key] = hf_dict[key].to(dtype=model_dtype)
 
-        cpu_keys = {mm_key(k) for k in mm_proto.keep_on_cpu_keys}
-
-        # Field configs are fully determined by the Rust router.
-        batched = {mm_key(k) for k in mm_proto.batched_keys}
-        flat = {mm_key(k): mm_key(v) for k, v in mm_proto.flat_keys.items()}
+        hf_dict: dict[str, torch.Tensor] = {}
         fields_config: dict[str, MultiModalFieldConfig] = {}
-        flat_sizes_cache: dict[str, torch.Tensor] = {}
-        for key in hf_dict:
-            on_cpu = key in cpu_keys
-            if key in batched:
-                fields_config[key] = MultiModalFieldConfig.batched(mm_modality, keep_on_cpu=on_cpu)
-            elif key in flat:
-                sizes_key = flat[key]
-                if sizes_key not in flat_sizes_cache:
-                    flat_sizes_cache[sizes_key] = hf_dict[sizes_key].flatten().to(torch.int64)
-                fields_config[key] = MultiModalFieldConfig.flat_from_sizes(
-                    mm_modality, flat_sizes_cache[sizes_key], keep_on_cpu=on_cpu
+        mm_hashes: dict[str, list[str]] = {}
+        mm_placeholders: dict[str, list[PlaceholderRange]] = {}
+
+        for mm_proto in mm_protos:
+            # Image vs video: vLLM routes each modality to a different encoder and
+            # expects the pixel tensor under a modality-specific key. The router
+            # sends the generic ``pixel_values`` field; rename it to
+            # ``pixel_values_videos`` for video (grid/size tensors already carry
+            # video-specific keys).
+            mm_modality = modality_name(mm_proto)
+            is_video = mm_modality == "video"
+
+            def mm_key(key: str, is_video: bool = is_video) -> str:
+                return modality_key(key, is_video)
+
+            num_items = len(mm_proto.mm_placeholders)
+
+            # Deserialize all tensors from proto. The PD decode leg carries no
+            # pixel_values (KV arrives via the P/D transfer), only grid tensors.
+            # The primary tensor is registered under the model's forward kwarg
+            # (``encoder_input_key``; DeepSeek-V4.1 takes ``patches``), the same
+            # name the router uses in ``batched_keys`` / ``flat_keys``.
+            batch: dict[str, torch.Tensor] = {}
+            if mm_proto.HasField("pixel_values"):
+                primary_key = mm_key(primary_encoder_key(mm_proto))
+                batch[primary_key] = _tensor_from_proto(mm_proto.pixel_values)
+            for key, td in mm_proto.model_specific_tensors.items():
+                batch[mm_key(key)] = _tensor_from_proto(td)
+            for key, tensor in batch.items():
+                if tensor.is_floating_point():
+                    batch[key] = tensor.to(dtype=model_dtype)
+            shared_keys = batch.keys() & hf_dict.keys()
+            if shared_keys:
+                raise ValueError(
+                    "multimodal batches carry the same tensor keys "
+                    f"{sorted(shared_keys)}; one batch per modality is expected"
                 )
-            else:
-                fields_config[key] = MultiModalFieldConfig.shared(mm_modality, num_items)
+            hf_dict.update(batch)
+
+            cpu_keys = {mm_key(k) for k in mm_proto.keep_on_cpu_keys}
+
+            # Field configs are fully determined by the Rust router.
+            batched = {mm_key(k) for k in mm_proto.batched_keys}
+            flat = {mm_key(k): mm_key(v) for k, v in mm_proto.flat_keys.items()}
+            flat_sizes_cache: dict[str, torch.Tensor] = {}
+            for key in batch:
+                on_cpu = key in cpu_keys
+                if key in batched:
+                    fields_config[key] = MultiModalFieldConfig.batched(
+                        mm_modality, keep_on_cpu=on_cpu
+                    )
+                elif key in flat:
+                    sizes_key = flat[key]
+                    if sizes_key not in flat_sizes_cache:
+                        flat_sizes_cache[sizes_key] = batch[sizes_key].flatten().to(torch.int64)
+                    fields_config[key] = MultiModalFieldConfig.flat_from_sizes(
+                        mm_modality, flat_sizes_cache[sizes_key], keep_on_cpu=on_cpu
+                    )
+                else:
+                    fields_config[key] = MultiModalFieldConfig.shared(mm_modality, num_items)
+
+            if mm_proto.mm_hashes:
+                mm_hashes.setdefault(mm_modality, []).extend(mm_proto.mm_hashes)
+
+            # When structural tokens (e.g. <|image_start|>, separators) are
+            # present in the placeholder range, we must set is_embed so vLLM
+            # only scatters encoder embeddings into patch-token positions
+            # (im_token_id).
+            if mm_proto.mm_placeholders:
+                im_token_id = mm_proto.im_token_id if mm_proto.HasField("im_token_id") else None
+                if im_token_id is not None and prompt_ids_tensor is None:
+                    # Pre-convert to tensor for vectorized mask building
+                    prompt_ids_tensor = torch.tensor(prompt_token_ids, dtype=torch.int64)
+                placeholders = mm_placeholders.setdefault(mm_modality, [])
+                for p in mm_proto.mm_placeholders:
+                    is_embed = None
+                    if im_token_id is not None:
+                        mask = prompt_ids_tensor[p.offset : p.offset + p.length] == im_token_id
+                        # Only set is_embed when there are non-embed positions,
+                        # otherwise None means "all positions are embeds" which
+                        # is both correct and avoids unnecessary overhead.
+                        if not mask.all():
+                            is_embed = mask
+                    placeholders.append(
+                        PlaceholderRange(offset=p.offset, length=p.length, is_embed=is_embed)
+                    )
 
         batch_feature = BatchFeature(hf_dict, tensor_type="pt")
         mm_kwargs = MultiModalKwargsItems.from_hf_inputs(batch_feature, fields_config)
-
-        # Build mm_hashes: dict[str, list[str]]
-        mm_hashes: dict[str, list[str]] = {}
-        if mm_proto.mm_hashes:
-            mm_hashes[mm_modality] = list(mm_proto.mm_hashes)
-
-        # Build mm_placeholders: dict[str, list[PlaceholderRange]]
-        # When structural tokens (e.g. <|image_start|>, separators) are present
-        # in the placeholder range, we must set is_embed so vLLM only scatters
-        # encoder embeddings into patch-token positions (im_token_id).
-        mm_placeholders: dict[str, list[PlaceholderRange]] = {}
-        if mm_proto.mm_placeholders:
-            im_token_id = mm_proto.im_token_id if mm_proto.HasField("im_token_id") else None
-            # Pre-convert to tensor for vectorized mask building
-            prompt_ids_tensor = (
-                torch.tensor(prompt_token_ids, dtype=torch.int64)
-                if im_token_id is not None
-                else None
-            )
-            placeholders = []
-            for p in mm_proto.mm_placeholders:
-                is_embed = None
-                if prompt_ids_tensor is not None:
-                    mask = prompt_ids_tensor[p.offset : p.offset + p.length] == im_token_id
-                    # Only set is_embed when there are non-embed positions,
-                    # otherwise None means "all positions are embeds" which is
-                    # both correct and avoids unnecessary overhead.
-                    if not mask.all():
-                        is_embed = mask
-                placeholders.append(
-                    PlaceholderRange(offset=p.offset, length=p.length, is_embed=is_embed)
-                )
-            mm_placeholders[mm_modality] = placeholders
 
         return mm_input(
             prompt_token_ids=prompt_token_ids,
@@ -1013,6 +1151,10 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
             else:
                 stop_kwargs["matched_stop_str"] = str(completion.stop_reason)
 
+        # Per-request speculative counts; needs vLLM's --per-request-spec-decode-metrics.
+        spec = getattr(completion, "spec_decode_metrics", None)
+        spec_accepted = sum(j * n for j, n in enumerate(spec.histogram)) if spec else 0
+
         # Build complete response
         # When streaming (DELTA mode): completion.token_ids will be empty/last delta
         # When non-streaming (FINAL_ONLY mode): completion.token_ids has all tokens
@@ -1021,6 +1163,8 @@ class VllmEngineServicer(vllm_engine_pb2_grpc.VllmEngineServicer):
             complete=vllm_engine_pb2.GenerateComplete(
                 output_ids=completion.token_ids,
                 finish_reason=completion.finish_reason or "stop",
+                spec_accepted_tokens=spec_accepted,
+                spec_draft_tokens=spec.num_draft_tokens if spec else 0,
                 prompt_tokens=len(output.prompt_token_ids) if output.prompt_token_ids else 0,
                 completion_tokens=len(completion.token_ids),
                 cached_tokens=output.num_cached_tokens,

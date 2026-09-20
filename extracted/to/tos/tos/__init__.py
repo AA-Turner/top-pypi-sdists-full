@@ -4,7 +4,8 @@ from .client import TosClient
 from .clientv2 import TosClientV2
 from .enum import *
 from .utils import RateLimiter, to_bytes, DnsCacheService
-from .credential import StaticCredentialsProvider, EcsCredentialsProvider, EnvCredentialsProvider
+from .credential import StaticCredentialsProvider, EcsCredentialsProvider, EnvCredentialsProvider, \
+    OIDCCredentialsProvider
 # from .vector_client import VectorClient
 
 

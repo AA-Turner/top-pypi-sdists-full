@@ -25,6 +25,30 @@ from .validators.codebuild import (
 )
 
 
+class Build(AWSObject):
+    """
+    `Build <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codebuild-build.html>`__
+    """
+
+    resource_type = "AWS::CodeBuild::Build"
+
+    props: PropsDictType = {
+        "ProjectName": (str, False),
+    }
+
+
+class BuildBatch(AWSObject):
+    """
+    `BuildBatch <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codebuild-buildbatch.html>`__
+    """
+
+    resource_type = "AWS::CodeBuild::BuildBatch"
+
+    props: PropsDictType = {
+        "ProjectName": (str, False),
+    }
+
+
 class ComputeConfiguration(AWSProperty):
     """
     `ComputeConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-fleet-computeconfiguration.html>`__
@@ -199,6 +223,7 @@ class Environment(AWSProperty):
         "DockerServer": (DockerServer, False),
         "EnvironmentVariables": (validate_environmentvariable_or_list, False),
         "Fleet": (ProjectFleet, False),
+        "HostKernel": (str, False),
         "Image": (str, True),
         "ImagePullCredentialsType": (validate_image_pull_credentials, False),
         "PrivilegedMode": (boolean, False),
@@ -444,6 +469,16 @@ class Project(AWSObject):
     }
 
 
+class Report(AWSObject):
+    """
+    `Report <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codebuild-report.html>`__
+    """
+
+    resource_type = "AWS::CodeBuild::Report"
+
+    props: PropsDictType = {}
+
+
 class S3ReportExportConfig(AWSProperty):
     """
     `S3ReportExportConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-reportgroup-s3reportexportconfig.html>`__
@@ -486,6 +521,18 @@ class ReportGroup(AWSObject):
     }
 
 
+class Sandbox(AWSObject):
+    """
+    `Sandbox <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codebuild-sandbox.html>`__
+    """
+
+    resource_type = "AWS::CodeBuild::Sandbox"
+
+    props: PropsDictType = {
+        "ProjectName": (str, False),
+    }
+
+
 class SourceCredential(AWSObject):
     """
     `SourceCredential <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-codebuild-sourcecredential.html>`__
@@ -498,6 +545,33 @@ class SourceCredential(AWSObject):
         "ServerType": (str, True),
         "Token": (str, True),
         "Username": (str, False),
+    }
+
+
+class CodeCoverageReportSummary(AWSProperty):
+    """
+    `CodeCoverageReportSummary <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-report-codecoveragereportsummary.html>`__
+    """
+
+    props: PropsDictType = {
+        "BranchCoveragePercentage": (double, False),
+        "BranchesCovered": (integer, False),
+        "BranchesMissed": (integer, False),
+        "LineCoveragePercentage": (double, False),
+        "LinesCovered": (integer, False),
+        "LinesMissed": (integer, False),
+    }
+
+
+class TestReportSummary(AWSProperty):
+    """
+    `TestReportSummary <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-codebuild-report-testreportsummary.html>`__
+    """
+
+    props: PropsDictType = {
+        "DurationInNanoSeconds": (integer, True),
+        "StatusCounts": (dict, True),
+        "Total": (integer, True),
     }
 
 

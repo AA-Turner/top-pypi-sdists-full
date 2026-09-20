@@ -170,6 +170,30 @@ def normalize_google_page(payload: ProviderEntry) -> list[ProviderEntry]:
     return entries
 
 
+def normalize_typesafe_page(payload: ProviderEntry) -> list[ProviderEntry]:
+    """TypeSafe ``GET /v1/models`` → alias-only discovery entries.
+
+    TypeSafe lists rolling aliases rather than every accepted pinned Jev
+    version. An absent version is therefore never retirement evidence, and
+    this normalizer never invents the alias's target version.
+    """
+    entries: list[ProviderEntry] = []
+    for raw in payload.get("models") or []:
+        if not isinstance(raw, dict):
+            continue
+        name = raw.get("name")
+        if not isinstance(name, str) or not name:
+            continue
+        entry = dict(raw)
+        entry["id"] = name
+        entry.setdefault("display_name", name)
+        entry["listing_kind"] = "alias"
+        entry["alias_only_listing"] = True
+        entry["absence_is_not_retirement_evidence"] = True
+        entries.append(entry)
+    return entries
+
+
 # --- transport -----------------------------------------------------------------
 
 
@@ -291,6 +315,16 @@ async def fetch_moonshot(http: _GetClient, api_key: str) -> list[ProviderEntry]:
     return normalize_openai_page(payload)
 
 
+async def fetch_typesafe(http: _GetClient, api_key: str) -> list[ProviderEntry]:
+    payload = await _get_json(
+        http,
+        "https://api.typesafe.ai/v1/models",
+        label="TypeSafe",
+        headers={"Authorization": f"Bearer {api_key}"},
+    )
+    return normalize_typesafe_page(payload)
+
+
 async def fetch_anthropic(http: _GetClient, api_key: str) -> list[ProviderEntry]:
     headers = {"x-api-key": api_key, "anthropic-version": "2023-06-01"}
     entries: list[ProviderEntry] = []
@@ -368,6 +402,7 @@ PROVIDER_FETCHERS: tuple[ProviderFetcher, ...] = (
     ProviderFetcher("cerebras", "Cerebras", ("CEREBRAS_API_KEY",), fetch_cerebras),
     ProviderFetcher("together", "Together", ("TOGETHER_API_KEY",), fetch_together),
     ProviderFetcher("moonshot-ai", "Moonshot AI", ("MOONSHOT_API_KEY",), fetch_moonshot),
+    ProviderFetcher("typesafe", "TypeSafe", ("TYPESAFE_API_KEY",), fetch_typesafe),
 )
 
 FETCHERS_BY_SLUG: dict[str, ProviderFetcher] = {f.slug: f for f in PROVIDER_FETCHERS}
@@ -457,12 +492,14 @@ __all__ = [
     "fetch_google",
     "fetch_groq",
     "fetch_openai",
+    "fetch_typesafe",
     "fetch_xai",
     "iso_from_epoch",
     "normalize_anthropic_page",
     "normalize_google_page",
     "normalize_groq_page",
     "normalize_openai_page",
+    "normalize_typesafe_page",
     "normalize_xai_page",
     "read_openrouter_public_model",
 ]

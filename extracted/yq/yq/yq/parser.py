@@ -1,7 +1,8 @@
+from __future__ import annotations
+
 import argparse
 import subprocess
 import sys
-from typing import Dict, Union
 
 try:
     from .version import version as __version__
@@ -9,7 +10,7 @@ except ImportError:
     __version__ = "0.0.0"
 
 # jq arguments that consume positionals must be listed here to avoid our parser mistaking them for our positionals
-jq_arg_spec: Dict[str, Union[int, str]] = {
+jq_arg_spec: dict[str, int | str] = {
     "--indent": 1,
     "-f": 1,
     "--from-file": 1,
@@ -27,7 +28,7 @@ jq_arg_spec: Dict[str, Union[int, str]] = {
 class Parser(argparse.ArgumentParser):
     def print_help(self, *args, **kwargs):
         yq_help = argparse.ArgumentParser.format_help(self).splitlines()
-        print("\n".join(["usage: {} [options] <jq filter> [input file...]".format(self.prog)] + yq_help[2:] + [""]))
+        print("\n".join([f"usage: {self.prog} [options] <jq filter> [input file...]"] + yq_help[2:] + [""]))
         sys.stdout.flush()
         try:
             subprocess.check_call(["jq", "--help"])
@@ -37,12 +38,12 @@ class Parser(argparse.ArgumentParser):
 
 class VersionAction(argparse.Action):
     def __call__(self, parser, namespace, values, option_string=None):
-        print("{} {}".format(parser.prog, __version__))
+        print(f"{parser.prog} {__version__}")
         try:
             jq_version = subprocess.check_output(["jq", "--version"], stderr=subprocess.STDOUT, text=True)
             print(jq_version, end="" if jq_version.endswith("\n") else "\n")
         except Exception as error:
-            print("jq version could not be determined: {}".format(error))
+            print(f"jq version could not be determined: {error}")
         parser.exit()
 
 
@@ -88,12 +89,11 @@ def get_parser(program_name, description):
             "and other formatting metadata by representing them as extra items while in JSON."
         )
     else:
-        raise Exception("Unknown program name")
+        raise ValueError("Unknown program name")
 
     description = description.replace("yq", program_name).replace("YAML", current_language)
-    parser_args = dict(prog=program_name, description=description, formatter_class=argparse.RawTextHelpFormatter)
-    if sys.version_info >= (3, 5):
-        parser_args.update(allow_abbrev=False)  # required to disambiguate options listed in jq_arg_spec
+    parser_args = {"prog": program_name, "description": description, "formatter_class": argparse.RawTextHelpFormatter}
+    parser_args.update(allow_abbrev=False)  # required to disambiguate options listed in jq_arg_spec
     parser = Parser(**parser_args)
     parser.add_argument("--output-format", default="json", help=argparse.SUPPRESS)
     parser.add_argument(
@@ -121,6 +121,16 @@ def get_parser(program_name, description):
     parser.add_argument("--indentless-lists", "--indentless", action="store_true", help=indentless_help)
     parser.add_argument("--explicit-start", action="store_true", help=explicit_start_help)
     parser.add_argument("--explicit-end", action="store_true", help=explicit_end_help)
+    parser.add_argument(
+        "--yaml-frontmatter",
+        "-F",
+        action="store_true",
+        help=(
+            "Process only the first YAML document; with -y/-Y, pass through the remaining text unchanged"
+            if program_name == "yq"
+            else argparse.SUPPRESS
+        ),
+    )
     parser.add_argument("--no-expand-aliases", action="store_false", dest="expand_aliases", help=argparse.SUPPRESS)
     parser.add_argument("--max-expansion-factor", type=int, default=1024, help=argparse.SUPPRESS)
     parser.add_argument(

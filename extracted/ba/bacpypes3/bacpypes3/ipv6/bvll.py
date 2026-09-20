@@ -6,11 +6,10 @@ from __future__ import annotations
 
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 
-from ..errors import DecodingError
-from ..debugging import ModuleLogger, DebugContents, bacpypes_debugging
-
-from ..pdu import IPv6Address, VirtualAddress, PCI, PDUData, PDU
 from ..comm import Client, Server
+from ..debugging import DebugContents, ModuleLogger, bacpypes_debugging
+from ..errors import DecodingError
+from ..pdu import PCI, PDU, IPv6Address, PDUData, VirtualAddress
 
 # some debugging
 _debug = 0

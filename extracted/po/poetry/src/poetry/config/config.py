@@ -83,14 +83,14 @@ def build_config_setting_normalizer(val: str) -> Mapping[str, str | Sequence[str
 @dataclasses.dataclass
 class PackageFilterPolicy:
     policy: dataclasses.InitVar[str | list[str] | None]
-    packages: list[str] = dataclasses.field(init=False)
+    packages: frozenset[str] = dataclasses.field(init=False)
 
     def __post_init__(self, policy: str | list[str] | None) -> None:
         if not policy:
             policy = []
         elif isinstance(policy, str):
             policy = self.normalize(policy)
-        self.packages = policy
+        self.packages = frozenset(policy)
 
     def allows(self, package_name: str) -> bool:
         if ":all:" in self.packages:
@@ -174,6 +174,7 @@ class Config:
             "no-binary": None,
             "only-binary": None,
             "build-config-settings": {},
+            "builtin-uninstall": False,
         },
         "python": {"installation-dir": os.path.join("{data-dir}", "python")},
         "solver": {
@@ -225,7 +226,7 @@ class Config:
         def _all(config: dict[str, Any], parent_key: str = "") -> dict[str, Any]:
             all_ = {}
 
-            for key in config:
+            for key in config:  # noqa: PLC0206
                 value = self.get(parent_key + key)
                 if isinstance(value, dict):
                     if parent_key != "":
@@ -396,6 +397,7 @@ class Config:
             "virtualenvs.use-poetry-python",
             "installer.re-resolve",
             "installer.parallel",
+            "installer.builtin-uninstall",
             "solver.lazy-wheel",
             "system-git-client",
             "keyring.enabled",

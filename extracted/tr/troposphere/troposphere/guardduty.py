@@ -10,6 +10,31 @@ from . import AWSObject, AWSProperty, PropsDictType, Tags
 from .validators import boolean, integer
 
 
+class TagItem(AWSProperty):
+    """
+    `TagItem <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-trustedentityset-tagitem.html>`__
+    """
+
+    props: PropsDictType = {
+        "Key": (str, True),
+        "Value": (str, True),
+    }
+
+
+class CustomDetectionRuleAssociation(AWSObject):
+    """
+    `CustomDetectionRuleAssociation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-customdetectionruleassociation.html>`__
+    """
+
+    resource_type = "AWS::GuardDuty::CustomDetectionRuleAssociation"
+
+    props: PropsDictType = {
+        "Mode": (str, True),
+        "RuleId": (str, True),
+        "Tags": ([TagItem], False),
+    }
+
+
 class CFNKubernetesAuditLogsConfiguration(AWSProperty):
     """
     `CFNKubernetesAuditLogsConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-detector-cfnkubernetesauditlogsconfiguration.html>`__
@@ -98,17 +123,6 @@ class CFNFeatureConfiguration(AWSProperty):
     }
 
 
-class TagItem(AWSProperty):
-    """
-    `TagItem <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-guardduty-trustedentityset-tagitem.html>`__
-    """
-
-    props: PropsDictType = {
-        "Key": (str, True),
-        "Value": (str, True),
-    }
-
-
 class Detector(AWSObject):
     """
     `Detector <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-guardduty-detector.html>`__
@@ -141,8 +155,10 @@ class Condition(AWSProperty):
         "LessThanOrEqual": (integer, False),
         "Lt": (integer, False),
         "Lte": (integer, False),
+        "Matches": ([str], False),
         "Neq": ([str], False),
         "NotEquals": ([str], False),
+        "NotMatches": ([str], False),
     }
 
 

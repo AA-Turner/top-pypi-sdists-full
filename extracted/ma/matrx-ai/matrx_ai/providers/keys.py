@@ -202,12 +202,18 @@ class keyed_provider_client:  # noqa: N801 — descriptor, used like a property
         *env_names: str,
         factory: Callable[[str | None], object],
         required: bool = False,
+        event_loop_bound: bool = False,
     ) -> None:
         if not env_names:
             raise ValueError("keyed_provider_client requires at least one env name")
         self._env_names = env_names
         self._factory = factory
         self._required = required
+        # Some async SDKs (notably xai-sdk's grpc.aio client) bind their
+        # transports to the loop active during construction.  Those clients
+        # must be built on the dispatch loop, while resolving the credential
+        # remains blocking work that belongs on a worker thread.
+        self._event_loop_bound = event_loop_bound
         self._state_attr = "__keyed_client_state"
         self._build_lock = threading.Lock()
 
@@ -221,9 +227,23 @@ class keyed_provider_client:  # noqa: N801 — descriptor, used like a property
         if state is not None and state[0]:
             return state[2]
         try:
-            asyncio.get_running_loop()
+            loop = asyncio.get_running_loop()
         except RuntimeError:
+            if self._event_loop_bound:
+                raise RuntimeError(
+                    "A loop-bound provider SDK client must be prepared on the "
+                    "asyncio event loop before use."
+                )
             return self._get_or_create(obj)
+        if self._event_loop_bound:
+            loop_clients = state[3] if state is not None else None
+            if isinstance(loop_clients, dict) and loop in loop_clients:
+                return loop_clients[loop][1]
+            raise RuntimeError(
+                "A loop-bound provider SDK client was not prepared on this "
+                "asyncio event loop. Call prepare_provider_clients(instance) "
+                "before async dispatch."
+            )
         if state is not None:
             # Async dispatch preflights every keyed client off-loop. During the
             # call, use that stable client without resolving credentials again;
@@ -235,31 +255,91 @@ class keyed_provider_client:  # noqa: N801 — descriptor, used like a property
         )
 
     def _get_or_create(self, obj: object) -> object:
-        api_key = resolve_api_key(*self._env_names, required=self._required)
         state = obj.__dict__.get(self._state_attr)
         if state is not None:
-            pinned, built_key, client = state
+            pinned, built_key, client, _ = state
+            if pinned:
+                return client
+        api_key = resolve_api_key(*self._env_names, required=self._required)
+        if state is not None:
+            pinned, built_key, client, _ = state
             if pinned or built_key == api_key:
                 return client
         with self._build_lock:
             state = obj.__dict__.get(self._state_attr)
             if state is not None:
-                pinned, built_key, client = state
-                if pinned or built_key == api_key:
+                pinned, built_key, client, _ = state
+                if pinned:
                     return client
+            if state is not None and state[1] == api_key:
+                return state[2]
             client = self._factory(api_key)
-            obj.__dict__[self._state_attr] = (False, api_key, client)
+            obj.__dict__[self._state_attr] = (False, api_key, client, None)
             return client
 
     async def prepare(self, obj: object) -> object:
+        state = obj.__dict__.get(self._state_attr)
+        if state is not None and state[0]:
+            return state[2]
+        if self._event_loop_bound:
+            api_key = await asyncio.to_thread(
+                resolve_api_key, *self._env_names, required=self._required
+            )
+            loop = asyncio.get_running_loop()
+            return self._get_or_create_on_loop(obj, api_key, loop)
         return await asyncio.to_thread(self._get_or_create, obj)
 
+    def _get_or_create_on_loop(
+        self,
+        obj: object,
+        api_key: str | None,
+        loop: asyncio.AbstractEventLoop,
+    ) -> object:
+        # ``api_key`` is deliberately resolved before this method runs, on a
+        # worker thread. The short critical section only protects client state;
+        # xAI's constructor must execute on the active event loop.
+        with self._build_lock:
+            state = obj.__dict__.get(self._state_attr)
+            if state is not None and state[0]:
+                return state[2]
+            loop_clients = state[3] if state is not None else None
+            if not isinstance(loop_clients, dict):
+                loop_clients = {}
+            for cached_loop in tuple(loop_clients):
+                if cached_loop.is_closed():
+                    del loop_clients[cached_loop]
+            current = loop_clients.get(loop)
+            if current is not None and current[0] == api_key:
+                return current[1]
+        # Do not hold the cross-thread state lock while an SDK constructs its
+        # loop-bound transport. Each loop builds synchronously, so another
+        # task on this loop cannot race this creation; other loops use their
+        # own map entries.
+        client = self._factory(api_key)
+        with self._build_lock:
+            state = obj.__dict__.get(self._state_attr)
+            if state is not None and state[0]:
+                return state[2]
+            loop_clients = state[3] if state is not None else None
+            if not isinstance(loop_clients, dict):
+                loop_clients = {}
+            # Retain per-loop clients rather than replacing one loop's gRPC
+            # channel with another's. A long-lived adapter can serve work from
+            # more than one event loop (for example, test workers) safely.
+            loop_clients[loop] = (api_key, client)
+            obj.__dict__[self._state_attr] = (False, None, None, loop_clients)
+        return client
+
     def __set__(self, obj: object, value: object) -> None:
-        obj.__dict__[self._state_attr] = (True, None, value)
+        obj.__dict__[self._state_attr] = (True, None, value, None)
 
 
 async def prepare_provider_clients(instance: object) -> None:
-    """Construct every keyed SDK client on a worker thread before dispatch."""
+    """Preflight keyed clients before dispatch.
+
+    Credentials resolve off-loop. Ordinary SDKs also construct off-loop, while
+    descriptors that declare loop-bound transports construct on the active loop.
+    """
     descriptors: list[keyed_provider_client] = []
     for cls in type(instance).__mro__:
         descriptors.extend(

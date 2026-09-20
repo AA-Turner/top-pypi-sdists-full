@@ -7,7 +7,7 @@
 
 
 from . import AWSObject, AWSProperty, PropsDictType, Tags
-from .validators import boolean, integer
+from .validators import boolean, double, integer
 
 
 class ACL(AWSObject):
@@ -96,6 +96,16 @@ class MultiRegionCluster(AWSObject):
     }
 
 
+class MultiRegionParameterGroup(AWSObject):
+    """
+    `MultiRegionParameterGroup <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-multiregionparametergroup.html>`__
+    """
+
+    resource_type = "AWS::MemoryDB::MultiRegionParameterGroup"
+
+    props: PropsDictType = {}
+
+
 class ParameterGroup(AWSObject):
     """
     `ParameterGroup <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-parametergroup.html>`__
@@ -108,6 +118,31 @@ class ParameterGroup(AWSObject):
         "Family": (str, True),
         "ParameterGroupName": (str, True),
         "Parameters": (dict, False),
+        "Tags": (Tags, False),
+    }
+
+
+class ReservedNode(AWSObject):
+    """
+    `ReservedNode <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-reservednode.html>`__
+    """
+
+    resource_type = "AWS::MemoryDB::ReservedNode"
+
+    props: PropsDictType = {}
+
+
+class Snapshot(AWSObject):
+    """
+    `Snapshot <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-memorydb-snapshot.html>`__
+    """
+
+    resource_type = "AWS::MemoryDB::Snapshot"
+
+    props: PropsDictType = {
+        "ClusterName": (str, True),
+        "KmsKeyId": (str, False),
+        "SnapshotName": (str, True),
         "Tags": (Tags, False),
     }
 
@@ -150,4 +185,38 @@ class User(AWSObject):
         "AuthenticationMode": (AuthenticationMode, False),
         "Tags": (Tags, False),
         "UserName": (str, True),
+    }
+
+
+class ClusterConfiguration(AWSProperty):
+    """
+    `ClusterConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-memorydb-snapshot-clusterconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "Engine": (str, False),
+        "EngineVersion": (str, False),
+        "MaintenanceWindow": (str, False),
+        "Name": (str, False),
+        "NodeType": (str, False),
+        "NumShards": (integer, False),
+        "ParameterGroupName": (str, False),
+        "Port": (integer, False),
+        "SnapshotRetentionLimit": (integer, False),
+        "SnapshotWindow": (str, False),
+        "SubnetGroupName": (str, False),
+        "TopicArn": (str, False),
+        "VpcId": (str, False),
+    }
+
+
+class RecurringCharge(AWSProperty):
+    """
+    `RecurringCharge <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-memorydb-reservednode-recurringcharge.html>`__
+    """
+
+    props: PropsDictType = {
+        "RecurringChargeAmount": (double, False),
+        "RecurringChargeFrequency": (str, False),
     }

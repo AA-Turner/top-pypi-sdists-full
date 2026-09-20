@@ -14,8 +14,6 @@ from ..object import MultiStateOutputObject as _MultiStateOutputObject
 from ..object import MultiStateValueObject as _MultiStateValueObject
 from .cmd import Commandable
 from .cov import COVIncrementCriteria
-from .event import OutOfRangeEventAlgorithm
-from .fault import OutOfRangeFaultAlgorithm
 
 # local object provides dynamically generated propertyList property
 from .object import Object as _Object

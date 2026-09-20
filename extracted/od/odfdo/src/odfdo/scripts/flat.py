@@ -27,6 +27,7 @@ ODF documents.
 
 from __future__ import annotations
 
+import contextlib
 from argparse import ArgumentParser, Namespace
 from pathlib import Path
 
@@ -47,6 +48,7 @@ FLAT_EXT_MAP: dict[str, str] = {
 
 
 def configure_parser() -> ArgumentParser:
+    """Configure the command-line argument parser."""
     description = (
         "Convert a standard ODF file (zip archive) or folder structure "
         "to a flat ODF XML file, or convert a flat XML file back to an ODF file."
@@ -72,16 +74,19 @@ def configure_parser() -> ArgumentParser:
 
 
 def parse_cli_args(cli_args: list[str] | None = None) -> Namespace:
+    """Parse command-line arguments."""
     parser = configure_parser()
     return parser.parse_args(cli_args)
 
 
 def main() -> None:
+    """Execute the CLI entry point."""
     args: Namespace = parse_cli_args()
     main_convert_flat(args)
 
 
 def main_convert_flat(args: Namespace) -> None:
+    """Run the main flat conversion CLI logic with error handling."""
     try:
         convert_flat(args.file_or_folder)
     except Exception as e:
@@ -98,22 +103,22 @@ def is_flat_xml_file(path: Path) -> bool:
         return True
     # If .xml extension or no recognized extension, check content
     if path.suffix.lower() in (".xml", ""):
-        try:
+        with contextlib.suppress(OSError):
             content = path.read_bytes()
             # Quick check for XML declaration and office:document element
             if content.lstrip().startswith(b"<?xml") and b"office:document" in content:
                 # Just bet format is ok
                 return True
-        except OSError:
-            pass
     return False
 
 
 def convert_flat(path_str: str) -> None:
+    """Convert the specified file or folder to/from flat XML format."""
     path = Path(path_str)
 
     if not path.exists():
-        raise ValueError(f"Path does not exist: {path}")
+        msg = f"Path does not exist: {path}"
+        raise ValueError(msg)
 
     # Determine if input is flat XML or needs to be converted to flat XML
     if path.is_dir():
@@ -142,7 +147,8 @@ def convert_flat(path_str: str) -> None:
             document = Document(path)
             document.save(packaging=out_packaging, pretty=True)
     else:
-        raise ValueError(f"Not a file or folder: {path}")
+        msg = f"Not a file or folder: {path!r}"
+        raise ValueError(msg)
 
 
 if __name__ == "__main__":

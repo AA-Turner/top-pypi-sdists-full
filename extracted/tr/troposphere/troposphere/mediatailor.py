@@ -111,6 +111,75 @@ class ChannelPolicy(AWSObject):
     }
 
 
+class CustomOutputConfiguration(AWSProperty):
+    """
+    `CustomOutputConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-customoutputconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Output": (dict, False),
+        "Runtime": (str, True),
+    }
+
+
+class HttpRequestConfiguration(AWSProperty):
+    """
+    `HttpRequestConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-httprequestconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Body": (str, False),
+        "Headers": (dict, False),
+        "MethodType": (str, True),
+        "Output": (dict, False),
+        "RequestTimeoutMilliseconds": (integer, True),
+        "Runtime": (str, True),
+        "Url": (str, True),
+    }
+
+
+class FunctionRef(AWSProperty):
+    """
+    `FunctionRef <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-functionref.html>`__
+    """
+
+    props: PropsDictType = {
+        "FunctionId": (str, False),
+        "RunCondition": (str, False),
+    }
+
+
+class SequentialExecutorConfiguration(AWSProperty):
+    """
+    `SequentialExecutorConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-function-sequentialexecutorconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "FunctionList": ([FunctionRef], True),
+        "Output": (dict, False),
+        "Runtime": (str, True),
+        "TimeoutMilliseconds": (integer, True),
+    }
+
+
+class Function(AWSObject):
+    """
+    `Function <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-function.html>`__
+    """
+
+    resource_type = "AWS::MediaTailor::Function"
+
+    props: PropsDictType = {
+        "CustomOutputConfiguration": (CustomOutputConfiguration, False),
+        "Description": (str, False),
+        "FunctionId": (str, True),
+        "FunctionType": (str, True),
+        "HttpRequestConfiguration": (HttpRequestConfiguration, False),
+        "SequentialExecutorConfiguration": (SequentialExecutorConfiguration, False),
+        "Tags": (Tags, False),
+    }
+
+
 class HttpPackageConfiguration(AWSProperty):
     """
     `HttpPackageConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-vodsource-httppackageconfiguration.html>`__
@@ -161,6 +230,16 @@ class HttpRequest(AWSProperty):
     }
 
 
+class VastResponse(AWSProperty):
+    """
+    `VastResponse <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-vastresponse.html>`__
+    """
+
+    props: PropsDictType = {
+        "AdSequencingMode": (str, False),
+    }
+
+
 class AdDecisionServerConfiguration(AWSProperty):
     """
     `AdDecisionServerConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-addecisionserverconfiguration.html>`__
@@ -168,6 +247,32 @@ class AdDecisionServerConfiguration(AWSProperty):
 
     props: PropsDictType = {
         "HttpRequest": (HttpRequest, True),
+        "VastResponse": (VastResponse, False),
+    }
+
+
+class AdsPersonalizationConcurrency(AWSProperty):
+    """
+    `AdsPersonalizationConcurrency <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-adspersonalizationconcurrency.html>`__
+    """
+
+    props: PropsDictType = {
+        "EnableVodVastParallelization": (boolean, False),
+        "MaxConcurrentAdsRequests": (integer, False),
+    }
+
+
+class AdsPersonalizationTimeouts(AWSProperty):
+    """
+    `AdsPersonalizationTimeouts <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-adspersonalizationtimeouts.html>`__
+    """
+
+    props: PropsDictType = {
+        "AdsRequestTimeoutMilliseconds": (integer, False),
+        "LiveMaximumAdsPersonalizationTimeMilliseconds": (integer, False),
+        "PrefetchAdsRequestTimeoutMilliseconds": (integer, False),
+        "PrefetchMaximumAdsPersonalizationTimeMilliseconds": (integer, False),
+        "VodMaximumAdsPersonalizationTimeMilliseconds": (integer, False),
     }
 
 
@@ -227,12 +332,33 @@ class HlsConfiguration(AWSProperty):
     }
 
 
+class PreRollVastResponse(AWSProperty):
+    """
+    `PreRollVastResponse <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-prerollvastresponse.html>`__
+    """
+
+    props: PropsDictType = {
+        "AdSequencingMode": (str, False),
+    }
+
+
+class PreRollAdDecisionServerConfiguration(AWSProperty):
+    """
+    `PreRollAdDecisionServerConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-prerolladdecisionserverconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "VastResponse": (PreRollVastResponse, False),
+    }
+
+
 class LivePreRollConfiguration(AWSProperty):
     """
     `LivePreRollConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-playbackconfiguration-liveprerollconfiguration.html>`__
     """
 
     props: PropsDictType = {
+        "AdDecisionServerConfiguration": (PreRollAdDecisionServerConfiguration, False),
         "AdDecisionServerUrl": (str, False),
         "MaxDurationSeconds": (integer, False),
     }
@@ -303,11 +429,14 @@ class PlaybackConfiguration(AWSObject):
         "AdConditioningConfiguration": (AdConditioningConfiguration, False),
         "AdDecisionServerConfiguration": (AdDecisionServerConfiguration, False),
         "AdDecisionServerUrl": (str, True),
+        "AdsPersonalizationConcurrency": (AdsPersonalizationConcurrency, False),
+        "AdsPersonalizationTimeouts": (AdsPersonalizationTimeouts, False),
         "AvailSuppression": (AvailSuppression, False),
         "Bumper": (Bumper, False),
         "CdnConfiguration": (CdnConfiguration, False),
         "ConfigurationAliases": (dict, False),
         "DashConfiguration": (DashConfiguration, False),
+        "FunctionMapping": (dict, False),
         "HlsConfiguration": (HlsConfiguration, False),
         "InsertionMode": (str, False),
         "LivePreRollConfiguration": (LivePreRollConfiguration, False),
@@ -319,6 +448,122 @@ class PlaybackConfiguration(AWSObject):
         "Tags": (Tags, False),
         "TranscodeProfileName": (str, False),
         "VideoContentSourceUrl": (str, True),
+    }
+
+
+class AvailMatchingCriteria(AWSProperty):
+    """
+    `AvailMatchingCriteria <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-availmatchingcriteria.html>`__
+    """
+
+    props: PropsDictType = {
+        "DynamicVariable": (str, True),
+        "Operator": (str, True),
+    }
+
+
+class PrefetchConsumption(AWSProperty):
+    """
+    `PrefetchConsumption <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-prefetchconsumption.html>`__
+    """
+
+    props: PropsDictType = {
+        "AvailMatchingCriteria": ([AvailMatchingCriteria], False),
+        "EndTime": (str, True),
+        "StartTime": (str, False),
+    }
+
+
+class TrafficShapingRetrievalWindow(AWSProperty):
+    """
+    `TrafficShapingRetrievalWindow <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-trafficshapingretrievalwindow.html>`__
+    """
+
+    props: PropsDictType = {
+        "RetrievalWindowDurationSeconds": (integer, False),
+    }
+
+
+class TrafficShapingTpsConfiguration(AWSProperty):
+    """
+    `TrafficShapingTpsConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-trafficshapingtpsconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "PeakConcurrentUsers": (integer, False),
+        "PeakTps": (integer, False),
+    }
+
+
+class PrefetchRetrieval(AWSProperty):
+    """
+    `PrefetchRetrieval <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-prefetchretrieval.html>`__
+    """
+
+    props: PropsDictType = {
+        "DynamicVariables": (dict, False),
+        "EndTime": (str, True),
+        "StartTime": (str, False),
+        "TrafficShapingRetrievalWindow": (TrafficShapingRetrievalWindow, False),
+        "TrafficShapingTpsConfiguration": (TrafficShapingTpsConfiguration, False),
+        "TrafficShapingType": (str, False),
+    }
+
+
+class RecurringConsumption(AWSProperty):
+    """
+    `RecurringConsumption <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-recurringconsumption.html>`__
+    """
+
+    props: PropsDictType = {
+        "AvailMatchingCriteria": ([AvailMatchingCriteria], False),
+        "RetrievedAdExpirationSeconds": (integer, False),
+    }
+
+
+class RecurringRetrieval(AWSProperty):
+    """
+    `RecurringRetrieval <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-recurringretrieval.html>`__
+    """
+
+    props: PropsDictType = {
+        "DelayAfterAvailEndSeconds": (integer, False),
+        "DynamicVariables": (dict, False),
+        "TrafficShapingRetrievalWindow": (TrafficShapingRetrievalWindow, False),
+        "TrafficShapingTpsConfiguration": (TrafficShapingTpsConfiguration, False),
+        "TrafficShapingType": (str, False),
+    }
+
+
+class RecurringPrefetchConfiguration(AWSProperty):
+    """
+    `RecurringPrefetchConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediatailor-prefetchschedule-recurringprefetchconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "EndTime": (str, True),
+        "RecurringConsumption": (RecurringConsumption, True),
+        "RecurringRetrieval": (RecurringRetrieval, True),
+        "StartTime": (str, False),
+    }
+
+
+class PrefetchSchedule(AWSObject):
+    """
+    `PrefetchSchedule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediatailor-prefetchschedule.html>`__
+    """
+
+    resource_type = "AWS::MediaTailor::PrefetchSchedule"
+
+    props: PropsDictType = {
+        "Consumption": (PrefetchConsumption, False),
+        "Name": (str, True),
+        "PlaybackConfigurationName": (str, True),
+        "RecurringPrefetchConfiguration": (RecurringPrefetchConfiguration, False),
+        "Retrieval": (PrefetchRetrieval, False),
+        "ScheduleType": (str, False),
+        "StreamId": (str, False),
+        "Tags": (Tags, False),
     }
 
 

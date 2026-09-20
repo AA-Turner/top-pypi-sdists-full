@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: djlint
-Version: 1.46.1
+Version: 1.46.2
 Summary: HTML template linter and formatter (Django, Jinja, Twig, Nunjucks, Handlebars, Liquid, Go templates)
 Project-URL: documentation, https://djlint.com
 Project-URL: repository, https://github.com/djlint/djLint
@@ -33,7 +33,7 @@ Requires-Dist: jsbeautifier>=1.13.0
 Requires-Dist: json5>=0.10.0
 Requires-Dist: pathspec>=0.9.0
 Requires-Dist: pyyaml>=5.1
-Requires-Dist: regex>=2022.6.2
+Requires-Dist: regex>=2021.8.21
 Requires-Dist: tomli>=0.2.0; python_version < '3.11'
 Requires-Dist: typing-extensions>=4.3.0; python_version < '3.13'
 Description-Content-Type: text/markdown
@@ -183,7 +183,7 @@ Or use `pre-commit` to reformat, then lint!
 ```yaml
 repos:
   - repo: https://github.com/djlint/djLint
-    rev: v1.45.2 # use the latest version instead
+    rev: v1.46.2 # use the latest version instead
     hooks:
       - id: djlint-reformat
       - id: djlint

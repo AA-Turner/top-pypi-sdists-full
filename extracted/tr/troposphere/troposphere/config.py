@@ -267,9 +267,44 @@ class ConformancePack(AWSObject):
         "ConformancePackName": (str, True),
         "DeliveryS3Bucket": (str, False),
         "DeliveryS3KeyPrefix": (str, False),
+        "Tags": (Tags, False),
         "TemplateBody": (str, False),
         "TemplateS3Uri": (str, False),
         "TemplateSSMDocumentDetails": (TemplateSSMDocumentDetails, False),
+    }
+
+
+class AzureConnectorConfiguration(AWSProperty):
+    """
+    `AzureConnectorConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-config-connector-azureconnectorconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ClientIdentifier": (str, True),
+        "TenantIdentifier": (str, True),
+    }
+
+
+class ConnectorConfiguration(AWSProperty):
+    """
+    `ConnectorConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-config-connector-connectorconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Azure": (AzureConnectorConfiguration, False),
+    }
+
+
+class Connector(AWSObject):
+    """
+    `Connector <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-config-connector.html>`__
+    """
+
+    resource_type = "AWS::Config::Connector"
+
+    props: PropsDictType = {
+        "ConnectorConfiguration": (ConnectorConfiguration, True),
+        "Tags": (Tags, False),
     }
 
 
@@ -387,6 +422,7 @@ class OrganizationConformancePack(AWSObject):
         "DeliveryS3KeyPrefix": (str, False),
         "ExcludedAccounts": ([str], False),
         "OrganizationConformancePackName": (str, True),
+        "Tags": (Tags, False),
         "TemplateBody": (str, False),
         "TemplateS3Uri": (str, False),
     }
@@ -446,35 +482,4 @@ class StoredQuery(AWSObject):
         "QueryExpression": (str, True),
         "QueryName": (str, True),
         "Tags": (Tags, False),
-    }
-
-
-class ResourceValue(AWSProperty):
-    """
-    `ResourceValue <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-config-remediationconfiguration-resourcevalue.html>`__
-    """
-
-    props: PropsDictType = {
-        "Value": (str, False),
-    }
-
-
-class StaticValue(AWSProperty):
-    """
-    `StaticValue <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-config-remediationconfiguration-staticvalue.html>`__
-    """
-
-    props: PropsDictType = {
-        "Values": ([str], False),
-    }
-
-
-class RemediationParameterValue(AWSProperty):
-    """
-    `RemediationParameterValue <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-config-remediationconfiguration-remediationparametervalue.html>`__
-    """
-
-    props: PropsDictType = {
-        "ResourceValue": (ResourceValue, False),
-        "StaticValue": (StaticValue, False),
     }

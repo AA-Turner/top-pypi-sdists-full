@@ -1064,6 +1064,7 @@ type IconItems = typing.Literal[
     "GP_DRAW_STROKE",  # GP_DRAW_STROKE.
     "GP_DRAW_FILL",  # GP_DRAW_FILL.
     "GP_DRAW_BOTH",  # GP_DRAW_BOTH.
+    "GP_CYCLIC_STROKE",  # GP_CYCLIC_STROKE.
     "MOUSE_LMB",  # MOUSE_LMB.
     "MOUSE_MMB",  # MOUSE_MMB.
     "MOUSE_RMB",  # MOUSE_RMB.

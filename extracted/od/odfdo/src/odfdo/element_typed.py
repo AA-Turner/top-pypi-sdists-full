@@ -54,13 +54,14 @@ class ElementTyped(Element):
                 obsolete.delete()
 
     def set_text_content(self, text: str | Element | None) -> None:
-        """Sets the text content of the embedded paragraph.
+        """Set the text content of the embedded paragraph.
 
         This operation overwrites all existing text nodes and children
         that may contain text.
 
         Args:
             text: The new text content.
+
         """
         self.delete_children()
         self.text_content = text
@@ -118,6 +119,7 @@ class ElementTyped(Element):
 
         Raises:
             TypeError: If the type of `value` is not supported.
+
         """
         # Remove possible previous value and type
         self.clear_attrinutes()
@@ -182,7 +184,8 @@ class ElementTyped(Element):
                 text = str(Duration.encode(value))
             value = Duration.encode(value)
         else:
-            raise TypeError(f"Type unknown: '{value!r}'")
+            msg = f"Type unknown: {value!r}"
+            raise TypeError(msg)
 
         if isinstance(value_type, str):
             self.set_attribute("office:value-type", value_type)
@@ -215,7 +218,8 @@ class ElementTyped(Element):
         """
         read_number = self.get_attribute_string("office:value")
         if read_number is None:
-            raise ValueError('"office:value" has None value')
+            msg = '"office:value" has None value'
+            raise ValueError(msg)
         value = Decimal(read_number)
         # Return 3 instead of 3.0 if possible
         if not value.is_nan() and not value.is_infinite():
@@ -240,7 +244,8 @@ class ElementTyped(Element):
         """Get the date or datetime value from the 'office:date-value' attribute."""
         read_attribute = self.get_attribute_string("office:date-value")
         if read_attribute is None:
-            raise ValueError('"office:date-value" has None value')
+            msg = '"office:date-value" has None value'
+            raise ValueError(msg)
         if "T" in read_attribute:
             return DateTime.decode(read_attribute)
         return Date.decode(read_attribute)
@@ -265,7 +270,8 @@ class ElementTyped(Element):
         """Get the time value from the 'office:time-value' attribute."""
         read_value = self.get_attribute_string("office:time-value")
         if read_value is None:
-            raise ValueError('"office:time-value" has None value')
+            msg = '"office:time-value" has None value'
+            raise ValueError(msg)
         return Duration.decode(read_value)
 
     def _get_typed_value(
@@ -288,12 +294,14 @@ class ElementTyped(Element):
 
         Raises:
             TypeError: If the `value_type` is not supported.
+
         """
         if value_type == "string":
             return self._get_typed_value_string(try_get_text)
         method = getattr(self, f"_get_typed_value_{value_type}", None)
         if method is None:
-            raise TypeError(f"Unexpected value type: {value_type}")
+            msg = f"Unexpected value type: {value_type!r}"
+            raise TypeError(msg)
         return method()
 
     def _get_value_and_type(
@@ -313,6 +321,7 @@ class ElementTyped(Element):
             tuple[Any, str | None]: A tuple containing the Python-typed value
                 and the ODF value type string, or (None, None) if the type
                 cannot be determined.
+
         """
         if value_type is None:
             read_value_type = self.get_attribute_string("office:value-type")
@@ -349,6 +358,7 @@ class ElementTyped(Element):
         Returns:
             The Python-typed value, or a tuple of (value, type_string) if
             `get_type` is True.
+
         """
         value, actual_type = self._get_value_and_type(
             value_type=value_type, try_get_text=try_get_text

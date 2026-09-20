@@ -74,6 +74,7 @@ class AnnotationMixin(Element):
 
         Returns:
             list[Annotation]: A list of matching Annotation elements.
+
         """
         annotations: list[Annotation] = []
         for annotation in cast(
@@ -114,6 +115,7 @@ class AnnotationMixin(Element):
 
         Returns:
             Annotation or None: The matching Annotation element, or None if not found.
+
         """
         if name is not None:
             return cast(
@@ -140,6 +142,7 @@ class AnnotationMixin(Element):
 
         Returns:
             list[AnnotationEnd]: A list of AnnotationEnd elements.
+
         """
         return cast(
             "list[AnnotationEnd]",
@@ -162,6 +165,7 @@ class AnnotationMixin(Element):
         Returns:
             AnnotationEnd or None: The matching AnnotationEnd element, or
                 None if not found.
+
         """
         return cast(
             "AnnotationEnd | None",
@@ -179,6 +183,7 @@ def get_unique_office_name(element: Element | None = None) -> str:
 
     Returns:
         str: A unique name.
+
     """
     if element is not None:
         body = element.document_body
@@ -213,6 +218,7 @@ class Annotation(MDTail, ListMixin, LinkMixin, Element, DcCreatorMixin, DcDateMi
         creator (str): The creator of the annotation.
         date (datetime): The date of the annotation.
         note_body (str or Element): The body content of the annotation.
+
     """
 
     _tag = "office:annotation"
@@ -249,6 +255,8 @@ class Annotation(MDTail, ListMixin, LinkMixin, Element, DcCreatorMixin, DcDateMi
                 name is generated.
             parent: The parent element to which this annotation will be
                 associated for name generation.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         # fixme : use offset
         # TODO allow paragraph and text styles
@@ -285,6 +293,7 @@ class Annotation(MDTail, ListMixin, LinkMixin, Element, DcCreatorMixin, DcDateMi
 
     @property
     def note_body(self) -> str:
+        """Get or set the text content or element of the annotation body."""
         return self.text_content
 
     @note_body.setter
@@ -297,7 +306,8 @@ class Annotation(MDTail, ListMixin, LinkMixin, Element, DcCreatorMixin, DcDateMi
             self.clear()
             self.append(text_or_element)
         else:
-            raise TypeError(f'Unexpected type for body: "{type(text_or_element)}"')
+            msg = f"Unexpected type for body: {type(text_or_element)!r}"
+            raise TypeError(msg)
 
     @property
     def start(self) -> Annotation:
@@ -309,8 +319,9 @@ class Annotation(MDTail, ListMixin, LinkMixin, Element, DcCreatorMixin, DcDateMi
         """Return the corresponding annotation-end tag or None."""
         name = self.name
         parent = self.parent
-        if parent is None:  # pragma: nocover
-            raise ValueError("Can't find end tag: no parent available")
+        if parent is None:
+            msg = "Can't find end tag: no parent available"
+            raise ValueError(msg)
         body: Body | Element = self.document_body or parent
         method = getattr(body, "get_annotation_end", None)
         if callable(method):
@@ -323,7 +334,7 @@ class Annotation(MDTail, ListMixin, LinkMixin, Element, DcCreatorMixin, DcDateMi
         no_header: bool = True,
         clean: bool = True,
     ) -> Element | list | str | None:
-        """Returns the annotated content from an annotation.
+        """Return the annotated content from an annotation.
 
         If no content exists (e.g., single position annotation or if the
         annotation-end tag is not found), it returns an empty list or an
@@ -341,6 +352,7 @@ class Annotation(MDTail, ListMixin, LinkMixin, Element, DcCreatorMixin, DcDateMi
             Element | list | str | None: The content of the annotation, which
             can be a single element, a list of elements, a string, or None if
             the end tag is missing.
+
         """
         end = self.end
         if end is None:
@@ -364,6 +376,7 @@ class Annotation(MDTail, ListMixin, LinkMixin, Element, DcCreatorMixin, DcDateMi
                 the annotation itself is deleted. Defaults to None.
             keep_tail: This argument is not used in this context but is
                 kept for compatibility. Defaults to True.
+
         """
         if child is not None:  # act like normal delete
             super().delete(child)
@@ -375,11 +388,13 @@ class Annotation(MDTail, ListMixin, LinkMixin, Element, DcCreatorMixin, DcDateMi
         super().delete()
 
     def check_validity(self) -> None:
-        """Checks the validity of the Annotation."""
+        """Check the validity of the Annotation."""
         if not self.note_body:
-            raise ValueError("Annotation must have a body")
+            msg = "Annotation must have a body"
+            raise ValueError(msg)
         if not self.dc_creator:
-            raise ValueError("Annotation must have a creator")
+            msg = "Annotation must have a creator"
+            raise ValueError(msg)
         if not self.dc_date:
             self.dc_date = datetime.now()
 
@@ -405,6 +420,7 @@ class AnnotationEnd(MDTail, Element):
         name (str): The name of the annotation this element is closing. This
                     name must match the 'office:name' of a preceding
                     "office:annotation" element.
+
     """
 
     _tag = "office:annotation-end"
@@ -428,6 +444,8 @@ class AnnotationEnd(MDTail, Element):
                 attribute will be taken from this annotation.
             name: The name of the annotation to close. This is
                 required if 'annotation' is not provided.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         # fixme : use offset
         # TODO allow paragraph and text styles
@@ -436,7 +454,8 @@ class AnnotationEnd(MDTail, Element):
             if annotation:
                 name = annotation.name
             if not name:
-                raise ValueError("Annotation-end must have a name")
+                msg = "Annotation-end must have a name"
+                raise ValueError(msg)
             self.name = name
 
     @property
@@ -445,14 +464,13 @@ class AnnotationEnd(MDTail, Element):
         name = self.name
         parent = self.parent
         if parent is None:
-            raise ValueError(
-                "Can't find start tag: no parent available"
-            )  # pragma: nocover
+            msg = "Can't find start tag: no parent available"
+            raise ValueError(msg)
         body: Body | Element = self.document_body or parent
         method = getattr(body, "get_annotation", None)
-        if callable(method):  # pragma: nocover
+        if callable(method):
             return cast("Annotation | None", method(name=name))
-        return None  # pragma: nocover
+        return None
 
     @property
     def end(self) -> AnnotationEnd:

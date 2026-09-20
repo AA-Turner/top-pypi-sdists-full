@@ -8,26 +8,24 @@ import asyncio
 from functools import partial
 from typing import TYPE_CHECKING, Callable, Dict, List, Optional, Union
 
-from ..debugging import ModuleLogger, DebugContents, bacpypes_debugging
-
-from ..comm import Client, Server, ServiceAccessPoint, ApplicationServiceElement
-from ..pdu import Address, LocalBroadcast, IPv6Address, VirtualAddress, PDU
-
+from ..comm import ApplicationServiceElement, Client, Server, ServiceAccessPoint
+from ..debugging import DebugContents, ModuleLogger, bacpypes_debugging
+from ..pdu import PDU, Address, IPv6Address, LocalBroadcast, VirtualAddress
 from .bvll import (
     LPDU,
-    FDTEntry,
-    Result,
-    OriginalUnicastNPDU,
-    OriginalBroadcastNPDU,
     AddressResolution,
-    ForwardedAddressResolution,
     AddressResolutionACK,
-    VirtualAddressResolution,
-    VirtualAddressResolutionACK,
-    ForwardedNPDU,
-    RegisterForeignDevice,
     DeleteForeignDeviceTableEntry,
     DistributeBroadcastToNetwork,
+    FDTEntry,
+    ForwardedAddressResolution,
+    ForwardedNPDU,
+    OriginalBroadcastNPDU,
+    OriginalUnicastNPDU,
+    RegisterForeignDevice,
+    Result,
+    VirtualAddressResolution,
+    VirtualAddressResolutionACK,
 )
 
 if TYPE_CHECKING:
@@ -185,7 +183,6 @@ class BVLLServiceAccessPoint(Client[LPDU], Server[PDU], ServiceAccessPoint):
 
 @bacpypes_debugging
 class BIPNormal(BVLLServiceAccessPoint, DebugContents):
-
     _debug: Callable[..., None]
     _warning: Callable[..., None]
 
@@ -363,9 +360,9 @@ class BIPNormal(BVLLServiceAccessPoint, DebugContents):
 
         elif isinstance(lpdu, ForwardedNPDU):
             # update the virtual address table
-            self.vmac_addr_table[
-                lpdu.bvlciSourceVirtualAddress
-            ] = lpdu.bvlciSourceIPv6Address
+            self.vmac_addr_table[lpdu.bvlciSourceVirtualAddress] = (
+                lpdu.bvlciSourceIPv6Address
+            )
 
             # build a PDU with the source from the real source
             pdu = PDU(
@@ -424,7 +421,6 @@ class BIPNormal(BVLLServiceAccessPoint, DebugContents):
 
 @bacpypes_debugging
 class BIPForeign(BVLLServiceAccessPoint, DebugContents):
-
     _debug: Callable[..., None]
     _warning: Callable[..., None]
     _debug_contents = ("bbmdAddress", "bbmdTimeToLive", "bbmdRegistrationStatus")
@@ -688,9 +684,9 @@ class BIPForeign(BVLLServiceAccessPoint, DebugContents):
 
         elif isinstance(lpdu, ForwardedNPDU):
             # update the virtual address table
-            self.vmac_addr_table[
-                lpdu.bvlciSourceVirtualAddress
-            ] = lpdu.bvlciSourceIPv6Address
+            self.vmac_addr_table[lpdu.bvlciSourceVirtualAddress] = (
+                lpdu.bvlciSourceIPv6Address
+            )
 
             # check the BBMD registration status, we may not be registered
             if not self._registration_event.is_set():
@@ -944,7 +940,6 @@ class BIPForeign(BVLLServiceAccessPoint, DebugContents):
 
 @bacpypes_debugging
 class BIPBBMD(BVLLServiceAccessPoint, DebugContents):
-
     _debug: Callable[..., None]
     _warning: Callable[..., None]
     _debug_contents = ("bbmdAddress", "bbmdBDT+", "bbmdFDT++")
@@ -1319,9 +1314,9 @@ class BIPBBMD(BVLLServiceAccessPoint, DebugContents):
             # send it upstream if there is a network layer
             if self.serverPeer:
                 # update the virtual address table
-                self.vmac_addr_table[
-                    lpdu.bvlciSourceVirtualAddress
-                ] = lpdu.bvlciSourceIPv6Address
+                self.vmac_addr_table[lpdu.bvlciSourceVirtualAddress] = (
+                    lpdu.bvlciSourceIPv6Address
+                )
 
                 # build a PDU with a local broadcast address
                 pdu = PDU(
@@ -1538,7 +1533,6 @@ class BIPBBMD(BVLLServiceAccessPoint, DebugContents):
 
 @bacpypes_debugging
 class BVLLServiceElement(ApplicationServiceElement):
-
     _debug: Callable[..., None]
     _warning: Callable[..., None]
 

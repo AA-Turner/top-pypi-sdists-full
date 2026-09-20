@@ -59,6 +59,7 @@ class XAIImageGeneration(BaseMediaGeneration):
     client = keyed_provider_client(
         "XAI_API_KEY",
         factory=lambda api_key: xai_sdk.AsyncClient(api_key=api_key),
+        event_loop_bound=True,
     )
 
     @staticmethod

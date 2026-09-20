@@ -1,9 +1,9 @@
-from typing import Any as _Any, Callable, Optional, Union
+from typing import Any as _Any
+from typing import Callable, Optional, Union
 
-from bacpypes3.debugging import bacpypes_debugging, ModuleLogger
-
-from bacpypes3.errors import PropertyError
 from bacpypes3.basetypes import PropertyIdentifier
+from bacpypes3.debugging import ModuleLogger, bacpypes_debugging
+from bacpypes3.errors import PropertyError
 
 # some debugging
 _debug = 0

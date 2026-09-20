@@ -110,6 +110,16 @@ class Listener(AWSObject):
     }
 
 
+class CidrResource(AWSProperty):
+    """
+    `CidrResource <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-vpclattice-resourceconfiguration-cidrresource.html>`__
+    """
+
+    props: PropsDictType = {
+        "CidrRanges": ([str], True),
+    }
+
+
 class DnsResource(AWSProperty):
     """
     `DnsResource <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-vpclattice-resourceconfiguration-dnsresource.html>`__
@@ -128,6 +138,7 @@ class ResourceConfigurationDefinition(AWSProperty):
 
     props: PropsDictType = {
         "ArnResource": (str, False),
+        "CidrResource": (CidrResource, False),
         "DnsResource": (DnsResource, False),
         "IpResource": (str, False),
     }
@@ -157,6 +168,16 @@ class ResourceConfiguration(AWSObject):
     }
 
 
+class ResourceEndpointAssociation(AWSObject):
+    """
+    `ResourceEndpointAssociation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourceendpointassociation.html>`__
+    """
+
+    resource_type = "AWS::VpcLattice::ResourceEndpointAssociation"
+
+    props: PropsDictType = {}
+
+
 class ResourceGateway(AWSObject):
     """
     `ResourceGateway <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-vpclattice-resourcegateway.html>`__
@@ -168,6 +189,7 @@ class ResourceGateway(AWSObject):
         "IpAddressType": (str, False),
         "Ipv4AddressesPerEni": (integer, False),
         "Name": (str, True),
+        "ResourceConfigDnsResolution": (str, False),
         "SecurityGroupIds": ([str], False),
         "SubnetIds": ([str], True),
         "Tags": (Tags, False),
@@ -308,6 +330,7 @@ class Service(AWSObject):
         "CertificateArn": (str, False),
         "CustomDomainName": (str, False),
         "DnsEntry": (DnsEntry, False),
+        "IdleTimeoutSeconds": (integer, False),
         "Name": (str, False),
         "Tags": (Tags, False),
     }

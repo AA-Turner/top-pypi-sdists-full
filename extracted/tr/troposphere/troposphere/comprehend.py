@@ -7,6 +7,34 @@
 
 
 from . import AWSObject, AWSProperty, PropsDictType, Tags
+from .validators import integer
+
+
+class InputDataConfig(AWSProperty):
+    """
+    `InputDataConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-targetedsentimentdetectionjob-inputdataconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "InputFormat": (str, False),
+        "S3Uri": (str, True),
+    }
+
+
+class DocumentClassificationJob(AWSObject):
+    """
+    `DocumentClassificationJob <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassificationjob.html>`__
+    """
+
+    resource_type = "AWS::Comprehend::DocumentClassificationJob"
+
+    props: PropsDictType = {
+        "DataAccessRoleArn": (str, True),
+        "DocumentClassifierArn": (str, True),
+        "InputDataConfig": (InputDataConfig, True),
+        "JobName": (str, False),
+        "Tags": (Tags, False),
+    }
 
 
 class AugmentedManifestsListItem(AWSProperty):
@@ -106,6 +134,53 @@ class DocumentClassifier(AWSObject):
     }
 
 
+class DocumentClassifierEndpoint(AWSObject):
+    """
+    `DocumentClassifierEndpoint <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-documentclassifierendpoint.html>`__
+    """
+
+    resource_type = "AWS::Comprehend::DocumentClassifierEndpoint"
+
+    props: PropsDictType = {
+        "DesiredInferenceUnits": (integer, True),
+        "EndpointName": (str, True),
+        "ModelArn": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
+class DominantLanguageDetectionJob(AWSObject):
+    """
+    `DominantLanguageDetectionJob <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-dominantlanguagedetectionjob.html>`__
+    """
+
+    resource_type = "AWS::Comprehend::DominantLanguageDetectionJob"
+
+    props: PropsDictType = {
+        "DataAccessRoleArn": (str, False),
+        "InputDataConfig": (InputDataConfig, False),
+        "JobName": (str, False),
+        "Tags": (Tags, False),
+        "VolumeKmsKeyId": (str, False),
+    }
+
+
+class EntitiesDetectionJob(AWSObject):
+    """
+    `EntitiesDetectionJob <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-entitiesdetectionjob.html>`__
+    """
+
+    resource_type = "AWS::Comprehend::EntitiesDetectionJob"
+
+    props: PropsDictType = {
+        "DataAccessRoleArn": (str, True),
+        "InputDataConfig": (InputDataConfig, True),
+        "JobName": (str, False),
+        "LanguageCode": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
 class DataSecurityConfig(AWSProperty):
     """
     `DataSecurityConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-flywheel-datasecurityconfig.html>`__
@@ -178,4 +253,105 @@ class Flywheel(AWSObject):
         "ModelType": (str, False),
         "Tags": (Tags, False),
         "TaskConfig": (TaskConfig, False),
+    }
+
+
+class FlywheelDataset(AWSObject):
+    """
+    `FlywheelDataset <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-flywheeldataset.html>`__
+    """
+
+    resource_type = "AWS::Comprehend::FlywheelDataset"
+
+    props: PropsDictType = {
+        "DatasetName": (str, True),
+        "DatasetType": (str, False),
+        "Description": (str, False),
+        "FlywheelArn": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
+class RedactionConfig(AWSProperty):
+    """
+    `RedactionConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-piientitiesdetectionjob-redactionconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "MaskCharacter": (str, False),
+        "MaskMode": (str, False),
+        "PiiEntityTypes": ([str], False),
+    }
+
+
+class TagsItems(AWSProperty):
+    """
+    `TagsItems <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-targetedsentimentdetectionjob-tagsitems.html>`__
+    """
+
+    props: PropsDictType = {
+        "Key": (str, True),
+        "Value": (str, True),
+    }
+
+
+class PiiEntitiesDetectionJob(AWSObject):
+    """
+    `PiiEntitiesDetectionJob <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-piientitiesdetectionjob.html>`__
+    """
+
+    resource_type = "AWS::Comprehend::PiiEntitiesDetectionJob"
+
+    props: PropsDictType = {
+        "DataAccessRoleArn": (str, True),
+        "InputDataConfig": (InputDataConfig, True),
+        "JobName": (str, False),
+        "LanguageCode": (str, True),
+        "Mode": (str, True),
+        "RedactionConfig": (RedactionConfig, False),
+        "Tags": ([TagsItems], False),
+    }
+
+
+class SentimentDetectionJob(AWSObject):
+    """
+    `SentimentDetectionJob <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-sentimentdetectionjob.html>`__
+    """
+
+    resource_type = "AWS::Comprehend::SentimentDetectionJob"
+
+    props: PropsDictType = {
+        "DataAccessRoleArn": (str, True),
+        "InputDataConfig": (InputDataConfig, True),
+        "JobName": (str, False),
+        "LanguageCode": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
+class TargetedSentimentDetectionJob(AWSObject):
+    """
+    `TargetedSentimentDetectionJob <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-comprehend-targetedsentimentdetectionjob.html>`__
+    """
+
+    resource_type = "AWS::Comprehend::TargetedSentimentDetectionJob"
+
+    props: PropsDictType = {
+        "DataAccessRoleArn": (str, True),
+        "InputDataConfig": (InputDataConfig, True),
+        "JobName": (str, False),
+        "LanguageCode": (str, True),
+        "Tags": ([TagsItems], False),
+        "VolumeKmsKeyId": (str, False),
+    }
+
+
+class OutputDataConfig(AWSProperty):
+    """
+    `OutputDataConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-comprehend-targetedsentimentdetectionjob-outputdataconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "KmsKeyId": (str, False),
+        "S3Uri": (str, True),
     }

@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import httpx
+import pytest
 
 from matrx_ai.catalog.errors import CatalogRoutingError
 from matrx_ai.providers.errors import (
@@ -32,6 +33,33 @@ def test_internal_defect_type_is_consistent_across_entry_points() -> None:
     assert classify_anthropic_error(error).error_type == "matrx_internal_error"
     assert classify_provider_error("anthropic", error).error_type == "matrx_internal_error"
     assert classify_provider_error("unknown", error).is_retryable is False
+
+
+@pytest.mark.parametrize(
+    "message",
+    [
+        "There is no current event loop in thread 'asyncio_4'.",
+        "no running event loop",
+        "Event loop is closed",
+        "Task <Task pending> got Future <Future pending> attached to a different loop",
+    ],
+)
+@pytest.mark.parametrize("provider", ["xai", "openai", "unknown"])
+def test_event_loop_defects_are_internal_and_not_retried(message: str, provider: str) -> None:
+    classified = classify_provider_error(provider, RuntimeError(message))
+
+    assert classified.error_type == "matrx_internal_error"
+    assert classified.is_retryable is False
+    assert classified.message == message
+    assert "internal error" in classified.user_message
+    assert "Retrying" not in classified.user_message
+
+
+def test_runtime_provider_congestion_remains_retryable() -> None:
+    classified = classify_provider_error("xai", RuntimeError("429 rate limit"))
+
+    assert classified.error_type != "matrx_internal_error"
+    assert classified.is_retryable is True
 
 
 def test_catalog_routing_failure_is_explicit_and_never_retried() -> None:
@@ -111,9 +139,9 @@ def test_provider_adapters_do_not_log_tracebacks_or_emit_terminal_errors() -> No
     for relative_path in adapter_paths:
         source = (providers_root / relative_path).read_text()
         assert "traceback.print_exc" not in source, relative_path
-        assert (
-            "error_type=error_info.error_type" not in source
-        ), f"{relative_path} emits a classified exception instead of rethrowing it"
+        assert "error_type=error_info.error_type" not in source, (
+            f"{relative_path} emits a classified exception instead of rethrowing it"
+        )
 
 
 def test_tool_id_boundary_leak_is_our_bug_and_never_retried() -> None:

@@ -18,7 +18,8 @@
 # The odfdo project is a derivative work of the lpod-python project:
 # https://github.com/lpod/lpod-python
 """Mixin class for elements that can contain table of content,
-"text:table-of-content"."""
+"text:table-of-content".
+"""
 
 from __future__ import annotations
 
@@ -55,10 +56,11 @@ class TocMixin(Element):
     """
 
     def get_tocs(self) -> list[TOC]:
-        """Returns all tables of contents found within the element's subtree.
+        """Return all tables of contents found within the element's subtree.
 
         Returns:
             list[TOC]: A list of TOC instances.
+
         """
         return self.get_elements("text:table-of-content")  # ty: ignore[invalid-return-type]
 
@@ -68,6 +70,7 @@ class TocMixin(Element):
 
         Returns:
             list[TOC]: A list of TOC instances.
+
         """
         return self.get_elements("text:table-of-content")  # ty: ignore[invalid-return-type]
 
@@ -76,7 +79,7 @@ class TocMixin(Element):
         position: int = 0,
         content: str | None = None,
     ) -> TOC | None:
-        """Returns a single table of contents that matches the specified criteria.
+        """Return a single table of contents that matches the specified criteria.
 
         Args:
             position: The 0-based index of the matching table of contents to return.
@@ -84,6 +87,7 @@ class TocMixin(Element):
 
         Returns:
             TOC | None: A TOC instance, or None if no TOC matches the criteria.
+
         """
         return self._filtered_element(
             "text:table-of-content", position, content=content
@@ -95,5 +99,6 @@ class TocMixin(Element):
 
         Returns:
             The first TOC instance, or None if not found.
+
         """
         return self.get_toc()

@@ -23,6 +23,43 @@ from .validators.cloudformation import Metadata  # noqa: F401
 from .validators.cloudformation import validate_int_to_str, validate_wait_condition
 
 
+class TagsItems(AWSProperty):
+    """
+    `TagsItems <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-changeset-tagsitems.html>`__
+    """
+
+    props: PropsDictType = {
+        "Key": (str, True),
+        "Value": (str, True),
+    }
+
+
+class ChangeSet(AWSObject):
+    """
+    `ChangeSet <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-changeset.html>`__
+    """
+
+    resource_type = "AWS::CloudFormation::ChangeSet"
+
+    props: PropsDictType = {
+        "Capabilities": ([str], False),
+        "ChangeSetName": (str, True),
+        "ChangeSetType": (str, False),
+        "DeploymentMode": (str, False),
+        "Description": (str, False),
+        "ImportExistingResources": (boolean, False),
+        "IncludeNestedStacks": (boolean, False),
+        "NotificationARNs": ([str], False),
+        "OnStackFailure": (str, False),
+        "RoleARN": (str, False),
+        "StackName": (str, True),
+        "Tags": ([TagsItems], False),
+        "TemplateBody": (str, False),
+        "TemplateURL": (str, False),
+        "UsePreviousTemplate": (boolean, False),
+    }
+
+
 class CustomResource(AWSObject):
     """
     `CustomResource <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cfn-customresource.html>`__
@@ -33,6 +70,30 @@ class CustomResource(AWSObject):
     props: PropsDictType = {
         "ServiceTimeout": (integer, False),
         "ServiceToken": (str, True),
+    }
+
+
+class TemplateConfiguration(AWSProperty):
+    """
+    `TemplateConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-generatedtemplate-templateconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "DeletionPolicy": (str, False),
+        "UpdateReplacePolicy": (str, False),
+    }
+
+
+class GeneratedTemplate(AWSObject):
+    """
+    `GeneratedTemplate <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-generatedtemplate.html>`__
+    """
+
+    resource_type = "AWS::CloudFormation::GeneratedTemplate"
+
+    props: PropsDictType = {
+        "GeneratedTemplateName": (str, True),
+        "TemplateConfiguration": (TemplateConfiguration, False),
     }
 
 
@@ -201,10 +262,12 @@ class LambdaHook(AWSObject):
 
     props: PropsDictType = {
         "Alias": (str, True),
+        "AutoUpdate": (boolean, False),
         "ExecutionRole": (str, True),
         "FailureMode": (str, True),
         "HookStatus": (str, True),
         "LambdaFunction": (str, True),
+        "LoggingConfig": (LoggingConfig, False),
         "StackFilters": (StackFilters, False),
         "TargetFilters": (TargetFilters, False),
         "TargetOperations": ([str], True),
@@ -294,6 +357,28 @@ class ResourceDefaultVersion(AWSObject):
         "TypeName": (str, False),
         "TypeVersionArn": (str, False),
         "VersionId": (str, False),
+    }
+
+
+class ScanFilter(AWSProperty):
+    """
+    `ScanFilter <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-resourcescan-scanfilter.html>`__
+    """
+
+    props: PropsDictType = {
+        "Types": ([str], False),
+    }
+
+
+class ResourceScan(AWSObject):
+    """
+    `ResourceScan <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudformation-resourcescan.html>`__
+    """
+
+    resource_type = "AWS::CloudFormation::ResourceScan"
+
+    props: PropsDictType = {
+        "ScanFilters": ([ScanFilter], False),
     }
 
 
@@ -474,3 +559,16 @@ class WaitConditionHandle(AWSObject):
     resource_type = "AWS::CloudFormation::WaitConditionHandle"
 
     props: PropsDictType = {}
+
+
+class TemplateProgress(AWSProperty):
+    """
+    `TemplateProgress <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-generatedtemplate-templateprogress.html>`__
+    """
+
+    props: PropsDictType = {
+        "ResourcesFailed": (integer, False),
+        "ResourcesPending": (integer, False),
+        "ResourcesProcessing": (integer, False),
+        "ResourcesSucceeded": (integer, False),
+    }

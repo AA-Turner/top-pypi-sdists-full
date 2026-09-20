@@ -91,6 +91,8 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
             repeated: The number of times this cell should be repeated across
                 columns. Must be greater than 1.
             style: The name of the style to apply to the cell.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         self.x: _int | None = None
@@ -113,6 +115,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
 
     @property
     def clone(self) -> Cell:
+        """Return an exact copy of the cell, including coordinates."""
         clone = Element.clone.fget(self)
         clone.y = self.y
         clone.x = self.x
@@ -153,6 +156,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
         Returns:
             Union[str, bool, int, float, Decimal, date, datetime, timedelta,
                 None]: The value of the cell in its appropriate Python type.
+
         """
         value_type = self.get_attribute_string("office:value-type")
         if value_type in {"float", "percentage", "currency"} or (
@@ -221,7 +225,8 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
             case _date():
                 self.date = value
             case _:
-                raise TypeError(f"Unknown value type, try with set_value() : {value!r}")
+                msg = f"Unknown value type, try with set_value() : {value!r}"
+                raise TypeError(msg)
 
     @property
     def _bool_string(self) -> str:
@@ -246,6 +251,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
             this cell XML element node. To modify a single repeated cell
             without affecting others, use "Table.set_value()" or
             "Row.set_value()".
+
         """
         for tag in {"office:value", "office:string-value"}:
             read_attr = self.get_attribute(tag)
@@ -315,6 +321,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
             this cell XML element node. To modify a single repeated cell
             without affecting others, use "Table.set_value()" or
             "Row.set_value()".
+
         """
         for tag in {"office:value", "office:string-value"}:
             read_attr = self.get_attribute(tag)
@@ -382,6 +389,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
             this cell XML element node. To modify a single repeated cell
             without affecting others, use "Table.set_value()" or
             "Row.set_value()".
+
         """
         for tag in {"office:value", "office:string-value"}:
             read_attr = self.get_attribute(tag)
@@ -414,6 +422,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
             this cell XML element node. To modify a single repeated cell
             without affecting others, use "Table.set_value()" or
             "Row.set_value()".
+
         """
         value = self.get_attribute_string("office:string-value")
         if isinstance(value, str):
@@ -457,6 +466,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
             this cell XML element node. To modify a single repeated cell
             without affecting others, use "Table.set_value()" or
             "Row.set_value()".
+
         """
         value = self.get_attribute_string("office:boolean-value")
         if isinstance(value, str):
@@ -497,6 +507,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
             this cell XML element node. To modify a single repeated cell
             without affecting others, use "Table.set_value()" or
             "Row.set_value()".
+
         """
         value = self.get_attribute("office:time-value")
         if isinstance(value, str):
@@ -531,6 +542,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
             this cell XML element node. To modify a single repeated cell
             without affecting others, use "Table.set_value()" or
             "Row.set_value()".
+
         """
         value = self.get_attribute("office:date-value")
         if isinstance(value, str):
@@ -565,6 +577,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
             this cell XML element node. To modify a single repeated cell
             without affecting others, use "Table.set_value()" or
             "Row.set_value()".
+
         """
         value = self.get_attribute("office:date-value")
         if isinstance(value, str):
@@ -619,6 +632,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
             currency: A string representing the currency, e.g., "EUR" or
                 "USD", required if `cell_type` is 'currency'.
             formula: The formula to set for the cell.
+
         """
         text = self.set_value_and_type(
             value=value,
@@ -639,6 +653,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
 
         Returns:
             str or None: The type of the cell's value.
+
         """
         return self.get_attribute_string("office:value-type")
 
@@ -659,6 +674,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
 
         Returns:
             str or None: The currency code (e.g., "EUR", "USD").
+
         """
         return self.get_attribute_string("office:currency")
 
@@ -676,6 +692,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
         Args:
             repeated: The number of times the cell should be repeated. If
                 None or less than 2, the attribute is removed.
+
         """
         if repeated is None or repeated < 2:
             with contextlib.suppress(KeyError):
@@ -691,6 +708,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
 
         Returns:
             int or None: The number of repetitions, or None if not repeated.
+
         """
         repeated = self.get_attribute("table:number-columns-repeated")
         if repeated is None:
@@ -720,6 +738,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
 
         Returns:
             str or None: The name of the style applied to the cell.
+
         """
         return self.get_attribute_string("table:style-name")
 
@@ -735,6 +754,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
 
         Returns:
             str or None: The formula string, or None if no formula is defined.
+
         """
         return self.get_attribute_string("table:formula")
 
@@ -754,6 +774,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
 
         Returns:
             bool: True if the cell is empty, False otherwise.
+
         """
         if (
             self.value is not None
@@ -773,6 +794,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
 
         Returns:
             bool: True if the cell is covered, False otherwise.
+
         """
         return self.tag == "table:covered-table-cell"
 
@@ -789,6 +811,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
 
         Returns:
             bool: True if the cell is spanned, False otherwise.
+
         """
         if self.is_covered():
             return covered
@@ -810,6 +833,7 @@ class Cell(ListMixin, TocMixin, SectionMixin, AnnotationMixin, ElementTyped):
         Returns:
             tuple[int, int]: A tuple containing the number of spanned columns
                 and rows.
+
         """
         columns = self.get_attribute_integer("table:number-columns-spanned") or 0
         rows = self.get_attribute_integer("table:number-rows-spanned") or 0

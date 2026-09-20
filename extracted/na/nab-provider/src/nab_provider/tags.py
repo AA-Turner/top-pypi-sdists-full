@@ -1050,5 +1050,16 @@ def python_axis_accepts(
     tags = wheel_tag_set(wheel_filename)
     if not tags:
         return True
+    return _python_axis_accepts_tags(python_version, implementation, tags)
+
+
+@lru_cache(maxsize=8192)
+def _python_axis_accepts_tags(
+    python_version: str, implementation: str, tags: frozenset[Tag]
+) -> bool:
+    """Return whether the Python axis accepts any wheel tag."""
     accepted = _python_axis_tags(python_version, implementation)
-    return any((tag.interpreter, tag.abi) in accepted for tag in tags)
+    for tag in tags:
+        if (tag.interpreter, tag.abi) in accepted:
+            return True
+    return False

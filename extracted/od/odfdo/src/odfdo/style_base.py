@@ -26,6 +26,8 @@ from typing import TYPE_CHECKING, Any
 from .element import Element
 
 if TYPE_CHECKING:
+    from collections.abc import Mapping
+
     PropDict = dict[str, str | bool | tuple | "PropDict" | None]
 else:
     PropDict = dict
@@ -52,6 +54,7 @@ class StyleBase(Element):
 
         Returns:
             str | None: The style family as a string, or None if not set.
+
         """
         return None
 
@@ -61,6 +64,7 @@ class StyleBase(Element):
 
         Args:
             _family: The style family to set.
+
         """
 
     def get_properties(self, area: str | None = None) -> PropDict | None:
@@ -72,12 +76,13 @@ class StyleBase(Element):
 
         Returns:
             dict[str, str | dict] | None: A dictionary of properties, or None if no properties are found.
+
         """
         return None
 
     def set_properties(
         self,
-        properties: PropDict | None = None,
+        properties: Mapping[str, Any] | None = None,
         style: StyleBase | None = None,
         area: str | None = None,
         **kwargs: Any,
@@ -94,6 +99,7 @@ class StyleBase(Element):
             area: The specific area of properties to set
                 (e.g., 'text', 'paragraph').
             **kwargs: Arbitrary keyword arguments representing properties to set.
+
         """
 
     def get_list_style_properties(self) -> dict[str, str | bool]:
@@ -102,6 +108,7 @@ class StyleBase(Element):
         Returns:
             dict: A dictionary containing list style properties with some
             enhanced values.
+
         """
         return {}
 
@@ -111,5 +118,6 @@ class StyleBase(Element):
         Returns:
             dict: A dictionary containing text properties with some
             enhanced values.
+
         """
         return {}

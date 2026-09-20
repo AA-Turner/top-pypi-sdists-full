@@ -46,3 +46,48 @@ async def test_prepare_audio_file_still_passes_an_accepted_container(tmp_path) -
     clip.write_bytes(b"\x00" * 2048)
     (name, data), size_mb = await prepare_audio_file(str(clip), max_file_size_mb=100.0)
     assert name == "clip.flac" and len(data) == 2048 and size_mb < 1
+
+
+# ── the byte ceiling is the provider's, measured, not a local guess ─────────
+#
+# 🚨 2026-09-18, live: the catalog carried Groq's dev-tier 100 MB while the
+# endpoint enforced 25 MB (24.20 MB FLAC transcribed; 27.0 MB came back
+# ``413 Request Entity Too Large``). Two copies of one number, and the
+# audiobook lane trusted the wrong one.
+
+
+class _Profile:
+    def __init__(self, stt: dict | None) -> None:
+        self.offering_metadata = {} if stt is None else {"stt": stt}
+
+
+@pytest.mark.asyncio
+async def test_the_ceiling_comes_from_the_offering(monkeypatch) -> None:
+    import matrx_ai.catalog.resolve as resolve
+    from matrx_ai.processing.audio.stt import provider_audio_limit_mb
+
+    async def fake(model_ref, *a, **kw):
+        return _Profile({"max_file_size_mb": 25})
+
+    monkeypatch.setattr(resolve, "resolve_call_profile", fake)
+    assert await provider_audio_limit_mb("stt-default") == 25.0
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("stt", [None, {}, {"max_file_size_mb": None},
+                                 {"max_file_size_mb": 0}, {"max_file_size_mb": "nonsense"}])
+async def test_an_undeclared_ceiling_falls_back_to_the_measured_floor(monkeypatch, stt) -> None:
+    """Never optimistic: an offering that says nothing gets the number we
+    measured against the live endpoint, not the vendor's best-tier headline."""
+    import matrx_ai.catalog.resolve as resolve
+    from matrx_ai.processing.audio.stt import (
+        DEFAULT_PROVIDER_AUDIO_LIMIT_MB,
+        provider_audio_limit_mb,
+    )
+
+    async def fake(model_ref, *a, **kw):
+        return _Profile(stt)
+
+    monkeypatch.setattr(resolve, "resolve_call_profile", fake)
+    assert await provider_audio_limit_mb("stt-default") == DEFAULT_PROVIDER_AUDIO_LIMIT_MB
+    assert DEFAULT_PROVIDER_AUDIO_LIMIT_MB == 25.0

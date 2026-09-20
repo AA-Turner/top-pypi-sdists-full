@@ -85,6 +85,7 @@ class DeliverySource(AWSObject):
     resource_type = "AWS::Logs::DeliverySource"
 
     props: PropsDictType = {
+        "DeliverySourceConfiguration": (dict, False),
         "LogType": (str, False),
         "Name": (str, True),
         "ResourceArn": (str, False),
@@ -337,6 +338,18 @@ class ScheduledQuery(AWSObject):
         "State": (str, False),
         "Tags": ([TagsItems], False),
         "Timezone": (str, False),
+    }
+
+
+class StorageTierPolicy(AWSObject):
+    """
+    `StorageTierPolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-logs-storagetierpolicy.html>`__
+    """
+
+    resource_type = "AWS::Logs::StorageTierPolicy"
+
+    props: PropsDictType = {
+        "StorageTier": (str, True),
     }
 
 

@@ -38,11 +38,11 @@ from typing import Any
 # ── the vocabulary ────────────────────────────────────────────────────────
 
 CONTENT_TYPES: frozenset[str] = frozenset(
-    {"text", "image", "audio", "video", "document", "entities", "embedding"}
+    {"text", "image", "audio", "video", "document", "entities", "embedding", "decision"}
 )
 
 INTERACTION_MODES: frozenset[str] = frozenset(
-    {"turn", "single", "extraction", "realtime", "embedding", "agent"}
+    {"turn", "single", "extraction", "realtime", "embedding", "agent", "decision"}
 )
 
 #: Every feature token the canonical column may carry. Keep in lockstep with

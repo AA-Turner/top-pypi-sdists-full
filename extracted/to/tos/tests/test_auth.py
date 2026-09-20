@@ -100,7 +100,7 @@ class TestAuth(TosTestCase):
                           PostSignatureCondition(key='Content-Type', value='image/', operator='starts-with')]
             # conditions.append(PostSignatureCondition(key="key", value="example", operator="starts-with"))
             content_length_range = ContentLengthRange(range_start=1023, range_end=10000)
-            out = tos_cli.pre_signed_post_signature(bucket='testBucket', key='test_object', conditions=conditions,
+            out = tos_cli.pre_signed_post_signature(bucket='test-bucket', key='test_object', conditions=conditions,
                                                     expires=704800, content_length_range=content_length_range)
 
     def test_pre_signed_policy_url(self):

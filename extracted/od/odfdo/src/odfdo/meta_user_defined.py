@@ -61,6 +61,7 @@ class MetaUserDefined(Element):
                 "boolean", "date", "float", "time", "string".
             value: The actual value of the user-defined metadata.
             **kwargs: Additional keyword arguments for the parent `Element` class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -74,6 +75,7 @@ class MetaUserDefined(Element):
 
         Returns:
             str: The value of the `meta:name` attribute.
+
         """
         return self.get_attribute_string("meta:name") or ""
 
@@ -86,9 +88,11 @@ class MetaUserDefined(Element):
 
         Raises:
             ValueError: If the provided name is empty.
+
         """
         if not name:
-            raise ValueError('"name" can not be empty')
+            msg = '"name" can not be empty'
+            raise ValueError(msg)
         self._set_attribute_str_default("meta:name", name)
 
     @property
@@ -97,6 +101,7 @@ class MetaUserDefined(Element):
 
         Returns:
             str: The value of the `meta:value-type` attribute, defaulting to "string".
+
         """
         return self.get_attribute_string("meta:value-type") or "string"
 
@@ -110,9 +115,11 @@ class MetaUserDefined(Element):
 
         Raises:
             ValueError: If an unknown `value_type` is provided.
+
         """
         if value_type not in {"boolean", "date", "float", "time", "string"}:
-            raise ValueError(f'Unknown "value_type": {value_type!r}')
+            msg = f"Unknown value_type: {value_type!r}"
+            raise ValueError(msg)
         self._set_attribute_str_default("meta:value-type", value_type)
 
     @property
@@ -126,6 +133,7 @@ class MetaUserDefined(Element):
 
         Raises:
             TypeError: If the `meta:value-type` is unknown.
+
         """
         value_type = self.get_attribute_string("meta:value-type")
         if value_type is None:
@@ -142,7 +150,8 @@ class MetaUserDefined(Element):
         if value_type == "string":
             return text
         # should never happen
-        raise TypeError(f"Unknown value type: '{value_type!r}'")  # pragma: nocover
+        msg = f"Unknown value type: {value_type!r}"
+        raise TypeError(msg)
 
     @value.setter
     def value(
@@ -164,6 +173,7 @@ class MetaUserDefined(Element):
 
         Args:
             value: The value to set.
+
         """
         value_type = self.get_attribute_string("meta:value-type")
         if value_type == "boolean":
@@ -185,7 +195,7 @@ class MetaUserDefined(Element):
     def _value_to_value_type(
         value: bool | int | float | Decimal | datetime | dtdate | str | timedelta,
     ) -> str:
-        """Internal helper to infer the ODF value type from a Python value.
+        """Infer the ODF value type from a Python value (internal helper).
 
         Args:
             value: The Python value.
@@ -195,6 +205,7 @@ class MetaUserDefined(Element):
 
         Raises:
             TypeError: If the type of the provided value is not supported.
+
         """
         if isinstance(value, bool):
             return "boolean"
@@ -206,7 +217,8 @@ class MetaUserDefined(Element):
             return "string"
         if isinstance(value, timedelta):
             return "time"
-        raise TypeError(f'unexpected type "{type(value)}" for value')
+        msg = f"Unexpected type {type(value)!r} for value"
+        raise TypeError(msg)
 
     def as_dict(
         self,
@@ -216,6 +228,7 @@ class MetaUserDefined(Element):
         Returns:
             dict[str, Decimal | datetime | dtdate | timedelta | bool | str]:
                 A dictionary containing "meta:name", "meta:value-type", and "value".
+
         """
         return {
             "meta:name": self.name,
@@ -233,6 +246,7 @@ class MetaUserDefined(Element):
         Returns:
             dict[str, Decimal | datetime | dtdate | timedelta | bool | str]:
                 A dictionary containing "name", "value_type", "value", and "text".
+
         """
         return {
             "name": self.name,

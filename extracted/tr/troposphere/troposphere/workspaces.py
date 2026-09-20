@@ -23,6 +23,16 @@ class ConnectionAlias(AWSObject):
     }
 
 
+class WorkSpaceApplication(AWSObject):
+    """
+    `WorkSpaceApplication <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-workspaceapplication.html>`__
+    """
+
+    resource_type = "AWS::WorkSpaces::WorkSpaceApplication"
+
+    props: PropsDictType = {}
+
+
 class WorkspaceProperties(AWSProperty):
     """
     `WorkspaceProperties <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-workspace-workspaceproperties.html>`__
@@ -53,6 +63,32 @@ class Workspace(AWSObject):
         "UserVolumeEncryptionEnabled": (boolean, False),
         "VolumeEncryptionKey": (str, False),
         "WorkspaceProperties": (WorkspaceProperties, False),
+    }
+
+
+class IpRuleItem(AWSProperty):
+    """
+    `IpRuleItem <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-workspaces-workspaceipgroup-ipruleitem.html>`__
+    """
+
+    props: PropsDictType = {
+        "IpRule": (str, True),
+        "RuleDesc": (str, False),
+    }
+
+
+class WorkspaceIpGroup(AWSObject):
+    """
+    `WorkspaceIpGroup <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-workspaces-workspaceipgroup.html>`__
+    """
+
+    resource_type = "AWS::WorkSpaces::WorkspaceIpGroup"
+
+    props: PropsDictType = {
+        "GroupDesc": (str, False),
+        "GroupName": (str, True),
+        "Tags": (Tags, False),
+        "UserRules": ([IpRuleItem], False),
     }
 
 

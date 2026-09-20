@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: litellm
-Version: 1.101.0
+Version: 1.102.0
 Requires-Dist: fastuuid>=0.14.0,<1.0
 Requires-Dist: httpx>=0.28.0,<1.0
 Requires-Dist: openai>=2.20.0,<3.0.0
@@ -22,6 +22,7 @@ Requires-Dist: pyyaml>=6.0.3,<7.0 ; extra == 'cli'
 Requires-Dist: requests>=2.32.0,<3.0 ; extra == 'cli'
 Requires-Dist: inquirerpy>=0.3.4,<1.0 ; extra == 'cli'
 Requires-Dist: keyring>=25.6.0,<26.0 ; extra == 'cli'
+Requires-Dist: tomlkit>=0.13.3,<1.0 ; extra == 'cli'
 Requires-Dist: prisma>=0.11.0,<1.0 ; extra == 'extra-proxy'
 Requires-Dist: psycopg>=3.2,<4.0 ; extra == 'extra-proxy'
 Requires-Dist: psycopg-binary>=3.2,<4.0 ; extra == 'extra-proxy'
@@ -58,11 +59,12 @@ Requires-Dist: boto3>=1.43.1,<2.0 ; extra == 'proxy'
 Requires-Dist: azure-identity>=1.25.2,<2.0 ; extra == 'proxy'
 Requires-Dist: azure-storage-blob>=12.28.0,<13.0 ; extra == 'proxy'
 Requires-Dist: mcp>=1.28.1,<2.0 ; extra == 'proxy'
-Requires-Dist: litellm-proxy-extras==0.4.94 ; extra == 'proxy'
-Requires-Dist: litellm-enterprise==0.1.65 ; extra == 'proxy'
+Requires-Dist: litellm-proxy-extras==0.4.97 ; extra == 'proxy'
+Requires-Dist: litellm-enterprise==0.1.67 ; extra == 'proxy'
 Requires-Dist: restrictedpython>=8.5,<9.0 ; extra == 'proxy'
 Requires-Dist: rich>=13.9.4,<14.0 ; extra == 'proxy'
 Requires-Dist: inquirerpy>=0.3.4,<1.0 ; extra == 'proxy'
+Requires-Dist: tomlkit>=0.13.3,<1.0 ; extra == 'proxy'
 Requires-Dist: polars>=1.38.1,<2.0 ; extra == 'proxy'
 Requires-Dist: soundfile>=0.12.1,<1.0 ; extra == 'proxy'
 Requires-Dist: pyroscope-io>=0.8.16,<1.0 ; sys_platform != 'win32' and extra == 'proxy'
@@ -380,6 +382,8 @@ curl -X POST 'http://0.0.0.0:4000/v1/chat/completions' \
   }
 }
 ```
+
+For MCP OAuth, an upstream may advertise dynamic client registration but refuse requests with HTTP 401 or 403. If the provider requires a pre-registered OAuth app, configure its `credentials.client_id` and, when required, `credentials.client_secret` on the MCP server. This skips dynamic registration in the gateway sign-in flow. The provider must approve the app for MCP access; reaching its authorization page does not establish that login or tool calls will succeed
 
 [**Docs: MCP Gateway**](https://docs.litellm.ai/docs/mcp)
 

@@ -7,11 +7,10 @@ from __future__ import annotations
 import socket
 from typing import Any, Callable, Dict, Optional, Tuple, Union
 
-from ..errors import DecodingError
-from ..debugging import ModuleLogger, DebugContents, bacpypes_debugging
-
-from ..pdu import IPv4Address, PCI, PDUData, PDU
 from ..comm import Client, Server
+from ..debugging import DebugContents, ModuleLogger, bacpypes_debugging
+from ..errors import DecodingError
+from ..pdu import PCI, PDU, IPv4Address, PDUData
 
 # some debugging
 _debug = 0

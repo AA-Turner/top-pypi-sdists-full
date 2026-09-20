@@ -21,7 +21,8 @@
 
 This module provides classes for managing variable declaration
 "text:variable-decl" and variable declaration container
-"text:variable-decls"."""
+"text:variable-decls".
+"""
 
 from __future__ import annotations
 
@@ -51,7 +52,7 @@ class VarDeclMixin(Element):
     """
 
     def get_variable_decls(self) -> VarDecls:
-        """Returns the container for variable declarations.
+        """Return the container for variable declarations.
 
         If the container is not found, it is created within the document body.
 
@@ -60,29 +61,32 @@ class VarDeclMixin(Element):
 
         Raises:
             ValueError: If the document body is empty and a new container cannot be inserted.
+
         """
         variable_decls = self.get_element("//text:variable-decls")
         if variable_decls is None:
             body = self.document_body
             if not body:
-                raise ValueError("Empty document.body")
+                msg = "Empty document.body"
+                raise ValueError(msg)
             body.insert(Element.from_tag("text:variable-decls"), FIRST_CHILD)
             variable_decls = body.get_element("//text:variable-decls")
 
         return cast("VarDecls", variable_decls)
 
     def get_variable_decl_list(self) -> list[VarDecls]:
-        """Returns all variable declarations as a list.
+        """Return all variable declarations as a list.
 
         Returns:
             list[VarDecls]: A list of all VarDecls instances that are descendants of this element.
+
         """
         return cast(
             "list[VarDecls]", self._filtered_elements("descendant::text:variable-decl")
         )
 
     def get_variable_decl(self, name: str, position: int = 0) -> VarDecls | None:
-        """Returns a single variable declaration that matches the specified criteria.
+        """Return a single variable declaration that matches the specified criteria.
 
         Args:
             name: The name of the variable declaration to retrieve.
@@ -90,6 +94,7 @@ class VarDeclMixin(Element):
 
         Returns:
             VarDecls | None: A VarDecls instance, or None if no declaration matches the criteria.
+
         """
         return cast(
             "VarDecls | None",
@@ -117,6 +122,7 @@ class VarDecl(Element):
     Attributes:
         name (str): The unique name of the variable.
         value_type (str): The ODF value type (e.g., 'string', 'float').
+
     """
 
     _tag = "text:variable-decl"
@@ -131,11 +137,13 @@ class VarDecl(Element):
         value_type: str | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initializes the VarDecl element.
+        """Initialize the VarDecl element.
 
         Args:
             name: The name of the variable.
             value_type: The ODF value type.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:

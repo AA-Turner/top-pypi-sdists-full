@@ -76,6 +76,19 @@ class Certificate(AWSObject):
     }
 
 
+class ContactMethod(AWSObject):
+    """
+    `ContactMethod <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-contactmethod.html>`__
+    """
+
+    resource_type = "AWS::Lightsail::ContactMethod"
+
+    props: PropsDictType = {
+        "ContactEndpoint": (str, True),
+        "Protocol": (str, True),
+    }
+
+
 class EnvironmentVariable(AWSProperty):
     """
     `EnvironmentVariable <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-container-environmentvariable.html>`__
@@ -454,6 +467,16 @@ class Domain(AWSObject):
     }
 
 
+class ExportSnapshotRecord(AWSObject):
+    """
+    `ExportSnapshotRecord <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-exportsnapshotrecord.html>`__
+    """
+
+    resource_type = "AWS::Lightsail::ExportSnapshotRecord"
+
+    props: PropsDictType = {}
+
+
 class DiskProperty(AWSProperty):
     """
     `DiskProperty <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-instance-disk.html>`__
@@ -570,6 +593,19 @@ class InstanceSnapshot(AWSObject):
     }
 
 
+class KeyPair(AWSObject):
+    """
+    `KeyPair <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-keypair.html>`__
+    """
+
+    resource_type = "AWS::Lightsail::KeyPair"
+
+    props: PropsDictType = {
+        "KeyPairName": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
 class LoadBalancer(AWSObject):
     """
     `LoadBalancer <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lightsail-loadbalancer.html>`__
@@ -617,4 +653,66 @@ class StaticIp(AWSObject):
     props: PropsDictType = {
         "AttachedTo": (str, False),
         "StaticIpName": (str, True),
+    }
+
+
+class DestinationInfo(AWSProperty):
+    """
+    `DestinationInfo <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-exportsnapshotrecord-destinationinfo.html>`__
+    """
+
+    props: PropsDictType = {
+        "Id": (str, False),
+        "Service": (str, False),
+    }
+
+
+class DiskInfo(AWSProperty):
+    """
+    `DiskInfo <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-exportsnapshotrecord-diskinfo.html>`__
+    """
+
+    props: PropsDictType = {
+        "IsSystemDisk": (boolean, False),
+        "Path": (str, False),
+        "SizeInGb": (integer, False),
+    }
+
+
+class InstanceSnapshotInfo(AWSProperty):
+    """
+    `InstanceSnapshotInfo <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-exportsnapshotrecord-instancesnapshotinfo.html>`__
+    """
+
+    props: PropsDictType = {
+        "FromBlueprintId": (str, False),
+        "FromBundleId": (str, False),
+        "FromDiskInfo": ([DiskInfo], False),
+    }
+
+
+class ExportSnapshotRecordSourceInfo(AWSProperty):
+    """
+    `ExportSnapshotRecordSourceInfo <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-exportsnapshotrecord-exportsnapshotrecordsourceinfo.html>`__
+    """
+
+    props: PropsDictType = {
+        "Arn": (str, False),
+        "CreatedAt": (str, False),
+        "FromResourceArn": (str, False),
+        "FromResourceName": (str, False),
+        "InstanceSnapshotInfo": (InstanceSnapshotInfo, False),
+        "Name": (str, False),
+        "ResourceType": (str, False),
+    }
+
+
+class ResourceLocation(AWSProperty):
+    """
+    `ResourceLocation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lightsail-keypair-resourcelocation.html>`__
+    """
+
+    props: PropsDictType = {
+        "AvailabilityZone": (str, False),
+        "RegionName": (str, False),
     }

@@ -4,36 +4,30 @@ Application Module
 
 from __future__ import annotations
 
-import asyncio
 from socket import socket
 from typing import Optional
 
-from ..debugging import bacpypes_debugging, ModuleLogger
-
-from ..comm import bind
-from ..pdu import Address, IPv4Address
-from ..object import DeviceObject
-
-from ..appservice import ApplicationServiceAccessPoint
-from ..netservice import NetworkServiceAccessPoint, NetworkServiceElement
-
-from ..ipv4 import IPv4DatagramServer
-from .bvll import BVLLCodec
-from .service import BIPForeign, BIPBBMD, UDPMultiplexer
-from .link import NormalLinkLayer
-
 # application starting point
 from ..app import Application, DeviceInfoCache
-
-# basic services
-from ..service.device import WhoIsIAmServices, WhoHasIHaveServices
-from ..service.object import (
-    ReadWritePropertyServices,
-    ReadWritePropertyMultipleServices,
-)
+from ..appservice import ApplicationServiceAccessPoint
+from ..comm import bind
+from ..debugging import ModuleLogger, bacpypes_debugging
+from ..ipv4 import IPv4DatagramServer
 
 # bridge to mock a network port object
-from ..local.networkport import NetworkPortObject
+from ..netservice import NetworkServiceAccessPoint, NetworkServiceElement
+from ..object import DeviceObject
+from ..pdu import Address, IPv4Address
+
+# basic services
+from ..service.device import WhoHasIHaveServices, WhoIsIAmServices
+from ..service.object import (
+    ReadWritePropertyMultipleServices,
+    ReadWritePropertyServices,
+)
+from .bvll import BVLLCodec
+from .link import NormalLinkLayer
+from .service import BIPBBMD, BIPForeign, UDPMultiplexer
 
 # some debugging
 _debug = 0
@@ -77,9 +71,7 @@ class NormalApplication(
             raise TypeError(f"local_address: {type(local_address)}")
 
         # a application service access point will be needed
-        self.asap = ApplicationServiceAccessPoint(
-            device_object, self.device_info_cache
-        )
+        self.asap = ApplicationServiceAccessPoint(device_object, self.device_info_cache)
         if _debug:
             NormalApplication._debug("    - asap: %r", self.asap)
 
@@ -141,16 +133,16 @@ class ForeignApplication(
                 local_address,
                 device_info_cache,
             )
-        Application.__init__(self, device_info_cache=device_info_cache, bind_socket=bind_socket)
+        Application.__init__(
+            self, device_info_cache=device_info_cache, bind_socket=bind_socket
+        )
         if not isinstance(device_object, DeviceObject):
             raise TypeError(f"device_object: {type(device_object)}")
         if not isinstance(local_address, IPv4Address):
             raise TypeError(f"local_address: {type(local_address)}")
 
         # a application service access point will be needed
-        self.asap = ApplicationServiceAccessPoint(
-            device_object, self.device_info_cache
-        )
+        self.asap = ApplicationServiceAccessPoint(device_object, self.device_info_cache)
 
         # a network service access point will be needed
         self.nsap = NetworkServiceAccessPoint()
@@ -167,7 +159,9 @@ class ForeignApplication(
         self.foreign = BIPForeign()
         self.codec = BVLLCodec()
         self.multiplexer = UDPMultiplexer()
-        self.server = IPv4DatagramServer(local_address, no_broadcast=True, bind_socket=bind_socket)
+        self.server = IPv4DatagramServer(
+            local_address, no_broadcast=True, bind_socket=bind_socket
+        )
 
         bind(self.foreign, self.codec, self.multiplexer.annexJ)  # type: ignore[arg-type]
         bind(self.multiplexer, self.server)  # type: ignore[arg-type]
@@ -217,16 +211,16 @@ class BBMDApplication(
                 local_address,
                 device_info_cache,
             )
-        Application.__init__(self, device_info_cache=device_info_cache, bind_socket=bind_socket)
+        Application.__init__(
+            self, device_info_cache=device_info_cache, bind_socket=bind_socket
+        )
         if not isinstance(device_object, DeviceObject):
             raise TypeError(f"device_object: {type(device_object)}")
         if not isinstance(local_address, IPv4Address):
             raise TypeError(f"local_address: {type(local_address)}")
 
         # a application service access point will be needed
-        self.asap = ApplicationServiceAccessPoint(
-            device_object, self.device_info_cache
-        )
+        self.asap = ApplicationServiceAccessPoint(device_object, self.device_info_cache)
 
         # a network service access point will be needed
         self.nsap = NetworkServiceAccessPoint()

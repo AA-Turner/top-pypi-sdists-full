@@ -32,7 +32,7 @@ from typing import Any
 
 
 def to_bytes(value: Any) -> Any:
-    """Encodes a string to UTF-8 bytes if the input is a string.
+    """Encode a string to UTF-8 bytes if the input is a string.
 
     Args:
         value: The value to convert.
@@ -40,6 +40,7 @@ def to_bytes(value: Any) -> Any:
     Returns:
         Any: The encoded bytes if the input was a string, otherwise the
             original value.
+
     """
     if isinstance(value, str):
         return value.encode("utf-8")
@@ -47,7 +48,7 @@ def to_bytes(value: Any) -> Any:
 
 
 def to_str(value: Any) -> Any:
-    """Decodes a UTF-8 byte string to a string if the input is bytes.
+    """Decode a UTF-8 byte string to a string if the input is bytes.
 
     Args:
         value: The value to convert.
@@ -55,6 +56,7 @@ def to_str(value: Any) -> Any:
     Returns:
         Any: The decoded string if the input was bytes, otherwise the
             original value.
+
     """
     if isinstance(value, bytes):
         return value.decode("utf-8")
@@ -62,24 +64,26 @@ def to_str(value: Any) -> Any:
 
 
 def str_to_bytes(text: str) -> bytes:
-    """Encodes a string to UTF-8 bytes, replacing errors.
+    """Encode a string to UTF-8 bytes, replacing errors.
 
     Args:
         text: The string to encode.
 
     Returns:
         bytes: The resulting UTF-8 encoded bytes.
+
     """
     return text.encode("utf-8", "replace")
 
 
 def bytes_to_str(text: bytes) -> str:
-    """Decodes a UTF-8 byte string to a string, ignoring errors.
+    """Decode a UTF-8 byte string to a string, ignoring errors.
 
     Args:
         text: The byte string to decode.
 
     Returns:
         str: The resulting decoded string.
+
     """
     return text.decode("utf-8", "ignore")

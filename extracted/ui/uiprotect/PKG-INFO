@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: uiprotect
-Version: 16.10.0
+Version: 16.13.0
 Summary: Python API for Unifi Protect (Unofficial)
 License-Expression: MIT
 License-File: LICENSE
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: Software Development :: Libraries
 Provides-Extra: cli
@@ -28,13 +29,13 @@ Requires-Dist: dateparser (>=1.4.1) ; extra == "cli"
 Requires-Dist: orjson (>=3.11.9)
 Requires-Dist: packaging (>=26.2)
 Requires-Dist: pillow (>=12.3.0) ; extra == "cli"
-Requires-Dist: platformdirs (>=4.10.1)
+Requires-Dist: platformdirs (>=4.11.8)
 Requires-Dist: propcache (>=0.5.2)
 Requires-Dist: pydantic (>=2.13.4)
 Requires-Dist: pydantic-extra-types (>=2.10.1)
-Requires-Dist: pyjwt (>=2.12.1)
+Requires-Dist: pyjwt (>=2.13.0)
 Requires-Dist: rich (>=15.0.0) ; extra == "cli"
-Requires-Dist: typer (>=0.27.0) ; extra == "cli"
+Requires-Dist: typer (>=0.27.2) ; extra == "cli"
 Requires-Dist: yarl (>=1.24.5)
 Project-URL: Bug Tracker, https://github.com/uilibs/uiprotect/issues
 Project-URL: Changelog, https://github.com/uilibs/uiprotect/blob/main/CHANGELOG.md
@@ -289,11 +290,13 @@ _LOGGER = logging.getLogger(__name__)
 
 protect = ProtectApiClient(..., api_key="...")
 
+
 def on_event(event: ProtectEvent, change: EventChange) -> None:
     if change is EventChange.STARTED:
         _LOGGER.info("%s on %s: %s", event.type, event.device_id, event.identity)
     elif change is EventChange.ENDED:
         _LOGGER.info("%s ended after %s", event.type, event.end - event.start)
+
 
 # Order-independent: subscribes and primes in the correct order.
 unsubscribe = await protect.subscribe_events_and_prime(on_event)
@@ -361,9 +364,11 @@ _LOGGER = logging.getLogger(__name__)
 
 protect = ProtectApiClient(..., api_key="...")
 
+
 def on_device(change: ProtectDeviceChange) -> None:
     if change.change is DeviceChange.UPDATED and "state" in change.changed_fields:
         _LOGGER.info("%s -> %s", change.device_id, change.model.state)
+
 
 # Order-independent: subscribes and primes in the correct order.
 unsubscribe = await protect.subscribe_devices_and_prime(on_device)

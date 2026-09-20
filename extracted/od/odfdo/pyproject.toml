@@ -1,6 +1,6 @@
 [project]
 name = "odfdo"
-version = "3.26.0"
+version = "3.26.1"
 description = "Python library for OpenDocument Format"
 license = "Apache-2.0"
 license-files = [
@@ -84,12 +84,12 @@ dev = [
     "pyexcel>=0.7.0",
     "pytest>=8.4.2",
     "pytest-xdist>=3.8.0",
-    "coverage>=7.16.0",
+    "coverage>=7.16.1",
     "pytest-cov>=7.0.0",
     "tabulate>=0.9.0",
     "tox>=4.61.2",
-    "ruff>=0.16.7",
-    "ty>=0.0.80",
+    "ruff>=0.16.8",
+    "ty>=0.0.82",
 ]
 
 [tool.uv]
@@ -139,6 +139,7 @@ select = [
     "TC",
     "I",
     "PERF",
+    "D",
     "C90",
     "E",
     "W",
@@ -151,16 +152,19 @@ select = [
 ignore = [
     "E501",
     "A003",
-    "TRY003",
     "SIM108",
     "C901",
     "B904",
-    "D104",
     "PYI041",
+    "D213",
+    "D105",
+    "D301",
+    "D205",
+    "D203",
 ]
 
 [tool.ruff.lint.per-file-ignores]
-"tests/test_*" = [
+"tests/*" = [
     "S101",
     "S404",
     "RUF005",
@@ -169,12 +173,14 @@ ignore = [
     "YTT204",
     "SIM117",
     "S603",
-    "D103",
     "D100",
     "D101",
-    "D401",
+    "D102",
+    "D103",
+    "D107",
     "D205",
     "D400",
+    "D401",
     "D415",
     "PERF401",
 ]
@@ -187,12 +193,14 @@ ignore = [
     "YTT204",
     "SIM117",
     "S603",
-    "D103",
     "D100",
     "D101",
-    "D401",
+    "D102",
+    "D103",
+    "D107",
     "D205",
     "D400",
+    "D401",
     "D415",
     "PERF401",
 ]
@@ -200,8 +208,8 @@ ignore = [
     "S101",
     "SIM102",
     "B903",
-    "D103",
     "D100",
+    "D103",
     "PERF401",
 ]
 "recipes/accessing_a_single_element.py" = ["RUF001"]

@@ -38,6 +38,7 @@ class TestCollectionExportRequest(unittest.TestCase):
             return CollectionExportRequest(
                 format = 'json',
                 include_vectors = True,
+                include_lineage = True,
                 select_fields = [
                     ''
                     ],

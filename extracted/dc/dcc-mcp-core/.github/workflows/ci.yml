@@ -190,9 +190,14 @@ jobs:
         with:
           key: rust-${{ runner.os }}
           shared-key: rust-${{ runner.os }}
+      # Pin cargo-hakari to the release that generated the committed
+      # crates/workspace-hack/Cargo.toml. `cargo-hakari hakari verify` fails as
+      # soon as the installed tool drifts to a newer release (0.9.39 turned every
+      # Rust lane red on main). A bare version in `tool` is an exact `=0.9.38`
+      # requirement, not a caret range.
       - uses: taiki-e/install-action@v2
         with:
-          tool: cargo-hakari
+          tool: cargo-hakari@0.9.38
       - name: Install cargo-nextest
         uses: taiki-e/install-action@v2
         with:
@@ -252,7 +257,8 @@ jobs:
           vx node tests/interop/mcp-2026/request-oracle.mjs
           vx cargo test -p dcc-mcp-http --no-default-features --features mcp-2026-07-28 \
             --test stateless_response_contract --test stateless_request_boundary \
-            --test stateless_param_headers -- --nocapture
+            --test stateless_param_headers --test protocol_lifecycle \
+            --test stateless_providers --test stateless_capabilities -- --nocapture
       - name: Shared fixture feature tests
         if: matrix.rust-validation == 'full'
         run: vx cargo test -p dcc-mcp-test-utils --features skill-rest

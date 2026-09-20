@@ -159,6 +159,16 @@ class TextContent:
             self.text = lease.render()
         else:
             self.text = replaced_text
+        # AGT-N-7's first case: a placeholder nobody declared is still standing here,
+        # verbatim, and used to reach the model with no warning anywhere in the chain.
+        # This is the same choke point `prompt_safe_value` uses, so the law is recorded
+        # once rather than remembered by every caller. It RECORDS and does not erase —
+        # substitution is multi-pass (picklist envelopes, staged fence swaps, the
+        # executor's send-clone), so eating an unresolved brace here would destroy a
+        # later pass. See matrx_ai/config/undeclared.py.
+        from matrx_ai.config.undeclared import note_unresolved
+
+        note_unresolved(replaced_text)
         role = (self.metadata or {}).get("role")
         had_template = "{{" in original_text and "}}" in original_text
         if role and had_template and not replaced_text.strip():

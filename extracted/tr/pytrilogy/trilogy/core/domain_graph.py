@@ -165,6 +165,7 @@ class DomainGraph:
         self._eq_classes: dict[str, str] | None = None
         self._subset_sources: set[str] | None = None
         self._declared_subset_pairs: list[tuple[str, str]] | None = None
+        self._fd_minimal: dict[frozenset[str], frozenset[str]] = {}
         for e in edges or []:
             self.add_edge(e)
         for b in binding_edges or []:
@@ -196,6 +197,7 @@ class DomainGraph:
         self._eq_classes = None
         self._subset_sources = None
         self._declared_subset_pairs = None
+        self._fd_minimal.clear()
         return True
 
     def add_binding(self, edge: BindingEdge) -> bool:
@@ -204,6 +206,7 @@ class DomainGraph:
             return False
         self._binding_keys.add(key)
         self.binding_edges.append(edge)
+        self._fd_minimal.clear()
         return True
 
     def add_fd(self, edge: FDEdge) -> bool:
@@ -212,6 +215,7 @@ class DomainGraph:
             return False
         self._fd_keys.add(key)
         self.fd_edges.append(edge)
+        self._fd_minimal.clear()
         return True
 
     def with_overlay(self, edges: Iterable[DomainEdge] | None = None) -> "DomainGraph":
@@ -630,6 +634,70 @@ class DomainGraph:
                         closure.add(dep)
                         changed = True
         return goal in closure
+
+    def covers(self, determinants: Iterable[str], dependent: str) -> bool:
+        """`determines`, through bindings that carry each value's whole domain:
+        the rows that hold the determinants also hold every `dependent` the
+        query could owe.
+
+        An FD says a value is unique per determinant, which a `~` binding
+        proves as well as any other; it does not say the binding table is where
+        the value's domain lives. `order_item.id -> ~user.id` is one user per
+        item, and still no row for a user who never ordered. So an FD whose
+        dependent some table binds partially beside the determinants is not
+        walked, and nothing reached only through it is covered."""
+        rep = self._equivalence_classes()
+
+        def canon(x: str) -> str:
+            return rep.get(x, x)
+
+        bound: dict[str, set[str]] = {}
+        partial: dict[str, set[str]] = {}
+        for b in self.binding_edges:
+            bound.setdefault(b.datasource, set()).add(canon(b.concept))
+            if not b.complete:
+                partial.setdefault(b.datasource, set()).add(canon(b.concept))
+
+        def extends_domain(fd: FDEdge, determinants: set[str], dep: str) -> bool:
+            witnesses = (
+                partial.items()
+                if fd.scope is None
+                else [(fd.scope, partial.get(fd.scope, set()))]
+            )
+            return any(
+                dep in concepts and determinants <= bound.get(datasource, set())
+                for datasource, concepts in witnesses
+            )
+
+        closure = {canon(a) for a in determinants}
+        goal = canon(dependent)
+        changed = True
+        while changed and goal not in closure:
+            changed = False
+            for fd in self.fd_edges:
+                dep = canon(fd.dependent)
+                fd_determinants = {canon(a) for a in fd.determinants}
+                if dep in closure or not fd_determinants <= closure:
+                    continue
+                if extends_domain(fd, fd_determinants, dep):
+                    continue
+                closure.add(dep)
+                changed = True
+        return goal in closure
+
+    def fd_minimal(self, addresses: Iterable[str]) -> frozenset[str]:
+        """`addresses` less every member the rest determine globally:
+        `{order.id, customer.region}` -> `{order.id}`. Over a key DAG the
+        result is unique; only a key cycle leans on `sorted`."""
+        key = frozenset(addresses)
+        cached = self._fd_minimal.get(key)
+        if cached is None:
+            kept = set(key)
+            for address in sorted(key):
+                if self.determines(kept - {address}, address):
+                    kept.discard(address)
+            cached = self._fd_minimal[key] = frozenset(kept)
+        return cached
 
     # --- contradiction lint --------------------------------------------------
 

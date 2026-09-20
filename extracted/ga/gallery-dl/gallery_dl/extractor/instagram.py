@@ -844,7 +844,13 @@ class InstagramAPI():
         self.exc = extractor.exc
 
         _cache = self.extractor.config("user-cache", True)
-        self._user_cache = True if not _cache or _cache == "memory" else False
+        if not _cache or _cache == "memory":
+            self._user_cache_mem = True
+            self._user_cache_exp = 0
+        else:
+            self._user_cache_mem = False
+            self._user_cache_exp = (text.parse_int(_cache.partition(":")[2])
+                                    if isinstance(_cache, str) else 0)
 
         if strategy := self.extractor.config("user-strategy"):
             if isinstance(strategy, str):
@@ -910,18 +916,22 @@ class InstagramAPI():
 
     def user_by_id(self, user_id):
         return self.extractor.cache(
-            self._user_by_id_impl, user_id, _mem=self._user_cache)
+            self._user_by_id_impl, user_id,
+            _exp=self._user_cache_exp, _mem=self._user_cache_mem)
 
     def _user_by_id_impl(self, user_id):
         endpoint = f"/v1/users/{user_id}/info/"
         try:
             return self._call(endpoint, notfound="user")["user"]
+        except self.extractor.exc.ControlException:
+            raise
         except Exception:
             raise self.exc.NotFoundError("user")
 
     def user_by_name(self, username):
         return self.extractor.cache(
-            self._user_by_name_impl, username, _mem=self._user_cache)
+            self._user_by_name_impl, username,
+            _exp=self._user_cache_exp, _mem=self._user_cache_mem)
 
     def _user_by_name_impl(self, username):
         endpoint = "/v1/users/web_profile_info/"
@@ -929,12 +939,15 @@ class InstagramAPI():
         try:
             return self._call(
                 endpoint, params=params, notfound="user")["data"]["user"]
+        except self.extractor.exc.ControlException:
+            raise
         except Exception:
             raise self.exc.NotFoundError("user")
 
     def user_by_search(self, username):
         return self.extractor.cache(
-            self._user_by_search_impl, username, _mem=self._user_cache)
+            self._user_by_search_impl, username,
+            _exp=self._user_cache_exp, _mem=self._user_cache_mem)
 
     def _user_by_search_impl(self, username):
         url = "https://www.instagram.com/web/search/topsearch/"
@@ -946,13 +959,16 @@ class InstagramAPI():
                 user = result["user"]
                 if user["username"].lower() == name:
                     return user
+        except self.extractor.exc.ControlException:
+            raise
         except Exception:
             pass
         raise self.exc.NotFoundError("user")
 
     def user_by_web(self, username):
         return self.extractor.cache(
-            self._user_by_web_impl, username, _mem=self._user_cache)
+            self._user_by_web_impl, username,
+            _exp=self._user_cache_exp, _mem=self._user_cache_mem)
 
     def _user_by_web_impl(self, username):
         url = "https://www.instagram.com/" + username

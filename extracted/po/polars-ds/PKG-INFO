@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: polars_ds
-Version: 0.12.1
+Version: 0.13.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python

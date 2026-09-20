@@ -66,6 +66,7 @@ class ResolvedModelCapabilities(BaseModel):
     produces_video: bool
     produces_audio: bool  # TTS
     produces_embedding: bool
+    produces_decision: bool
     # Multi-voice dialogue synthesis (ElevenLabs text_to_dialogue). Data-driven:
     # the model row declares "dialogue" in `features`; a TTS model WITHOUT it is
     # routed through the plain text-to-speech endpoint (eleven_flash_v2_5 rejects
@@ -85,7 +86,7 @@ class ResolvedModelCapabilities(BaseModel):
     # "single" (one-shot image/video generation) or "agent" (provider-managed
     # background agent) into "turn" — the same silent-narrowing class as the
     # features drift, found by census rather than by a report.
-    interaction: Literal["turn", "single", "extraction", "realtime", "embedding", "agent"]
+    interaction: Literal["turn", "single", "extraction", "realtime", "embedding", "agent", "decision"]
     multilingual: bool
 
 
@@ -95,7 +96,7 @@ class _DeclaredCapabilities(BaseModel):
     input: frozenset[str]
     output: frozenset[str]
     features: frozenset[str]
-    interaction: Literal["turn", "single", "extraction", "realtime", "embedding", "agent"]
+    interaction: Literal["turn", "single", "extraction", "realtime", "embedding", "agent", "decision"]
     multilingual: bool
 
 
@@ -189,6 +190,7 @@ def resolve_model_capabilities(
         produces_video="video" in declared.output,
         produces_audio="audio" in declared.output,
         produces_embedding="embedding" in declared.output,
+        produces_decision="decision" in declared.output,
         supports_dialogue="dialogue" in declared.features,
         supports_function_calling="function_calling" in declared.features,
         supports_web_search="web_search" in declared.features,

@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: herbie-data
-Version: 2026.9.0
+Version: 2026.9.1
 Summary: Download numerical weather prediction GRIB2 model data.
 Project-URL: Homepage, https://github.com/blaylockbk/Herbie
 Project-URL: Documentation, https://herbie.readthedocs.io/
@@ -72,7 +72,11 @@ Description-Content-Type: text/markdown
 
 <div align="center">
 
-![Herbie Logo](https://github.com/blaylockbk/Herbie/blob/main/images/logo_new/Herbie-logo.png?raw=True)
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="https://raw.githubusercontent.com/blaylockbk/Herbie/main/docs/_static/logo_v2/herbie-dark-mode.svg">
+  <source media="(prefers-color-scheme: light)" srcset="https://raw.githubusercontent.com/blaylockbk/Herbie/main/docs/_static/logo_v2/herbie-light-mode.svg">
+  <img alt="Herbie Logo" src="https://raw.githubusercontent.com/blaylockbk/Herbie/main/docs/_static/logo_v2/herbie-light-mode.svg">
+</picture>
 
 # Herbie: Download Weather Forecast Model Data in Python 🏁
 

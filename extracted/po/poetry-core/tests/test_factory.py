@@ -12,7 +12,7 @@ import pytest
 
 from packaging.utils import canonicalize_name
 
-from poetry.core.constraints.version import parse_constraint
+from poetry.core.constraints.version import parse_marker_version_constraint
 from poetry.core.factory import Factory
 from poetry.core.packages.dependency import Dependency
 from poetry.core.packages.dependency_group import MAIN_GROUP
@@ -308,6 +308,7 @@ def test_create_poetry(project: str) -> None:
             "Programming Language :: Python :: 3.12",
             "Programming Language :: Python :: 3.13",
             "Programming Language :: Python :: 3.14",
+            "Programming Language :: Python :: 3.15",
             "Topic :: Software Development :: Build Tools",
             "Topic :: Software Development :: Libraries :: Python Modules",
         ]
@@ -1046,8 +1047,10 @@ def test_strict_validation_fails_on_readme_files_with_unmatching_types() -> None
 
     assert Factory.validate(content, strict=True) == {
         "errors": [
-            "Declared README files must be of same type: found text/markdown,"
-            " text/x-rst"
+            (
+                "Declared README files must be of same type:"
+                " found text/markdown, text/x-rst"
+            )
         ],
         "warnings": [],
     }
@@ -1277,7 +1280,7 @@ def test_create_dependency_marker_variants(
     constraint["version"] = "1.0.0"
     dep = Factory.create_dependency("foo", constraint)
     assert dep.python_versions == exp_python
-    assert dep.python_constraint == parse_constraint(exp_python)
+    assert dep.python_constraint == parse_marker_version_constraint(exp_python)
     assert str(dep.marker) == exp_marker
 
 
@@ -1312,6 +1315,7 @@ def test_all_classifiers_unique_even_if_classifiers_is_duplicated() -> None:
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
         "Programming Language :: Python :: 3.14",
+        "Programming Language :: Python :: 3.15",
         "Topic :: Software Development :: Build Tools",
     ]
 

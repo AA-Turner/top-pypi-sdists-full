@@ -90,6 +90,13 @@ GOOGLE_PAGE = {
     "nextPageToken": None,
 }
 
+TYPESAFE_PAGE = {
+    "models": [
+        {"name": "jev-latest", "description": "Rolling Jev release"},
+        {"name": "jev-preview", "description": "Preview Jev release"},
+    ]
+}
+
 
 # --- normalizers -------------------------------------------------------------
 
@@ -135,6 +142,15 @@ def test_google_strips_the_models_prefix_and_maps_the_limits():
     assert entries[0]["inputTokenLimit"] == 1_048_576
 
 
+def test_typesafe_listing_marks_aliases_without_inventing_a_version_target():
+    entries = ml.normalize_typesafe_page(TYPESAFE_PAGE)
+    assert [entry["id"] for entry in entries] == ["jev-latest", "jev-preview"]
+    assert all(entry["listing_kind"] == "alias" for entry in entries)
+    assert all(entry["alias_only_listing"] is True for entry in entries)
+    assert all(entry["absence_is_not_retirement_evidence"] is True for entry in entries)
+    assert "target_model" not in entries[0]
+
+
 def test_cerebras_created_zero_means_unknown_not_1970():
     """Cerebras serves ``created: 0`` for every model. 1970-01-01 would put every
     Cerebras model before any sync cutoff and hide it as before_cutoff."""
@@ -175,6 +191,7 @@ def test_normalizers_ignore_a_payload_with_no_models():
     assert ml.normalize_anthropic_page({"data": None}) == []
     assert ml.normalize_google_page({}) == []
     assert ml.normalize_openai_page({"data": ["not-a-dict", 3]}) == []
+    assert ml.normalize_typesafe_page({"models": [{"name": 7}]}) == []
 
 
 def test_iso_from_epoch_refuses_non_numbers_and_bools():
@@ -267,8 +284,19 @@ async def test_openai_shaped_fetchers_send_a_bearer_token():
         assert http.calls[0]["headers"] == {"Authorization": "Bearer secret"}
 
 
+async def test_typesafe_fetches_the_alias_only_listing_with_bearer_auth():
+    http = _StubClient([TYPESAFE_PAGE])
+    entries = await ml.fetch_typesafe(http, "secret")
+    assert [entry["id"] for entry in entries] == ["jev-latest", "jev-preview"]
+    assert http.calls == [{
+        "url": "https://api.typesafe.ai/v1/models",
+        "headers": {"Authorization": "Bearer secret"},
+        "params": {},
+    }]
+
+
 def test_the_fetcher_table_is_keyed_on_provider_slug():
-    assert set(ml.FETCHERS_BY_SLUG) == {"openai", "anthropic", "groq", "google", "xai", "cerebras", "together", "moonshot-ai"}
+    assert set(ml.FETCHERS_BY_SLUG) == {"openai", "anthropic", "groq", "google", "xai", "cerebras", "together", "moonshot-ai", "typesafe"}
     for fetcher in ml.PROVIDER_FETCHERS:
         assert fetcher.env_names, fetcher.slug
         assert ml.FETCHERS_BY_SLUG[fetcher.slug] is fetcher

@@ -117,6 +117,7 @@ class PathFormat():
         elif strip == "windows":
             strip = ". "
         self.strip = strip
+        self.sub = sub if (sub := config("path-sub")) else None
 
         if WINDOWS:
             self.extended = config("path-extended", True)
@@ -288,6 +289,7 @@ class PathFormat():
                               for fmt in segments]
 
             segments = []
+            sub = self.sub
             strip = self.strip
             for fmt in formatters:
                 segment = fmt(kwdict)
@@ -295,6 +297,8 @@ class PathFormat():
                     segment = segment.strip()
                     if strip and segment not in {".", ".."}:
                         segment = segment.rstrip(strip)
+                    if sub is not None and segment in sub:
+                        segment = sub[segment]
                     if segment:
                         segments.append(self.clean_segment(segment))
                 else:  # assume list
@@ -302,6 +306,8 @@ class PathFormat():
                         segment = segment.strip()
                         if strip and segment not in {".", ".."}:
                             segment = segment.rstrip(strip)
+                        if sub is not None and segment in sub:
+                            segment = sub[segment]
                         if segment:
                             segments.append(self.clean_segment(segment))
             return segments

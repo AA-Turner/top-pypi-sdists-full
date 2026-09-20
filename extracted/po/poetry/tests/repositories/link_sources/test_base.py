@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import urllib.parse
+
 from collections import defaultdict
 from functools import cached_property
 from typing import TYPE_CHECKING
@@ -14,6 +16,7 @@ from poetry.core.packages.utils.link import Link
 
 from poetry.repositories.link_sources.base import LinkSource
 from poetry.repositories.link_sources.base import SimpleRepositoryRootPage
+from poetry.repositories.link_sources.base import make_absolute_url
 
 
 if TYPE_CHECKING:
@@ -37,7 +40,7 @@ def link_source(mocker: MockerFixture) -> LinkSource:
     url = "https://example.org"
     link_source = LinkSource(url)
     mocker.patch(
-        f"{LinkSource.__module__}.{LinkSource.__qualname__}._link_cache",
+        f"{LinkSource.__module__}.{LinkSource.__qualname__}._link_factory_cache",
         new_callable=PropertyMock,
         return_value=defaultdict(
             lambda: defaultdict(list),
@@ -46,10 +49,12 @@ def link_source(mocker: MockerFixture) -> LinkSource:
                     list,
                     {
                         Version.parse("0.1.0"): [
-                            Link(f"{url}/demo-0.1.0.tar.gz"),
-                            Link(f"{url}/demo-0.1.0-py2.py3-none-any.whl"),
+                            lambda: Link(f"{url}/demo-0.1.0.tar.gz"),
+                            lambda: Link(f"{url}/demo-0.1.0-py2.py3-none-any.whl"),
                         ],
-                        Version.parse("0.1.1"): [Link(f"{url}/demo-0.1.1.tar.gz")],
+                        Version.parse("0.1.1"): [
+                            lambda: Link(f"{url}/demo-0.1.1.tar.gz")
+                        ],
                     },
                 ),
             },
@@ -126,3 +131,66 @@ def test_root_page_search(
     root_page: SimpleRepositoryRootPage, query: str | list[str], expected: list[str]
 ) -> None:
     assert root_page.search(query) == expected
+
+
+@pytest.mark.parametrize(
+    ("url", "base_url", "expected", "urljoin_called"),
+    [
+        (
+            "https://files.example.org/demo-1.0.0.whl",
+            "https://example.org/simple/demo/",
+            "https://files.example.org/demo-1.0.0.whl",
+            False,
+        ),
+        (
+            "file:///tmp/demo-1.0.0.tar.gz",
+            "https://example.org/simple/demo/",
+            "file:///tmp/demo-1.0.0.tar.gz",
+            False,
+        ),
+        (
+            "demo-1.0.0.tar.gz",
+            "https://example.org/simple/demo/",
+            "https://example.org/simple/demo/demo-1.0.0.tar.gz",
+            True,
+        ),
+        (
+            "/packages/demo-1.0.0.tar.gz",
+            "https://example.org/simple/demo/",
+            "https://example.org/packages/demo-1.0.0.tar.gz",
+            True,
+        ),
+        (
+            "../demo-1.0.0.tar.gz",
+            "https://example.org/simple/demo/",
+            "https://example.org/simple/demo-1.0.0.tar.gz",
+            True,
+        ),
+        (
+            "//cdn.example.org/demo-1.0.0.whl",
+            "https://example.org/simple/demo/",
+            "https://cdn.example.org/demo-1.0.0.whl",
+            True,
+        ),
+        (
+            "ftp://files.example.org/demo-1.0.0.whl",
+            "https://example.org/simple/demo/",
+            "ftp://files.example.org/demo-1.0.0.whl",
+            True,
+        ),
+    ],
+)
+def test_make_absolute_url(
+    url: str,
+    base_url: str,
+    expected: str,
+    urljoin_called: bool,
+    mocker: MockerFixture,
+) -> None:
+    urljoin_spy = mocker.spy(urllib.parse, "urljoin")
+
+    assert make_absolute_url(url, base_url) == expected
+    if urljoin_called:
+        urljoin_spy.assert_called_once_with(base_url, url)
+    else:
+        urljoin_spy.assert_not_called()

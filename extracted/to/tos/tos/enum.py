@@ -325,6 +325,7 @@ class SemanticQueryType(Enum):
 
 class DataType(Enum):
     DataTypeFloat32 = "float32"
+    DataTypeInt8 = "int8"
     DataTypeUnknown = "unknown"
 
 def convert_data_type(s: str):

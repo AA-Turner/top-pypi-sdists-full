@@ -44,13 +44,13 @@ test = [
     'flake8>=5,<8',
     'psutil',
     'pycodestyle>=2.9,<2.15',
-    'pyOpenSSL>=23.0,<26.2',
+    'pyOpenSSL>=23.0,<26.5',
     'mypy>=0.800'
 ]
 dev = [
     'packaging',
     'setuptools>=60',
-    'Cython==3.2.4',
+    'Cython==3.3.0',
 ]
 docs = [
     'Sphinx>=4.1.2,<9.2.0',
@@ -63,7 +63,7 @@ requires = [
     "packaging",
     "setuptools>=60",
     "wheel",
-    "Cython==3.2.4",
+    "Cython==3.3.0",
 ]
 build-backend = "setuptools.build_meta"
 

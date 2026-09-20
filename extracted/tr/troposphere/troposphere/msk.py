@@ -23,6 +23,235 @@ class BatchScramSecret(AWSObject):
     }
 
 
+class CloudWatchLogsLogDestination(AWSProperty):
+    """
+    `CloudWatchLogsLogDestination <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-cloudwatchlogslogdestination.html>`__
+    """
+
+    props: PropsDictType = {
+        "Enabled": (boolean, True),
+        "LogGroup": (str, False),
+    }
+
+
+class FirehoseLogDestination(AWSProperty):
+    """
+    `FirehoseLogDestination <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-firehoselogdestination.html>`__
+    """
+
+    props: PropsDictType = {
+        "DeliveryStream": (str, False),
+        "Enabled": (boolean, True),
+    }
+
+
+class S3LogDestination(AWSProperty):
+    """
+    `S3LogDestination <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-s3logdestination.html>`__
+    """
+
+    props: PropsDictType = {
+        "Bucket": (str, False),
+        "Enabled": (boolean, True),
+        "Prefix": (str, False),
+    }
+
+
+class ChannelLoggingInfo(AWSProperty):
+    """
+    `ChannelLoggingInfo <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-channellogginginfo.html>`__
+    """
+
+    props: PropsDictType = {
+        "CloudWatchLogs": (CloudWatchLogsLogDestination, False),
+        "Firehose": (FirehoseLogDestination, False),
+        "S3": (S3LogDestination, False),
+    }
+
+
+class EncryptionConfiguration(AWSProperty):
+    """
+    `EncryptionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-encryptionconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "KmsKeyArn": (str, True),
+    }
+
+
+class Catalog(AWSProperty):
+    """
+    `Catalog <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-catalog.html>`__
+    """
+
+    props: PropsDictType = {
+        "CatalogArn": (str, False),
+        "WarehouseLocation": (str, False),
+    }
+
+
+class DeadLetterQueueS3(AWSProperty):
+    """
+    `DeadLetterQueueS3 <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-deadletterqueues3.html>`__
+    """
+
+    props: PropsDictType = {
+        "BucketArn": (str, True),
+        "ErrorOutputPrefix": (str, True),
+        "ExpectedBucketOwner": (str, False),
+    }
+
+
+class PartitionSource(AWSProperty):
+    """
+    `PartitionSource <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-partitionsource.html>`__
+    """
+
+    props: PropsDictType = {
+        "SourceName": (str, False),
+    }
+
+
+class PartitionSpec(AWSProperty):
+    """
+    `PartitionSpec <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-partitionspec.html>`__
+    """
+
+    props: PropsDictType = {
+        "PartitionStrategy": (str, True),
+        "SourceList": ([PartitionSource], False),
+    }
+
+
+class DestinationTable(AWSProperty):
+    """
+    `DestinationTable <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-destinationtable.html>`__
+    """
+
+    props: PropsDictType = {
+        "DestinationDatabaseName": (str, True),
+        "DestinationTableName": (str, True),
+        "PartitionSpec": (PartitionSpec, False),
+    }
+
+
+class SchemaEvolution(AWSProperty):
+    """
+    `SchemaEvolution <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-schemaevolution.html>`__
+    """
+
+    props: PropsDictType = {
+        "EnableSchemaEvolution": (boolean, True),
+    }
+
+
+class TableCreation(AWSProperty):
+    """
+    `TableCreation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-tablecreation.html>`__
+    """
+
+    props: PropsDictType = {
+        "EnableTableCreation": (boolean, True),
+    }
+
+
+class IcebergDestinationConfiguration(AWSProperty):
+    """
+    `IcebergDestinationConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-icebergdestinationconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "AppendOnly": (boolean, True),
+        "Catalog": (Catalog, False),
+        "CompressionType": (str, False),
+        "DataFreshnessInSeconds": (integer, False),
+        "DeadLetterQueueS3": (DeadLetterQueueS3, True),
+        "DestinationTableList": ([DestinationTable], True),
+        "SchemaEvolution": (SchemaEvolution, True),
+        "ServiceExecutionRoleArn": (str, True),
+        "TableCreation": (TableCreation, True),
+    }
+
+
+class S3Storage(AWSProperty):
+    """
+    `S3Storage <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-s3storage.html>`__
+    """
+
+    props: PropsDictType = {
+        "BucketArn": (str, True),
+        "CompressionType": (str, True),
+        "ExpectedBucketOwner": (str, False),
+        "OutputKeyTemplate": (str, False),
+        "OutputPrefix": (str, False),
+        "StorageClass": (str, True),
+    }
+
+
+class S3DestinationConfiguration(AWSProperty):
+    """
+    `S3DestinationConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-s3destinationconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "DataFreshnessInSeconds": (integer, False),
+        "DeadLetterQueueS3": (DeadLetterQueueS3, True),
+        "ServiceExecutionRoleArn": (str, True),
+        "Storage": (S3Storage, True),
+    }
+
+
+class RecordConverter(AWSProperty):
+    """
+    `RecordConverter <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-recordconverter.html>`__
+    """
+
+    props: PropsDictType = {
+        "ValueConverter": (str, True),
+    }
+
+
+class RecordSchema(AWSProperty):
+    """
+    `RecordSchema <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-recordschema.html>`__
+    """
+
+    props: PropsDictType = {
+        "GsrArn": (str, True),
+    }
+
+
+class TopicConfiguration(AWSProperty):
+    """
+    `TopicConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-topicconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "RecordConverter": (RecordConverter, True),
+        "RecordSchema": (RecordSchema, False),
+        "TopicArn": (str, True),
+    }
+
+
+class Channel(AWSObject):
+    """
+    `Channel <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-channel.html>`__
+    """
+
+    resource_type = "AWS::MSK::Channel"
+
+    props: PropsDictType = {
+        "ChannelName": (str, True),
+        "ClusterArn": (str, False),
+        "EncryptionConfiguration": (EncryptionConfiguration, False),
+        "IcebergDestinationConfiguration": (IcebergDestinationConfiguration, False),
+        "LoggingInfo": (ChannelLoggingInfo, False),
+        "S3DestinationConfiguration": (S3DestinationConfiguration, False),
+        "Tags": (dict, False),
+        "TopicConfigurationList": ([TopicConfiguration], True),
+    }
+
+
 class PublicAccess(AWSProperty):
     """
     `PublicAccess <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-cluster-publicaccess.html>`__
@@ -295,6 +524,18 @@ class S3(AWSProperty):
     }
 
 
+class AuthorizerLogs(AWSProperty):
+    """
+    `AuthorizerLogs <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-cluster-authorizerlogs.html>`__
+    """
+
+    props: PropsDictType = {
+        "CloudWatchLogs": (CloudWatchLogs, False),
+        "Firehose": (Firehose, False),
+        "S3": (S3, False),
+    }
+
+
 class BrokerLogs(AWSProperty):
     """
     `BrokerLogs <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-cluster-brokerlogs.html>`__
@@ -313,7 +554,8 @@ class LoggingInfo(AWSProperty):
     """
 
     props: PropsDictType = {
-        "BrokerLogs": (BrokerLogs, True),
+        "AuthorizerLogs": (AuthorizerLogs, False),
+        "BrokerLogs": (BrokerLogs, False),
     }
 
 
@@ -368,6 +610,16 @@ class Rebalancing(AWSProperty):
     }
 
 
+class ZookeeperAccess(AWSProperty):
+    """
+    `ZookeeperAccess <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-cluster-zookeeperaccess.html>`__
+    """
+
+    props: PropsDictType = {
+        "Enabled": (boolean, False),
+    }
+
+
 class Cluster(AWSObject):
     """
     `Cluster <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-msk-cluster.html>`__
@@ -389,6 +641,7 @@ class Cluster(AWSObject):
         "Rebalancing": (Rebalancing, False),
         "StorageMode": (str, False),
         "Tags": (dict, False),
+        "ZookeeperAccess": (ZookeeperAccess, False),
     }
 
 
@@ -454,6 +707,69 @@ class ApacheKafkaCluster(AWSProperty):
     }
 
 
+class KafkaClusterMtlsAuthentication(AWSProperty):
+    """
+    `KafkaClusterMtlsAuthentication <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclustermtlsauthentication.html>`__
+    """
+
+    props: PropsDictType = {
+        "SecretArn": (str, True),
+    }
+
+
+class KafkaClusterOAuthClientCredentials(AWSProperty):
+    """
+    `KafkaClusterOAuthClientCredentials <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusteroauthclientcredentials.html>`__
+    """
+
+    props: PropsDictType = {
+        "TokenRequestSecretArn": (str, True),
+    }
+
+
+class KafkaClusterOAuthClientCredentialsAssertion(AWSProperty):
+    """
+    `KafkaClusterOAuthClientCredentialsAssertion <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusteroauthclientcredentialsassertion.html>`__
+    """
+
+    props: PropsDictType = {
+        "Audience": (str, True),
+        "SigningAlgorithm": (str, True),
+        "TokenRequestSecretArn": (str, False),
+    }
+
+
+class KafkaClusterOAuthIamJwtBearer(AWSProperty):
+    """
+    `KafkaClusterOAuthIamJwtBearer <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclusteroauthiamjwtbearer.html>`__
+    """
+
+    props: PropsDictType = {
+        "Audience": (str, True),
+        "SigningAlgorithm": (str, True),
+        "TokenRequestSecretArn": (str, False),
+    }
+
+
+class KafkaClusterSaslOAuthBearerAuthentication(AWSProperty):
+    """
+    `KafkaClusterSaslOAuthBearerAuthentication <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclustersasloauthbearerauthentication.html>`__
+    """
+
+    props: PropsDictType = {
+        "ClientCredentials": (KafkaClusterOAuthClientCredentials, False),
+        "ClientCredentialsAssertion": (
+            KafkaClusterOAuthClientCredentialsAssertion,
+            False,
+        ),
+        "IamJwtBearer": (KafkaClusterOAuthIamJwtBearer, False),
+        "Scope": (str, False),
+        "TokenEndpointAuthenticationMethod": (str, True),
+        "TokenEndpointTlsCertificateArn": (str, False),
+        "TokenEndpointUrl": (str, True),
+    }
+
+
 class KafkaClusterSaslScramAuthentication(AWSProperty):
     """
     `KafkaClusterSaslScramAuthentication <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-replicator-kafkaclustersaslscramauthentication.html>`__
@@ -471,7 +787,9 @@ class KafkaClusterClientAuthentication(AWSProperty):
     """
 
     props: PropsDictType = {
-        "SaslScram": (KafkaClusterSaslScramAuthentication, True),
+        "MTLS": (KafkaClusterMtlsAuthentication, False),
+        "SaslOAuthBearer": (KafkaClusterSaslOAuthBearerAuthentication, False),
+        "SaslScram": (KafkaClusterSaslScramAuthentication, False),
     }
 
 
@@ -673,4 +991,15 @@ class VpcConnection(AWSObject):
         "Tags": (dict, False),
         "TargetClusterArn": (str, True),
         "VpcId": (str, True),
+    }
+
+
+class ChannelStateInfo(AWSProperty):
+    """
+    `ChannelStateInfo <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-msk-channel-channelstateinfo.html>`__
+    """
+
+    props: PropsDictType = {
+        "Code": (str, False),
+        "Message": (str, False),
     }

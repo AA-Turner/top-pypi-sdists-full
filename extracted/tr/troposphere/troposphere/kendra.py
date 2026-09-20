@@ -130,7 +130,7 @@ class DataSource(AWSObject):
 
 class S3Path(AWSProperty):
     """
-    `S3Path <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kendra-faq-s3path.html>`__
+    `S3Path <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kendra-thesaurus-s3path.html>`__
     """
 
     props: PropsDictType = {
@@ -154,6 +154,34 @@ class Faq(AWSObject):
         "Name": (str, True),
         "RoleArn": (str, True),
         "S3Path": (S3Path, True),
+        "Tags": (Tags, False),
+    }
+
+
+class FeaturedDocument(AWSProperty):
+    """
+    `FeaturedDocument <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-kendra-featuredresultsset-featureddocument.html>`__
+    """
+
+    props: PropsDictType = {
+        "Id": (str, False),
+    }
+
+
+class FeaturedResultsSet(AWSObject):
+    """
+    `FeaturedResultsSet <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-featuredresultsset.html>`__
+    """
+
+    resource_type = "AWS::Kendra::FeaturedResultsSet"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "FeaturedDocuments": ([FeaturedDocument], False),
+        "FeaturedResultsSetName": (str, True),
+        "IndexId": (str, True),
+        "QueryTexts": ([str], False),
+        "Status": (str, False),
         "Tags": (Tags, False),
     }
 
@@ -286,4 +314,38 @@ class Index(AWSObject):
         "Tags": (Tags, False),
         "UserContextPolicy": (str, False),
         "UserTokenConfigurations": ([UserTokenConfiguration], False),
+    }
+
+
+class QuerySuggestionsBlockList(AWSObject):
+    """
+    `QuerySuggestionsBlockList <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-querysuggestionsblocklist.html>`__
+    """
+
+    resource_type = "AWS::Kendra::QuerySuggestionsBlockList"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "IndexId": (str, True),
+        "Name": (str, True),
+        "RoleArn": (str, True),
+        "SourceS3Path": (S3Path, True),
+        "Tags": (Tags, False),
+    }
+
+
+class Thesaurus(AWSObject):
+    """
+    `Thesaurus <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-kendra-thesaurus.html>`__
+    """
+
+    resource_type = "AWS::Kendra::Thesaurus"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "IndexId": (str, True),
+        "Name": (str, True),
+        "RoleArn": (str, True),
+        "SourceS3Path": (S3Path, True),
+        "Tags": (Tags, False),
     }

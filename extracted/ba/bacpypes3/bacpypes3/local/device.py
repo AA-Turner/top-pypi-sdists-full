@@ -6,20 +6,20 @@ from __future__ import annotations
 
 from typing import Any, Callable, List
 
-from ..debugging import bacpypes_debugging, ModuleLogger
-from ..primitivedata import Date, Time, ObjectIdentifier, ObjectType
 from ..basetypes import (
     AddressBinding,
     DeviceStatus,
+    ListOfCOVSubscription,
+    ObjectTypesSupported,
     Segmentation,
     ServicesSupported,
-    ObjectTypesSupported,
-    ListOfCOVSubscription,
 )
 from ..constructeddata import ArrayOf, ListOf
+from ..debugging import ModuleLogger, bacpypes_debugging
 
 # object module provides basic DeviceObject
 from ..object import DeviceObject as _DeviceObject
+from ..primitivedata import Date, ObjectIdentifier, ObjectType, Time
 
 # local object provides dynamically generated propertyList property
 from .object import Object

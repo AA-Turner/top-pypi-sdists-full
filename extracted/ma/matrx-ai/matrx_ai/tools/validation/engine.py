@@ -57,6 +57,13 @@ class FindingKind(str, Enum):
     ARG_DRIFT = "arg_drift"  # R2: params differ (type/required/default/set)
     DEPRECATED_ACTIVE = "deprecated_active"  # code says deprecated, DB still active
     INACTIVE_IN_DB = "inactive_in_db"  # code declares it, DB row is inactive
+    # R1: the code declares this executor can run the tool, but its ``tool.binding``
+    # row is missing or ``is_active = false`` — so ``tool_resolve_for_request`` leaves
+    # the tool out of every surface's universe and the model is never offered it.
+    # Deliberately NOT suppressed by ``validate=False`` / ``validation_exempt``: those
+    # exempt the ARGUMENT CONTRACT, and using them to excuse routing is how ``records``
+    # shipped declared, contract-checked and unreachable for a day (2026-09-19).
+    BINDING_INACTIVE = "binding_inactive"
 
 
 @dataclass(frozen=True)
@@ -139,6 +146,12 @@ class DbTool:
     is_active: bool
     validation_exempt: bool
     executors: tuple[str, ...]
+    #: The subset of ``executors`` whose ``tool.binding`` row is ``is_active = true``.
+    #: This is what routing actually reads (``tool_resolve_for_request`` joins on it),
+    #: so it is the only honest answer to "can this executor run this tool today".
+    #: A row that does not carry the key falls back to ``executors`` — a caller that
+    #: cannot tell active from inactive must not be told everything is inactive.
+    active_executors: tuple[str, ...] = ()
 
     @classmethod
     def from_row(cls, row: dict[str, Any]) -> DbTool:
@@ -149,6 +162,13 @@ class DbTool:
             executors = tuple(str(s) for s in raw_executors)
         else:
             executors = ()
+        raw_active = row.get("active_executors")
+        if isinstance(raw_active, str):
+            active = tuple(s for s in (x.strip() for x in raw_active.split(",")) if s)
+        elif isinstance(raw_active, (list, tuple)):
+            active = tuple(str(s) for s in raw_active)
+        else:
+            active = executors
         return cls(
             name=row["name"],
             source_kind=row.get("source_kind") or "",
@@ -157,6 +177,7 @@ class DbTool:
             is_active=bool(row.get("is_active", True)),
             validation_exempt=bool(row.get("validation_exempt", False)),
             executors=executors,
+            active_executors=active,
         )
 
 
@@ -225,6 +246,15 @@ def validate(
 
     # ── Direction 1: every code tool must have a matching, correct DB row ──
     for name, ct in code.items():
+        # R1 — CAN THIS EXECUTOR RUN IT AT ALL. Asked FIRST, and asked of every
+        # declaration this host owns, because it is not an argument question: an
+        # inactive binding takes the tool out of `tool_resolve_for_request`'s universe
+        # (that RPC joins `AND b.is_active = true`) AND out of this gate's own ownership
+        # filter, so the one guard that would notice is disabled by the same flag. It is
+        # therefore checked before — and independently of — `validate` and
+        # `validation_exempt`, which exempt the argument contract and nothing else.
+        _check_binding_active(name, ct, db_by_name.get(name), owner_executors, report)
+
         if not ct.validate or ct.deprecated:
             report.exempt.append(name)
             db = db_by_name.get(name)
@@ -356,6 +386,57 @@ def validate(
         )
 
     return report
+
+
+def _check_binding_active(
+    name: str,
+    ct: DeclaredTool,
+    db: DbTool | None,
+    owner_executors: set[str],
+    report: ValidationReport,
+) -> None:
+    """R1 — a live code declaration owes an ACTIVE ``tool.binding`` to its executor.
+
+    Presence of a binding row means "this executor CAN run this tool"; ``is_active``
+    is that row's own on/off. Nothing else in the system may borrow it as a feature
+    switch — a feature switch belongs in ``tool.definition.gating`` or in the tool
+    body — because routing reads it (``tool_resolve_for_request`` joins
+    ``AND b.is_active = true``) and so does this gate's ownership filter. A tool
+    switched off here is invisible to the model AND invisible to the guard.
+
+    Silent (by design) for: a deprecated declaration (expected inactive), an executor
+    this host does not own, and a tool with no DB row at all (``MISSING_IN_DB``
+    already says the louder thing).
+    """
+    if ct.deprecated:
+        return
+    if ct.executor is None or ct.executor not in owner_executors:
+        return
+    if db is None:
+        return
+    if ct.executor in db.active_executors:
+        return
+    bound = ct.executor in db.executors
+    report.findings.append(
+        Finding(
+            FindingKind.BINDING_INACTIVE,
+            Severity.ERROR,
+            name,
+            (
+                f"executor {ct.executor!r} has "
+                + ("an INACTIVE" if bound else "NO")
+                + " tool.binding row, so the tool is left out of every surface's tool "
+                "universe and no model is ever offered it. Active bindings today: "
+                f"{sorted(db.active_executors) or '∅'}."
+            ),
+            {
+                "executor": ct.executor,
+                "bound": bound,
+                "active_executors": sorted(db.active_executors),
+                "all_executors": sorted(db.executors),
+            },
+        )
+    )
 
 
 def _diff_args(

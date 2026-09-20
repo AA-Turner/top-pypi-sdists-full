@@ -554,6 +554,16 @@ class PublicCamera(PublicDeviceModel):
     # captured by the events-WS diff stays a distinct object from the rebuild.
     _detection_state_cache: dict[str, bool] | None = PrivateAttr(default=None)
 
+    @property
+    def has_mic(self) -> bool:
+        """
+        Does the camera have the microphone the public API can control.
+
+        The private :attr:`~uiprotect.data.devices.Camera.has_mic` also counts a
+        hot-plugged audio module, which the public camera payload does not carry.
+        """
+        return self.feature_flags.has_mic
+
     def hardware_stream_qualities(self) -> list[ChannelQuality]:
         """Stream qualities the camera hardware supports (not the server's ``available`` list)."""
         qualities = [ChannelQuality.HIGH, ChannelQuality.MEDIUM, ChannelQuality.LOW]
@@ -566,6 +576,12 @@ class PublicCamera(PublicDeviceModel):
         if (audio_type := smart_type.audio_type) is not None:
             return audio_type in self.feature_flags.smart_detect_audio_types
         return smart_type in self.feature_flags.smart_detect_types
+
+    def is_detection_on(self, smart_type: SmartDetectObjectType) -> bool:
+        """Whether ``smart_type`` detection is enabled (audio types via ``audio_type``)."""
+        if (audio_type := smart_type.audio_type) is not None:
+            return audio_type in self.smart_detect_settings.audio_types
+        return smart_type in self.smart_detect_settings.object_types
 
     # The Public Integration API does not carry live detection booleans on the
     # camera payload; they are derived here from the public events websocket,
@@ -885,7 +901,7 @@ class PublicCamera(PublicDeviceModel):
 
     async def set_mic_volume(self, level: int) -> PublicCamera:
         """Set microphone volume (0-100) via the public API."""
-        if not self.feature_flags.has_mic:
+        if not self.has_mic:
             raise BadRequest("Camera does not have mic")
         level = _coerce_public_int("mic_volume", level, _PUBLIC_MIC_VOLUME_RANGE)
         updated = await self._api.update_camera_public(self.id, mic_volume=level)
@@ -1075,6 +1091,11 @@ class PublicLightDeviceSettings(ProtectBaseObject):
     pir_duration: int | None = None
     pir_sensitivity: int | None = None
     led_level: int | None = None
+
+    @property
+    def pir_duration_seconds(self) -> int | None:
+        """``pir_duration`` rounded to whole seconds."""
+        return None if self.pir_duration is None else round(self.pir_duration / 1000)
 
 
 class PublicLight(PublicDeviceModel):
@@ -1441,6 +1462,19 @@ class PublicSensor(PublicDeviceModel):
     @property
     def is_leak_sensor_enabled(self) -> bool:
         return self.mount_type is MountType.LEAK
+
+    @property
+    def is_leak_detection_enabled(self) -> bool:
+        """Whether leak detection is active, via a leak mount or an enabled channel."""
+        # Sensors without the capability report inert default leak settings, so
+        # the settings alone are not a valid gate.
+        return self.is_leak_sensor_enabled or (
+            self.supports(SensorFeatureCapability.WATER_LEAK)
+            and (
+                self.leak_settings.is_internal_enabled
+                or self.leak_settings.is_external_enabled
+            )
+        )
 
     @property
     def is_contact_sensor_enabled(self) -> bool:
@@ -2286,9 +2320,12 @@ class PublicNVR(PublicIdentifiedModel):
     expose the ``doorbellSettings`` key, and is absent from WS partial-update
     diffs (which only require ``id`` + ``modelKey``).
 
-    ``arm_mode`` is ``None`` when the firmware does not yet expose the alarm
-    manager (older releases) and also ``None`` when the alarm manager is set
-    to global (server returns ``armMode: null``).  WS device-update diffs that
+    ``arm_mode`` reports the state of the **local** alarm manager, and is
+    ``None`` only when the firmware does not yet expose it (older releases).
+    A console whose alarm manager is set to global still returns a populated
+    ``armMode`` — the local manager is genuinely disabled there, so the
+    status reads ``disabled``; the global manager's own arm state is not
+    exposed by ``GET /v1/nvrs``.  WS device-update diffs that
     include ``armMode`` are handled automatically by
     :meth:`~uiprotect.data.base.ProtectBaseObject.update_from_dict` without
     any manual extraction.

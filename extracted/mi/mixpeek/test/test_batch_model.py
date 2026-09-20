@@ -309,6 +309,7 @@ class TestBatchModel(unittest.TestCase):
                 max_retries = 0.0,
                 last_retry_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 retry_reason = '',
+                quota_block_first_seen_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 webhook_url = '',
                 updated_at = datetime.datetime.strptime('2013-10-20 19:20:30.00', '%Y-%m-%d %H:%M:%S.%f'),
                 status_message = '',

@@ -21,6 +21,8 @@ from tests.helpers import TestLocker
 
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     from poetry.poetry import Poetry
     from pytest_mock import MockerFixture
 
@@ -28,7 +30,7 @@ if TYPE_CHECKING:
 
 
 class Config(BaseConfig):
-    def get(self, setting_name: str, default: Any = None) -> Any:
+    def get(self, setting_name: str | Sequence[str], default: Any = None) -> Any:
         self.merge(self._config_source.config)  # type: ignore[attr-defined]
         self.merge(self._auth_config_source.config)  # type: ignore[attr-defined]
 
@@ -179,8 +181,8 @@ def project_factory(
 
         if install_deps:
             for deps in [dependencies, dev_dependencies]:
-                for name, version in deps.items():
-                    pkg = Package(name, version)
+                for dep_name, version in deps.items():
+                    pkg = Package(dep_name, version)
                     repo.add_package(pkg)
                     installed.add_package(pkg)
 

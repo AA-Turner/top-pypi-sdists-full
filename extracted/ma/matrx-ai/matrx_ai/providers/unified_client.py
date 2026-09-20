@@ -583,6 +583,16 @@ class UnifiedAIClient:
         caps = profile.capabilities
         wire_format = profile.wire_format
 
+        # System One is a non-turn decision API. Refuse before chat
+        # preprocessing can reinterpret its state/question contract.
+        if caps.interaction == "decision" or profile.client_attr == "decision":
+            raise ValueError(
+                f"Model {model_name!r} uses the 'decision' execution channel "
+                f"(wire_format={wire_format!r}) and cannot run through "
+                "UnifiedAIClient.execute(); route it through the decision runtime "
+                "with a typed SystemOneRequest."
+            )
+
         # Some callers (page extraction) require the physical PDF/document
         # rather than a best-effort text conversion. Enforce that policy as
         # soon as the actual route is known: both the extraction early-return

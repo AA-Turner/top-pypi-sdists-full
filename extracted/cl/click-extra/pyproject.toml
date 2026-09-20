@@ -4,7 +4,7 @@ requires = ["uv-build>=0.8"]
 
 [project]
 name = "click-extra"
-version = "9.3.1"
+version = "9.3.3"
 description = "🌈 Drop-in replacement for Click to make user-friendly and colorful CLI"
 readme = "readme.md"
 keywords = [
@@ -53,6 +53,7 @@ classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: 3.14",
+    "Programming Language :: Python :: 3.15",
     "Programming Language :: Python :: Implementation :: CPython",
     "Topic :: Documentation :: Sphinx",
     "Topic :: Software Development :: Libraries :: Python Modules",
@@ -108,7 +109,7 @@ yaml = ["pyyaml>=6.0.3"]
 
 [project.urls]
 Changelog = "https://github.com/kdeldycke/click-extra/blob/main/changelog.md"
-Download = "https://github.com/kdeldycke/click-extra/releases/tag/v9.3.1"
+Download = "https://github.com/kdeldycke/click-extra/releases/tag/v9.3.3"
 Funding = "https://github.com/sponsors/kdeldycke"
 Homepage = "https://github.com/kdeldycke/click-extra"
 Issues = "https://github.com/kdeldycke/click-extra/issues"
@@ -337,7 +338,7 @@ fail_under = 70
 precision = 2
 
 [tool.bumpversion]
-current_version = "9.3.1"
+current_version = "9.3.3"
 parse = '(?P<major>\d+)\.(?P<minor>\d+)\.(?P<patch>\d+)(\.dev(?P<dev>\d+))?'
 serialize = [
     "{major}.{minor}.{patch}.dev{dev}",
@@ -504,13 +505,19 @@ python-version = "3.15"
 os = "ubuntu-26.04-arm"
 python-version = "3.10"
 click-version = "8.4.1"
-cloup-version = "released"
+cloup-version = "v3.1.0"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"
 python-version = "3.10"
 click-version = "8.4.2"
-cloup-version = "released"
+cloup-version = "v3.1.0"
+
+[[tool.repomatic.test-matrix.full-include]]
+os = "ubuntu-26.04-arm"
+python-version = "3.14"
+click-version = "released"
+cloup-version = "v3.1.0"
 
 [[tool.repomatic.test-matrix.full-include]]
 os = "ubuntu-26.04-arm"

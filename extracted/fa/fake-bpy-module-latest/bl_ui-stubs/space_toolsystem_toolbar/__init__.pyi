@@ -184,6 +184,7 @@ class _defs_grease_pencil_paint:
     arc: typing.Any
     box: typing.Any
     box_select: typing.Any
+    carver: typing.Any
     circle: typing.Any
     circle_select: typing.Any
     curve: typing.Any

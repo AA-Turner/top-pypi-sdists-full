@@ -26,6 +26,20 @@ from .validators.rds import (
 )
 
 
+class ClusterSnapshot(AWSObject):
+    """
+    `ClusterSnapshot <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-clustersnapshot.html>`__
+    """
+
+    resource_type = "AWS::RDS::ClusterSnapshot"
+
+    props: PropsDictType = {
+        "DBClusterIdentifier": (str, True),
+        "DBClusterSnapshotIdentifier": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
 class CustomDBEngineVersion(AWSObject):
     """
     `CustomDBEngineVersion <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-customdbengineversion.html>`__
@@ -34,6 +48,7 @@ class CustomDBEngineVersion(AWSObject):
     resource_type = "AWS::RDS::CustomDBEngineVersion"
 
     props: PropsDictType = {
+        "DatabaseInstallationFiles": ([str], False),
         "DatabaseInstallationFilesS3BucketName": (str, False),
         "DatabaseInstallationFilesS3Prefix": (str, False),
         "Description": (str, False),
@@ -170,6 +185,26 @@ class DBCluster(AWSObject):
     }
 
 
+class DBClusterAutomatedBackup(AWSObject):
+    """
+    `DBClusterAutomatedBackup <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbclusterautomatedbackup.html>`__
+    """
+
+    resource_type = "AWS::RDS::DBClusterAutomatedBackup"
+
+    props: PropsDictType = {
+        "BackupRetentionPeriod": (integer, False),
+        "DBClusterIdentifier": (str, False),
+        "Engine": (str, False),
+        "EngineMode": (str, False),
+        "EngineVersion": (str, False),
+        "IAMDatabaseAuthenticationEnabled": (boolean, False),
+        "MasterUsername": (str, False),
+        "Port": (integer, False),
+        "StorageEncrypted": (boolean, False),
+    }
+
+
 class DBClusterParameterGroup(AWSObject):
     """
     `DBClusterParameterGroup <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbclusterparametergroup.html>`__
@@ -195,6 +230,8 @@ class AdditionalStorageVolume(AWSProperty):
         "AllocatedStorage": (str, False),
         "Iops": (integer, False),
         "MaxAllocatedStorage": (integer, False),
+        "StorageOperationPercentProgress": (integer, False),
+        "StorageOperationStatus": (str, False),
         "StorageThroughput": (integer, False),
         "StorageType": (str, False),
         "VolumeName": (str, False),
@@ -341,6 +378,25 @@ class DBInstance(AWSObject):
 
     def validate(self):
         validate_dbinstance(self)
+
+
+class DBInstanceAutomatedBackup(AWSObject):
+    """
+    `DBInstanceAutomatedBackup <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbinstanceautomatedbackup.html>`__
+    """
+
+    resource_type = "AWS::RDS::DBInstanceAutomatedBackup"
+
+    props: PropsDictType = {
+        "AllocatedStorage": (integer, False),
+        "BackupRetentionPeriod": (integer, False),
+        "DBInstanceIdentifier": (str, False),
+        "Encrypted": (boolean, False),
+        "Engine": (str, False),
+        "MasterUsername": (str, False),
+        "Port": (integer, False),
+        "StorageType": (str, False),
+    }
 
 
 class DBParameterGroup(AWSObject):
@@ -510,6 +566,20 @@ class DBShardGroup(AWSObject):
     }
 
 
+class DBSnapshot(AWSObject):
+    """
+    `DBSnapshot <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbsnapshot.html>`__
+    """
+
+    resource_type = "AWS::RDS::DBSnapshot"
+
+    props: PropsDictType = {
+        "DBInstanceIdentifier": (str, True),
+        "DBSnapshotIdentifier": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
 class DBSubnetGroup(AWSObject):
     """
     `DBSubnetGroup <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbsubnetgroup.html>`__
@@ -635,6 +705,18 @@ class OptionGroup(AWSObject):
     }
 
 
+class ReservedDBInstance(AWSObject):
+    """
+    `ReservedDBInstance <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-reserveddbinstance.html>`__
+    """
+
+    resource_type = "AWS::RDS::ReservedDBInstance"
+
+    props: PropsDictType = {
+        "DBInstanceCount": (integer, False),
+    }
+
+
 class DBInstanceStatusInfo(AWSProperty):
     """
     `DBInstanceStatusInfo <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbinstance-dbinstancestatusinfo.html>`__
@@ -655,4 +737,26 @@ class ReadEndpoint(AWSProperty):
 
     props: PropsDictType = {
         "Address": (str, False),
+    }
+
+
+class RecurringCharge(AWSProperty):
+    """
+    `RecurringCharge <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-reserveddbinstance-recurringcharge.html>`__
+    """
+
+    props: PropsDictType = {
+        "RecurringChargeAmount": (double, False),
+        "RecurringChargeFrequency": (str, False),
+    }
+
+
+class RestoreWindow(AWSProperty):
+    """
+    `RestoreWindow <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-rds-dbinstanceautomatedbackup-restorewindow.html>`__
+    """
+
+    props: PropsDictType = {
+        "EarliestTime": (str, False),
+        "LatestTime": (str, False),
     }

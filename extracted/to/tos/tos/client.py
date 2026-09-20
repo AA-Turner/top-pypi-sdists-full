@@ -2,6 +2,8 @@
 import base64
 import hashlib
 import json
+import os
+import threading
 import warnings
 from datetime import datetime
 from typing import IO, Dict, Union
@@ -49,12 +51,60 @@ class TosClient():
         self.control_scheme = _get_scheme(self.control_endpoint)
         self.timeout = connect_timeout or CONNECT_TIMEOUT
         self.recognize_content_type = recognize_content_type
+        self._connection_pool_size = connection_pool_size
+        self._session_pid = os.getpid()
+        self._session_fork_locks = {self._session_pid: threading.Lock()}
 
-        self.session = requests.Session()
-        self.session.mount('http://', HTTPAdapter(pool_connections=connection_pool_size,
-                                                  pool_maxsize=connection_pool_size, max_retries=0))
-        self.session.mount('https://', HTTPAdapter(pool_connections=connection_pool_size,
-                                                   pool_maxsize=connection_pool_size, max_retries=0))
+        self.session = self._create_session()
+
+    def _create_session(self):
+        session = requests.Session()
+        session.mount('http://', HTTPAdapter(pool_connections=self._connection_pool_size,
+                                             pool_maxsize=self._connection_pool_size, max_retries=0))
+        session.mount('https://', HTTPAdapter(pool_connections=self._connection_pool_size,
+                                              pool_maxsize=self._connection_pool_size, max_retries=0))
+        return session
+
+    def _rebuild_session_after_fork(self, old_session):
+        session = self._create_session()
+        if old_session is None:
+            return session
+
+        session.trust_env = old_session.trust_env
+        session.max_redirects = old_session.max_redirects
+        session.auth = old_session.auth
+        session.stream = old_session.stream
+        session.verify = old_session.verify
+        session.cert = old_session.cert
+        session.headers.update(old_session.headers)
+        session.proxies.update(old_session.proxies)
+        session.params.update(old_session.params)
+        session.hooks = {event: list(hooks) for event, hooks in old_session.hooks.items()}
+        session.cookies = old_session.cookies.copy()
+        return session
+
+    def _get_session_fork_lock(self, current_pid):
+        locks = self.__dict__.setdefault('_session_fork_locks', {})
+        lock = locks.get(current_pid)
+        if lock is None:
+            lock = locks.setdefault(current_pid, threading.Lock())
+        return lock
+
+    def _ensure_session_fork_safe(self):
+        current_pid = os.getpid()
+        if getattr(self, '_session_pid', None) == current_pid:
+            return
+
+        lock = self._get_session_fork_lock(current_pid)
+        with lock:
+            if getattr(self, '_session_pid', None) == current_pid:
+                return
+
+            # Do not close the inherited session in the child process. Its pool or
+            # SSL locks may have been inherited while held by a vanished parent thread.
+            old_session = getattr(self, 'session', None)
+            self.session = self._rebuild_session_after_fork(old_session)
+            self._session_pid = current_pid
 
     @deprecated(version='2.1.0', reason="please use TosClientV2")
     def generate_presigned_url(self, Method: str, Bucket: str = None, Key: str = None, Params: Dict = None,
@@ -1019,6 +1069,7 @@ class TosClient():
         return _make_virtual_host_url(self.host, self.scheme, bucket, key)
 
     def _req(self, bucket=None, key=None, method=None, data=None, headers=None, params=None):
+        self._ensure_session_fork_safe()
         key = to_str(key)
         data = to_bytes(data)
 

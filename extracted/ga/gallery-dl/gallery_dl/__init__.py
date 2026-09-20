@@ -12,7 +12,7 @@ import logging
 from . import version, config, option, output, extractor, job, util, exception
 
 __author__ = "Mike Fährmann"
-__copyright__ = "Copyright 2014-2025 Mike Fährmann"
+__copyright__ = "Copyright 2014-2026 Mike Fährmann"
 __license__ = "GPLv2"
 __maintainer__ = "Mike Fährmann"
 __email__ = "mike_faehrmann@web.de"
@@ -82,6 +82,18 @@ def main():
             config.set((), "postprocessor-options", args.options_pp)
         for opts in args.options:
             config.set(*opts)
+
+        # environment variables
+        if env := config.get((), "environment"):
+            if isinstance(env, dict):
+                env = env.dicts()
+            environ = os.environ
+            if config.get((), "environment-expand", True):
+                for key, value in env:
+                    environ[key] = util.expand_path(value)
+            else:
+                for key, value in env:  # faster than '.update()'
+                    environ[key] = value
 
         output.configure_standard_streams()
         output.configure_units()

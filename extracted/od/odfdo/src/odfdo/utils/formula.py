@@ -30,7 +30,7 @@ from __future__ import annotations
 
 
 def oooc_to_ooow(formula: str) -> str:
-    """Converts an OpenOffice.org Calc formula to a Writer-compatible format.
+    """Convert an OpenOffice.org Calc formula to a Writer-compatible format.
 
     This function translates cell address syntax and common functions from the
     `oooc` (Calc) namespace to the `ooow` (Writer) namespace.
@@ -40,6 +40,7 @@ def oooc_to_ooow(formula: str) -> str:
 
     Returns:
         str: The converted formula in Writer format (e.g., "ooow:sum <A1:A5>").
+
     """
     _prefix, formula = formula.split(":=", 1)
     # assert "oooc" in prefix

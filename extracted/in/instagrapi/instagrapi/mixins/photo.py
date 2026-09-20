@@ -119,7 +119,7 @@ class DownloadPhotoMixin:
         path = Path(folder) / filename
         if path.exists() and not overwrite:
             return path.resolve()
-        response = requests.get(url, stream=True, timeout=self.request_timeout)
+        response = requests.get(url, stream=True, timeout=self.read_timeout)
         response.raise_for_status()
         return self._download_response_to_path(response, path)
 
@@ -137,7 +137,7 @@ class DownloadPhotoMixin:
         bytes
         """
         url = str(url)
-        response = requests.get(url, stream=True, timeout=self.request_timeout)
+        response = requests.get(url, stream=True, timeout=self.read_timeout)
         response.raise_for_status()
         return self._download_response_bytes(response, url)
 
@@ -787,8 +787,9 @@ class UploadPhotoMixin:
         data = {
             "text_metadata": (
                 '[{"font_size":40.0,"scale":1.0,"width":611.0,"height":169.0,'
-                '"x":0.51414347,"y":0.8487708,"rotation":0.0}]'
-            ),  # REMOVEIT
+                '"x":0.51414347,"y":0.8487708,"rotation":0.0,'
+                '"format_type":"modern_refreshed_v2","effects":["default"]}]'
+            ),
             "supported_capabilities_new": json.dumps(config.SUPPORTED_CAPABILITIES),
             "has_original_sound": "1",
             "camera_session_id": self.client_session_id,
@@ -802,7 +803,7 @@ class UploadPhotoMixin:
             "creation_surface": "camera",
             "imported_taken_at": (timestamp - 3 * 24 * 3600),  # 3 days ago
             "capture_type": "normal",
-            "rich_text_format_types": '["default"]',  # REMOVEIT
+            "rich_text_format_types": '["modern_refreshed_v2"]',
             "upload_id": upload_id,
             "client_timestamp": str(timestamp),
             "device": self.device,

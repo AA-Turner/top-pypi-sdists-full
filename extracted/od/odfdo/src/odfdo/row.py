@@ -57,6 +57,7 @@ class Row(Element):
         width (int, optional): The number of cells to create in the row.
         repeated (int, optional): The number of times the row is repeated.
         style (str, optional): The style name for the row.
+
     """
 
     _tag = "table:table-row"
@@ -80,6 +81,8 @@ class Row(Element):
             width: The number of cells to create in the row.
             repeated: The number of times the row is repeated.
             style: The style name for the row.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         self._table_cache = TableCache()
@@ -107,6 +110,7 @@ class Row(Element):
 
         Returns:
             list[Element]: A list of matching elements.
+
         """
         if isinstance(xpath_query, str):
             elements = xpath_return_elements(
@@ -126,6 +130,7 @@ class Row(Element):
 
         Args:
             cache: The cache to copy.
+
         """
         self._table_cache = cache[0]
         if cache[1]:  # pragma: no cover
@@ -179,6 +184,7 @@ class Row(Element):
 
         Args:
             repeated: The number of repetitions.
+
         """
         if repeated is None or repeated < 2:
             with contextlib.suppress(KeyError):
@@ -194,6 +200,7 @@ class Row(Element):
 
         Returns:
             int | None: The number of repetitions.
+
         """
         repeated = self.get_attribute("table:number-rows-repeated")
         if repeated is None:
@@ -224,6 +231,7 @@ class Row(Element):
 
         Returns:
             str | None: The style name.
+
         """
         return self.get_attribute_string("table:style-name")
 
@@ -237,6 +245,7 @@ class Row(Element):
 
         Returns:
             int: The width of the row.
+
         """
         return self._row_cache.width()
 
@@ -258,7 +267,7 @@ class Row(Element):
         start: int | None = None,
         end: int | None = None,
     ) -> Iterator[Cell]:
-        """Yields Cell elements, expanding repetitions.
+        """Yield Cell elements, expanding repetitions.
 
         This method produces individual Cell objects. The yielded
         Cell are copies; use `set_cell()` to apply changes.
@@ -269,6 +278,7 @@ class Row(Element):
 
         Yields:
             Cell: The next Cell element in the specified range..
+
         """
         if start is None:
             start = 0
@@ -315,6 +325,7 @@ class Row(Element):
 
         Returns:
             list[Cell]: A list of matching cells.
+
         """
         # fixme : not clones ?
         if coord:
@@ -346,6 +357,7 @@ class Row(Element):
 
         Returns:
             A list of all cells.
+
         """
         # fixme : not clones ?
         return list(self.iter_cells())
@@ -385,6 +397,7 @@ class Row(Element):
 
         Returns:
             Cell | None: The cell at the given position.
+
         """
         x = self._translate_x_from_any(x)
         cell = self._get_cell2(x, clone=clone)
@@ -411,6 +424,7 @@ class Row(Element):
         Returns:
             CellValue | tuple[CellValue | None, str | None] | None: The value
                 of the cell, or a tuple (value, type).
+
         """
         if get_type:
             x = self._translate_x_from_any(x)
@@ -441,6 +455,7 @@ class Row(Element):
 
         Returns:
             Cell: The cell that was set.
+
         """
         cell_back: Cell
         if cell is None:
@@ -485,6 +500,7 @@ class Row(Element):
             currency: The currency symbol if the type is
                 'currency'.
             formula: The formula to set for the cell.
+
         """
         x_int = self._translate_x_from_any(x)
         if x_int < self.width:
@@ -531,6 +547,7 @@ class Row(Element):
 
         Returns:
             Cell: The cell that was inserted.
+
         """
         cell_back: Cell
         if cell is None:
@@ -554,6 +571,7 @@ class Row(Element):
 
         Args:
             cells: The cells to append.
+
         """
         if cells is None:
             cells = []
@@ -578,6 +596,7 @@ class Row(Element):
 
         Returns:
             Cell: The cell that was appended.
+
         """
         if cell is None:
             cell = Cell()
@@ -604,6 +623,7 @@ class Row(Element):
 
         Args:
             x: The column index or name.
+
         """
         x = self._translate_x_from_any(x)
         if x >= self.width:
@@ -617,7 +637,7 @@ class Row(Element):
         complete: bool = False,
         get_type: bool = False,
     ) -> list[CellValue | tuple[CellValue | None, str | None] | None]:
-        """Shortcut to get the cell values in this row|None]
+        """Shortcut to get the cell values in this row|None].
 
         - Filter by `cell_type`: with 'all' will retrieve cells of any type
           (non-empty).
@@ -642,6 +662,7 @@ class Row(Element):
         Returns:
             list[CellValue | tuple[CellValue | None, str | None] | None]:
                 A list of values, or a list of (value, type) tuples.
+
         """
         if coord:
             x, z = self._translate_row_coordinates(coord)
@@ -678,6 +699,7 @@ class Row(Element):
 
         Returns:
             list[list[Element]]: The elements of each cell of the row.
+
         """
         return [cell.children for cell in self.iter_cells()]
 
@@ -696,6 +718,7 @@ class Row(Element):
             cells: An iterable of cells to set.
             start: The starting column index or name.
             clone: Whether to clone the cells before setting them.
+
         """
         if cells is None:
             cells = []
@@ -742,6 +765,7 @@ class Row(Element):
                 'percentage'.
             currency: The currency symbol if the type is
                 'currency'.
+
         """
         # fixme : if values n, n+ are same, use repeat
         if start is None:
@@ -807,6 +831,7 @@ class Row(Element):
         Returns:
             list[str, bool, int, Decimal, date, datetime, timedelta, None]:
                 The list of values of cells in their appropriate Python type.
+
         """
         return [cell.value for cell in self.iter_cells()]
 
@@ -822,6 +847,7 @@ class Row(Element):
 
         Args:
             aggressive: If True, ignores cell style.
+
         """
         for cell in reversed(self._get_cells()):
             if not cell.is_empty(aggressive=aggressive):
@@ -838,6 +864,7 @@ class Row(Element):
 
         Args:
             aggressive: If True, ignores cell style.
+
         """
         for cell in self._get_cells():
             if not cell.is_empty(aggressive=aggressive):
@@ -854,6 +881,7 @@ class Row(Element):
 
         Args:
             aggressive: If True, ignores cell style.
+
         """
         self.rstrip(aggressive=aggressive)
         self.lstrip(aggressive=aggressive)
@@ -863,6 +891,7 @@ class Row(Element):
 
         Returns:
             int: The length of the row.
+
         """
         idx_repeated_seq = self.elements_repeated_sequence(
             _XPATH_CELL, "table:number-columns-repeated"
@@ -878,6 +907,7 @@ class Row(Element):
 
         Returns:
             int: The minimized width of the row.
+
         """
         idx_repeated_seq = self.elements_repeated_sequence(
             _XPATH_CELL, "table:number-columns-repeated"
@@ -899,6 +929,7 @@ class Row(Element):
 
         Returns:
             Cell or None: The last cell, or None if the row is empty.
+
         """
         try:
             return self._get_cells()[-1]
@@ -911,6 +942,7 @@ class Row(Element):
 
         Args:
             width: The target width.
+
         """
         cell = self.last_cell()
         if cell is None or not cell.is_empty(aggressive=True):
@@ -935,6 +967,7 @@ class Row(Element):
 
         Returns:
             bool: True if the row is empty, False otherwise.
+
         """
         return all(cell.is_empty(aggressive=aggressive) for cell in self._get_cells())
 
@@ -946,6 +979,7 @@ class Row(Element):
 
         Returns:
             bool: True if any cell in the row contains a value, False otherwise.
+
         """
         for cell in self._get_cells():
             if cell.value is not None:

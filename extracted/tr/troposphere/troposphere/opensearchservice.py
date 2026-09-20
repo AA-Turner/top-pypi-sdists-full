@@ -175,6 +175,18 @@ class AdvancedSecurityOptionsInput(AWSProperty):
     }
 
 
+class AutomatedSnapshotPauseOptions(AWSProperty):
+    """
+    `AutomatedSnapshotPauseOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-automatedsnapshotpauseoptions.html>`__
+    """
+
+    props: PropsDictType = {
+        "Enabled": (boolean, True),
+        "EndTime": (str, False),
+        "StartTime": (str, False),
+    }
+
+
 class ColdStorageOptions(AWSProperty):
     """
     `ColdStorageOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchservice-domain-coldstorageoptions.html>`__
@@ -387,6 +399,7 @@ class SoftwareUpdateOptions(AWSProperty):
 
     props: PropsDictType = {
         "AutoSoftwareUpdateEnabled": (boolean, False),
+        "UseLatestServiceSoftwareForBlueGreen": (boolean, False),
     }
 
 
@@ -396,6 +409,7 @@ class VPCOptions(AWSProperty):
     """
 
     props: PropsDictType = {
+        "EgressEnabled": (boolean, False),
         "SecurityGroupIds": ([str], False),
         "SubnetIds": ([str], False),
     }
@@ -413,6 +427,7 @@ class Domain(AWSObject):
         "AccessPolicies": (dict, False),
         "AdvancedOptions": (dict, False),
         "AdvancedSecurityOptions": (AdvancedSecurityOptionsInput, False),
+        "AutomatedSnapshotPauseOptions": (AutomatedSnapshotPauseOptions, False),
         "ClusterConfig": (ClusterConfig, False),
         "CognitoOptions": (CognitoOptions, False),
         "DeploymentStrategyOptions": (DeploymentStrategyOptions, False),
@@ -420,6 +435,7 @@ class Domain(AWSObject):
         "DomainName": (str, False),
         "EBSOptions": (EBSOptions, False),
         "EncryptionAtRestOptions": (EncryptionAtRestOptions, False),
+        "EngineMode": (str, False),
         "EngineVersion": (validate_search_service_engine_version, False),
         "IPAddressType": (str, False),
         "IdentityCenterOptions": (IdentityCenterOptions, False),
@@ -430,6 +446,7 @@ class Domain(AWSObject):
         "SnapshotOptions": (SnapshotOptions, False),
         "SoftwareUpdateOptions": (SoftwareUpdateOptions, False),
         "Tags": (Tags, False),
+        "UseCase": (str, False),
         "VPCOptions": (VPCOptions, False),
     }
 

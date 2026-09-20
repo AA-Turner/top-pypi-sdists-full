@@ -61,15 +61,17 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
         Args:
             *args: Positional arguments passed to the parent `XmlPart` constructor.
             **kwargs: Keyword arguments passed to the parent `XmlPart` constructor.
+
         """
         super().__init__(*args, **kwargs)
         self._generator_modified: bool = False
 
     def _get_body(self) -> Metadata:
-        """Internal method to get the root `office:meta` element.
+        """Get the root `office:meta` element (internal).
 
         Returns:
             Metadata: The `office:meta` element.
+
         """
         return self.get_element("//office:meta")  # ty: ignore[invalid-return-type]
 
@@ -98,6 +100,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Returns:
             str | None: The title string, or None if inexistent.
+
         """
         element = self.get_element("//dc:title")
         if element is None:
@@ -113,6 +116,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Args:
             title: The title string to set.
+
         """
         element = self.get_element("//dc:title")
         if element is None:
@@ -139,6 +143,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Returns:
             str | None: The description string, or None if inexistent.
+
         """
         element = self.get_element("//dc:description")
         if element is None:
@@ -155,6 +160,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Args:
             description: The description string to set.
+
         """
         element = self.get_element("//dc:description")
         if element is None:
@@ -183,6 +189,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Returns:
             str | None: The subject string, or None if inexistent.
+
         """
         element = self.get_element("//dc:subject")
         if element is None:
@@ -196,6 +203,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Args:
             subject: The subject string to set.
+
         """
         element = self.get_element("//dc:subject")
         if element is None:
@@ -230,6 +238,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
             >>> document.meta.get_language()
             fr-FR
+
         """
         element = self.get_element("//dc:language")
         if element is None:
@@ -251,12 +260,12 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
         Example::
 
             >>> document.meta.set_language('fr-FR')
+
         """
         language = str(language)
         if not is_RFC3066(language):
-            raise TypeError(
-                'Language must be "xx" lang or "xx-YY" lang-COUNTRY code (RFC3066)'
-            )
+            msg = 'Language must be "xx" lang or "xx-YY" lang-COUNTRY code (RFC3066)'
+            raise TypeError(msg)
         element = self.get_element("//dc:language")
         if element is None:
             element = Element.from_tag("dc:language")
@@ -286,6 +295,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Returns:
             datetime | None: The creation date as a datetime object, or None if inexistent.
+
         """
         element = self.get_element("//meta:creation-date")
         if element is None:
@@ -302,6 +312,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Args:
             date: The datetime or date object to set as the creation date.
+
         """
         element = self.get_element("//meta:creation-date")
         if element is None:
@@ -329,12 +340,13 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
     @property
     def print_date(self) -> datetime | None:
         """Get or set the date and time when a document when a document was
-        last printed <meta:print-date>
+        last printed, <meta:print-date>.
 
         If provided datetime is None, use current time.
 
         Returns:
             datetime | None: The print date as a datetime object, or None if inexistent.
+
         """
         element = self.get_element("//meta:print-date")
         if element is None:
@@ -357,6 +369,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Returns:
             A MetaTemplate instance or None.
+
         """
         element: MetaTemplate | None = self.get_element("//meta:template")  # ty: ignore[invalid-assignment]
         return element
@@ -367,6 +380,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Returns:
             A MetaTemplate instance or None.
+
         """
         return self.get_template()
 
@@ -385,6 +399,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
             date: The date and time when the template was used.
             href: The URI for the document template (XLink).
             title: The title of the document template (XLink).
+
         """
         template = MetaTemplate(date=date, href=href, title=title)
         current = self.template
@@ -397,6 +412,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Returns:
             A MetaAutoReload instance or None.
+
         """
         element: MetaAutoReload | None = self.get_element("//meta:auto-reload")  # ty: ignore[invalid-assignment]
         return element
@@ -407,6 +423,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Returns:
             A MetaAutoReload instance or None.
+
         """
         return self.get_auto_reload()
 
@@ -420,6 +437,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
         Args:
             delay: The time delay after which the document should auto-reload.
             href: The URL or path to the document to reload or replace with.
+
         """
         autoreload = MetaAutoReload(delay=delay, href=href)
         current = self.auto_reload
@@ -433,6 +451,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Returns:
             A MetaHyperlinkBehaviour instance or None.
+
         """
         element: MetaHyperlinkBehaviour | None = self.get_element(  # ty: ignore[invalid-assignment]
             "//meta:hyperlink-behaviour"
@@ -446,6 +465,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Returns:
             A MetaHyperlinkBehaviour instance or None.
+
         """
         return self.get_hyperlink_behaviour()
 
@@ -464,6 +484,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
                 Defaults to "_blank" (new window/tab).
             show: Specifies how the target resource is presented.
                 Defaults to "replace".
+
         """
         behaviour = MetaHyperlinkBehaviour(
             target_frame_name=target_frame_name, show=show
@@ -485,6 +506,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
             >>> document.meta.get_initial_creator()
             Unknown
+
         """
         element = self.get_element("//meta:initial-creator")
         if element is None:
@@ -502,6 +524,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
         Example::
 
             >>> document.meta.set_initial_creator("Plato")
+
         """
         element = self.get_element("//meta:initial-creator")
         if element is None:
@@ -523,11 +546,12 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
     @property
     def printed_by(self) -> str | None:
-        """Get or set the name of the last person who printed a document.
-        <meta:printed-by>
+        """Get or set the name of the last person who printed a document,
+        <meta:printed-by>.
 
         Returns:
             str | None: The printed by string, or None if inexistent.
+
         """
         element = self.get_element("//meta:printed-by")
         if element is None:
@@ -550,6 +574,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Returns:
             str | None: The keywords string, or None if inexistent.
+
         """
         element = self.get_element("//meta:keyword")
         if element is None:
@@ -564,6 +589,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Args:
             keywords: The keywords string to set.
+
         """
         element = self.get_element("//meta:keyword")
         if element is None:
@@ -573,11 +599,11 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
     @property
     def keyword(self) -> str | None:
-        """Get or set some keyword(s) keyword pertaining to a document
-        <dc:keyword>.
+        """Get or set some keywordpertaining to a document, <dc:keyword>.
 
         Returns:
             str | None: The keyword string, or None if inexistent.
+
         """
         return self.get_keywords()
 
@@ -594,6 +620,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Returns:
             timedelta | None: The editing duration as a timedelta object, or None if inexistent.
+
         """
         element = self.get_element("//meta:editing-duration")
         if element is None:
@@ -608,9 +635,11 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Args:
             duration: The timedelta object representing the editing duration.
+
         """
         if not isinstance(duration, timedelta):
-            raise TypeError("duration must be a timedelta")
+            msg = "Duration must be a timedelta"
+            raise TypeError(msg)
         element = self.get_element("//meta:editing-duration")
         if element is None:
             element = Element.from_tag("meta:editing-duration")
@@ -638,6 +667,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Returns:
             int | None: The number of editing cycles as an integer, or None if inexistent.
+
         """
         element = self.get_element("//meta:editing-cycles")
         if element is None:
@@ -652,11 +682,14 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Args:
             cycles: The number of editing cycles to set.
+
         """
         if not isinstance(cycles, int):
-            raise TypeError("cycles must be an int")
+            msg = "cycles must be an int"
+            raise TypeError(msg)
         if cycles < 1:
-            raise ValueError("cycles must be a positive int")
+            msg = "cycles must be a positive int"
+            raise ValueError(msg)
         element = self.get_element("//meta:editing-cycles")
         if element is None:
             element = Element.from_tag("meta:editing-cycles")
@@ -692,6 +725,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
             >>> document.meta.generator
             KOffice/2.0.0
             >>> document.meta.generator = "Odfdo experiment"
+
         """
         element = self.get_element("//meta:generator")
         if element is None:
@@ -719,6 +753,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
             >>> document.meta.get_generator()
             KOffice/2.0.0
+
         """
         return self.generator
 
@@ -733,6 +768,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
         Example::
 
             >>> document.meta.set_generator("Odfdo experiment")
+
         """
         self.generator = generator
 
@@ -766,6 +802,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
              'meta:word-count': 6,
              'meta:character-count': 7,
              'meta:non-whitespace-character-count': 3}
+
         """
         element = self.get_element("//meta:document-statistic")
         if element is None:
@@ -794,9 +831,11 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
                              'meta:character-count': 7,
                              'meta:non-whitespace-character-count': 3}
             >>> document.meta.set_statistic(statistic)
+
         """
         if not isinstance(statistic, dict):
-            raise TypeError("Statistic must be a dict")
+            msg = "Statistic must be a dict"
+            raise TypeError(msg)
         element = self.get_element("//meta:document-statistic")
         if element is None:
             element = Element.from_tag("meta:document-statistic")
@@ -828,6 +867,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
              'meta:word-count': 6,
              'meta:character-count': 7,
              'meta:non-whitespace-character-count':3}
+
         """
         return self.get_statistic()
 
@@ -846,6 +886,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
            A dict of str/value mapping.
 
         Value types can be: Decimal, datetime, date, timedelta, bool or str.
+
         """
         return {
             data.name: data.value
@@ -857,11 +898,12 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
     def _user_defined_metadata_list(
         self,
     ) -> list[dict[str, Decimal | datetime | dtdate | timedelta | bool | str]]:
-        """Internal helper to retrieve all user-defined metadata as a sorted list of dictionaries.
+        """Retrieve all user-defined metadata as a sorted list of dictionaries (internal helper).
 
         Returns:
             list[dict[str, Any]]: A sorted list of dictionaries, each
                 representing a user-defined metadata field.
+
         """
         user_defined = [
             data.as_dict()
@@ -902,7 +944,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
             self.set_user_defined_metadata(name=key, value=val)
 
     def _user_defined_metadata_by_name(self, name: str) -> MetaUserDefined | None:
-        """Internal helper to find a specific user-defined metadata element by name.
+        """Find a specific user-defined metadata element by name (internal helper).
 
         Args:
             name: The name of the user-defined metadata field to find.
@@ -910,6 +952,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
         Returns:
             MetaUserDefined | None: The `MetaUserDefined` element if found,
                 otherwise `None`.
+
         """
         for item in cast(
             "list[MetaUserDefined]", self.get_elements("//meta:user-defined")
@@ -927,6 +970,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Returns:
             dict[str, Any]: A dict with keys "name", "value", "value_type", "text".
+
         """
         item = self._user_defined_metadata_by_name(keyname)
         if item is None:
@@ -955,6 +999,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
             value: The value to set for the metadata field.
                 Can be a boolean, int, float, Decimal, datetime, date, string,
                 timedelta, or None for deletion.
+
         """
         if value is None:
             self.delete_user_defined_metadata_of_name(name)
@@ -974,6 +1019,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Args:
             name: The name of the user-defined metadata field to delete.
+
         """
         while True:
             metadata = self._user_defined_metadata_by_name(name)
@@ -991,6 +1037,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Returns:
             The metadata of the document as a Python dict.
+
         """
 
         def _stats() -> dict[str, int]:
@@ -1057,7 +1104,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
         return meta_data
 
     def _as_json_dict(self, full: bool = False) -> dict[str, Any]:
-        """Internal method to prepare metadata as a JSON-compatible dictionary.
+        """Prepare metadata as a JSON-compatible dictionary (internal).
 
         This converts various Python types (datetime, timedelta, Decimal) into
         their string representations suitable for JSON serialization.
@@ -1067,6 +1114,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Returns:
             dict[str, Any]: A dictionary of metadata ready for JSON serialization.
+
         """
 
         def _convert(data: dict[str, Any]) -> None:
@@ -1108,6 +1156,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Returns:
             The metadata of the document as a JSON string.
+
         """
         return json.dumps(
             self._as_json_dict(full=full),
@@ -1123,6 +1172,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Args:
             content: A JSON string of metadata.
+
         """
         data = json.loads(content)
         self.from_dict(data)
@@ -1137,6 +1187,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Returns:
             The metadata of the document as a text.
+
         """
         data = self._as_json_dict(full=False)
         result: list[str] = []
@@ -1180,7 +1231,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
         current_stats: dict[str, int],
         imported_stats: dict[str, int] | None,
     ) -> dict[str, int]:
-        """Internal helper to merge and complete document statistics.
+        """Merge and complete document statistics (internal helper).
 
         It takes current statistics and imported statistics, filling in missing
         values with 0 and prioritizing imported values.
@@ -1192,6 +1243,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Returns:
             dict[str, int]: A merged dictionary of statistics.
+
         """
         if imported_stats is None:
             imported_stats = {}
@@ -1235,6 +1287,7 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
 
         Args:
             data: A dictionary of metadata.
+
         """
 
         def _value_delete(key: str) -> Any:
@@ -1408,8 +1461,8 @@ class Meta(XmlPart, DcCreatorMixin, DcDateMixin):
         Args:
             generator: String for the meta:generator field.
             creation_date: Datetime or None, meta:creation-date value.
-        """
 
+        """
         self.body.clear()
         self.statistic = self._complete_stats({}, None)
         if creation_date is None:

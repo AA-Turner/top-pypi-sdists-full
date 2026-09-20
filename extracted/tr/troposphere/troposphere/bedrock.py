@@ -307,6 +307,18 @@ class ApplicationInferenceProfile(AWSObject):
     }
 
 
+class AsyncInvoke(AWSObject):
+    """
+    `AsyncInvoke <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-asyncinvoke.html>`__
+    """
+
+    resource_type = "AWS::Bedrock::AsyncInvoke"
+
+    props: PropsDictType = {
+        "Tags": (Tags, False),
+    }
+
+
 class PolicyDefinitionRule(AWSProperty):
     """
     `PolicyDefinitionRule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-automatedreasoningpolicy-policydefinitionrule.html>`__
@@ -968,6 +980,71 @@ class ConfluenceDataSourceConfiguration(AWSProperty):
     }
 
 
+class DeletionProtectionConfiguration(AWSProperty):
+    """
+    `DeletionProtectionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-deletionprotectionconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "DeletionProtectionStatus": (str, True),
+        "DeletionProtectionThreshold": (integer, False),
+    }
+
+
+class AudioExtractionConfiguration(AWSProperty):
+    """
+    `AudioExtractionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-audioextractionconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "AudioExtractionStatus": (str, True),
+    }
+
+
+class ImageExtractionConfiguration(AWSProperty):
+    """
+    `ImageExtractionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-imageextractionconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ImageExtractionStatus": (str, True),
+    }
+
+
+class VideoExtractionConfiguration(AWSProperty):
+    """
+    `VideoExtractionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-videoextractionconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "VideoExtractionStatus": (str, True),
+    }
+
+
+class MediaExtractionConfiguration(AWSProperty):
+    """
+    `MediaExtractionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-mediaextractionconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "AudioExtractionConfiguration": (AudioExtractionConfiguration, False),
+        "ImageExtractionConfiguration": (ImageExtractionConfiguration, False),
+        "VideoExtractionConfiguration": (VideoExtractionConfiguration, False),
+    }
+
+
+class ManagedKnowledgeBaseConnectorConfiguration(AWSProperty):
+    """
+    `ManagedKnowledgeBaseConnectorConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-managedknowledgebaseconnectorconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ConnectorParameters": (dict, False),
+        "DeletionProtectionConfiguration": (DeletionProtectionConfiguration, False),
+        "MediaExtractionConfiguration": (MediaExtractionConfiguration, False),
+    }
+
+
 class S3DataSourceConfiguration(AWSProperty):
     """
     `S3DataSourceConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-datasource-s3datasourceconfiguration.html>`__
@@ -1123,6 +1200,10 @@ class DataSourceConfiguration(AWSProperty):
 
     props: PropsDictType = {
         "ConfluenceConfiguration": (ConfluenceDataSourceConfiguration, False),
+        "ManagedKnowledgeBaseConnectorConfiguration": (
+            ManagedKnowledgeBaseConnectorConfiguration,
+            False,
+        ),
         "S3Configuration": (S3DataSourceConfiguration, False),
         "SalesforceConfiguration": (SalesforceDataSourceConfiguration, False),
         "SharePointConfiguration": (SharePointDataSourceConfiguration, False),
@@ -1376,6 +1457,16 @@ class DataSource(AWSObject):
     }
 
 
+class DefaultPromptRouter(AWSObject):
+    """
+    `DefaultPromptRouter <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-defaultpromptrouter.html>`__
+    """
+
+    resource_type = "AWS::Bedrock::DefaultPromptRouter"
+
+    props: PropsDictType = {}
+
+
 class ModelEnforcement(AWSProperty):
     """
     `ModelEnforcement <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-enforcedguardrailconfiguration-modelenforcement.html>`__
@@ -1411,6 +1502,16 @@ class EnforcedGuardrailConfiguration(AWSObject):
         "ModelEnforcement": (ModelEnforcement, False),
         "SelectiveContentGuarding": (SelectiveContentGuarding, False),
     }
+
+
+class EvaluationJob(AWSObject):
+    """
+    `EvaluationJob <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-evaluationjob.html>`__
+    """
+
+    resource_type = "AWS::Bedrock::EvaluationJob"
+
+    props: PropsDictType = {}
 
 
 class FlowConditionalConnectionConfiguration(AWSProperty):
@@ -2106,6 +2207,20 @@ class FlowAlias(AWSObject):
     }
 
 
+class FlowExecution(AWSObject):
+    """
+    `FlowExecution <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowexecution.html>`__
+    """
+
+    resource_type = "AWS::Bedrock::FlowExecution"
+
+    props: PropsDictType = {
+        "FlowAliasIdentifier": (str, False),
+        "FlowExecutionName": (str, False),
+        "FlowIdentifier": (str, False),
+    }
+
+
 class FlowVersion(AWSObject):
     """
     `FlowVersion <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-flowversion.html>`__
@@ -2117,6 +2232,16 @@ class FlowVersion(AWSObject):
         "Description": (str, False),
         "FlowArn": (str, True),
     }
+
+
+class FoundationModel(AWSObject):
+    """
+    `FoundationModel <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-foundationmodel.html>`__
+    """
+
+    resource_type = "AWS::Bedrock::FoundationModel"
+
+    props: PropsDictType = {}
 
 
 class AutomatedReasoningPolicyConfig(AWSProperty):
@@ -2359,6 +2484,40 @@ class GuardrailVersion(AWSObject):
     }
 
 
+class S3DataSource(AWSProperty):
+    """
+    `S3DataSource <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelimportjob-s3datasource.html>`__
+    """
+
+    props: PropsDictType = {
+        "S3Uri": (str, True),
+    }
+
+
+class ModelDataSource(AWSProperty):
+    """
+    `ModelDataSource <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelimportjob-modeldatasource.html>`__
+    """
+
+    props: PropsDictType = {
+        "S3DataSource": (S3DataSource, True),
+    }
+
+
+class ImportedModel(AWSObject):
+    """
+    `ImportedModel <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-importedmodel.html>`__
+    """
+
+    resource_type = "AWS::Bedrock::ImportedModel"
+
+    props: PropsDictType = {
+        "JobName": (str, False),
+        "ModelDataSource": (ModelDataSource, False),
+        "ModelName": (str, False),
+    }
+
+
 class PromptRouterTargetModel(AWSProperty):
     """
     `PromptRouterTargetModel <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-intelligentpromptrouter-promptroutertargetmodel.html>`__
@@ -2403,6 +2562,134 @@ class KendraKnowledgeBaseConfiguration(AWSProperty):
 
     props: PropsDictType = {
         "KendraIndexArn": (str, True),
+    }
+
+
+class AudioSegmentationConfiguration(AWSProperty):
+    """
+    `AudioSegmentationConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-audiosegmentationconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "FixedLengthDuration": (integer, True),
+    }
+
+
+class AudioConfiguration(AWSProperty):
+    """
+    `AudioConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-audioconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "SegmentationConfiguration": (AudioSegmentationConfiguration, True),
+    }
+
+
+class VideoSegmentationConfiguration(AWSProperty):
+    """
+    `VideoSegmentationConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-videosegmentationconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "FixedLengthDuration": (integer, True),
+    }
+
+
+class VideoConfiguration(AWSProperty):
+    """
+    `VideoConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-videoconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "SegmentationConfiguration": (VideoSegmentationConfiguration, True),
+    }
+
+
+class BedrockEmbeddingModelConfiguration(AWSProperty):
+    """
+    `BedrockEmbeddingModelConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-bedrockembeddingmodelconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Audio": ([AudioConfiguration], False),
+        "Dimensions": (integer, False),
+        "EmbeddingDataType": (str, False),
+        "ModelConfiguration": (dict, False),
+        "Video": ([VideoConfiguration], False),
+    }
+
+
+class EmbeddingModelConfiguration(AWSProperty):
+    """
+    `EmbeddingModelConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-embeddingmodelconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "BedrockEmbeddingModelConfiguration": (
+            BedrockEmbeddingModelConfiguration,
+            False,
+        ),
+    }
+
+
+class ManagedKnowledgeBaseServerSideEncryptionConfiguration(AWSProperty):
+    """
+    `ManagedKnowledgeBaseServerSideEncryptionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-managedknowledgebaseserversideencryptionconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "KmsKeyArn": (str, False),
+    }
+
+
+class KnowledgeBaseS3Location(AWSProperty):
+    """
+    `KnowledgeBaseS3Location <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-s3location.html>`__
+    """
+
+    props: PropsDictType = {
+        "URI": (str, True),
+    }
+
+
+class SupplementalDataStorageLocation(AWSProperty):
+    """
+    `SupplementalDataStorageLocation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-supplementaldatastoragelocation.html>`__
+    """
+
+    props: PropsDictType = {
+        "S3Location": (KnowledgeBaseS3Location, False),
+        "SupplementalDataStorageLocationType": (str, True),
+    }
+
+
+class SupplementalDataStorageConfiguration(AWSProperty):
+    """
+    `SupplementalDataStorageConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-supplementaldatastorageconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "SupplementalDataStorageLocations": ([SupplementalDataStorageLocation], True),
+    }
+
+
+class ManagedKnowledgeBaseConfiguration(AWSProperty):
+    """
+    `ManagedKnowledgeBaseConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-managedknowledgebaseconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "EmbeddingModelArn": (str, False),
+        "EmbeddingModelConfiguration": (EmbeddingModelConfiguration, False),
+        "EmbeddingModelType": (str, False),
+        "ServerSideEncryptionConfiguration": (
+            ManagedKnowledgeBaseServerSideEncryptionConfiguration,
+            False,
+        ),
+        "SupplementalDataStorageConfiguration": (
+            SupplementalDataStorageConfiguration,
+            False,
+        ),
     }
 
 
@@ -2582,103 +2869,6 @@ class SqlKnowledgeBaseConfiguration(AWSProperty):
     }
 
 
-class AudioSegmentationConfiguration(AWSProperty):
-    """
-    `AudioSegmentationConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-audiosegmentationconfiguration.html>`__
-    """
-
-    props: PropsDictType = {
-        "FixedLengthDuration": (integer, True),
-    }
-
-
-class AudioConfiguration(AWSProperty):
-    """
-    `AudioConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-audioconfiguration.html>`__
-    """
-
-    props: PropsDictType = {
-        "SegmentationConfiguration": (AudioSegmentationConfiguration, True),
-    }
-
-
-class VideoSegmentationConfiguration(AWSProperty):
-    """
-    `VideoSegmentationConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-videosegmentationconfiguration.html>`__
-    """
-
-    props: PropsDictType = {
-        "FixedLengthDuration": (integer, True),
-    }
-
-
-class VideoConfiguration(AWSProperty):
-    """
-    `VideoConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-videoconfiguration.html>`__
-    """
-
-    props: PropsDictType = {
-        "SegmentationConfiguration": (VideoSegmentationConfiguration, True),
-    }
-
-
-class BedrockEmbeddingModelConfiguration(AWSProperty):
-    """
-    `BedrockEmbeddingModelConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-bedrockembeddingmodelconfiguration.html>`__
-    """
-
-    props: PropsDictType = {
-        "Audio": ([AudioConfiguration], False),
-        "Dimensions": (integer, False),
-        "EmbeddingDataType": (str, False),
-        "Video": ([VideoConfiguration], False),
-    }
-
-
-class EmbeddingModelConfiguration(AWSProperty):
-    """
-    `EmbeddingModelConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-embeddingmodelconfiguration.html>`__
-    """
-
-    props: PropsDictType = {
-        "BedrockEmbeddingModelConfiguration": (
-            BedrockEmbeddingModelConfiguration,
-            False,
-        ),
-    }
-
-
-class KnowledgeBaseS3Location(AWSProperty):
-    """
-    `KnowledgeBaseS3Location <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-s3location.html>`__
-    """
-
-    props: PropsDictType = {
-        "URI": (str, True),
-    }
-
-
-class SupplementalDataStorageLocation(AWSProperty):
-    """
-    `SupplementalDataStorageLocation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-supplementaldatastoragelocation.html>`__
-    """
-
-    props: PropsDictType = {
-        "S3Location": (KnowledgeBaseS3Location, False),
-        "SupplementalDataStorageLocationType": (str, True),
-    }
-
-
-class SupplementalDataStorageConfiguration(AWSProperty):
-    """
-    `SupplementalDataStorageConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-supplementaldatastorageconfiguration.html>`__
-    """
-
-    props: PropsDictType = {
-        "SupplementalDataStorageLocations": ([SupplementalDataStorageLocation], True),
-    }
-
-
 class VectorKnowledgeBaseConfiguration(AWSProperty):
     """
     `VectorKnowledgeBaseConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-knowledgebase-vectorknowledgebaseconfiguration.html>`__
@@ -2701,6 +2891,7 @@ class KnowledgeBaseConfiguration(AWSProperty):
 
     props: PropsDictType = {
         "KendraKnowledgeBaseConfiguration": (KendraKnowledgeBaseConfiguration, False),
+        "ManagedKnowledgeBaseConfiguration": (ManagedKnowledgeBaseConfiguration, False),
         "SqlKnowledgeBaseConfiguration": (SqlKnowledgeBaseConfiguration, False),
         "Type": (str, True),
         "VectorKnowledgeBaseConfiguration": (VectorKnowledgeBaseConfiguration, False),
@@ -2908,6 +3099,56 @@ class KnowledgeBase(AWSObject):
     }
 
 
+class KnowledgeBasePolicy(AWSObject):
+    """
+    `KnowledgeBasePolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-knowledgebasepolicy.html>`__
+    """
+
+    resource_type = "AWS::Bedrock::KnowledgeBasePolicy"
+
+    props: PropsDictType = {
+        "KnowledgeBaseId": (str, True),
+        "PolicyDocument": (dict, True),
+    }
+
+
+class VpcConfig(AWSProperty):
+    """
+    `VpcConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelinvocationjob-vpcconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "SecurityGroupIds": ([str], True),
+        "SubnetIds": ([str], True),
+    }
+
+
+class ModelImportJob(AWSObject):
+    """
+    `ModelImportJob <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-modelimportjob.html>`__
+    """
+
+    resource_type = "AWS::Bedrock::ModelImportJob"
+
+    props: PropsDictType = {
+        "ImportedModelKmsKeyArn": (str, False),
+        "ModelDataSource": (ModelDataSource, True),
+        "RoleArn": (str, True),
+        "Tags": (Tags, False),
+        "VpcConfig": (VpcConfig, False),
+    }
+
+
+class ModelInvocationJob(AWSObject):
+    """
+    `ModelInvocationJob <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-modelinvocationjob.html>`__
+    """
+
+    resource_type = "AWS::Bedrock::ModelInvocationJob"
+
+    props: PropsDictType = {}
+
+
 class PromptAgentResource(AWSProperty):
     """
     `PromptAgentResource <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-promptversion-promptagentresource.html>`__
@@ -3000,6 +3241,20 @@ class ResourcePolicy(AWSObject):
     }
 
 
+class Session(AWSObject):
+    """
+    `Session <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-bedrock-session.html>`__
+    """
+
+    resource_type = "AWS::Bedrock::Session"
+
+    props: PropsDictType = {
+        "EncryptionKeyArn": (str, False),
+        "SessionMetadata": (dict, False),
+        "Tags": (Tags, False),
+    }
+
+
 class AgentAliasHistoryEvent(AWSProperty):
     """
     `AgentAliasHistoryEvent <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-agentalias-agentaliashistoryevent.html>`__
@@ -3012,6 +3267,101 @@ class AgentAliasHistoryEvent(AWSProperty):
     }
 
 
+class AsyncInvokeS3OutputDataConfig(AWSProperty):
+    """
+    `AsyncInvokeS3OutputDataConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-asyncinvoke-asyncinvokes3outputdataconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "S3Uri": (str, True),
+    }
+
+
+class AsyncInvokeOutputDataConfig(AWSProperty):
+    """
+    `AsyncInvokeOutputDataConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-asyncinvoke-asyncinvokeoutputdataconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "S3OutputDataConfig": (AsyncInvokeS3OutputDataConfig, True),
+    }
+
+
+class EvaluationDatasetLocation(AWSProperty):
+    """
+    `EvaluationDatasetLocation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-evaluationdatasetlocation.html>`__
+    """
+
+    props: PropsDictType = {
+        "S3Uri": (str, True),
+    }
+
+
+class EvaluationDataset(AWSProperty):
+    """
+    `EvaluationDataset <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-evaluationdataset.html>`__
+    """
+
+    props: PropsDictType = {
+        "DatasetLocation": (EvaluationDatasetLocation, False),
+        "Name": (str, True),
+    }
+
+
+class EvaluationDatasetMetricConfig(AWSProperty):
+    """
+    `EvaluationDatasetMetricConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-evaluationdatasetmetricconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "Dataset": (EvaluationDataset, True),
+        "MetricNames": ([str], True),
+        "TaskType": (str, True),
+    }
+
+
+class BedrockEvaluatorModel(AWSProperty):
+    """
+    `BedrockEvaluatorModel <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-bedrockevaluatormodel.html>`__
+    """
+
+    props: PropsDictType = {
+        "ModelIdentifier": (str, True),
+    }
+
+
+class EvaluatorModelConfig(AWSProperty):
+    """
+    `EvaluatorModelConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-evaluatormodelconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "BedrockEvaluatorModels": ([BedrockEvaluatorModel], True),
+    }
+
+
+class AutomatedEvaluationConfig(AWSProperty):
+    """
+    `AutomatedEvaluationConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-automatedevaluationconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "DatasetMetricConfigs": ([EvaluationDatasetMetricConfig], True),
+        "EvaluatorModelConfig": (EvaluatorModelConfig, False),
+    }
+
+
+class CustomModelUnits(AWSProperty):
+    """
+    `CustomModelUnits <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-importedmodel-custommodelunits.html>`__
+    """
+
+    props: PropsDictType = {
+        "CustomModelUnitsPerModelCopy": (integer, False),
+        "CustomModelUnitsVersion": (str, False),
+    }
+
+
 class EntityTypeInfo(AWSProperty):
     """
     `EntityTypeInfo <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-dataautomationlibrary-entitytypeinfo.html>`__
@@ -3020,6 +3370,175 @@ class EntityTypeInfo(AWSProperty):
     props: PropsDictType = {
         "EntityMetadata": (str, False),
         "EntityType": (str, True),
+    }
+
+
+class EvaluationBedrockModel(AWSProperty):
+    """
+    `EvaluationBedrockModel <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-evaluationbedrockmodel.html>`__
+    """
+
+    props: PropsDictType = {
+        "InferenceParams": (str, False),
+        "ModelIdentifier": (str, True),
+    }
+
+
+class HumanEvaluationCustomMetric(AWSProperty):
+    """
+    `HumanEvaluationCustomMetric <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-humanevaluationcustommetric.html>`__
+    """
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "Name": (str, True),
+        "RatingMethod": (str, True),
+    }
+
+
+class HumanWorkflowConfig(AWSProperty):
+    """
+    `HumanWorkflowConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-humanworkflowconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "FlowDefinitionArn": (str, True),
+        "Instructions": (str, False),
+    }
+
+
+class HumanEvaluationConfig(AWSProperty):
+    """
+    `HumanEvaluationConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-humanevaluationconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "CustomMetrics": ([HumanEvaluationCustomMetric], False),
+        "DatasetMetricConfigs": ([EvaluationDatasetMetricConfig], True),
+        "HumanWorkflowConfig": (HumanWorkflowConfig, False),
+    }
+
+
+class EvaluationConfig(AWSProperty):
+    """
+    `EvaluationConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-evaluationconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "Automated": (AutomatedEvaluationConfig, False),
+        "Human": (HumanEvaluationConfig, False),
+    }
+
+
+class EvaluationModelConfig(AWSProperty):
+    """
+    `EvaluationModelConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-evaluationmodelconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "BedrockModel": (EvaluationBedrockModel, False),
+    }
+
+
+class KnowledgeBaseVectorSearchConfiguration(AWSProperty):
+    """
+    `KnowledgeBaseVectorSearchConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-knowledgebasevectorsearchconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "NumberOfResults": (integer, False),
+    }
+
+
+class KnowledgeBaseRetrievalConfiguration(AWSProperty):
+    """
+    `KnowledgeBaseRetrievalConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-knowledgebaseretrievalconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "VectorSearchConfiguration": (KnowledgeBaseVectorSearchConfiguration, True),
+    }
+
+
+class KnowledgeBaseRetrieveAndGenerateConfiguration(AWSProperty):
+    """
+    `KnowledgeBaseRetrieveAndGenerateConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-knowledgebaseretrieveandgenerateconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "KnowledgeBaseId": (str, True),
+        "ModelArn": (str, True),
+        "RetrievalConfiguration": (KnowledgeBaseRetrievalConfiguration, False),
+    }
+
+
+class RetrieveAndGenerateConfig(AWSProperty):
+    """
+    `RetrieveAndGenerateConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-retrieveandgenerateconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "KnowledgeBaseConfiguration": (
+            KnowledgeBaseRetrieveAndGenerateConfiguration,
+            True,
+        ),
+        "Type": (str, True),
+    }
+
+
+class RetrieveConfig(AWSProperty):
+    """
+    `RetrieveConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-retrieveconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "KnowledgeBaseId": (str, True),
+        "KnowledgeBaseRetrievalConfiguration": (
+            KnowledgeBaseRetrievalConfiguration,
+            True,
+        ),
+    }
+
+
+class KnowledgeBaseConfig(AWSProperty):
+    """
+    `KnowledgeBaseConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-knowledgebaseconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "RetrieveAndGenerateConfig": (RetrieveAndGenerateConfig, False),
+        "RetrieveConfig": (RetrieveConfig, False),
+    }
+
+
+class RAGConfig(AWSProperty):
+    """
+    `RAGConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-ragconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "KnowledgeBaseConfig": (KnowledgeBaseConfig, False),
+    }
+
+
+class EvaluationInferenceConfig(AWSProperty):
+    """
+    `EvaluationInferenceConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-evaluationinferenceconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "Models": ([EvaluationModelConfig], False),
+        "RagConfigs": ([RAGConfig], False),
+    }
+
+
+class EvaluationOutputDataConfig(AWSProperty):
+    """
+    `EvaluationOutputDataConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-evaluationjob-evaluationoutputdataconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "S3Uri": (str, True),
     }
 
 
@@ -3040,4 +3559,61 @@ class InferenceProfileModel(AWSProperty):
 
     props: PropsDictType = {
         "ModelArn": (str, False),
+    }
+
+
+class ModelInvocationJobS3InputDataConfig(AWSProperty):
+    """
+    `ModelInvocationJobS3InputDataConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelinvocationjob-modelinvocationjobs3inputdataconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "S3BucketOwner": (str, False),
+        "S3Uri": (str, True),
+    }
+
+
+class ModelInvocationJobInputDataConfig(AWSProperty):
+    """
+    `ModelInvocationJobInputDataConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelinvocationjob-modelinvocationjobinputdataconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "S3InputDataConfig": (ModelInvocationJobS3InputDataConfig, True),
+    }
+
+
+class ModelInvocationJobS3OutputDataConfig(AWSProperty):
+    """
+    `ModelInvocationJobS3OutputDataConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelinvocationjob-modelinvocationjobs3outputdataconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "S3BucketOwner": (str, False),
+        "S3EncryptionKeyId": (str, False),
+        "S3Uri": (str, True),
+    }
+
+
+class ModelInvocationJobOutputDataConfig(AWSProperty):
+    """
+    `ModelInvocationJobOutputDataConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-modelinvocationjob-modelinvocationjoboutputdataconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "S3OutputDataConfig": (ModelInvocationJobS3OutputDataConfig, True),
+    }
+
+
+class ModelLifecycle(AWSProperty):
+    """
+    `ModelLifecycle <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-foundationmodel-modellifecycle.html>`__
+    """
+
+    props: PropsDictType = {
+        "EndOfLifeTime": (str, False),
+        "LegacyTime": (str, False),
+        "PublicExtendedAccessTime": (str, False),
+        "StartOfLifeTime": (str, False),
+        "Status": (str, True),
     }

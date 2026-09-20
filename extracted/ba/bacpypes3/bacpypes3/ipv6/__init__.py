@@ -3,16 +3,14 @@ IPv6
 """
 
 import asyncio
+import functools
 import socket
 import struct
-import functools
-
-from typing import Any, Callable, List, Tuple, Optional, cast
-
-from ..debugging import ModuleLogger, bacpypes_debugging
+from typing import Any, Callable, List, Optional, Tuple, cast
 
 from ..comm import Server
-from ..pdu import LocalBroadcast, IPv6Address, IPv6LinkLocalMulticastAddress, PDU
+from ..debugging import ModuleLogger, bacpypes_debugging
+from ..pdu import PDU, IPv6Address, IPv6LinkLocalMulticastAddress, LocalBroadcast
 
 # some debugging
 _debug = 0

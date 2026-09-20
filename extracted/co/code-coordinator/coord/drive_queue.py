@@ -86,7 +86,9 @@ a replacement for it.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass, field, replace
+from pathlib import Path
 from typing import Any, Iterable, Mapping, Sequence
 
 from coord.drive_state import TERMINAL_STATUSES, WORK_LIKE
@@ -596,6 +598,264 @@ def default_max_parallel(
         derived = min(derived, max_workers_cap)
     return max(1, derived)
 
+
+# ── #3408: EFFECTIVE ceilings, with provenance ───────────────────────────────
+#
+# `default_max_parallel` above computes a NUMBER. It does not say which of
+# the three possible sources produced it, or what the losing sources said —
+# and that second question is the one #3408 exists to answer. The reported
+# incident: an operator pushed `pipeline.max_parallel` to `coord-settings`,
+# watched it land in `coord config`, and watched the fleet's behaviour not
+# change — because a hardcoded `--max-parallel 4` on the systemd unit that
+# actually invokes `coord drive-queue tick` outranks it, and nothing said so.
+#
+# `CeilingResolution` and the two `resolve_*` functions below are the SAME
+# resolution order `coord.commands.drive_queue.drive_queue_tick` applies to
+# decide what it actually launches — that command calls these directly
+# rather than re-deriving the order inline, so `coord config --effective`
+# (`coord.commands.setup.config_cmd`) can never show a different answer than
+# the tick that enforces it (#2085's "one question, one answer"). The only
+# difference between the two call sites is WHERE `override_value` comes
+# from: an explicit CLI flag on `drive_queue_tick`'s own invocation, or a
+# systemd unit's hardcoded flag for the report (`read_systemd_max_parallel_flags`
+# below) — both are "a value that wins over `coordinator.yml` outright",
+# which is exactly what `override_source` exists to label.
+@dataclass(frozen=True)
+class CeilingResolution:
+    """One concurrency ceiling's effective value, and where it came from.
+
+    *losing* lists every OTHER source that had an opinion but did not win —
+    e.g. ``(("coordinator.yml pipeline.max_parallel", 8),)`` when a flag or
+    systemd override beat a `coordinator.yml` value of 8. Empty when nothing
+    else was configured at all. This is deliberately not just "the winning
+    value" — a bare number would not have told #3408's operator that pushing
+    to `coord-settings` was futile; the losing value is the whole point.
+    """
+
+    name: str
+    value: int
+    source: str
+    losing: tuple[tuple[str, int], ...] = ()
+
+
+def resolve_max_parallel_per_repo(
+    *,
+    override_value: int | None,
+    override_source: str,
+    config_value: int | None,
+) -> CeilingResolution:
+    """Resolve `--max-parallel-per-repo` (#2573): *override_value* (an
+    explicit CLI flag, or a systemd unit's hardcoded flag — see the module
+    note above) wins outright when given; else *config_value*
+    (`coordinator.yml` `pipeline.max_parallel_per_repo`); else
+    :data:`DEFAULT_MAX_PARALLEL_PER_REPO`. Mirrors
+    `coord.commands.drive_queue.drive_queue_tick`'s own resolution exactly.
+    """
+    if override_value is not None:
+        losing = (
+            (("coordinator.yml pipeline.max_parallel_per_repo", config_value),)
+            if config_value is not None
+            else ()
+        )
+        return CeilingResolution(
+            "max_parallel_per_repo", override_value, override_source, losing
+        )
+    if config_value is not None:
+        return CeilingResolution(
+            "max_parallel_per_repo",
+            config_value,
+            "coordinator.yml pipeline.max_parallel_per_repo",
+        )
+    return CeilingResolution(
+        "max_parallel_per_repo",
+        DEFAULT_MAX_PARALLEL_PER_REPO,
+        "default (DEFAULT_MAX_PARALLEL_PER_REPO)",
+    )
+
+
+def resolve_max_parallel(
+    *,
+    override_value: int | None,
+    override_source: str,
+    config_value: int | None,
+    repo_count: int,
+    max_parallel_per_repo: int,
+    max_workers_cap: int,
+    config_readable: bool = True,
+) -> CeilingResolution:
+    """Resolve `--max-parallel` (#3388), one level above
+    :func:`resolve_max_parallel_per_repo` in the SAME order: *override_value*
+    wins outright when given; else *config_value* (`coordinator.yml`
+    `pipeline.max_parallel`); else :func:`default_max_parallel`'s derivation
+    from the fleet's own shape (*repo_count* times the ALREADY-RESOLVED
+    *max_parallel_per_repo*, clamped to *max_workers_cap*); else, only when
+    *config_readable* is ``False`` (the config itself could not be loaded at
+    all), :data:`DEFAULT_MAX_PARALLEL`. Mirrors
+    `coord.commands.drive_queue.drive_queue_tick`'s own resolution exactly.
+    """
+    if override_value is not None:
+        losing = (
+            (("coordinator.yml pipeline.max_parallel", config_value),)
+            if config_value is not None
+            else ()
+        )
+        return CeilingResolution("max_parallel", override_value, override_source, losing)
+    if config_value is not None:
+        return CeilingResolution(
+            "max_parallel", config_value, "coordinator.yml pipeline.max_parallel"
+        )
+    if config_readable:
+        derived = default_max_parallel(
+            repo_count=repo_count,
+            max_parallel_per_repo=max_parallel_per_repo,
+            max_workers_cap=max_workers_cap,
+        )
+        return CeilingResolution(
+            "max_parallel",
+            derived,
+            "derived (repo_count × max_parallel_per_repo, clamped to "
+            "concurrency.max_workers)",
+        )
+    return CeilingResolution(
+        "max_parallel",
+        DEFAULT_MAX_PARALLEL,
+        "default (DEFAULT_MAX_PARALLEL, config unreadable)",
+    )
+
+
+def flag_shadows_config_warning(
+    *,
+    flag_name: str,
+    override_value: int | None,
+    config_key: str,
+    config_value: int | None,
+) -> str | None:
+    """#3408 item 2: a latent-surprise combination — an explicit override
+    (a CLI flag on `coord drive-queue tick`'s own invocation, or a systemd
+    unit's hardcoded flag reported by `coord config --effective`) is set
+    WHILE the corresponding `pipeline.*` key is ALSO set in
+    `coordinator.yml`. Both flag-only and config-only are ordinary,
+    unremarkable configurations and return ``None`` — only the combination,
+    where the config value is silently dead weight, is worth a warning.
+    """
+    if override_value is None or config_value is None:
+        return None
+    return (
+        f"warning: --{flag_name} {override_value} always wins, but "
+        f"{config_key} is also set to {config_value} in coordinator.yml — "
+        "that value has no effect while the flag is given."
+    )
+
+
+# The unit whose ExecStart= is the one documented case (#3388) of a
+# machine-local override that outranks `coordinator.yml` outright — see
+# deploy/coord-drive-queue.service's own header for the full incident.
+DRIVE_QUEUE_UNIT_NAME = "coord-drive-queue.service"
+
+
+def default_systemd_user_unit_path(unit_name: str = DRIVE_QUEUE_UNIT_NAME) -> Path:
+    """Where a systemd *user* unit would be installed on THIS machine, if
+    it exists — ``~/.config/systemd/user/<unit_name>``. A bare path
+    computation; never asserts the file exists (see
+    :func:`read_systemd_max_parallel_flags`, the only caller that reads it).
+    """
+    return Path.home() / ".config" / "systemd" / "user" / unit_name
+
+
+def parse_max_parallel_flags_from_execstart(unit_text: str) -> dict[str, int]:
+    """Extract a hardcoded ``--max-parallel``/``--max-parallel-per-repo``
+    integer from a systemd unit's ``ExecStart=`` line (or, harmlessly, from
+    the whole unit file's text) (#3408). Pure and independently testable —
+    the sole reason this is split out from :func:`read_systemd_max_parallel_flags`,
+    which does the actual (unstubbable) file read.
+
+    ``--max-parallel-per-repo`` is checked before ``--max-parallel``: both
+    regexes require the character right after the flag name to be a space
+    or ``=``, so ``--max-parallel-per-repo 2`` is never misread as
+    ``--max-parallel`` with a stray ``-per-repo`` suffix — but per-repo is
+    still matched first here for readability, not correctness.
+
+    Returns ``{}`` when neither flag appears — indistinguishable, on
+    purpose, from "this text was not a real unit at all"; the caller
+    (:func:`read_systemd_max_parallel_flags`) folds an unreadable/missing
+    file into the same empty result, since both mean "no override known" to
+    every consumer of this function.
+    """
+    result: dict[str, int] = {}
+    per_repo_match = re.search(r"--max-parallel-per-repo[ =](\d+)", unit_text)
+    if per_repo_match:
+        result["max_parallel_per_repo"] = int(per_repo_match.group(1))
+    # `--max-parallel` must not also match the `--max-parallel-per-repo`
+    # occurrence above — requiring a space/`=` right after `max-parallel`
+    # means the character there is `-` for the per-repo flag, never a match.
+    max_parallel_match = re.search(r"--max-parallel[ =](\d+)", unit_text)
+    if max_parallel_match:
+        result["max_parallel"] = int(max_parallel_match.group(1))
+    return result
+
+
+def read_systemd_max_parallel_flags(unit_path: Path | None = None) -> dict[str, int]:
+    """Best-effort read of a locally-INSTALLED systemd user unit's hardcoded
+    ``--max-parallel``/``--max-parallel-per-repo`` (#3408) — the one source
+    that outranks `coordinator.yml` outright (#3388) and, before this, was
+    visible only via an SSH in and `systemctl --user cat`.
+
+    *unit_path* defaults to :func:`default_systemd_user_unit_path` (this
+    machine's own `~/.config/systemd/user/coord-drive-queue.service`);
+    passing an explicit path is how a test stubs this without touching a
+    real home directory or a real systemd install. Returns ``{}`` for
+    "absent", "unreadable" and "present but carries neither flag" alike —
+    every caller already treats an empty result as "no override known",
+    which is correct for a machine that simply is not the daemon host.
+    """
+    path = unit_path if unit_path is not None else default_systemd_user_unit_path()
+    try:
+        text = path.read_text()
+    except OSError:
+        return {}
+    return parse_max_parallel_flags_from_execstart(text)
+
+
+def compute_running_occupancy(
+    entries: Sequence["QueueEntry"],
+    board: "BoardView",
+    max_attempts: int,
+    *,
+    now: float | None = None,
+    local_host: str | None = None,
+) -> tuple[int, dict[str, int]]:
+    """Global and per-repo slot occupancy for the drive-queue's `running`
+    entries — the exact same "is this entry still occupying a slot?"
+    verdict :func:`plan_tick` itself uses (via :func:`_reconcile_running`),
+    factored out so a REPORT (`coord config --effective`'s "in flight"
+    line, #3408) can ask the identical question a launch decision asks,
+    rather than a second, independently-maintained count that could drift
+    from it (#2085's "one question, one answer").
+
+    Returns ``(global_occupied, {repo: occupied})``, matching
+    :attr:`TickPlan.occupied`/:attr:`TickPlan.repo_occupied`'s shape exactly
+    (this does not build a full :class:`TickPlan` — no reconciliation
+    writes, no launch walk — it only asks the occupancy question for each
+    currently-`running` entry).
+    """
+    occupied = 0
+    repo_occupied: dict[str, int] = {}
+    for entry in entries:
+        if entry.state != STATE_RUNNING:
+            continue
+        reconcile, _block = _reconcile_running(
+            entry,
+            board,
+            max_attempts,
+            now=now,
+            local_host=local_host,
+        )
+        if reconcile.occupies:
+            occupied += 1
+            repo_occupied[entry.repo] = repo_occupied.get(entry.repo, 0) + 1
+    return occupied, repo_occupied
+
+
 # ── the startup grace window (#1794) ─────────────────────────────────────────
 #
 # A drive is NOT established the instant `coord drive --tmux` exits 0.  #1606's
@@ -685,6 +945,15 @@ ROLL_PENDING_DEFAULT_MAX_DEFERRALS = 20
 QUEUE_ALERT_REPO = "(drive-queue)"
 QUEUE_ALERT_ISSUE = 0
 QUEUE_ALERT_STAGE = "drive-queue"
+
+#: #3413: a DISPLAY hint only — production's `coord-drive-queue.timer` fires
+#: every 3 minutes (`OnUnitActiveSec=3min`, `deploy/coord-drive-queue.timer`),
+#: not a value this module reads from the deployed unit (there is no seam to
+#: read it through: the timer is systemd config on the daemon host, not
+#: `coordinator.yml`). `coord drive-queue status`'s stale-alert caveat quotes
+#: this so "longer than the tick interval" names a concrete number instead of
+#: sending the operator to go look one up — see the caveat's own call site.
+PRODUCTION_TICK_INTERVAL_HINT_SECONDS = 180.0
 
 
 class QueueError(ValueError):
@@ -2261,6 +2530,26 @@ class TickPlan:
     # rule the other two follow. Reconciliation is unaffected by this field —
     # see `RollPending`'s own docstring for why that is the whole mechanism.
     roll_pending_reason: str = ""
+    # #3413: did this tick reach step 4 — the `waiting` walk — at all?
+    #
+    # This is the ONE quantity the incident was defined by. Step 4 is the
+    # only step that re-stamps a `waiting` entry's `reason_at`/`last_reason`
+    # (see `_update_drive_queue_entry_local`), and the incident's headline
+    # evidence was exactly those ages: 1401s/3609s/3609s while a 3-minute
+    # timer kept reporting `Result=success`. EVERY early return above step 4
+    # — a fleet-scoped HELD gate (step 2), a local cordon (2b), editable
+    # drift (2c), a pending roll (2d), and `free <= 0` (step 3, which is
+    # also where `--reconcile-only`/`--max-parallel 0` lands, since both
+    # force capacity to 0) — leaves this False, because none of them walk a
+    # single row.
+    #
+    # Carried as a field rather than re-derived by the shell from
+    # `reconcile_only` because the shell cannot see all five paths: it knows
+    # about its own `--reconcile-only` and the roll marker, but a fleet gate
+    # and an at-capacity queue are decided in here. Deriving it in one place
+    # — the function that actually does or does not walk — is what keeps the
+    # shell's staleness clock honest as new early returns are added.
+    walked_queue: bool = False
 
     @property
     def free_slots(self) -> int:
@@ -5280,12 +5569,26 @@ def _cordon_alert(host: str, reason: str) -> QueueAlert:
     return QueueAlert(
         reason=(
             f"no launch — {host} is {reason}. In-flight drives are draining; "
-            "the queue resumes automatically the moment this host is rolled "
-            "and uncordoned (#2101)."
+            "the queue resumes on the NEXT TICK THAT ACTUALLY RUNS after this "
+            "host is uncordoned (#2101)."
         ),
         details=(
             "release cordons expire on their own if the propagate run that "
             "set one dies, so this can never wedge the queue permanently",
+            # #3413: the original text said the queue "resumes automatically
+            # the moment this host is rolled and uncordoned", which is what
+            # made the incident so expensive to read: the host WAS uncordoned,
+            # the alert's own stated precondition was satisfied, and the queue
+            # still did not resume — so the sentence told the operator to keep
+            # waiting for something that had already happened. Resumption is
+            # not an event that fires on uncordon; it is whatever the next
+            # tick decides. Naming the tick as the actor points at the thing
+            # that can actually be checked (and run by hand), which is how
+            # this incident was in fact recovered.
+            "resumption is not triggered by the uncordon itself — a tick has "
+            "to run and walk the queue; if this alert outlives the tick "
+            "interval, check `systemctl --user status coord-drive-queue."
+            "service` and run `coord drive-queue tick` by hand",
         ),
         command=f"coord release cordon --clear {host}",
     )
@@ -6677,6 +6980,11 @@ def plan_tick(
         deferrals=tuple(deferrals),
         alert=alert,
         launch=launch,
+        # #3413: the ONLY return that sets this. Everything above returned
+        # before step 4's walk; reaching here means every `waiting` entry was
+        # visited and its `reason_at` re-stamped, which is the claim the
+        # shell's evaluation clock is allowed to make.
+        walked_queue=True,
     )
 
 

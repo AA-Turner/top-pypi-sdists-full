@@ -166,6 +166,54 @@ def test_allows_all(
     assert not range.allows_all(v300)
 
 
+def test_allows_all_public_version_includes_its_local_variants() -> None:
+    """A public version constraint denotes the release *and* all of its local
+    variants, so a range that excludes one of those variants does not allow
+    all of it.
+    """
+    public = Version.parse("2.12.1")
+    local = Version.parse("2.12.1+cpu")
+    local_a = Version.parse("2.12.1+aaa")
+    local_z = Version.parse("2.12.1+zzz")
+
+    # `<2.12.1+cpu` allows 2.12.1 but leaves out the local variants from
+    # +cpu onwards.
+    assert VersionRange(max=local).allows(public)
+    assert not VersionRange(max=local).allows_all(public)
+    assert VersionRange(max=local).allows_all(local_a)
+    assert not VersionRange(max=local).allows_all(local)
+    assert not VersionRange(max=local).allows_all(local_z)
+
+    # similar for `<=2.12.1+cpu`
+    assert VersionRange(max=local, include_max=True).allows(public)
+    assert not VersionRange(max=local, include_max=True).allows_all(public)
+    assert VersionRange(max=local, include_max=True).allows_all(local_a)
+    assert VersionRange(max=local, include_max=True).allows_all(local)
+    assert not VersionRange(max=local, include_max=True).allows_all(local_z)
+
+    # `>2.12.1+cpu` does not allow 2.12.1 but allows the local variants from
+    # +cpu onwards.
+    assert not VersionRange(min=local).allows(public)
+    assert not VersionRange(min=local).allows_all(public)
+    assert not VersionRange(min=local).allows_all(local_a)
+    assert not VersionRange(min=local).allows_all(local)
+    assert VersionRange(min=local).allows_all(local_z)
+
+    # similar for `>=2.12.1+cpu`
+    assert not VersionRange(min=local, include_min=True).allows(public)
+    assert not VersionRange(min=local, include_min=True).allows_all(public)
+    assert not VersionRange(min=local, include_min=True).allows_all(local_a)
+    assert VersionRange(min=local, include_min=True).allows_all(local)
+    assert VersionRange(min=local, include_min=True).allows_all(local_z)
+
+    # Bounds that are not local variants of the version cover the whole band.
+    assert VersionRange(
+        public, Version.parse("2.12.2+cpu"), include_min=True
+    ).allows_all(public)
+    assert VersionRange(min=public, include_min=True).allows_all(public)
+    assert VersionRange(max=public, include_max=True).allows_all(public)
+
+
 def test_allows_all_with_no_min(
     v080: Version, v140: Version, v250: Version, v300: Version
 ) -> None:
@@ -620,7 +668,7 @@ def test_is_single_wildcard_range_include_min_include_max(
         ("1.2.dev0", "1.3.dev0", True),
         ("1.dev0", "2", True),
         ("1.2.3.4.5.dev0", "1.2.3.4.6", True),
-        # simple non wilcard ranges
+        # simple non wildcard ranges
         (None, "1.3", False),
         ("1.2.dev0", None, False),
         (None, None, False),
@@ -648,6 +696,10 @@ def test_is_single_wildcard_range_include_min_include_max(
         ("2.0.post1.dev0", "2.0.post2.dev1", False),
         ("2.0.post1.dev0", "2.0.post3", False),
         ("2.0.post1.dev0", "2.0.post1", False),
+        # upper bound that is zero in every part
+        ("0.dev0", "0", False),
+        ("0.dev0", "0.0", False),
+        ("0.0.dev0", "0", False),
     ],
 )
 def test_is_single_wildcard_range(
@@ -683,3 +735,293 @@ def test_is_single_wildcard_range(
 )
 def test_str(version: str, expected: str) -> None:
     assert str(parse_constraint(version)) == expected
+
+
+@pytest.mark.parametrize(
+    ("include_min", "include_max", "expected_empty"),
+    [
+        (True, True, False),  # [V, V] = {V}
+        (True, False, True),  # [V, V) = ∅
+        (False, True, True),  # (V, V] = ∅
+        (False, False, True),  # (V, V) = ∅
+    ],
+)
+def test_is_empty_for_coincident_bounds(
+    include_min: bool, include_max: bool, expected_empty: bool
+) -> None:
+    """A range with coincident min/max is only non-empty when both bounds
+    are inclusive (the single-point range ``[V, V]``)."""
+    v = Version.parse("1.2.3")
+    assert (
+        VersionRange(v, v, include_min=include_min, include_max=include_max).is_empty()
+        is expected_empty
+    )
+
+
+def test_is_empty_for_inverted_bounds() -> None:
+    """A range whose min is greater than its max has no members."""
+    lo = Version.parse("1.0")
+    hi = Version.parse("2.0")
+    assert VersionRange(hi, lo, include_min=True, include_max=True).is_empty()
+
+
+def test_intersect_returns_empty_constraint_not_empty_range() -> None:
+    """Operations whose result is empty due to canonicalization must
+    normalize to ``EmptyConstraint``.  ``VersionRange.__init__`` cannot
+    return a different type, so a tail-side check is required: e.g.
+    ``[V, V] ∩ [V, V)`` canonicalizes the rhs max to ``V.dev0`` and the
+    intersection is empty."""
+    v = Version.parse("1.2.3")
+    point = VersionRange(v, v, include_min=True, include_max=True)
+    half_open = VersionRange(v, v, include_min=True, include_max=False)
+    result = point.intersect(half_open)
+    assert isinstance(result, EmptyConstraint)
+
+
+def test_str_of_range_whose_upper_bound_is_zero() -> None:
+    # ">=0.dev0,<0" arises as "==0.*" minus "==0"; str() used to raise
+    # IndexError because the upper bound has no non-zero part
+    version_range = VersionRange(
+        Version.parse("0.dev0"), Version.parse("0"), include_min=True
+    )
+    assert str(version_range) == ">=0.dev0,<0"
+    constraint = parse_constraint("==0.*").difference(parse_constraint("==0"))
+    assert str(constraint) == ">=0.dev0,!=0,<1"
+
+
+def test_difference_returns_empty_constraint_not_empty_range() -> None:
+    """Subtracting a range that fully covers ``self`` yields
+    ``EmptyConstraint`` even when canonicalization is involved."""
+    v = Version.parse("2.0")
+    rng = VersionRange(Version.parse("1.0"), v, include_min=True, include_max=False)
+    result = rng.difference(rng)
+    assert isinstance(result, EmptyConstraint)
+
+
+def test_intersect_with_local_version_other_does_not_broaden_exclusive_min() -> None:
+    """Regression test: ``>0.21.0+cpu,<0.22.0 ∩ ==0.21.0+cpu`` must be
+    empty. Previously returned ``>0.21.0+cpu,<0.21.1`` because the
+    ``>=X+local ∩ public_X`` broadening fired for local ``other`` too.
+    """
+    excluded_point = Version.parse("0.21.0+cpu")
+    upper = Version.parse("0.22.0")
+
+    exclusive = VersionRange(
+        excluded_point, upper, include_min=False, include_max=False
+    )
+    assert isinstance(exclusive.intersect(excluded_point), EmptyConstraint)
+    assert isinstance(excluded_point.intersect(exclusive), EmptyConstraint)
+
+    # Inclusive-lower case still returns the literally-equal point.
+    inclusive = VersionRange(excluded_point, upper, include_min=True, include_max=False)
+    assert inclusive.intersect(excluded_point) == excluded_point
+    assert excluded_point.intersect(inclusive) == excluded_point
+
+    # Original motivating case (``>=X+local ∩ public X``) still broadens.
+    public = Version.parse("0.21.0")
+    range_ge_local = VersionRange(
+        excluded_point, Version.parse("1.0"), include_min=True, include_max=False
+    )
+    broadened_range = VersionRange(
+        excluded_point,
+        public.next_patch(),
+        include_min=True,
+        include_max=False,
+    )
+    assert range_ge_local.intersect(public) == broadened_range
+    assert public.intersect(range_ge_local) == broadened_range
+
+
+@pytest.mark.parametrize(
+    ("min_local", "other_local"),
+    [
+        # other lex-orders after min: in range → return other.
+        ("a", "b"),
+        ("cpu", "cu124"),
+        ("cpu", "cpu1"),
+        # other lex-orders before min: out of range → empty.
+        ("b", "a"),
+        ("cu124", "cpu"),
+        # literal equal: handled by self.allows(other) on line 204 for
+        # inclusive; falls through to the special case for exclusive.
+        ("cpu", "cpu"),
+    ],
+)
+@pytest.mark.parametrize("include_min", [True, False])
+def test_intersect_with_two_local_versions(
+    min_local: str, other_local: str, include_min: bool
+) -> None:
+    """Cross-local intersection: ``self.min`` and ``other`` both carry
+    local segments. ``==X+other`` matches only the literal point
+    ``X+other``, so the result is just the point if it falls in the
+    range and empty otherwise — never a broadened range."""
+    self_min = Version.parse(f"1.2.3+{min_local}")
+    other = Version.parse(f"1.2.3+{other_local}")
+    upper = Version.parse("2.0")
+
+    rng = VersionRange(self_min, upper, include_min=include_min)
+    expected = other if rng.allows(other) else EmptyConstraint()
+    assert rng.intersect(other) == expected
+    assert other.intersect(rng) == expected
+
+
+def test_intersect_punctured_range_with_excluded_point_is_empty() -> None:
+    """A punctured ``VersionUnion`` (``>=A,!=V,<B``) intersected with
+    the excluded point ``V`` must be empty.
+    """
+    punctured = parse_constraint(">=0.21.0,!=0.21.0+cpu,<0.22.0")
+    excluded_point = parse_constraint("==0.21.0+cpu")
+    assert punctured.intersect(excluded_point).is_empty()
+    assert excluded_point.intersect(punctured).is_empty()
+
+
+def test_union_upper_bound_local_with_public_extends_to_next_patch() -> None:
+    """``>=X,<X+local union ==X`` broadens the upper bound to
+    ``X.next_patch()`` (exclusive). ``==X`` matches every ``X+local``
+    variant by PEP 440 release-equality, so the union must cover them.
+    """
+    range_below = VersionRange(
+        Version.parse("0.21.0"),
+        Version.parse("0.21.0+cpu"),
+        include_min=True,
+        include_max=False,
+    )
+    public = Version.parse("0.21.0")
+    expected = VersionRange(
+        Version.parse("0.21.0"),
+        Version.parse("0.21.1"),
+        include_min=True,
+        include_max=False,
+    )
+    assert range_below.union(public) == expected
+    assert public.union(range_below) == expected
+
+
+def test_union_local_bounds_with_public_collapses_to_next_patch() -> None:
+    """``>=X+local1,<=X+local2 union ==X`` collapses to ``[X, X.next_patch())``.
+    Both bounds are local variants of the same public version ``X``.
+    Since ``==X`` matches all of them by PEP 440 release-equality, the
+    union must cover the entire public range up to ``X.next_patch()``.
+    """
+    range_locals = VersionRange(
+        Version.parse("0.21.0+cpu"),
+        Version.parse("0.21.0+gpu"),
+        include_min=True,
+        include_max=True,
+    )
+    public = Version.parse("0.21.0")
+    expected = VersionRange(
+        Version.parse("0.21.0"),
+        Version.parse("0.21.1"),
+        include_min=True,
+        include_max=False,
+    )
+    assert range_locals.union(public) == expected
+    assert public.union(range_locals) == expected
+
+
+def test_union_lower_bound_local_with_public_extends_to_public() -> None:
+    """``>X+local,<Y union ==X`` extends the lower bound down to ``X``
+    (inclusive). ``==X`` matches the literal point ``X`` and every
+    ``X+local`` variant, including the excluded ``X+local`` lower bound.
+    """
+    range_above = VersionRange(
+        Version.parse("0.21.0+cpu"),
+        Version.parse("0.22.0"),
+        include_min=False,
+        include_max=False,
+    )
+    public = Version.parse("0.21.0")
+    expected = VersionRange(
+        Version.parse("0.21.0"),
+        Version.parse("0.22.0"),
+        include_min=True,
+        include_max=False,
+    )
+    assert range_above.union(public) == expected
+    assert public.union(range_above) == expected
+
+
+def test_union_punctured_versionunion_with_public_collapses_puncture() -> None:
+    """End-to-end on a punctured ``VersionUnion``: ``==X`` fills the
+    interior puncture at ``X+local``, collapsing the two-range union
+    back to a single unpunctured range.
+    """
+    punctured = parse_constraint(">=0.21.0,!=0.21.0+cpu,<0.22.0")
+    public = parse_constraint("==0.21.0")
+    plain = parse_constraint(">=0.21.0,<0.22.0")
+    assert punctured.union(public) == plain
+    assert public.union(punctured) == plain
+
+
+def test_union_range_with_local_other_does_not_broaden() -> None:
+    """Negative control: a *local* ``==X+other`` matches only itself
+    literally, never sibling local-tagged versions. Unioning it with a
+    range that excludes a different ``X+local`` must preserve the
+    puncture rather than broaden.
+    """
+    range_below = VersionRange(
+        Version.parse("0.21.0"),
+        Version.parse("0.21.0+cpu"),
+        include_min=True,
+        include_max=False,
+    )
+    other_local = Version.parse("0.21.0+other")
+    result = range_below.union(other_local)
+    assert result.allows(Version.parse("0.21.0"))
+    assert result.allows(other_local)
+    assert not result.allows(Version.parse("0.21.0+cpu"))
+
+
+def test_parsed_strict_max_excludes_dev_releases_of_stable() -> None:
+    """PEP 440: ``<V`` for stable V MUST NOT allow pre-/dev-releases of V.
+    The parser canonicalizes to ``<V.dev0`` so ``allows`` reports correctly."""
+    rng = parse_constraint("<2")
+    assert not rng.allows(Version.parse("2"))
+    assert not rng.allows(Version.parse("2.dev0"))
+    assert not rng.allows(Version.parse("2a1"))
+    assert rng.allows(Version.parse("1.999"))
+
+
+def test_interior_split_preserves_raw_max_and_allows_dev() -> None:
+    """The raw (non-canonical) ``<V`` shape only arises from interior splits
+    of an arithmetic operation; in that context ``V.dev0`` correctly belongs
+    to the lower fragment because nothing has excluded it."""
+    rng = VersionRange(Version.parse("1"), Version.parse("3"))
+    result = rng.difference(Version.parse("2"))
+    assert result.allows(Version.parse("2.dev0"))
+    assert not result.allows(Version.parse("2"))
+
+
+def test_ne_allows_prereleases_per_pep440_strict_equality() -> None:
+    """PEP 440: ``!=V`` is strict equality and must allow prereleases of V
+    (since e.g. ``2.0.dev1 != 2``).  Distinct from ``<V || >V`` typed by the
+    user, where ``<V`` and ``>V`` are PEP 440 ordered comparisons that DO
+    exclude pre-/post-releases."""
+    rng = parse_constraint("!=2")
+    assert not rng.allows(Version.parse("2"))
+    assert rng.allows(Version.parse("2.dev0"))
+    assert rng.allows(Version.parse("2.post1"))
+
+
+def test_punctured_range_round_trips_through_string() -> None:
+    """Algebraic results that puncture single points must serialize so they
+    re-parse to an equivalent constraint -- otherwise lockfile round-trips
+    silently change the allowed set (see PR #645).  The renderer collapses
+    ``<V || >V`` (raw) to ``!=V`` to achieve this."""
+    rng = parse_constraint(">1").intersect(parse_constraint("!=2"))
+    assert str(rng) == ">1,!=2"
+    assert parse_constraint(str(rng)) == rng
+
+
+def test_punctured_range_handles_mixed_seams() -> None:
+    """A union with both puncture seams and gap seams partitions into
+    contiguous punctured ranges joined by ``||``."""
+    rng = (
+        parse_constraint(">=1,<10")
+        .difference(Version.parse("2"))
+        .difference(Version.parse("3"))
+    )
+    # (1 <= x < 10) - {2,3}: three contiguous pieces, both seams are punctures
+    assert str(rng) == ">=1,!=2,!=3,<10"
+    assert parse_constraint(str(rng)) == rng

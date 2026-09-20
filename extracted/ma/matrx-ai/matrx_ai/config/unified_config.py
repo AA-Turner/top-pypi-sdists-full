@@ -131,6 +131,12 @@ _OVERRIDE_NORMALIZERS: dict[str, Callable[[object], object]] = {
 }
 
 
+#: The one-line stamp that makes the omission notice idempotent: `replace_variables`
+#: runs more than once on a config that is reused across turns, and the notice must be
+#: appended once, not once per pass.
+_OMISSION_MARK = "[matrx:not-delivered]"
+
+
 @dataclass
 class UnifiedConfig:
     """
@@ -984,6 +990,25 @@ class UnifiedConfig:
 
         # Replace in all messages
         self.messages.replace_variables(variables)
+
+        # AGT-N-7 — WHAT COULD NOT BE DELIVERED IS NAMED, HERE, WHERE BOTH HALVES ARE
+        # VISIBLE. `TextContent.replace_variables` records the message half; the system
+        # instruction above is substituted by its own loop and had no recorder at all,
+        # so an undeclared `{{foo}}` in a system prompt reached the model verbatim with
+        # nothing said anywhere in the chain (DYNAMIC-VALUES §D, measured 2026-09-16).
+        # The braces are NOT erased — substitution is multi-pass — the model is simply
+        # told, in one sentence, that they were not delivered and must not be invented.
+        from matrx_ai.config.undeclared import note_unresolved, omission_sentence
+
+        if self.system_instruction is not None:
+            note_unresolved(self.system_instruction.base_instruction or "")
+        sentence = omission_sentence()
+        if sentence and self.system_instruction is not None:
+            existing = self.system_instruction.base_instruction or ""
+            if _OMISSION_MARK not in existing:
+                self.system_instruction.base_instruction = (
+                    f"{existing}\n\n{_OMISSION_MARK} {sentence}".strip()
+                )
 
     def apply_overrides(self, overrides: LLMParams) -> None:
         """Apply typed config overrides from the API layer.

@@ -55,6 +55,7 @@ class Link(
         target_frame: '_self', '_blank', '_parent', '_top'
         style: style name
         visited_style: visited style name
+
     """
 
     _tag = "text:a"
@@ -79,7 +80,7 @@ class Link(
         visited_style: str | None = None,
         **kwargs: Any,
     ) -> None:
-        """Create a Link, "text:a"
+        """Create a Link, tag "text:a".
 
         Args:
             url: target url (href)
@@ -89,6 +90,8 @@ class Link(
             target_frame: '_self', '_blank', '_parent', '_top'
             style: style name
             visited_style: visited style name
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:

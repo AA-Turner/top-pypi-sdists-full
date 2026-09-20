@@ -140,6 +140,84 @@ class Environment(AWSObject):
     }
 
 
+class AttributeValue(AWSProperty):
+    """
+    `AttributeValue <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-experimentdefinition-attributevalue.html>`__
+    """
+
+    props: PropsDictType = {
+        "BooleanValue": (boolean, False),
+        "NumberArray": ([double], False),
+        "NumberValue": (double, False),
+        "StringArray": ([str], False),
+        "StringValue": (str, False),
+    }
+
+
+class Treatment(AWSProperty):
+    """
+    `Treatment <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-experimentdefinition-treatment.html>`__
+    """
+
+    props: PropsDictType = {
+        "AttributeValues": (dict, False),
+        "Description": (str, False),
+        "Enabled": (boolean, True),
+        "Key": (str, False),
+        "Weight": (double, True),
+    }
+
+
+class ExperimentDefinition(AWSObject):
+    """
+    `ExperimentDefinition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-experimentdefinition.html>`__
+    """
+
+    resource_type = "AWS::AppConfig::ExperimentDefinition"
+
+    props: PropsDictType = {
+        "ApplicationIdentifier": (str, True),
+        "AudienceDescription": (str, False),
+        "AudienceRule": (str, True),
+        "ConfigurationProfileIdentifier": (str, True),
+        "Control": (Treatment, True),
+        "EnvironmentIdentifier": (str, True),
+        "FlagKey": (str, True),
+        "Hypothesis": (str, False),
+        "LaunchCriteria": (str, False),
+        "Name": (str, True),
+        "Tags": (Tags, False),
+        "Treatments": ([Treatment], True),
+    }
+
+
+class TreatmentOverrides(AWSProperty):
+    """
+    `TreatmentOverrides <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-experimentrun-treatmentoverrides.html>`__
+    """
+
+    props: PropsDictType = {
+        "Inline": (dict, False),
+    }
+
+
+class ExperimentRun(AWSObject):
+    """
+    `ExperimentRun <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appconfig-experimentrun.html>`__
+    """
+
+    resource_type = "AWS::AppConfig::ExperimentRun"
+
+    props: PropsDictType = {
+        "ApplicationIdentifier": (str, True),
+        "Description": (str, False),
+        "ExperimentDefinitionIdentifier": (str, True),
+        "ExposurePercentage": (double, True),
+        "Tags": (Tags, False),
+        "TreatmentOverrides": (TreatmentOverrides, False),
+    }
+
+
 class Parameter(AWSProperty):
     """
     `Parameter <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appconfig-extension-parameter.html>`__

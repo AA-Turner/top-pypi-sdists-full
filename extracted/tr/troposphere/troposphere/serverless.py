@@ -29,6 +29,7 @@ from .awslambda import (
     validate_package_type,
 )
 from .dynamodb import ProvisionedThroughput, SSESpecification
+from .events import InputTransformer
 from .s3 import Filter
 from .stepfunctions import LoggingConfiguration, TracingConfiguration
 from .validators import (
@@ -806,6 +807,7 @@ class EventBridgeRuleEvent(AWSObject):
         "EventBusName": (str, False),
         "Input": (str, False),
         "InputPath": (str, False),
+        "InputTransformer": (InputTransformer, False),
         "Name": (str, False),
         "Pattern": (dict, True),
         "RetryPolicy": (RetryPolicy, False),

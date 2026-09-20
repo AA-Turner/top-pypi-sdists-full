@@ -2783,7 +2783,7 @@ class CollectionDocumentsApi:
         document_id: Annotated[StrictStr, Field(description="The ID of the document to retrieve.")],
         return_presigned_urls: Annotated[Optional[StrictBool], Field(description="Generate fresh presigned download URLs for all blobs with S3 storage")] = None,
         return_vectors: Optional[StrictBool] = None,
-        return_vector_names: Annotated[Optional[StrictBool], Field(description="Include a '_vectors' field listing available vector names for this document (without actual embedding data)")] = None,
+        return_vector_names: Annotated[Optional[StrictStr], Field(description="Pass `true` for a '_vectors' field listing available vector names (no embedding data). Pass a comma-separated list of vector names (e.g. 'gemini-embedding-2,siglip_v1') to return the float arrays for those specific vectors as top-level fields named after each vector -- matching the true/List[str] contract on the return_vector_names body field of POST .../documents/list. Storage and output names both accepted.")] = None,
         expand: Annotated[Optional[StrictStr], Field(description="Comma-separated fields to resolve inline under an '_expanded' key. Reserved lineage keywords: 'parent' (immediate upstream document), 'root_object' (originating bucket object), 'ancestors' (full chain root → parent), 'children' (direct downstream documents, max 100). Any other value is treated as a user field path containing doc_* references (supports dot-notation, e.g. 'items.product_id'). Max 50 unique references for non-lineage fields. Depth is limited to 1 (no recursive expansion).")] = None,
         _request_timeout: Union[
             None,
@@ -2810,8 +2810,8 @@ class CollectionDocumentsApi:
         :type return_presigned_urls: bool
         :param return_vectors:
         :type return_vectors: bool
-        :param return_vector_names: Include a '_vectors' field listing available vector names for this document (without actual embedding data)
-        :type return_vector_names: bool
+        :param return_vector_names: Pass `true` for a '_vectors' field listing available vector names (no embedding data). Pass a comma-separated list of vector names (e.g. 'gemini-embedding-2,siglip_v1') to return the float arrays for those specific vectors as top-level fields named after each vector -- matching the true/List[str] contract on the return_vector_names body field of POST .../documents/list. Storage and output names both accepted.
+        :type return_vector_names: str
         :param expand: Comma-separated fields to resolve inline under an '_expanded' key. Reserved lineage keywords: 'parent' (immediate upstream document), 'root_object' (originating bucket object), 'ancestors' (full chain root → parent), 'children' (direct downstream documents, max 100). Any other value is treated as a user field path containing doc_* references (supports dot-notation, e.g. 'items.product_id'). Max 50 unique references for non-lineage fields. Depth is limited to 1 (no recursive expansion).
         :type expand: str
         :param _request_timeout: timeout setting for this request. If one
@@ -2876,7 +2876,7 @@ class CollectionDocumentsApi:
         document_id: Annotated[StrictStr, Field(description="The ID of the document to retrieve.")],
         return_presigned_urls: Annotated[Optional[StrictBool], Field(description="Generate fresh presigned download URLs for all blobs with S3 storage")] = None,
         return_vectors: Optional[StrictBool] = None,
-        return_vector_names: Annotated[Optional[StrictBool], Field(description="Include a '_vectors' field listing available vector names for this document (without actual embedding data)")] = None,
+        return_vector_names: Annotated[Optional[StrictStr], Field(description="Pass `true` for a '_vectors' field listing available vector names (no embedding data). Pass a comma-separated list of vector names (e.g. 'gemini-embedding-2,siglip_v1') to return the float arrays for those specific vectors as top-level fields named after each vector -- matching the true/List[str] contract on the return_vector_names body field of POST .../documents/list. Storage and output names both accepted.")] = None,
         expand: Annotated[Optional[StrictStr], Field(description="Comma-separated fields to resolve inline under an '_expanded' key. Reserved lineage keywords: 'parent' (immediate upstream document), 'root_object' (originating bucket object), 'ancestors' (full chain root → parent), 'children' (direct downstream documents, max 100). Any other value is treated as a user field path containing doc_* references (supports dot-notation, e.g. 'items.product_id'). Max 50 unique references for non-lineage fields. Depth is limited to 1 (no recursive expansion).")] = None,
         _request_timeout: Union[
             None,
@@ -2903,8 +2903,8 @@ class CollectionDocumentsApi:
         :type return_presigned_urls: bool
         :param return_vectors:
         :type return_vectors: bool
-        :param return_vector_names: Include a '_vectors' field listing available vector names for this document (without actual embedding data)
-        :type return_vector_names: bool
+        :param return_vector_names: Pass `true` for a '_vectors' field listing available vector names (no embedding data). Pass a comma-separated list of vector names (e.g. 'gemini-embedding-2,siglip_v1') to return the float arrays for those specific vectors as top-level fields named after each vector -- matching the true/List[str] contract on the return_vector_names body field of POST .../documents/list. Storage and output names both accepted.
+        :type return_vector_names: str
         :param expand: Comma-separated fields to resolve inline under an '_expanded' key. Reserved lineage keywords: 'parent' (immediate upstream document), 'root_object' (originating bucket object), 'ancestors' (full chain root → parent), 'children' (direct downstream documents, max 100). Any other value is treated as a user field path containing doc_* references (supports dot-notation, e.g. 'items.product_id'). Max 50 unique references for non-lineage fields. Depth is limited to 1 (no recursive expansion).
         :type expand: str
         :param _request_timeout: timeout setting for this request. If one
@@ -2969,7 +2969,7 @@ class CollectionDocumentsApi:
         document_id: Annotated[StrictStr, Field(description="The ID of the document to retrieve.")],
         return_presigned_urls: Annotated[Optional[StrictBool], Field(description="Generate fresh presigned download URLs for all blobs with S3 storage")] = None,
         return_vectors: Optional[StrictBool] = None,
-        return_vector_names: Annotated[Optional[StrictBool], Field(description="Include a '_vectors' field listing available vector names for this document (without actual embedding data)")] = None,
+        return_vector_names: Annotated[Optional[StrictStr], Field(description="Pass `true` for a '_vectors' field listing available vector names (no embedding data). Pass a comma-separated list of vector names (e.g. 'gemini-embedding-2,siglip_v1') to return the float arrays for those specific vectors as top-level fields named after each vector -- matching the true/List[str] contract on the return_vector_names body field of POST .../documents/list. Storage and output names both accepted.")] = None,
         expand: Annotated[Optional[StrictStr], Field(description="Comma-separated fields to resolve inline under an '_expanded' key. Reserved lineage keywords: 'parent' (immediate upstream document), 'root_object' (originating bucket object), 'ancestors' (full chain root → parent), 'children' (direct downstream documents, max 100). Any other value is treated as a user field path containing doc_* references (supports dot-notation, e.g. 'items.product_id'). Max 50 unique references for non-lineage fields. Depth is limited to 1 (no recursive expansion).")] = None,
         _request_timeout: Union[
             None,
@@ -2996,8 +2996,8 @@ class CollectionDocumentsApi:
         :type return_presigned_urls: bool
         :param return_vectors:
         :type return_vectors: bool
-        :param return_vector_names: Include a '_vectors' field listing available vector names for this document (without actual embedding data)
-        :type return_vector_names: bool
+        :param return_vector_names: Pass `true` for a '_vectors' field listing available vector names (no embedding data). Pass a comma-separated list of vector names (e.g. 'gemini-embedding-2,siglip_v1') to return the float arrays for those specific vectors as top-level fields named after each vector -- matching the true/List[str] contract on the return_vector_names body field of POST .../documents/list. Storage and output names both accepted.
+        :type return_vector_names: str
         :param expand: Comma-separated fields to resolve inline under an '_expanded' key. Reserved lineage keywords: 'parent' (immediate upstream document), 'root_object' (originating bucket object), 'ancestors' (full chain root → parent), 'children' (direct downstream documents, max 100). Any other value is treated as a user field path containing doc_* references (supports dot-notation, e.g. 'items.product_id'). Max 50 unique references for non-lineage fields. Depth is limited to 1 (no recursive expansion).
         :type expand: str
         :param _request_timeout: timeout setting for this request. If one

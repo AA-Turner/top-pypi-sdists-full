@@ -90,11 +90,17 @@ async def fetch_db_rows() -> list[dict[str, Any]]:
     bindings = await tool_binding_manager_instance.load_all()
 
     executors_by_tool: dict[str, list[str]] = {}
+    # The ACTIVE subset, kept separately: `is_active` on a binding row is what routing
+    # reads (`tool_resolve_for_request` joins `AND b.is_active = true`), so the engine
+    # needs both — every binding, for ownership, and the live ones, for reachability.
+    active_by_tool: dict[str, list[str]] = {}
     for b in bindings:
         tool_id = str(_row_value(b, "tool_id", "") or "")
         executor_name = _row_value(b, "executor_name")
         if tool_id and executor_name:
             executors_by_tool.setdefault(tool_id, []).append(str(executor_name))
+            if bool(_row_value(b, "is_active", True)):
+                active_by_tool.setdefault(tool_id, []).append(str(executor_name))
 
     rows: list[dict[str, Any]] = []
     for d in defs:
@@ -108,6 +114,7 @@ async def fetch_db_rows() -> list[dict[str, Any]]:
                 "is_active": _row_value(d, "is_active", True),
                 "validation_exempt": _row_value(d, "validation_exempt", False),
                 "executors": executors_by_tool.get(tool_id, []),
+                "active_executors": active_by_tool.get(tool_id, []),
             }
         )
     return rows

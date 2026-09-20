@@ -345,7 +345,7 @@ class DocumentsApi:
         document_id: Annotated[StrictStr, Field(description="The ID of the document to retrieve.")],
         return_presigned_urls: Annotated[Optional[StrictBool], Field(description="Generate fresh presigned download URLs for all blobs with S3 storage")] = None,
         return_vectors: Optional[StrictBool] = None,
-        return_vector_names: Annotated[Optional[StrictBool], Field(description="Include a '_vectors' field listing available vector names")] = None,
+        return_vector_names: Annotated[Optional[StrictStr], Field(description="Pass `true` for a '_vectors' field listing available vector names (no embedding data). Pass a comma-separated list of vector names to return the float arrays for those specific vectors as top-level fields, matching the collection-scoped GET's contract. This route does not know the document's collection until after the lookup, so only STORAGE names (the raw vector_indexes.index.name, not the output alias) are guaranteed to resolve here -- use the collection-scoped route for output-name translation.")] = None,
         expand: Annotated[Optional[StrictStr], Field(description="Comma-separated fields containing document IDs to resolve inline. Referenced documents are fetched and attached under an '_expanded' key. Supports dot-notation for nested fields (e.g., 'items.product_id'). Max 50 unique references per request.")] = None,
         _request_timeout: Union[
             None,
@@ -370,8 +370,8 @@ class DocumentsApi:
         :type return_presigned_urls: bool
         :param return_vectors:
         :type return_vectors: bool
-        :param return_vector_names: Include a '_vectors' field listing available vector names
-        :type return_vector_names: bool
+        :param return_vector_names: Pass `true` for a '_vectors' field listing available vector names (no embedding data). Pass a comma-separated list of vector names to return the float arrays for those specific vectors as top-level fields, matching the collection-scoped GET's contract. This route does not know the document's collection until after the lookup, so only STORAGE names (the raw vector_indexes.index.name, not the output alias) are guaranteed to resolve here -- use the collection-scoped route for output-name translation.
+        :type return_vector_names: str
         :param expand: Comma-separated fields containing document IDs to resolve inline. Referenced documents are fetched and attached under an '_expanded' key. Supports dot-notation for nested fields (e.g., 'items.product_id'). Max 50 unique references per request.
         :type expand: str
         :param _request_timeout: timeout setting for this request. If one
@@ -434,7 +434,7 @@ class DocumentsApi:
         document_id: Annotated[StrictStr, Field(description="The ID of the document to retrieve.")],
         return_presigned_urls: Annotated[Optional[StrictBool], Field(description="Generate fresh presigned download URLs for all blobs with S3 storage")] = None,
         return_vectors: Optional[StrictBool] = None,
-        return_vector_names: Annotated[Optional[StrictBool], Field(description="Include a '_vectors' field listing available vector names")] = None,
+        return_vector_names: Annotated[Optional[StrictStr], Field(description="Pass `true` for a '_vectors' field listing available vector names (no embedding data). Pass a comma-separated list of vector names to return the float arrays for those specific vectors as top-level fields, matching the collection-scoped GET's contract. This route does not know the document's collection until after the lookup, so only STORAGE names (the raw vector_indexes.index.name, not the output alias) are guaranteed to resolve here -- use the collection-scoped route for output-name translation.")] = None,
         expand: Annotated[Optional[StrictStr], Field(description="Comma-separated fields containing document IDs to resolve inline. Referenced documents are fetched and attached under an '_expanded' key. Supports dot-notation for nested fields (e.g., 'items.product_id'). Max 50 unique references per request.")] = None,
         _request_timeout: Union[
             None,
@@ -459,8 +459,8 @@ class DocumentsApi:
         :type return_presigned_urls: bool
         :param return_vectors:
         :type return_vectors: bool
-        :param return_vector_names: Include a '_vectors' field listing available vector names
-        :type return_vector_names: bool
+        :param return_vector_names: Pass `true` for a '_vectors' field listing available vector names (no embedding data). Pass a comma-separated list of vector names to return the float arrays for those specific vectors as top-level fields, matching the collection-scoped GET's contract. This route does not know the document's collection until after the lookup, so only STORAGE names (the raw vector_indexes.index.name, not the output alias) are guaranteed to resolve here -- use the collection-scoped route for output-name translation.
+        :type return_vector_names: str
         :param expand: Comma-separated fields containing document IDs to resolve inline. Referenced documents are fetched and attached under an '_expanded' key. Supports dot-notation for nested fields (e.g., 'items.product_id'). Max 50 unique references per request.
         :type expand: str
         :param _request_timeout: timeout setting for this request. If one
@@ -523,7 +523,7 @@ class DocumentsApi:
         document_id: Annotated[StrictStr, Field(description="The ID of the document to retrieve.")],
         return_presigned_urls: Annotated[Optional[StrictBool], Field(description="Generate fresh presigned download URLs for all blobs with S3 storage")] = None,
         return_vectors: Optional[StrictBool] = None,
-        return_vector_names: Annotated[Optional[StrictBool], Field(description="Include a '_vectors' field listing available vector names")] = None,
+        return_vector_names: Annotated[Optional[StrictStr], Field(description="Pass `true` for a '_vectors' field listing available vector names (no embedding data). Pass a comma-separated list of vector names to return the float arrays for those specific vectors as top-level fields, matching the collection-scoped GET's contract. This route does not know the document's collection until after the lookup, so only STORAGE names (the raw vector_indexes.index.name, not the output alias) are guaranteed to resolve here -- use the collection-scoped route for output-name translation.")] = None,
         expand: Annotated[Optional[StrictStr], Field(description="Comma-separated fields containing document IDs to resolve inline. Referenced documents are fetched and attached under an '_expanded' key. Supports dot-notation for nested fields (e.g., 'items.product_id'). Max 50 unique references per request.")] = None,
         _request_timeout: Union[
             None,
@@ -548,8 +548,8 @@ class DocumentsApi:
         :type return_presigned_urls: bool
         :param return_vectors:
         :type return_vectors: bool
-        :param return_vector_names: Include a '_vectors' field listing available vector names
-        :type return_vector_names: bool
+        :param return_vector_names: Pass `true` for a '_vectors' field listing available vector names (no embedding data). Pass a comma-separated list of vector names to return the float arrays for those specific vectors as top-level fields, matching the collection-scoped GET's contract. This route does not know the document's collection until after the lookup, so only STORAGE names (the raw vector_indexes.index.name, not the output alias) are guaranteed to resolve here -- use the collection-scoped route for output-name translation.
+        :type return_vector_names: str
         :param expand: Comma-separated fields containing document IDs to resolve inline. Referenced documents are fetched and attached under an '_expanded' key. Supports dot-notation for nested fields (e.g., 'items.product_id'). Max 50 unique references per request.
         :type expand: str
         :param _request_timeout: timeout setting for this request. If one

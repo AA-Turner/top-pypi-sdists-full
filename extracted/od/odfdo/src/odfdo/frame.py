@@ -76,6 +76,7 @@ def default_frame_position_style(
 
     Returns:
         Style: The generated style.
+
     """
     return Style(
         family="graphic",
@@ -112,7 +113,8 @@ class AnchorMix(Element):
     @anchor_type.setter
     def anchor_type(self, anchor_type: str) -> None:
         if anchor_type not in self.ANCHOR_VALUE_CHOICE:
-            raise TypeError(f"anchor_type not valid: '{anchor_type!r}'")
+            msg = f"anchor_type not valid: {anchor_type!r}"
+            raise TypeError(msg)
         self.set_attribute("text:anchor-type", anchor_type)
 
     @property
@@ -121,6 +123,7 @@ class AnchorMix(Element):
 
         Returns:
             int | None: The page number, or None if not set.
+
         """
         anchor_page = self.get_attribute("text:anchor-page-number")
         if anchor_page is None:
@@ -273,6 +276,8 @@ class Frame(MDDrawFrame, SvgMixin, AnchorMix, PosMix, ZMix, SizeMix, Element):
             anchor_page: The page number if `anchor_type` is 'page'.
             layer: The drawing layer to which the frame belongs.
             presentation_style: The presentation style of the frame.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -339,9 +344,11 @@ class Frame(MDDrawFrame, SvgMixin, AnchorMix, PosMix, ZMix, SizeMix, Element):
             anchor_page: The page number if `anchor_type` is 'page'.
             layer: The drawing layer to which the frame belongs.
             presentation_style: The presentation style of the frame.
+            kwargs: Arbitrary keyword arguments for the Frame class.
 
         Returns:
             Frame: The created Frame element.
+
         """
         frame = cls(
             name=name,
@@ -403,9 +410,11 @@ class Frame(MDDrawFrame, SvgMixin, AnchorMix, PosMix, ZMix, SizeMix, Element):
             anchor_page: The page number if `anchor_type` is 'page'.
             layer: The drawing layer to which the frame belongs.
             presentation_style: The presentation style of the frame.
+            kwargs: Arbitrary keyword arguments for the Frame class.
 
         Returns:
             Frame: The created Frame element.
+
         """
         frame = cls(
             name=name,
@@ -461,6 +470,7 @@ class Frame(MDDrawFrame, SvgMixin, AnchorMix, PosMix, ZMix, SizeMix, Element):
 
         Returns:
             DrawImage | None: The image element if found, None otherwise.
+
         """
         return cast("DrawImage | None", self.get_element("draw:image"))
 
@@ -473,6 +483,7 @@ class Frame(MDDrawFrame, SvgMixin, AnchorMix, PosMix, ZMix, SizeMix, Element):
 
         Returns:
             DrawImage: The image element that was added or updated.
+
         """
         image: DrawImage | None = self.get_image()
         if image is None:
@@ -497,6 +508,7 @@ class Frame(MDDrawFrame, SvgMixin, AnchorMix, PosMix, ZMix, SizeMix, Element):
 
         Returns:
             DrawTextBox | None: The text box element if found, None otherwise.
+
         """
         return cast("DrawTextBox | None", self.get_element("draw:text-box"))
 
@@ -514,6 +526,7 @@ class Frame(MDDrawFrame, SvgMixin, AnchorMix, PosMix, ZMix, SizeMix, Element):
 
         Returns:
             DrawTextBox: The text box element.
+
         """
         text_box: DrawTextBox | None = self.get_text_box()
         if text_box is None:
@@ -537,6 +550,7 @@ class Frame(MDDrawFrame, SvgMixin, AnchorMix, PosMix, ZMix, SizeMix, Element):
 
         Returns:
             list[Table]: The list of tables found inside the text box.
+
         """
         text_box = self.get_text_box()
         if text_box is None:
@@ -551,6 +565,7 @@ class Frame(MDDrawFrame, SvgMixin, AnchorMix, PosMix, ZMix, SizeMix, Element):
 
         Returns:
             DrawTextBox: The text box element containing the table.
+
         """
         text_box = self.get_text_box()
         if text_box is None:
@@ -599,9 +614,11 @@ class Frame(MDDrawFrame, SvgMixin, AnchorMix, PosMix, ZMix, SizeMix, Element):
             anchor_page: The page number if `anchor_type` is 'page'.
             layer: The drawing layer to which the frame belongs.
             presentation_style: The presentation style of the frame.
+            kwargs: Arbitrary keyword arguments for the Frame class.
 
         Returns:
             Frame: The created Frame element containing the table.
+
         """
         frame = cls(
             name=name,
@@ -630,6 +647,7 @@ class Frame(MDDrawFrame, SvgMixin, AnchorMix, PosMix, ZMix, SizeMix, Element):
 
         Returns:
             str: The formatted text with proper indentation.
+
         """
         str_list = ["  "]
         str_list.extend(
@@ -654,6 +672,7 @@ class Frame(MDDrawFrame, SvgMixin, AnchorMix, PosMix, ZMix, SizeMix, Element):
 
         Returns:
             str: The formatted text representation of the frame content.
+
         """
         if not context:
             context = {}
@@ -715,6 +734,7 @@ class DrawTextBox(MDDrawTextBox, ListMixin, TocMixin, SectionMixin):
 
         Returns:
             list[Table]: The list of tables found inside the text box.
+
         """
         return cast("list[Table]", self.get_elements("descendant::table:table"))
 

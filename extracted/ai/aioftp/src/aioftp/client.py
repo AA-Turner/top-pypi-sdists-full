@@ -201,6 +201,7 @@ class BaseClient:
         parse_list_line_custom: ParseListLineCustomCallable | None = None,
         parse_list_line_custom_first: bool = True,
         passive_commands: tuple[str, ...] = ("epsv", "pasv"),
+        trust_server_pasv_ipv4_address: bool = False,
         **siosocks_asyncio_kwargs: Any,
     ):
         self.socket_timeout = socket_timeout
@@ -217,6 +218,7 @@ class BaseClient:
         self.parse_list_line_custom = parse_list_line_custom
         self.parse_list_line_custom_first = parse_list_line_custom_first
         self._passive_commands = passive_commands
+        self.trust_server_pasv_ipv4_address = trust_server_pasv_ipv4_address
         self._siosocks_asyncio_kwargs = siosocks_asyncio_kwargs
 
     async def _open_connection(self, host: str, port: int) -> tuple[asyncio.StreamReader, asyncio.StreamWriter]:
@@ -229,21 +231,21 @@ class BaseClient:
                     context=ssl_object.context,
                     session=ssl_object.session,
                 )
-        connection: tuple[asyncio.StreamReader, asyncio.StreamWriter] = await open_connection(
-            host,
-            port,
-            ssl=ssl_resolved,
-            **self._siosocks_asyncio_kwargs,
+        connection: tuple[asyncio.StreamReader, asyncio.StreamWriter] = await asyncio.wait_for(
+            open_connection(
+                host,
+                port,
+                ssl=ssl_resolved,
+                **self._siosocks_asyncio_kwargs,
+            ),
+            self.connection_timeout,
         )
         return connection
 
     async def connect(self, host: str, port: int = DEFAULT_PORT) -> None:
         self.server_host = host
         self.server_port = port
-        reader, writer = await asyncio.wait_for(
-            self._open_connection(host, port),
-            self.connection_timeout,
-        )
+        reader, writer = await self._open_connection(host, port)
         self._stream = ThrottleStreamIO(
             reader,
             writer,
@@ -1051,7 +1053,7 @@ class Client(BaseClient):
         :rtype: :py:class:`bool`
         """
         info = await self.stat(path)
-        return info["type"] == "dir"
+        return info["type"] in ("dir", "cdir", "pdir")
 
     async def exists(self, path: PathLike) -> bool:
         """
@@ -1319,9 +1321,12 @@ class Client(BaseClient):
         ip, port = self.parse_epsv_response(info[-1])
         return ip, port
 
-    async def _do_pasv(self) -> tuple[str, int]:
+    async def _do_pasv(self) -> tuple[str | None, int]:
         code, info = await self.command("PASV", "227")
+        ip: str | None
         ip, port = self.parse_pasv_response(info[-1])
+        if not self.trust_server_pasv_ipv4_address:
+            ip = None
         return ip, port
 
     async def get_passive_connection(

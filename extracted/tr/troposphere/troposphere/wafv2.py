@@ -167,6 +167,50 @@ class LabelSummary(AWSProperty):
     }
 
 
+class Price(AWSProperty):
+    """
+    `Price <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-price.html>`__
+    """
+
+    props: PropsDictType = {
+        "Amount": (str, True),
+        "Currency": (str, True),
+    }
+
+
+class PaymentNetwork(AWSProperty):
+    """
+    `PaymentNetwork <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-paymentnetwork.html>`__
+    """
+
+    props: PropsDictType = {
+        "Chain": (str, True),
+        "Prices": ([Price], True),
+        "WalletAddress": (str, True),
+    }
+
+
+class CryptoConfig(AWSProperty):
+    """
+    `CryptoConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-cryptoconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "PaymentNetworks": ([PaymentNetwork], True),
+    }
+
+
+class MonetizationConfig(AWSProperty):
+    """
+    `MonetizationConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-monetizationconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "CryptoConfig": (CryptoConfig, False),
+        "CurrencyMode": (str, False),
+    }
+
+
 class ImmunityTimeProperty(AWSProperty):
     """
     `ImmunityTimeProperty <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-immunitytimeproperty.html>`__
@@ -290,6 +334,16 @@ class CountAction(AWSProperty):
     }
 
 
+class MonetizeAction(AWSProperty):
+    """
+    `MonetizeAction <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-monetizeaction.html>`__
+    """
+
+    props: PropsDictType = {
+        "PriceMultiplier": (str, False),
+    }
+
+
 class RuleAction(AWSProperty):
     """
     `RuleAction <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-ruleaction.html>`__
@@ -301,6 +355,7 @@ class RuleAction(AWSProperty):
         "Captcha": (CaptchaAction, False),
         "Challenge": (ChallengeAction, False),
         "Count": (CountAction, False),
+        "Monetize": (MonetizeAction, False),
     }
 
 
@@ -491,6 +546,17 @@ class FieldToMatch(AWSProperty):
     }
 
 
+class PreParseTextTransformation(AWSProperty):
+    """
+    `PreParseTextTransformation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-preparsetexttransformation.html>`__
+    """
+
+    props: PropsDictType = {
+        "Priority": (integer, True),
+        "Type": (str, True),
+    }
+
+
 class TextTransformation(AWSProperty):
     """
     `TextTransformation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-wafv2-webacl-texttransformation.html>`__
@@ -510,6 +576,7 @@ class ByteMatchStatement(AWSProperty):
     props: PropsDictType = {
         "FieldToMatch": (FieldToMatch, True),
         "PositionalConstraint": (validate_positional_constraint, True),
+        "PreParseTextTransformations": ([PreParseTextTransformation], False),
         "SearchString": (str, False),
         "SearchStringBase64": (str, False),
         "TextTransformations": ([TextTransformation], True),
@@ -938,6 +1005,7 @@ class RegexMatchStatement(AWSProperty):
 
     props: PropsDictType = {
         "FieldToMatch": (FieldToMatch, True),
+        "PreParseTextTransformations": ([PreParseTextTransformation], False),
         "RegexString": (str, True),
         "TextTransformations": ([TextTransformation], True),
     }
@@ -951,6 +1019,7 @@ class RegexPatternSetReferenceStatement(AWSProperty):
     props: PropsDictType = {
         "Arn": (str, True),
         "FieldToMatch": (FieldToMatch, True),
+        "PreParseTextTransformations": ([PreParseTextTransformation], False),
         "TextTransformations": ([TextTransformation], True),
     }
 
@@ -975,6 +1044,7 @@ class SizeConstraintStatement(AWSProperty):
     props: PropsDictType = {
         "ComparisonOperator": (validate_comparison_operator, True),
         "FieldToMatch": (FieldToMatch, True),
+        "PreParseTextTransformations": ([PreParseTextTransformation], False),
         "Size": (double, True),
         "TextTransformations": ([TextTransformation], True),
     }
@@ -987,6 +1057,7 @@ class SqliMatchStatement(AWSProperty):
 
     props: PropsDictType = {
         "FieldToMatch": (FieldToMatch, True),
+        "PreParseTextTransformations": ([PreParseTextTransformation], False),
         "SensitivityLevel": (str, False),
         "TextTransformations": ([TextTransformation], True),
     }
@@ -999,6 +1070,7 @@ class XssMatchStatement(AWSProperty):
 
     props: PropsDictType = {
         "FieldToMatch": (FieldToMatch, True),
+        "PreParseTextTransformations": ([PreParseTextTransformation], False),
         "TextTransformations": ([TextTransformation], True),
     }
 
@@ -1070,6 +1142,7 @@ class RuleGroup(AWSObject):
         "ConsumedLabels": ([LabelSummary], False),
         "CustomResponseBodies": (validate_custom_response_bodies, False),
         "Description": (str, False),
+        "MonetizationConfig": (MonetizationConfig, False),
         "Name": (str, False),
         "Rules": ([RuleGroupRule], False),
         "Scope": (str, True),
@@ -1219,6 +1292,7 @@ class WebACL(AWSObject):
         "DataProtectionConfig": (DataProtectionConfig, False),
         "DefaultAction": (DefaultAction, True),
         "Description": (str, False),
+        "MonetizationConfig": (MonetizationConfig, False),
         "Name": (str, False),
         "OnSourceDDoSProtectionConfig": (OnSourceDDoSProtectionConfig, False),
         "Rules": ([WebACLRule], False),

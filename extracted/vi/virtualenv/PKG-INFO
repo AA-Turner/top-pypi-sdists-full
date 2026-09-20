@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: virtualenv
-Version: 21.7.15
+Version: 21.9.0
 Summary: Virtual Python Environment builder
 Project-URL: Documentation, https://virtualenv.pypa.io
 Project-URL: Homepage, https://github.com/pypa/virtualenv
@@ -9,6 +9,7 @@ Project-URL: Tracker, https://github.com/pypa/virtualenv/issues
 Maintainer-email: Bernat Gabor <gaborjbernat@gmail.com>, Rahul Devikar <rahuldevikar5512@gmail.com>
 License-Expression: MIT
 License-File: LICENSE
+License-File: THIRD-PARTY-NOTICES.md
 Keywords: environments,isolated,virtual
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers

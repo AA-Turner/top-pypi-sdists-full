@@ -343,9 +343,13 @@ def extract_top_level(
         for expanded_schema in expanded:
             if not isinstance(expanded_schema, dict):
                 continue
+            # A oneOf/anyOf branch's examples are checked against that branch, like its `example` above.
+            expanded_validator = _make_example_validator(expanded_schema)
             for container_keyword in container_keywords:
                 for value in expanded_schema.get(container_keyword, []):
-                    if _example_survives_float32(value, expanded_schema):
+                    if _example_is_valid(value, expanded_validator) and _example_survives_float32(
+                        value, expanded_schema
+                    ):
                         yield ParameterExample(
                             container=parameter.location.container_name, name=parameter.name, value=value
                         )
@@ -519,6 +523,26 @@ def _expand_composition(
         )
 
 
+def _extend_list_keyword(merged: dict[str, Any], key: str, value: Any) -> None:
+    """Extend a list-valued keyword, ignoring wrongly typed containers on either side."""
+    if not isinstance(value, list):
+        return
+    current = merged.get(key)
+    if not isinstance(current, list):
+        current = merged[key] = []
+    current.extend(value)
+
+
+def _update_dict_keyword(merged: dict[str, Any], key: str, value: Any) -> None:
+    """Update an object-valued keyword, ignoring wrongly typed containers on either side."""
+    if not isinstance(value, dict):
+        return
+    current = merged.get(key)
+    if not isinstance(current, dict):
+        current = merged[key] = {}
+    current.update(value)
+
+
 def _merge_all_of(
     *,
     schema: dict[str, Any],
@@ -546,13 +570,13 @@ def _merge_all_of(
             )
             for key, value in sub.items():
                 if key == "properties":
-                    merged.setdefault("properties", {}).update(value)
+                    _update_dict_keyword(merged, "properties", value)
                 elif key == "required":
-                    merged.setdefault("required", []).extend(value)
+                    _extend_list_keyword(merged, "required", value)
                 elif key == "examples":
-                    merged.setdefault("examples", []).extend(value)
+                    _extend_list_keyword(merged, "examples", value)
                 elif key == "example":
-                    merged.setdefault("examples", []).append(value)
+                    _extend_list_keyword(merged, "examples", [value])
                 else:
                     merged[key] = value
 
@@ -574,10 +598,10 @@ def _merge_all_of(
             continue
         elif key == "properties":
             # Merge parent properties (parent overrides allOf)
-            merged.setdefault("properties", {}).update(value)
+            _update_dict_keyword(merged, "properties", value)
         elif key == "required":
             # Extend required list
-            merged.setdefault("required", []).extend(value)
+            _extend_list_keyword(merged, "required", value)
         else:
             # For other fields, parent value overrides
             merged[key] = value
@@ -645,6 +669,9 @@ def extract_from_schemas(
             continue
         if isinstance(schema, bool):
             continue
+        # A value assembled from examples declared deeper in the schema still goes on the wire as the whole
+        # parameter, so it is checked against what the parameter declares.
+        parameter_validator: jsonschema_rs.Validator | None = _make_example_validator(schema, snap_float32=False)
         resolver = make_root_resolver(schema)
         bundle_storage = schema.get(BUNDLE_STORAGE_KEY)
         for example_keyword, examples_container_keyword in (("example", "examples"), ("x-example", "x-examples")):
@@ -661,7 +688,10 @@ def extract_from_schemas(
                 resolver=resolver,
                 reference_path=(),
             ):
-                yield ParameterExample(container=parameter.location.container_name, name=parameter.name, value=value)
+                if _example_is_valid(value, parameter_validator):
+                    yield ParameterExample(
+                        container=parameter.location.container_name, name=parameter.name, value=value
+                    )
     yield from _extract_body_examples_from_schemas(operation, defaults_as_examples=False)
 
 
@@ -952,7 +982,9 @@ def extract_from_schema(
         merge_ref_siblings=walk.merge_ref_siblings,
     )
 
-    properties_to_process = schema.get("properties", {})
+    properties_to_process = schema.get("properties")
+    if not isinstance(properties_to_process, dict):
+        properties_to_process = {}
 
     if schema.get("allOf"):
         merged, merged_path, merged_resolver = _merge_all_of(
@@ -961,7 +993,7 @@ def extract_from_schema(
             reference_path=current_path,
             merge_ref_siblings=walk.merge_ref_siblings,
         )
-        if "properties" in merged:
+        if isinstance(merged.get("properties"), dict):
             properties_to_process = merged["properties"]
             # Keep the references consumed by the merge on the path, otherwise a cycle running only
             # through `allOf` members is never recognized.

@@ -1,6 +1,6 @@
-Metadata-Version: 2.4
+Metadata-Version: 2.5
 Name: pysmartthings
-Version: 4.0.1
+Version: 4.0.3
 Summary: Asynchronous Python client for SmartThings.
 Project-URL: Homepage, https://github.com/pySmartThings/pysmartthings
 Project-URL: Repository, https://github.com/pySmartThings/pysmartthings

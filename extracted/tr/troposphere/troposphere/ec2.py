@@ -20,6 +20,7 @@ from .validators.ec2 import (
     validate_clientvpnendpoint_vpnport,
     validate_elasticinferenceaccelerator_type,
     validate_int_to_str,
+    validate_launchtemplate_cpuoptions_nestedvirtualization,
     validate_network_acl_entry,
     validate_network_port,
     validate_networkaclentry_rulenumber,
@@ -36,6 +37,65 @@ from .validators.ec2 import (
     vpn_pre_shared_key,
     vpn_tunnel_inside_cidr,
 )
+
+
+class HealthCheckPathDestination(AWSProperty):
+    """
+    `HealthCheckPathDestination <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-applicationstatuscheck-healthcheckpathdestination.html>`__
+    """
+
+    props: PropsDictType = {
+        "SecurityGroupId": (str, False),
+        "SubnetId": (str, False),
+    }
+
+
+class HealthCheckPathSource(AWSProperty):
+    """
+    `HealthCheckPathSource <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-applicationstatuscheck-healthcheckpathsource.html>`__
+    """
+
+    props: PropsDictType = {
+        "SecurityGroupId": (str, False),
+        "SubnetId": (str, False),
+    }
+
+
+class HealthCheckPath(AWSProperty):
+    """
+    `HealthCheckPath <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-applicationstatuscheck-healthcheckpath.html>`__
+    """
+
+    props: PropsDictType = {
+        "Destinations": ([HealthCheckPathDestination], False),
+        "Source": (HealthCheckPathSource, False),
+    }
+
+
+class ApplicationStatusCheck(AWSObject):
+    """
+    `ApplicationStatusCheck <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-applicationstatuscheck.html>`__
+    """
+
+    resource_type = "AWS::EC2::ApplicationStatusCheck"
+
+    props: PropsDictType = {
+        "Aggregation": (str, False),
+        "DeviceIndex": (integer, False),
+        "FailureThreshold": (integer, False),
+        "HealthCheckPaths": ([HealthCheckPath], False),
+        "InitializationGracePeriodSeconds": (integer, False),
+        "Interval": (integer, False),
+        "IpScope": (str, False),
+        "IpVersion": (str, False),
+        "Path": (str, False),
+        "Port": (integer, True),
+        "Protocol": (str, True),
+        "StatusCodeMatcher": (str, False),
+        "SuccessThreshold": (integer, False),
+        "Tags": (Tags, False),
+        "Timeout": (integer, False),
+    }
 
 
 class CapacityManagerDataExport(AWSObject):
@@ -706,13 +766,40 @@ class OnDemandOptionsRequest(AWSProperty):
     }
 
 
+class CapacityReservationTargetRequest(AWSProperty):
+    """
+    `CapacityReservationTargetRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-ec2fleet-capacityreservationtargetrequest.html>`__
+    """
+
+    props: PropsDictType = {
+        "CapacityReservationIds": ([str], False),
+        "CapacityReservationResourceGroupArns": ([str], False),
+    }
+
+
+class ReservedCapacityFallbackOptionsRequest(AWSProperty):
+    """
+    `ReservedCapacityFallbackOptionsRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-ec2fleet-reservedcapacityfallbackoptionsrequest.html>`__
+    """
+
+    props: PropsDictType = {
+        "MarketTypes": ([str], False),
+    }
+
+
 class ReservedCapacityOptionsRequest(AWSProperty):
     """
     `ReservedCapacityOptionsRequest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-ec2fleet-reservedcapacityoptionsrequest.html>`__
     """
 
     props: PropsDictType = {
+        "AllocationStrategy": (str, False),
+        "CapacityReservationTarget": (CapacityReservationTargetRequest, False),
         "ReservationTypes": ([str], False),
+        "ReservedCapacityFallbackOptions": (
+            ReservedCapacityFallbackOptionsRequest,
+            False,
+        ),
     }
 
 
@@ -852,6 +939,35 @@ class EnclaveCertificateIamRoleAssociation(AWSObject):
     }
 
 
+class ExportToS3Task(AWSProperty):
+    """
+    `ExportToS3Task <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-exportinstancetask-exporttos3task.html>`__
+    """
+
+    props: PropsDictType = {
+        "ContainerFormat": (str, False),
+        "DiskImageFormat": (str, False),
+        "S3Bucket": (str, False),
+        "S3Key": (str, False),
+    }
+
+
+class ExportInstanceTask(AWSObject):
+    """
+    `ExportInstanceTask <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-exportinstancetask.html>`__
+    """
+
+    resource_type = "AWS::EC2::ExportInstanceTask"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "ExportToS3Task": (ExportToS3Task, False),
+        "InstanceId": (str, True),
+        "Tags": (Tags, False),
+        "TargetEnvironment": (str, True),
+    }
+
+
 class DestinationOptions(AWSProperty):
     """
     `DestinationOptions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-flowlog-destinationoptions.html>`__
@@ -861,6 +977,17 @@ class DestinationOptions(AWSProperty):
         "FileFormat": (str, True),
         "HiveCompatiblePartitions": (boolean, True),
         "PerHourPartition": (boolean, True),
+    }
+
+
+class TagFieldSpecification(AWSProperty):
+    """
+    `TagFieldSpecification <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-flowlog-tagfieldspecification.html>`__
+    """
+
+    props: PropsDictType = {
+        "ResourceType": (str, True),
+        "TagKeys": ([str], True),
     }
 
 
@@ -882,8 +1009,36 @@ class FlowLog(AWSObject):
         "MaxAggregationInterval": (integer, False),
         "ResourceId": (str, True),
         "ResourceType": (str, True),
+        "TagFieldSpecifications": ([TagFieldSpecification], False),
         "Tags": (Tags, False),
         "TrafficType": (str, False),
+    }
+
+
+class StorageLocation(AWSProperty):
+    """
+    `StorageLocation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-fpgaimage-storagelocation.html>`__
+    """
+
+    props: PropsDictType = {
+        "Bucket": (str, False),
+        "Key": (str, False),
+    }
+
+
+class FpgaImage(AWSObject):
+    """
+    `FpgaImage <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-fpgaimage.html>`__
+    """
+
+    resource_type = "AWS::EC2::FpgaImage"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "InputStorageLocation": (StorageLocation, False),
+        "LogsStorageLocation": (StorageLocation, False),
+        "Name": (str, False),
+        "Tags": (Tags, False),
     }
 
 
@@ -1182,6 +1337,10 @@ class CpuOptions(AWSProperty):
     props: PropsDictType = {
         "AmdSevSnp": (str, False),
         "CoreCount": (integer, False),
+        "NestedVirtualization": (
+            validate_launchtemplate_cpuoptions_nestedvirtualization,
+            False,
+        ),
         "ThreadsPerCore": (integer, False),
     }
 
@@ -1462,6 +1621,19 @@ class IpPoolRouteTableAssociation(AWSObject):
     props: PropsDictType = {
         "PublicIpv4Pool": (str, True),
         "RouteTableId": (str, True),
+    }
+
+
+class IpamExternalResourceVerificationToken(AWSObject):
+    """
+    `IpamExternalResourceVerificationToken <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-ipamexternalresourceverificationtoken.html>`__
+    """
+
+    resource_type = "AWS::EC2::IpamExternalResourceVerificationToken"
+
+    props: PropsDictType = {
+        "IpamId": (str, True),
+        "Tags": (Tags, False),
     }
 
 
@@ -2296,6 +2468,7 @@ class PlacementGroup(AWSObject):
     resource_type = "AWS::EC2::PlacementGroup"
 
     props: PropsDictType = {
+        "ParentGroupId": (str, False),
         "PartitionCount": (integer, False),
         "SpreadLevel": (validate_placement_spread_level, False),
         "Strategy": (validate_placement_strategy, False),
@@ -2330,6 +2503,20 @@ class PrefixList(AWSObject):
     }
 
 
+class ReplaceRootVolumeTask(AWSObject):
+    """
+    `ReplaceRootVolumeTask <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-replacerootvolumetask.html>`__
+    """
+
+    resource_type = "AWS::EC2::ReplaceRootVolumeTask"
+
+    props: PropsDictType = {
+        "DeleteReplacedRootVolume": (boolean, False),
+        "InstanceId": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
 class Route(AWSObject):
     """
     `Route <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-route.html>`__
@@ -2349,6 +2536,7 @@ class Route(AWSObject):
         "LocalGatewayId": (str, False),
         "NatGatewayId": (str, False),
         "NetworkInterfaceId": (str, False),
+        "OdbNetworkArn": (str, False),
         "RouteTableId": (str, True),
         "TransitGatewayId": (str, False),
         "VpcEndpointId": (str, False),
@@ -3207,6 +3395,61 @@ class TransitGatewayPeeringAttachment(AWSObject):
     }
 
 
+class TransitGatewayPolicyTable(AWSObject):
+    """
+    `TransitGatewayPolicyTable <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-transitgatewaypolicytable.html>`__
+    """
+
+    resource_type = "AWS::EC2::TransitGatewayPolicyTable"
+
+    props: PropsDictType = {
+        "Tags": (Tags, False),
+        "TransitGatewayId": (str, True),
+    }
+
+
+class TransitGatewayPolicyTableAssociation(AWSObject):
+    """
+    `TransitGatewayPolicyTableAssociation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-transitgatewaypolicytableassociation.html>`__
+    """
+
+    resource_type = "AWS::EC2::TransitGatewayPolicyTableAssociation"
+
+    props: PropsDictType = {
+        "TransitGatewayAttachmentId": (str, True),
+        "TransitGatewayPolicyTableId": (str, True),
+    }
+
+
+class TransitGatewayPolicyRule(AWSProperty):
+    """
+    `TransitGatewayPolicyRule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-transitgatewaypolicytableentry-transitgatewaypolicyrule.html>`__
+    """
+
+    props: PropsDictType = {
+        "DestinationCidrBlock": (str, False),
+        "DestinationPortRange": (str, False),
+        "Protocol": (str, False),
+        "SourceCidrBlock": (str, False),
+        "SourcePortRange": (str, False),
+    }
+
+
+class TransitGatewayPolicyTableEntry(AWSObject):
+    """
+    `TransitGatewayPolicyTableEntry <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-transitgatewaypolicytableentry.html>`__
+    """
+
+    resource_type = "AWS::EC2::TransitGatewayPolicyTableEntry"
+
+    props: PropsDictType = {
+        "PolicyRule": (TransitGatewayPolicyRule, True),
+        "PolicyRuleNumber": (str, True),
+        "TargetRouteTableId": (str, True),
+        "TransitGatewayPolicyTableId": (str, True),
+    }
+
+
 class TransitGatewayRoute(AWSObject):
     """
     `TransitGatewayRoute <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-transitgatewayroute.html>`__
@@ -3279,6 +3522,57 @@ class TransitGatewayVpcAttachment(AWSObject):
     }
 
 
+class VpcEncryptionControlExclusion(AWSProperty):
+    """
+    `VpcEncryptionControlExclusion <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-vpcencryptioncontrol-vpcencryptioncontrolexclusion.html>`__
+    """
+
+    props: PropsDictType = {
+        "State": (str, False),
+        "StateMessage": (str, False),
+    }
+
+
+class VpcEncryptionControlExclusions(AWSProperty):
+    """
+    `VpcEncryptionControlExclusions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-vpc-vpcencryptioncontrolexclusions.html>`__
+    """
+
+    props: PropsDictType = {
+        "EgressOnlyInternetGateway": (VpcEncryptionControlExclusion, False),
+        "ElasticFileSystem": (VpcEncryptionControlExclusion, False),
+        "InternetGateway": (VpcEncryptionControlExclusion, False),
+        "Lambda": (VpcEncryptionControlExclusion, False),
+        "NatGateway": (VpcEncryptionControlExclusion, False),
+        "VirtualPrivateGateway": (VpcEncryptionControlExclusion, False),
+        "VpcLattice": (VpcEncryptionControlExclusion, False),
+        "VpcPeering": (VpcEncryptionControlExclusion, False),
+    }
+
+
+class VpcEncryptionControl(AWSProperty):
+    """
+    `VpcEncryptionControl <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-vpc-vpcencryptioncontrol.html>`__
+    """
+
+    props: PropsDictType = {
+        "EgressOnlyInternetGatewayExclusion": (str, False),
+        "ElasticFileSystemExclusion": (str, False),
+        "InternetGatewayExclusion": (str, False),
+        "LambdaExclusion": (str, False),
+        "Mode": (str, False),
+        "NatGatewayExclusion": (str, False),
+        "ResourceExclusions": (VpcEncryptionControlExclusions, False),
+        "State": (str, False),
+        "StateMessage": (str, False),
+        "VirtualPrivateGatewayExclusion": (str, False),
+        "VpcEncryptionControlId": (str, False),
+        "VpcId": (str, False),
+        "VpcLatticeExclusion": (str, False),
+        "VpcPeeringExclusion": (str, False),
+    }
+
+
 class VPC(AWSObject):
     """
     `VPC <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpc.html>`__
@@ -3294,6 +3588,7 @@ class VPC(AWSObject):
         "Ipv4IpamPoolId": (str, False),
         "Ipv4NetmaskLength": (integer, False),
         "Tags": (validate_tags_or_list, False),
+        "VpcEncryptionControl": (VpcEncryptionControl, False),
     }
 
 
@@ -3433,6 +3728,19 @@ class VPCEndpointConnectionNotification(AWSObject):
     }
 
 
+class PrivateDnsNameConfiguration(AWSProperty):
+    """
+    `PrivateDnsNameConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-vpcendpointservice-privatednsnameconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Name": (str, False),
+        "State": (str, False),
+        "Type": (str, False),
+        "Value": (str, False),
+    }
+
+
 class VPCEndpointService(AWSObject):
     """
     `VPCEndpointService <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpcendpointservice.html>`__
@@ -3446,6 +3754,8 @@ class VPCEndpointService(AWSObject):
         "GatewayLoadBalancerArns": ([str], False),
         "NetworkLoadBalancerArns": ([str], False),
         "PayerResponsibility": (str, False),
+        "PrivateDnsName": (str, False),
+        "PrivateDnsNameConfiguration": (PrivateDnsNameConfiguration, False),
         "SupportedIpAddressTypes": ([str], False),
         "SupportedRegions": ([str], False),
         "Tags": (Tags, False),
@@ -4028,6 +4338,16 @@ class VolumeAttachment(AWSObject):
     }
 
 
+class VpnConnectionDeviceType(AWSObject):
+    """
+    `VpnConnectionDeviceType <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ec2-vpnconnectiondevicetype.html>`__
+    """
+
+    resource_type = "AWS::EC2::VpnConnectionDeviceType"
+
+    props: PropsDictType = {}
+
+
 class BlockPublicAccessStates(AWSProperty):
     """
     `BlockPublicAccessStates <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-subnet-blockpublicaccessstates.html>`__
@@ -4144,6 +4464,28 @@ class MountPoint(AWSProperty):
     }
 
 
+class StandbyAvailabilityZone(AWSProperty):
+    """
+    `StandbyAvailabilityZone <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-ec2fleet-standbyavailabilityzone.html>`__
+    """
+
+    props: PropsDictType = {
+        "AvailabilityZone": (str, False),
+        "AvailabilityZoneId": (str, False),
+    }
+
+
+class MultiAvailabilityZoneConfiguration(AWSProperty):
+    """
+    `MultiAvailabilityZoneConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-ec2fleet-multiavailabilityzoneconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ConfigurationType": (str, False),
+        "StandbyAvailabilityZones": ([StandbyAvailabilityZone], False),
+    }
+
+
 class PeeringAttachmentStatus(AWSProperty):
     """
     `PeeringAttachmentStatus <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-transitgatewaypeeringattachment-peeringattachmentstatus.html>`__
@@ -4224,15 +4566,4 @@ class VolumeProperty(AWSProperty):
     props: PropsDictType = {
         "Device": (str, True),
         "VolumeId": (str, True),
-    }
-
-
-class VpcEncryptionControlExclusion(AWSProperty):
-    """
-    `VpcEncryptionControlExclusion <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ec2-vpcencryptioncontrol-vpcencryptioncontrolexclusion.html>`__
-    """
-
-    props: PropsDictType = {
-        "State": (str, False),
-        "StateMessage": (str, False),
     }

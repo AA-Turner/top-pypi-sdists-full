@@ -1,10 +1,13 @@
 Metadata-Version: 2.4
 Name: pgcli
-Version: 4.6.0
+Version: 4.7.0
 Summary: CLI for Postgres Database. With auto-completion and syntax highlighting.
 Author-email: Pgcli Core Team <pgcli-dev@googlegroups.com>
 License-Expression: BSD-3-Clause
 Project-URL: Homepage, https://pgcli.com
+Project-URL: Changelog, https://github.com/dbcli/pgcli/blob/main/changelog.rst
+Project-URL: Repository, https://github.com/dbcli/pgcli/
+Project-URL: Issues, https://github.com/dbcli/pgcli/issues
 Classifier: Intended Audience :: Developers
 Classifier: Operating System :: Unix
 Classifier: Programming Language :: Python
@@ -405,7 +408,7 @@ which is quite literally the backbone library, that made this app possible.
 Jonathan has also provided valuable feedback and support during the development
 of this app.
 
-`Click <https://click.pocoo.org/>`_ is used for command line option parsing
+`Click <https://click.palletsprojects.com/>`_ is used for command line option parsing
 and printing error messages.
 
 Thanks to `psycopg <https://www.psycopg.org/>`_ for providing a rock solid

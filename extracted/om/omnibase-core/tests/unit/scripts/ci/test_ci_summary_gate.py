@@ -268,6 +268,32 @@ class TestCiSummaryGate:
         assert code == EXIT_PENDING
         assert _all_good()[-1]["name"] in report
 
+    def test_runner_route_job_is_strict_and_fails_closed(self) -> None:
+        # OMN-18031: the per-run runner routing decision. Registration in BOTH
+        # tuples is half the mechanism — routing is deliberately INERT while
+        # this repo's trusted seam reads '["ubuntu-latest"]', so deleting the
+        # `route` job from ci.yml changes no job's PLACEMENT and would be
+        # invisible on a green run without this anchor. Same shape as the
+        # companion-merged pin above: FAILURE on red, FAILURE on skip, PENDING
+        # on absent — never a vacuous green.
+        gate = "Runner Route (OMN-18031) / route"
+        assert gate in GATE_JOBS
+        assert gate in STRICT_SUCCESS_JOBS
+        jobs = [j for j in _all_good() if j["name"] != gate]
+        jobs.append(_job(gate, "failure"))
+        code, report = evaluate(jobs)
+        assert code == EXIT_FAILURE
+        assert gate in report
+        # A skip must fail closed — the job is unconditional in ci.yml.
+        jobs = [j for j in _all_good() if j["name"] != gate]
+        jobs.append(_job(gate, "skipped"))
+        code, _ = evaluate(jobs)
+        assert code == EXIT_FAILURE
+        # Absent entirely → PENDING (completeness anchor), never a vacuous green.
+        jobs = [j for j in _all_good() if j["name"] != gate]
+        code, _ = evaluate(jobs)
+        assert code == EXIT_PENDING
+
     def test_neutral_conclusion_is_fail_closed(self) -> None:
         jobs = _all_good() + [_job("Some New Job", "neutral")]
         code, _ = evaluate(jobs)
@@ -447,10 +473,17 @@ class TestExpectedExternalContexts:
         assert missing == []
 
     def test_absent_context_is_missing_not_failure(self) -> None:
-        runs = [_check_run(EXPECTED_EXTERNAL_CONTEXTS[0], "success")]
+        # Every context but one reports green; the one left out must come back
+        # PENDING, never a pass. Written over the whole tuple rather than over
+        # two hardcoded indices so that registering a new L4 context does not
+        # turn this pin red for a reason that has nothing to do with it.
+        absent = EXPECTED_EXTERNAL_CONTEXTS[1]
+        runs = [
+            _check_run(n, "success") for n in EXPECTED_EXTERNAL_CONTEXTS if n != absent
+        ]
         failures, missing = evaluate_external(runs)
         assert failures == []
-        assert missing == [EXPECTED_EXTERNAL_CONTEXTS[1]]
+        assert missing == [absent]
 
     def test_failed_context_is_a_failure(self) -> None:
         runs = [_check_run(n, "success") for n in EXPECTED_EXTERNAL_CONTEXTS]
@@ -489,7 +522,11 @@ class TestExpectedExternalContexts:
         runs = [
             _check_run(name, "failure", started_at="2026-01-01T00:00:00Z"),
             _check_run(name, "success", started_at="2026-01-01T01:00:00Z"),
-            _check_run(EXPECTED_EXTERNAL_CONTEXTS[1], "success"),
+            *(
+                _check_run(n, "success")
+                for n in EXPECTED_EXTERNAL_CONTEXTS
+                if n != name
+            ),
         ]
         failures, missing = evaluate_external(runs)
         assert failures == []
@@ -606,7 +643,14 @@ class TestContractComplianceNameDistinction:
 _OCC_PREFLIGHT_CONTEXT = "occ-preflight / eligibility"
 
 EXTERNAL_CONTEXT_FILES: frozenset[str] = frozenset(
-    {"check-db-ownership.yml", "check-llm-refs-drift.yml"}
+    {
+        "check-db-ownership.yml",
+        "check-llm-refs-drift.yml",
+        # OMN-18796: the advisory-job gate's caller. Its job resolves to the L4
+        # context "advisory-job-gate / advisory-job-gate", so it is classified
+        # by EXPECTED_EXTERNAL_CONTEXTS and not by a direct-required row.
+        "advisory-job-gate.yml",
+    }
 )
 
 # (file, job_key) -> literal required-status-check context name(s) that job
@@ -699,6 +743,33 @@ EXPLICIT_EXEMPT_JOBS: dict[tuple[str, str], str] = {
         "triggers only on pull_request closed -- post-merge TODO/ticket "
         "audit, structurally cannot be a merge gate (same class as "
         "auto-tag-on-merge)."
+    ),
+    ("call-occ-autobind.yml", "occ-autobind"): (
+        "thin uses: caller of omniclaude's call-occ-autobind-reusable.yml "
+        "(OMN-14160 fan-out) -- it PUBLISHES a Kafka command for the .201 "
+        "dev-lane effects runtime to consume out of band and validates no PR "
+        "content, so it cannot gate a merge and must not be treated as though "
+        "it does. Deliberately absent from .github/required-checks.yaml and "
+        "NOT added to EXPECTED_EXTERNAL_CONTEXTS: asserting it there would "
+        "make this poller treat a publisher as de facto required, and a "
+        "transient broker outage would then block every merge in the "
+        "repository. Self-declared non-required by the "
+        "pull-request-workflow-budget.yaml waiver on this same workflow file, "
+        "the same classification the kb-doc-gate.yml caller carries below. "
+        "Being non-required is also precisely why this job may carry a "
+        "job-level `if:` where the sibling occ-companion-effect caller may "
+        "not (OMN-15120/OMN-14864: a skipped `uses:` job produces no check "
+        "run at all)."
+    ),
+    ("call-occ-autobind.yml", "occ-autobind-manual-replay"): (
+        "OMN-14993 manual replay entrypoint, gated to `github.event_name == "
+        "'workflow_dispatch'` -- it is skipped on every pull_request event and "
+        "is reachable only by an operator dispatching it by hand for a named "
+        "PR. Structurally cannot gate a merge, the same class as the "
+        "closed-PR-only jobs in auto-tag-on-merge.yml and "
+        "todo-audit-on-merge.yml above. It is enumerated here rather than "
+        "omitted because this audit walks every job in a PR-triggered "
+        "workflow file, not only the ones a pull_request event can start."
     ),
     ("kb-doc-gate.yml", "kb-doc-gate"): (
         "thin uses: caller of omniclaude's kb-doc-gate-reusable.yml (OMN-16589 "

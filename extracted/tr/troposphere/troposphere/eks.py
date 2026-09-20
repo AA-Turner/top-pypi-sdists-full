@@ -99,6 +99,17 @@ class Addon(AWSObject):
     }
 
 
+class Ack(AWSProperty):
+    """
+    `Ack <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-capability-ack.html>`__
+    """
+
+    props: PropsDictType = {
+        "DisabledServices": ([str], False),
+        "EnableCrossNamespace": (boolean, False),
+    }
+
+
 class SsoIdentity(AWSProperty):
     """
     `SsoIdentity <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-capability-ssoidentity.html>`__
@@ -163,6 +174,7 @@ class CapabilityConfiguration(AWSProperty):
     """
 
     props: PropsDictType = {
+        "Ack": (Ack, False),
         "ArgoCd": (ArgoCd, False),
     }
 
@@ -185,6 +197,18 @@ class Capability(AWSObject):
     }
 
 
+class CertificateAuthority(AWSObject):
+    """
+    `CertificateAuthority <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-eks-certificateauthority.html>`__
+    """
+
+    resource_type = "AWS::EKS::CertificateAuthority"
+
+    props: PropsDictType = {
+        "ClusterName": (str, True),
+    }
+
+
 class AccessConfig(AWSProperty):
     """
     `AccessConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-accessconfig.html>`__
@@ -193,6 +217,28 @@ class AccessConfig(AWSProperty):
     props: PropsDictType = {
         "AuthenticationMode": (str, False),
         "BootstrapClusterCreatorAdminPermissions": (boolean, False),
+    }
+
+
+class ActiveCertificateAuthority(AWSProperty):
+    """
+    `ActiveCertificateAuthority <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-activecertificateauthority.html>`__
+    """
+
+    props: PropsDictType = {
+        "ActivatedBy": (str, False),
+        "Id": (str, False),
+    }
+
+
+class CertificateAuthorityProperty(AWSProperty):
+    """
+    `CertificateAuthorityProperty <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-certificateauthority.html>`__
+    """
+
+    props: PropsDictType = {
+        "Active": (ActiveCertificateAuthority, False),
+        "Data": (str, False),
     }
 
 
@@ -236,6 +282,104 @@ class EncryptionConfig(AWSProperty):
     props: PropsDictType = {
         "Provider": (Provider, False),
         "Resources": ([str], False),
+    }
+
+
+class ServiceNodePortRange(AWSProperty):
+    """
+    `ServiceNodePortRange <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-servicenodeportrange.html>`__
+    """
+
+    props: PropsDictType = {
+        "MaxPort": (integer, False),
+        "MinPort": (integer, False),
+    }
+
+
+class KubeApiServerConfig(AWSProperty):
+    """
+    `KubeApiServerConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-kubeapiserverconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "EventTtl": (str, False),
+        "ServiceNodePortRange": (ServiceNodePortRange, False),
+    }
+
+
+class HorizontalPodAutoscalerControllerConfig(AWSProperty):
+    """
+    `HorizontalPodAutoscalerControllerConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-horizontalpodautoscalercontrollerconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "HorizontalPodAutoscalerSyncPeriod": (str, False),
+    }
+
+
+class PodGcControllerConfig(AWSProperty):
+    """
+    `PodGcControllerConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-podgccontrollerconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "TerminatedPodGcThreshold": (integer, False),
+    }
+
+
+class KubeControllerManagerConfig(AWSProperty):
+    """
+    `KubeControllerManagerConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-kubecontrollermanagerconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "HorizontalPodAutoscalerControllerConfig": (
+            HorizontalPodAutoscalerControllerConfig,
+            False,
+        ),
+        "PodGcControllerConfig": (PodGcControllerConfig, False),
+    }
+
+
+class ResourceWeight(AWSProperty):
+    """
+    `ResourceWeight <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-resourceweight.html>`__
+    """
+
+    props: PropsDictType = {
+        "Name": (str, False),
+        "Weight": (integer, False),
+    }
+
+
+class ScoringStrategy(AWSProperty):
+    """
+    `ScoringStrategy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-scoringstrategy.html>`__
+    """
+
+    props: PropsDictType = {
+        "Resources": ([ResourceWeight], False),
+        "Type": (str, False),
+    }
+
+
+class NodeResourcesFitConfig(AWSProperty):
+    """
+    `NodeResourcesFitConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-noderesourcesfitconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "ScoringStrategy": (ScoringStrategy, False),
+    }
+
+
+class KubeSchedulerConfig(AWSProperty):
+    """
+    `KubeSchedulerConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-kubeschedulerconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "NodeResourcesFit": (NodeResourcesFitConfig, False),
     }
 
 
@@ -302,6 +446,17 @@ class ControlPlanePlacement(AWSProperty):
 
     props: PropsDictType = {
         "GroupName": (str, False),
+        "SpreadLevel": (str, False),
+    }
+
+
+class EtcdPlacement(AWSProperty):
+    """
+    `EtcdPlacement <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-etcdplacement.html>`__
+    """
+
+    props: PropsDictType = {
+        "SpreadLevel": (str, False),
     }
 
 
@@ -313,6 +468,8 @@ class OutpostConfig(AWSProperty):
     props: PropsDictType = {
         "ControlPlaneInstanceType": (str, True),
         "ControlPlanePlacement": (ControlPlanePlacement, False),
+        "EtcdInstanceType": (str, False),
+        "EtcdPlacement": (EtcdPlacement, False),
         "OutpostArns": ([str], True),
     }
 
@@ -354,11 +511,22 @@ class ResourcesVpcConfig(AWSProperty):
     """
 
     props: PropsDictType = {
+        "ControlPlaneEgressMode": (str, False),
         "EndpointPrivateAccess": (boolean, False),
         "EndpointPublicAccess": (boolean, False),
         "PublicAccessCidrs": ([str], False),
         "SecurityGroupIds": ([str], False),
         "SubnetIds": ([str], True),
+    }
+
+
+class RollbackConfig(AWSProperty):
+    """
+    `RollbackConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-cluster-rollbackconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "TimeoutMinutes": (integer, False),
     }
 
 
@@ -411,12 +579,17 @@ class Cluster(AWSObject):
 
     props: PropsDictType = {
         "AccessConfig": (AccessConfig, False),
+        "ActiveCertificateAuthorityId": (str, False),
         "BootstrapSelfManagedAddons": (boolean, False),
+        "CertificateAuthority": (CertificateAuthorityProperty, False),
         "ComputeConfig": (ComputeConfig, False),
         "ControlPlaneScalingConfig": (ControlPlaneScalingConfig, False),
         "DeletionProtection": (boolean, False),
         "EncryptionConfig": ([EncryptionConfig], False),
         "Force": (boolean, False),
+        "KubeApiServerConfig": (KubeApiServerConfig, False),
+        "KubeControllerManagerConfig": (KubeControllerManagerConfig, False),
+        "KubeSchedulerConfig": (KubeSchedulerConfig, False),
         "KubernetesNetworkConfig": (KubernetesNetworkConfig, False),
         "Logging": (Logging, False),
         "Name": (str, False),
@@ -424,6 +597,7 @@ class Cluster(AWSObject):
         "RemoteNetworkConfig": (RemoteNetworkConfig, False),
         "ResourcesVpcConfig": (ResourcesVpcConfig, True),
         "RoleArn": (str, True),
+        "RollbackConfig": (RollbackConfig, False),
         "StorageConfig": (StorageConfig, False),
         "Tags": (Tags, False),
         "UpgradePolicy": (UpgradePolicy, False),
@@ -662,4 +836,26 @@ class PodIdentityAssociation(AWSObject):
         "ServiceAccount": (str, True),
         "Tags": (Tags, False),
         "TargetRoleArn": (str, False),
+    }
+
+
+class ScheduledEvents(AWSProperty):
+    """
+    `ScheduledEvents <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-certificateauthority-scheduledevents.html>`__
+    """
+
+    props: PropsDictType = {
+        "FinalAutoActivation": (str, False),
+        "FirstAutoActivation": (str, False),
+    }
+
+
+class Validity(AWSProperty):
+    """
+    `Validity <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-eks-certificateauthority-validity.html>`__
+    """
+
+    props: PropsDictType = {
+        "NotAfter": (str, False),
+        "NotBefore": (str, False),
     }

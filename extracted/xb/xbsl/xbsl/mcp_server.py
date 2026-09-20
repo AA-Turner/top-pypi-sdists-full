@@ -171,8 +171,9 @@ def _through_baseline(
         return diags, {}
     data = baseline_data.load(found)
     roots = baseline_data.roots_of(asked, found.parent)
+    reworded: list[dict] = []
     kept, suppressed, unused, stale = baseline_data.apply(
-        diags, data, found.parent, rules, roots, accepted=accepted,
+        diags, data, found.parent, rules, roots, accepted=accepted, reworded=reworded,
     )
     summary = {
         "baseline": str(found),
@@ -190,6 +191,10 @@ def _through_baseline(
         summary["baseline_not_checked"] = len(not_checked)
         summary["baseline_not_checked_rules"] = split["rules"]
         summary["baseline_not_checked_paths"] = split["paths"]
+    if reworded:
+        # Held under an earlier wording of the rule, exactly as the CLI json names them.
+        summary["baseline_reworded"] = len(reworded)
+        summary["baseline_reworded_entries"] = reworded
     return kept, summary
 
 
@@ -247,6 +252,7 @@ def lint_paths(
     as_ci_job: str | None = None,
     compact: bool = False,
     fix: bool = False,
+    as_ci_full: bool = False,
 ) -> dict:
     """Check files/directories on disk.
 
@@ -286,10 +292,11 @@ def lint_paths(
                   again without `compact`, or narrow `paths`/`select`) - the text of every
                   finding is what a full answer costs: several hundred characters each, tens
                   of thousands over one project run, when the question was only whether the
-                  tree is clean. `summary.as_ci`, when present, narrows to `flags` (the
-                  sentence already names the file, the job and the adopted rules) plus `job`
-                  when the file runs the linter in more than one job - everything else about
-                  the baseline and the CI job stays in the full answer;
+                  tree is clean. `summary.as_ci`, when present, narrows to one line,
+                  {"adopted": true, "brief": ...}: the file relative to the checkout, the job,
+                  the flags with a long list counted ("--enable ×10"), the jobs not taken and
+                  the includes left unread;
+    as_ci_full  – with `compact`, keep the whole `as_ci` record instead of the line;
     A path inside a project pulls the whole project in as context (the cross-file rules need
     it), the diagnostics are reported for the requested paths only.
     Returns {diagnostics: [...], summary: {...}} (with `compact`: {summary, errors, findings}
@@ -359,7 +366,7 @@ def lint_paths(
         # pipeline has to know which of them it reproduced), where the command actually
         # stands when an `include:` brought it, and the includes nobody fetched.
         payload["summary"]["as_ci"] = job.as_dict(hint=not as_ci_job)
-    return report.compact(payload) if compact else payload
+    return report.compact(payload, as_ci_full=as_ci_full) if compact else payload
 
 
 @mcp.tool()
@@ -704,8 +711,9 @@ def metadata_schema(
 #
 # The writing tools apply their changes to disk themselves (unlike the LSP surface, where
 # the editor applies the edits) and return {root, files, notes, lint}: a file-scope lint of
-# the written files ships in the same response. An operation failure is a structured error
-# field, not an exception: that makes branching easier for an agent.
+# the written files ships in the same response, held short - counts, and findings one line
+# each (report.short); lint_paths on the files gives the whole report. An operation failure
+# is a structured error field, not an exception: that makes branching easier for an agent.
 #
 def _absolute(payload: dict, base: Path) -> dict:
     """The answer with every file path absolute and the root they were counted from named."""
@@ -731,8 +739,8 @@ def _apply_and_lint(result: scaffold.ScaffoldResult, base: Path) -> dict:
         "files": [
             {"path": str(c.path), "created": c.created} for c in result.changes
         ],
-        "notes": result.notes,
-        "lint": report.report(diags, len(sources)),
+        "notes": result.notes + result.details,
+        "lint": report.short(diags, len(sources)),
     }
     if result.renames:
         out["renames"] = [
@@ -916,11 +924,12 @@ def meta_new_object(
 def meta_add_field(
     yaml_path: str,
     field_kind: str,
-    name: str,
+    name: str = "",
     type: str | None = None,
     tabular: str | None = None,
     props: dict[str, Any] | None = None,
     root: str | None = None,
+    names: list[str] | None = None,
 ) -> dict:
     """Add a section item to an object: реквизит, измерение, ресурс, значение (enum),
     параметр, поле (structure), константа, свойство (contract), табличная-часть, операция
@@ -947,6 +956,13 @@ def meta_add_field(
 
     tabular – target tabular-section name when adding a реквизит into it.
 
+    names – several items of this kind in one call, with the same type, props and tabular:
+    the values of an enumeration, a row of attributes. Composes with `name`, which goes
+    first. The batch is planned whole before anything is written, so a taken or repeated
+    name refuses all of it and the file stays as it was. The kinds `операция` (it also writes
+    the module), `строка` and `шаблон` (they echo into the translations) take one call each;
+    many strings at once are meta_set_localization with entries.
+
     props – the item's other properties as {"Property": value}: DefaultValue, Presentation,
     MaxLength and whatever else the item's class declares (ask metadata_schema with
     sections=["<section>"] and names=["<name>"] for the list - a built-in "Номер" declares
@@ -965,6 +981,15 @@ def meta_add_field(
     meta_add_localization for a language the element does not have yet.
     """
     base = _base(root)
+    if names:
+        batch = ([name] if name else []) + list(names)
+        return _meta(
+            base, scaffold.op_add_fields, _under(base, yaml_path), field_kind, batch,
+            type_=type, tabular=tabular, props=props,
+        )
+    if not name:
+        return _failed(scaffold.ScaffoldError(
+            "Нужно имя: name для одного элемента или names для нескольких"), base)
     return _meta(
         base, scaffold.op_add_field, _under(base, yaml_path), field_kind, name, type_=type,
         tabular=tabular, props=props,
@@ -1317,6 +1342,7 @@ def meta_rename_object(
     old_presentation: str | None = None,
     yaml_path: str | None = None,
     dry_run: bool = False,
+    full: bool = False,
 ) -> dict:
     """Rename a configuration object and update every reference across the sources.
 
@@ -1327,11 +1353,20 @@ def meta_rename_object(
     component `СтрокаСписка<Имя>`, the WSDL descriptions `<Имя>.Wsdl.<N>.wsdl` of a SOAP
     service client with their numbers) and rewrites references: yaml type/table/form keys,
     `=` bindings, .xbsl code (string literals are left intact) and composite form names.
+    Comments of modules and yaml get the new name whole. A translation dictionary is not
+    rewritten as a source: the translation of each comment line the rename changed is carried
+    to the new key, the old key stays, and `tokens` pairs of the old name are named in the
+    notes - the English spelling of the new name is the author's call.
     Attributes, components or dynamic-list fields that merely share the old name are NOT
     touched. new_presentation/old_presentation update Заголовок/Представление values of the
     object and its forms (defaults: the new name). yaml_path resolves ambiguity when several
-    objects share old_name. dry_run=true returns the plan (renames, files, notes) without
-    writing anything.
+    objects share old_name. dry_run=true returns the plan without writing anything.
+
+    The answer is short: `renames` (the file pairs), `notes` (the first one counts the renamed
+    files, the edited files and the replacements), `outside_projects` when the rename edited
+    files no project owns - a translation dictionary beside the project - and the lint of
+    the written files. full=True lists every edited file as well: `files`, and one line per
+    file in `notes`.
 
     See also: meta_delete_object removes the same set of files instead of renaming it;
     meta_move_object carries it into another folder under the same name.
@@ -1346,8 +1381,22 @@ def meta_rename_object(
     except scaffold.ScaffoldError as exc:
         return _failed(exc, base)
     if dry_run:
-        return _absolute(result.as_dict(content=False), base)
-    return _apply_and_lint(result, base)
+        plan = _absolute(result.as_dict(content=False), base)
+        return plan if full else _short_rename(result, base, {**plan, "dry-run": True})
+    out = _apply_and_lint(result, base)
+    return out if full else _short_rename(result, base, out)
+
+
+def _short_rename(result: scaffold.ScaffoldResult, base: Path, answer: dict) -> dict:
+    """A rename answer without the file-by-file lists: sixty edited files cost two of them."""
+    short = {key: answer[key] for key in ("root", "dry-run", "renames") if key in answer}
+    short["notes"] = list(result.notes)
+    outside = scaffold.outside_projects([change.path for change in result.changes], base)
+    if outside:
+        short["outside_projects"] = [str(_under(base, path)) for path in outside]
+    if "lint" in answer:
+        short["lint"] = answer["lint"]
+    return short
 
 
 @mcp.tool()
@@ -1551,7 +1600,10 @@ def meta_resource_references(root: str, resource_path: str, limit: int = 100) ->
     `ambiguous` – a key that two resources folders visible from the file hold, this one among
     them; `string` – a string literal that spells the path, read at run time by
     `ResourcesPackage.Current().Get()` or a wrapper of the project; `computed` – a string with
-    the folder of the file and a computed name, which may name the file.
+    the folder of the file and a computed name, which may name the file; `stem` – a whole string
+    that spells the key of the file without its extension, in a module, a yaml or a JSON file of
+    the project's resources: seed data names a picture by its code, and the code adds the
+    extension at run time.
     For a folder, every file under it counts. `total` is the number of places; `references`
     holds the first `limit` of them, sorted by file and position.
     root – the caller's project or repository root (absolute): references are looked for under
@@ -1796,6 +1848,11 @@ def meta_insert_fragment(
     components or a fragment without a top-level Тип are rejected with a clear error.
     The block is re-indented to the destination; slot rules match meta_add_component
     (missing slot created, a single-mapping slot converts to the list form).
+    A `#` comment of the fragment goes where the development environment reads it, the way
+    the yaml/plain-comment fix puts it: a comment above the component moves inside the node
+    as `##`. A comment with no such place stays as pasted, and `notes` say why: the visual
+    editor drops it on the first save. Without the Element data the places are unknown, and
+    the comments stay as pasted with a note.
     """
     return _form_write(_base(root), yaml_path, "insert_fragment", {
         "parent": parent_id, "slot": slot, "fragment": fragment,
@@ -2179,11 +2236,12 @@ def translate_unused(
              - a live project answers with thousands of rows, every one of them somebody's
              old deletion - and says so in `note`;
     limit/offset – the page (limit 0 means all); a cut page says so in `truncated`;
-    prune  – REMOVE the listed entries from the dictionary files. Off by default and named
+    prune  – REMOVE the entries from the dictionary files. Off by default and named
              separately from the listing on purpose: this is the one direction where a
-             mistaken reading destroys a translation. `kind`, `filter` and the page select
-             keys; all dictionary occurrences of those keys are removed, including repeats
-             outside the page. `removed` counts the physical occurrences;
+             mistaken reading destroys a translation. `kind` and `filter` select the keys -
+             ALL of them, whatever the page, since `limit`/`offset` shape only the listing -
+             and every dictionary occurrence of those keys is removed. `pruned.keys` counts
+             the pairs removed, `removed` the physical occurrences;
     compact – omitted: a preview lists full rows, a successful prune returns only counts.
              False always includes full rows; True shortens preview rows to {key, kind,
              file, line} and omits the list after pruning. `pruned` counts the removed
@@ -2268,9 +2326,12 @@ def translate_unused(
     else:
         out["unused"] = [entry.as_dict() for entry in page]
     if prune and not found.partial:
-        selected = {(e.kind, e.key) for e in page}
-        # The writer removes every occurrence of a selected key, including repeated
-        # declarations beyond the page boundary. Count those same physical entries.
+        # The whole filtered set goes, whatever the page: `limit` shapes the listing only. A
+        # call with `limit: 5` used to take five orphans of seventy-one and leave the rest to
+        # a `truncated` nobody reads after a removal.
+        selected = {(e.kind, e.key) for e in rows}
+        # The writer removes every occurrence of a selected key, repeated declarations
+        # included. Count those same physical entries.
         by_kind: dict[str, int] = {}
         by_file: dict[str, int] = {}
         for entry in found.entries:
@@ -2278,10 +2339,10 @@ def translate_unused(
                 by_kind[entry.kind] = by_kind.get(entry.kind, 0) + 1
                 by_file[entry.file] = by_file.get(entry.file, 0) + 1
         result = entries_module.write_entries(
-            path, [{"key": e.key, "kind": e.kind, "value": ""} for e in page],
-        ) if page else {"removed": 0}
+            path, [{"key": key, "kind": kind, "value": ""} for kind, key in sorted(selected)],
+        ) if selected else {"removed": 0}
         out["removed"] = result["removed"]
-        out["pruned"] = {"by_kind": by_kind, "by_file": by_file}
+        out["pruned"] = {"keys": len(selected), "by_kind": by_kind, "by_file": by_file}
         if compact is not False:
             out.pop("unused", None)
     return out
@@ -2309,8 +2370,9 @@ def translate_redundant(
              refused with the places looked at);
     filter – a substring of the key OR of the value;
     limit/offset – the page (limit 0 means all); a cut page says so in `truncated`;
-    prune  – REMOVE the listed entries from the dictionary files (off by default; it removes
-             exactly the page it answers with).
+    prune  – REMOVE the entries from the dictionary files (off by default). `filter` selects
+             them - all of them, whatever the page; `pruned.keys` counts the pairs removed,
+             `removed` the physical occurrences.
 
     The verdict is EVIDENCE, not a second reading of the tables: an entry is listed only when
     every place it answered would have come out the same without it, which is the same ground
@@ -2336,11 +2398,14 @@ def translate_redundant(
            "redundant": [entry.as_dict() for entry in page]}
     if rows:
         out["note"] = i18n.t("translate.redundant.note")
-    if prune and page:
+    if prune:
+        # The whole filtered set, whatever the page - the same rule as translate_unused.
+        selected = {(e.kind, e.key) for e in rows}
         removed = entries_module.write_entries(
-            path, [{"key": e.key, "kind": e.kind, "value": ""} for e in page],
-        )
+            path, [{"key": key, "kind": kind, "value": ""} for kind, key in sorted(selected)],
+        ) if selected else {"removed": 0}
         out["removed"] = removed["removed"]
+        out["pruned"] = {"keys": len(selected)}
     return out
 
 

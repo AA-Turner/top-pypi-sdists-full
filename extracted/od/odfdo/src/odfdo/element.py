@@ -197,13 +197,15 @@ def _decode_qname(qname: str) -> tuple[str | None, str]:
 
     Raises:
         ValueError: If the XML prefix is unknown.
+
     """
     if ":" in qname:
         prefix, name = qname.split(":")
         try:
             uri = ODF_NAMESPACES[prefix]
         except KeyError as e:
-            raise ValueError(f'XML prefix "{prefix}" is unknown') from e
+            msg = f"XML prefix {prefix!r} is unknown"
+            raise ValueError(msg) from e
         return uri, name
     return None, qname
 
@@ -219,11 +221,13 @@ def _uri_to_prefix(uri: str) -> str:
 
     Raises:
         ValueError: If the URI is not found in the known ODF namespaces.
+
     """
     for key, value in ODF_NAMESPACES.items():
         if value == uri:
             return key
-    raise ValueError(f"uri {uri!r} not found")
+    msg = f"URI {uri!r} not found"
+    raise ValueError(msg)
 
 
 def _get_prefixed_name(tag: str) -> str:
@@ -234,6 +238,7 @@ def _get_prefixed_name(tag: str) -> str:
 
     Returns:
         str: The tag name in "prefix:name" format.
+
     """
     if "}" not in tag:
         return f":{tag}"
@@ -251,6 +256,7 @@ def _get_lxml_tag(qname: str) -> str:
 
     Returns:
         str: The tag name in lxml's "{uri}name" format.
+
     """
     uri, name = _decode_qname(qname)
     return f"{{{uri}}}{name}"
@@ -268,6 +274,7 @@ def _get_lxml_tag_or_name(qname: str) -> str:
 
     Returns:
         str: The tag name in lxml's "{uri}name" format, or the local name if no prefix.
+
     """
     uri, name = _decode_qname(qname)
     if uri is None:
@@ -286,11 +293,13 @@ def _family_style_tagname(family: str) -> str:
 
     Raises:
         ValueError: If the provided family is unknown.
+
     """
     try:
         return FAMILY_MAPPING[family]
     except KeyError as e:
-        raise ValueError(f"Unknown family: {family!r}") from e
+        msg = f"Unknown family: {family!r}"
+        raise ValueError(msg) from e
 
 
 @cache
@@ -306,6 +315,7 @@ def xpath_compile(path: str) -> XPath:
 
     Returns:
         XPath: A compiled `lxml.etree.XPath` object.
+
     """
     return XPath(path, namespaces=ODF_NAMESPACES, regexp=False)
 
@@ -322,6 +332,7 @@ def xpath_return_elements(xpath: XPath, target: _Element) -> list[_Element]:
 
     Returns:
         list[_Element]: A list of matching `lxml.etree._Element` objects.
+
     """
     elements = xpath(target)
     try:
@@ -344,6 +355,7 @@ def xpath_return_strings(xpath: XPath, target: _Element) -> list[str]:
 
     Returns:
         list[str]: A list of matching string objects.
+
     """
     elements = xpath(target)
     try:
@@ -366,8 +378,7 @@ _tag_class_registry: dict[str, type[Element]] = {}
 
 
 def register_element_class(cls: type[Element]) -> None:
-    """(internal function) Associate a qualified element name to a Python class
-    that handles this type of element.
+    """Associate a qualified element name to a Python class (internal).
 
     Getting the right Python class when loading an existing ODF document is
     then transparent. Unassociated elements will be handled by the base
@@ -375,14 +386,14 @@ def register_element_class(cls: type[Element]) -> None:
 
     Args:
         cls: Python class, subtype of Element.
+
     """
     # Turn tag name into what lxml is expecting
     _register_element_class(cls, cls._tag)
 
 
 def register_element_class_list(cls: type[Element], tag_list: Iterable[str]) -> None:
-    """(internal function) Associate a qualified element name to a Python class
-    that handles this type of element.
+    """Associate a qualified element name to a Python class (internal).
 
     Getting the right Python class when loading an existing ODF document is
     then transparent. Unassociated elements will be handled by the base
@@ -395,6 +406,7 @@ def register_element_class_list(cls: type[Element], tag_list: Iterable[str]) -> 
     Args:
         cls: Python class.
         tag_list: Iterable of qname tags for the class.
+
     """
     # Turn tag name into what lxml is expecting
     for qname in tag_list:
@@ -415,7 +427,7 @@ def _register_element_class(cls: type[Element], qname: str) -> None:
 
 
 def class_from_tag(qname: str) -> type[Element]:
-    """Retrieves the Python class associated with a given ODF qualified tag
+    """Retrieve the Python class associated with a given ODF qualified tag
     name.
 
     This function looks up the registered class for a specific ODF XML tag,
@@ -431,6 +443,7 @@ def class_from_tag(qname: str) -> type[Element]:
 
     Raises:
         KeyError: If no class is registered for the provided qualified name.
+
     """
     return _tag_class_registry[qname]
 
@@ -452,6 +465,7 @@ class EText(str):
 
         Args:
             text_result: The lxml element representing the text node.
+
         """
         self.__parent = text_result.getparent()
         self.__is_text: bool = bool(text_result.is_text)
@@ -463,6 +477,7 @@ class EText(str):
 
         Returns:
             Element | None: The parent Element or None if it's a root text node.
+
         """
         parent = self.__parent
         # XXX happens just because of the unit test
@@ -475,6 +490,7 @@ class EText(str):
 
         Returns:
             bool: True if it's the text part, False otherwise.
+
         """
         return self.__is_text
 
@@ -483,6 +499,7 @@ class EText(str):
 
         Returns:
             bool: True if it's the tail part, False otherwise.
+
         """
         return self.__is_tail
 
@@ -515,6 +532,7 @@ class Element(MDBase):
 
         Raises:
             TypeError: If `tag_or_elem` is provided but is not an `_Element` instance.
+
         """
         tag_or_elem = kwargs.pop("tag_or_elem", None)
         if tag_or_elem is None:
@@ -528,7 +546,8 @@ class Element(MDBase):
             # called with an existing lxml element, sould be a result of
             # from_tag() casting, do not execute the subclass __init__
             if not isinstance(tag_or_elem, _Element):
-                raise TypeError(f'"{type(tag_or_elem)}" is not an element node')
+                msg = f"{type(tag_or_elem)!r} is not an element node"
+                raise TypeError(msg)
             self._do_init = False
             self.__element = tag_or_elem
 
@@ -537,7 +556,7 @@ class Element(MDBase):
 
     @classmethod
     def from_tag(cls, tag_or_elem: str | _Element) -> Element:
-        """Factory method to create an Element instance (or a subclass) from an XML tag.
+        """Create an Element instance (or a subclass) from an XML tag.
 
         This method can convert an lxml Element or an ODF string tag into an
         ODF XML Element of the appropriate class (e.g., Paragraph, Table, etc.).
@@ -548,6 +567,7 @@ class Element(MDBase):
 
         Returns:
             Element: An instance of Element or its appropriate subclass.
+
         """
         if isinstance(tag_or_elem, str):
             # assume the argument is a prefix:name tag
@@ -563,7 +583,7 @@ class Element(MDBase):
         tree_element: _Element,
         cache: tuple | None,
     ) -> Element:
-        """Factory method used internally for cloning elements.
+        """Clone an element (internal factory method).
 
         This method is similar to `from_tag` but is specifically optimized
         for cloning operations, potentially utilizing a cache.
@@ -574,6 +594,7 @@ class Element(MDBase):
 
         Returns:
             Element: A new Element instance (or subclass) representing the cloned element.
+
         """
         tag = to_str(tree_element.tag)
         klass = _class_registry.get(tag, cls)
@@ -583,12 +604,13 @@ class Element(MDBase):
         return element
 
     def _copy_cache(self, cache: tuple) -> None:
-        """Copies cache data to the element.
+        """Copy cache data to the element.
 
         This method is intended to be redefined by subclasses that utilize caching.
 
         Args:
             cache: The cache data to be copied.
+
         """
 
     @staticmethod
@@ -604,12 +626,15 @@ class Element(MDBase):
         Raises:
             TypeError: If the tag is not a string.
             ValueError: If the tag is empty.
+
         """
         if not isinstance(tag, str):
-            raise TypeError(f"Tag is not str: {tag!r}")
+            msg = f"Tag is not str: {tag!r}"
+            raise TypeError(msg)
         tag = tag.strip()
         if not tag:
-            raise ValueError("Tag is empty")
+            msg = "Tag is empty"
+            raise ValueError(msg)
         if "<" not in tag:
             # Qualified name
             # XXX don't build the element from scratch or lxml will pollute with
@@ -620,13 +645,14 @@ class Element(MDBase):
         return root[0]
 
     def _base_attrib_getter(self, attr_name: str) -> str | None:
-        """Internal method to get the value of an attribute by its qualified name.
+        """Get the value of an attribute by its qualified name (internal).
 
         Args:
             attr_name: The qualified name of the attribute (e.g., "office:name").
 
         Returns:
             str | None: The attribute's value as a string, or None if the attribute is not found.
+
         """
         value = self.__element.get(_get_lxml_tag(attr_name))
         if value is None:
@@ -638,12 +664,13 @@ class Element(MDBase):
         attr_name: str,
         value: str | int | float | bool | None,
     ) -> None:
-        """Internal method to set the value of an attribute by its qualified name.
+        """Set the value of an attribute by its qualified name (internal).
 
         Args:
             attr_name: The qualified name of the attribute (e.g., "office:name").
             value: The value to set for the attribute. If None, the attribute
                 is removed. Boolean values are encoded.
+
         """
         if value is None:
             with contextlib.suppress(KeyError):
@@ -655,15 +682,16 @@ class Element(MDBase):
 
     @staticmethod
     def _generic_attrib_getter(attr_name: str, family: str | None = None) -> Callable:
-        """Creates a getter function for a generic attribute.
+        """Create a getter function for a generic attribute (internal).
 
         Args:
             attr_name: The qualified name of the attribute.
             family: Optional family name to filter by.
 
         Returns:
-            Callable: A getter function that takes an Element instance and returns
-                the attribute's value as a string, boolean, or None.
+            Callable: A getter function that takes an Element instance and
+                returns the attribute's value as a string, boolean, or None.
+
         """
 
         def getter(self: Element) -> str | bool | None:
@@ -683,15 +711,16 @@ class Element(MDBase):
 
     @staticmethod
     def _generic_attrib_setter(attr_name: str, family: str | None = None) -> Callable:
-        """Creates a setter function for a generic attribute.
+        """Create a setter function for a generic attribute (internal).
 
         Args:
             attr_name: The qualified name of the attribute.
             family: Optional family name to filter by.
 
         Returns:
-            Callable: A setter function that takes an Element instance and the value
-                to set for the attribute.
+            Callable: A setter function that takes an Element instance and the
+                value to set for the attribute.
+
         """
 
         def setter(self: Element, value: Any) -> None:
@@ -706,14 +735,15 @@ class Element(MDBase):
 
     @staticmethod
     def _boolean_attrib_getter(prop: PropDefBool) -> Callable:
-        """Creates a getter function for a boolean attribute.
+        """Create a getter function for a boolean attribute (internal).
 
         Args:
             prop: A NamedTuple defining the boolean property.
 
         Returns:
-            Callable: A getter function that takes an Element instance and returns
-                the boolean value of the attribute, or its default.
+            Callable: A getter function that takes an Element instance and
+                returns the boolean value of the attribute, or its default.
+
         """
 
         def getter(self: Element) -> bool:
@@ -723,14 +753,15 @@ class Element(MDBase):
 
     @staticmethod
     def _boolean_attrib_setter(prop: PropDefBool) -> Callable:
-        """Creates a setter function for a boolean attribute.
+        """Create a setter function for a boolean attribute (internal).
 
         Args:
             prop: A NamedTuple defining the boolean property.
 
         Returns:
-            Callable: A setter function that takes an Element instance and the boolean
-                value to set for the attribute.
+            Callable: A setter function that takes an Element instance and the
+                boolean value to set for the attribute.
+
         """
 
         def setter(self: Element, value: bool) -> None:
@@ -740,7 +771,8 @@ class Element(MDBase):
 
     @classmethod
     def _define_attribut_property(cls: type[Element]) -> None:
-        """Dynamically defines properties for the class based on `_properties`.
+        """Dynamically defines properties for the class based on
+        `_properties`.
 
         This method iterates through the `_properties` tuple of the class and
         creates corresponding getter and setter properties for XML attributes.
@@ -785,12 +817,14 @@ class Element(MDBase):
 
         Raises:
             ValueError: If both `before` and `after` are None.
+
         """
         # 1) before xor after is not None
         if before is not None:
             return re.compile(before)
         if after is None:
-            raise ValueError("Both 'before' and 'after' are None")
+            msg = "Both 'before' and 'after' are None"
+            raise ValueError(msg)
         return re.compile(after)
 
     @staticmethod
@@ -798,25 +832,28 @@ class Element(MDBase):
         xpath_result: list[str],
         regex: re.Pattern,
     ) -> tuple[str, re.Match]:
-        """Searches for the last occurrence of a regex pattern in a list of strings.
+        """Search for the last occurrence of a regex pattern in a list of
+        strings.
 
         Args:
             xpath_result: A list of strings to search within.
             regex: The compiled regex pattern to search for.
 
         Returns:
-            tuple[str, re.Match]: A tuple containing the string where the match was
-                found and the match object itself.
+            tuple[str, re.Match]: A tuple containing the string where the
+                match was found and the match object itself.
 
         Raises:
             ValueError: If the text matching the regex is not found.
+
         """
         # Found the last text that matches the regex
         for text in xpath_result:
             if regex.search(text) is not None:
                 break
         else:
-            raise ValueError(f"Text not found: {xpath_result!r}")
+            msg = f"Text not found: {xpath_result!r}"
+            raise ValueError(msg)
         return text, list(regex.finditer(text))[-1]
 
     @staticmethod
@@ -825,7 +862,8 @@ class Element(MDBase):
         regex: re.Pattern,
         position: int,
     ) -> tuple[str, re.Match]:
-        """Searches for the nth occurrence of a regex pattern in a list of strings.
+        """Search for the nth occurrence of a regex pattern in a list of
+        strings.
 
         Args:
             xpath_result: A list of strings to search within.
@@ -833,11 +871,12 @@ class Element(MDBase):
             position: The 0-based index of the match to find.
 
         Returns:
-            tuple[str, re.Match]: A tuple containing the string where the match was
-                found and the match object itself.
+            tuple[str, re.Match]: A tuple containing the string where the
+                match was found and the match object itself.
 
         Raises:
             ValueError: If the text matching the regex is not found.
+
         """
         # Found the last text that matches the regex
         count = 0
@@ -847,7 +886,8 @@ class Element(MDBase):
                 break
             count += found_nb
         else:
-            raise ValueError(f"Text not found: {xpath_result!r}")
+            msg = f"Text not found: {xpath_result!r}"
+            raise ValueError(msg)
         return text, list(regex.finditer(text))[position - count]
 
     def _insert_before_after(
@@ -859,19 +899,22 @@ class Element(MDBase):
         position: int,
         xpath_text: XPath,
     ) -> tuple[int, str]:
-        """Calculates the insertion position based on 'before' or 'after' regex.
+        """Calculate the insertion position based on 'before' or 'after'
+        regex.
 
         Args:
             current: The current lxml element.
             element: The element to be inserted.
             before: Regex pattern to find position before.
             after: Regex pattern to find position after.
-            position: The occurrence of the regex to consider (negative for last).
+            position: The occurrence of the regex to consider (negative for
+                last).
             xpath_text: Compiled XPath for text extraction.
 
         Returns:
             tuple[int, str]: A tuple containing the calculated insertion position
                 and the text string where the insertion will occur.
+
         """
         regex = self._make_before_regex(before, after)
         xpath_result = xpath_return_strings(xpath_text, current)
@@ -897,7 +940,7 @@ class Element(MDBase):
         position: int,
         xpath_text: XPath,
     ) -> tuple[int, str]:
-        """Finds the text and insertion point based on a character position.
+        """Find the text and insertion point based on a character position.
 
         Args:
             current: The current lxml element.
@@ -908,11 +951,13 @@ class Element(MDBase):
             xpath_text: Compiled XPath for text extraction.
 
         Returns:
-            tuple[int, str]: A tuple containing the calculated insertion point within
-                the text and the text string where the insertion will occur.
+            tuple[int, str]: A tuple containing the calculated insertion point
+                within the text and the text string where the insertion will
+                occur.
 
         Raises:
             ValueError: If the text at the specified position is not found.
+
         """
         # Find the text
         xpath_result = xpath_return_strings(xpath_text, current)
@@ -923,7 +968,8 @@ class Element(MDBase):
                 break
             count += found_nb
         else:
-            raise ValueError(f"Text not found: {xpath_result!r}")
+            msg = f"Text not found: {xpath_result!r}"
+            raise ValueError(msg)
         # We insert before the character
         pos = position - count
         return pos, text
@@ -937,11 +983,11 @@ class Element(MDBase):
     ) -> None:
         """Insert an element before or after characters matching a regex.
 
-        When the regex matches multiple parts of the text, `position` can specify
-        which part to use. If both `before` and `after` are None, `position`
-        refers to the character index. A positive `position` inserts before that
-        character; `position=-1` inserts after the last character.
-        Annotation text content is ignored.
+        When the regex matches multiple parts of the text, `position` can
+        specify which part to use. If both `before` and `after` are None,
+        `position` refers to the character index. A positive `position`
+        inserts before that character; `position=-1` inserts after the last
+        character. Annotation text content is ignored.
 
         Args:
             element: The element to insert.
@@ -954,6 +1000,7 @@ class Element(MDBase):
 
         Raises:
             ValueError: If an invalid combination of arguments is provided.
+
         """
         current = self.__element
         xelement = element.__element
@@ -983,7 +1030,8 @@ class Element(MDBase):
                 _xpath_text_descendant_no_annotation,
             )
         else:
-            raise ValueError("bad combination of arguments")
+            msg = "Bad combination of arguments"
+            raise ValueError(msg)
 
         # Compute new texts
         text_before = text[:pos] if text[:pos] else None
@@ -1002,21 +1050,24 @@ class Element(MDBase):
 
     @property
     def tag(self) -> str:
-        """Gets the underlying XML tag with the qualified name.
+        """Get the underlying XML tag with the qualified name.
 
         Returns:
             str: The qualified name of the XML tag (e.g., "text:span").
+
         """
         return _get_prefixed_name(self.__element.tag)
 
     @tag.setter
     def tag(self, qname: str) -> None:
-        """Sets the underlying XML tag with the given qualified name.
+        """Set the underlying XML tag with the given qualified name.
 
-        Warning: Direct change of the tag does not change the Python element class itself.
+        Warning: Direct change of the tag does not change the Python element
+            class itself.
 
         Args:
             qname: The new qualified name for the XML tag (e.g., "text:span").
+
         """
         self.__element.tag = _get_lxml_tag(qname)
 
@@ -1025,20 +1076,22 @@ class Element(MDBase):
         xpath_instance: XPath,
         name: str,
     ) -> list[tuple[int, int]]:
-        """Extracts repeated sequence information from elements for table handling.
+        """Extract repeated sequence information from elements for table
+        handling.
 
         This utility method is primarily used by the table module to process
-        elements that might have a 'number-columns-repeated' or similar attribute.
-        It returns a list of tuples, where each tuple contains the index of the
-        element and how many times it is logically repeated.
+        elements that might have a 'number-columns-repeated' or similar
+        attribute. It returns a list of tuples, where each tuple contains the
+        index of the element and how many times it is logically repeated.
 
         Args:
             xpath_instance: A compiled XPath object to select sub-elements.
-            name: The name of the attribute (e.g., "table:number-columns-repeated")
-                that indicates repetition.
+            name: The name of the attribute (e.g.,
+                "table:number-columns-repeated") that indicates repetition.
 
         Returns:
             list[tuple[int, int]]: A list of (index, repetition_count) tuples.
+
         """
         lxml_tag = _get_lxml_tag_or_name(name)
         sub_elements = xpath_return_elements(xpath_instance, self.__element)
@@ -1058,13 +1111,15 @@ class Element(MDBase):
         return result
 
     def get_elements(self, xpath_query: XPath | str) -> list[Element]:
-        """Returns a list of elements obtained by applying an XPath query.
+        """Return a list of elements obtained by applying an XPath query.
 
         Args:
-            xpath_query: The XPath query string or a compiled `lxml.etree.XPath` object.
+            xpath_query: The XPath query string or a compiled
+                `lxml.etree.XPath` object.
 
         Returns:
             list[Element]: A list of Element instances matching the query.
+
         """
         if isinstance(xpath_query, str):
             elements = xpath_return_elements(xpath_compile(xpath_query), self.__element)
@@ -1073,13 +1128,15 @@ class Element(MDBase):
         return [Element.from_tag_for_clone(e, None) for e in elements]
 
     def get_element(self, xpath_query: str) -> Element | None:
-        """Returns the first element obtained by applying an XPath query.
+        """Return the first element obtained by applying an XPath query.
 
         Args:
             xpath_query: The XPath query string.
 
         Returns:
-            Element | None: The first Element instance matching the query, or None if no match.
+            Element | None: The first Element instance matching the query, or
+                None if no match.
+
         """
         result = self.__element.xpath(f"({xpath_query})[1]", namespaces=ODF_NAMESPACES)
         if result:
@@ -1087,14 +1144,16 @@ class Element(MDBase):
         return None
 
     def _get_element_idx(self, xpath_query: XPath | str, idx: int) -> Element | None:
-        """Returns the element at a specific index from an XPath query result.
+        """Return the element at a specific index from an XPath query result.
 
         Args:
-            xpath_query: The XPath query string or a compiled `lxml.etree.XPath` object.
+            xpath_query: The XPath query string or a compiled
+                `lxml.etree.XPath` object.
             idx: The 0-based index of the desired element in the query result.
 
         Returns:
             Element | None: The Element instance at the specified index, or None if not found.
+
         """
         result = self.__element.xpath(
             f"({xpath_query})[{idx + 1}]", namespaces=ODF_NAMESPACES
@@ -1104,14 +1163,17 @@ class Element(MDBase):
         return None
 
     def _get_element_idx2(self, xpath_instance: XPath, idx: int) -> Element | None:
-        """Returns the element at a specific index using a pre-compiled XPath instance.
+        """Return the element at a specific index using a pre-compiled XPath
+        instance.
 
         Args:
             xpath_instance: A compiled `lxml.etree.XPath` object.
             idx: The 0-based index of the desired element in the query result.
 
         Returns:
-            Element | None: The Element instance at the specified index, or None if not found.
+            Element | None: The Element instance at the specified index, or
+                None if not found.
+
         """
         result = xpath_instance(self.__element, idx=idx + 1)
         if result:
@@ -1127,6 +1189,7 @@ class Element(MDBase):
 
         Returns:
             dict[str, str]: A dictionary of attribute names and their values.
+
         """
         return {
             _get_prefixed_name(str(key)): str(value)
@@ -1134,14 +1197,17 @@ class Element(MDBase):
         }
 
     def get_attribute(self, name: str) -> str | bool | None:
-        """Returns the value of a specified attribute.
+        """Return the value of a specified attribute.
 
         Args:
-            name: The qualified name of the attribute to retrieve (e.g., "office:name").
+            name: The qualified name of the attribute to retrieve (e.g.,
+                "office:name").
 
         Returns:
-            str | bool | None: The attribute's value, which can be a string, a boolean
-                (if the original value was "true" or "false"), or None if the attribute is not found.
+            str | bool | None: The attribute's value, which can be a string, a
+                boolean (if the original value was "true" or "false"), or None
+                if the attribute is not found.
+
         """
         element = self.__element
         lxml_tag = _get_lxml_tag_or_name(name)
@@ -1153,14 +1219,15 @@ class Element(MDBase):
         return str(value)
 
     def get_attribute_integer(self, name: str) -> int | None:
-        """Returns the value of a specified attribute as an integer.
+        """Return the value of a specified attribute as an integer.
 
         Args:
             name: The qualified name of the attribute to retrieve.
 
         Returns:
-            int | None: The attribute's value as an integer, or None if the attribute
-                is not found or cannot be converted to an integer.
+            int | None: The attribute's value as an integer, or None if the
+                attribute is not found or cannot be converted to an integer.
+
         """
         element = self.__element
         lxml_tag = _get_lxml_tag_or_name(name)
@@ -1173,15 +1240,17 @@ class Element(MDBase):
             return None
 
     def get_attribute_number(self, name: str) -> int | Decimal | None:
-        """Returns the value of a specified attribute as a number (Decimal or int).
+        """Return the value of a specified attribute as a number (Decimal
+        or int).
 
         Args:
             name: The qualified name of the attribute to retrieve.
 
         Returns:
-            int | Decimal | None: The attribute's value as an int (if it's a whole number)
-                or a Decimal, or None if the attribute is not found or cannot be
-                converted to a number.
+            int | Decimal | None: The attribute's value as an int (if it's a
+                whole number) or a Decimal, or None if the attribute is not
+                found or cannot be converted to a number.
+
         """
         element = self.__element
         lxml_tag = _get_lxml_tag_or_name(name)
@@ -1196,13 +1265,15 @@ class Element(MDBase):
         return value
 
     def get_attribute_string(self, name: str) -> str | None:
-        """Returns the value of a specified attribute as a string.
+        """Return the value of a specified attribute as a string.
 
         Args:
             name: The qualified name of the attribute to retrieve.
 
         Returns:
-            str | None: The attribute's value as a string, or None if the attribute is not found.
+            str | None: The attribute's value as a string, or None if the
+                attribute is not found.
+
         """
         element = self.__element
         lxml_tag = _get_lxml_tag_or_name(name)
@@ -1212,14 +1283,17 @@ class Element(MDBase):
         return str(value)
 
     def _get_attribute_bool_default(self, name: str, default: bool = True) -> bool:
-        """Returns the value of a specified boolean attribute, using a default if not present.
+        """Return the value of a specified boolean attribute, using a default
+        if not present.
 
         Args:
             name: The qualified name of the attribute to retrieve.
-            default: The default boolean value to return if the attribute is not found.
+            default: The default boolean value to return if the attribute is
+                not found.
 
         Returns:
             bool: The attribute's boolean value or the provided default value.
+
         """
         element = self.__element
         lxml_tag = _get_lxml_tag_or_name(name)
@@ -1231,7 +1305,8 @@ class Element(MDBase):
     def _set_attribute_bool_default(
         self, name: str, value: bool | str | None, default: bool = True
     ) -> None:
-        """Sets the value of a specified boolean attribute, removing it if it matches the default.
+        """Set the value of a specified boolean attribute, removing it if it
+        matches the default.
 
         Args:
             name: The qualified name of the attribute to set.
@@ -1239,6 +1314,7 @@ class Element(MDBase):
                 "true"/"false" string, or None. If None, it defaults to False.
             default: The default boolean value. If the `value` to set
                 matches this default, the attribute is removed.
+
         """
         element = self.__element
         lxml_tag = _get_lxml_tag_or_name(name)
@@ -1253,14 +1329,17 @@ class Element(MDBase):
         element.set(lxml_tag, Boolean.encode(value))
 
     def _get_attribute_str_default(self, name: str, default: str = "") -> str:
-        """Returns the value of a specified string attribute, using a default if not present.
+        """Return the value of a specified string attribute, using a default
+        if not present.
 
         Args:
             name: The qualified name of the attribute to retrieve.
-            default: The default string value to return if the attribute is not found.
+            default: The default string value to return if the attribute is
+                not found.
 
         Returns:
             str: The attribute's string value or the provided default value.
+
         """
         element = self.__element
         lxml_tag = _get_lxml_tag_or_name(name)
@@ -1270,7 +1349,7 @@ class Element(MDBase):
         return str(value)
 
     def _set_attribute_str(self, name: str, value: str) -> None:
-        """Sets the value of a string attribute.
+        """Set the value of a string attribute.
 
         This internal method directly sets the value of an attribute without
         any default handling or type conversions beyond converting the value
@@ -1279,6 +1358,7 @@ class Element(MDBase):
         Args:
             name: The qualified name of the attribute to set.
             value: The string value to set for the attribute.
+
         """
         lxml_tag = _get_lxml_tag_or_name(name)
         self.__element.set(lxml_tag, value)
@@ -1286,7 +1366,8 @@ class Element(MDBase):
     def _set_attribute_str_default(
         self, name: str, value: str | None, default: str = ""
     ) -> None:
-        """Sets the value of a specified string attribute, removing it if it matches the default.
+        """Set the value of a specified string attribute, removing it if it
+        matches the default.
 
         Args:
             name: The qualified name of the attribute to set.
@@ -1294,6 +1375,7 @@ class Element(MDBase):
                 the attribute is removed.
             default: The default string value. If the `value` to set
                 matches this default, the attribute is removed.
+
         """
         element = self.__element
         lxml_tag = _get_lxml_tag_or_name(name)
@@ -1304,15 +1386,17 @@ class Element(MDBase):
         element.set(lxml_tag, value)
 
     def _get_attribute_int_default(self, name: str, default: int) -> int:
-        """Returns the value of a specified integer attribute, using a default if not present.
+        """Return the value of a specified integer attribute, using a default
+        if not present.
 
         Args:
             name: The qualified name of the attribute to retrieve.
-            default: The default integer value to return if the attribute is not found
-                or cannot be converted.
+            default: The default integer value to return if the attribute is
+                not found or cannot be converted.
 
         Returns:
             int: The attribute's integer value or the provided default value.
+
         """
         element = self.__element
         lxml_tag = _get_lxml_tag_or_name(name)
@@ -1325,12 +1409,13 @@ class Element(MDBase):
             return default
 
     def _set_attribute_int(self, name: str, value: int | None) -> None:
-        """Sets the value of a specified integer attribute.
+        """Set the value of a specified integer attribute.
 
         Args:
             name: The qualified name of the attribute to set.
             value: The integer value to set. If None, the attribute is
                 removed.
+
         """
         element = self.__element
         lxml_tag = _get_lxml_tag_or_name(name)
@@ -1343,7 +1428,8 @@ class Element(MDBase):
     def _set_attribute_int_default(
         self, name: str, value: int | None, default: int
     ) -> None:
-        """Sets the value of a specified integer attribute, removing it if it matches the default.
+        """Set the value of a specified integer attribute, removing it if it
+        matches the default.
 
         Args:
             name: The qualified name of the attribute to set.
@@ -1351,6 +1437,7 @@ class Element(MDBase):
                 the attribute is removed.
             default: The default integer value. If the `value` to set
                 matches this default, the attribute is removed.
+
         """
         element = self.__element
         lxml_tag = _get_lxml_tag_or_name(name)
@@ -1366,15 +1453,17 @@ class Element(MDBase):
         value: Decimal | int | float | None,
         default: Decimal | int | float | None,
     ) -> None:
-        """Sets the value of a specified number attribute (Decimal, int, or float),
-        removing it if it matches the default.
+        """Set the value of a specified number attribute (Decimal, int, or
+        float), removing it if it matches the default.
 
         Args:
             name: The qualified name of the attribute to set.
             value: The numeric value to set.
                 If None or matches `default`, the attribute is removed.
             default: The default numeric value.
-                If the `value` to set matches this default, the attribute is removed.
+                If the `value` to set matches this default, the attribute is
+                removed.
+
         """
         element = self.__element
         lxml_tag = _get_lxml_tag_or_name(name)
@@ -1387,7 +1476,7 @@ class Element(MDBase):
     def set_attribute(
         self, name: str, value: bool | str | tuple[int, int, int] | None
     ) -> None:
-        """Sets the value of a specified attribute.
+        """Set the value of a specified attribute.
 
         Handles special cases for color properties and boolean values.
 
@@ -1399,10 +1488,12 @@ class Element(MDBase):
 
         Raises:
             TypeError: If a boolean value is provided for a color property.
+
         """
         if name in ODF_COLOR_PROPERTY:
             if isinstance(value, bool):
-                raise TypeError(f"Wrong color type {value!r}")
+                msg = f"Wrong color type {value!r}"
+                raise TypeError(msg)
             if value != "transparent":
                 value = hexa_color(value)
         element = self.__element
@@ -1416,35 +1507,39 @@ class Element(MDBase):
         element.set(lxml_tag, str(value))
 
     def set_style_attribute(self, name: str, value: Style | str | None) -> None:
-        """Sets a style-related attribute, allowing a Style object as a value.
+        """Set a style-related attribute, allowing a Style object as a value.
 
         Args:
             name: The qualified name of the style attribute to set.
             value: The value for the style attribute.
-                Can be a `Style` object (its name will be used), a string, or None.
+                Can be a `Style` object (its name will be used), a string, or
+                None.
+
         """
         if isinstance(value, Element):
             value = str(value.name)
         return self.set_attribute(name, value)
 
     def del_attribute(self, name: str) -> None:
-        """Deletes a specified attribute from the element.
+        """Delete a specified attribute from the element.
 
         Args:
             name: The qualified name of the attribute to delete.
 
         Raises:
             KeyError: If the specified attribute does not exist.
+
         """
         element = self.__element
         lxml_tag = _get_lxml_tag_or_name(name)
         del element.attrib[lxml_tag]
 
     def del_attribute_list(self, names: Iterable[str]) -> None:
-        """Deletes a list of attributes from the element if present.
+        """Delete a list of attributes from the element if present.
 
         Args:
             names: The qualified names of the attributes to delete.
+
         """
         if not self.__element.attrib:
             return
@@ -1454,29 +1549,33 @@ class Element(MDBase):
 
     @property
     def text(self) -> str:
-        """Gets the text content of the element.
+        """Get the text content of the element.
 
         Returns:
-            str: The text content of the element. Defaults to an empty string if no text is present.
+            str: The text content of the element. Defaults to an empty string
+                if no text is present.
+
         """
         return self.__element.text or ""
 
     @text.setter
     def text(self, text: str | None) -> None:
-        """Sets the text content of the element.
+        """Set the text content of the element.
 
         Args:
             text: The new text content. If None, it is set to an empty string.
 
         Raises:
             TypeError: If the provided text is not a string type.
+
         """
         if text is None:
             text = ""
         try:
             self.__element.text = text
         except TypeError as e:
-            raise TypeError(f'Str type expected: "{type(text)}"') from e
+            msg = f"Str type expected: {type(text)!r}"
+            raise TypeError(msg) from e
 
     def __str__(self) -> str:
         return self.inner_text
@@ -1486,7 +1585,9 @@ class Element(MDBase):
         """Returns the concatenated inner text and tail of the element.
 
         Returns:
-            str: The string representation of the element's inner text plus its tail.
+            str: The string representation of the element's inner text plus
+                its tail.
+
         """
         return str(self) + (self.tail or "")
 
@@ -1497,42 +1598,47 @@ class Element(MDBase):
 
     @property
     def inner_text(self) -> str:
-        """Returns the concatenated text content of the element and its children (excluding its own tail).
+        """Return the concatenated text content of the element and its
+        children (excluding its own tail).
 
         Returns:
             str: The inner text of the element.
+
         """
         return self.text + "".join(e._text_tail for e in self.children)
 
     @property
     def text_recursive(self) -> str:
-        """Returns the full recursive text content of the element, including its own tail.
+        """Return the full recursive text content of the element, including its own tail.
 
         Returns:
             str: The entire text content, recursively.
+
         """
         return self.inner_text + (self.tail or "")
 
     @property
     def tail(self) -> str | None:
-        """Gets the text immediately following the element.
+        """Get the text immediately following the element.
 
         Returns:
             str | None: The tail text, or None if no tail text is present.
+
         """
         return self.__element.tail
 
     @tail.setter
     def tail(self, text: str | None) -> None:
-        """Sets the text immediately following the element.
+        """Set the text immediately following the element.
 
         Args:
             text: The new tail text. If None, it is set to an empty string.
+
         """
         self.__element.tail = text or ""
 
     def search(self, pattern: str) -> int | None:
-        """Returns the first position of a pattern in the element's text content.
+        """Return the first position of a pattern in the element's text content.
 
         Python regular expression syntax applies.
 
@@ -1541,6 +1647,7 @@ class Element(MDBase):
 
         Returns:
             int | None: The starting index of the first match, or None if not found.
+
         """
         match = re.search(pattern, self.text_recursive)
         if match is None:
@@ -1548,7 +1655,7 @@ class Element(MDBase):
         return match.start()
 
     def search_first(self, pattern: str) -> tuple[int, int] | None:
-        """Returns the start and end positions of the first occurrence of a regex pattern.
+        """Return the start and end positions of the first occurrence of a regex pattern.
 
         Python regular expression syntax applies.
 
@@ -1558,6 +1665,7 @@ class Element(MDBase):
         Returns:
             tuple[int, int] | None: A tuple (start_position, end_position) of the
                 first match, or None if no match is found.
+
         """
         match = re.search(pattern, self.text_recursive)
         if match is None:
@@ -1576,6 +1684,7 @@ class Element(MDBase):
         Returns:
             list[tuple[int, int]]: A list of (start_position, end_position)
                 tuples for all matches.
+
         """
         results: list[tuple[int, int]] = [
             (match.start(), match.end())
@@ -1584,7 +1693,7 @@ class Element(MDBase):
         return results
 
     def text_at(self, start: int, end: int | None = None) -> str:
-        """Returns the recursive text content of the element between specified positions.
+        """Return the recursive text content of the element between specified positions.
 
         Args:
             start: The starting character position (0-based).
@@ -1593,6 +1702,7 @@ class Element(MDBase):
 
         Returns:
             str: The substring of the element's recursive text.
+
         """
         if start < 0:
             start = 0
@@ -1603,7 +1713,7 @@ class Element(MDBase):
         return self.text_recursive[start:end]
 
     def match(self, pattern: str) -> bool:
-        """Checks if a pattern is found one or more times within the element's text content.
+        """Check if a pattern is found one or more times within the element's text content.
 
         Python regular expression syntax applies.
 
@@ -1612,6 +1722,7 @@ class Element(MDBase):
 
         Returns:
             bool: True if the pattern is found, False otherwise.
+
         """
         return self.search(pattern) is not None
 
@@ -1621,7 +1732,7 @@ class Element(MDBase):
         new: str | None = None,
         formatted: bool = False,
     ) -> int:
-        """Replaces occurrences of a pattern with new text within the element's content.
+        """Replace occurrences of a pattern with new text within the element's content.
 
         It cannot replace patterns found across several elements (e.g., a word
         split into two consecutive spans).
@@ -1642,6 +1753,7 @@ class Element(MDBase):
 
         Returns:
             int: The number of replacements made.
+
         """
         if not isinstance(pattern, str):
             # Fail properly if the pattern is an non-ascii bytestring
@@ -1671,10 +1783,11 @@ class Element(MDBase):
 
     @property
     def root(self) -> Element:
-        """Returns the root element of the XML tree containing this element.
+        """Return the root element of the XML tree containing this element.
 
         Returns:
             Element: The root Element instance.
+
         """
         element = self.__element
         tree = element.getroottree()
@@ -1683,10 +1796,11 @@ class Element(MDBase):
 
     @property
     def parent(self) -> Element | None:
-        """Returns the parent element of this element.
+        """Return the parent element of this element.
 
         Returns:
             Element | None: The parent Element instance, or None if this element is the root.
+
         """
         element = self.__element
         parent = element.getparent()
@@ -1697,10 +1811,11 @@ class Element(MDBase):
 
     @property
     def is_bound(self) -> bool:
-        """Checks if the element is currently part of an XML tree (has a parent).
+        """Check if the element is currently part of an XML tree (has a parent).
 
         Returns:
             bool: True if the element has a parent, False otherwise.
+
         """
         return self.parent is not None
 
@@ -1720,10 +1835,11 @@ class Element(MDBase):
 
     @property
     def children(self) -> list[Element]:
-        """Returns a list of immediate child elements.
+        """Return a list of immediate child elements.
 
         Returns:
             list[Element]: A list of Element instances representing the direct children.
+
         """
         element = self.__element
         return [
@@ -1733,7 +1849,7 @@ class Element(MDBase):
         ]
 
     def index(self, child: Element) -> int:
-        """Returns the position of a child element within this element.
+        """Return the position of a child element within this element.
 
         Inspired by lxml's behavior.
 
@@ -1742,6 +1858,7 @@ class Element(MDBase):
 
         Returns:
             int: The 0-based index of the child element.
+
         """
         idx: int = self.__element.index(child.__element)
         return idx
@@ -1758,6 +1875,7 @@ class Element(MDBase):
 
         Returns:
             str: The concatenated text content of all embedded paragraphs.
+
         """
         content = "".join(
             str(child) for child in self.get_elements("descendant::text:p")
@@ -1798,10 +1916,11 @@ class Element(MDBase):
             self.insert(text, FIRST_CHILD)
 
     def is_empty(self) -> bool:
-        """Checks if the element is empty (no text, no children, no tail).
+        """Check if the element is empty (no text, no children, no tail).
 
         Returns:
             bool: True if the element is empty, False otherwise.
+
         """
         element = self.__element
         if element.tail is not None:
@@ -1819,7 +1938,7 @@ class Element(MDBase):
         position: int | None = None,
         start: bool = False,
     ) -> None:
-        """Inserts an element relative to the current element.
+        """Insert an element relative to the current element.
 
         Insertion can be done using DOM vocabulary (`xmlposition`) or by numeric position.
         If `start` is True, the element is inserted before any existing text content.
@@ -1836,6 +1955,7 @@ class Element(MDBase):
 
         Raises:
             ValueError: If `xmlposition` is not defined and `position` is also None.
+
         """
         # child_tag = element.tag
         current = self.__element
@@ -1866,15 +1986,17 @@ class Element(MDBase):
             index = parent.index(current)
             parent.insert(index, lx_element)
         else:
-            raise ValueError("(xml)position must be defined")
+            msg = "(xml)position must be defined"
+            raise ValueError(msg)
 
     def extend(self, odf_elements: Iterable[Element]) -> None:
-        """Appends multiple ODF elements efficiently to the end of the current
+        """Append multiple ODF elements efficiently to the end of the current
         element.
 
         Args:
             odf_elements: An iterable (e.g., list) of Element instances to
                 append.
+
         """
         if odf_elements:
             current = self.__element
@@ -1882,24 +2004,26 @@ class Element(MDBase):
             current.extend(elements)
 
     def _xml_append(self, element: Element) -> None:
-        """Appends the underlying lxml element of another Element instance.
+        """Append the underlying lxml element of another Element instance.
 
         Args:
             element: The Element instance whose underlying XML element will be appended.
+
         """
         self.__element.append(element.__element)
 
     @property
     def _xml_element(self) -> _Element:
-        """Returns the underlying lxml.etree._Element object.
+        """Return the underlying lxml.etree._Element object.
 
         Returns:
             _Element: The raw lxml element.
+
         """
         return self.__element
 
     def __append(self, str_or_element: Element | str) -> Any:
-        """Appends an element or text to the end of the current element.
+        """Append an element or text to the end of the current element.
 
         If `str_or_element` is a string, it is appended as text. If it is an
         `Element`, its underlying XML element is appended.
@@ -1913,6 +2037,7 @@ class Element(MDBase):
 
         Raises:
             TypeError: If the provided argument is neither a string nor an Element.
+
         """
 
         def _add_text(text1: str | None, text2: str | None) -> str:
@@ -1932,12 +2057,13 @@ class Element(MDBase):
         elif isinstance(str_or_element, Element):
             current.append(str_or_element.__element)
         else:
-            raise TypeError(f'Element or string expected, not "{type(str_or_element)}"')
+            msg = f"Element or string expected, not {type(str_or_element)!r}"
+            raise TypeError(msg)
 
     append = __append
 
     def delete(self, child: Element | None = None, keep_tail: bool = True) -> None:
-        """Deletes an element from the XML tree.
+        """Delete an element from the XML tree.
 
         If `child` is provided, that specific child element is deleted from this element.
         If `child` is None, the current element (`self`) is deleted from its parent.
@@ -1950,11 +2076,13 @@ class Element(MDBase):
 
         Raises:
             ValueError: If an attempt is made to delete the root element (`self` has no parent).
+
         """
         if child is None:
             parent = self.parent
             if parent is None:
-                raise ValueError(f"Can't delete the root element\n{self.serialize()}")
+                msg = f"Can't delete the root element\n{self.serialize()}"
+                raise ValueError(msg)
             child = self
         else:
             parent = self
@@ -1976,7 +2104,7 @@ class Element(MDBase):
         parent.__element.remove(child.__element)
 
     def replace_element(self, old_element: Element, new_element: Element) -> None:
-        """Replaces an existing sub-element with a new one in place.
+        """Replace an existing sub-element with a new one in place.
 
         Warning: This operation does not clone the `old_element`; it is directly
         removed from the tree.
@@ -1984,18 +2112,20 @@ class Element(MDBase):
         Args:
             old_element: The existing child element to be replaced.
             new_element: The new element to insert in place of `old_element`.
+
         """
         current = self.__element
         current.replace(old_element.__element, new_element.__element)
 
     def xpath(self, xpath_query: str) -> list[Element | EText]:
-        """Applies an XPath query to the element and its subtree.
+        """Apply an XPath query to the element and its subtree.
 
         Args:
             xpath_query: The XPath query string to apply.
 
         Returns:
             list[Element | EText]: A list of matching Element or EText instances.
+
         """
         xpath_instance = xpath_compile(xpath_query)
         x_elements = xpath_instance(self.__element)
@@ -2009,15 +2139,16 @@ class Element(MDBase):
         return result
 
     def clear(self) -> None:
-        """Removes all text content, child elements, and attributes from the element."""
+        """Remove all text content, child elements, and attributes from the element."""
         self.__element.clear()
 
     @property
     def clone(self) -> Self:
-        """Creates a deep copy of the current element.
+        """Create a deep copy of the current element.
 
         Returns:
             Self: A new instance of the same class that is a deep copy of the original.
+
         """
         clone = deepcopy(self.__element)
         root = lxml_Element("ROOT", nsmap=ODF_NAMESPACES)
@@ -2029,18 +2160,19 @@ class Element(MDBase):
 
     @staticmethod
     def _strip_namespaces(data: str) -> str:
-        """Removes xmlns:* attributes from a serialized XML string.
+        """Remove xmlns:* attributes from a serialized XML string.
 
         Args:
             data: The serialized XML string.
 
         Returns:
             str: The XML string with xmlns attributes removed.
+
         """
         return re.sub(r' xmlns:\w*="[\w:\-\/\.#]*"', "", data)
 
     def serialize(self, pretty: bool = False, with_ns: bool = False) -> str:
-        """Returns the text serialization of the XML element.
+        """Return the text serialization of the XML element.
 
         Args:
             pretty: If True, the output XML will be pretty-printed.
@@ -2048,6 +2180,7 @@ class Element(MDBase):
 
         Returns:
             str: The serialized XML content as a string.
+
         """
         # This copy bypasses serialization side-effects in lxml
         native = deepcopy(self.__element)
@@ -2063,13 +2196,14 @@ class Element(MDBase):
         return self._strip_namespaces(data)
 
     def _canonicalize(self) -> str:
-        """(Internal) Returns a canonical representation of the Element
+        """Return a canonical representation of the Element (internal).
         (C14N2), with namespaces stripped.
 
         Used in the test suite.
 
         Returns:
             str: The normalized XML content as a string.
+
         """
         return self._strip_namespaces(
             canonicalize(tostring(self.__element, with_tail=False))
@@ -2079,17 +2213,18 @@ class Element(MDBase):
 
     @property
     def document_body(self) -> Body | None:
-        """Returns the first child of the document body, if any.
+        """Return the first child of the document body, if any.
 
         This typically corresponds to the main content area of an ODF document.
 
         Returns:
             Body | None: The first child Element of `office:body`, or None if not found.
+
         """
         return self.get_element("//office:body/*[1]")  # ty: ignore[invalid-return-type]
 
     def get_formatted_text(self, context: dict | None = None) -> str:
-        """Returns a formatted version of the element's text.
+        """Return a formatted version of the element's text.
 
         This method is typically overridden by subclasses to provide specific
         text formatting based on the element type and context.
@@ -2099,11 +2234,12 @@ class Element(MDBase):
 
         Returns:
             str: A formatted string representation of the element's text.
+
         """
         return ""
 
     def get_styled_elements(self, name: str = "") -> list[Element]:
-        """Finds elements (paragraphs, tables, etc.) using a given style name.
+        """Find elements (paragraphs, tables, etc.) using a given style name.
 
         Args:
             name: The name of the style to filter by. If an empty string,
@@ -2111,6 +2247,7 @@ class Element(MDBase):
 
         Returns:
             list[Element]: A list of Element instances that match the specified style.
+
         """
         # FIXME incomplete (and possibly inaccurate)
         return (
@@ -2126,13 +2263,14 @@ class Element(MDBase):
     # Common attributes
 
     def _get_inner_text(self, tag: str) -> str | None:
-        """Retrieves the text content of a specified inner element.
+        """Retrieve the text content of a specified inner element.
 
         Args:
             tag: The qualified name of the inner element (e.g., "svg:title").
 
         Returns:
             str | None: The text content of the inner element, or None if the element is not found.
+
         """
         element = self.get_element(tag)
         if element is None:
@@ -2140,13 +2278,14 @@ class Element(MDBase):
         return element.text
 
     def _set_inner_text(self, tag: str, text: str) -> None:
-        """Sets the text content of a specified inner element.
+        """Set the text content of a specified inner element.
 
         If the inner element does not exist, it is created.
 
         Args:
             tag: The qualified name of the inner element (e.g., "svg:title").
             text: The new text content to set.
+
         """
         element = self.get_element(tag)
         if element is None:
@@ -2161,7 +2300,7 @@ class Element(MDBase):
         style: str | None = None,
         content: str | None = None,
     ) -> list[Paragraph]:
-        """Returns all paragraphs that match the specified criteria.
+        """Return all paragraphs that match the specified criteria.
 
         Args:
             style: The name of the style to filter paragraphs by.
@@ -2169,6 +2308,7 @@ class Element(MDBase):
 
         Returns:
             list[Paragraph]: A list of Paragraph instances matching the criteria.
+
         """
         return self._filtered_elements(
             "descendant::text:p", text_style=style, content=content
@@ -2180,6 +2320,7 @@ class Element(MDBase):
 
         Returns:
             list[Paragraph]: A list of all Paragraph instances that are descendants of this element.
+
         """
         return self.get_elements(
             "descendant::text:p",
@@ -2190,7 +2331,7 @@ class Element(MDBase):
         position: int = 0,
         content: str | None = None,
     ) -> Paragraph | None:
-        """Returns a single paragraph that matches the specified criteria.
+        """Return a single paragraph that matches the specified criteria.
 
         Args:
             position: The 0-based index of the matching paragraph to return.
@@ -2198,6 +2339,7 @@ class Element(MDBase):
 
         Returns:
             Paragraph | None: A Paragraph instance, or None if no paragraph matches the criteria.
+
         """
         return self._filtered_element(
             "descendant::text:p",
@@ -2212,7 +2354,7 @@ class Element(MDBase):
         style: str | None = None,
         content: str | None = None,
     ) -> list[Span]:
-        """Returns all spans that match the specified criteria.
+        """Return all spans that match the specified criteria.
 
         Args:
             style: The name of the style to filter spans by.
@@ -2220,6 +2362,7 @@ class Element(MDBase):
 
         Returns:
             list[Span]: A list of Span instances matching the criteria.
+
         """
         return self._filtered_elements(
             "descendant::text:span", text_style=style, content=content
@@ -2227,10 +2370,11 @@ class Element(MDBase):
 
     @property
     def spans(self) -> list[Span]:
-        """Returns all spans as a list.
+        """Return all spans as a list.
 
         Returns:
             list[Span]: A list of all Span instances that are descendants of this element.
+
         """
         return self.get_elements("descendant::text:span")  # ty: ignore[invalid-return-type]
 
@@ -2239,7 +2383,7 @@ class Element(MDBase):
         position: int = 0,
         content: str | None = None,
     ) -> Span | None:
-        """Returns a single span that matches the specified criteria.
+        """Return a single span that matches the specified criteria.
 
         Args:
             position: The 0-based index of the matching span to return.
@@ -2247,6 +2391,7 @@ class Element(MDBase):
 
         Returns:
             Span | None: A Span instance, or None if no span matches the criteria.
+
         """
         return self._filtered_element(
             "descendant::text:span", position, content=content
@@ -2260,7 +2405,7 @@ class Element(MDBase):
         outline_level: str | None = None,
         content: str | None = None,
     ) -> list[Header]:
-        """Returns all headers that match the specified criteria.
+        """Return all headers that match the specified criteria.
 
         Args:
             style: The name of the style to filter headers by.
@@ -2269,6 +2414,7 @@ class Element(MDBase):
 
         Returns:
             list[Header]: A list of Header instances matching the criteria.
+
         """
         return self._filtered_elements(
             "descendant::text:h",
@@ -2279,10 +2425,11 @@ class Element(MDBase):
 
     @property
     def headers(self) -> list[Header]:
-        """Returns all headers as a list.
+        """Return all headers as a list.
 
         Returns:
             list[Header]: A list of all Header instances that are descendants of this element.
+
         """
         return self.get_elements("descendant::text:h")  # ty: ignore[invalid-return-type]
 
@@ -2292,7 +2439,7 @@ class Element(MDBase):
         outline_level: str | None = None,
         content: str | None = None,
     ) -> Header | None:
-        """Returns a single header that matches the specified criteria.
+        """Return a single header that matches the specified criteria.
 
         Args:
             position: The 0-based index of the matching header to return.
@@ -2301,6 +2448,7 @@ class Element(MDBase):
 
         Returns:
             Header | None: A Header instance, or None if no header matches the criteria.
+
         """
         return self._filtered_element(
             "descendant::text:h",
@@ -2319,7 +2467,7 @@ class Element(MDBase):
         description: str | None = None,
         content: str | None = None,
     ) -> list[Frame]:
-        """Returns all frames that match the specified criteria.
+        """Return all frames that match the specified criteria.
 
         Args:
             presentation_class: The presentation class to filter frames by.
@@ -2330,6 +2478,7 @@ class Element(MDBase):
 
         Returns:
             list[Frame]: A list of Frame instances matching the criteria.
+
         """
         return self._filtered_elements(
             "descendant::draw:frame",
@@ -2346,6 +2495,7 @@ class Element(MDBase):
 
         Returns:
             list[Frame]: A list of all Frame instances that are descendants of this element.
+
         """
         return self.get_elements("descendant::draw:frame")  # ty: ignore[invalid-return-type]
 
@@ -2358,7 +2508,7 @@ class Element(MDBase):
         description: str | None = None,
         content: str | None = None,
     ) -> Frame | None:
-        """Returns a single frame that matches the specified criteria.
+        """Return a single frame that matches the specified criteria.
 
         Args:
             position: The 0-based index of the matching frame to return.
@@ -2370,6 +2520,7 @@ class Element(MDBase):
 
         Returns:
             Frame | None: A Frame instance, or None if no frame matches the criteria.
+
         """
         return self._filtered_element(
             "descendant::draw:frame",
@@ -2389,7 +2540,7 @@ class Element(MDBase):
         url: str | None = None,
         content: str | None = None,
     ) -> list[DrawImage]:
-        """Returns all images that match the specified criteria.
+        """Return all images that match the specified criteria.
 
         Args:
             style: The name of the style to filter images by.
@@ -2398,6 +2549,7 @@ class Element(MDBase):
 
         Returns:
             list[DrawImage]: A list of DrawImage instances matching the criteria.
+
         """
         return self._filtered_elements(
             "descendant::draw:image", text_style=style, url=url, content=content
@@ -2405,10 +2557,11 @@ class Element(MDBase):
 
     @property
     def images(self) -> list[DrawImage]:
-        """Returns all images as a list.
+        """Return all images as a list.
 
         Returns:
             list[DrawImage]: A list of all DrawImage instances that are descendants of this element.
+
         """
         return self.get_elements("descendant::draw:image")  # ty: ignore[invalid-return-type]
 
@@ -2419,7 +2572,7 @@ class Element(MDBase):
         url: str | None = None,
         content: str | None = None,
     ) -> DrawImage | None:
-        """Returns a single image that matches the specified criteria.
+        """Return a single image that matches the specified criteria.
 
         Args:
             position: The 0-based index of the matching image to return.
@@ -2429,6 +2582,7 @@ class Element(MDBase):
 
         Returns:
             DrawImage | None: A DrawImage instance, or None if no image matches the criteria.
+
         """
         # The frame is holding the name
         if name is not None:
@@ -2446,10 +2600,11 @@ class Element(MDBase):
     # office:names
 
     def get_office_names(self) -> list[str]:
-        """Returns all unique values of 'office:name' attributes within the element's subtree.
+        """Return all unique values of 'office:name' attributes within the element's subtree.
 
         Returns:
             list[str]: A list of unique strings representing the 'office:name' attribute values.
+
         """
         name_xpath_query = xpath_compile("//@office:name")
         strings = xpath_return_strings(name_xpath_query, self.__element)
@@ -2458,13 +2613,14 @@ class Element(MDBase):
     # Variables
 
     def get_variable_sets(self, name: str | None = None) -> list[VarSet]:
-        """Returns all variable sets that match the specified criteria.
+        """Return all variable sets that match the specified criteria.
 
         Args:
             name: The name of the variable set to filter by.
 
         Returns:
             list[VarSet]: A list of VarSet instances matching the criteria.
+
         """
         return self._filtered_elements(
             "descendant::text:variable-set",
@@ -2472,7 +2628,7 @@ class Element(MDBase):
         )  # ty: ignore[invalid-return-type]
 
     def get_variable_set(self, name: str, position: int = -1) -> VarSet | None:
-        """Returns a single variable set that matches the specified criteria.
+        """Return a single variable set that matches the specified criteria.
 
         Args:
             name: The name of the variable set to retrieve.
@@ -2481,6 +2637,7 @@ class Element(MDBase):
 
         Returns:
             VarSet | None: A VarSet instance, or None if no variable set matches the criteria.
+
         """
         return self._filtered_element(
             "descendant::text:variable-set", position, text_name=name
@@ -2491,7 +2648,7 @@ class Element(MDBase):
         name: str,
         value_type: str | None = None,
     ) -> bool | str | int | float | Decimal | datetime | timedelta | None:
-        """Returns the value of the last variable set for the given name.
+        """Return the value of the last variable set for the given name.
 
         Args:
             name: The name of the variable to retrieve its value.
@@ -2503,6 +2660,7 @@ class Element(MDBase):
             bool | str | int | float | Decimal | datetime | timedelta | None:
                 The value of the variable, cast to the most appropriate Python type,
                 or None if the variable set is not found.
+
         """
         variable_set = self.get_variable_set(name)
         if not variable_set:
@@ -2516,7 +2674,7 @@ class Element(MDBase):
         style: str | None = None,
         content: str | None = None,
     ) -> list[DrawPage]:
-        """Returns all draw pages that match the specified criteria.
+        """Return all draw pages that match the specified criteria.
 
         Args:
             style: The name of the style to filter draw pages by.
@@ -2524,6 +2682,7 @@ class Element(MDBase):
 
         Returns:
             list[DrawPage]: A list of DrawPage instances matching the criteria.
+
         """
         return self._filtered_elements(
             "descendant::draw:page", draw_style=style, content=content
@@ -2535,7 +2694,7 @@ class Element(MDBase):
         name: str | None = None,
         content: str | None = None,
     ) -> DrawPage | None:
-        """Returns a single draw page that matches the specified criteria.
+        """Return a single draw page that matches the specified criteria.
 
         Args:
             position: The 0-based index of the matching draw page to return.
@@ -2544,6 +2703,7 @@ class Element(MDBase):
 
         Returns:
             DrawPage | None: A DrawPage instance, or None if no draw page matches the criteria.
+
         """
         return self._filtered_element(
             "descendant::draw:page", position, draw_name=name, content=content
@@ -2559,7 +2719,7 @@ class Element(MDBase):
         description: str | None = None,
         content: str | None = None,
     ) -> list[DrawGroup]:
-        """Returns all draw groups that match the specified criteria.
+        """Return all draw groups that match the specified criteria.
 
         Args:
             title: A regex pattern to match against the group's title.
@@ -2568,6 +2728,7 @@ class Element(MDBase):
 
         Returns:
             list[DrawGroup]: A list of DrawGroup instances matching the criteria.
+
         """
         return self._filtered_elements(
             "descendant::draw:g",
@@ -2584,7 +2745,7 @@ class Element(MDBase):
         description: str | None = None,
         content: str | None = None,
     ) -> DrawGroup | None:
-        """Returns a single draw group that matches the specified criteria.
+        """Return a single draw group that matches the specified criteria.
 
         Args:
             position: The 0-based index of the matching draw group to return.
@@ -2595,6 +2756,7 @@ class Element(MDBase):
 
         Returns:
             DrawGroup | None: A DrawGroup instance, or None if no group matches the criteria.
+
         """
         return self._filtered_element(
             "descendant::draw:g",
@@ -2613,7 +2775,7 @@ class Element(MDBase):
         draw_text_style: str | None = None,
         content: str | None = None,
     ) -> list[LineShape]:
-        """Returns all draw lines that match the specified criteria.
+        """Return all draw lines that match the specified criteria.
 
         Args:
             draw_style: The name of the draw style to filter lines by.
@@ -2622,6 +2784,7 @@ class Element(MDBase):
 
         Returns:
             list[LineShape]: A list of LineShape instances matching the criteria.
+
         """
         return self._filtered_elements(
             "descendant::draw:line",
@@ -2636,7 +2799,7 @@ class Element(MDBase):
         id: str | None = None,  # noqa:A002
         content: str | None = None,
     ) -> LineShape | None:
-        """Returns a single draw line that matches the specified criteria.
+        """Return a single draw line that matches the specified criteria.
 
         Args:
             position: The 0-based index of the matching draw line to return.
@@ -2645,6 +2808,7 @@ class Element(MDBase):
 
         Returns:
             LineShape | None: A LineShape instance, or None if no line matches the criteria.
+
         """
         return self._filtered_element(
             "descendant::draw:line", position, draw_id=id, content=content
@@ -2658,7 +2822,7 @@ class Element(MDBase):
         draw_text_style: str | None = None,
         content: str | None = None,
     ) -> list[RectangleShape]:
-        """Returns all draw rectangles that match the specified criteria.
+        """Return all draw rectangles that match the specified criteria.
 
         Args:
             draw_style: The name of the draw style to filter rectangles by.
@@ -2667,6 +2831,7 @@ class Element(MDBase):
 
         Returns:
             list[RectangleShape]: A list of RectangleShape instances matching the criteria.
+
         """
         return self._filtered_elements(
             "descendant::draw:rect",
@@ -2681,7 +2846,7 @@ class Element(MDBase):
         id: str | None = None,  # noqa:A002
         content: str | None = None,
     ) -> RectangleShape | None:
-        """Returns a single draw rectangle that matches the specified criteria.
+        """Return a single draw rectangle that matches the specified criteria.
 
         Args:
             position: The 0-based index of the matching draw rectangle to return.
@@ -2690,6 +2855,7 @@ class Element(MDBase):
 
         Returns:
             RectangleShape | None: A RectangleShape instance, or None if no rectangle matches the criteria.
+
         """
         return self._filtered_element(
             "descendant::draw:rect", position, draw_id=id, content=content
@@ -2703,7 +2869,7 @@ class Element(MDBase):
         draw_text_style: str | None = None,
         content: str | None = None,
     ) -> list[EllipseShape]:
-        """Returns all draw ellipses that match the specified criteria.
+        """Return all draw ellipses that match the specified criteria.
 
         Args:
             draw_style: The name of the draw style to filter ellipses by.
@@ -2712,6 +2878,7 @@ class Element(MDBase):
 
         Returns:
             list[EllipseShape]: A list of EllipseShape instances matching the criteria.
+
         """
         return self._filtered_elements(
             "descendant::draw:ellipse",
@@ -2726,7 +2893,7 @@ class Element(MDBase):
         id: str | None = None,  # noqa:A002
         content: str | None = None,
     ) -> EllipseShape | None:
-        """Returns a single draw ellipse that matches the specified criteria.
+        """Return a single draw ellipse that matches the specified criteria.
 
         Args:
             position: The 0-based index of the matching draw ellipse to return.
@@ -2735,6 +2902,7 @@ class Element(MDBase):
 
         Returns:
             EllipseShape | None: An EllipseShape instance, or None if no ellipse matches the criteria.
+
         """
         return self._filtered_element(
             "descendant::draw:ellipse", position, draw_id=id, content=content
@@ -2748,7 +2916,7 @@ class Element(MDBase):
         draw_text_style: str | None = None,
         content: str | None = None,
     ) -> list[ConnectorShape]:
-        """Returns all draw connectors that match the specified criteria.
+        """Return all draw connectors that match the specified criteria.
 
         Args:
             draw_style: The name of the draw style to filter connectors by.
@@ -2757,6 +2925,7 @@ class Element(MDBase):
 
         Returns:
             list[ConnectorShape]: A list of ConnectorShape instances matching the criteria.
+
         """
         return self._filtered_elements(
             "descendant::draw:connector",
@@ -2771,7 +2940,7 @@ class Element(MDBase):
         id: str | None = None,  # noqa:A002
         content: str | None = None,
     ) -> ConnectorShape | None:
-        """Returns a single draw connector that matches the specified criteria.
+        """Return a single draw connector that matches the specified criteria.
 
         Args:
             position: The 0-based index of the matching draw connector to return.
@@ -2780,16 +2949,18 @@ class Element(MDBase):
 
         Returns:
             ConnectorShape | None: A ConnectorShape instance, or None if no connector matches the criteria.
+
         """
         return self._filtered_element(
             "descendant::draw:connector", position, draw_id=id, content=content
         )  # ty: ignore[invalid-return-type]
 
     def get_orphan_draw_connectors(self) -> list[ConnectorShape]:
-        """Returns a list of connectors that are not connected to any shapes.
+        """Return a list of connectors that are not connected to any shapes.
 
         Returns:
             list[ConnectorShape]: A list of ConnectorShape instances that are orphans.
+
         """
         connectors = []
         for connector in self.get_draw_connectors():
@@ -2802,10 +2973,11 @@ class Element(MDBase):
     # Tracked changes and text change
 
     def get_changes_ids(self) -> list[Element | EText]:
-        """Returns a list of IDs that refer to change regions in the tracked changes list.
+        """Return a list of IDs that refer to change regions in the tracked changes list.
 
         Returns:
             list[Element | EText]: A list of Element or EText instances representing change IDs.
+
         """
         # Insertion changes or deletion changes
         xpath_query = (
@@ -2815,12 +2987,13 @@ class Element(MDBase):
         return self.xpath(xpath_query)
 
     def get_text_change_deletions(self) -> list[TextChange]:
-        """Returns all text changes representing deletions (text:change tags).
+        """Return all text changes representing deletions (text:change tags).
 
         Consider using `get_text_changes()` for a more general approach.
 
         Returns:
             list[TextChange]: A list of TextChange instances representing deletions.
+
         """
         return self._filtered_elements(
             "descendant::text:change",
@@ -2831,7 +3004,7 @@ class Element(MDBase):
         position: int = 0,
         idx: str | None = None,
     ) -> TextChange | None:
-        """Returns a single text change of deletion kind (text:change tag) matching criteria.
+        """Return a single text change of deletion kind (text:change tag) matching criteria.
 
         Consider using `get_text_change()` for a more general approach.
 
@@ -2841,18 +3014,20 @@ class Element(MDBase):
 
         Returns:
             TextChange | None: A TextChange instance, or None if no match is found.
+
         """
         return self._filtered_element(
             "descendant::text:change", position, change_id=idx
         )  # ty: ignore[invalid-return-type]
 
     def get_text_change_starts(self) -> list[TextChangeStart]:
-        """Returns all text change-start elements (text:change-start tags).
+        """Return all text change-start elements (text:change-start tags).
 
         Consider using `get_text_changes()` for a more general approach.
 
         Returns:
             list[TextChangeStart]: A list of TextChangeStart instances.
+
         """
         return self._filtered_elements(
             "descendant::text:change-start",
@@ -2863,7 +3038,7 @@ class Element(MDBase):
         position: int = 0,
         idx: str | None = None,
     ) -> TextChangeStart | None:
-        """Returns a single text change-start element (text:change-start tag) matching criteria.
+        """Return a single text change-start element (text:change-start tag) matching criteria.
 
         Consider using `get_text_change()` for a more general approach.
 
@@ -2873,18 +3048,20 @@ class Element(MDBase):
 
         Returns:
             TextChangeStart | None: A TextChangeStart instance, or None if no match is found.
+
         """
         return self._filtered_element(
             "descendant::text:change-start", position, change_id=idx
         )  # ty: ignore[invalid-return-type]
 
     def get_text_change_ends(self) -> list[TextChangeEnd]:
-        """Returns all text change-end elements (text:change-end tags).
+        """Return all text change-end elements (text:change-end tags).
 
         Consider using `get_text_changes()` for a more general approach.
 
         Returns:
             list[TextChangeEnd]: A list of TextChangeEnd instances.
+
         """
         return self._filtered_elements(
             "descendant::text:change-end",
@@ -2895,7 +3072,7 @@ class Element(MDBase):
         position: int = 0,
         idx: str | None = None,
     ) -> TextChangeEnd | None:
-        """Returns a single text change-end element (text:change-end tag) matching criteria.
+        """Return a single text change-end element (text:change-end tag) matching criteria.
 
         Consider using `get_text_change()` for a more general approach.
 
@@ -2905,28 +3082,31 @@ class Element(MDBase):
 
         Returns:
             TextChangeEnd | None: A TextChangeEnd instance, or None if no match is found.
+
         """
         return self._filtered_element(
             "descendant::text:change-end", position, change_id=idx
         )  # ty: ignore[invalid-return-type]
 
     def get_text_changes(self) -> list[TextChange | TextChangeStart]:
-        """Returns all text changes, including single deletions (text:change) and
+        """Return all text changes, including single deletions (text:change) and
         starts of change ranges (text:change-start).
 
         Returns:
             list[TextChange | TextChangeStart]: A list of TextChange or TextChangeStart instances.
+
         """
         request = "descendant::text:change-start | descendant::text:change"
         return self._filtered_elements(request)  # ty: ignore[invalid-return-type]
 
     @property
     def text_changes(self) -> list[TextChange | TextChangeStart]:
-        """Returns all text changes, including single deletions (text:change) and
+        """Return all text changes, including single deletions (text:change) and
         starts of change ranges (text:change-start).
 
         Returns:
             list[TextChange | TextChangeStart]: A list of TextChange or TextChangeStart instances.
+
         """
         return self.get_text_changes()
 
@@ -2935,7 +3115,7 @@ class Element(MDBase):
         position: int = 0,
         idx: str | None = None,
     ) -> TextChange | TextChangeStart | None:
-        """Returns a single text change that matches the specified criteria.
+        """Return a single text change that matches the specified criteria.
 
         The change can be either a single deletion (text:change) or the start
         of a range of changes (text:change-start).
@@ -2948,6 +3128,7 @@ class Element(MDBase):
         Returns:
             TextChange | TextChangeStart | None: A TextChange or TextChangeStart
                 instance, or None if no match is found.
+
         """
         if idx:
             request = (
@@ -2963,7 +3144,7 @@ class Element(MDBase):
 
     @staticmethod
     def _get_style_tagname(family: str | None, is_default: bool = False) -> str:
-        """Determines the appropriate ODF tag name for a given style family.
+        """Determine the appropriate ODF tag name for a given style family.
 
         Args:
             family: The style family (e.g., "paragraph", "text").
@@ -2971,6 +3152,7 @@ class Element(MDBase):
 
         Returns:
             str: The ODF tag name(s) to match for the given style family.
+
         """
         tagname: str
         if not family:
@@ -2992,7 +3174,7 @@ class Element(MDBase):
     def get_styles(
         self, family: str | None = None
     ) -> list[StyleBase | DrawFillImage | DrawMarker]:
-        """Returns all styles (common and default) that match the specified family.
+        """Return all styles (common and default) that match the specified family.
 
         Args:
             family: The style family to filter by (e.g., "paragraph", "text").
@@ -3001,6 +3183,7 @@ class Element(MDBase):
         Returns:
             list[StyleBase|DrawFillImage|DrawMarker]: A list of style-like
             instances matching the criteria.
+
         """
         # Both common and default styles
         tagname = self._get_style_tagname(family)
@@ -3012,7 +3195,7 @@ class Element(MDBase):
         name_or_element: str | Element | None = None,
         display_name: str | None = None,
     ) -> StyleBase | DrawFillImage | DrawMarker | None:
-        """Returns a single style uniquely identified by family/name, or a
+        """Return a single style uniquely identified by family/name, or a
         provided style object.
 
         If the provided `name_or_element` is already a style object, it is
@@ -3033,12 +3216,14 @@ class Element(MDBase):
         Raises:
             ValueError: If `name_or_element` is an Element but not a
                 recognized odf_style.
+
         """
         if isinstance(name_or_element, Element):
             name = name_or_element.get_attribute("style:name")
             if name is not None:
                 return name_or_element  # ty: ignore[invalid-return-type]
-            raise ValueError(f"Not a odf_style ? {name_or_element!r}")
+            msg = f"Not a odf_style ? {name_or_element!r}"
+            raise ValueError(msg)
         style_name = name_or_element
         is_default = not (style_name or display_name)
         tagname = self._get_style_tagname(family, is_default=is_default)
@@ -3069,7 +3254,7 @@ class Element(MDBase):
         position: int,
         **kwargs: Any,
     ) -> Element | None:
-        """Returns a single filtered element at a specific position.
+        """Return a single filtered element at a specific position.
 
         Args:
             query_string: The XPath query string to apply.
@@ -3081,6 +3266,7 @@ class Element(MDBase):
         Returns:
             Element | None: The Element instance at the specified position, or None
                 if not found.
+
         """
         results = self._filtered_elements(query_string, **kwargs)
         try:
@@ -3099,7 +3285,7 @@ class Element(MDBase):
         dc_date: datetime | None = None,
         **kwargs: Any,
     ) -> list[Element]:
-        """Returns a list of elements filtered by various criteria.
+        """Return a list of elements filtered by various criteria.
 
         This internal method applies an XPath query first and then further
         filters the results based on content, URL, SVG title/description,
@@ -3118,6 +3304,7 @@ class Element(MDBase):
 
         Returns:
             list[Element]: A list of Element instances that match all specified criteria.
+
         """
         query = make_xpath_query(query_string, **kwargs)
         elements = self.get_elements(query)

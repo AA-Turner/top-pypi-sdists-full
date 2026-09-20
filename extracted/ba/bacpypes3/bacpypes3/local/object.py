@@ -1,25 +1,25 @@
 """
 Local Object
 """
+
 from __future__ import annotations
 
 import asyncio
 import inspect
-
 from collections import defaultdict
 from copy import deepcopy
 from functools import partial
 from threading import Thread
-from typing import cast, Any as _Any, Callable, Dict, List, Optional, Tuple, Union
+from typing import Any as _Any
+from typing import Callable, Dict, List, Optional, Tuple, Union, cast
 
-from ..debugging import bacpypes_debugging, ModuleLogger
-from ..errors import PropertyError
-from ..primitivedata import CharacterString, ObjectIdentifier
 from ..basetypes import EventState, PropertyIdentifier, Reliability, StatusFlags
 from ..constructeddata import ArrayOf
-
-from ..object import Object as _Object, NotificationClassObject
-
+from ..debugging import ModuleLogger, bacpypes_debugging
+from ..errors import PropertyError
+from ..object import NotificationClassObject
+from ..object import Object as _Object
+from ..primitivedata import CharacterString, ObjectIdentifier
 
 # some debugging
 _debug = 0

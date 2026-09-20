@@ -57,6 +57,7 @@ class Boolean:
         Raises:
             ValueError: If the input string is not a valid ODF boolean
                 ('true' or 'false'), and is neither a bool nor None.
+
         """
         match data:
             case bool():
@@ -68,7 +69,8 @@ class Boolean:
             case "false":
                 return False
             case _:
-                raise ValueError(f"boolean {data!r} is invalid")
+                msg = f"Boolean {data!r} is invalid"
+                raise ValueError(msg)
 
     @staticmethod
     def encode(value: bool | str | bytes | int | float | Decimal | None) -> str:
@@ -84,6 +86,7 @@ class Boolean:
 
         Raises:
             TypeError: If the input value cannot be interpreted as a boolean.
+
         """
         if isinstance(value, bytes):
             value = value.decode()
@@ -93,7 +96,8 @@ class Boolean:
             return "true"
         if value is False or str(value).lower() == "false":
             return "false"
-        raise TypeError(f"{value!r} is not a boolean")
+        msg = f"{value!r} is not a boolean"
+        raise TypeError(msg)
 
 
 def decode_heuristic(
@@ -113,6 +117,7 @@ def decode_heuristic(
 
     Returns:
         datetime | date | timedelta | str | None: Decoded or original `data`.
+
     """
     if isinstance(data, datetime | date | timedelta):
         return data
@@ -158,10 +163,11 @@ def date_decode_heuristic(
 
     Raises:
         TypeError: If the result is not of type datetime | date.
+
     """
     result = decode_heuristic(data)
     if not isinstance(result, date):
-        msg = f"Cannot decode {data!r} as date or datetime"
+        msg = f"Can not decode {data!r} as date or datetime"
         raise TypeError(msg)
     return result
 
@@ -187,13 +193,15 @@ class Date:
 
         Returns:
             date: A `datetime.date` object representing the decoded date.
+
         """
         if isinstance(data, datetime):
             return data.date()
         if isinstance(data, date):
             return data
         if not isinstance(data, str):
-            raise TypeError(f"date {data!r} is invalid")
+            msg = f"Date {data!r} is invalid"
+            raise TypeError(msg)
         data_string = data.strip()
         if "T" in data_string or " " in data_string:
             with contextlib.suppress(ValueError):
@@ -212,12 +220,14 @@ class Date:
 
         Returns:
             str: The ODF date string (e.g., "2024-01-31").
+
         """
         if isinstance(value, datetime):
             return value.date().isoformat()
         if isinstance(value, date):
             return value.isoformat()
-        raise TypeError(f"Cannot encode {value!r} as Date")
+        msg = f"Can not encode {value!r} as Date"
+        raise TypeError(msg)
 
 
 class DateTime:
@@ -240,6 +250,7 @@ class DateTime:
 
         Returns:
             datetime: A `datetime.datetime` object.
+
         """
 
         def _decode_39_310(data1: str) -> datetime:  # pragma: nocover
@@ -262,7 +273,8 @@ class DateTime:
         if isinstance(data, date):
             return datetime.combine(data, datetime.min.time())
         if not isinstance(data, str):
-            raise TypeError(f"datetime {data!r} is invalid")
+            msg = f"datetime {data!r} is invalid"
+            raise TypeError(msg)
 
         data_string = data.strip()
 
@@ -293,13 +305,15 @@ class DateTime:
 
         Returns:
             str: The ODF date-time string (e.g., "YYYY-MM-DDTHH:MM:SSZ").
+
         """
         if isinstance(value, datetime):
             dt = value
         elif isinstance(value, date):
             dt = datetime.combine(value, datetime.min.time())
         else:
-            raise TypeError(f"Cannot encode {value!r} as DateTime")
+            msg = f"Can not encode {value!r} as DateTime"
+            raise TypeError(msg)
 
         text = dt.isoformat()
         if text.endswith("+00:00"):
@@ -330,17 +344,21 @@ class Duration:
         Raises:
             ValueError: If the input string is not a valid ISO 8601 duration
                 format.
+
         """
         if isinstance(data, timedelta):
             return data
         if not isinstance(data, str):
-            raise TypeError(f"duration not valid {data!r}")
+            msg = f"Duration not valid {data!r}"
+            raise TypeError(msg)
         if not data.startswith(("P", "-P")):
-            raise ValueError(f"duration not valid {data!r}")
+            msg = f"Duration not valid {data!r}"
+            raise ValueError(msg)
         if set(data) - set("-+P0123456789.YMWDHST,") or not any(
             c.isdigit() for c in data
         ):
-            raise ValueError(f"duration not valid {data!r}")
+            msg = f"Duration not valid {data!r}"
+            raise ValueError(msg)
 
         if data.startswith("P"):
             sign = 1
@@ -370,7 +388,8 @@ class Duration:
                 buffer = ""
                 break
         if buffer != "":
-            raise ValueError(f"duration not valid {data!r}")
+            msg = f"Duration not valid {data!r}"
+            raise ValueError(msg)
 
         return timedelta(
             days=sign * days,
@@ -393,9 +412,11 @@ class Duration:
         Raises:
             TypeError: If the input value is not a `datetime.timedelta`
                 object.
+
         """
         if not isinstance(value, timedelta):
-            raise TypeError(f"duration must be a timedelta: {value!r}")
+            msg = f"Duration must be a timedelta: {value!r}"
+            raise TypeError(msg)
 
         days = value.days
         if days < 0:

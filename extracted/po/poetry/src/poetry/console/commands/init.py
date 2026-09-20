@@ -128,7 +128,7 @@ The <c1>init</c1> command creates a basic <comment>pyproject.toml</> file in the
 
         name = self.option("name")
         if not name:
-            name = project_path.name.lower()
+            name = self._sanitize_package_name(project_path.name)
 
             if is_interactive:
                 question = self.create_question(
@@ -382,7 +382,7 @@ The <c1>init</c1> command creates a basic <comment>pyproject.toml</> file in the
                         "(or leave blank to use the latest version):"
                     )
                     question.set_max_attempts(3)
-                    question.set_validator(lambda x: (x or "").strip() or None)
+                    question.set_validator(self._validate_version_constraint)
 
                     package_constraint = self.ask(question)
 
@@ -475,7 +475,7 @@ The <c1>init</c1> command creates a basic <comment>pyproject.toml</> file in the
             cwd=cwd,
         )
         return [
-            parser.parse(re.sub(r"@\s*latest$", "", requirement, flags=re.I))
+            parser.parse(re.sub(r"@\s*latest$", "", requirement, flags=re.IGNORECASE))
             for requirement in requirements
         ]
 
@@ -494,6 +494,28 @@ The <c1>init</c1> command creates a basic <comment>pyproject.toml</> file in the
             requires[name] = constraint
 
         return requires
+
+    @staticmethod
+    def _sanitize_package_name(name: str) -> str:
+        """Turn an arbitrary string (e.g. a directory name) into a name that
+        conforms to the PyPA name format.
+        https://packaging.python.org/en/latest/specifications/name-normalization/#name-format
+
+        Characters outside the format are replaced with a hyphen and the result
+        is canonicalized, so ``My_Package.Name`` gives ``my-package-name``.
+        A canonical name is the least error-prone default; it can still be
+        edited in pyproject.toml.
+
+        A directory name that holds no ASCII alphanumerics at all (say a
+        non-Latin script) sanitizes to an empty string, which is not a usable
+        default. Fall back to the lowercased directory name in that case, which
+        is what this used to do for every directory: a name in a non-Latin
+        script is kept rather than replaced with a placeholder.
+        """
+        replaced = re.sub(r"[^A-Za-z0-9._-]+", "-", name)
+        sanitized = replaced.strip("-._")
+
+        return canonicalize_name(sanitized) if sanitized else name.lower()
 
     @staticmethod
     def _validate_author(author: str, default: str) -> str | None:
@@ -520,6 +542,21 @@ The <c1>init</c1> command creates a basic <comment>pyproject.toml</> file in the
             raise ValueError("Invalid package definition.")
 
         return package
+
+    @staticmethod
+    def _validate_version_constraint(constraint: str | None) -> str | None:
+        from poetry.core.constraints.version import parse_constraint
+
+        constraint = (constraint or "").strip()
+        if not constraint:
+            return None
+
+        try:
+            parse_constraint(constraint)
+        except ValueError as e:
+            raise ValueError(f"Invalid version constraint: {constraint}") from e
+
+        return constraint
 
     def _get_pool(self) -> RepositoryPool:
         from poetry.config.config import Config

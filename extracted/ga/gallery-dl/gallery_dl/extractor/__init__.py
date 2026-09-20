@@ -54,6 +54,7 @@ modules = [
     "comedywildlifephoto",
     "comicartfans",
     "comicvine",
+    "coomerfans",
     "cosmos",
     "cosplayrule34",
     "cyberdrop",

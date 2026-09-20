@@ -9,13 +9,12 @@ description = "High-performance Excel and CSV file generation powered by Rust (~
 readme = "README.md"
 license = { text = "MIT" }
 keywords = ["excel", "xlsx", "csv", "rust", "xlsxwriter", "performance", "polars", "pandas", "arrow"]
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
     "Programming Language :: Rust",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
@@ -34,7 +33,30 @@ Repository = "https://github.com/rahmadafandi/rustpy-xlsxwriter"
 Issues = "https://github.com/rahmadafandi/rustpy-xlsxwriter/issues"
 
 [project.optional-dependencies]
-tests = ["pytest", "XlsxWriter", "pytest-codspeed", "faker", "openpyxl", "pandas", "polars"]
+# Everything the test suite imports, including the optional DataFrame backends
+# the Arrow path is exercised against.
+tests = [
+    "pytest",
+    "pytest-codspeed",
+    "XlsxWriter",
+    "faker",
+    "openpyxl",
+    "pandas",
+    "polars",
+    "pyarrow",
+    "numpy",
+]
+# Tests plus the build and formatting tools the Makefile drives.
+dev = [
+    "rustpy-xlsxwriter[tests]",
+    "maturin>=1.8,<2.0",
+    "autoflake",
+    "black",
+    "isort",
+    "pyclean",
+    "mkdocs-material",
+    "mkdocstrings[python]",
+]
 
 [tool.maturin]
 features = ["pyo3/extension-module"]

@@ -55,6 +55,7 @@ class Collection(AWSObject):
 
     props: PropsDictType = {
         "CollectionGroupName": (str, False),
+        "DeletionProtection": (str, False),
         "Description": (str, False),
         "EncryptionConfig": (EncryptionConfig, False),
         "Name": (str, True),
@@ -88,9 +89,47 @@ class CollectionGroup(AWSObject):
     props: PropsDictType = {
         "CapacityLimits": (CapacityLimits, False),
         "Description": (str, False),
+        "Generation": (str, False),
         "Name": (str, True),
         "StandbyReplicas": (str, True),
         "Tags": (Tags, False),
+    }
+
+
+class CollectionIndex(AWSObject):
+    """
+    `CollectionIndex <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-opensearchserverless-collectionindex.html>`__
+    """
+
+    resource_type = "AWS::OpenSearchServerless::CollectionIndex"
+
+    props: PropsDictType = {
+        "Id": (str, True),
+        "IndexName": (str, True),
+        "IndexSchema": (str, False),
+    }
+
+
+class AnalyzerItems(AWSProperty):
+    """
+    `AnalyzerItems <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-index-analyzeritems.html>`__
+    """
+
+    props: PropsDictType = {
+        "CharFilter": ([str], False),
+        "Filter": ([str], False),
+        "Tokenizer": (str, False),
+        "Type": (str, False),
+    }
+
+
+class Analysis(AWSProperty):
+    """
+    `Analysis <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-opensearchserverless-index-analysis.html>`__
+    """
+
+    props: PropsDictType = {
+        "Analyzer": (dict, False),
     }
 
 
@@ -112,6 +151,7 @@ class IndexSettings(AWSProperty):
     """
 
     props: PropsDictType = {
+        "Analysis": (Analysis, False),
         "Index": (IndexProperty, False),
     }
 
@@ -146,10 +186,14 @@ class PropertyMapping(AWSProperty):
     """
 
     props: PropsDictType = {
+        "Analyzer": (str, False),
+        "CompressionLevel": (str, False),
+        "DataType": (str, False),
         "Dimension": (integer, False),
         "Index": (boolean, False),
         "Method": (Method, False),
         "Properties": (dict, False),
+        "SpaceType": (str, False),
         "Type": (str, True),
         "Value": (str, False),
     }

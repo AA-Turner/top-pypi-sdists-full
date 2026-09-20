@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import re
-from typing import Any, Dict, List
+from typing import Any
 
 import yaml
 
@@ -19,12 +21,15 @@ from .yaml_support import (
 
 
 class OrderedIndentlessDumper(yaml.SafeDumper):
-    pass
+    def expect_document_root(self):
+        # PyYAML otherwise emits root scalars and flow collections beside '---'.
+        self.write_indent()
+        super().expect_document_root()
 
 
-class OrderedDumper(yaml.SafeDumper):
+class OrderedDumper(OrderedIndentlessDumper):
     def increase_indent(self, flow=False, indentless=False):
-        return super(OrderedDumper, self).increase_indent(flow, False)
+        return super().increase_indent(flow, False)
 
     def ignore_aliases(self, data):
         return True
@@ -48,7 +53,7 @@ def get_dumper(use_annotations=False, indentless=False, grammar_version="1.1"):
 
     def represent_dict(dumper, data):
         pairs, custom_styles, custom_tags = [], {}, {}
-        custom_comments: Dict[str, Dict[str, List[str]]] = {}
+        custom_comments: dict[str, dict[str, list[str]]] = {}
         for k, v in data.items():
             if use_annotations and isinstance(k, str):
                 if k == "__yq_alias__":
@@ -89,7 +94,7 @@ def get_dumper(use_annotations=False, indentless=False, grammar_version="1.1"):
 
     def represent_list(dumper, data):
         raw_list, custom_styles, custom_tags = [], {}, {}
-        custom_comments: Dict[str, Dict[str, List[str]]] = {}
+        custom_comments: dict[str, dict[str, list[str]]] = {}
         for v in data:
             if use_annotations and isinstance(v, str):
                 comment_annotation = yaml_item_comment_annotation_re.match(v)

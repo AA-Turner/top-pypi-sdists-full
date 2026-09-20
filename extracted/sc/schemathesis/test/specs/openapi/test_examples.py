@@ -953,12 +953,19 @@ def test_examples_in_any_of_in_schemas(ctx, key):
             }
         }
     )
-    extracted = [example_to_dict(example) for example in extract_from_schemas(schema["/test"]["POST"])]
-    assert extracted == [
-        {"container": "query", "name": "q-1", "value": {"bar-1": "bar-1-1-1", "foo-1": "foo-1-1-1", "spam-1": ANY}},
-        {"container": "query", "name": "q-1", "value": {"bar-1": "bar-1-2-1", "foo-1": "foo-1-1-2", "spam-1": ANY}},
-        {"container": "query", "name": "q-1", "value": {"bar-1": "bar-1-1-1", "foo-1": "foo-1-2-1", "spam-1": ANY}},
-        {"container": "query", "name": "q-1", "value": {"bar-1": "bar-1-2-1", "foo-1": "foo-1-2-2", "spam-1": ANY}},
+    # Every string matches all three `oneOf` branches at once, so no assembled query value conforms.
+    query_examples = (
+        []
+        if key == "oneOf"
+        else [
+            {"container": "query", "name": "q-1", "value": {"bar-1": "bar-1-1-1", "foo-1": "foo-1-1-1", "spam-1": ANY}},
+            {"container": "query", "name": "q-1", "value": {"bar-1": "bar-1-2-1", "foo-1": "foo-1-1-2", "spam-1": ANY}},
+            {"container": "query", "name": "q-1", "value": {"bar-1": "bar-1-1-1", "foo-1": "foo-1-2-1", "spam-1": ANY}},
+            {"container": "query", "name": "q-1", "value": {"bar-1": "bar-1-2-1", "foo-1": "foo-1-2-2", "spam-1": ANY}},
+        ]
+    )
+    assert [example_to_dict(example) for example in extract_from_schemas(schema["/test"]["POST"])] == [
+        *query_examples,
         {"media_type": "application/json", "value": {"key": "json-key-1-1"}},
         {"media_type": "application/json", "value": {"key": "json-key-1-2"}},
         {"media_type": "application/json", "value": {"key": "json-key-2-1"}},
@@ -3576,6 +3583,35 @@ def test_property_examples_under_composition(ctx, body_schema, expected):
     assert _extract_json_body_examples(ctx, body_schema) == expected
 
 
+@pytest.mark.parametrize(
+    ("body_schema", "expected"),
+    [
+        (
+            {
+                "allOf": [
+                    {"type": "object", "examples": {"a": 1}},
+                    {"examples": [{"x": 1}], "properties": {"y": {"example": 2}}},
+                ]
+            },
+            [{"media_type": "application/json", "value": {"y": 2}}],
+        ),
+        (
+            {
+                "allOf": [
+                    {"type": "object", "required": True},
+                    {"required": ["x"], "properties": {"x": {"example": 1}}},
+                ]
+            },
+            [{"media_type": "application/json", "value": {"x": 1}}],
+        ),
+    ],
+    ids=["examples-as-object", "required-as-boolean"],
+)
+def test_all_of_with_wrongly_typed_keywords(ctx, body_schema, expected):
+    # Real-world schemas carry `examples` / `required` with the wrong type, which must not abort the operation.
+    assert _extract_json_body_examples(ctx, body_schema) == expected
+
+
 NESTED_BRANCHES = [{"type": "string", "example": "s"}, {"type": "integer", "example": 7}]
 
 
@@ -4024,6 +4060,31 @@ def test_top_level_body_examples_container_filters_invalid(ctx):
     body_examples = [e for e in extract_top_level(operation) if isinstance(e, BodyExample)]
     assert body_examples == [BodyExample(value={"title": "My item", "count": 42}, media_type="application/json")]
     assert validator.is_valid(body_examples[0].value)
+
+
+def test_top_level_parameter_schema_examples_container_filters_invalid(ctx):
+    # A parameter schema's `examples` array must not ship values the parameter's own schema rejects.
+    schema = ctx.openapi.load_schema(
+        {
+            "/search": {
+                "get": {
+                    "parameters": [
+                        {
+                            "name": "q",
+                            "in": "query",
+                            "required": True,
+                            "schema": {"type": "integer", "examples": ["not-an-int", 42]},
+                        }
+                    ],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        },
+        version="3.1.0",
+    )
+    assert list(extract_top_level(schema["/search"]["GET"])) == [
+        ParameterExample(container="query", name="q", value=42)
+    ]
 
 
 def test_unsatisfiable_property_schema_does_not_crash(ctx):
@@ -5226,3 +5287,36 @@ def test_x_examples_in_openapi_3_parameters(ctx):
         (case.path_parameters, case.query)
         for case in generate_example_cases(test=lambda: None, operation=operation, fill_missing=False)
     ] == [({"id": "abc"}, {"q": "qq"})]
+
+
+@pytest.mark.parametrize(
+    ("parameter_schema", "expected"),
+    [
+        ({"type": "array", "maxItems": 0, "items": {"type": "integer", "example": 1}}, []),
+        (
+            {"type": "object", "maxProperties": 0, "properties": {"a": {"type": "integer", "example": 1}}},
+            [],
+        ),
+        (
+            {"type": "array", "maxItems": 1, "items": {"type": "integer", "example": 1}},
+            [{"container": "query", "name": "q", "value": [1]}],
+        ),
+        (
+            {"type": "object", "maxProperties": 1, "properties": {"a": {"type": "integer", "example": 1}}},
+            [{"container": "query", "name": "q", "value": {"a": 1}}],
+        ),
+    ],
+    ids=["max-items", "max-properties", "valid-array", "valid-object"],
+)
+def test_parameter_examples_assembled_from_nested_ones_respect_the_parameter_schema(ctx, parameter_schema, expected):
+    operation = ctx.openapi.load_schema(
+        {
+            "/r": {
+                "get": {
+                    "parameters": [{"name": "q", "in": "query", "required": True, "schema": parameter_schema}],
+                    "responses": {"200": {"description": "OK"}},
+                }
+            }
+        }
+    )["/r"]["GET"]
+    assert [example_to_dict(example) for example in extract_from_schemas(operation)] == expected

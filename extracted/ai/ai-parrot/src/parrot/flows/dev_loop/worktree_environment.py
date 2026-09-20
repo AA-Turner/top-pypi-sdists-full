@@ -106,13 +106,49 @@ def command_policy_error(cwd: Path, argv: Sequence[str]) -> str | None:
     return POLICY_MESSAGE
 
 
+WORKTREE_ADMIN_DIR = Path(".claude") / "worktrees"
+
+
+def worktree_admin_dirs(root: Path, git_dir: Path | None) -> tuple[Path, ...]:
+    """Return the primary checkout's worktree directory when ``root`` is a linked worktree.
+
+    Linked worktrees (feature and pool checkouts) live under the primary
+    checkout's ``.claude/worktrees``. ``/sdd-done`` run from inside one must
+    create a throwaway ledger-snapshot worktree there and remove the feature
+    worktree itself, and both operations write to that directory rather than
+    to the worktree being executed in. The rest of the primary checkout is
+    intentionally not returned so it stays read-only.
+
+    Args:
+        root: The checkout root resolved for the command's working directory.
+        git_dir: The common Git directory, or ``None`` outside a repository.
+
+    Returns:
+        The existing admin directory to bind writable, or an empty tuple for
+        the primary checkout (already writable) and for linked checkouts whose
+        primary has no such directory.
+    """
+    if git_dir is None:
+        return ()
+    primary = git_dir.parent
+    if primary == root:
+        return ()
+    admin_dir = (primary / WORKTREE_ADMIN_DIR).resolve()
+    if not admin_dir.is_dir() or admin_dir.is_relative_to(root):
+        return ()
+    return (admin_dir,)
+
+
 def protected_argv(cwd: Path, argv: Sequence[str]) -> list[str]:
     """Build a fail-closed Linux filesystem sandbox for a command and its children.
 
-    Only the checkout, Git administration directory, and private temporary
-    storage are writable. Existing shared environments remain read-only even
-    when the checkout is the primary repository. No host chmod or mount changes
-    are performed. Network isolation is outside this policy's scope.
+    Only the checkout, Git administration directory, the primary checkout's
+    worktree directory (``.claude/worktrees``, so a worktree agent can run
+    ``git worktree add/remove`` for ``/sdd-done``), and private temporary
+    storage are writable. The rest of the primary checkout and existing shared
+    environments remain read-only even when the checkout is the primary
+    repository. No host chmod or mount changes are performed. Network
+    isolation is outside this policy's scope.
     """
     if not argv:
         raise ValueError("A command is required.")
@@ -134,10 +170,15 @@ def protected_argv(cwd: Path, argv: Sequence[str]) -> list[str]:
         "/dev",
         "--tmpfs",
         "/tmp",
-        "--bind",
-        str(root),
-        str(root),
     ]
+    admin_dirs = worktree_admin_dirs(root, git_dir)
+    for admin_dir in admin_dirs:
+        command.extend(["--bind", str(admin_dir), str(admin_dir)])
+    if not any(root.is_relative_to(admin_dir) for admin_dir in admin_dirs):
+        # A checkout inside a bound admin directory is already writable; binding
+        # it again would make it a mount point, and `git worktree remove` of the
+        # current worktree would then fail to delete the directory (EBUSY).
+        command.extend(["--bind", str(root), str(root)])
     if git_dir is not None and not git_dir.is_relative_to(root):
         command.extend(["--bind", str(git_dir), str(git_dir)])
     for environment in shared_environments(cwd):
@@ -155,6 +196,123 @@ def protected_argv(cwd: Path, argv: Sequence[str]) -> list[str]:
     return command
 
 
+def _load_guard_bash() -> Any:
+    """Import the stdlib-only test-scope guard without importing Parrot.
+
+    Returns:
+        The kernel's ``guard_bash`` callable.
+
+    Raises:
+        ImportError: The checkout serving this hook has no test-scope kernel.
+    """
+    if __package__:
+        from .test_scope.guard import guard_bash
+    else:  # run as a script: this file's directory is sys.path[0]
+        from test_scope.guard import guard_bash
+    return guard_bash
+
+
+_COMPOUND_MARKERS = ("&&", "||", ";", "|")
+
+
+def _is_lone_pytest(command: str) -> bool:
+    """True when `command` is a single pytest/python invocation with no shell compounding."""
+    stripped = command.strip()
+    if any(marker in stripped for marker in _COMPOUND_MARKERS):
+        return False
+    try:
+        argv = shlex.split(stripped)
+    except ValueError:
+        return False
+    return bool(argv) and Path(argv[0]).name in {"pytest", "python", "python3"}
+
+
+def _scope_guard(command: str, cwd: Path) -> tuple[str, str | None]:
+    """Decide whether a native Bash command runs an over-broad pytest (FEAT-563).
+
+    Args:
+        command: The Bash command the seat issued.
+        cwd: The hook's working directory.
+
+    Returns:
+        ``("allow", None)``, ``("rewrite", <command>)`` or ``("block", <message>)``.
+        Import failures and guard errors always yield ``("allow", None)``.
+    """
+    try:
+        guard_bash = _load_guard_bash()
+        root, _common = repository_paths(cwd)
+        outcome, rewritten = guard_bash(command, worktree=root)
+    except Exception:  # noqa: BLE001 — the sandbox wrapper must never break
+        return "allow", None
+    if outcome.action == "block":
+        return "block", outcome.message
+    if outcome.action == "rewrite" and rewritten:
+        # The kernel's rewritten command is root-relative; when the hook's cwd is a
+        # different directory, a lone pytest invocation needs an explicit `cd` first
+        # so the rewritten (repo-relative) paths still resolve (spec R2). A command
+        # that already mixes its own `cd`/segments keeps its author's cwd handling.
+        if root != cwd and _is_lone_pytest(command):
+            rewritten = f"cd {shlex.quote(str(root))} && {rewritten}"
+        return "rewrite", rewritten
+    return "allow", None
+
+
+HOST_DEFAULT_TIMEOUT_MS = 120_000
+KILL_GRACE_SECONDS = 5
+
+
+def command_timeout_seconds(tool_input: dict[str, Any]) -> int | None:
+    """Resolve the wall-clock bound the sandboxed command must respect.
+
+    The host kills a foreground Bash call at ``tool_input["timeout"]`` (or its
+    default, ``BASH_DEFAULT_TIMEOUT_MS`` / 120 s). A process that prints an
+    error and then never exits — an unclosed ``aiosqlite`` worker thread is the
+    classic case — keeps Bubblewrap waiting on it, and the host's kill does not
+    always reach through the sandbox. Enforcing the same bound *inside* the
+    sandbox guarantees the call terminates either way.
+
+    Args:
+        tool_input: The native ``Bash`` tool input.
+
+    Returns:
+        The bound in whole seconds (at least 1), or ``None`` for a background
+        command without an explicit timeout, which the host never bounds.
+    """
+    explicit = tool_input.get("timeout")
+    if isinstance(explicit, (int, float)) and explicit > 0:
+        return max(1, int(explicit // 1000))
+    if tool_input.get("run_in_background"):
+        return None
+    default_ms = os.environ.get("BASH_DEFAULT_TIMEOUT_MS", "")
+    try:
+        milliseconds = int(default_ms) if default_ms else HOST_DEFAULT_TIMEOUT_MS
+    except ValueError:
+        milliseconds = HOST_DEFAULT_TIMEOUT_MS
+    return max(1, milliseconds // 1000)
+
+
+def bounded_shell_argv(command: str, tool_input: dict[str, Any]) -> list[str]:
+    """Build the ``/bin/bash -c`` argv for ``command``, wrapped in ``timeout`` when bounded.
+
+    ``timeout`` sends SIGTERM to the whole command group at the bound and SIGKILL
+    ``KILL_GRACE_SECONDS`` later, so the sandbox's main child always exits and
+    Bubblewrap tears the PID namespace down with it.
+
+    Args:
+        command: The shell text the seat issued (already scope-guarded).
+        tool_input: The native ``Bash`` tool input, for the timeout fields.
+
+    Returns:
+        The argv to place after Bubblewrap's ``--`` separator.
+    """
+    argv = ["/bin/bash", "-c", command]
+    seconds = command_timeout_seconds(tool_input)
+    timeout_bin = shutil.which("timeout") if seconds is not None else None
+    if timeout_bin is None:
+        return argv
+    return [timeout_bin, "-k", str(KILL_GRACE_SECONDS), str(seconds), *argv]
+
+
 def hook_response(payload: dict[str, Any]) -> dict[str, Any]:
     """Wrap native Bash input and reject shared-environment file-tool writes."""
     cwd = Path(payload["cwd"])
@@ -165,7 +323,12 @@ def hook_response(payload: dict[str, Any]) -> dict[str, Any]:
             command = tool_input["command"]
             if not isinstance(command, str) or not command:
                 raise ValueError("Bash command must be a non-empty string")
-            wrapped = protected_argv(cwd, ["/bin/bash", "-c", command])
+            action, value = _scope_guard(command, cwd)
+            if action == "block":
+                raise ValueError(value or "over-broad pytest blocked by the test-scope guard")
+            if action == "rewrite" and value:
+                command = value
+            wrapped = protected_argv(cwd, bounded_shell_argv(command, tool_input))
             # Preserve timeout/background/description without granting approval
             # or overriding decisions from other hooks.
             output["updatedInput"] = {**tool_input, "command": shlex.join(wrapped)}

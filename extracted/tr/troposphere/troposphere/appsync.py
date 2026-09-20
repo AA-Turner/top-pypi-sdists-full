@@ -138,7 +138,6 @@ class ApiKey(AWSObject):
 
     props: PropsDictType = {
         "ApiId": (str, True),
-        "ApiKeyId": (str, False),
         "Description": (str, False),
         "Expires": (double, False),
     }
@@ -599,6 +598,20 @@ class SourceApiAssociation(AWSObject):
         "MergedApiIdentifier": (str, False),
         "SourceApiAssociationConfig": (SourceApiAssociationConfig, False),
         "SourceApiIdentifier": (str, False),
+    }
+
+
+class Type(AWSObject):
+    """
+    `Type <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-appsync-type.html>`__
+    """
+
+    resource_type = "AWS::AppSync::Type"
+
+    props: PropsDictType = {
+        "ApiId": (str, True),
+        "Definition": (str, True),
+        "Format": (str, True),
     }
 
 

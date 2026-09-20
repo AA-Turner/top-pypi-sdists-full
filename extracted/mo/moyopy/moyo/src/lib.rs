@@ -208,6 +208,8 @@ impl MoyoDataset {
     /// `symprec` controls the tolerance for searching symmetry operations in the unit of `cell.lattice.basis`.
     /// `setting` determines the preference for the "standardized" setting of a detected space-group type.
     /// `rotate_basis` specifies whether to rotate the basis vectors of the input cell to those of the standardized cell.
+    /// Operations with non-integer rotations in the input-cell basis are omitted,
+    /// with one warning emitted through [`log`] if any are omitted.
     /// If the search fails, [`MoyoError`] is returned.
     pub fn new(
         cell: &Cell,
@@ -219,6 +221,13 @@ impl MoyoDataset {
         let (prim_cell, symmetry_search, symprec, angle_tolerance) =
             iterative_symmetry_search(cell, symprec, angle_tolerance)?;
         let operations = operations_in_cell(&prim_cell, &symmetry_search.operations);
+        let omitted =
+            symmetry_search.operations.len() - operations.len() / prim_cell.translations.len();
+        if omitted > 0 {
+            log::warn!(
+                "Omitted {omitted} primitive-cell symmetry operations with non-integer rotation matrices in the input-cell basis; returning only operations compatible with the input-cell lattice"
+            );
+        }
 
         // Space-group type identification
         let epsilon = symprec / prim_cell.cell.lattice.volume().powf(1.0 / 3.0);
@@ -592,6 +601,8 @@ impl MoyoLayerDataset {
     /// `cell` must satisfy the layer-group periodicity contract (`c`
     /// perpendicular to `a, b`); inputs that violate it are rejected with
     /// [`MoyoError::AperiodicAxisNotOrthogonal`].
+    /// Operations with non-integer rotations in the input-cell basis are omitted,
+    /// with one warning emitted through [`log`] if any are omitted.
     pub fn new(
         cell: &Cell,
         symprec: f64,
@@ -618,6 +629,13 @@ impl MoyoLayerDataset {
         )?;
 
         let operations = layer_operations_in_cell(&prim_layer, &symmetry_search.operations);
+        let omitted =
+            symmetry_search.operations.len() - operations.len() / prim_layer.translations.len();
+        if omitted > 0 {
+            log::warn!(
+                "Omitted {omitted} primitive-cell symmetry operations with non-integer rotation matrices in the input-cell basis; returning only operations compatible with the input-cell lattice"
+            );
+        }
 
         // `StandardizedLayerCell.prim_layer_cell` and `prim_layer.layer_cell`
         // share the same site order (mirrors the bulk pipeline), so the
@@ -869,6 +887,8 @@ impl<M: MagneticMoment> MoyoMagneticDataset<M> {
     /// `mag_symprec` controls the tolerance for searching magnetic symmetry operations in the unit of `magnetic_cell.magnetic_moments`.
     /// `action` specifies how a magnetic symmetry operation acts on magnetic moments.
     /// `rotate_basis` specifies whether to rotate the basis vectors of the input cell to those of the standardized cell.
+    /// Operations with non-integer rotations in the input-cell basis are omitted,
+    /// with one warning emitted through [`log`] if any are omitted.
     /// If the search fails, [`MoyoError`] is returned.
     pub fn new(
         magnetic_cell: &MagneticCell<M>,
@@ -890,6 +910,15 @@ impl<M: MagneticMoment> MoyoMagneticDataset<M> {
             &prim_mag_cell,
             &magnetic_symmetry_search.magnetic_operations,
         );
+        // Candidate preparation inside the retry loop is silent. Only omitted
+        // symmetries of the final magnetic dataset warrant a user-facing warning.
+        let omitted = magnetic_symmetry_search.magnetic_operations.len()
+            - magnetic_operations.len() / prim_mag_cell.translations.len();
+        if omitted > 0 {
+            log::warn!(
+                "Omitted {omitted} primitive-cell magnetic symmetry operations with non-integer rotation matrices in the input-cell basis; returning only operations compatible with the input-cell lattice"
+            );
+        }
 
         // Magnetic space-group type identification
         let epsilon = symprec

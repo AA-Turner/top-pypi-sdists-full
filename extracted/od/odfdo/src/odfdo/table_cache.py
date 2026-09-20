@@ -67,6 +67,7 @@ def _insert_map_once(
         repeated: Repeated value of item, 1 or more.
 
     odf_idx is NOT position (col or row), neither raw XML position, but ODF index
+
     """
     repeated = repeated or 1
     if odf_idx > len(cache_map):
@@ -91,6 +92,7 @@ def _erase_map_once(cache_map: list[int], odf_idx: int) -> list[int]:
     Args:
         cache_map: Cache map.
         odf_idx: Index in ODF XML.
+
     """
     if odf_idx >= len(cache_map):
         raise IndexError
@@ -165,6 +167,7 @@ def _set_item_in_vault(
         vault_map: Vault map.
         vault_scheme: Vault scheme.
         clone: Whether to clone the item.
+
     """
     repeated = item.repeated or 1
     target_idx = vault.index(current_item)
@@ -262,6 +265,7 @@ class RowCache:
     __slots__ = ("cell_elements", "cell_map")
 
     def __init__(self) -> None:
+        """Initialize a RowCache."""
         self.cell_map: list[int] = []
         self.cell_elements: dict[int, Cell] = {}
 
@@ -270,6 +274,7 @@ class RowCache:
 
     @classmethod
     def copy(cls, source: RowCache) -> RowCache:
+        """Return a copy of the row cache."""
         rc = cls()
         rc.cell_map = source.cell_map[:]
         return rc
@@ -280,6 +285,7 @@ class RowCache:
 
         Returns:
             int: The number of expected cells in the row.
+
         """
         try:
             return self.cell_map[-1] + 1
@@ -287,6 +293,7 @@ class RowCache:
             return 0
 
     def clear_cell_indexes(self) -> None:
+        """Clear the indexed cached cells."""
         self.cell_elements = {}
 
     def cell_idx(self, position: int) -> int | None:
@@ -297,6 +304,7 @@ class RowCache:
         return None
 
     def cell_map_length(self) -> int:
+        """Return the length of the cell map."""
         return len(self.cell_map)
 
     def cached_cell(self, idx: int) -> Cell | None:
@@ -308,12 +316,14 @@ class RowCache:
         self.cell_elements[idx] = cell
 
     def insert_cell_map_once(self, repeated: int) -> None:
+        """Insert a repeated cell count into the cell map."""
         self.cell_map = _insert_map_once(self.cell_map, len(self.cell_map), repeated)
 
     # def erase_cell_map_once(self, odf_idx: int) -> None:
     #     self.cell_map = _erase_map_once(self.cell_map, odf_idx)
 
     def make_cell_map(self, idx_repeated_sequence: list[tuple[int, int]]) -> None:
+        """Build the cell map from repeated sequence data."""
         self.cell_map = _make_cache_map(idx_repeated_sequence)
 
     def set_cell_in_cache(
@@ -323,6 +333,7 @@ class RowCache:
         vault: Row,
         clone: bool,
     ) -> Cell:
+        """Update the cache and row element with a cell at position x."""
         idx = self.cell_idx(x)
         if idx is None:
             raise ValueError
@@ -351,6 +362,7 @@ class RowCache:
         cell: Cell,
         vault: Row,
     ) -> Cell:
+        """Insert a cell in cache and row element at position x."""
         idx = self.cell_idx(x)
         if idx is None:
             raise ValueError
@@ -376,6 +388,7 @@ class RowCache:
         x: int,
         vault: Row,
     ) -> None:
+        """Delete the cell at position x from cache and row element."""
         idx = self.cell_idx(x)
         if idx is None:
             raise ValueError
@@ -400,6 +413,7 @@ class TableCache:
     __slots__ = ("col_elements", "col_map", "row_elements", "row_map")
 
     def __init__(self) -> None:
+        """Initialize a TableCache."""
         self.row_map: list[int] = []
         self.col_map: list[int] = []
         self.row_elements: dict[int, Row] = {}
@@ -410,6 +424,7 @@ class TableCache:
 
     @classmethod
     def copy(cls, source: TableCache) -> TableCache:
+        """Return a copy of the table cache."""
         tc = cls()
         tc.row_map = source.row_map[:]
         tc.col_map = source.col_map[:]
@@ -420,6 +435,7 @@ class TableCache:
 
         Returns:
             int: The current height of the table.
+
         """
         try:
             return self.row_map[-1] + 1
@@ -434,6 +450,7 @@ class TableCache:
 
         Returns:
             int: The current width of the table.
+
         """
         try:
             return self.col_map[-1] + 1
@@ -441,9 +458,11 @@ class TableCache:
             return 0
 
     def clear_row_indexes(self) -> None:
+        """Clear the indexed cached rows."""
         self.row_elements = {}
 
     def clear_col_indexes(self) -> None:
+        """Clear the indexed cached columns."""
         self.col_elements = {}
 
     def row_idx(self, position: int) -> int | None:
@@ -461,6 +480,7 @@ class TableCache:
         return None
 
     def col_map_length(self) -> int:
+        """Return the length of the column map."""
         return len(self.col_map)
 
     def cached_row(self, idx: int) -> Row | None:
@@ -480,21 +500,25 @@ class TableCache:
         self.col_elements[idx] = col
 
     def insert_row_map_once(self, repeated: int) -> None:
+        """Insert a repeated row count into the row map."""
         self.row_map = _insert_map_once(self.row_map, len(self.row_map), repeated)
 
     # def erase_row_map_once(self, odf_idx: int) -> None:
     #     self.row_map = _erase_map_once(self.row_map, odf_idx)
 
     def insert_col_map_once(self, repeated: int) -> None:
+        """Insert a repeated column count into the column map."""
         self.col_map = _insert_map_once(self.col_map, len(self.col_map), repeated)
 
     # def erase_col_map_once(self, odf_idx: int) -> None:
     #     self.col_map = _erase_map_once(self.col_map, odf_idx)
 
     def make_row_map(self, idx_repeated_sequence: list[tuple[int, int]]) -> None:
+        """Build the row map from repeated sequence data."""
         self.row_map = _make_cache_map(idx_repeated_sequence)
 
     def make_col_map(self, idx_repeated_sequence: list[tuple[int, int]]) -> None:
+        """Build the column map from repeated sequence data."""
         self.col_map = _make_cache_map(idx_repeated_sequence)
 
     def set_row_in_cache(
@@ -504,6 +528,7 @@ class TableCache:
         vault: Table,
         clone: bool,
     ) -> Row:
+        """Update the cache and table element with a row at position y."""
         idx = self.row_idx(y)
         if idx is None:
             raise ValueError
@@ -532,6 +557,7 @@ class TableCache:
         row: Row,
         vault: Table,
     ) -> Row:
+        """Insert a row in cache and table element at position y."""
         idx = self.row_idx(y)
         if idx is None:
             raise ValueError
@@ -557,6 +583,7 @@ class TableCache:
         y: int,
         vault: Table,
     ) -> None:
+        """Delete the row at position y from cache and table element."""
         idx = self.row_idx(y)
         if idx is None:
             raise ValueError
@@ -580,6 +607,7 @@ class TableCache:
         column: Column,
         vault: Table,
     ) -> Column:
+        """Update the cache and table element with a column at position x."""
         idx = self.col_idx(x)
         if idx is None:
             raise ValueError
@@ -607,6 +635,7 @@ class TableCache:
         column: Column,
         vault: Table,
     ) -> Column:
+        """Insert a column in cache and table element at position x."""
         idx = self.col_idx(x)
         if idx is None:
             raise ValueError
@@ -632,6 +661,7 @@ class TableCache:
         x: int,
         vault: Table,
     ) -> None:
+        """Delete the column at position x from cache and table element."""
         idx = self.col_idx(x)
         if idx is None:
             raise ValueError

@@ -39,6 +39,27 @@ class EvaluationCriteria(AWSProperty):
     }
 
 
+class WallClockWindow(AWSProperty):
+    """
+    `WallClockWindow <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-wallclockwindow.html>`__
+    """
+
+    props: PropsDictType = {
+        "Timezone": (str, False),
+    }
+
+
+class EvaluationWindow(AWSProperty):
+    """
+    `EvaluationWindow <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-evaluationwindow.html>`__
+    """
+
+    props: PropsDictType = {
+        "SlidingWindow": (dict, False),
+        "WallClockWindow": (WallClockWindow, False),
+    }
+
+
 class MetricDimension(AWSProperty):
     """
     `MetricDimension <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-alarm-dimension.html>`__
@@ -91,6 +112,17 @@ class MetricDataQuery(AWSProperty):
     }
 
 
+class WarmUpConfiguration(AWSProperty):
+    """
+    `WarmUpConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-warmupconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "OnlyStartEvaluatingAfterWarmUpPeriodEnds": (boolean, False),
+        "WarmUpPeriodDurationInMinutes": (integer, False),
+    }
+
+
 class Alarm(AWSObject):
     """
     `Alarm <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-alarm.html>`__
@@ -110,6 +142,7 @@ class Alarm(AWSObject):
         "EvaluationCriteria": (EvaluationCriteria, False),
         "EvaluationInterval": (integer, False),
         "EvaluationPeriods": (integer, False),
+        "EvaluationWindow": (EvaluationWindow, False),
         "ExtendedStatistic": (str, False),
         "InsufficientDataActions": ([str], False),
         "MetricName": (str, False),
@@ -123,6 +156,7 @@ class Alarm(AWSObject):
         "ThresholdMetricId": (str, False),
         "TreatMissingData": (validate_treat_missing_data, False),
         "Unit": (str, False),
+        "WarmUpConfiguration": (WarmUpConfiguration, False),
     }
 
     def validate(self):
@@ -286,6 +320,7 @@ class Dashboard(AWSObject):
     props: PropsDictType = {
         "DashboardBody": (dict_or_string, True),
         "DashboardName": (str, False),
+        "Tags": (Tags, False),
     }
 
     def validate(self):
@@ -305,6 +340,60 @@ class InsightRule(AWSObject):
         "RuleName": (str, True),
         "RuleState": (str, True),
         "Tags": (Tags, False),
+    }
+
+
+class ScheduleConfiguration(AWSProperty):
+    """
+    `ScheduleConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-scheduleconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "EndTimeOffset": (integer, False),
+        "ScheduleExpression": (str, True),
+        "StartTimeOffset": (integer, True),
+    }
+
+
+class ScheduledQueryConfiguration(AWSProperty):
+    """
+    `ScheduledQueryConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudwatch-logalarm-scheduledqueryconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "AggregationExpression": (str, True),
+        "LogGroupIdentifiers": ([str], False),
+        "QueryString": (str, True),
+        "ScheduleConfiguration": (ScheduleConfiguration, True),
+        "ScheduledQueryRoleARN": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
+class LogAlarm(AWSObject):
+    """
+    `LogAlarm <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-logalarm.html>`__
+    """
+
+    resource_type = "AWS::CloudWatch::LogAlarm"
+
+    props: PropsDictType = {
+        "ActionLogLineCount": (integer, False),
+        "ActionLogLineRoleArn": (str, False),
+        "ActionsEnabled": (boolean, False),
+        "AlarmActions": ([str], False),
+        "AlarmDescription": (str, False),
+        "AlarmName": (str, False),
+        "ComparisonOperator": (str, True),
+        "InsufficientDataActions": ([str], False),
+        "OKActions": ([str], False),
+        "QueryResultsToAlarm": (integer, True),
+        "QueryResultsToEvaluate": (integer, True),
+        "ScheduledQueryConfiguration": (ScheduledQueryConfiguration, True),
+        "Tags": (Tags, False),
+        "Threshold": (double, True),
+        "TreatMissingData": (str, False),
+        "WarmUpConfiguration": (WarmUpConfiguration, False),
     }
 
 
@@ -359,3 +448,13 @@ class MetricStream(AWSObject):
         "StatisticsConfigurations": ([MetricStreamStatisticsConfiguration], False),
         "Tags": (Tags, False),
     }
+
+
+class OTelEnrichment(AWSObject):
+    """
+    `OTelEnrichment <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cloudwatch-otelenrichment.html>`__
+    """
+
+    resource_type = "AWS::CloudWatch::OTelEnrichment"
+
+    props: PropsDictType = {}

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: nextcloud-mcp-server
-Version: 0.193.1
+Version: 0.195.0
 Summary: Model Context Protocol (MCP) server for Nextcloud integration - enables AI assistants to interact with Nextcloud data
 Keywords: nextcloud,mcp,model-context-protocol,llm,ai,claude,webdav,caldav,carddav
 Author: Chris Coutinho
@@ -58,6 +58,9 @@ Requires-Dist: mistralai>=2.4.5
 Requires-Dist: sqlalchemy[asyncio]>=2.0
 Requires-Dist: pypdfium2>=5.9.0
 Requires-Dist: python-pptx>=1.0.2
+Requires-Dist: python-docx>=1.2.0
+Requires-Dist: openpyxl>=3.1.5
+Requires-Dist: olefile>=0.47
 Requires-Dist: pyroscope-io>=0.8.0 ; extra == 'observability'
 Requires-Dist: procrastinate>=3.8 ; extra == 'postgres'
 Requires-Dist: psycopg[binary,pool]>=3.2 ; extra == 'postgres'

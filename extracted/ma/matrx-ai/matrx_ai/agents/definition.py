@@ -288,6 +288,13 @@ class Agent:
         # tripwire, which keeps the raw envelope away from the model.
         final_values = _resolve_picklist_final_values(self.variable_defaults, final_values)
 
+        # One turn, one record of what could not be delivered (AGT-N-7). Started here
+        # because this is the single call that substitutes a whole agent's prompt, and
+        # the notice is written at the end of the same synchronous stack.
+        from matrx_ai.config.undeclared import begin_turn
+
+        begin_turn()
+
         # Use UnifiedConfig's replace_variables method
         self.config.replace_variables(final_values)
 

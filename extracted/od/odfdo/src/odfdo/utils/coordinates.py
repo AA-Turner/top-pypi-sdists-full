@@ -48,22 +48,25 @@ def translate_from_any(x: str | int, length: int, idx: int) -> int:
 
     Raises:
         TypeError: If the input value is not a string or integer.
+
     """
     if isinstance(x, str):
         value_int = convert_coordinates(x)[idx]
         if value_int is None:
-            raise TypeError(f"Wrong value: {x!r}")
+            msg = f"Wrong value: {x!r}"
+            raise TypeError(msg)
     elif isinstance(x, int):
         value_int = x
     else:
-        raise TypeError(f"Wrong value: {x!r}")
+        msg = f"Wrong value: {x!r}"
+        raise TypeError(msg)
     if value_int < 0:
         return increment(value_int, length)
     return value_int
 
 
 def alpha_to_digit(alpha: str) -> int:
-    """Translates a column name from alphabetic to a 0-based numeric index.
+    """Translate a column name from alphabetic to a 0-based numeric index.
 
     For example, "A" becomes 0, "B" becomes 1, and "AB" becomes 27.
 
@@ -75,11 +78,13 @@ def alpha_to_digit(alpha: str) -> int:
 
     Raises:
         ValueError: If the input string contains non-alphabetic characters.
+
     """
     if isinstance(alpha, int):
         return alpha
     if not alpha.isalpha():
-        raise ValueError(f"Column value {alpha!r} is malformed")
+        msg = f"Column value {alpha!r} is malformed"
+        raise ValueError(msg)
     column = 0
     for c in alpha.lower():
         val = ord(c) - ord("a") + 1
@@ -88,7 +93,7 @@ def alpha_to_digit(alpha: str) -> int:
 
 
 def digit_to_alpha(digit: int | str) -> str:
-    """Translates a 0-based column index to its alphabetic representation.
+    """Translate a 0-based column index to its alphabetic representation.
 
     For example, 0 becomes "A", 1 becomes "B", and 27 becomes "AB".
 
@@ -100,11 +105,13 @@ def digit_to_alpha(digit: int | str) -> str:
 
     Raises:
         TypeError: If the input is not an integer.
+
     """
     if isinstance(digit, str) and digit.isalpha():
         return digit
     if not isinstance(digit, int):
-        raise TypeError(f'column number "{digit}" is invalid')
+        msg = f"Column number {digit!r} is invalid"
+        raise TypeError(msg)
     digit += 1
     column = ""
     while digit:
@@ -114,7 +121,7 @@ def digit_to_alpha(digit: int | str) -> str:
 
 
 def increment(value: int, step: int) -> int:
-    """Adjusts a negative index to a positive one based on a step.
+    """Adjust a negative index to a positive one based on a step.
 
     This is used to handle negative indexing in table coordinates.
 
@@ -124,6 +131,7 @@ def increment(value: int, step: int) -> int:
 
     Returns:
         int: The adjusted, non-negative index.
+
     """
     while value < 0:
         if step == 0:
@@ -133,7 +141,7 @@ def increment(value: int, step: int) -> int:
 
 
 def convert_coordinates(obj: tuple | list | str) -> tuple[int | None, ...]:
-    """Translates various coordinate formats into a tuple of 0-based integers.
+    """Translate various coordinate formats into a tuple of 0-based integers.
 
     This function can handle formats like "A1", "A1:C3", or tuples like (0, 0).
     A single cell coordinate is returned as a (column, row) tuple. An area is
@@ -156,26 +164,30 @@ def convert_coordinates(obj: tuple | list | str) -> tuple[int | None, ...]:
         (1, 2)
         >>> convert_coordinates("A1:B3")
         (0, 0, 1, 2)
+
     """
     if isinstance(obj, str):
         return _convert_coordinates_from_string(obj)
     if isinstance(obj, tuple | list):
         return _convert_coordinates_from_iterable(obj)
-    raise TypeError(f'Bad coordinates type: "{type(obj)}"')
+    msg = f"Bad coordinates type: {type(obj)!r}"
+    raise TypeError(msg)
 
 
 def _convert_coordinates_from_iterable(obj: tuple | list) -> tuple[int | None, ...]:
-    """Translates coordinate as iterable into a tuple of 0-based integers."""
+    """Translate coordinate as iterable into a tuple of 0-based integers."""
     try:
         return tuple(int(x) if x is not None else None for x in obj)
     except TypeError as exc:
-        raise TypeError(f'Bad coordinates type: "{type(obj)}"') from exc
+        msg = f"Bad coordinates type: {type(obj)!r}"
+        raise TypeError(msg) from exc
     except ValueError as exc:
-        raise ValueError(f'Bad coordinates value: "{obj}"') from exc
+        msg = f"Bad coordinates value: {obj!r}"
+        raise ValueError(msg) from exc
 
 
 def _convert_coordinates_from_string(obj: str) -> tuple[int | None, ...]:
-    """Translates coordinate as string into a tuple of 0-based integers."""
+    """Translate coordinate as string into a tuple of 0-based integers."""
     coordinates: list[int | None] = []
     for coord in (x.strip() for x in obj.split(":", 1)):
         # First "A"
@@ -194,6 +206,7 @@ def _convert_coordinates_from_string(obj: str) -> tuple[int | None, ...]:
             # maybe 'A:C' row coordinates
             line = None
         if line and line < 0:
-            raise ValueError(f"Coordinates {obj!r} malformed")
+            msg = f"Coordinates {obj!r} malformed"
+            raise ValueError(msg)
         coordinates.append(line)
     return tuple(coordinates)

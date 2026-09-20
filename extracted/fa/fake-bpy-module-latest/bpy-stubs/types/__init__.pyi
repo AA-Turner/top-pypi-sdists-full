@@ -15530,7 +15530,7 @@ class ActionConstraint(Constraint, bpy_struct):
         "SCALE_Y",
         "SCALE_Z",
     ]
-    """ Transformation channel from the target that is used to key the Action (default 'ROTATION_X')"""
+    """ Transformation channel from the target that is used to key the Action (default 'LOCATION_X')"""
 
     use_bone_object_action: bool
     """ Bones only: apply the object's transformation channels of the action to the constrained bone, instead of bone's channels (default False)"""
@@ -20840,6 +20840,9 @@ class BrushGpencilSettings(bpy_struct):
     use_collide_strokes: bool
     """ Check if extend lines collide with strokes (default False)"""
 
+    use_cyclic_stroke: bool
+    """ Create a cyclic stroke (default False)"""
+
     use_edit_position: bool
     """ The brush affects the position of the point (default False)"""
 
@@ -20871,13 +20874,13 @@ class BrushGpencilSettings(bpy_struct):
     """ Use tablet pressure (default False)"""
 
     use_random_press_hue: bool
-    """ Use pressure to modulate randomness (default False)"""
+    """ Use pressure to modulate randomness (default False)Deprecated, use brush.use_random_press_hue5.3 removal planned in version 6.0"""
 
     use_random_press_radius: bool
     """ Use pressure to modulate randomness (default False)"""
 
     use_random_press_sat: bool
-    """ Use pressure to modulate randomness (default False)"""
+    """ Use pressure to modulate randomness (default False)Deprecated, use brush.use_random_press_sat5.3 removal planned in version 6.0"""
 
     use_random_press_strength: bool
     """ Use pressure to modulate randomness (default False)"""
@@ -20886,7 +20889,7 @@ class BrushGpencilSettings(bpy_struct):
     """ Use pressure to modulate randomness (default False)"""
 
     use_random_press_val: bool
-    """ Use pressure to modulate randomness (default False)"""
+    """ Use pressure to modulate randomness (default False)Deprecated, use brush.use_random_press_val5.3 removal planned in version 6.0"""
 
     use_settings_outline: bool
     """ Convert stroke to outline (default False)"""
@@ -20904,13 +20907,13 @@ class BrushGpencilSettings(bpy_struct):
     """ Use tablet pressure for color strength (default False)"""
 
     use_stroke_random_hue: bool
-    """ Use randomness at stroke level (default False)"""
+    """ Use randomness at stroke level (default False)Deprecated, use brush.use_stroke_random_hue5.3 removal planned in version 6.0"""
 
     use_stroke_random_radius: bool
     """ Use randomness at stroke level (default False)"""
 
     use_stroke_random_sat: bool
-    """ Use randomness at stroke level (default False)"""
+    """ Use randomness at stroke level (default False)Deprecated, use brush.use_stroke_random_sat5.3 removal planned in version 6.0"""
 
     use_stroke_random_strength: bool
     """ Use randomness at stroke level (default False)"""
@@ -20919,7 +20922,7 @@ class BrushGpencilSettings(bpy_struct):
     """ Use randomness at stroke level (default False)"""
 
     use_stroke_random_val: bool
-    """ Use randomness at stroke level (default False)"""
+    """ Use randomness at stroke level (default False)Deprecated, use brush.use_stroke_random_val5.3 removal planned in version 6.0"""
 
     use_trim: bool
     """ Trim intersecting stroke ends (default False)"""
@@ -21794,7 +21797,7 @@ class CameraSolverConstraint(Constraint, bpy_struct):
     """ Movie Clip to get tracking data from"""
 
     use_active_clip: bool
-    """ Use active clip defined in scene (default False)"""
+    """ Use active clip defined in scene (default True)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -28970,7 +28973,7 @@ class Constraint(bpy_struct):
     """ Amount of residual error in radians for constraints that work on orientation (in [-inf, inf], default 0.0, readonly)"""
 
     influence: float
-    """ Amount of influence constraint will have on the final solution (in [0, 1], default 0.0)"""
+    """ Amount of influence constraint will have on the final solution (in [0, 1], default 1.0)"""
 
     is_override_data: bool
     """ In a local override object, whether this constraint comes from the linked reference object, or is local to the override (default True, readonly)"""
@@ -29403,13 +29406,13 @@ class CopyLocationConstraint(Constraint, bpy_struct):
     """ Add original location into copied location (default False)"""
 
     use_x: bool
-    """ Copy the target's X location (default False)"""
+    """ Copy the target's X location (default True)"""
 
     use_y: bool
-    """ Copy the target's Y location (default False)"""
+    """ Copy the target's Y location (default True)"""
 
     use_z: bool
-    """ Copy the target's Z location (default False)"""
+    """ Copy the target's Z location (default True)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -29467,13 +29470,13 @@ class CopyRotationConstraint(Constraint, bpy_struct):
     """ DEPRECATED: Add original rotation into copied rotation (default False)"""
 
     use_x: bool
-    """ Copy the target's X rotation (default False)"""
+    """ Copy the target's X rotation (default True)"""
 
     use_y: bool
-    """ Copy the target's Y rotation (default False)"""
+    """ Copy the target's Y rotation (default True)"""
 
     use_z: bool
-    """ Copy the target's Z rotation (default False)"""
+    """ Copy the target's Z rotation (default True)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -29516,7 +29519,7 @@ class CopyScaleConstraint(Constraint, bpy_struct):
     """ Target object"""
 
     use_add: bool
-    """ Use addition instead of multiplication to combine scale (2.7 compatibility) (default True)"""
+    """ Use addition instead of multiplication to combine scale (2.7 compatibility) (default False)"""
 
     use_make_uniform: bool
     """ Redistribute the copied change in volume equally between the three axes of the owner (default False)"""
@@ -29525,13 +29528,13 @@ class CopyScaleConstraint(Constraint, bpy_struct):
     """ Combine original scale with copied scale (default False)"""
 
     use_x: bool
-    """ Copy the target's X scale (default False)"""
+    """ Copy the target's X scale (default True)"""
 
     use_y: bool
-    """ Copy the target's Y scale (default False)"""
+    """ Copy the target's Y scale (default True)"""
 
     use_z: bool
-    """ Copy the target's Z scale (default False)"""
+    """ Copy the target's Z scale (default True)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -30663,7 +30666,7 @@ class DampedTrackConstraint(Constraint, bpy_struct):
         "TRACK_NEGATIVE_Y",
         "TRACK_NEGATIVE_Z",
     ]
-    """ Axis that points to the target object (default 'TRACK_X')"""
+    """ Axis that points to the target object (default 'TRACK_Y')"""
 
     use_bbone_shape: bool
     """ Follow shape of B-Bone segments when calculating Head/Tail position (default False)"""
@@ -35084,7 +35087,7 @@ class FloorConstraint(Constraint, bpy_struct):
         "FLOOR_NEGATIVE_Y",
         "FLOOR_NEGATIVE_Z",
     ]
-    """ Location of target that object will not pass through (default 'FLOOR_X')"""
+    """ Location of target that object will not pass through (default 'FLOOR_Z')"""
 
     offset: float
     """ Offset of floor from object origin (in [-inf, inf], default 0.0)"""
@@ -35870,7 +35873,7 @@ class FollowPathConstraint(Constraint, bpy_struct):
         "TRACK_NEGATIVE_Y",
         "TRACK_NEGATIVE_Z",
     ]
-    """ Axis that points forward along the path (default 'FORWARD_X')"""
+    """ Axis that points forward along the path (default 'FORWARD_Y')"""
 
     offset: float
     """ Offset from the position corresponding to the time frame (in [-1.04857e+06, 1.04857e+06], default 0.0)"""
@@ -35882,7 +35885,7 @@ class FollowPathConstraint(Constraint, bpy_struct):
     """ Target Curve object"""
 
     up_axis: typing.Literal["UP_X", "UP_Y", "UP_Z"]
-    """ Axis that points upward (default 'UP_X')"""
+    """ Axis that points upward (default 'UP_Z')"""
 
     use_curve_follow: bool
     """ Object will follow the heading and banking of the curve (default False)"""
@@ -35946,7 +35949,7 @@ class FollowTrackConstraint(Constraint, bpy_struct):
     """ Use 3D position of track to parent to (default False)"""
 
     use_active_clip: bool
-    """ Use active clip defined in scene (default False)"""
+    """ Use active clip defined in scene (default True)"""
 
     use_undistorted_position: bool
     """ Parent to undistorted position of 2D track (default False)"""
@@ -63832,7 +63835,7 @@ class KinematicConstraint(Constraint, bpy_struct):
     """ (default 'COPY_POSE')"""
 
     iterations: int
-    """ Maximum number of solving iterations (in [0, 10000], default 0)"""
+    """ Maximum number of solving iterations (in [0, 10000], default 500)"""
 
     limit_mode: typing.Literal[
         "LIMITDIST_INSIDE", "LIMITDIST_OUTSIDE", "LIMITDIST_ONSURFACE"
@@ -63858,7 +63861,7 @@ class KinematicConstraint(Constraint, bpy_struct):
     """ Constraint rotation along Z axis (default True)"""
 
     orient_weight: float
-    """ For Tree-IK: Weight of orientation control for this target (in [0.01, 1], default 0.0)"""
+    """ For Tree-IK: Weight of orientation control for this target (in [0.01, 1], default 1.0)"""
 
     pole_angle: float
     """ Pole rotation offset (in [-3.14159, 3.14159], default 0.0)"""
@@ -63879,19 +63882,19 @@ class KinematicConstraint(Constraint, bpy_struct):
     """ Target object"""
 
     use_location: bool
-    """ Chain follows position of target (default False)"""
+    """ Chain follows position of target (default True)"""
 
     use_rotation: bool
     """ Chain follows rotation of target (default False)"""
 
     use_stretch: bool
-    """ Enable IK Stretching (default False)"""
+    """ Enable IK Stretching (default True)"""
 
     use_tail: bool
-    """ Include bone's tail as last element in chain (default False)"""
+    """ Include bone's tail as last element in chain (default True)"""
 
     weight: float
-    """ For Tree-IK: Weight of position control for this target (in [0.01, 1], default 0.0)"""
+    """ For Tree-IK: Weight of position control for this target (in [0.01, 1], default 1.0)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -67808,7 +67811,7 @@ class LockedTrackConstraint(Constraint, bpy_struct):
     """ Target along length of bone: Head is 0, Tail is 1 (in [0, 1], default 0.0)"""
 
     lock_axis: typing.Literal["LOCK_X", "LOCK_Y", "LOCK_Z"]
-    """ Axis that points upward (default 'LOCK_X')"""
+    """ Axis that points upward (default 'LOCK_Z')"""
 
     subtarget: str
     """ Armature bone, mesh or lattice vertex group, ... (default "", never None)"""
@@ -67824,7 +67827,7 @@ class LockedTrackConstraint(Constraint, bpy_struct):
         "TRACK_NEGATIVE_Y",
         "TRACK_NEGATIVE_Z",
     ]
-    """ Axis that points to the target object (default 'TRACK_X')"""
+    """ Axis that points to the target object (default 'TRACK_Y')"""
 
     use_bbone_shape: bool
     """ Follow shape of B-Bone segments when calculating Head/Tail position (default False)"""
@@ -68204,13 +68207,13 @@ class MaintainVolumeConstraint(Constraint, bpy_struct):
     """Maintain a constant volume along a single scaling axis"""
 
     free_axis: typing.Literal["SAMEVOL_X", "SAMEVOL_Y", "SAMEVOL_Z"]
-    """ The free scaling axis of the object (default 'SAMEVOL_X')"""
+    """ The free scaling axis of the object (default 'SAMEVOL_Y')"""
 
     mode: typing.Literal["STRICT", "UNIFORM", "SINGLE_AXIS"]
     """ The way the constraint treats original non-free axis scaling (default 'STRICT')"""
 
     volume: float
-    """ Volume of the bone at rest (in [0, inf], default 0.0)"""
+    """ Volume of the bone at rest (in [0, inf], default 1.0)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -85376,7 +85379,7 @@ class ObjectSolverConstraint(Constraint, bpy_struct):
     """ Set to true to request recalculation of the inverse matrix (default False)"""
 
     use_active_clip: bool
-    """ Use active clip defined in scene (default False)"""
+    """ Use active clip defined in scene (default True)"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -88150,7 +88153,7 @@ class PivotConstraint(Constraint, bpy_struct):
     """ Offset of pivot from target (when set), or from owner's location (when Fixed Position is off), or the absolute pivot point (array of 3 items, in [-inf, inf], default (0.0, 0.0, 0.0))"""
 
     rotation_range: typing.Literal["ALWAYS_ACTIVE", "NX", "NY", "NZ", "X", "Y", "Z"]
-    """ Rotation range on which pivoting should occur (default 'ALWAYS_ACTIVE')"""
+    """ Rotation range on which pivoting should occur (default 'NX')"""
 
     subtarget: str
     """ (default "", never None)"""
@@ -102567,12 +102570,12 @@ class ShrinkwrapConstraint(Constraint, bpy_struct):
     """ Distance to Target (in [0, inf], default 0.0)"""
 
     project_axis: typing.Literal[bpy.stub_internal.rna_enums.ObjectAxisItems]
-    """ Axis constrain to (default 'POS_X')"""
+    """ Axis constrain to (default 'POS_Z')"""
 
     project_axis_space: typing.Literal[
         "WORLD", "CUSTOM", "POSE", "LOCAL_WITH_PARENT", "LOCAL"
     ]
-    """ Space for the projection axis (default 'WORLD')"""
+    """ Space for the projection axis (default 'LOCAL')"""
 
     project_limit: float
     """ Limit the distance used for projection (zero disables) (in [0, inf], default 0.0)"""
@@ -106467,13 +106470,13 @@ class SplineIKConstraint(Constraint, bpy_struct):
     """Align n bones along a curve"""
 
     bulge: float
-    """ Factor between volume variation and stretching (in [0, 100], default 0.0)"""
+    """ Factor between volume variation and stretching (in [0, 100], default 1.0)"""
 
     bulge_max: float
     """ Maximum volume stretching factor (in [1, 100], default 0.0)"""
 
     bulge_min: float
-    """ Minimum volume stretching factor (in [0, 1], default 0.0)"""
+    """ Minimum volume stretching factor (in [0, 1], default 1.0)"""
 
     bulge_smooth: float
     """ Strength of volume stretching clamping (in [0, 1], default 0.0)"""
@@ -106503,7 +106506,7 @@ class SplineIKConstraint(Constraint, bpy_struct):
     """ Ignore the relative lengths of the bones when fitting to the curve (default False)"""
 
     use_original_scale: bool
-    """ Apply volume preservation over the original scaling (default False)"""
+    """ Apply volume preservation over the original scaling (default True)"""
 
     xz_scale_mode: typing.Literal[
         "NONE", "BONE_ORIGINAL", "INVERSE_PRESERVE", "VOLUME_PRESERVE"
@@ -106511,7 +106514,7 @@ class SplineIKConstraint(Constraint, bpy_struct):
     """ Method used for determining the scaling of the X and Z axes of the bones (default 'NONE')"""
 
     y_scale_mode: typing.Literal["NONE", "FIT_CURVE", "BONE_ORIGINAL"]
-    """ Method used for determining the scaling of the Y axis of the bones, on top of the shape and scaling of the curve itself (default 'NONE')"""
+    """ Method used for determining the scaling of the Y axis of the bones, on top of the shape and scaling of the curve itself (default 'FIT_CURVE')"""
 
     @classmethod
     def bl_rna_get_subclass(
@@ -107037,13 +107040,13 @@ class StretchToConstraint(Constraint, bpy_struct):
     """Stretch to meet the target object"""
 
     bulge: float
-    """ Factor between volume variation and stretching (in [0, 100], default 0.0)"""
+    """ Factor between volume variation and stretching (in [0, 100], default 1.0)"""
 
     bulge_max: float
-    """ Maximum volume stretching factor (in [1, 100], default 0.0)"""
+    """ Maximum volume stretching factor (in [1, 100], default 1.0)"""
 
     bulge_min: float
-    """ Minimum volume stretching factor (in [0, 1], default 0.0)"""
+    """ Minimum volume stretching factor (in [0, 1], default 1.0)"""
 
     bulge_smooth: float
     """ Strength of volume stretching clamping (in [0, 1], default 0.0)"""
@@ -107052,7 +107055,7 @@ class StretchToConstraint(Constraint, bpy_struct):
     """ Target along length of bone: Head is 0, Tail is 1 (in [0, 1], default 0.0)"""
 
     keep_axis: typing.Literal["PLANE_X", "PLANE_Z", "SWING_Y"]
-    """ The rotation type and axis order to use (default 'PLANE_X')"""
+    """ The rotation type and axis order to use (default 'SWING_Y')"""
 
     rest_length: float
     """ Length at rest position (in [0, 1000], default 0.0)"""
@@ -114408,7 +114411,7 @@ class TrackToConstraint(Constraint, bpy_struct):
         "TRACK_NEGATIVE_Y",
         "TRACK_NEGATIVE_Z",
     ]
-    """ Axis that points to the target object (default 'TRACK_X')"""
+    """ Axis that points to the target object (default 'TRACK_NEGATIVE_Z')"""
 
     up_axis: typing.Literal["UP_X", "UP_Y", "UP_Z"]
     """ Axis that points upward (default 'UP_Y')"""
@@ -114492,7 +114495,7 @@ class TransformConstraint(Constraint, bpy_struct):
     """ Top range of X axis source motion (in [-inf, inf], default 0.0)"""
 
     from_max_x_scale: float
-    """ Top range of X axis source motion (in [-inf, inf], default 0.0)"""
+    """ Top range of X axis source motion (in [-inf, inf], default 1.0)"""
 
     from_max_y: float
     """ Top range of Y axis source motion (in [-inf, inf], default 0.0)"""
@@ -114501,7 +114504,7 @@ class TransformConstraint(Constraint, bpy_struct):
     """ Top range of Y axis source motion (in [-inf, inf], default 0.0)"""
 
     from_max_y_scale: float
-    """ Top range of Y axis source motion (in [-inf, inf], default 0.0)"""
+    """ Top range of Y axis source motion (in [-inf, inf], default 1.0)"""
 
     from_max_z: float
     """ Top range of Z axis source motion (in [-inf, inf], default 0.0)"""
@@ -114510,7 +114513,7 @@ class TransformConstraint(Constraint, bpy_struct):
     """ Top range of Z axis source motion (in [-inf, inf], default 0.0)"""
 
     from_max_z_scale: float
-    """ Top range of Z axis source motion (in [-inf, inf], default 0.0)"""
+    """ Top range of Z axis source motion (in [-inf, inf], default 1.0)"""
 
     from_min_x: float
     """ Bottom range of X axis source motion (in [-inf, inf], default 0.0)"""
@@ -114519,7 +114522,7 @@ class TransformConstraint(Constraint, bpy_struct):
     """ Bottom range of X axis source motion (in [-inf, inf], default 0.0)"""
 
     from_min_x_scale: float
-    """ Bottom range of X axis source motion (in [-inf, inf], default 0.0)"""
+    """ Bottom range of X axis source motion (in [-inf, inf], default 1.0)"""
 
     from_min_y: float
     """ Bottom range of Y axis source motion (in [-inf, inf], default 0.0)"""
@@ -114528,7 +114531,7 @@ class TransformConstraint(Constraint, bpy_struct):
     """ Bottom range of Y axis source motion (in [-inf, inf], default 0.0)"""
 
     from_min_y_scale: float
-    """ Bottom range of Y axis source motion (in [-inf, inf], default 0.0)"""
+    """ Bottom range of Y axis source motion (in [-inf, inf], default 1.0)"""
 
     from_min_z: float
     """ Bottom range of Z axis source motion (in [-inf, inf], default 0.0)"""
@@ -114537,7 +114540,7 @@ class TransformConstraint(Constraint, bpy_struct):
     """ Bottom range of Z axis source motion (in [-inf, inf], default 0.0)"""
 
     from_min_z_scale: float
-    """ Bottom range of Z axis source motion (in [-inf, inf], default 0.0)"""
+    """ Bottom range of Z axis source motion (in [-inf, inf], default 1.0)"""
 
     from_rotation_mode: typing.Literal[
         bpy.stub_internal.rna_enums.DriverTargetRotationModeItems
@@ -114554,10 +114557,10 @@ class TransformConstraint(Constraint, bpy_struct):
     """ The source axis constrained object's X axis uses (default 'X')"""
 
     map_to_y_from: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
-    """ The source axis constrained object's Y axis uses (default 'X')"""
+    """ The source axis constrained object's Y axis uses (default 'Y')"""
 
     map_to_z_from: typing.Literal[bpy.stub_internal.rna_enums.AxisXyzItems]
-    """ The source axis constrained object's Z axis uses (default 'X')"""
+    """ The source axis constrained object's Z axis uses (default 'Z')"""
 
     mix_mode: typing.Literal["REPLACE", "ADD"]
     """ Specify how to combine the new location with original (default 'ADD')"""
@@ -114584,7 +114587,7 @@ class TransformConstraint(Constraint, bpy_struct):
     """ Top range of X axis destination motion (in [-inf, inf], default 0.0)"""
 
     to_max_x_scale: float
-    """ Top range of X axis destination motion (in [-inf, inf], default 0.0)"""
+    """ Top range of X axis destination motion (in [-inf, inf], default 1.0)"""
 
     to_max_y: float
     """ Top range of Y axis destination motion (in [-inf, inf], default 0.0)"""
@@ -114593,7 +114596,7 @@ class TransformConstraint(Constraint, bpy_struct):
     """ Top range of Y axis destination motion (in [-inf, inf], default 0.0)"""
 
     to_max_y_scale: float
-    """ Top range of Y axis destination motion (in [-inf, inf], default 0.0)"""
+    """ Top range of Y axis destination motion (in [-inf, inf], default 1.0)"""
 
     to_max_z: float
     """ Top range of Z axis destination motion (in [-inf, inf], default 0.0)"""
@@ -114602,7 +114605,7 @@ class TransformConstraint(Constraint, bpy_struct):
     """ Top range of Z axis destination motion (in [-inf, inf], default 0.0)"""
 
     to_max_z_scale: float
-    """ Top range of Z axis destination motion (in [-inf, inf], default 0.0)"""
+    """ Top range of Z axis destination motion (in [-inf, inf], default 1.0)"""
 
     to_min_x: float
     """ Bottom range of X axis destination motion (in [-inf, inf], default 0.0)"""
@@ -114611,7 +114614,7 @@ class TransformConstraint(Constraint, bpy_struct):
     """ Bottom range of X axis destination motion (in [-inf, inf], default 0.0)"""
 
     to_min_x_scale: float
-    """ Bottom range of X axis destination motion (in [-inf, inf], default 0.0)"""
+    """ Bottom range of X axis destination motion (in [-inf, inf], default 1.0)"""
 
     to_min_y: float
     """ Bottom range of Y axis destination motion (in [-inf, inf], default 0.0)"""
@@ -114620,7 +114623,7 @@ class TransformConstraint(Constraint, bpy_struct):
     """ Bottom range of Y axis destination motion (in [-inf, inf], default 0.0)"""
 
     to_min_y_scale: float
-    """ Bottom range of Y axis destination motion (in [-inf, inf], default 0.0)"""
+    """ Bottom range of Y axis destination motion (in [-inf, inf], default 1.0)"""
 
     to_min_z: float
     """ Bottom range of Z axis destination motion (in [-inf, inf], default 0.0)"""
@@ -114629,7 +114632,7 @@ class TransformConstraint(Constraint, bpy_struct):
     """ Bottom range of Z axis destination motion (in [-inf, inf], default 0.0)"""
 
     to_min_z_scale: float
-    """ Bottom range of Z axis destination motion (in [-inf, inf], default 0.0)"""
+    """ Bottom range of Z axis destination motion (in [-inf, inf], default 1.0)"""
 
     use_motion_extrapolate: bool
     """ Extrapolate ranges (default False)"""

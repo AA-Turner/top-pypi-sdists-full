@@ -48,6 +48,7 @@ class TestSyncUpdateRequest(unittest.TestCase):
                         }, ),
                 skip_batch_submission = True,
                 max_objects_per_run = 1.0,
+                sync_concurrency = 1.0,
                 reconcile = mixpeek.models.reconcile_settings.ReconcileSettings(
                     on_delete = True, 
                     on_update = True, 

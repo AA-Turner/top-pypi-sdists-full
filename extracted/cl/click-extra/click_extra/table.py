@@ -34,7 +34,7 @@ from click import echo
 from wcwidth import wcswidth, wcwidth as char_width
 
 from . import context
-from ._deprecated import warn_deprecated_usage
+from ._deprecated import resolve_deprecated, warn_deprecated_usage
 from ._utils import missing_extra_message
 from .columns import ColumnSpec
 from .config.formats import ConfigFormat, serialize_content
@@ -1121,6 +1121,24 @@ def _resolve_table_inputs(
     return table_data, labels
 
 
+CORNER_GLYPH = "↴"
+"""The arrow {func}`corner_header` places after the row axis.
+
+The Sphinx extension looks for it to find a table with a corner label: see
+{mod}`click_extra.sphinx.tables`.
+"""
+
+
+def corner_header(rows: str, columns: str) -> str:
+    r"""Name both axes of a two-axis table in its top-left header cell.
+
+    `rows` says what the first column lists, read downward, and `columns` what
+    the other headers list, read rightward: `corner_header("City", "Month")`
+    returns `City ↴ \ Month →`.
+    """
+    return f"{rows} {CORNER_GLYPH} \\ {columns} →"
+
+
 def render_table(
     table_data: Sequence[Sequence[str | None]],
     headers: Sequence[THeader] | None = None,
@@ -1891,3 +1909,14 @@ class SortByOption(ExtraOption):
                 table_format=context.get(ctx, context.TABLE_FORMAT),
                 sort_key=sort_key,
             )
+
+
+def __getattr__(name: str) -> Any:
+    """Resolve deprecated `table` symbols via the PEP 562 `__getattr__` hook.
+
+    The column helpers `select_columns`, `select_row` and
+    `render_columns_markdown_table` moved to {mod}`click_extra.columns`.
+    `ColumnSpec` needs no alias: this module imports it for its own use. Fires
+    only for names not defined in this module. See {mod}`click_extra._deprecated`.
+    """
+    return resolve_deprecated(__name__, name)

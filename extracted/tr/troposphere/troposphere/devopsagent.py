@@ -7,7 +7,7 @@
 
 
 from . import AWSObject, AWSProperty, PropsDictType, Tags
-from .validators import boolean
+from .validators import boolean, integer
 
 
 class IamAuthConfiguration(AWSProperty):
@@ -57,9 +57,39 @@ class AgentSpace(AWSObject):
     props: PropsDictType = {
         "Description": (str, False),
         "KmsKeyArn": (str, False),
+        "Locale": (str, False),
         "Name": (str, True),
         "OperatorApp": (OperatorApp, False),
         "Tags": (Tags, False),
+    }
+
+
+class AssetFile(AWSProperty):
+    """
+    `AssetFile <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-asset-assetfile.html>`__
+    """
+
+    props: PropsDictType = {
+        "ContentBytes": (str, False),
+        "ContentText": (str, False),
+        "Metadata": (dict, False),
+        "Path": (str, True),
+    }
+
+
+class Asset(AWSObject):
+    """
+    `Asset <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-asset.html>`__
+    """
+
+    resource_type = "AWS::DevOpsAgent::Asset"
+
+    props: PropsDictType = {
+        "AgentSpaceId": (str, True),
+        "AssetType": (str, True),
+        "Files": ([AssetFile], False),
+        "Metadata": (dict, False),
+        "Zip": (str, False),
     }
 
 
@@ -97,6 +127,16 @@ class AWSConfiguration(AWSProperty):
         "AssumableRoleArn": (str, True),
         "Resources": ([AWSResource], False),
         "Tags": ([KeyValuePair], False),
+    }
+
+
+class AzureConfiguration(AWSProperty):
+    """
+    `AzureConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-azureconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "SubscriptionId": (str, True),
     }
 
 
@@ -156,8 +196,8 @@ class MCPServerConfiguration(AWSProperty):
     props: PropsDictType = {
         "Description": (str, False),
         "EnableWebhookUpdates": (boolean, False),
-        "Endpoint": (str, True),
-        "Name": (str, True),
+        "Endpoint": (str, False),
+        "Name": (str, False),
         "Tools": ([str], True),
     }
 
@@ -170,8 +210,20 @@ class MCPServerDatadogConfiguration(AWSProperty):
     props: PropsDictType = {
         "Description": (str, False),
         "EnableWebhookUpdates": (boolean, False),
+        "Endpoint": (str, False),
+        "Name": (str, False),
+    }
+
+
+class MCPServerGrafanaConfiguration(AWSProperty):
+    """
+    `MCPServerGrafanaConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpservergrafanaconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "EnableWebhookUpdates": (boolean, False),
         "Endpoint": (str, True),
-        "Name": (str, True),
+        "Tools": ([str], False),
     }
 
 
@@ -186,6 +238,16 @@ class MCPServerNewRelicConfiguration(AWSProperty):
     }
 
 
+class MCPServerSigV4Configuration(AWSProperty):
+    """
+    `MCPServerSigV4Configuration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserversigv4configuration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Tools": ([str], True),
+    }
+
+
 class MCPServerSplunkConfiguration(AWSProperty):
     """
     `MCPServerSplunkConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-mcpserversplunkconfiguration.html>`__
@@ -194,8 +256,20 @@ class MCPServerSplunkConfiguration(AWSProperty):
     props: PropsDictType = {
         "Description": (str, False),
         "EnableWebhookUpdates": (boolean, False),
-        "Endpoint": (str, True),
-        "Name": (str, True),
+        "Endpoint": (str, False),
+        "Name": (str, False),
+    }
+
+
+class PagerDutyConfiguration(AWSProperty):
+    """
+    `PagerDutyConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-association-pagerdutyconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "CustomerEmail": (str, True),
+        "EnableWebhookUpdates": (boolean, False),
+        "Services": ([str], True),
     }
 
 
@@ -264,14 +338,18 @@ class ServiceConfiguration(AWSProperty):
 
     props: PropsDictType = {
         "Aws": (AWSConfiguration, False),
+        "Azure": (AzureConfiguration, False),
         "Dynatrace": (DynatraceConfiguration, False),
         "EventChannel": (EventChannelConfiguration, False),
         "GitHub": (GitHubConfiguration, False),
         "GitLab": (GitLabConfiguration, False),
         "MCPServer": (MCPServerConfiguration, False),
         "MCPServerDatadog": (MCPServerDatadogConfiguration, False),
+        "MCPServerGrafana": (MCPServerGrafanaConfiguration, False),
         "MCPServerNewRelic": (MCPServerNewRelicConfiguration, False),
+        "MCPServerSigV4": (MCPServerSigV4Configuration, False),
         "MCPServerSplunk": (MCPServerSplunkConfiguration, False),
+        "PagerDuty": (PagerDutyConfiguration, False),
         "ServiceNow": (ServiceNowConfiguration, False),
         "Slack": (SlackConfiguration, False),
         "SourceAws": (SourceAwsConfiguration, False),
@@ -290,6 +368,72 @@ class Association(AWSObject):
         "Configuration": (ServiceConfiguration, True),
         "LinkedAssociationIds": ([str], False),
         "ServiceId": (str, True),
+    }
+
+
+class SelfManagedMode(AWSProperty):
+    """
+    `SelfManagedMode <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-privateconnection-selfmanagedmode.html>`__
+    """
+
+    props: PropsDictType = {
+        "ResourceConfigurationId": (str, True),
+    }
+
+
+class ServiceManagedMode(AWSProperty):
+    """
+    `ServiceManagedMode <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-privateconnection-servicemanagedmode.html>`__
+    """
+
+    props: PropsDictType = {
+        "DnsResolution": (str, False),
+        "HostAddress": (str, True),
+        "IpAddressType": (str, False),
+        "Ipv4AddressesPerEni": (integer, False),
+        "PortRanges": ([str], False),
+        "SecurityGroupIds": ([str], False),
+        "SubnetIds": ([str], False),
+        "VpcId": (str, True),
+    }
+
+
+class ConnectionConfiguration(AWSProperty):
+    """
+    `ConnectionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-privateconnection-connectionconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "SelfManaged": (SelfManagedMode, False),
+        "ServiceManaged": (ServiceManagedMode, False),
+    }
+
+
+class PrivateConnection(AWSObject):
+    """
+    `PrivateConnection <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-privateconnection.html>`__
+    """
+
+    resource_type = "AWS::DevOpsAgent::PrivateConnection"
+
+    props: PropsDictType = {
+        "Certificate": (str, False),
+        "ConnectionConfiguration": (ConnectionConfiguration, True),
+        "Name": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
+class AzureIdentityServiceDetails(AWSProperty):
+    """
+    `AzureIdentityServiceDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-azureidentityservicedetails.html>`__
+    """
+
+    props: PropsDictType = {
+        "ClientId": (str, True),
+        "TenantId": (str, True),
+        "WebIdentityRoleArn": (str, True),
+        "WebIdentityTokenAudiences": ([str], True),
     }
 
 
@@ -352,6 +496,18 @@ class ApiKeyDetails(AWSProperty):
     }
 
 
+class BearerTokenDetails(AWSProperty):
+    """
+    `BearerTokenDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-bearertokendetails.html>`__
+    """
+
+    props: PropsDictType = {
+        "AuthorizationHeader": (str, False),
+        "TokenName": (str, True),
+        "TokenValue": (str, True),
+    }
+
+
 class MCPServerOAuthClientCredentialsConfig(AWSProperty):
     """
     `MCPServerOAuthClientCredentialsConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserveroauthclientcredentialsconfig.html>`__
@@ -374,6 +530,7 @@ class MCPServerAuthorizationConfig(AWSProperty):
 
     props: PropsDictType = {
         "ApiKey": (ApiKeyDetails, False),
+        "BearerToken": (BearerTokenDetails, False),
         "OAuthClientCredentials": (MCPServerOAuthClientCredentialsConfig, False),
     }
 
@@ -391,15 +548,53 @@ class MCPServerDetails(AWSProperty):
     }
 
 
-class BearerTokenDetails(AWSProperty):
+class MCPServerGrafanaAuthorizationConfig(AWSProperty):
     """
-    `BearerTokenDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-bearertokendetails.html>`__
+    `MCPServerGrafanaAuthorizationConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpservergrafanaauthorizationconfig.html>`__
     """
 
     props: PropsDictType = {
-        "AuthorizationHeader": (str, False),
-        "TokenName": (str, True),
-        "TokenValue": (str, True),
+        "BearerToken": (BearerTokenDetails, True),
+    }
+
+
+class MCPServerGrafanaDetails(AWSProperty):
+    """
+    `MCPServerGrafanaDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpservergrafanadetails.html>`__
+    """
+
+    props: PropsDictType = {
+        "AuthorizationConfig": (MCPServerGrafanaAuthorizationConfig, True),
+        "Description": (str, False),
+        "Endpoint": (str, True),
+        "Name": (str, True),
+    }
+
+
+class MCPServerSigV4AuthorizationConfig(AWSProperty):
+    """
+    `MCPServerSigV4AuthorizationConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversigv4authorizationconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "CustomHeaders": (dict, False),
+        "McpRoleArn": (str, False),
+        "Region": (str, True),
+        "RoleArn": (str, False),
+        "Service": (str, True),
+    }
+
+
+class MCPServerSigV4Details(AWSProperty):
+    """
+    `MCPServerSigV4Details <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-mcpserversigv4details.html>`__
+    """
+
+    props: PropsDictType = {
+        "AuthorizationConfig": (MCPServerSigV4AuthorizationConfig, True),
+        "Description": (str, False),
+        "Endpoint": (str, True),
+        "Name": (str, True),
     }
 
 
@@ -461,6 +656,27 @@ class NewRelicServiceDetails(AWSProperty):
     }
 
 
+class PagerDutyAuthorizationConfig(AWSProperty):
+    """
+    `PagerDutyAuthorizationConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-pagerdutyauthorizationconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "OAuthClientCredentials": (OAuthClientDetails, False),
+    }
+
+
+class PagerDutyDetails(AWSProperty):
+    """
+    `PagerDutyDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-pagerdutydetails.html>`__
+    """
+
+    props: PropsDictType = {
+        "AuthorizationConfig": (PagerDutyAuthorizationConfig, True),
+        "Scopes": ([str], True),
+    }
+
+
 class ServiceNowAuthorizationConfig(AWSProperty):
     """
     `ServiceNowAuthorizationConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-servicenowauthorizationconfig.html>`__
@@ -488,11 +704,15 @@ class ServiceDetails(AWSProperty):
     """
 
     props: PropsDictType = {
+        "AzureIdentity": (AzureIdentityServiceDetails, False),
         "Dynatrace": (DynatraceServiceDetails, False),
         "GitLab": (GitLabDetails, False),
         "MCPServer": (MCPServerDetails, False),
+        "MCPServerGrafana": (MCPServerGrafanaDetails, False),
         "MCPServerNewRelic": (NewRelicServiceDetails, False),
+        "MCPServerSigV4": (MCPServerSigV4Details, False),
         "MCPServerSplunk": (MCPServerSplunkDetails, False),
+        "PagerDuty": (PagerDutyDetails, False),
         "ServiceNow": (ServiceNowServiceDetails, False),
     }
 
@@ -505,10 +725,62 @@ class Service(AWSObject):
     resource_type = "AWS::DevOpsAgent::Service"
 
     props: PropsDictType = {
+        "ExchangeUrlPrivateConnectionName": (str, False),
         "KmsKeyArn": (str, False),
+        "PrivateConnectionName": (str, False),
         "ServiceDetails": (ServiceDetails, False),
         "ServiceType": (str, True),
         "Tags": (Tags, False),
+        "TargetUrlPrivateConnectionName": (str, False),
+    }
+
+
+class Schedule(AWSProperty):
+    """
+    `Schedule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-trigger-schedule.html>`__
+    """
+
+    props: PropsDictType = {
+        "Expression": (str, True),
+    }
+
+
+class Condition(AWSProperty):
+    """
+    `Condition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-trigger-condition.html>`__
+    """
+
+    props: PropsDictType = {
+        "Schedule": (Schedule, True),
+    }
+
+
+class Trigger(AWSObject):
+    """
+    `Trigger <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-devopsagent-trigger.html>`__
+    """
+
+    resource_type = "AWS::DevOpsAgent::Trigger"
+
+    props: PropsDictType = {
+        "Action": (dict, True),
+        "AgentSpaceId": (str, True),
+        "Condition": (Condition, True),
+        "Status": (str, False),
+        "Type": (str, True),
+    }
+
+
+class RegisteredAzureIdentityDetails(AWSProperty):
+    """
+    `RegisteredAzureIdentityDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredazureidentitydetails.html>`__
+    """
+
+    props: PropsDictType = {
+        "ClientId": (str, True),
+        "TenantId": (str, True),
+        "WebIdentityRoleArn": (str, True),
+        "WebIdentityTokenAudiences": ([str], True),
     }
 
 
@@ -548,6 +820,36 @@ class RegisteredMCPServerDetails(AWSProperty):
     }
 
 
+class RegisteredMCPServerGrafanaDetails(AWSProperty):
+    """
+    `RegisteredMCPServerGrafanaDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpservergrafanadetails.html>`__
+    """
+
+    props: PropsDictType = {
+        "AuthorizationMethod": (str, True),
+        "Description": (str, False),
+        "Endpoint": (str, True),
+        "Name": (str, False),
+    }
+
+
+class RegisteredMCPServerSigV4Details(AWSProperty):
+    """
+    `RegisteredMCPServerSigV4Details <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredmcpserversigv4details.html>`__
+    """
+
+    props: PropsDictType = {
+        "CustomHeaders": (dict, False),
+        "Description": (str, False),
+        "Endpoint": (str, True),
+        "McpRoleArn": (str, False),
+        "Name": (str, True),
+        "Region": (str, True),
+        "RoleArn": (str, True),
+        "Service": (str, True),
+    }
+
+
 class RegisteredNewRelicDetails(AWSProperty):
     """
     `RegisteredNewRelicDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registerednewrelicdetails.html>`__
@@ -557,6 +859,16 @@ class RegisteredNewRelicDetails(AWSProperty):
         "AccountId": (str, True),
         "Description": (str, False),
         "Region": (str, True),
+    }
+
+
+class RegisteredPagerDutyDetails(AWSProperty):
+    """
+    `RegisteredPagerDutyDetails <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-devopsagent-service-registeredpagerdutydetails.html>`__
+    """
+
+    props: PropsDictType = {
+        "Scopes": ([str], True),
     }
 
 
@@ -576,10 +888,14 @@ class AdditionalServiceDetails(AWSProperty):
     """
 
     props: PropsDictType = {
+        "AzureIdentity": (RegisteredAzureIdentityDetails, False),
         "Dynatrace": (RegisteredDynatraceDetails, False),
         "GitLab": (RegisteredGitLabServiceDetails, False),
         "MCPServer": (RegisteredMCPServerDetails, False),
+        "MCPServerGrafana": (RegisteredMCPServerGrafanaDetails, False),
         "MCPServerNewRelic": (RegisteredNewRelicDetails, False),
+        "MCPServerSigV4": (RegisteredMCPServerSigV4Details, False),
         "MCPServerSplunk": (RegisteredMCPServerDetails, False),
+        "PagerDuty": (RegisteredPagerDutyDetails, False),
         "ServiceNow": (RegisteredServiceNowDetails, False),
     }

@@ -40,6 +40,7 @@ class Header(Paragraph, MDHeader):
         start_value (int or None): The value at which to start numbering.
         suppress_numbering (bool): If True, no numbering for this header.
         style (str or None): The style name of the header.
+
     """
 
     _tag = "text:h"
@@ -75,6 +76,8 @@ class Header(Paragraph, MDHeader):
             suppress_numbering: If True, suppresses numbering for this header.
             style: The style name for the header.
             formatted: If True, replace special characters in `text` with ODF tags.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -113,6 +116,7 @@ class Header(Paragraph, MDHeader):
 
         Returns:
             str: The formatted text content of the header.
+
         """
         if not context:
             context = {
@@ -140,7 +144,8 @@ class Header(Paragraph, MDHeader):
         LEVEL_STYLES = "#=-~`+^°'."
         level = int(self.level)
         if level > len(LEVEL_STYLES):
-            raise ValueError("Too many levels of heading")
+            msg = "Too many levels of heading"
+            raise ValueError(msg)
 
         # And return the result
         result = ["\n", title, "\n", LEVEL_STYLES[level - 1] * len(title), "\n"]

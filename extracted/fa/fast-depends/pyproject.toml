@@ -5,22 +5,125 @@ build-backend = "uv_build"
 [tool.uv.build-backend]
 module-root = ""
 
+[tool.hatch.metadata]
+allow-direct-references = true
+allow-ambiguous-features = true
+
+[tool.hatch.build]
+skip-excluded-dirs = true
+exclude = [
+    "/tests",
+    "/docs",
+]
+
+[tool.mypy]
+strict = true
+ignore_missing_imports = true
+python_version = "3.10"
+files = ["fast_depends"]
+
+[[tool.mypy.overrides]]
+module = ["fast_depends.pydantic._compat.*"]
+disable_error_code = ["attr-defined"]
+
+[[tool.mypy.overrides]]
+module = ["fast_depends.pydantic.*"]
+disable_error_code = ["unused-ignore"]
+
+[tool.isort]
+profile = "black"
+known_third_party = [
+    "pydantic",
+    "anyio",
+]
+
+[tool.ruff]
+target-version = "py310"
+fix = true
+line-length = 90
+indent-width = 4
+exclude = ["docs/docs_src"]
+
+[tool.ruff.lint]
+select = [
+    "E",
+    "W",
+    "I",
+    "F",
+    "C4",
+    "B",
+    "Q",
+    "T20",
+    "PERF",
+    "UP",
+]
+ignore = [
+    "E501",
+    "C901",
+]
+
+[tool.ruff.lint.flake8-bugbear]
+extend-immutable-calls = [
+    "fast_depends.Depends",
+    "pydantic.Field",
+    "AsyncHeader",
+    "Header",
+    "MyDep",
+]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-q"
+testpaths = ["tests"]
+
+[tool.coverage.run]
+parallel = true
+branch = true
+concurrency = [
+    "multiprocessing",
+    "thread",
+]
+source = [
+    "fast_depends",
+    "tests",
+]
+context = "${CONTEXT}"
+omit = ["**/__init__.py"]
+
+[tool.coverage.report]
+show_missing = true
+skip_empty = true
+exclude_also = [
+    "if TYPE_CHECKING:",
+    'if __name__ == "__main__":',
+    "def __repr__",
+    '@(abc\.)?abstractmethod',
+    "raise NotImplementedError",
+    "raise AssertionError",
+    '^\s*pass$',
+    '(^|:)\s*\.\.\.$',
+]
+omit = [
+    "*/__about__.py",
+    "*/__main__.py",
+    "*/__init__.py",
+]
+
+[tool.codespell]
+skip = "venv,./docs/site/*,*.js,*.css"
+
 [project]
 name = "fast-depends"
 description = "FastDepends - extracted and cleared from HTTP domain logic FastAPI Dependency Injection System. Async and sync are both supported."
 readme = "README.md"
-authors = [
-    { name = "Nikita Pastukhov", email = "nikita@pastukhov-dev.ru" },
-]
 license = "MIT"
 license-files = ["LICENSE"]
-
-keywords = ["fastapi", "dependency injection"]
-
-version = "3.0.8"
-
+keywords = [
+    "fastapi",
+    "dependency injection",
+]
+version = "3.0.9"
 requires-python = ">=3.10"
-
 classifiers = [
     "Development Status :: 5 - Production/Stable",
     "License :: OSI Approved :: MIT License",
@@ -44,20 +147,24 @@ classifiers = [
     "Framework :: Pydantic :: 1",
     "Framework :: Pydantic :: 2",
 ]
-
 dependencies = [
     "anyio>=4.0.0,<5.0.0",
     "typing-extensions!=4.12.1",
 ]
 
-[project.optional-dependencies]
-pydantic = [
-    "pydantic>=1.7.4,!=1.8,!=1.8.1,<3.0.0",
-]
+[[project.authors]]
+name = "Nikita Pastukhov"
+email = "nikita@pastukhov-dev.ru"
 
-msgspec = [
-    "msgspec",
-]
+[project.optional-dependencies]
+pydantic = ["pydantic>=1.7.4,!=1.8,!=1.8.1,<3.0.0"]
+msgspec = ["msgspec"]
+
+[project.urls]
+Homepage = "https://lancetnik.github.io/FastDepends/"
+Documentation = "https://lancetnik.github.io/FastDepends/"
+Tracker = "https://github.com/Lancetnik/FastDepends/issues"
+Source = "https://github.com/Lancetnik/FastDepends"
 
 [dependency-groups]
 docs = [
@@ -66,151 +173,21 @@ docs = [
     "mdx-include>=1.4.1,<2.0.0",
     "mkdocs-markdownextradata-plugin>=0.1.7,<0.3.0",
 ]
-
 test = [
     "coverage[toml]>=7.2.0,<8.0.0",
     "pytest>=8.0.0,<10",
     "dirty-equals>=0.7.0,<0.12",
     "annotated_types",
 ]
-
 lint = [
-    "mypy==1.19.1",
-    "ruff==0.15.4",
-    "codespell==2.4.1",
+    "mypy==2.3.1",
+    "ruff==0.16.7",
+    "codespell==2.4.3",
     "types-ujson>=5.10.0.20250822",
 ]
-
 dev = [
     "fast-depends[pydantic,msgspec]",
-    {include-group = "docs"},
-    {include-group = "test"},
-    {include-group = "lint"},
+    { include-group = "docs" },
+    { include-group = "test" },
+    { include-group = "lint" },
 ]
-
-[project.urls]
-Homepage = "https://lancetnik.github.io/FastDepends/"
-Documentation = "https://lancetnik.github.io/FastDepends/"
-Tracker = "https://github.com/Lancetnik/FastDepends/issues"
-Source = "https://github.com/Lancetnik/FastDepends"
-
-[tool.hatch.metadata]
-allow-direct-references = true
-allow-ambiguous-features = true
-
-[tool.hatch.build]
-skip-excluded-dirs = true
-exclude = [
-    "/tests",
-    "/docs",
-]
-
-[tool.mypy]
-strict = true
-ignore_missing_imports = true
-python_version = "3.10"
-files = [
-    "fast_depends",
-]
-
-[tool.isort]
-profile = "black"
-known_third_party = ["pydantic", "anyio"]
-
-[tool.ruff]
-target-version = "py310"
-
-fix = true
-
-line-length = 90
-indent-width = 4
-
-exclude = [
-    "docs/docs_src",
-]
-
-[tool.ruff.lint]
-select = [
-    "E",     # pycodestyle errors     https://docs.astral.sh/ruff/rules/#error-e
-    "W",     # pycodestyle warnings   https://docs.astral.sh/ruff/rules/#warning-w
-    "I",     # isort                  https://docs.astral.sh/ruff/rules/#isort-i
-    "F",     # pyflakes               https://docs.astral.sh/ruff/rules/#pyflakes-f
-    "C4",    # flake8-comprehensions  https://docs.astral.sh/ruff/rules/#flake8-comprehensions-c4
-    "B",     # flake8-bugbear         https://docs.astral.sh/ruff/rules/#flake8-bugbear-b
-    "Q",     # flake8-quotes          https://docs.astral.sh/ruff/rules/#flake8-quotes-q
-    "T20",   # flake8-print           https://docs.astral.sh/ruff/rules/#flake8-print-t20
-    "PERF",  # Perflint               https://docs.astral.sh/ruff/rules/#perflint-perf
-    "UP",    # pyupgrade              https://docs.astral.sh/ruff/rules/#pyupgrade-up
-]
-
-ignore = [
-    "E501",  # line too long, handled by black
-    "C901",  # too complex
-]
-
-[tool.ruff.lint.flake8-bugbear]
-extend-immutable-calls = [
-    "fast_depends.Depends",
-    "pydantic.Field",
-    "AsyncHeader",
-    "Header",
-    "MyDep",
-]
-
-[tool.pytest.ini_options]
-minversion = "7.0"
-addopts = "-q"
-testpaths = [
-    "tests",
-]
-
-[tool.coverage.run]
-parallel = true
-branch = true
-concurrency = [
-    "multiprocessing",
-    "thread"
-]
-source = [
-    "fast_depends",
-    "tests"
-]
-context = '${CONTEXT}'
-omit = [
-    "**/__init__.py",
-]
-
-[tool.coverage.report]
-show_missing = true
-skip_empty = true
-exclude_also = [
-    "if __name__ == .__main__.:",
-    "self.logger",
-    "def __repr__",
-    "lambda: None",
-    "from .*",
-    "import .*",
-    '@(abc\.)?abstractmethod',
-    "raise NotImplementedError",
-    'raise AssertionError',
-    'raise ValueError',
-    'logger\..*',
-    "pass",
-    '\.\.\.',
-]
-omit = [
-    '*/__about__.py',
-    '*/__main__.py',
-    '*/__init__.py',
-]
-
-[tool.codespell]
-skip = "venv,./docs/site/*,*.js,*.css"
-
-[[tool.mypy.overrides]]
-module = ["fast_depends.pydantic._compat.*"]
-disable_error_code = ["attr-defined"]
-
-[[tool.mypy.overrides]]
-module = ["fast_depends.pydantic.*"]
-disable_error_code = ["unused-ignore"]

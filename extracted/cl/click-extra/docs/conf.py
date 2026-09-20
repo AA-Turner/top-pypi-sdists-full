@@ -236,6 +236,9 @@ nitpick_ignore_regex = [
     (r"py:.*", r"click\.(testing|types|_\w+)\..*"),
     # Private (underscore-prefixed) symbols, in click-extra or upstream.
     (r"py:.*", r"(.*\.)?_[A-Za-z]\w*(\..*)?"),
+    # Click annotates its signatures with `typing` and `collections.abc` under the
+    # `t` and `cabc` aliases, which autodoc copies verbatim from re-exports.
+    (r"py:.*", r"(t|cabc)\.\w+"),
 ]
 
 # Bare names inherited from re-exported click/cloup docstrings: they resolve in
@@ -252,17 +255,12 @@ nitpick_ignore = [
     ("py:meth", "fail"),
     ("py:class", "Constraint"),
     ("py:class", "click.MultiCommand"),
-    ("py:meth", "click.types.ParamType[t.Any].shell_complete"),
     # pygments' inherited ``aliases`` attribute docstring.
     ("py:func", "get_formatter_by_name"),
     # sphinx exception raised by the (deprecated) GitHub-alerts converter.
     ("py:exc", "ConfigError"),
     # click ParameterSource enum members are absent from click's inventory.
     ("py:attr", "click.ParameterSource.DEFAULT_MAP"),
-    # click 8.5.0 renamed get_binary_stream to a private name, which leaves the
-    # cross-reference in the deprecated get_text_stream docstring, rendered here
-    # through the drop-in re-export, with nothing to point at.
-    ("py:func", "get_binary_stream"),
     # click-extra's own classes that live in a submodule but are re-exported at the
     # package root. They are dropped from the root ``automodule:: click_extra`` (see
     # docs/click_extra.md) to avoid ambiguous cross-references, so their bare name

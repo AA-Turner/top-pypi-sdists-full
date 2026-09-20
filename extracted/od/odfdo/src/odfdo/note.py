@@ -57,6 +57,7 @@ class NoteMixin(Element):
 
         Returns:
             list[Note]: A list of `Note` instances matching the criteria.
+
         """
         return cast(
             "list[Note]",
@@ -85,6 +86,7 @@ class NoteMixin(Element):
         Returns:
             Note | None: A `Note` instance matching the criteria, or `None`
                 if not found.
+
         """
         return cast(
             "Note | None",
@@ -151,6 +153,7 @@ class Note(MDNote, LinkMixin, Element):
                 without citation, the display text defaults to this value.
             body: The content of the note body. Can be a string or an `Element`.
             **kwargs: Additional keyword arguments for the parent `Element` class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -176,6 +179,7 @@ class Note(MDNote, LinkMixin, Element):
 
         Returns:
             str: The citation text, or an empty string if not found.
+
         """
         note_citation = self.get_element("text:note-citation")
         if note_citation:
@@ -188,6 +192,7 @@ class Note(MDNote, LinkMixin, Element):
 
         Args:
             text: The new citation text.
+
         """
         note_citation = self.get_element("text:note-citation")
         if note_citation:
@@ -199,6 +204,7 @@ class Note(MDNote, LinkMixin, Element):
 
         Returns:
             str: The label value, or an empty string if not found.
+
         """
         note_citation = self.get_element("text:note-citation")
         if note_citation:
@@ -212,6 +218,7 @@ class Note(MDNote, LinkMixin, Element):
 
         Args:
             text: The new label value, or None to remove the attribute.
+
         """
         note_citation = self.get_element("text:note-citation")
         if note_citation:
@@ -224,6 +231,7 @@ class Note(MDNote, LinkMixin, Element):
         Returns:
             str: The content of the note body, or an empty string if not
                  found.
+
         """
         note_body = self.get_element("text:note-body")
         if note_body:
@@ -240,6 +248,7 @@ class Note(MDNote, LinkMixin, Element):
             text_or_element: The new content for the note body.
                 Can be a string, an `Element`, an Iterable of `Element` or
                 None to clear the content.
+
         """
         note_body = self.get_element("text:note-body")
         if not note_body:
@@ -257,7 +266,8 @@ class Note(MDNote, LinkMixin, Element):
                 if isinstance(element, Element):
                     note_body.append(element)
         else:
-            raise TypeError(f'Unexpected type for body: "{type(text_or_element)}"')
+            msg = f"Unexpected type for body: {type(text_or_element)!r}"
+            raise TypeError(msg)
 
     def check_validity(self) -> None:
         """Check the validity of the note's properties.
@@ -268,13 +278,17 @@ class Note(MDNote, LinkMixin, Element):
         Raises:
             ValueError: If `note_class` is invalid, or if `note_id` or
                 `citation` are empty.
+
         """
         if not self.note_class or self.note_class not in self.NOTE_CLASS:
-            raise ValueError('Note class must be "footnote" or "endnote"')
+            msg = 'Note class must be "footnote" or "endnote"'
+            raise ValueError(msg)
         if not self.note_id:
-            raise ValueError("Note must have an id")
+            msg = "Note must have an id"
+            raise ValueError(msg)
         if not self.citation:
-            raise ValueError("Note must have a citation")
+            msg = "Note must have a citation"
+            raise ValueError(msg)
         if not self.note_body:
             pass
 

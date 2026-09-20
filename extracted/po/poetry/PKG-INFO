@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: poetry
-Version: 2.4.3
+Version: 2.5.0
 Summary: Python dependency management and packaging made easy.
 License-Expression: MIT
 License-File: LICENSE
@@ -16,6 +16,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Classifier: Topic :: Software Development :: Build Tools
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: build (>=1.2.1,<2.0.0)
@@ -30,7 +31,7 @@ Requires-Dist: packaging (>=24.2)
 Requires-Dist: pbs-installer[download,install] (>=2025.6.10)
 Requires-Dist: pkginfo (>=1.12,<2.0)
 Requires-Dist: platformdirs (>=3.0.0,<5)
-Requires-Dist: poetry-core (==2.4.0)
+Requires-Dist: poetry-core (==2.5.0)
 Requires-Dist: pyproject-hooks (>=1.0.0,<2.0.0)
 Requires-Dist: requests (>=2.26,<3.0)
 Requires-Dist: requests-toolbelt (>=1.0.0,<2.0.0)

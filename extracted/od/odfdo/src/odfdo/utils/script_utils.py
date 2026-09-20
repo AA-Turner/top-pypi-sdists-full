@@ -36,13 +36,14 @@ STDIN_TIMEOUT = 0.5
 
 
 def detect_stdin_timeout() -> None:  # pragma: no cover
-    """Detects if data is available on standard input within a timeout.
+    """Detect if data is available on standard input within a timeout.
 
     This function is used to prevent scripts from blocking indefinitely when
     expecting input from stdin. It is not supported on Windows.
 
     Raises:
         ValueError: If no data is available on stdin after the timeout.
+
     """
     if sys.platform == "win32":
         # cant do that on windows
@@ -51,12 +52,13 @@ def detect_stdin_timeout() -> None:  # pragma: no cover
     selector.register(sys.stdin, selectors.EVENT_READ)
     something = selector.select(timeout=STDIN_TIMEOUT)
     if not something:
-        raise ValueError("Timeout reading from stdin")
+        msg = "Timeout reading from stdin"
+        raise ValueError(msg)
     selector.close()
 
 
 def read_document(input_path: str | None) -> Document:
-    """Reads an ODF document from a file path or standard input.
+    """Read an ODF document from a file path or standard input.
 
     If `input_path` is provided, the document is loaded from that file.
     Otherwise, the document is read from the standard input stream.
@@ -66,6 +68,7 @@ def read_document(input_path: str | None) -> Document:
 
     Returns:
         Document: The loaded odfdo Document object.
+
     """
     if input_path:
         document = Document(input_path)
@@ -78,7 +81,7 @@ def read_document(input_path: str | None) -> Document:
 
 
 def save_document(document: Document, output_path: str | None) -> None:
-    """Saves an ODF document to a file path or standard output.
+    """Save an ODF document to a file path or standard output.
 
     If `output_path` is provided, the document is saved to that file.
     Otherwise, the document is written to the standard output stream.
@@ -86,6 +89,7 @@ def save_document(document: Document, output_path: str | None) -> None:
     Args:
         document: The odfdo Document object to save.
         output_path: The path to the output ODF file.
+
     """
     if output_path:
         return document.save(output_path)

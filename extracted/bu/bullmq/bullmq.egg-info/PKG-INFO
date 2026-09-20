@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: bullmq
-Version: 3.2.4
+Version: 3.2.5
 Summary: BullMQ for Python
 Author-email: "Taskforce.sh Inc." <manast@taskforce.sh>
 Project-URL: Homepage, https://bullmq.io
@@ -22,7 +22,7 @@ Requires-Dist: pre-commit==4.6.2; extra == "dev"
 Requires-Dist: build==1.6.1; extra == "dev"
 Requires-Dist: types-redis==4.6.0.20241004; extra == "dev"
 Requires-Dist: pipenv==2026.8.0; extra == "dev"
-Requires-Dist: virtualenv==21.7.14; extra == "dev"
+Requires-Dist: virtualenv==21.7.16; extra == "dev"
 Requires-Dist: virtualenv-clone==0.5.7; extra == "dev"
 Provides-Extra: test
 Requires-Dist: pytest==9.1.1; extra == "test"

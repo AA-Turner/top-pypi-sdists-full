@@ -100,6 +100,27 @@ class CapacityProviderScalingConfig(AWSProperty):
     }
 
 
+class CapacityProviderLoggingConfig(AWSProperty):
+    """
+    `CapacityProviderLoggingConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-capacityproviderloggingconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "LogGroup": (str, False),
+        "SystemLogLevel": (str, False),
+    }
+
+
+class CapacityProviderTelemetryConfig(AWSProperty):
+    """
+    `CapacityProviderTelemetryConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-capacityprovidertelemetryconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "LoggingConfig": (CapacityProviderLoggingConfig, False),
+    }
+
+
 class CapacityProviderVpcConfig(AWSProperty):
     """
     `CapacityProviderVpcConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-capacityprovidervpcconfig.html>`__
@@ -123,6 +144,17 @@ class InstanceRequirements(AWSProperty):
     }
 
 
+class PropagateTagsConfig(AWSProperty):
+    """
+    `PropagateTagsConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-capacityprovider-propagatetagsconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "ExplicitTags": (Tags, False),
+        "Mode": (str, False),
+    }
+
+
 class CapacityProvider(AWSObject):
     """
     `CapacityProvider <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-capacityprovider.html>`__
@@ -136,7 +168,9 @@ class CapacityProvider(AWSObject):
         "InstanceRequirements": (InstanceRequirements, False),
         "KmsKeyArn": (str, False),
         "PermissionsConfig": (CapacityProviderPermissionsConfig, True),
+        "PropagateTags": (PropagateTagsConfig, False),
         "Tags": (Tags, False),
+        "TelemetryConfig": (CapacityProviderTelemetryConfig, False),
         "VpcConfig": (CapacityProviderVpcConfig, True),
     }
 
@@ -173,6 +207,18 @@ class CodeSigningConfig(AWSObject):
         "CodeSigningPolicies": (CodeSigningPolicies, False),
         "Description": (str, False),
         "Tags": (Tags, False),
+    }
+
+
+class DurableExecution(AWSObject):
+    """
+    `DurableExecution <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-durableexecution.html>`__
+    """
+
+    resource_type = "AWS::Lambda::DurableExecution"
+
+    props: PropsDictType = {
+        "FunctionName": (str, False),
     }
 
 
@@ -490,6 +536,7 @@ class DurableConfig(AWSProperty):
 
     props: PropsDictType = {
         "ExecutionTimeout": (integer, True),
+        "KMSKeyArn": (str, False),
         "RetentionPeriodInDays": (integer, False),
     }
 
@@ -514,6 +561,16 @@ class EphemeralStorage(AWSProperty):
     }
 
 
+class S3FilesConfig(AWSProperty):
+    """
+    `S3FilesConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-s3filesconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "DirectS3Read": (str, False),
+    }
+
+
 class FileSystemConfig(AWSProperty):
     """
     `FileSystemConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-function-filesystemconfig.html>`__
@@ -522,6 +579,7 @@ class FileSystemConfig(AWSProperty):
     props: PropsDictType = {
         "Arn": (str, True),
         "LocalMountPath": (str, True),
+        "S3FilesConfig": (S3FilesConfig, False),
     }
 
 
@@ -654,6 +712,7 @@ class Content(AWSProperty):
     props: PropsDictType = {
         "S3Bucket": (str, True),
         "S3Key": (str, True),
+        "S3ObjectStorageMode": (str, False),
         "S3ObjectVersion": (str, False),
     }
 
@@ -690,6 +749,174 @@ class LayerVersionPermission(AWSObject):
     }
 
 
+class CodeArtifact(AWSProperty):
+    """
+    `CodeArtifact <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-codeartifact.html>`__
+    """
+
+    props: PropsDictType = {
+        "Uri": (str, True),
+    }
+
+
+class CpuConfiguration(AWSProperty):
+    """
+    `CpuConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-cpuconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Architecture": (str, True),
+    }
+
+
+class EnvironmentVariable(AWSProperty):
+    """
+    `EnvironmentVariable <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-environmentvariable.html>`__
+    """
+
+    props: PropsDictType = {
+        "Key": (str, True),
+        "Value": (str, True),
+    }
+
+
+class MicrovmHooks(AWSProperty):
+    """
+    `MicrovmHooks <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-microvmhooks.html>`__
+    """
+
+    props: PropsDictType = {
+        "Resume": (str, False),
+        "ResumeTimeoutInSeconds": (integer, False),
+        "Run": (str, False),
+        "RunTimeoutInSeconds": (integer, False),
+        "Suspend": (str, False),
+        "SuspendTimeoutInSeconds": (integer, False),
+        "Terminate": (str, False),
+        "TerminateTimeoutInSeconds": (integer, False),
+    }
+
+
+class MicrovmImageHooks(AWSProperty):
+    """
+    `MicrovmImageHooks <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-microvmimagehooks.html>`__
+    """
+
+    props: PropsDictType = {
+        "Ready": (str, False),
+        "ReadyTimeoutInSeconds": (integer, False),
+        "Validate": (str, False),
+        "ValidateTimeoutInSeconds": (integer, False),
+    }
+
+
+class Hooks(AWSProperty):
+    """
+    `Hooks <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-hooks.html>`__
+    """
+
+    props: PropsDictType = {
+        "MicrovmHooks": (MicrovmHooks, False),
+        "MicrovmImageHooks": (MicrovmImageHooks, False),
+        "Port": (integer, False),
+    }
+
+
+class CloudWatchLogging(AWSProperty):
+    """
+    `CloudWatchLogging <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-cloudwatchlogging.html>`__
+    """
+
+    props: PropsDictType = {
+        "LogGroup": (str, False),
+        "LogStream": (str, False),
+    }
+
+
+class Logging(AWSProperty):
+    """
+    `Logging <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-logging.html>`__
+    """
+
+    props: PropsDictType = {
+        "CloudWatch": (CloudWatchLogging, False),
+        "Disabled": (boolean, False),
+    }
+
+
+class Resources(AWSProperty):
+    """
+    `Resources <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-microvmimage-resources.html>`__
+    """
+
+    props: PropsDictType = {
+        "MinimumMemoryInMiB": (integer, True),
+    }
+
+
+class MicrovmImage(AWSObject):
+    """
+    `MicrovmImage <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-microvmimage.html>`__
+    """
+
+    resource_type = "AWS::Lambda::MicrovmImage"
+
+    props: PropsDictType = {
+        "AdditionalOsCapabilities": ([str], True),
+        "BaseImageArn": (str, True),
+        "BaseImageVersion": (str, True),
+        "BuildRoleArn": (str, True),
+        "CodeArtifact": (CodeArtifact, True),
+        "CpuConfigurations": ([CpuConfiguration], True),
+        "Description": (str, True),
+        "EgressNetworkConnectors": ([str], True),
+        "EnvironmentVariables": ([EnvironmentVariable], True),
+        "Hooks": (Hooks, True),
+        "Logging": (Logging, True),
+        "Name": (str, True),
+        "Resources": ([Resources], True),
+        "Tags": (Tags, False),
+    }
+
+
+class VpcEgressConfiguration(AWSProperty):
+    """
+    `VpcEgressConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-vpcegressconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "AssociatedComputeResourceTypes": ([str], True),
+        "NetworkProtocol": (str, False),
+        "SecurityGroupIds": ([str], False),
+        "SubnetIds": ([str], True),
+    }
+
+
+class Config(AWSProperty):
+    """
+    `Config <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-lambda-networkconnector-config.html>`__
+    """
+
+    props: PropsDictType = {
+        "VpcEgressConfiguration": (VpcEgressConfiguration, True),
+    }
+
+
+class NetworkConnector(AWSObject):
+    """
+    `NetworkConnector <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-networkconnector.html>`__
+    """
+
+    resource_type = "AWS::Lambda::NetworkConnector"
+
+    props: PropsDictType = {
+        "Configuration": (Config, True),
+        "Name": (str, False),
+        "OperatorRole": (str, False),
+        "Tags": (Tags, False),
+    }
+
+
 class Permission(AWSObject):
     """
     `Permission <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-permission.html>`__
@@ -707,6 +934,19 @@ class Permission(AWSObject):
         "PrincipalOrgID": (str, False),
         "SourceAccount": (str, False),
         "SourceArn": (str, False),
+    }
+
+
+class ResourcePolicy(AWSObject):
+    """
+    `ResourcePolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-lambda-resourcepolicy.html>`__
+    """
+
+    resource_type = "AWS::Lambda::ResourcePolicy"
+
+    props: PropsDictType = {
+        "PolicyDocument": (dict, True),
+        "ResourceArn": (str, True),
     }
 
 

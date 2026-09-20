@@ -208,6 +208,7 @@ def printwarn(message: str) -> None:
 
     Args:
         message: the text to print.
+
     """
     print(f"Warning: {message}", file=sys.stderr)
 
@@ -279,7 +280,9 @@ def normalize_path(path: str) -> str:
         path: The path to normalize.
 
     Returns:
-        str: Posix representation of the path."""
+        str: Posix representation of the path.
+
+    """
     if path.endswith("/"):  # folder
         return PurePath(path[:-1]).as_posix() + "/"
     return PurePath(path).as_posix()
@@ -293,6 +296,7 @@ class Container:
 
         Args:
             path: The path to the ODF file, a file-like object, or None.
+
         """
         self.__parts: dict[str, bytes | None] = {}
         self.__parts_ts: dict[str, int] = {}
@@ -310,12 +314,14 @@ class Container:
 
         Args:
             path_or_file: Path to the document, or an opened file.
+
         """
         self.__path_like = path_or_file
         if isinstance(path_or_file, (str, Path)):
             self.path = Path(path_or_file).expanduser()
             if not self.path.exists():
-                raise FileNotFoundError(str(self.path))
+                msg = f"{self.path}"
+                raise FileNotFoundError(msg)
             self.__path_like = self.path
         if (self.path or isinstance(self.__path_like, io.BytesIO)) and is_zipfile(
             self.__path_like
@@ -341,7 +347,7 @@ class Container:
             if self._is_flat_xml(content):
                 self.__packaging = XML
                 return self._read_xml(content)
-        msg = f"Document format not managed by odfdo: {type(path_or_file)}."
+        msg = f"Document format not managed by odfdo: {type(path_or_file)}"
         raise TypeError(msg)
 
     @staticmethod
@@ -353,6 +359,7 @@ class Container:
 
         Returns:
             True if the content appears to be a Flat ODF XML file.
+
         """
         # Must start with XML declaration or be parseable XML
         if not content.strip():
@@ -387,7 +394,8 @@ class Container:
             validate_zip_safety(zf)
             mimetype = bytes_to_str(self._read_zip_entry(zf, "mimetype"))
             if mimetype not in ODF_MIMETYPES:
-                raise ValueError(f"Document of unknown type {mimetype}")
+                msg = f"Document of unknown type {mimetype!r}"
+                raise ValueError(msg)
             self.__parts["mimetype"] = str_to_bytes(mimetype)
         if self.path is None:
             if isinstance(self.__path_like, io.BytesIO):
@@ -472,6 +480,7 @@ class Container:
 
         Args:
             content: The XML content as bytes.
+
         """
         root = fromstring(content)
         mimetype, original_nsmap = self._extract_mimetype_and_namespaces(root)
@@ -510,6 +519,7 @@ class Container:
 
         Returns:
             The detected mimetype string.
+
         """
         body = root.find(_ns_tag("body"))
         if body is not None:
@@ -532,6 +542,7 @@ class Container:
 
         Returns:
             The detected mimetype string or None if detection fails.
+
         """
         try:
             if self.path is None:
@@ -554,6 +565,7 @@ class Container:
 
         Returns:
             Tuple of (mimetype, original_nsmap).
+
         """
         mimetype = root.get(_ns_tag("mimetype"))
         if mimetype is None:
@@ -577,6 +589,7 @@ class Container:
 
         Returns:
             Tuple of (content_root, styles_root).
+
         """
         content_root = Element(_ns_tag("document-content"), nsmap=original_nsmap)
         content_root.set(_ns_tag("version"), OFFICE_VERSION)
@@ -596,6 +609,7 @@ class Container:
 
         Returns:
             Set of style names referenced from master-styles.
+
         """
         ns_style = "{urn:oasis:names:tc:opendocument:xmlns:style:1.0}"
         ns_text = "{urn:oasis:names:tc:opendocument:xmlns:text:1.0}"
@@ -638,6 +652,7 @@ class Container:
 
         Returns:
             Dictionary of image parts.
+
         """
         ns_style = "{urn:oasis:names:tc:opendocument:xmlns:style:1.0}"
         image_parts: dict[str, bytes] = {}
@@ -757,6 +772,7 @@ class Container:
 
         Returns:
             The updated image counter.
+
         """
         ns_draw = "{urn:oasis:names:tc:opendocument:xmlns:drawing:1.0}"
         xpath_expr = xpath_compile("descendant::draw:image[office:binary-data]")
@@ -801,6 +817,7 @@ class Container:
 
         Returns:
             The updated image counter.
+
         """
         xpath_fill_expr = xpath_compile(
             "descendant::draw:fill-image[office:binary-data]"
@@ -981,7 +998,8 @@ class Container:
     def _parse_folder(self, folder: str) -> list[str]:
         parts = []
         if self.path is None:
-            raise ValueError("Document path is not defined")
+            msg = "Document path is not defined"
+            raise ValueError(msg)
         root = self.path / folder
         for path in root.iterdir():
             if path.name.startswith("."):  # no hidden files
@@ -1005,7 +1023,8 @@ class Container:
     def _get_folder_part(self, name: str) -> tuple[bytes | None, int]:
         """Get bytes of a part from the ODF folder, with timestamp."""
         if self.path is None:
-            raise ValueError(f"Document path is not defined {name!r}")
+            msg = f"Document path is not defined {name!r}"
+            raise ValueError(msg)
         path = self.path / name
         try:
             timestamp = int(path.stat().st_mtime)
@@ -1018,7 +1037,8 @@ class Container:
 
     def _get_folder_part_timestamp(self, name: str) -> int:
         if self.path is None:
-            raise ValueError("Document path is not defined")
+            msg = "Document path is not defined"
+            raise ValueError(msg)
         path = self.path / name
         try:
             timestamp = int(path.stat().st_mtime)
@@ -1032,7 +1052,8 @@ class Container:
         No cache.
         """
         if self.path is None:
-            raise ValueError("Document path is not defined")
+            msg = "Document path is not defined"
+            raise ValueError(msg)
         try:
             with ZipFile(self.path) as zf:
                 # Security check for zip bombs
@@ -1049,7 +1070,8 @@ class Container:
         No cache.
         """
         if self.path is None:
-            raise ValueError("Document path is not defined")
+            msg = "Document path is not defined"
+            raise ValueError(msg)
         try:
             with ZipFile(self.path) as zf:
                 # Security check for zip bombs
@@ -1074,7 +1096,8 @@ class Container:
             # mimetype requires to be first and uncompressed
             mimetype = parts.get("mimetype")
             if mimetype is None:
-                raise ValueError("Mimetype is not defined")
+                msg = "Mimetype is not defined"
+                raise ValueError(msg)
             try:
                 filezip.writestr("mimetype", mimetype, ZIP_STORED)
                 part_names.remove("mimetype")
@@ -1145,6 +1168,7 @@ class Container:
 
         Raises:
             SecurityError: If decompressed size exceeds security limits.
+
         """
         total_size = 0
         chunks: list[bytes] = []
@@ -1156,11 +1180,12 @@ class Container:
                     break
                 total_size += len(chunk)
                 if total_size > security.max_uncompressed_size:
-                    raise SecurityError(
+                    msg = (
                         f"odfdo detected a breach of security, see security.py limits. "
-                        f"ZIP entry '{name}' decompressed size ({total_size} bytes) "
-                        f"exceeds limit ({security.max_uncompressed_size} bytes)."
+                        f"ZIP entry {name!r} decompressed size ({total_size} bytes) "
+                        f"exceeds limit ({security.max_uncompressed_size} bytes)"
                     )
+                    raise SecurityError(msg)
                 chunks.append(chunk)
 
         return b"".join(chunks)
@@ -1448,6 +1473,7 @@ class Container:
 
         Returns:
             The list of path of the parts in the Container.
+
         """
         if not self.path:
             # maybe a file like zip archive or xml
@@ -1464,7 +1490,8 @@ class Container:
         if self.__packaging == XML:
             # For flat XML, parts are stored in memory
             return list(self.__parts.keys())
-        raise ValueError("Unable to provide parts of the document")
+        msg = "Unable to provide parts of the document"
+        raise ValueError(msg)
 
     @property
     def parts(self) -> list[str]:
@@ -1472,6 +1499,7 @@ class Container:
 
         Returns:
             The list of path of the parts in the Container.
+
         """
         return self.get_parts()
 
@@ -1489,12 +1517,14 @@ class Container:
             KeyError: If the part is not found in a ZIP container.
             FileNotFoundError: If the part is not found in a folder container.
             ValueError: If the part was explicitly deleted from the container.
+
         """
         path = str(path)
         if path in self.__parts:
             part = self.__parts[path]
             if part is None:
-                raise ValueError(f'Part "{path}" is deleted')
+                msg = f"Part {path!r} is deleted"
+                raise ValueError(msg)
             if self.__packaging == FOLDER:
                 cache_ts = self.__parts_ts.get(path, -1)
                 current_ts = self._get_folder_part_timestamp(path)
@@ -1521,6 +1551,7 @@ class Container:
 
     @property
     def default_manifest_rdf(self) -> str:
+        """Return the default content of manifest.rdf."""
         # The RDF metadata namespaces are versioned independently from the
         # office:version attribute and remain at "1.2" for ODF 1.3/1.4.
         return (
@@ -1567,7 +1598,8 @@ class Container:
         elif isinstance(mimetype, bytes):
             self.__parts["mimetype"] = mimetype
         else:
-            raise TypeError(f'Wrong mimetype "{mimetype!r}"')
+            msg = f"Wrong mimetype {mimetype!r}"
+            raise TypeError(msg)
 
     def set_part(self, path: str, data: bytes) -> None:
         """Replace or add a new part.
@@ -1575,6 +1607,7 @@ class Container:
         Args:
             path: The relative path in the Container.
             data: Content of the part.
+
         """
         self.__parts[path] = data
 
@@ -1583,6 +1616,7 @@ class Container:
 
         Args:
             path: The relative path in the Container.
+
         """
         self.__parts[path] = None
 
@@ -1631,7 +1665,7 @@ class Container:
             packaging = self.__packaging if self.__packaging else ZIP
         packaging = packaging.strip().lower()
         if packaging not in PACKAGING:
-            msg = f'Packaging of type "{packaging}" is not supported'
+            msg = f"Packaging of type {packaging!r} is not supported"
             raise ValueError(msg)
         return packaging
 
@@ -1661,9 +1695,8 @@ class Container:
 
     def _save_as_folder(self, target: str | Path, backup: bool) -> None:
         if not isinstance(target, (str, Path)):
-            raise TypeError(
-                f"Saving in folder format requires a folder name, not '{target!r}'"
-            )
+            msg = f"Saving in folder format requires a folder name, not {target!r}"
+            raise TypeError(msg)
         if not str(target).endswith(".folder"):
             target = str(target) + ".folder"
         self._backup_or_unlink(backup, target)
@@ -1676,9 +1709,8 @@ class Container:
         pretty: bool = True,
     ) -> None:
         if not isinstance(target, (str, Path, io.BytesIO)):
-            raise TypeError(
-                f"Saving in XML format requires a path name, not '{target!r}'"
-            )
+            msg = f"Saving in XML format requires a path name, not {target!r}"
+            raise TypeError(msg)
         if isinstance(target, (str, Path)):
             target_path = Path(target)
             suffix = target_path.suffix.lower()
@@ -1711,6 +1743,7 @@ class Container:
                 'folder'. If None, the current packaging is used.
             backup: If True, a backup of the original file is created.
             pretty: If True, the XML output will be pretty-printed.
+
         """
         parts = self.__parts
         packaging = self._clean_save_packaging(packaging)

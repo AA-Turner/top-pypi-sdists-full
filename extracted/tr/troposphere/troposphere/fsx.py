@@ -16,6 +16,19 @@ from .validators.fsx import (
 )
 
 
+class Backup(AWSObject):
+    """
+    `Backup <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-backup.html>`__
+    """
+
+    resource_type = "AWS::FSx::Backup"
+
+    props: PropsDictType = {
+        "FileSystemId": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
 class AutoExportPolicy(AWSProperty):
     """
     `AutoExportPolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-datarepositoryassociation-autoexportpolicy.html>`__
@@ -65,6 +78,17 @@ class DataRepositoryAssociation(AWSObject):
     }
 
 
+class DataRepositoryAssociationProperty(AWSProperty):
+    """
+    `DataRepositoryAssociationProperty <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filecache-datarepositoryassociation.html>`__
+    """
+
+    props: PropsDictType = {
+        "DataRepositoryPath": (str, True),
+        "FileCachePath": (str, True),
+    }
+
+
 class DataReadCacheConfiguration(AWSProperty):
     """
     `DataReadCacheConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-lustreconfiguration-datareadcacheconfiguration.html>`__
@@ -73,6 +97,17 @@ class DataReadCacheConfiguration(AWSProperty):
     props: PropsDictType = {
         "SizeGiB": (integer, False),
         "SizingMode": (str, False),
+    }
+
+
+class LogConfiguration(AWSProperty):
+    """
+    `LogConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-fsx-filesystem-lustreconfiguration-logconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Destination": (str, False),
+        "Level": (str, True),
     }
 
 
@@ -105,6 +140,7 @@ class LustreConfiguration(AWSProperty):
         "ExportPath": (str, False),
         "ImportPath": (str, False),
         "ImportedFileChunkSize": (integer, False),
+        "LogConfiguration": (LogConfiguration, False),
         "MetadataConfiguration": (MetadataConfiguration, False),
         "PerUnitStorageThroughput": (
             validate_lustreconfiguration_perunitstoragethroughput,
@@ -116,6 +152,27 @@ class LustreConfiguration(AWSProperty):
 
     def validate(self):
         validate_lustreconfiguration(self)
+
+
+class FileCache(AWSObject):
+    """
+    `FileCache <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-fsx-filecache.html>`__
+    """
+
+    resource_type = "AWS::FSx::FileCache"
+
+    props: PropsDictType = {
+        "CopyTagsToDataRepositoryAssociations": (boolean, False),
+        "DataRepositoryAssociations": ([DataRepositoryAssociationProperty], False),
+        "FileCacheType": (str, True),
+        "FileCacheTypeVersion": (str, True),
+        "KmsKeyId": (str, False),
+        "LustreConfiguration": (LustreConfiguration, False),
+        "SecurityGroupIds": ([str], False),
+        "StorageCapacity": (integer, True),
+        "SubnetIds": ([str], True),
+        "Tags": (Tags, False),
+    }
 
 
 class DiskIopsConfiguration(AWSProperty):

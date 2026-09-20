@@ -7,7 +7,7 @@
 
 
 from . import AWSObject, AWSProperty, PropsDictType, Tags
-from .validators import boolean, integer
+from .validators import boolean, double, integer
 from .validators.elasticache import (
     validate_cache_cluster,
     validate_network_port,
@@ -62,7 +62,7 @@ class LogDeliveryConfigurationRequest(AWSProperty):
 
 class CacheCluster(AWSObject):
     """
-    `CacheCluster <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-cache-cluster.html>`__
+    `CacheCluster <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-cachecluster.html>`__
     """
 
     resource_type = "AWS::ElastiCache::CacheCluster"
@@ -72,7 +72,6 @@ class CacheCluster(AWSObject):
         "AutoMinorVersionUpgrade": (boolean, False),
         "CacheNodeType": (str, True),
         "CacheParameterGroupName": (str, False),
-        "CacheSecurityGroupNames": ([str], False),
         "CacheSubnetGroupName": (str, False),
         "ClusterName": (str, False),
         "Engine": (str, True),
@@ -201,6 +200,7 @@ class ReplicationGroup(AWSObject):
         "CacheSubnetGroupName": (str, False),
         "ClusterMode": (str, False),
         "DataTieringEnabled": (boolean, False),
+        "Durability": (str, False),
         "Engine": (str, False),
         "EngineVersion": (str, False),
         "GlobalReplicationGroupId": (str, False),
@@ -234,6 +234,16 @@ class ReplicationGroup(AWSObject):
 
     def validate(self):
         validate_replication_group(self)
+
+
+class ReservedCacheNode(AWSObject):
+    """
+    `ReservedCacheNode <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-reservedcachenode.html>`__
+    """
+
+    resource_type = "AWS::ElastiCache::ReservedCacheNode"
+
+    props: PropsDictType = {}
 
 
 class SecurityGroup(AWSObject):
@@ -324,6 +334,7 @@ class ServerlessCache(AWSObject):
         "FinalSnapshotName": (str, False),
         "KmsKeyId": (str, False),
         "MajorEngineVersion": (str, False),
+        "NetworkType": (str, False),
         "ReaderEndpoint": (Endpoint, False),
         "SecurityGroupIds": ([str], False),
         "ServerlessCacheName": (str, True),
@@ -332,6 +343,21 @@ class ServerlessCache(AWSObject):
         "SubnetIds": ([str], False),
         "Tags": (Tags, False),
         "UserGroupId": (str, False),
+    }
+
+
+class ServerlessCacheSnapshot(AWSObject):
+    """
+    `ServerlessCacheSnapshot <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-elasticache-serverlesscachesnapshot.html>`__
+    """
+
+    resource_type = "AWS::ElastiCache::ServerlessCacheSnapshot"
+
+    props: PropsDictType = {
+        "KmsKeyId": (str, False),
+        "ServerlessCacheName": (str, True),
+        "ServerlessCacheSnapshotName": (str, True),
+        "Tags": (Tags, False),
     }
 
 
@@ -405,4 +431,27 @@ class ReadEndPoint(AWSProperty):
         "AddressesList": ([str], False),
         "Ports": (str, False),
         "PortsList": ([str], False),
+    }
+
+
+class RecurringCharge(AWSProperty):
+    """
+    `RecurringCharge <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-reservedcachenode-recurringcharge.html>`__
+    """
+
+    props: PropsDictType = {
+        "RecurringChargeAmount": (double, False),
+        "RecurringChargeFrequency": (str, False),
+    }
+
+
+class ServerlessCacheConfiguration(AWSProperty):
+    """
+    `ServerlessCacheConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-elasticache-serverlesscachesnapshot-serverlesscacheconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Engine": (str, False),
+        "MajorEngineVersion": (str, False),
+        "ServerlessCacheName": (str, False),
     }

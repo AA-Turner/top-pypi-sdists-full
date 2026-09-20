@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: poetry-plugin-export
-Version: 1.10.0
+Version: 1.10.1
 Summary: Poetry plugin to export the dependencies to various formats
 License-Expression: MIT
 License-File: LICENSE
@@ -13,6 +13,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3.14
+Classifier: Programming Language :: Python :: 3.15
 Requires-Dist: poetry (>=2.1.0,<3.0.0)
 Requires-Dist: poetry-core (>=2.1.0,<3.0.0)
 Requires-Dist: tomlkit (>=0.11.4,<1.0.0)

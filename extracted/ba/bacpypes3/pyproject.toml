@@ -35,7 +35,9 @@ yaml = ["PyYAML"]
 rdflib = ["rdflib"]
 pylibpcap = ["python-libpcap"]
 mcp = [
-    "mcp; python_version >= '3.10'",
+    # mcp 2.0 renamed FastMCP to MCPServer and moved transport params to
+    # run_*(); bacpypes3.mcp targets that API.
+    "mcp>=2; python_version >= '3.10'",
     "pydantic; python_version >= '3.10'",
 ]
 

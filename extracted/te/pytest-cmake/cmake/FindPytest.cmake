@@ -1,23 +1,47 @@
-# Discover required Pytest target.
+# FindPytest
+# ----------
 #
-# This module defines the following imported targets:
-#     Pytest::Pytest
-#
-# It also exposes the 'pytest_discover_tests' function, which adds CTest
-# test for each Pytest test. The "BUNDLE_PYTHON_TESTS" environment variable
-# can be used to run all discovered tests together.
+# Find the Pytest executable and expose helpers to register Python tests
+# with CTest.
 #
 # Usage:
-#     find_package(Pytest)
-#     find_package(Pytest REQUIRED)
-#     find_package(Pytest 4.6.11 REQUIRED)
+#     find_package(Pytest)                  # any version
+#     find_package(Pytest REQUIRED)         # fail if not found
+#     find_package(Pytest 4.6.11 REQUIRED)  # require at least this version
 #
-# Note:
-#     The Pytest_ROOT environment variable or CMake variable can be used to
-#     prepend a custom search path.
-#     (https://cmake.org/cmake/help/latest/policy/CMP0074.html)
+# Imported targets:
+#     Pytest::Pytest
+#         The 'pytest' executable, available when Pytest is found.
+#
+# Result variables:
+#     Pytest_FOUND
+#         True if a suitable Pytest executable was found.
+#     PYTEST_EXECUTABLE
+#         Path to the discovered 'pytest' executable.
+#     PYTEST_VERSION
+#         Version reported by the discovered executable.
+#
+# Functions:
+#     pytest_discover_tests(<name> ...)
+#         Collect the Python tests reachable from the current directory and
+#         register each of them as an individual CTest test (or as a single
+#         bundled test). See the online documentation for the full list of
+#         options.
+#
+# Environment variables:
+#     Pytest_ROOT
+#         Prepended to the search path used to locate the package.
+#         (https://cmake.org/cmake/help/latest/policy/CMP0074.html)
+#     BUNDLE_PYTHON_TESTS
+#         Overrides the 'BUNDLE_TESTS' option of pytest_discover_tests(),
+#         running all discovered tests together as a single CTest test.
+#     PYTHON_TEST_PATHS
+#         Overrides the 'TEST_PATHS' option of pytest_discover_tests(),
+#         selecting the files or directories searched for tests. Multiple
+#         paths are separated by the platform path-list separator
+#         (':' on UNIX, ';' on Windows).
 
-cmake_minimum_required(VERSION 3.20...4.2)
+cmake_minimum_required(VERSION 3.20...4.4)
 
 include(FindPackageHandleStandardArgs)
 
@@ -131,6 +155,13 @@ if (Pytest_FOUND AND NOT TARGET Pytest::Pytest)
         # Override option by environment variable if available.
         if (DEFINED ENV{BUNDLE_PYTHON_TESTS})
             set(_BUNDLE_TESTS $ENV{BUNDLE_PYTHON_TESTS})
+        endif()
+
+        # Override test paths by environment variable if available. The value
+        # is split on the platform path-list separator (':' on UNIX, ';' on
+        # Windows) to support multiple paths.
+        if (DEFINED ENV{PYTHON_TEST_PATHS})
+            cmake_path(CONVERT "$ENV{PYTHON_TEST_PATHS}" TO_CMAKE_PATH_LIST _TEST_PATHS)
         endif()
 
         # Define file paths for generated CMake include files.

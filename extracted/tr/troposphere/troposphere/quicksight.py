@@ -155,7 +155,7 @@ class AuthConfig(AWSProperty):
 
 class ResourcePermission(AWSProperty):
     """
-    `ResourcePermission <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-theme-resourcepermission.html>`__
+    `ResourcePermission <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-topicv2-resourcepermission.html>`__
     """
 
     props: PropsDictType = {
@@ -173,7 +173,7 @@ class ActionConnector(AWSObject):
 
     props: PropsDictType = {
         "ActionConnectorId": (str, True),
-        "AuthenticationConfig": (AuthConfig, False),
+        "AuthenticationConfig": (AuthConfig, True),
         "AwsAccountId": (str, True),
         "Description": (str, False),
         "Name": (str, True),
@@ -181,6 +181,77 @@ class ActionConnector(AWSObject):
         "Tags": (Tags, False),
         "Type": (str, True),
         "VpcConnectionArn": (str, False),
+    }
+
+
+class AgentTag(AWSProperty):
+    """
+    `AgentTag <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-agent-agenttag.html>`__
+    """
+
+    props: PropsDictType = {
+        "Key": (str, True),
+        "Value": (str, True),
+    }
+
+
+class CustomPromptInputParameters(AWSProperty):
+    """
+    `CustomPromptInputParameters <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-agent-custompromptinputparameters.html>`__
+    """
+
+    props: PropsDictType = {
+        "CustomInstructions": (str, False),
+        "Identity": (str, False),
+        "OutputStyle": (str, False),
+        "ResponseLength": (str, False),
+        "Tone": (str, False),
+    }
+
+
+class CustomPromptProfile(AWSProperty):
+    """
+    `CustomPromptProfile <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-agent-custompromptprofile.html>`__
+    """
+
+    props: PropsDictType = {
+        "ModelProfileId": (str, True),
+        "QbsAwsAccountId": (str, True),
+        "SubscriptionId": (str, True),
+    }
+
+
+class CustomPromptInput(AWSProperty):
+    """
+    `CustomPromptInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-agent-custompromptinput.html>`__
+    """
+
+    props: PropsDictType = {
+        "ExistingPrompt": (CustomPromptProfile, False),
+        "NewPrompt": (CustomPromptInputParameters, False),
+    }
+
+
+class Agent(AWSObject):
+    """
+    `Agent <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-quicksight-agent.html>`__
+    """
+
+    resource_type = "AWS::QuickSight::Agent"
+
+    props: PropsDictType = {
+        "ActionConnectors": ([str], False),
+        "AgentId": (str, True),
+        "AgentLifecycle": (str, False),
+        "AwsAccountId": (str, True),
+        "CustomPromptInput": (CustomPromptInput, False),
+        "Description": (str, False),
+        "IconId": (str, False),
+        "Name": (str, True),
+        "Spaces": ([str], False),
+        "StarterPrompts": ([str], False),
+        "Tags": ([AgentTag], False),
+        "WelcomeMessage": (str, False),
     }
 
 
@@ -6932,12 +7003,12 @@ class AnalysisError(AWSProperty):
 
 class DataSetReference(AWSProperty):
     """
-    `DataSetReference <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-template-datasetreference.html>`__
+    `DataSetReference <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-topicv2-datasetreference.html>`__
     """
 
     props: PropsDictType = {
         "DataSetArn": (str, True),
-        "DataSetPlaceholder": (str, True),
+        "DataSetName": (str, False),
     }
 
 
@@ -7065,12 +7136,101 @@ class Analysis(AWSObject):
     }
 
 
+class ApplicableTo(AWSProperty):
+    """
+    `ApplicableTo <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-approvalpolicy-applicableto.html>`__
+    """
+
+    props: PropsDictType = {
+        "GroupArns": ([str], False),
+        "Type": (dict, True),
+    }
+
+
+class ApprovalPolicy(AWSObject):
+    """
+    `ApprovalPolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-quicksight-approvalpolicy.html>`__
+    """
+
+    resource_type = "AWS::QuickSight::ApprovalPolicy"
+
+    props: PropsDictType = {
+        "Actions": (Tags, True),
+        "ApplicableTo": (ApplicableTo, True),
+        "ApprovalGroups": ([str], True),
+        "AssetTypes": (Tags, True),
+        "Description": (str, False),
+        "Name": (str, True),
+        "PolicyId": (str, True),
+    }
+
+
+class AssetBundleExportJob(AWSObject):
+    """
+    `AssetBundleExportJob <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-quicksight-assetbundleexportjob.html>`__
+    """
+
+    resource_type = "AWS::QuickSight::AssetBundleExportJob"
+
+    props: PropsDictType = {
+        "AssetBundleExportJobId": (str, True),
+        "AwsAccountId": (str, False),
+        "ExportFormat": (str, True),
+        "IncludeAllDependencies": (boolean, False),
+        "IncludeFolderMembers": (str, False),
+        "IncludeFolderMemberships": (boolean, False),
+        "IncludePermissions": (boolean, False),
+        "IncludeTags": (boolean, False),
+        "ResourceArns": ([str], True),
+    }
+
+
+class AssetBundleImportJobOverrideValidationStrategy(AWSProperty):
+    """
+    `AssetBundleImportJobOverrideValidationStrategy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-assetbundleimportjob-assetbundleimportjoboverridevalidationstrategy.html>`__
+    """
+
+    props: PropsDictType = {
+        "StrictModeForAllResources": (boolean, False),
+    }
+
+
+class AssetBundleImportSourceDescription(AWSProperty):
+    """
+    `AssetBundleImportSourceDescription <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-assetbundleimportjob-assetbundleimportsourcedescription.html>`__
+    """
+
+    props: PropsDictType = {
+        "S3Uri": (str, False),
+    }
+
+
+class AssetBundleImportJob(AWSObject):
+    """
+    `AssetBundleImportJob <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-quicksight-assetbundleimportjob.html>`__
+    """
+
+    resource_type = "AWS::QuickSight::AssetBundleImportJob"
+
+    props: PropsDictType = {
+        "AssetBundleImportJobId": (str, True),
+        "AssetBundleImportSource": (AssetBundleImportSourceDescription, False),
+        "AwsAccountId": (str, False),
+        "FailureAction": (str, False),
+        "OverrideValidationStrategy": (
+            AssetBundleImportJobOverrideValidationStrategy,
+            False,
+        ),
+    }
+
+
 class Capabilities(AWSProperty):
     """
     `Capabilities <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-custompermissions-capabilities.html>`__
     """
 
     props: PropsDictType = {
+        "AccessAppsNativeDataStore": (str, False),
         "Action": (str, False),
         "AddOrRunAnomalyDetectionForAnalyses": (str, False),
         "AmazonBedrockARSAction": (str, False),
@@ -7079,6 +7239,7 @@ class Capabilities(AWSProperty):
         "AmazonSThreeAction": (str, False),
         "Analysis": (str, False),
         "ApproveFlowShareRequests": (str, False),
+        "Apps": (str, False),
         "AsanaAction": (str, False),
         "Automate": (str, False),
         "BambooHRAction": (str, False),
@@ -7093,6 +7254,7 @@ class Capabilities(AWSProperty):
         "CreateAndUpdateAmazonBedrockFSAction": (str, False),
         "CreateAndUpdateAmazonBedrockKRSAction": (str, False),
         "CreateAndUpdateAmazonSThreeAction": (str, False),
+        "CreateAndUpdateApps": (str, False),
         "CreateAndUpdateAsanaAction": (str, False),
         "CreateAndUpdateBambooHRAction": (str, False),
         "CreateAndUpdateBoxAgentAction": (str, False),
@@ -7142,6 +7304,7 @@ class Capabilities(AWSProperty):
         "CreateDashboardExecutiveSummaryWithQ": (str, False),
         "CreateSPICEDataset": (str, False),
         "CreateSharedFolders": (str, False),
+        "CreateSpaces": (str, False),
         "Dashboard": (str, False),
         "EditVisualWithQ": (str, False),
         "ExportToCsv": (str, False),
@@ -7160,6 +7323,7 @@ class Capabilities(AWSProperty):
         "HuggingFaceAction": (str, False),
         "IncludeContentInScheduledReportsEmail": (str, False),
         "IntercomAction": (str, False),
+        "InvokeAppsAIInference": (str, False),
         "JiraAction": (str, False),
         "KnowledgeBase": (str, False),
         "LinearAction": (str, False),
@@ -7192,10 +7356,12 @@ class Capabilities(AWSProperty):
         "ShareAmazonBedrockKRSAction": (str, False),
         "ShareAmazonSThreeAction": (str, False),
         "ShareAnalyses": (str, False),
+        "ShareApps": (str, False),
         "ShareAsanaAction": (str, False),
         "ShareBambooHRAction": (str, False),
         "ShareBoxAgentAction": (str, False),
         "ShareCanvaAgentAction": (str, False),
+        "ShareChatAgents": (str, False),
         "ShareComprehendAction": (str, False),
         "ShareComprehendMedicalAction": (str, False),
         "ShareConfluenceAction": (str, False),
@@ -7234,6 +7400,7 @@ class Capabilities(AWSProperty):
         "ShareSharePointAction": (str, False),
         "ShareSlackAction": (str, False),
         "ShareSmartsheetAction": (str, False),
+        "ShareSpaces": (str, False),
         "ShareTextractAction": (str, False),
         "ShareZendeskAction": (str, False),
         "SlackAction": (str, False),
@@ -7303,6 +7470,83 @@ class CustomPermissions(AWSObject):
         "AwsAccountId": (str, True),
         "Capabilities": (Capabilities, False),
         "CustomPermissionsName": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
+class Customization(AWSObject):
+    """
+    `Customization <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-quicksight-customization.html>`__
+    """
+
+    resource_type = "AWS::QuickSight::Customization"
+
+    props: PropsDictType = {
+        "DefaultTheme": (str, True),
+        "Namespace": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
+class LabelActionMapping(AWSProperty):
+    """
+    `LabelActionMapping <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-dlpsetting-labelactionmapping.html>`__
+    """
+
+    props: PropsDictType = {
+        "Action": (str, True),
+        "LabelId": (str, True),
+        "LabelName": (str, True),
+    }
+
+
+class MicrosoftPurviewCredentials(AWSProperty):
+    """
+    `MicrosoftPurviewCredentials <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-dlpsetting-microsoftpurviewcredentials.html>`__
+    """
+
+    props: PropsDictType = {
+        "SecretArn": (str, True),
+    }
+
+
+class MicrosoftPurviewProviderConfig(AWSProperty):
+    """
+    `MicrosoftPurviewProviderConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-dlpsetting-microsoftpurviewproviderconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "Credentials": (MicrosoftPurviewCredentials, True),
+        "LabelActionMappings": ([LabelActionMapping], True),
+        "UnmappedAction": (str, True),
+    }
+
+
+class ProviderConfig(AWSProperty):
+    """
+    `ProviderConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-dlpsetting-providerconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "MicrosoftPurview": (MicrosoftPurviewProviderConfig, True),
+    }
+
+
+class DLPSetting(AWSObject):
+    """
+    `DLPSetting <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-quicksight-dlpsetting.html>`__
+    """
+
+    resource_type = "AWS::QuickSight::DLPSetting"
+
+    props: PropsDictType = {
+        "AwsAccountId": (str, False),
+        "DlpSettingId": (str, True),
+        "Enabled": (boolean, True),
+        "Name": (str, True),
+        "ProviderConfig": (ProviderConfig, True),
+        "ProviderOutageAction": (str, True),
+        "ProviderType": (str, True),
         "Tags": (Tags, False),
     }
 
@@ -8496,6 +8740,58 @@ class PhysicalTable(AWSProperty):
     }
 
 
+class UploadedDocumentMetadata(AWSProperty):
+    """
+    `UploadedDocumentMetadata <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-dataset-uploadeddocumentmetadata.html>`__
+    """
+
+    props: PropsDictType = {
+        "Name": (str, False),
+    }
+
+
+class InlineCustomInstruction(AWSProperty):
+    """
+    `InlineCustomInstruction <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-dataset-inlinecustominstruction.html>`__
+    """
+
+    props: PropsDictType = {
+        "InstructionText": (str, True),
+        "UploadedDocumentMetadata": (UploadedDocumentMetadata, False),
+    }
+
+
+class CustomInstruction(AWSProperty):
+    """
+    `CustomInstruction <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-dataset-custominstruction.html>`__
+    """
+
+    props: PropsDictType = {
+        "InlineCustomInstruction": (InlineCustomInstruction, False),
+    }
+
+
+class DataSetSemanticDescription(AWSProperty):
+    """
+    `DataSetSemanticDescription <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-dataset-datasetsemanticdescription.html>`__
+    """
+
+    props: PropsDictType = {
+        "Text": (str, True),
+    }
+
+
+class DataSetSemanticMetadata(AWSProperty):
+    """
+    `DataSetSemanticMetadata <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-dataset-datasetsemanticmetadata.html>`__
+    """
+
+    props: PropsDictType = {
+        "CustomInstructions": ([CustomInstruction], False),
+        "Description": (DataSetSemanticDescription, False),
+    }
+
+
 class RowLevelPermissionDataSet(AWSProperty):
     """
     `RowLevelPermissionDataSet <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-dataset-rowlevelpermissiondataset.html>`__
@@ -8546,6 +8842,69 @@ class RowLevelPermissionConfiguration(AWSProperty):
     }
 
 
+class AdditionalNotes(AWSProperty):
+    """
+    `AdditionalNotes <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-dataset-additionalnotes.html>`__
+    """
+
+    props: PropsDictType = {
+        "Text": (str, False),
+    }
+
+
+class ColumnDescription(AWSProperty):
+    """
+    `ColumnDescription <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-dataset-columndescription.html>`__
+    """
+
+    props: PropsDictType = {
+        "Text": (str, False),
+    }
+
+
+class ColumnSemanticType(AWSProperty):
+    """
+    `ColumnSemanticType <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-dataset-columnsemantictype.html>`__
+    """
+
+    props: PropsDictType = {
+        "GeographicalRole": (str, False),
+    }
+
+
+class ColumnSemanticProperty(AWSProperty):
+    """
+    `ColumnSemanticProperty <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-dataset-columnsemanticproperty.html>`__
+    """
+
+    props: PropsDictType = {
+        "AdditionalNotes": (AdditionalNotes, False),
+        "Description": (ColumnDescription, False),
+        "SemanticType": (ColumnSemanticType, False),
+    }
+
+
+class SharedColumnSemanticMetadata(AWSProperty):
+    """
+    `SharedColumnSemanticMetadata <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-dataset-sharedcolumnsemanticmetadata.html>`__
+    """
+
+    props: PropsDictType = {
+        "ColumnNames": ([str], False),
+        "ColumnProperties": ([ColumnSemanticProperty], True),
+    }
+
+
+class TableSemanticMetadata(AWSProperty):
+    """
+    `TableSemanticMetadata <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-dataset-tablesemanticmetadata.html>`__
+    """
+
+    props: PropsDictType = {
+        "ColumnMetadata": ([SharedColumnSemanticMetadata], False),
+    }
+
+
 class SemanticTable(AWSProperty):
     """
     `SemanticTable <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-dataset-semantictable.html>`__
@@ -8555,6 +8914,7 @@ class SemanticTable(AWSProperty):
         "Alias": (str, True),
         "DestinationTableId": (str, True),
         "RowLevelPermissionConfiguration": (RowLevelPermissionConfiguration, False),
+        "SemanticMetadata": (TableSemanticMetadata, False),
     }
 
 
@@ -8564,6 +8924,7 @@ class SemanticModelConfiguration(AWSProperty):
     """
 
     props: PropsDictType = {
+        "SemanticMetadata": ([DataSetSemanticMetadata], False),
         "TableMap": (dict, False),
     }
 
@@ -9021,6 +9382,33 @@ class DataSource(AWSObject):
     }
 
 
+class Permission(AWSProperty):
+    """
+    `Permission <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-flow-permission.html>`__
+    """
+
+    props: PropsDictType = {
+        "Actions": ([str], True),
+        "Principal": (str, True),
+    }
+
+
+class Flow(AWSObject):
+    """
+    `Flow <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-quicksight-flow.html>`__
+    """
+
+    resource_type = "AWS::QuickSight::Flow"
+
+    props: PropsDictType = {
+        "AwsAccountId": (str, True),
+        "Description": (str, False),
+        "FlowDefinition": (dict, True),
+        "Name": (str, True),
+        "Permissions": ([Permission], False),
+    }
+
+
 class Folder(AWSObject):
     """
     `Folder <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-quicksight-folder.html>`__
@@ -9036,6 +9424,163 @@ class Folder(AWSObject):
         "ParentFolderArn": (str, False),
         "Permissions": ([ResourcePermission], False),
         "SharingModel": (str, False),
+        "Tags": (Tags, False),
+    }
+
+
+class AccessControlConfiguration(AWSProperty):
+    """
+    `AccessControlConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-knowledgebase-accesscontrolconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "IsACLEnabled": (boolean, False),
+    }
+
+
+class KbTemplateConfiguration(AWSProperty):
+    """
+    `KbTemplateConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-knowledgebase-kbtemplateconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Template": (dict, False),
+    }
+
+
+class KnowledgeBaseConfiguration(AWSProperty):
+    """
+    `KnowledgeBaseConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-knowledgebase-knowledgebaseconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "TemplateConfiguration": (KbTemplateConfiguration, False),
+    }
+
+
+class AudioExtractionConfiguration(AWSProperty):
+    """
+    `AudioExtractionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-knowledgebase-audioextractionconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "AudioExtractionStatus": (str, True),
+    }
+
+
+class ImageExtractionConfiguration(AWSProperty):
+    """
+    `ImageExtractionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-knowledgebase-imageextractionconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ImageExtractionStatus": (str, True),
+    }
+
+
+class VideoExtractionConfiguration(AWSProperty):
+    """
+    `VideoExtractionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-knowledgebase-videoextractionconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "VideoExtractionStatus": (str, True),
+        "VideoExtractionType": (str, False),
+    }
+
+
+class MediaExtractionConfiguration(AWSProperty):
+    """
+    `MediaExtractionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-knowledgebase-mediaextractionconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "AudioExtractionConfiguration": (AudioExtractionConfiguration, False),
+        "ImageExtractionConfiguration": (ImageExtractionConfiguration, False),
+        "VideoExtractionConfiguration": (VideoExtractionConfiguration, False),
+    }
+
+
+class KnowledgeBase(AWSObject):
+    """
+    `KnowledgeBase <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-quicksight-knowledgebase.html>`__
+    """
+
+    resource_type = "AWS::QuickSight::KnowledgeBase"
+
+    props: PropsDictType = {
+        "AccessControlConfiguration": (AccessControlConfiguration, False),
+        "AwsAccountId": (str, True),
+        "DataSourceArn": (str, True),
+        "Description": (str, False),
+        "IsEmailNotificationOptedForIngestionFailures": (boolean, False),
+        "KnowledgeBaseConfiguration": (KnowledgeBaseConfiguration, True),
+        "KnowledgeBaseId": (str, True),
+        "MediaExtractionConfiguration": (MediaExtractionConfiguration, False),
+        "Name": (str, True),
+        "Permissions": ([ResourcePermission], False),
+        "PrimaryOwnerArn": (str, False),
+        "Tags": (Tags, False),
+    }
+
+
+class ProfileLimitValue(AWSProperty):
+    """
+    `ProfileLimitValue <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-limitsprofile-profilelimitvalue.html>`__
+    """
+
+    props: PropsDictType = {
+        "MaxValue": (double, True),
+        "Unit": (str, True),
+    }
+
+
+class LimitsProfile(AWSObject):
+    """
+    `LimitsProfile <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-quicksight-limitsprofile.html>`__
+    """
+
+    resource_type = "AWS::QuickSight::LimitsProfile"
+
+    props: PropsDictType = {
+        "AccountId": (str, True),
+        "Description": (str, False),
+        "ProfileName": (str, True),
+        "ResourceLimits": (dict, True),
+    }
+
+
+class IdentityProviderVpcConnectionProperties(AWSProperty):
+    """
+    `IdentityProviderVpcConnectionProperties <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-oauthclientapplication-identityprovidervpcconnectionproperties.html>`__
+    """
+
+    props: PropsDictType = {
+        "VpcConnectionArn": (str, True),
+    }
+
+
+class OAuthClientApplication(AWSObject):
+    """
+    `OAuthClientApplication <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-quicksight-oauthclientapplication.html>`__
+    """
+
+    resource_type = "AWS::QuickSight::OAuthClientApplication"
+
+    props: PropsDictType = {
+        "ClientId": (str, False),
+        "ClientSecret": (str, False),
+        "DataSourceType": (str, False),
+        "IdentityProviderVpcConnectionProperties": (
+            IdentityProviderVpcConnectionProperties,
+            False,
+        ),
+        "Name": (str, True),
+        "OAuthAuthorizationEndpointUrl": (str, False),
+        "OAuthClientApplicationId": (str, True),
+        "OAuthClientAuthenticationType": (str, True),
+        "OAuthScopes": (str, False),
+        "OAuthTokenEndpointUrl": (str, True),
         "Tags": (Tags, False),
     }
 
@@ -9088,6 +9633,35 @@ class RefreshSchedule(AWSObject):
         "AwsAccountId": (str, False),
         "DataSetId": (str, False),
         "Schedule": (RefreshScheduleMap, False),
+    }
+
+
+class SpaceResource(AWSProperty):
+    """
+    `SpaceResource <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-space-spaceresource.html>`__
+    """
+
+    props: PropsDictType = {
+        "ResourceArn": (str, True),
+        "ResourceType": (str, True),
+    }
+
+
+class Space(AWSObject):
+    """
+    `Space <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-quicksight-space.html>`__
+    """
+
+    resource_type = "AWS::QuickSight::Space"
+
+    props: PropsDictType = {
+        "AwsAccountId": (str, True),
+        "Description": (str, False),
+        "Name": (str, True),
+        "Permissions": ([ResourcePermission], False),
+        "Resources": ([SpaceResource], False),
+        "SpaceId": (str, True),
+        "Tags": (Tags, False),
     }
 
 
@@ -9369,7 +9943,7 @@ class Theme(AWSObject):
 
 class CustomInstructions(AWSProperty):
     """
-    `CustomInstructions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-topic-custominstructions.html>`__
+    `CustomInstructions <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-topicv2-custominstructions.html>`__
     """
 
     props: PropsDictType = {
@@ -9755,6 +10329,49 @@ class Topic(AWSObject):
     }
 
 
+class DataSetRelationEndpoint(AWSProperty):
+    """
+    `DataSetRelationEndpoint <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-topicv2-datasetrelationendpoint.html>`__
+    """
+
+    props: PropsDictType = {
+        "ColumnNames": ([str], True),
+        "DataSetArn": (str, True),
+    }
+
+
+class DataSetRelation(AWSProperty):
+    """
+    `DataSetRelation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-topicv2-datasetrelation.html>`__
+    """
+
+    props: PropsDictType = {
+        "Left": (DataSetRelationEndpoint, True),
+        "Right": (DataSetRelationEndpoint, True),
+    }
+
+
+class TopicV2(AWSObject):
+    """
+    `TopicV2 <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-quicksight-topicv2.html>`__
+    """
+
+    resource_type = "AWS::QuickSight::TopicV2"
+
+    props: PropsDictType = {
+        "AwsAccountId": (str, False),
+        "CustomInstructions": (CustomInstructions, False),
+        "DataSetRelations": ([DataSetRelation], False),
+        "DataSets": ([DataSetReference], False),
+        "Description": (str, False),
+        "FolderArns": ([str], False),
+        "Name": (str, False),
+        "Permissions": ([ResourcePermission], False),
+        "Tags": (Tags, False),
+        "TopicId": (str, False),
+    }
+
+
 class VPCConnection(AWSObject):
     """
     `VPCConnection <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-quicksight-vpcconnection.html>`__
@@ -9772,6 +10389,24 @@ class VPCConnection(AWSObject):
         "SubnetIds": ([str], False),
         "Tags": (Tags, False),
         "VPCConnectionId": (str, False),
+    }
+
+
+class CustomPromptInterface(AWSProperty):
+    """
+    `CustomPromptInterface <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-agent-custompromptinterface.html>`__
+    """
+
+    props: PropsDictType = {
+        "CustomInstructions": (str, False),
+        "Identity": (str, False),
+        "ModelProfileId": (str, False),
+        "OutputStyle": (str, False),
+        "PromptSummary": (str, False),
+        "QbsAwsAccountId": (str, False),
+        "ResponseLength": (str, False),
+        "SubscriptionId": (str, False),
+        "Tone": (str, False),
     }
 
 
@@ -9821,6 +10456,17 @@ class NetworkInterface(AWSProperty):
         "NetworkInterfaceId": (str, False),
         "Status": (str, False),
         "SubnetId": (str, False),
+    }
+
+
+class StepAliasMapping(AWSProperty):
+    """
+    `StepAliasMapping <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-quicksight-flow-stepaliasmapping.html>`__
+    """
+
+    props: PropsDictType = {
+        "StepAlias": (str, True),
+        "StepId": (str, True),
     }
 
 

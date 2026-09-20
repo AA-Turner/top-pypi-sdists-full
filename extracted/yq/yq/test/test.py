@@ -11,7 +11,7 @@ import unittest
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 from yq import cli, yq  # noqa
 
-USING_PYPY = True if platform.python_implementation() == "PyPy" else False
+USING_PYPY = platform.python_implementation() == "PyPy"
 
 yaml_with_tags = """
 foo: !vault |
@@ -49,7 +49,9 @@ lol10: &lol10 [*lol9,*lol9,*lol9,*lol9,*lol9,*lol9,*lol9,*lol9,*lol9]
 
 
 class TestYq(unittest.TestCase):
-    def run_yq(self, input_data, args, expect_exit_codes={os.EX_OK}, input_format="yaml"):
+    def run_yq(self, input_data, args, expect_exit_codes=None, input_format="yaml"):
+        if expect_exit_codes is None:
+            expect_exit_codes = {os.EX_OK}
         stdin, stdout = sys.stdin, sys.stdout
         try:
             if isinstance(input_data, str):
@@ -157,6 +159,13 @@ class TestYq(unittest.TestCase):
 
         self.assertEqual(self.run_yq(unusable_tty_input, ["--null-input", "-y", "."]), "null\n...\n")
 
+    def test_null_input_closed_on_error(self):
+        from unittest import mock
+
+        with mock.patch("yq.yq", side_effect=SystemExit(1)) as run:
+            self.run_yq("", ["--null-input", "."], expect_exit_codes={1})
+        self.assertTrue(run.call_args.kwargs["input_streams"][0].closed)
+
     @unittest.skipIf(subprocess.check_output(["jq", "--version"]) < b"jq-1.6", "Test options introduced in jq 1.6")
     def test_jq16_arg_passthrough(self):
         self.assertEqual(
@@ -176,16 +185,45 @@ class TestYq(unittest.TestCase):
         self.assertEqual(self.run_yq('{"a": 1}', ["-Cc", "."]), "")
 
     def fd_path(self, fh):
-        return "/dev/fd/{}".format(fh.fileno())
+        return f"/dev/fd/{fh.fileno()}"
 
     def test_multidocs(self):
-        self.assertEqual(self.run_yq("---\na: b\n---\nc: d", ["-y", "."]), "a: b\n---\nc: d\n")
+        self.assertEqual(self.run_yq("---\na: b\n---\nc: d", ["-y", "."]), "---\na: b\n---\nc: d\n")
         with tempfile.TemporaryFile() as tf, tempfile.TemporaryFile() as tf2:
             tf.write(b'{"a": "b"}')
             tf.seek(0)
             tf2.write(b'{"a": 1}')
             tf2.seek(0)
-            self.assertEqual(self.run_yq("", ["-y", ".a", self.fd_path(tf), self.fd_path(tf2)]), "b\n--- 1\n...\n")
+            self.assertEqual(
+                self.run_yq("", ["-y", ".a", self.fd_path(tf), self.fd_path(tf2)]), "---\nb\n---\n1\n...\n"
+            )
+
+    def test_leading_document_marker(self):
+        for mode in "-y", "-Y":
+            with self.subTest(mode=mode):
+                self.assertEqual(self.run_yq("a: b\n", [mode, "."]), "a: b\n")
+                self.assertEqual(self.run_yq("---\na: b\n", [mode, "."]), "---\na: b\n")
+                self.assertEqual(self.run_yq("%YAML 1.1\n---\na: b\n", [mode, "."]), "---\na: b\n")
+                self.assertTrue(self.run_yq("# header\n---\na: b\n", [mode, "."]).startswith("---\n"))
+                self.assertEqual(self.run_yq("a: b\n---\nc: d\n", [mode, "."]), "---\na: b\n---\nc: d\n")
+                self.assertEqual(self.run_yq("a: b\n", [mode, "., ."]), "---\na: b\n---\na: b\n")
+                self.assertEqual(self.run_yq("a: b\n---\nc: d\n", [mode, "select(.a)"]), "---\na: b\n")
+                self.assertEqual(self.run_yq("---\na: b\n", [mode, "empty"]), "")
+                self.assertEqual(self.run_yq("", [mode, "."]), "")
+
+    def test_document_marker_newline(self):
+        import yaml
+
+        for mode in "-y", "-Y":
+            for indent in [], ["--indentless"]:
+                for document in "hello", "42", "null", "[]", "{}", "[one, two]", "{a: b}":
+                    with self.subTest(mode=mode, indent=indent, document=document):
+                        result = self.run_yq(document, [mode, *indent, "--explicit-start", "."])
+                        self.assertTrue(result.startswith("---\n"), result)
+                        self.assertEqual(yaml.safe_load(result), yaml.safe_load(document))
+                        result = self.run_yq("a: b\n---\n" + document, [mode, *indent, "."])
+                        self.assertIn("\n---\n", result)
+                        self.assertNotIn("--- ", result)
 
     def test_datetimes(self):
         self.assertEqual(self.run_yq("- 2016-12-20T22:07:36Z\n", ["."]), "")
@@ -196,6 +234,105 @@ class TestYq(unittest.TestCase):
         self.assertEqual(self.run_yq("2016-12-20", ["."]), "")
         self.assertEqual(self.run_yq("2016-12-20", ["-y", "."]), "'2016-12-20'\n")
         self.assertEqual(self.run_yq("2016-12-20", ["-y", "--yml-out-ver=1.2", "."]), "2016-12-20\n...\n")
+
+    def test_yaml_frontmatter(self):
+        header = "---\ntitle: My First Post\ndate: 2026-09-18\ntags: [notes, guides]\ndraft: false\n"
+        body = "---\n# Hello World\nThis is the main content of the file.\n"
+        expected_header = header.replace("2026-09-18", "'2026-09-18'").replace("draft: false", "draft: true")
+        for flag in "--yaml-frontmatter", "-F":
+            self.assertEqual(self.run_yq(header + body, ["-Y", flag, ".draft = true"]), expected_header + body)
+        self.assertEqual(self.run_yq(header + body, ["-YF", ".draft = true"]), expected_header + body)
+        self.assertEqual(self.run_yq(header + body, ["-cYF", ".draft = true"]), expected_header + body)
+
+        # The body is not YAML and must never reach the scanner, even with control characters.
+        body = "--- # closing fence\n# Heading\n```\n[unclosed\n\t@invalid: :\n\x00\n---\n...\n  spaces  \nno final newline"
+        for mode in "-y", "-Y":
+            self.assertEqual(self.run_yq("---\na: b\n" + body, [mode, "-F", "."]), "---\na: b\n" + body)
+            self.assertEqual(
+                self.run_yq("a: b\n--- inline body\n[invalid", [mode, "-F", "."]),
+                "---\na: b\n--- inline body\n[invalid",
+            )
+
+    def test_yaml_frontmatter_boundaries(self):
+        for mode in "-y", "-Y":
+            for closing in "---\n", "---", "...\n", "... # end\n":
+                for header, expected in [("---\na: b\n", "a: b\n"), ("a: b\n", "a: b\n"), ("---\nhello\n", "hello\n")]:
+                    with self.subTest(mode=mode, header=header, closing=closing):
+                        self.assertEqual(self.run_yq(header + closing, [mode, "-F", "."]), "---\n" + expected + closing)
+            self.assertEqual(self.run_yq("---\n---\n# body", [mode, "-F", "."]), "---\nnull\n---\n# body")
+            self.assertEqual(self.run_yq("a: b\n", [mode, "-F", "."]), "a: b\n")
+            self.assertEqual(self.run_yq("---\na: b\n", [mode, "-F", "."]), "---\na: b\n")
+            for closing in "---\n", "...\n":
+                expected = "---\na: b\n...\n" + ("---\n" if closing == "---\n" else "") + "# body"
+                self.assertEqual(
+                    self.run_yq("---\na: b\n" + closing + "# body", [mode, "-F", "--explicit-end", "."]), expected
+                )
+        header = '# header\n---\ntext: |\n  ---\n  ...\nquoted: "---"\n'
+        body = "---\n# body\n"
+        self.assertEqual(
+            self.run_yq(header + body, ["-YF", "."]), header.replace("# header\n---", "---\n# header") + body
+        )
+
+    def test_yaml_frontmatter_json(self):
+        result = subprocess.check_output(
+            [sys.executable, "-m", "yq", "-F", "-r", ".title"],
+            input=b"---\ntitle: Hello\n---\n# body\n[invalid YAML",
+        )
+        self.assertEqual(result, b"Hello\n")
+
+    def test_yaml_frontmatter_streaming(self):
+        header = "---\na: b\n---\r\n"
+        expected_header = "---\na: c\n---\r\n"
+        # A body longer than several copy buffers, including a long line and no final newline.
+        body = "# body\r\n" + "x" * (256 * 1024) + "\r\ntrailing spaces  "
+        test = self
+
+        class StreamingInput(io.StringIO):
+            def seekable(self):
+                return False
+
+            def seek(self, *args):
+                raise AssertionError("Frontmatter streaming must not seek the input")
+
+            def read(self, size=-1):
+                test.assertGreater(size, 0, "The body must be read in bounded chunks")
+                test.assertLessEqual(size, 64 * 1024)
+                # The header must be processed before the body is read, and each chunk
+                # must be written before the next read instead of collecting the body.
+                test.assertEqual(sys.stdout.getvalue(), expected_header + body[: self.tell() - len(header)])
+                return super().read(size)
+
+        for mode in "-yF", "-YF":
+            with self.subTest(mode=mode):
+                result = self.run_yq(StreamingInput(header + body), [mode, '.a = "c"'])
+                self.assertEqual(result, expected_header + body)
+
+    def test_yaml_frontmatter_in_place(self):
+        with tempfile.NamedTemporaryFile() as first, tempfile.NamedTemporaryFile() as second:
+            body = b"---\r\n# Heading\r\n\r\n[invalid YAML\r\n" + b"x" * (256 * 1024)
+            body += b"\r\ntrailing spaces  \r\nno final newline"
+            for stream in first, second:
+                stream.write(b"---\r\na: b\r\n" + body)
+                stream.flush()
+            self.run_yq("", ["-iYF", '.a = "c"', first.name, second.name])
+            for stream in first, second:
+                stream.seek(0)
+                self.assertEqual(stream.read(), b"---\na: c\n" + body)
+
+            err = (
+                "yq: Error running jq: ValueError: --yaml-frontmatter requires the jq filter "
+                "to produce exactly one document."
+            )
+            for jq_filter, exit_code in [("empty", err), ("., .", err), ("[", 3)]:
+                self.run_yq("", ["-iYF", jq_filter, first.name], expect_exit_codes={exit_code})
+                first.seek(0)
+                self.assertEqual(first.read(), b"---\na: c\n" + body)
+
+            self.run_yq(
+                "",
+                ["-YF", ".", first.name, second.name],
+                expect_exit_codes={"yq: --yaml-frontmatter requires one input file, or --in-place for multiple files"},
+            )
 
     def test_unrecognized_tags(self):
         self.assertEqual(self.run_yq("!!foo bar\n", ["."]), "")
@@ -209,7 +346,7 @@ class TestYq(unittest.TestCase):
 
     def test_roundtrip_yaml(self):
         cfn_filename = os.path.join(os.path.dirname(__file__), "cfn.yml")
-        with io.open(cfn_filename) as fh:
+        with open(cfn_filename) as fh:
             self.assertEqual(self.run_yq("", ["-Y", ".", cfn_filename]), fh.read())
 
     def test_yaml_comment_roundtrip(self):
@@ -237,6 +374,81 @@ class TestYq(unittest.TestCase):
 
         self.assertNotIn(CommentPreservingLoader, get_loader(use_annotations=False).__mro__)
         self.assertIn(CommentPreservingLoader, get_loader(use_annotations=True).__mro__)
+
+    def test_yaml_comments_released_per_document(self):
+        from yq.loader import get_loader
+
+        documents = [
+            "# mapping\nvalue: 1 # inline\n# trailing mapping\n",
+            "# sequence\n- item # inline\n# trailing sequence\n",
+            "# scalar\nscalar # unattached inline\n# trailing scalar\n",
+            "# empty document\n",
+            "# empty collection\n[] # unattached inline\n",
+        ] * 100
+        source = "".join("---\n" + document for document in documents)
+        for expand_aliases in True, False:
+            with self.subTest(expand_aliases=expand_aliases):
+                loader = get_loader(use_annotations=True, expand_aliases=expand_aliases)(io.StringIO(source))
+                try:
+                    for _ in documents:
+                        self.assertTrue(loader.check_node())
+                        self.assertEqual(loader.yaml_comments, [])
+                        loader.construct_document(loader.get_node())
+                    self.assertFalse(loader.check_node())
+                    self.assertEqual(loader.yaml_comments, [])
+                finally:
+                    loader.dispose()
+
+    def test_yaml_comment_cleanup_preserves_leading_comments(self):
+        import yaml
+
+        from yq.dumper import get_dumper
+        from yq.loader import get_loader
+
+        source = "# first\nvalue: 1 # inline\n... # end first\n# second\n---\nvalue: 2 # keep\n"
+        for expand_aliases in True, False:
+            with self.subTest(expand_aliases=expand_aliases):
+                loader = get_loader(use_annotations=True, expand_aliases=expand_aliases)(io.StringIO(source))
+                try:
+                    self.assertTrue(loader.check_node())
+                    first = loader.construct_document(loader.get_node())
+                    # Advancing clears the completed document's comments before
+                    # scanning the next document's leading comments.
+                    self.assertTrue(loader.check_node())
+                    self.assertEqual([comment.value for comment in loader.yaml_comments], [" end first", " second"])
+                    second = loader.construct_document(loader.get_node())
+                    self.assertFalse(loader.check_node())
+                    self.assertEqual(loader.yaml_comments, [])
+                    self.assertEqual(
+                        yaml.dump_all(
+                            [first, second], Dumper=get_dumper(use_annotations=True), default_flow_style=False
+                        ),
+                        "# first\nvalue: 1 # inline\n---\n# second\nvalue: 2 # keep\n",
+                    )
+                finally:
+                    loader.dispose()
+
+    def test_yaml_comment_cleanup_preserves_single_document(self):
+        import yaml
+
+        from yq.dumper import get_dumper
+        from yq.loader import get_loader
+
+        for start in "", "---\n", "%YAML 1.2\n---\n":
+            for end in "", "...\n":
+                with self.subTest(start=start, end=end):
+                    source = "# leading\n" + start + "value: 1 # inline\n" + end
+                    document = yaml.load(source, Loader=get_loader(use_annotations=True))
+                    self.assertEqual(
+                        yaml.dump(document, Dumper=get_dumper(use_annotations=True), default_flow_style=False),
+                        "# leading\nvalue: 1 # inline\n",
+                    )
+
+    def test_yaml_comments_do_not_leak_between_documents(self):
+        for first in "scalar", "null", "[]", "{}":
+            with self.subTest(first=first):
+                source = "# unattached\n" + first + " # unattached inline\n# trailing\n---\n# second\nkey: value\n"
+                self.assertEqual(self.run_yq(source, ["-Y", "."]), "---\n" + first + "\n---\n# second\nkey: value\n")
 
     def test_in_place_yaml(self):
         with tempfile.NamedTemporaryFile() as tf, tempfile.NamedTemporaryFile() as tf2:
@@ -270,7 +482,7 @@ class TestYq(unittest.TestCase):
 
     def test_explicit_doc_markers(self):
         test_doc = os.path.join(os.path.dirname(__file__), "doc.yml")
-        self.assertTrue(self.run_yq("", ["-y", ".", test_doc]).startswith("yaml_struct"))
+        self.assertTrue(self.run_yq("", ["-y", ".", test_doc]).startswith("---\nyaml_struct"))
         self.assertTrue(self.run_yq("", ["-y", "--explicit-start", ".", test_doc]).startswith("---"))
         self.assertTrue(self.run_yq("", ["-y", "--explicit-end", ".", test_doc]).endswith("...\n"))
 
@@ -453,7 +665,7 @@ class TestYq(unittest.TestCase):
             ".inf",
             ".nan",
         ]
-        yaml_doc = "".join("- '{}'\n".format(value) for value in numeric_strings)
+        yaml_doc = "".join(f"- '{value}'\n" for value in numeric_strings)
         self.assertEqual(self.run_yq(yaml_doc, ["-y", "."]), yaml_doc)
 
     def test_yaml_1_2_leading_zero_integers(self):
@@ -466,8 +678,8 @@ class TestYq(unittest.TestCase):
                 for value in range(10):
                     literals.append("{}{:0{}d}".format(sign, value, width))
                     expected_values.append(-value if sign == "-" else value)
-        yaml_doc = "".join("- {}\n".format(literal) for literal in literals)
-        expected = "".join("- {}\n".format(value) for value in expected_values)
+        yaml_doc = "".join(f"- {literal}\n" for literal in literals)
+        expected = "".join(f"- {value}\n" for value in expected_values)
         self.assertEqual(self.run_yq(yaml_doc, ["-y", "--yml-out-ver=1.2", "."]), expected)
 
         self.assertEqual(self.run_yq("octal: 0o10", ["-y", "--yml-out-ver=1.2", "."]), "octal: 8\n")

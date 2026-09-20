@@ -19,7 +19,7 @@ import re  # noqa: F401
 import json
 
 from datetime import datetime
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr
+from pydantic import BaseModel, ConfigDict, Field, StrictBool, StrictInt, StrictStr
 from typing import Any, ClassVar, Dict, List, Optional
 from mixpeek.models.shared_triggers_models_trigger_status import SharedTriggersModelsTriggerStatus
 from mixpeek.models.shared_triggers_models_trigger_type import SharedTriggersModelsTriggerType
@@ -57,7 +57,8 @@ class SharedTriggersModelsTriggerModel(BaseModel):
     created_at: Optional[datetime] = Field(default=None, description="Creation timestamp")
     updated_at: Optional[datetime] = Field(default=None, description="Last update timestamp")
     created_by: Optional[StrictStr] = Field(default=None, description="User who created trigger")
-    __properties: ClassVar[List[str]] = ["trigger_id", "namespace_id", "internal_id", "action_type", "action_config", "trigger_type", "schedule_config", "status", "last_triggered_at", "last_execution_task_id", "next_scheduled_at", "execution_count", "consecutive_failures", "last_execution_status", "last_execution_error", "event_counter", "last_cooldown_at", "baseline_snapshot", "last_drift_measurement", "last_volume_measurement", "last_condition_check_at", "name", "description", "created_at", "updated_at", "created_by"]
+    is_overdue: StrictBool = Field(description="Whether this trigger is active, scheduled by next_scheduled_at (cron, interval, or conditional), and that time has already passed.  next_scheduled_at is naive (implicitly UTC) right after creation -- _calculate_next_cron (shared/triggers/utils.py) strips tzinfo before returning -- and aware once round-tripped through Mongo (tz_aware=True on both providers). Compare on the naive side so both cases work.")
+    __properties: ClassVar[List[str]] = ["trigger_id", "namespace_id", "internal_id", "action_type", "action_config", "trigger_type", "schedule_config", "status", "last_triggered_at", "last_execution_task_id", "next_scheduled_at", "execution_count", "consecutive_failures", "last_execution_status", "last_execution_error", "event_counter", "last_cooldown_at", "baseline_snapshot", "last_drift_measurement", "last_volume_measurement", "last_condition_check_at", "name", "description", "created_at", "updated_at", "created_by", "is_overdue"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -89,8 +90,10 @@ class SharedTriggersModelsTriggerModel(BaseModel):
         * `None` is only added to the output dict for nullable fields that
           were set at model initialization. Other fields with value `None`
           are ignored.
+        * OpenAPI `readOnly` fields are excluded.
         """
         excluded_fields: Set[str] = set([
+            "is_overdue",
         ])
 
         _dict = self.model_dump(
@@ -135,7 +138,8 @@ class SharedTriggersModelsTriggerModel(BaseModel):
             "description": obj.get("description"),
             "created_at": obj.get("created_at"),
             "updated_at": obj.get("updated_at"),
-            "created_by": obj.get("created_by")
+            "created_by": obj.get("created_by"),
+            "is_overdue": obj.get("is_overdue")
         })
         return _obj
 

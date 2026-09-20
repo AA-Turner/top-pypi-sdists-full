@@ -104,6 +104,15 @@ class STTClient(Protocol):
 #: the same set. The provider decides by the multipart FILENAME's extension,
 #: not by sniffing the bytes — an M4B audiobook is byte-identical MP4/AAC and
 #: is still refused purely for being called ``.m4b``.
+#: The provider's real request-body ceiling, in megabytes, when the catalog
+#: offering declares none. Measured against the live Groq endpoint on
+#: 2026-09-18: a 24.20 MB FLAC transcribed, a 27.0 MB FLAC came back
+#: ``413 Request Entity Too Large``. The catalog said 100 MB (Groq's dev-tier
+#: number), the lane chunked to 80% of that, and a two-hour audiobook died on
+#: its first chunk. A ceiling nobody measured is a guess, and the safe guess
+#: is the documented floor.
+DEFAULT_PROVIDER_AUDIO_LIMIT_MB: float = 25.0
+
 PROVIDER_ACCEPTED_AUDIO_SUFFIXES: frozenset[str] = frozenset({
     ".flac", ".mp3", ".mp4", ".mpeg", ".mpga", ".m4a", ".ogg", ".opus",
     ".wav", ".webm",
@@ -121,6 +130,26 @@ def provider_accepts_audio_container(filename: str) -> bool:
     file ask THIS question first and transcode when the answer is no.
     """
     return Path(filename).suffix.lower() in PROVIDER_ACCEPTED_AUDIO_SUFFIXES
+
+
+async def provider_audio_limit_mb(model: str) -> float:
+    """The byte ceiling THIS model's provider actually enforces, in MB.
+
+    🚨 One truth, not two. ``GroqSTT.execute`` reads the offering's
+    ``stt.max_file_size_mb`` and refuses above it; before this, callers that
+    had to CHUNK for the same ceiling carried their own copy of the number.
+    The copy said 100 and the provider said 25, so every chunk the audiobook
+    lane planned was three times too big (413, live, 2026-09-18).
+    """
+    from matrx_ai.catalog.resolve import resolve_call_profile
+
+    profile = await resolve_call_profile(model)
+    stt_meta = profile.offering_metadata.get("stt", {}) or {}
+    try:
+        limit = float(stt_meta.get("max_file_size_mb") or DEFAULT_PROVIDER_AUDIO_LIMIT_MB)
+    except (TypeError, ValueError):
+        limit = DEFAULT_PROVIDER_AUDIO_LIMIT_MB
+    return limit if limit > 0 else DEFAULT_PROVIDER_AUDIO_LIMIT_MB
 
 
 async def prepare_audio_file(
@@ -190,6 +219,7 @@ async def execute_stt(request: STTRequest) -> STTResult:
 
 
 __all__ = [
+    "DEFAULT_PROVIDER_AUDIO_LIMIT_MB",
     "PROVIDER_ACCEPTED_AUDIO_SUFFIXES",
     "STTClient",
     "STTRequest",
@@ -199,4 +229,5 @@ __all__ = [
     "duration_to_stt_input_units",
     "prepare_audio_file",
     "provider_accepts_audio_container",
+    "provider_audio_limit_mb",
 ]

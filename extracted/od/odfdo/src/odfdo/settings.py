@@ -43,7 +43,8 @@ class Settings(XmlPart):
         body = cast("OfficeSettings | None", self.get_element("//office:settings"))
         if isinstance(body, OfficeSettings):
             return body
-        raise TypeError("No OfficeSettings found")  # pragma: nocover
+        msg = "No OfficeSettings found"
+        raise TypeError(msg)
 
     @property
     def odf_office_version(self) -> str:
@@ -53,6 +54,7 @@ class Settings(XmlPart):
 
         Returns:
             str: The "office:version" value, or an empty string if not found.
+
         """
         odsettings = self.get_element("//office:document-settings")
         # "office:version" should be always present
@@ -70,6 +72,7 @@ class Settings(XmlPart):
 
         Returns:
         list[ConfigItemSet]: A list of `ConfigItemSet` objects.
+
         """
         return cast(
             "list[ConfigItemSet]", self.body.get_elements("config:config-item-set")
@@ -84,6 +87,7 @@ class Settings(XmlPart):
 
         Returns:
             dict: A dictionary representing the settings content.
+
         """
         body: OfficeSettings = cast("OfficeSettings", self.body)
         return body.as_dict()

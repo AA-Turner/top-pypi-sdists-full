@@ -21,6 +21,17 @@ class InputSwitchConfiguration(AWSProperty):
     }
 
 
+class MultiviewConfiguration(AWSProperty):
+    """
+    `MultiviewConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-channel-multiviewconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "AvailableLayouts": ([str], True),
+        "AvailableSources": ([str], True),
+    }
+
+
 class OutputHeaderConfiguration(AWSProperty):
     """
     `OutputHeaderConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-channel-outputheaderconfiguration.html>`__
@@ -44,7 +55,9 @@ class Channel(AWSObject):
         "Description": (str, False),
         "InputSwitchConfiguration": (InputSwitchConfiguration, False),
         "InputType": (str, False),
+        "MultiviewConfiguration": (MultiviewConfiguration, False),
         "OutputHeaderConfiguration": (OutputHeaderConfiguration, False),
+        "OutputLockingMode": (str, False),
         "Tags": (Tags, False),
     }
 
@@ -74,6 +87,110 @@ class ChannelPolicy(AWSObject):
         "ChannelGroupName": (str, True),
         "ChannelName": (str, True),
         "Policy": (dict, True),
+    }
+
+
+class S3DestinationConfig(AWSProperty):
+    """
+    `S3DestinationConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-harvestjob-s3destinationconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "BucketName": (str, True),
+        "DestinationPath": (str, True),
+    }
+
+
+class Destination(AWSProperty):
+    """
+    `Destination <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-harvestjob-destination.html>`__
+    """
+
+    props: PropsDictType = {
+        "S3Destination": (S3DestinationConfig, True),
+    }
+
+
+class HarvestedDashManifest(AWSProperty):
+    """
+    `HarvestedDashManifest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-harvestjob-harvesteddashmanifest.html>`__
+    """
+
+    props: PropsDictType = {
+        "ManifestName": (str, True),
+    }
+
+
+class HarvestedHlsManifest(AWSProperty):
+    """
+    `HarvestedHlsManifest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-harvestjob-harvestedhlsmanifest.html>`__
+    """
+
+    props: PropsDictType = {
+        "ManifestName": (str, True),
+    }
+
+
+class HarvestedLowLatencyHlsManifest(AWSProperty):
+    """
+    `HarvestedLowLatencyHlsManifest <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-harvestjob-harvestedlowlatencyhlsmanifest.html>`__
+    """
+
+    props: PropsDictType = {
+        "ManifestName": (str, True),
+    }
+
+
+class HarvestedManifests(AWSProperty):
+    """
+    `HarvestedManifests <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-harvestjob-harvestedmanifests.html>`__
+    """
+
+    props: PropsDictType = {
+        "DashManifests": ([HarvestedDashManifest], False),
+        "HlsManifests": ([HarvestedHlsManifest], False),
+        "LowLatencyHlsManifests": ([HarvestedLowLatencyHlsManifest], False),
+    }
+
+
+class HarvesterScheduleConfiguration(AWSProperty):
+    """
+    `HarvesterScheduleConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-harvestjob-harvesterscheduleconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "EndTime": (str, True),
+        "StartTime": (str, True),
+    }
+
+
+class HarvestJob(AWSObject):
+    """
+    `HarvestJob <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-harvestjob.html>`__
+    """
+
+    resource_type = "AWS::MediaPackageV2::HarvestJob"
+
+    props: PropsDictType = {
+        "ChannelGroupName": (str, True),
+        "ChannelName": (str, True),
+        "Description": (str, False),
+        "Destination": (Destination, True),
+        "HarvestJobName": (str, False),
+        "HarvestedManifests": (HarvestedManifests, True),
+        "OriginEndpointName": (str, True),
+        "ScheduleConfiguration": (HarvesterScheduleConfiguration, True),
+        "Tags": (Tags, False),
+    }
+
+
+class DashAvailabilityStartTimeConfiguration(AWSProperty):
+    """
+    `DashAvailabilityStartTimeConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashavailabilitystarttimeconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "FixedAvailabilityStartTime": (str, True),
     }
 
 
@@ -191,6 +308,7 @@ class ScteDash(AWSProperty):
 
     props: PropsDictType = {
         "AdMarkerDash": (str, False),
+        "ScteInManifests": (str, False),
     }
 
 
@@ -200,6 +318,11 @@ class DashManifestConfiguration(AWSProperty):
     """
 
     props: PropsDictType = {
+        "AudioTimelinePattern": (str, False),
+        "AvailabilityStartTimeConfiguration": (
+            DashAvailabilityStartTimeConfiguration,
+            False,
+        ),
         "BaseUrls": ([DashBaseUrl], False),
         "Compactness": (str, False),
         "DrmSignaling": (str, False),
@@ -216,6 +339,7 @@ class DashManifestConfiguration(AWSProperty):
         "SegmentTemplateFormat": (str, False),
         "SubtitleConfiguration": (DashSubtitleConfiguration, False),
         "SuggestedPresentationDelaySeconds": (integer, False),
+        "UriPathType": (str, False),
         "UtcTiming": (DashUtcTiming, False),
     }
 
@@ -237,6 +361,7 @@ class ScteHls(AWSProperty):
 
     props: PropsDictType = {
         "AdMarkerHls": (str, False),
+        "ScteInManifests": (str, False),
     }
 
 
@@ -264,6 +389,7 @@ class HlsManifestConfiguration(AWSProperty):
         "ProgramDateTimeIntervalSeconds": (integer, False),
         "ScteHls": (ScteHls, False),
         "StartTag": (StartTag, False),
+        "UriPathType": (str, False),
         "Url": (str, False),
         "UrlEncodeChildManifest": (boolean, False),
     }
@@ -282,6 +408,7 @@ class LowLatencyHlsManifestConfiguration(AWSProperty):
         "ProgramDateTimeIntervalSeconds": (integer, False),
         "ScteHls": (ScteHls, False),
         "StartTag": (StartTag, False),
+        "UriPathType": (str, False),
         "Url": (str, False),
         "UrlEncodeChildManifest": (boolean, False),
     }
@@ -358,6 +485,7 @@ class Scte(AWSProperty):
     """
 
     props: PropsDictType = {
+        "CustomAdTypes": ([str], False),
         "ScteFilter": ([str], False),
         "ScteInSegments": (str, False),
     }
@@ -371,6 +499,7 @@ class Segment(AWSProperty):
     props: PropsDictType = {
         "Encryption": (Encryption, False),
         "IncludeIframeOnlyStreams": (boolean, False),
+        "OutputTimestampMode": (str, False),
         "Scte": (Scte, False),
         "SegmentDurationSeconds": (integer, False),
         "SegmentName": (str, False),
@@ -399,7 +528,9 @@ class OriginEndpoint(AWSObject):
         "OriginEndpointName": (str, True),
         "Segment": (Segment, False),
         "StartoverWindowSeconds": (integer, False),
+        "StreamNameOutputMode": (str, False),
         "Tags": (Tags, False),
+        "UriSeparator": (str, False),
     }
 
 

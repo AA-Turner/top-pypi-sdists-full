@@ -515,6 +515,18 @@ class FleetMetric(AWSObject):
     }
 
 
+class Index(AWSObject):
+    """
+    `Index <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-index.html>`__
+    """
+
+    resource_type = "AWS::IoT::Index"
+
+    props: PropsDictType = {
+        "IndexName": (str, False),
+    }
+
+
 class AbortCriteria(AWSProperty):
     """
     `AbortCriteria <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-jobtemplate-abortcriteria.html>`__
@@ -593,17 +605,6 @@ class JobExecutionsRolloutConfig(AWSProperty):
     }
 
 
-class MaintenanceWindow(AWSProperty):
-    """
-    `MaintenanceWindow <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-jobtemplate-maintenancewindow.html>`__
-    """
-
-    props: PropsDictType = {
-        "DurationInMinutes": (integer, False),
-        "StartTime": (str, False),
-    }
-
-
 class PresignedUrlConfig(AWSProperty):
     """
     `PresignedUrlConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-jobtemplate-presignedurlconfig.html>`__
@@ -615,6 +616,30 @@ class PresignedUrlConfig(AWSProperty):
     }
 
 
+class MaintenanceWindow(AWSProperty):
+    """
+    `MaintenanceWindow <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-jobtemplate-maintenancewindow.html>`__
+    """
+
+    props: PropsDictType = {
+        "DurationInMinutes": (integer, False),
+        "StartTime": (str, False),
+    }
+
+
+class SchedulingConfig(AWSProperty):
+    """
+    `SchedulingConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-job-schedulingconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "EndBehavior": (str, False),
+        "EndTime": (str, False),
+        "MaintenanceWindows": ([MaintenanceWindow], False),
+        "StartTime": (str, False),
+    }
+
+
 class TimeoutConfig(AWSProperty):
     """
     `TimeoutConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-jobtemplate-timeoutconfig.html>`__
@@ -622,6 +647,33 @@ class TimeoutConfig(AWSProperty):
 
     props: PropsDictType = {
         "InProgressTimeoutInMinutes": (integer, True),
+    }
+
+
+class Job(AWSObject):
+    """
+    `Job <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-job.html>`__
+    """
+
+    resource_type = "AWS::IoT::Job"
+
+    props: PropsDictType = {
+        "AbortConfig": (AbortConfig, False),
+        "Description": (str, False),
+        "DestinationPackageVersions": ([str], False),
+        "Document": (str, False),
+        "DocumentParameters": (dict, False),
+        "DocumentSource": (str, False),
+        "JobExecutionsRetryConfig": (JobExecutionsRetryConfig, False),
+        "JobExecutionsRolloutConfig": (JobExecutionsRolloutConfig, False),
+        "JobId": (str, True),
+        "JobTemplateArn": (str, False),
+        "PresignedUrlConfig": (PresignedUrlConfig, False),
+        "SchedulingConfig": (SchedulingConfig, False),
+        "Tags": (Tags, False),
+        "TargetSelection": (str, False),
+        "Targets": ([str], True),
+        "TimeoutConfig": (TimeoutConfig, False),
     }
 
 
@@ -1017,13 +1069,13 @@ class SoftwarePackage(AWSObject):
 
 class S3Location(AWSProperty):
     """
-    `S3Location <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-softwarepackageversion-s3location.html>`__
+    `S3Location <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-stream-s3location.html>`__
     """
 
     props: PropsDictType = {
-        "Bucket": (str, True),
-        "Key": (str, True),
-        "Version": (str, True),
+        "Bucket": (str, False),
+        "Key": (str, False),
+        "Version": (str, False),
     }
 
 
@@ -1063,6 +1115,33 @@ class SoftwarePackageVersion(AWSObject):
         "Sbom": (Sbom, False),
         "Tags": (Tags, False),
         "VersionName": (str, False),
+    }
+
+
+class StreamFile(AWSProperty):
+    """
+    `StreamFile <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-stream-streamfile.html>`__
+    """
+
+    props: PropsDictType = {
+        "FileId": (integer, False),
+        "S3Location": (S3Location, False),
+    }
+
+
+class Stream(AWSObject):
+    """
+    `Stream <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-iot-stream.html>`__
+    """
+
+    resource_type = "AWS::IoT::Stream"
+
+    props: PropsDictType = {
+        "Description": (str, False),
+        "Files": ([StreamFile], True),
+        "RoleArn": (str, True),
+        "StreamId": (str, True),
+        "Tags": (Tags, False),
     }
 
 
@@ -1548,6 +1627,20 @@ class HttpUrlDestinationSummary(AWSProperty):
     }
 
 
+class InfluxDBDestinationProperties(AWSProperty):
+    """
+    `InfluxDBDestinationProperties <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicruledestination-influxdbdestinationproperties.html>`__
+    """
+
+    props: PropsDictType = {
+        "Endpoint": (str, True),
+        "InfluxDBVersion": (str, True),
+        "SecretId": (str, True),
+        "SecretKey": (str, False),
+        "SecretType": (str, False),
+    }
+
+
 class VpcDestinationProperties(AWSProperty):
     """
     `VpcDestinationProperties <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-iot-topicruledestination-vpcdestinationproperties.html>`__
@@ -1570,6 +1663,7 @@ class TopicRuleDestination(AWSObject):
 
     props: PropsDictType = {
         "HttpUrlProperties": (HttpUrlDestinationSummary, False),
+        "InfluxDBProperties": (InfluxDBDestinationProperties, False),
         "Status": (str, False),
         "VpcProperties": (VpcDestinationProperties, False),
     }

@@ -14,11 +14,6 @@ _supported_platforms = ("linux", "win32", "darwin")
 if _sys.platform not in _supported_platforms:
     _warnings.warn("unsupported platform", RuntimeWarning)
 
-#
-#
-#
 
+from . import core, util
 from .core import BACNET, BACnetGraph
-
-from . import core
-from . import util

@@ -90,12 +90,22 @@ class test_Channel:
         assert self.c.is_closing is False
         assert self.c.connection is None
 
-    def test_on_close(self):
+    @pytest.mark.parametrize(
+        "channel_is_closing, connection_is_closing, expect_error",
+        [(False, False, True), (True, False, False), (False, True, False)],
+    )
+    def test_on_close(self, channel_is_closing, connection_is_closing, expect_error):
         self.c._do_revive = Mock(name='_do_revive')
-        with pytest.raises(NotFound):
+        self.c.is_closing = channel_is_closing
+        self.conn.is_closing = connection_is_closing
+        if expect_error:
+            with pytest.raises(NotFound):
+                self.c._on_close(404, 'text', 50, 61)
+            self.c._do_revive.assert_called_with()
+        else:
             self.c._on_close(404, 'text', 50, 61)
+            self.c._do_revive.assert_not_called()
         self.c.send_method.assert_called_with(spec.Channel.CloseOk)
-        self.c._do_revive.assert_called_with()
 
     def test_on_close_ok(self):
         self.c.collect = Mock(name='collect')
@@ -391,6 +401,13 @@ class test_Channel:
             spec.Basic.Publish, 'Bssbb',
             (0, 'ex', 'rkey', False, False), 'msg',
         )
+
+    @pytest.mark.parametrize('exc_type', [socket.timeout, TimeoutError])
+    def test_basic_publish_timeout_is_connection_error(self, exc_type):
+        self.c.connection.transport.having_timeout = ContextMock()
+        self.c.send_method.side_effect = exc_type
+        with pytest.raises(RecoverableConnectionError, match='timed out'):
+            self.c._basic_publish('msg', 'ex', 'rkey')
 
     def test_basic_publish_confirm(self):
         self.c._confirm_selected = False

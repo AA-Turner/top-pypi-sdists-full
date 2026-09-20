@@ -1,7 +1,7 @@
 import json
 from copy import deepcopy
 from pathlib import Path
-from typing import List, Tuple
+from typing import Dict, List, Tuple
 from urllib.parse import urlparse
 
 from instagrapi import config
@@ -23,7 +23,7 @@ from instagrapi.types import Story, StoryArchiveDay, UserShort, Viewer
 
 
 class StoryMixin:
-    _stories_cache = {}  # pk -> object
+    _stories_cache: Dict[str, Story]
 
     def story_pk_from_url(self, url: str) -> str:
         """
@@ -465,7 +465,7 @@ class StoryMixin:
         filename = "%s.%s" % (filename, fname.rsplit(".", 1)[1]) if filename else fname
         path = Path(folder) / filename
 
-        response = self._send_public_request(url, stream=True, timeout=self.request_timeout)
+        response = self._send_public_request(url, stream=True, timeout=self.read_timeout)
         response.raise_for_status()
         return self._download_response_to_path(response, path)
 

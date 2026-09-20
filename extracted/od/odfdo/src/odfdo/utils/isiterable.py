@@ -33,7 +33,7 @@ from typing import Any
 
 
 def isiterable(instance: Any) -> bool:
-    """Checks if an object is iterable, excluding strings and bytes.
+    """Check if an object is iterable, excluding strings and bytes.
 
     This function considers strings and bytes objects as non-iterable, which is
     often the desired behavior when handling collections of items that might
@@ -45,6 +45,7 @@ def isiterable(instance: Any) -> bool:
     Returns:
         bool: True if the object is iterable (and not a string/bytes),
             False otherwise.
+
     """
     if isinstance(instance, (str, bytes)):
         return False

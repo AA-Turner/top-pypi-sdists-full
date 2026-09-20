@@ -62,7 +62,13 @@ jobs:
         run: |
           set -eu
           pkg_name=$(grep '^name = ' pyproject.toml | sed 's/name = "\(.*\)"/\1/')
-          version=$(grep '^version = ' pyproject.toml | sed 's/version = "\(.*\)"/\1/')
+          # The version is dynamic: hatchling reads __version__ from the
+          # package, so there is no `version = ` line in pyproject to grep.
+          version=$(uv run python -c "import sqlalchemy_cloudflare_d1; print(sqlalchemy_cloudflare_d1.__version__)")
+          if [ -z "$version" ]; then
+            echo "::error::could not determine package version" >&2
+            exit 1
+          fi
           echo "pkg-name=$pkg_name" >> $GITHUB_OUTPUT
           echo "version=$version" >> $GITHUB_OUTPUT
 
@@ -89,7 +95,8 @@ jobs:
           path: dist/
 
       - name: Publish package distributions to PyPI
-        uses: pypa/gh-action-pypi-publish@76f52bc884231f62b9a034ebfe128415bbaabdfc
+        # v1.14.2 - bundles twine 7.0.0, which understands Metadata-Version 2.5
+        uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33
         with:
           packages-dir: dist/
           verbose: true

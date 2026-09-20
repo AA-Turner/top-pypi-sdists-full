@@ -60,6 +60,7 @@ class TestSyncCreateRequest(unittest.TestCase):
                 provider_filters = { },
                 description = '',
                 max_objects_per_run = 1.0,
+                sync_concurrency = 1.0,
                 metadata = { }
             )
         else:

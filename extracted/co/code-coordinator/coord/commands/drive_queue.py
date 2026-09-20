@@ -53,6 +53,7 @@ from coord.drive_queue import (
     HOLD_SCOPE_ENTRY,
     HOLD_SCOPE_FLEET,
     MAX_BLOCKED_RESUMES,
+    PRODUCTION_TICK_INTERVAL_HINT_SECONDS,
     QUEUE_ALERT_ISSUE,
     QUEUE_ALERT_REPO,
     QUEUE_ALERT_STAGE,
@@ -78,7 +79,6 @@ from coord.drive_queue import (
     add_preflight_notice,
     apply_gate_status,
     build_board_view,
-    default_max_parallel,
     detect_unreachable_waits,
     diagnose_blocked_after,
     effective_max_fix_rounds,
@@ -86,6 +86,7 @@ from coord.drive_queue import (
     entry_key,
     find_cycle,
     fired_holds,
+    flag_shadows_config_warning,
     is_dispatch_failure_reason,
     is_merge_gate_block_reason,
     is_permanent_block_reason,
@@ -100,6 +101,8 @@ from coord.drive_queue import (
     plan_tick,
     remaining_fix_rounds,
     render_plan,
+    resolve_max_parallel,
+    resolve_max_parallel_per_repo,
     total_fix_round_budget,
     unreachable_wait_alert,
     validate_apply_gate,
@@ -2164,6 +2167,24 @@ def drive_queue_status(output_json: bool, config_path: Path) -> None:
     # nothing to say (the common, dangerous case a queue with free slots
     # sits in for hours) does the guaranteed-false-wait check get to speak.
     alert = _queue_alert() or _unreachable_wait_alert_dict(rows)
+    # #3413: `alert["created_at"]` (present only for a tick-raised record —
+    # `_unreachable_wait_alert_dict` is computed fresh on every call and
+    # carries no timestamp of its own) now survives an unbroken same-reason
+    # renewal (`_record_drive_escalation_local`'s #3413 fix) rather than
+    # being rewritten to "now" every tick that still finds it true. That
+    # makes its age mean "how long has THIS EXACT reason held, unbroken" —
+    # a `dellserver is cordoned` alert reading 23m old while the timer fires
+    # every 3 minutes is the tell that the tick is either not reaching this
+    # check or evaluating a cordon view that disagrees with reality, exactly
+    # the ambiguity that let a cleared release cordon's alert read as
+    # current for the incident this issue is named after. Presenting the
+    # STORED reason bare, with no age at all, is what let it read as live
+    # state instead.
+    alert_age_seconds: float | None = None
+    if alert is not None:
+        created_at = alert.get("created_at")
+        if isinstance(created_at, (int, float)):
+            alert_age_seconds = max(0.0, time.time() - created_at)
     held = fired_holds(entries_from_rows(rows))
     # #2587: read directly from the marker file, not from the last tick's
     # `TickPlan` — `status` may run between ticks (or on a machine that never
@@ -2178,6 +2199,11 @@ def drive_queue_status(output_json: bool, config_path: Path) -> None:
                     "total": len(rows),
                     "counts": counts,
                     "alert": alert,
+                    # #3413: how long the CURRENT alert reason has held,
+                    # unbroken — `None` when there is no alert, or the
+                    # alert is the synthetic #2944 wait-check (always fresh,
+                    # never latched, so it has nothing to measure).
+                    "alert_age_seconds": alert_age_seconds,
                     # #1757: typed, so a client (or a test) reads the gate
                     # without parsing the rendered sentence back out.
                     "held": [
@@ -2232,6 +2258,19 @@ def drive_queue_status(output_json: bool, config_path: Path) -> None:
         )
     if alert is not None:
         click.echo(f"alert: {alert.get('reason') or ''}")
+        if alert_age_seconds is not None:
+            # #3413: bare text reads as current state even when it is a
+            # tick's stale, unbroken-since-last-time finding — see this
+            # block's own comment above `alert_age_seconds` for the
+            # incident this closes.
+            click.echo(
+                f"  (this exact reason has held {_age_str(alert_age_seconds)} "
+                "straight — if that is longer than "
+                f"~{_age_str(PRODUCTION_TICK_INTERVAL_HINT_SECONDS)} "
+                "(production's tick cadence, "
+                "deploy/coord-drive-queue.timer), distrust it and "
+                "cross-check with `coord drive-queue tick --dry-run`)"
+            )
         for detail in (alert.get("gate_readings") or "").split(" | "):
             if detail:
                 click.echo(f"  {detail}")
@@ -3675,6 +3714,16 @@ def _escalate_roll_pending_expired(pending: RollPending, *, now: float) -> None:
 # self-cordon reason is ever active at a time, keyed by a wall-clock
 # `first_seen_at` this module controls directly rather than trusting
 # `drive_escalations.created_at`.
+#
+# #3413 update: `record_drive_escalation`'s `created_at=excluded.created_at`
+# above is no longer unconditional — an unbroken same-reason renewal now
+# PRESERVES it (`_record_drive_escalation_local`'s #3413 fix), so
+# `drive_escalations.created_at` itself now answers "how long has this
+# reason held" too, and `coord drive-queue status` shows it. This marker
+# file stays: it exists to DRIVE a one-time push past a threshold with its
+# own retry bookkeeping (`escalated_at`), which a bare timestamp field
+# cannot do on its own — but the excuse for not trusting
+# `drive_escalations.created_at` at all, given above, no longer holds.
 _SELF_CORDON_STATE_FILENAME = "self_cordon_escalation.json"
 
 #: How long the SAME drift reason must persist, unbroken, before this tick
@@ -3913,6 +3962,459 @@ def _escalate_persistent_self_cordon(
     state = dict(state)
     state["escalated_at"] = now
     _write_self_cordon_state(state)
+
+
+# ── #3413 defect 2: a tick that never EVALUATES must not report success ─────
+#
+# The incident's second, more dangerous half: `coord-drive-queue.timer` was
+# `active`, fired every ~3 minutes, and every `coord-drive-queue.service` run
+# reported `Result=success` — yet queue rows went 23-60 minutes without a
+# single re-evaluation (`reason_at` ages of 1401s/3609s/3609s), and a
+# hand-run `coord drive-queue tick` launched on the first attempt the moment
+# someone tried it.
+#
+# WHAT THIS DELIBERATELY DOES *NOT* CLAIM (#3413 review round 2). An earlier
+# attempt at this guard asserted a specific root cause — "the LockBusy branch
+# below is where every tick went" — and keyed its detection on how long an
+# UNBROKEN lock-contention streak had run. That is wrong twice over, and the
+# deployed unit's own config is what makes it wrong:
+#
+#   * `deploy/coord-drive-queue.service` sets `TimeoutStartSec=300`, so
+#     systemd SIGTERM/SIGKILLs the whole `coord drive-queue tick` process at
+#     300s. `coord/filelock.py`'s module docstring spells out the
+#     consequence: `flock` "is released by the kernel when the holding
+#     process dies", so a *systemd-invoked* tick cannot hold this lock much
+#     past ~300s no matter how hard it hangs. A 600s unbroken-contention bar
+#     was therefore unreachable for the very failure mode it was written for.
+#   * Worse, a streak that resets on every successful acquire cannot see the
+#     pattern the evidence actually supports. A tick that hangs, gets killed
+#     at 300s, and is replaced 180s later by a fresh tick that hangs on the
+#     IDENTICAL bug never accumulates more than a few minutes of contention
+#     — each new (doomed) holder resets the clock — while the queue still
+#     goes unevaluated for the better part of an hour. The incident's
+#     journal reported `Result=success`, not `Result=timeout`/`signal`,
+#     which does not fit a single 300s-killed holder either.
+#
+# So this guard is deliberately CAUSE-AGNOSTIC. It does not care whether a
+# tick lost the race for the lock, hung inside `plan_tick`, hung in a board
+# read, was killed by `TimeoutStartSec`, or short-circuited on some path not
+# yet written. It measures the ONE quantity the incident is actually defined
+# by and that every surface in the report agreed on: HOW LONG SINCE ANY TICK
+# LAST COMPLETED A REAL EVALUATION OF THE QUEUE. That is a single timestamp
+# on disk, not a per-process streak, so it SURVIVES ACROSS SEPARATE HOLDER
+# PIDs — a fresh process inheriting the same hang inherits the same clock,
+# which is exactly the case the streak version could never catch.
+#
+# `_note_drive_queue_evaluation` stamps it immediately after `plan_tick`
+# returns — the moment rows have provably been re-evaluated and their
+# `reason_at` re-stamped. Every tick checks it BEFORE doing anything else.
+#
+# Ruling in/out the systemd-vs-thin-client difference the issue also asks
+# about: `_fetch_cordons()` (`coord.machine_pause.cordons()`) is
+# daemon-aware — a thin client routes over HTTP to the daemon's `/pause`
+# endpoint, which itself calls the identical `local_cordons()` this systemd
+# unit calls in-process when it IS the daemon host (no `board_service`
+# configured for itself, per `coord.machine_pause`'s own module docstring).
+# Both paths resolve to the SAME on-disk cordon store on the SAME host with
+# no divergent view possible — so a stale CORDON READ is ruled out as the
+# cause. A tick that never reaches the cordon check at all is not, and that
+# is precisely what this measures.
+
+#: How long the queue may go without a completed evaluation before a tick
+#: treats it as a defect rather than as quiet health (#3413).
+#:
+#: RECONCILED AGAINST THE DEPLOYED UNIT, which is the whole point — see the
+#: section comment above for why the previous 600s bar was unreachable.
+#: Worst-case LEGITIMATE gap between two completed evaluations, adding up
+#: `deploy/coord-drive-queue.service` + `deploy/coord-drive-queue.timer`:
+#:
+#:     TimeoutStartSec=300     one tick hangs and is killed by systemd
+#:   + OnUnitActiveSec=3min    the timer's own cadence before the next fire
+#:   + AccuracySec=15s         the timer's permitted slop
+#:   + ~120s                   that next tick's own `_LAUNCH_TIMEOUT_SECONDS`
+#:   ─────────────
+#:   ≈ 615s
+#:
+#: 900s therefore tolerates ONE full hang-and-recover cycle with ~5 minutes
+#: of margin, and trips on the second — while still firing FAR inside the
+#: 23-60 minutes of row staleness the incident actually ran up. Unlike a
+#: contention streak, nothing resets this short of an evaluation that really
+#: completed, so the repeated-hang pattern crosses it on schedule.
+#:
+#: RECONCILED AGAINST `ROLL_PENDING_DEFAULT_TTL_SECONDS` (3600s) TOO, which
+#: is the other deployed bound this has to survive and the one that makes
+#: the naive version of this guard unable to fail at all.
+#:
+#: An active `RollPending` marker forces `reconcile_only` on EVERY periodic
+#: tick (`coord.commands.drive_queue`'s tick body) for up to a full hour
+#: before `_escalate_roll_pending_expired` treats it as stuck — and a
+#: capacity-0 tick returns at `plan_tick`'s step 3, BEFORE the step-4
+#: `waiting` walk that is the only thing that re-stamps a row's `reason_at`.
+#: That window (up to 3600s) covers the incident's entire observed staleness
+#: range (1401-3609s) almost exactly, and the incident happened during a live
+#: roll to v0.5.502 with the daemon host itself cordoned for it — precisely
+#: the condition that arms a marker. So a first cut of this guard that
+#: stamped the clock on every completed tick would have been reset by each of
+#: those roll-held ticks and could never have crossed a 900s bar, for what is
+#: at least as plausible a cause as anything else considered here.
+#:
+#: Rather than inflate 900s past 3600s — which would have thrown away the
+#: fast detection this exists for, in every non-roll case — the clock PAUSES
+#: for deliberate holds instead of resetting: `_note_drive_queue_hold`
+#: credits held time, `_note_drive_queue_evaluation` (a real step-4 walk) is
+#: the only thing that zeroes it. See `_drive_queue_evaluation_staleness`.
+#: A roll can therefore hold the queue for its full hour without tripping
+#: this, and the instant the hold lifts the clock RESUMES from where it
+#: paused rather than starting over — so a queue that comes out of a roll
+#: and then silently fails to walk still trips 900s later, not 900s after a
+#: hold it has already left.
+#:
+#: The holds themselves stay bounded by their OWN, louder guards rather than
+#: by this one: `ROLL_PENDING_DEFAULT_TTL_SECONDS` + `_escalate_roll_pending_
+#: expired` + the cumulative `RollLedger` bound for a pending roll,
+#: `_escalate_persistent_self_cordon` (30 min) for a fleet-scoped HELD gate
+#: or self-cordon. Being at capacity is not bounded at all, because it is
+#: the queue working exactly as intended.
+DRIVE_QUEUE_EVALUATION_STALE_AFTER_SECONDS = 900.0
+
+#: The most "the queue was deliberately held" one tick may excuse (#3413).
+#:
+#: A hold is only ever OBSERVED at the instant a tick completes under it, so
+#: only the gap BETWEEN two observed-held ticks is ever credited at all (see
+#: `_note_drive_queue_hold`). Capping even that keeps a single held tick from
+#: excusing an unbounded silence: if two consecutive held ticks are more than
+#: a full window apart, ticks were MISSING in between, and missing ticks are
+#: not a hold — that is the very defect this measures.
+DRIVE_QUEUE_HOLD_CREDIT_CAP_SECONDS = DRIVE_QUEUE_EVALUATION_STALE_AFTER_SECONDS
+
+_DRIVE_QUEUE_EVALUATION_FILENAME = "drive_queue_evaluation.json"
+
+#: #3413's own escalation key — distinct from `QUEUE_ALERT_REPO` (the
+#: routine per-tick `plan.alert`, which by definition cannot be written by a
+#: tick that never reached `plan_tick`) and from
+#: `SELF_CORDON_ALERT_REPO`/`ROLL_PENDING_ALERT_REPO`: one slot per
+#: independent "this must be loud" condition, same pattern as both.
+EVALUATION_STALE_ALERT_REPO = "(drive-queue-not-evaluating)"
+EVALUATION_STALE_ALERT_ISSUE = 0
+EVALUATION_STALE_ALERT_STAGE = "queue-not-evaluating"
+
+
+def _drive_queue_evaluation_path() -> Path:
+    """Absolute path to the last-completed-evaluation marker (#3413).
+
+    ``$COORD_DRIVE_QUEUE_EVALUATION_STATE`` overrides it — same
+    test-isolation seam as :func:`roll_pending_path`/`_self_cordon_state_path`;
+    never let a test touch the operator's real
+    ``~/.coord/drive_queue_evaluation.json``.
+    """
+    import os  # noqa: PLC0415
+
+    from coord.platform_paths import default_coord_dir  # noqa: PLC0415
+
+    override = os.environ.get("COORD_DRIVE_QUEUE_EVALUATION_STATE")
+    if override:
+        return Path(override).expanduser()
+    return default_coord_dir() / _DRIVE_QUEUE_EVALUATION_FILENAME
+
+
+def _read_drive_queue_evaluation() -> dict | None:
+    """The current marker, or ``None``.
+
+    Fail-soft on anything unreadable — same posture as
+    :func:`_read_self_cordon_state`: a marker this can't parse must read as
+    "no evaluation clock yet", never as a reason to change the tick's exit
+    code.
+    """
+    path = _drive_queue_evaluation_path()
+    try:
+        raw = path.read_text(encoding="utf-8")
+    except FileNotFoundError:
+        return None
+    except OSError:
+        return None
+    if not raw.strip():
+        return None
+    try:
+        data = _json.loads(raw)
+    except ValueError:
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def _write_drive_queue_evaluation(data: dict) -> None:
+    path = _drive_queue_evaluation_path()
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(_json.dumps(data, sort_keys=True), encoding="utf-8")
+    except OSError:
+        pass
+
+
+def _fresh_evaluation_state(now: float) -> dict:
+    """The marker as it looks right after a real walk (#3413)."""
+    return {
+        "last_evaluated_at": now,
+        "escalated_at": None,
+        # Held-time accounting, all relative to `last_evaluated_at` above and
+        # therefore all zeroed by the same walk that sets it.
+        "held_seconds": 0.0,
+        "held_since": None,
+        "held_reason": "",
+    }
+
+
+def _note_drive_queue_evaluation(now: float) -> None:
+    """Stamp "a tick just completed a real WALK of the queue" (#3413).
+
+    Called after :func:`coord.drive_queue.plan_tick` returns AND ONLY WHEN
+    ``plan.walked_queue`` is true — not on entry, not merely on "the process
+    started", and (the #3413 review's blocking finding) not on a tick that
+    completed without reaching the walk at all. Step 4 is the step that
+    visits every ``waiting`` row and produces the writes that re-stamp their
+    ``reason_at``, so ``walked_queue`` is the earliest point the claim in
+    this function's name is actually true. A tick that dies, hangs until
+    `TimeoutStartSec` kills it, or returns early from one of `plan_tick`'s
+    five pre-walk exits deliberately leaves the previous stamp in place,
+    which is what lets the NEXT tick — a different process entirely — see
+    the gap.
+
+    Also drops ``escalated_at`` and the held-time accounting: a completed
+    walk ends whatever staleness episode was in progress, so a later episode
+    escalates afresh instead of being deduplicated against a resolved one.
+    """
+    _write_drive_queue_evaluation(_fresh_evaluation_state(now))
+
+
+def _note_drive_queue_hold(now: float, reason: str) -> None:
+    """Record "a tick completed, but deliberately did not walk the queue".
+
+    #3413's answer to the review finding that the old unconditional stamp was
+    blind to `reconcile_only` — most importantly the roll-pending-forced kind,
+    which can hold every tick for up to `ROLL_PENDING_DEFAULT_TTL_SECONDS`
+    (3600s, a full hour) while rows' `reason_at` ages exactly as it did in the
+    incident.
+
+    The distinction this draws is the honest one, and it is deliberately NOT
+    "did the tick succeed": these ticks succeeded, and they did real work
+    (`plan_tick` steps 1/1b reconcile under every one of these holds). What
+    they did not do is walk the `waiting` rows, so they may not claim the
+    queue was evaluated.
+
+    Crediting rather than stamping is the whole point. The clock PAUSES for
+    the held window instead of restarting, so:
+
+    * a legitimate hour-long roll never trips
+      :data:`DRIVE_QUEUE_EVALUATION_STALE_AFTER_SECONDS`, and
+    * the moment the hold lifts, the clock resumes from where it paused —
+      a queue that comes out of a roll and then silently stops walking is
+      caught one window later, not one window after a hold it has left.
+
+    An unbroken reset (what a naive "stamp a different key" fix would do)
+    would restore exactly the blindness the review rejected.
+    """
+    state = _read_drive_queue_evaluation()
+    if not isinstance(state, dict) or not isinstance(
+        state.get("last_evaluated_at"), (int, float)
+    ):
+        # No baseline to pause against — seed one, same posture as
+        # `_drive_queue_evaluation_staleness`. A hold is not evidence the
+        # queue is broken, so it must not manufacture staleness either.
+        _write_drive_queue_evaluation(_fresh_evaluation_state(now))
+        return
+    state = dict(state)
+    accrued = state.get("held_seconds")
+    if not isinstance(accrued, (int, float)) or accrued < 0:
+        accrued = 0.0
+    previous = state.get("held_since")
+    if isinstance(previous, (int, float)):
+        # A hold was already observed; the gap since that observation is
+        # credibly held time.
+        credit = min(max(0.0, now - float(previous)), DRIVE_QUEUE_HOLD_CREDIT_CAP_SECONDS)
+    else:
+        # FIRST tick to observe this hold: it establishes the epoch and
+        # excuses NOTHING. Only time between two observed-held ticks is
+        # credited, never the gap back to the last walk — that gap is
+        # exactly where a queue that silently stopped walking BEFORE a roll
+        # was armed would hide, and crediting it would re-open the blindness
+        # this whole mechanism exists to close. The cost is that the first
+        # ~one tick interval of every genuine hold counts against the clock,
+        # which is far inside the 900s bar.
+        credit = 0.0
+    state["held_seconds"] = float(accrued) + credit
+    state["held_since"] = now
+    state["held_reason"] = reason
+    _write_drive_queue_evaluation(state)
+
+
+def _drive_queue_evaluation_staleness(now: float) -> float:
+    """Seconds the queue has gone UNWALKED, excluding deliberate holds (#3413).
+
+    ``(now - last_evaluated_at) - held_seconds``: wall-clock since the last
+    real walk, minus the time a tick actually observed the queue to be
+    deliberately held (see :func:`_note_drive_queue_hold`). Held time is
+    subtracted rather than resetting the baseline, so a hold pauses this
+    clock and never rewinds it.
+
+    Seeds the marker at *now* (returning ``0.0``) when there is none — a
+    fresh install, or a host whose marker was wiped, has no baseline to
+    measure against and must not be reported as stale on the strength of a
+    missing file. The seed gives the very next tick a real baseline, so a
+    host that is wedged from its first tick onward still trips the guard one
+    full window later rather than never.
+    """
+    state = _read_drive_queue_evaluation()
+    last = state.get("last_evaluated_at") if isinstance(state, dict) else None
+    if not isinstance(last, (int, float)):
+        _write_drive_queue_evaluation(_fresh_evaluation_state(now))
+        return 0.0
+    held = state.get("held_seconds") if isinstance(state, dict) else None
+    if not isinstance(held, (int, float)) or held < 0:
+        held = 0.0
+    return max(0.0, (now - float(last)) - float(held))
+
+
+def _escalate_stale_drive_queue_evaluation(
+    *,
+    age_seconds: float,
+    now: float,
+    config_path: Path | None,
+    blocked: bool,
+    dry_run: bool = False,
+) -> None:
+    """Push a durable, visible escalation once the queue has gone
+    :data:`DRIVE_QUEUE_EVALUATION_STALE_AFTER_SECONDS` without a completed
+    evaluation (#3413).
+
+    Mirrors `_escalate_persistent_self_cordon`'s shape, one condition
+    earlier: that function escalates a `plan_tick` finding that keeps
+    recomputing to the same answer tick after tick; this one escalates the
+    queue not being evaluated AT ALL, whatever the reason.
+
+    ``blocked`` distinguishes the two callers, because they warrant
+    different operator advice and different exit codes:
+
+    * ``True``  — this tick could not even take the lock, so it is itself a
+      pure no-op on top of an already-stale queue. The caller raises, so the
+      systemd unit reports `Result=exit-code` instead of `Result=success`.
+    * ``False`` — this tick DID take the lock and is about to evaluate. The
+      staleness is a report on the window that just elapsed, not a reason to
+      fail a run that is doing real work; the caller carries on. If this
+      tick then hangs too, `TimeoutStartSec` makes that loud on its own
+      (`Result=timeout`), and the next tick sees the same unmoved stamp.
+
+    Fires once per staleness episode (``escalated_at`` gates re-firing);
+    :func:`_note_drive_queue_evaluation` clears that gate the moment an
+    evaluation completes, so a recurrence escalates again.
+
+    Under ``dry_run`` the warning is still printed — it is the single most
+    useful thing `tick --dry-run` can tell an operator who reached for it
+    because the queue went quiet — but nothing durable is written and no
+    push is sent, because `--dry-run`'s contract is that it takes no
+    external action. The dedup marker is left untouched too, so a real tick
+    still escalates properly afterwards.
+    """
+    from coord.state import record_drive_escalation  # noqa: PLC0415
+
+    state = _read_drive_queue_evaluation() or {}
+    if state.get("escalated_at") is not None and not dry_run:
+        return
+    if dry_run:
+        tail = (
+            "this is a --dry-run, so nothing has been recorded or pushed — "
+            "run `coord drive-queue tick` for real to act on it."
+        )
+    elif blocked:
+        tail = (
+            "this tick could not take the drive-queue lock either, so it "
+            "changed nothing and is failing rather than reporting success."
+        )
+    else:
+        tail = (
+            "this tick did take the lock and is evaluating now, but the "
+            "window above went unevaluated."
+        )
+    detail = (
+        f"no drive-queue tick has walked the queue in "
+        f"{age_seconds / 60:.0f}+ minutes, while coord-drive-queue.timer "
+        "fires every ~3 minutes (deploy/coord-drive-queue.timer) — so "
+        "ticks have been running and returning without evaluating a single "
+        "queue row, which reads from every operator surface as a queue that "
+        "is simply idle (#3413). Time the queue was DELIBERATELY held (a "
+        "pending roll, a release cordon, a fleet-scoped deploy gate, being "
+        "at capacity, --reconcile-only) is already excluded from that "
+        f"figure, so this is not a roll in progress. {tail} Check "
+        "`systemctl --user status "
+        "coord-drive-queue.service` for Result=timeout/signal (a tick "
+        "hanging past TimeoutStartSec=300 and being killed), `coord "
+        "drive-queue status` for a queue alert whose age exceeds the tick "
+        "interval, and `coord drive-queue tick --dry-run` for what a live "
+        "evaluation actually says."
+    )
+    if dry_run:
+        # `--dry-run` promises no external action: warn, write nothing.
+        click.echo(f"warning: {detail}", err=True)
+        return
+    try:
+        record_drive_escalation(
+            EVALUATION_STALE_ALERT_REPO,
+            EVALUATION_STALE_ALERT_ISSUE,
+            stage=EVALUATION_STALE_ALERT_STAGE,
+            reason=detail,
+            gate_readings=f"seconds_since_last_evaluation={age_seconds:.0f}",
+            proposed_command="systemctl --user restart coord-drive-queue.service",
+        )
+    except Exception as exc:  # noqa: BLE001 — an escalation table that cannot
+        # be written must not take the message down with it, same guard
+        # `_escalate_roll_pending_expired`/`_push_self_cordon_escalation` use.
+        click.echo(f"  (could not record the stale-evaluation escalation: {exc})", err=True)
+    click.echo(f"warning: {detail}", err=True)
+
+    # Best-effort live push, same transport/isolation contract
+    # `_push_self_cordon_escalation` uses just above — a broken/unconfigured
+    # notifier must never take the tick down with it, but a genuinely failed
+    # send (as opposed to "nothing configured") must leave `escalated_at`
+    # unset so the NEXT tick in this same episode retries rather than
+    # forfeiting the one channel most likely to actually reach someone while
+    # unattended.
+    pushed = True
+    try:
+        from coord.commands._common import _load_config  # noqa: PLC0415
+        from coord.notifier.models import Message  # noqa: PLC0415
+        from coord.notifier.transport import build_transport, safe_send  # noqa: PLC0415
+
+        cfg = _load_config(config_path)
+        notif = getattr(cfg, "notifications", None)
+        if notif is not None and getattr(notif, "enabled", False):
+            transport = build_transport(notif)
+            result = safe_send(
+                transport,
+                Message(
+                    title="coord drive-queue: not evaluating",
+                    body=detail,
+                    tags=("rotating_light",),
+                    priority=4,
+                ),
+            )
+            if not result.ok:
+                pushed = False
+                click.echo(
+                    "  (stale-evaluation escalation push failed, will retry next "
+                    f"tick: {result.error or 'unknown transport failure'})",
+                    err=True,
+                )
+    except Exception as exc:  # noqa: BLE001 — this is an ADDITION on top of
+        # the drive_escalations record above (already attempted); a broken
+        # import/config here must never take the tick down with it, but it
+        # also means the push never happened, so treat it like a failed
+        # send: retry next tick.
+        pushed = False
+        click.echo(f"  (could not push the stale-evaluation escalation: {exc})", err=True)
+
+    if not pushed:
+        return
+    state = dict(state)
+    state["escalated_at"] = now
+    _write_drive_queue_evaluation(state)
 
 
 def _fetch_board_payload() -> dict:
@@ -5611,6 +6113,15 @@ def drive_queue_tick(
     slow tick must never stack, and two ticks seconds apart are safe: a drive
     launched inside the startup grace window reconciles as `starting`
     (occupying a slot, attempts untouched) rather than as a death (#1794).
+    #3413: that quiet exit-0 no-op holds only while the QUEUE ITSELF is still
+    being evaluated on schedule. Every tick first reads how long it has been
+    since any tick last WALKED THE QUEUE
+    (`DRIVE_QUEUE_EVALUATION_STALE_AFTER_SECONDS`, below) — a cross-process
+    timestamp, not a per-process streak — and once that exceeds one full
+    hang-and-recover cycle of the deployed unit, a tick that ALSO cannot take
+    the lock raises instead of exiting 0. A queue nobody has evaluated for
+    the better part of an hour while the timer reports `Result=success` every
+    three minutes is the incident this closes.
     Two ticks on DIFFERENT machines are also safe: liveness is always a local
     `tmux` read, so a tick reconciles only the entries it itself launched —
     one launched elsewhere reads as `unknown`, occupying its slot but never
@@ -5701,26 +6212,40 @@ def drive_queue_tick(
                 _resolved_config = None
         return _resolved_config
 
-    # #2573: an explicit `--max-parallel-per-repo` always wins; otherwise
+    # #2573/#3408: an explicit `--max-parallel-per-repo` always wins; otherwise
     # fall back to the fleet-wide `pipeline.max_parallel_per_repo` in
     # coordinator.yml, and only then to the hardcoded default. Resolved
     # BEFORE `--max-parallel` (#3388's derivation multiplies BY this
     # already-resolved value) and before validation below, so a bad value
     # from either source is caught the same way regardless of which one
-    # supplied it.
-    if max_parallel_per_repo is None:
-        _cfg = _config_for_defaults()
-        config_default = None if _cfg is None else _cfg.pipeline.max_parallel_per_repo
-        max_parallel_per_repo = (
-            DEFAULT_MAX_PARALLEL_PER_REPO if config_default is None else config_default
-        )
+    # supplied it. `resolve_max_parallel_per_repo` is the SAME function
+    # `coord config --effective` calls to report this ceiling's provenance
+    # (#3408) — one resolution order lives in `coord.drive_queue`, not two
+    # that could drift apart (#2085's "one question, one answer").
+    _cfg = _config_for_defaults()
+    _config_max_parallel_per_repo = (
+        None if _cfg is None else _cfg.pipeline.max_parallel_per_repo
+    )
+    _shadow_warning = flag_shadows_config_warning(
+        flag_name="max-parallel-per-repo",
+        override_value=max_parallel_per_repo,
+        config_key="pipeline.max_parallel_per_repo",
+        config_value=_config_max_parallel_per_repo,
+    )
+    if _shadow_warning:
+        click.echo(_shadow_warning)
+    max_parallel_per_repo = resolve_max_parallel_per_repo(
+        override_value=max_parallel_per_repo,
+        override_source="--max-parallel-per-repo flag",
+        config_value=_config_max_parallel_per_repo,
+    ).value
 
     if max_parallel_per_repo < 0:
         raise click.ClickException(
             "--max-parallel-per-repo must be 0 (no per-repo ceiling) or more"
         )
 
-    # #3388: an explicit `--max-parallel` always wins; otherwise
+    # #3388/#3408: an explicit `--max-parallel` always wins; otherwise
     # `pipeline.max_parallel` from coordinator.yml; otherwise derive it from
     # the fleet's own shape (repo count * the per-repo ceiling just resolved
     # above, clamped to the fleet's real worker capacity) rather than fall
@@ -5728,20 +6253,26 @@ def drive_queue_tick(
     # side changes — see `coord.drive_queue.default_max_parallel`. Only when
     # the config itself could not be read at all (so neither the fleet
     # default nor the fleet shape is known) does this fall back to the
-    # hardcoded `DEFAULT_MAX_PARALLEL`.
-    if max_parallel is None:
-        _cfg = _config_for_defaults()
-        config_max_parallel = None if _cfg is None else _cfg.pipeline.max_parallel
-        if config_max_parallel is not None:
-            max_parallel = config_max_parallel
-        elif _cfg is not None:
-            max_parallel = default_max_parallel(
-                repo_count=len(_cfg.repos),
-                max_parallel_per_repo=max_parallel_per_repo,
-                max_workers_cap=_cfg.concurrency.max_workers,
-            )
-        else:
-            max_parallel = DEFAULT_MAX_PARALLEL
+    # hardcoded `DEFAULT_MAX_PARALLEL`. Same shared function `coord config
+    # --effective` reports through (#3408) — see the note above.
+    _config_max_parallel = None if _cfg is None else _cfg.pipeline.max_parallel
+    _shadow_warning = flag_shadows_config_warning(
+        flag_name="max-parallel",
+        override_value=max_parallel,
+        config_key="pipeline.max_parallel",
+        config_value=_config_max_parallel,
+    )
+    if _shadow_warning:
+        click.echo(_shadow_warning)
+    max_parallel = resolve_max_parallel(
+        override_value=max_parallel,
+        override_source="--max-parallel flag",
+        config_value=_config_max_parallel,
+        repo_count=0 if _cfg is None else len(_cfg.repos),
+        max_parallel_per_repo=max_parallel_per_repo,
+        max_workers_cap=0 if _cfg is None else _cfg.concurrency.max_workers,
+        config_readable=_cfg is not None,
+    ).value
 
     if max_parallel < 0:
         raise click.ClickException(
@@ -5763,17 +6294,77 @@ def drive_queue_tick(
     # entire span for no reason connected to the roll.
     explicit_reconcile_only = reconcile_only
 
+    # #3413: read the cross-process evaluation clock BEFORE taking the lock,
+    # so both outcomes below see the same number. This is deliberately not a
+    # lock-contention measurement — see the "#3413 defect 2" section above
+    # `DRIVE_QUEUE_EVALUATION_STALE_AFTER_SECONDS` for why a per-process
+    # contention streak cannot see the failure this exists to catch.
+    #
+    # Seeding (when no marker exists yet) is the only write this does, and is
+    # safe under `--dry-run`: it records "the clock starts now", asserts
+    # nothing about the queue, and is what gives a freshly-provisioned host a
+    # baseline at all.
+    _tick_now = time.time()
+    _evaluation_age = _drive_queue_evaluation_staleness(_tick_now)
+    _evaluation_stale = _evaluation_age >= DRIVE_QUEUE_EVALUATION_STALE_AFTER_SECONDS
+
     lock = FileLock(drive_queue_lock_path())
     try:
         lock.acquire(timeout=0.0)
     except LockBusy:
-        # Quiet by design: this is the normal outcome when a timer fires while
-        # the previous tick is still verifying a launch.  Noise here would
-        # train the operator to ignore the log.
+        # Quiet by design while the QUEUE is still being evaluated on
+        # schedule: this is the normal outcome when a timer fires while the
+        # previous tick is still working, and noise here would train the
+        # operator to ignore the log (see
+        # `test_tick_with_a_held_flock_exits_zero_without_touching_the_queue`,
+        # which this must never break).
         click.echo("another drive-queue tick is running — skipping")
-        return
+        if not _evaluation_stale:
+            return
+        # #3413: the queue has ALREADY gone a full window without a completed
+        # evaluation, and this tick cannot take the lock either — so it is a
+        # pure no-op stacked on top of a queue that is provably not being
+        # evaluated. Fail loudly rather than adding one more `Result=success`.
+        _escalate_stale_drive_queue_evaluation(
+            age_seconds=_evaluation_age,
+            now=_tick_now,
+            config_path=config_path,
+            blocked=True,
+            dry_run=dry_run,
+        )
+        if dry_run:
+            # A diagnostic must report, not fail. The warning above is the
+            # whole point; the systemd unit never passes `--dry-run`
+            # (deploy/coord-drive-queue.service's ExecStart), so the gate
+            # that has to be able to fail still can.
+            return
+        raise click.ClickException(
+            f"no drive-queue tick has walked the queue in "
+            f"{_evaluation_age / 60:.0f}+ minutes and this one could not take "
+            "the lock either — failing rather than reporting success silently "
+            f"(#3413); see the recorded {EVALUATION_STALE_ALERT_STAGE!r} "
+            "escalation for next steps"
+        ) from None
     except OSError as exc:
         raise click.ClickException(f"could not take the drive-queue lock: {exc}") from None
+
+    # #3413: this tick DID take the lock, so it is about to do real work —
+    # a stale clock here is a report on the window that just elapsed, not a
+    # reason to fail a run that is about to fix it. Record/push it (so the
+    # gap leaves a durable trace even when the very next tick recovers, which
+    # is exactly what happened in the incident when someone ran a tick by
+    # hand) and carry on. If THIS tick hangs too, `TimeoutStartSec=300` in
+    # deploy/coord-drive-queue.service makes that loud on its own
+    # (`Result=timeout`, not `Result=success`) and the stamp below never
+    # moves, so the next tick sees the same — now larger — gap.
+    if _evaluation_stale:
+        _escalate_stale_drive_queue_evaluation(
+            age_seconds=_evaluation_age,
+            now=_tick_now,
+            config_path=config_path,
+            blocked=False,
+            dry_run=dry_run,
+        )
 
     try:
         # FAIL CLOSED. An unreadable board is not "nothing is running"; it is
@@ -5978,6 +6569,67 @@ def drive_queue_tick(
             return
 
         _apply_writes(plan)
+
+        # #3413: the writes have LANDED — but ONLY a tick that reached
+        # `plan_tick`'s step-4 walk actually re-stamped every queue row's
+        # `reason_at`, the exact quantity whose 23-60-minute ages were the
+        # incident's core evidence. `plan.walked_queue` is that fact,
+        # reported by the function that either walked or did not; see its
+        # field comment for the five pre-walk exits that leave it False.
+        #
+        # The review round that rejected the first cut of this guard was
+        # right about why an unconditional stamp here is worthless: a
+        # roll-pending marker forces `reconcile_only` (just above) on EVERY
+        # periodic tick for up to `ROLL_PENDING_DEFAULT_TTL_SECONDS` (3600s),
+        # each of which reaches this line reporting `Result=success` while
+        # walking nothing. Stamping on those would reset the clock every 3
+        # minutes for an hour and the 900s bar could never be crossed — for
+        # the cause the incident's own timeline fits best, since it happened
+        # during a live roll with this very host cordoned for it.
+        #
+        # Holds are credited instead of stamped, so the clock PAUSES for a
+        # legitimate roll and RESUMES — rather than restarting — the moment
+        # it lifts. Every hold is separately bounded by its own louder guard
+        # (see `DRIVE_QUEUE_EVALUATION_STALE_AFTER_SECONDS`), so nothing here
+        # needs to re-litigate how long a roll may take.
+        #
+        # Deliberately AFTER the `dry_run` return above: `tick --dry-run` is
+        # the command the operator reached for to DIAGNOSE this incident, and
+        # it applies no writes, so no row's `reason_at` moves. Stamping the
+        # clock from it would have the diagnostic silently paper over the
+        # very staleness it was run to investigate. Equally deliberately
+        # BEFORE the launch subprocess below: launching is not what this
+        # measures, and a queue with nothing launchable is still being
+        # walked perfectly well.
+        if plan.walked_queue:
+            _note_drive_queue_evaluation(time.time())
+        else:
+            # Name the hold honestly, in the operator's own vocabulary, so a
+            # recorded pause can be traced back to the thing that caused it.
+            # The three `*_reason` fields are mutually exclusive by
+            # construction — each of `plan_tick`'s early returns sets only
+            # its own, and none of them is part of `plan_base` — so the
+            # order between them is presentation, not precedence. `plan.held`
+            # is checked LAST of the specific cases because, unlike those, it
+            # is derived from `holds` (which IS in `plan_base`) and so can be
+            # populated on a return that stopped for some other reason
+            # entirely. `at capacity` is the residual: step 3 with a real,
+            # non-zero ceiling, which is the queue working as intended.
+            if plan.roll_pending_reason:
+                _hold_reason = plan.roll_pending_reason
+            elif plan.cordon_reason:
+                _hold_reason = f"host cordoned: {plan.cordon_reason}"
+            elif plan.drift_reason:
+                _hold_reason = f"editable checkout {plan.drift_reason}"
+            elif explicit_reconcile_only:
+                _hold_reason = "--reconcile-only (or --max-parallel 0)"
+            elif plan.held is not None and plan.held.stops_fleet:
+                _hold_reason = f"fleet-scoped deploy gate held: {plan.held.key}"
+            else:
+                _hold_reason = (
+                    f"at capacity: {plan.occupied}/{plan.capacity} occupied"
+                )
+            _note_drive_queue_hold(time.time(), _hold_reason)
 
         # #2587: this tick's own reconciliation (just applied above) may have
         # been the very thing that emptied the queue out — `plan.occupied` is
@@ -6236,12 +6888,17 @@ def drive_queue_tick(
             # alert-free tick is safe and cheap.
             _clear_queue_alert()
 
-        # #2572: independent of the routine alert record just above (which
-        # `record_drive_escalation` overwrites — including its own
-        # timestamp — every tick this stays true), track how long THIS
-        # SPECIFIC self-cordon reason has held and push a direct escalation
-        # once it crosses `SELF_CORDON_ESCALATE_AFTER_SECONDS`. See that
-        # function's own docstring for the incident this closes.
+        # #2572: independent of the routine alert record just above.
+        # `record_drive_escalation`'s `created_at` now survives an unbroken
+        # same-reason renewal (#3413), so `status` can show how long this
+        # exact drift reason has held — but that is a passive READ an
+        # operator has to go look at. This function tracks the identical
+        # "how long has THIS SPECIFIC reason held" quantity independently
+        # (its own marker file, not `drive_escalations.created_at`) so it
+        # can additionally push a direct escalation once it crosses
+        # `SELF_CORDON_ESCALATE_AFTER_SECONDS`, without an operator needing
+        # to have been watching `status` at all. See that function's own
+        # docstring for the incident this closes.
         _escalate_persistent_self_cordon(
             plan.drift_reason, now=now, config_path=config_path
         )

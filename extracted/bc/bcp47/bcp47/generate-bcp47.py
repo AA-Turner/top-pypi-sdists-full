@@ -1,14 +1,12 @@
 #!/usr/bin/env python3
 # coding=utf-8
 
-import bisect
-import json
-from PyPDF2 import PdfReader
+from pypdf import PdfReader
 import os
 import requests
 
 
-url = 'https://winprotocoldoc.blob.core.windows.net/productionwindowsarchives/MS-LCID/[MS-LCID].pdf'
+url = 'https://winprotocoldocs-bhdugrdyduf5h2e4.b02.azurefd.net/MS-LCID/[MS-LCID].pdf'
 language_markers = [' Windows ', ' Release ']
 bad_markers = ['release:', 'operating', 'server', 'first', 'supported', ' elk ', 'LCID support']
 join_markers = ['Pseudo', 'Standard']
@@ -105,20 +103,22 @@ def join_phrases(phrases):
 
 def write_output(name_tag):
     with open('bcp47.py', 'wt', encoding='utf-8') as w:
-        print('# generated file', file=w)
-        print('# coding=utf-8', file=w)
+        prefix = open('prefix.py').read()
+        print(prefix, end='', file=w)
         print('languages = {', file=w)
         name_tag = [v for i,v in sorted(enumerate(name_tag), key=lambda ee: ee[0] - (1+len(ee[1][1])/20 if ee[1][0]==name_tag[ee[0]-1][0] and len(ee[1][1])<len(name_tag[ee[0]-1][1]) else 0.0))]
         namecache = set()
         for name,tag in name_tag:
             if name in namecache:
-                name += ', ' + tag.split('-')[-1]
+                name += ', ' + tag.split('-')[-1] # add tag if same language has two different codes
             assert name not in namecache, f'{name} already entered before'
             namecache.add(name)
             print('    "%s": "%s",' % (name, tag), file=w)
         print('}', file=w)
         print(file=w)
         print('tags = {v:k for k,v in languages.items()}', file=w)
+        suffix = open('suffix.py').read()
+        print(suffix, end='', file=w)
 
 
 # download and write local file

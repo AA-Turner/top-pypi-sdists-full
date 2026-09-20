@@ -9,10 +9,9 @@ import pandas as pd
 from . import common_args
 from ..util import read_param_file, ResultDict, extract_group_names
 
-from multiprocessing import Pool, cpu_count
+from multiprocess import Pool, cpu_count
 from functools import partial
 from itertools import combinations, zip_longest
-
 
 CONST_RESULT_MSG = (
     "Constant values encountered, indicating model evaluations "
@@ -212,11 +211,17 @@ def first_order(A, AB, B):
     sample variance
     """
     y = np.r_[A, B]
-    if np.ptp(y) == 0:
+    if np.ptp(y) <= np.finfo(float).eps:
         warn(CONST_RESULT_MSG)
-        return np.array([0.0])
+        return np.zeros(y.shape[1:], dtype=np.float64)
 
-    return np.mean(B * (AB - A), axis=0) / np.var(y, axis=0)
+    y_var = np.var(y, axis=0)
+    return np.divide(
+        np.mean(B * (AB - A), axis=0),
+        y_var,
+        out=np.zeros_like(y_var, dtype=np.float64),
+        where=y_var > np.finfo(float).eps,
+    )
 
 
 def total_order(A, AB, B):
@@ -225,21 +230,33 @@ def total_order(A, AB, B):
     sample variance
     """
     y = np.r_[A, B]
-    if np.ptp(y) == 0:
+    if np.ptp(y) <= np.finfo(float).eps:
         warn(CONST_RESULT_MSG)
-        return np.array([0.0])
+        return np.zeros(y.shape[1:], dtype=np.float64)
 
-    return 0.5 * np.mean((A - AB) ** 2, axis=0) / np.var(y, axis=0)
+    y_var = np.var(y, axis=0)
+    return np.divide(
+        0.5 * np.mean((A - AB) ** 2, axis=0),
+        y_var,
+        out=np.zeros_like(y_var, dtype=np.float64),
+        where=y_var > np.finfo(float).eps,
+    )
 
 
 def second_order(A, ABj, ABk, BAj, B):
     """Second order estimator following Saltelli 2002"""
     y = np.r_[A, B]
-    if np.ptp(y) == 0:
+    if np.ptp(y) <= np.finfo(float).eps:
         warn(CONST_RESULT_MSG)
-        return np.array([0.0])
+        return np.zeros(y.shape[1:], dtype=np.float64)
 
-    Vjk = np.mean(BAj * ABk - A * B, axis=0) / np.var(y, axis=0)
+    y_var = np.var(y, axis=0)
+    Vjk = np.divide(
+        np.mean(BAj * ABk - A * B, axis=0),
+        y_var,
+        out=np.zeros_like(y_var, dtype=np.float64),
+        where=y_var > np.finfo(float).eps,
+    )
     Sj = first_order(A, ABj, B)
     Sk = first_order(A, ABk, B)
 

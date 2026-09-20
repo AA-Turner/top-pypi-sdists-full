@@ -62,6 +62,7 @@ class Association(AWSObject):
 
     props: PropsDictType = {
         "ApplyOnlyAtCronInterval": (boolean, False),
+        "AssociationDispatchAssumeRole": (str, False),
         "AssociationName": (str, False),
         "AutomationTargetParameterName": (str, False),
         "CalendarNames": ([str], False),
@@ -76,8 +77,84 @@ class Association(AWSObject):
         "ScheduleExpression": (str, False),
         "ScheduleOffset": (integer, False),
         "SyncCompliance": (str, False),
+        "Tags": (Tags, False),
         "Targets": ([Targets], False),
         "WaitForSuccessTimeoutSeconds": (integer, False),
+    }
+
+
+class AutomationExecution(AWSObject):
+    """
+    `AutomationExecution <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-automationexecution.html>`__
+    """
+
+    resource_type = "AWS::SSM::AutomationExecution"
+
+    props: PropsDictType = {
+        "DocumentName": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
+class AzureSubscription(AWSProperty):
+    """
+    `AzureSubscription <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-azuresubscription.html>`__
+    """
+
+    props: PropsDictType = {
+        "DisplayName": (str, False),
+        "Id": (str, True),
+    }
+
+
+class ConfigurationTargets(AWSProperty):
+    """
+    `ConfigurationTargets <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-configurationtargets.html>`__
+    """
+
+    props: PropsDictType = {
+        "Subscriptions": ([AzureSubscription], True),
+    }
+
+
+class AzureConfiguration(AWSProperty):
+    """
+    `AzureConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-azureconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ApplicationDisplayName": (str, False),
+        "ApplicationId": (str, True),
+        "Targets": (ConfigurationTargets, False),
+        "TenantDisplayName": (str, False),
+        "TenantId": (str, True),
+    }
+
+
+class CloudConnectorConfiguration(AWSProperty):
+    """
+    `CloudConnectorConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-cloudconnector-cloudconnectorconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "AzureConfiguration": (AzureConfiguration, True),
+    }
+
+
+class CloudConnector(AWSObject):
+    """
+    `CloudConnector <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-cloudconnector.html>`__
+    """
+
+    resource_type = "AWS::SSM::CloudConnector"
+
+    props: PropsDictType = {
+        "ConfigConnectorArn": (str, True),
+        "Configuration": (CloudConnectorConfiguration, True),
+        "Description": (str, False),
+        "DisplayName": (str, True),
+        "RoleArn": (str, True),
+        "Tags": (Tags, False),
     }
 
 
@@ -300,6 +377,47 @@ class MaintenanceWindowTask(AWSObject):
     }
 
 
+class TagsItems(AWSProperty):
+    """
+    `TagsItems <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ssm-managedinstance-tagsitems.html>`__
+    """
+
+    props: PropsDictType = {
+        "Key": (str, True),
+        "Value": (str, True),
+    }
+
+
+class ManagedInstance(AWSObject):
+    """
+    `ManagedInstance <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-managedinstance.html>`__
+    """
+
+    resource_type = "AWS::SSM::ManagedInstance"
+
+    props: PropsDictType = {
+        "Tags": ([TagsItems], False),
+    }
+
+
+class OpsItem(AWSObject):
+    """
+    `OpsItem <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-opsitem.html>`__
+    """
+
+    resource_type = "AWS::SSM::OpsItem"
+
+    props: PropsDictType = {
+        "Category": (str, False),
+        "Description": (str, True),
+        "Priority": (integer, False),
+        "Severity": (str, False),
+        "Source": (str, True),
+        "Tags": (Tags, False),
+        "Title": (str, True),
+    }
+
+
 class Parameter(AWSObject):
     """
     `Parameter <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-parameter.html>`__
@@ -471,4 +589,30 @@ class ResourcePolicy(AWSObject):
     props: PropsDictType = {
         "Policy": (dict, True),
         "ResourceArn": (str, True),
+    }
+
+
+class ServiceSetting(AWSObject):
+    """
+    `ServiceSetting <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-servicesetting.html>`__
+    """
+
+    resource_type = "AWS::SSM::ServiceSetting"
+
+    props: PropsDictType = {
+        "SettingId": (str, True),
+        "SettingValue": (str, True),
+    }
+
+
+class Session(AWSObject):
+    """
+    `Session <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ssm-session.html>`__
+    """
+
+    resource_type = "AWS::SSM::Session"
+
+    props: PropsDictType = {
+        "Reason": (str, False),
+        "Target": (str, False),
     }

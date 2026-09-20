@@ -290,6 +290,7 @@ class ImageBuilder(AWSObject):
         "AccessEndpoints": ([AccessEndpoint], False),
         "AppstreamAgentVersion": (str, False),
         "Description": (str, False),
+        "DisableIMDSV1": (boolean, False),
         "DisplayName": (str, False),
         "DomainJoinInfo": (DomainJoinInfo, False),
         "EnableDefaultInternetAccess": (boolean, False),
@@ -306,6 +307,32 @@ class ImageBuilder(AWSObject):
     }
 
 
+class AgentAccessSetting(AWSProperty):
+    """
+    `AgentAccessSetting <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appstream-stack-agentaccesssetting.html>`__
+    """
+
+    props: PropsDictType = {
+        "AgentAction": (str, True),
+        "Permission": (str, True),
+    }
+
+
+class AgentAccessConfig(AWSProperty):
+    """
+    `AgentAccessConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appstream-stack-agentaccessconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "S3BucketArn": (str, False),
+        "ScreenImageFormat": (str, True),
+        "ScreenResolution": (str, True),
+        "ScreenshotsUploadEnabled": (boolean, False),
+        "Settings": ([AgentAccessSetting], True),
+        "UserControlMode": (str, False),
+    }
+
+
 class ApplicationSettings(AWSProperty):
     """
     `ApplicationSettings <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appstream-stack-applicationsettings.html>`__
@@ -314,6 +341,28 @@ class ApplicationSettings(AWSProperty):
     props: PropsDictType = {
         "Enabled": (boolean, True),
         "SettingsGroup": (str, False),
+    }
+
+
+class UrlRedirectionConfig(AWSProperty):
+    """
+    `UrlRedirectionConfig <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appstream-stack-urlredirectionconfig.html>`__
+    """
+
+    props: PropsDictType = {
+        "AllowedUrls": ([str], False),
+        "DeniedUrls": ([str], False),
+        "Enabled": (boolean, True),
+    }
+
+
+class ContentRedirection(AWSProperty):
+    """
+    `ContentRedirection <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-appstream-stack-contentredirection.html>`__
+    """
+
+    props: PropsDictType = {
+        "HostToClient": (UrlRedirectionConfig, False),
     }
 
 
@@ -360,8 +409,10 @@ class Stack(AWSObject):
 
     props: PropsDictType = {
         "AccessEndpoints": ([AccessEndpoint], False),
+        "AgentAccessConfig": (AgentAccessConfig, False),
         "ApplicationSettings": (ApplicationSettings, False),
         "AttributesToDelete": ([str], False),
+        "ContentRedirection": (ContentRedirection, False),
         "DeleteStorageConnectors": (boolean, False),
         "Description": (str, False),
         "DisplayName": (str, False),

@@ -18,6 +18,21 @@ from .validators.glue import (
 )
 
 
+class Blueprint(AWSObject):
+    """
+    `Blueprint <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-blueprint.html>`__
+    """
+
+    resource_type = "AWS::Glue::Blueprint"
+
+    props: PropsDictType = {
+        "BlueprintLocation": (str, True),
+        "Description": (str, False),
+        "Name": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
 class DataLakeAccessProperties(AWSProperty):
     """
     `DataLakeAccessProperties <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-catalog-datalakeaccessproperties.html>`__
@@ -225,9 +240,9 @@ class OAuth2Credentials(AWSProperty):
     }
 
 
-class OAuth2PropertiesInput(AWSProperty):
+class OAuth2Properties(AWSProperty):
     """
-    `OAuth2PropertiesInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connection-oauth2propertiesinput.html>`__
+    `OAuth2Properties <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connection-oauth2properties.html>`__
     """
 
     props: PropsDictType = {
@@ -240,9 +255,9 @@ class OAuth2PropertiesInput(AWSProperty):
     }
 
 
-class AuthenticationConfigurationInput(AWSProperty):
+class AuthenticationConfiguration(AWSProperty):
     """
-    `AuthenticationConfigurationInput <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connection-authenticationconfigurationinput.html>`__
+    `AuthenticationConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connection-authenticationconfiguration.html>`__
     """
 
     props: PropsDictType = {
@@ -250,7 +265,7 @@ class AuthenticationConfigurationInput(AWSProperty):
         "BasicAuthenticationCredentials": (BasicAuthenticationCredentials, False),
         "CustomAuthenticationCredentials": (dict, False),
         "KmsKeyArn": (str, False),
-        "OAuth2Properties": (OAuth2PropertiesInput, False),
+        "OAuth2Properties": (OAuth2Properties, False),
         "SecretArn": (str, False),
     }
 
@@ -274,7 +289,7 @@ class ConnectionInput(AWSProperty):
 
     props: PropsDictType = {
         "AthenaProperties": (dict, False),
-        "AuthenticationConfiguration": (AuthenticationConfigurationInput, False),
+        "AuthenticationConfiguration": (AuthenticationConfiguration, False),
         "ConnectionProperties": (dict, False),
         "ConnectionType": (connection_type_validator, True),
         "Description": (str, False),
@@ -298,6 +313,352 @@ class Connection(AWSObject):
     props: PropsDictType = {
         "CatalogId": (str, True),
         "ConnectionInput": (ConnectionInput, True),
+        "Tags": (dict, False),
+    }
+
+
+class ConnectorProperty(AWSProperty):
+    """
+    `ConnectorProperty <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorproperty.html>`__
+    """
+
+    props: PropsDictType = {
+        "AllowedValues": ([str], False),
+        "DefaultValue": (str, False),
+        "KeyOverride": (str, False),
+        "Name": (str, True),
+        "PropertyLocation": (str, False),
+        "PropertyType": (str, True),
+        "Required": (boolean, True),
+    }
+
+
+class ConnectionPropertiesConfiguration(AWSProperty):
+    """
+    `ConnectionPropertiesConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectionpropertiesconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "AdditionalRequestParameters": ([ConnectorProperty], False),
+        "Url": (ConnectorProperty, False),
+    }
+
+
+class SecretConnectorProperty(AWSProperty):
+    """
+    `SecretConnectorProperty <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-secretconnectorproperty.html>`__
+    """
+
+    props: PropsDictType = {
+        "KeyOverride": (str, False),
+        "Name": (str, True),
+        "PropertyLocation": (str, False),
+        "PropertyType": (str, True),
+        "Required": (boolean, True),
+    }
+
+
+class BasicAuthenticationProperties(AWSProperty):
+    """
+    `BasicAuthenticationProperties <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-basicauthenticationproperties.html>`__
+    """
+
+    props: PropsDictType = {
+        "Password": (SecretConnectorProperty, False),
+        "Username": (SecretConnectorProperty, False),
+    }
+
+
+class ClientCredentialsProperties(AWSProperty):
+    """
+    `ClientCredentialsProperties <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-clientcredentialsproperties.html>`__
+    """
+
+    props: PropsDictType = {
+        "ClientId": (SecretConnectorProperty, False),
+        "ClientSecret": (SecretConnectorProperty, False),
+        "ContentType": (str, False),
+        "RequestMethod": (str, False),
+        "Scope": (ConnectorProperty, False),
+        "TokenUrl": (ConnectorProperty, False),
+        "TokenUrlParameters": ([ConnectorProperty], False),
+    }
+
+
+class ConnectorAuthorizationCodeProperties(AWSProperty):
+    """
+    `ConnectorAuthorizationCodeProperties <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorauthorizationcodeproperties.html>`__
+    """
+
+    props: PropsDictType = {
+        "AuthorizationCode": (ConnectorProperty, False),
+        "AuthorizationCodeUrl": (ConnectorProperty, False),
+        "ClientId": (SecretConnectorProperty, False),
+        "ClientSecret": (SecretConnectorProperty, False),
+        "ContentType": (str, False),
+        "Prompt": (ConnectorProperty, False),
+        "RedirectUri": (ConnectorProperty, False),
+        "RequestMethod": (str, False),
+        "Scope": (ConnectorProperty, False),
+        "TokenUrl": (ConnectorProperty, False),
+        "TokenUrlParameters": ([ConnectorProperty], False),
+    }
+
+
+class JWTBearerProperties(AWSProperty):
+    """
+    `JWTBearerProperties <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-jwtbearerproperties.html>`__
+    """
+
+    props: PropsDictType = {
+        "ContentType": (str, False),
+        "JwtToken": (SecretConnectorProperty, False),
+        "RequestMethod": (str, False),
+        "TokenUrl": (ConnectorProperty, False),
+        "TokenUrlParameters": ([ConnectorProperty], False),
+    }
+
+
+class ConnectorOAuth2Properties(AWSProperty):
+    """
+    `ConnectorOAuth2Properties <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectoroauth2properties.html>`__
+    """
+
+    props: PropsDictType = {
+        "AuthorizationCodeProperties": (ConnectorAuthorizationCodeProperties, False),
+        "ClientCredentialsProperties": (ClientCredentialsProperties, False),
+        "JWTBearerProperties": (JWTBearerProperties, False),
+        "OAuth2GrantType": (str, True),
+    }
+
+
+class CustomAuthenticationProperties(AWSProperty):
+    """
+    `CustomAuthenticationProperties <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-customauthenticationproperties.html>`__
+    """
+
+    props: PropsDictType = {
+        "AuthenticationParameters": ([SecretConnectorProperty], True),
+    }
+
+
+class ConnectorAuthenticationConfiguration(AWSProperty):
+    """
+    `ConnectorAuthenticationConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-connectorauthenticationconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "AuthenticationTypes": ([str], True),
+        "BasicAuthenticationProperties": (BasicAuthenticationProperties, False),
+        "CustomAuthenticationProperties": (CustomAuthenticationProperties, False),
+        "OAuth2Properties": (ConnectorOAuth2Properties, False),
+    }
+
+
+class BetweenConfiguration(AWSProperty):
+    """
+    `BetweenConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-betweenconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "HighBoundKey": (str, False),
+        "LowBoundKey": (str, False),
+        "Template": (str, False),
+    }
+
+
+class FilterOverrides(AWSProperty):
+    """
+    `FilterOverrides <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-filteroverrides.html>`__
+    """
+
+    props: PropsDictType = {
+        "BetweenConfiguration": (BetweenConfiguration, False),
+        "DateTimeFormat": (str, False),
+        "FieldName": (str, False),
+        "OperatorMappings": (dict, False),
+    }
+
+
+class FieldDefinition(AWSProperty):
+    """
+    `FieldDefinition <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-fielddefinition.html>`__
+    """
+
+    props: PropsDictType = {
+        "FieldDataType": (str, True),
+        "FilterOverrides": (FilterOverrides, False),
+        "IsNullable": (boolean, False),
+        "IsOrderable": (boolean, False),
+        "IsPartitionable": (boolean, False),
+        "IsQueryable": (boolean, False),
+        "Name": (str, True),
+        "ResponseDateFormat": (str, False),
+    }
+
+
+class FilterStringConfiguration(AWSProperty):
+    """
+    `FilterStringConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-filterstringconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "QueryParameterName": (str, True),
+        "QuoteCharacter": (str, False),
+        "QuoteStringValues": (boolean, False),
+    }
+
+
+class FilterConfiguration(AWSProperty):
+    """
+    `FilterConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-filterconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "BetweenConfiguration": (BetweenConfiguration, False),
+        "DateTimeFormat": (str, False),
+        "FilterMode": (str, True),
+        "FilterStringConfiguration": (FilterStringConfiguration, False),
+        "OperatorMappings": (dict, False),
+        "StripQuotes": (boolean, False),
+    }
+
+
+class ResponseExtractionMapping(AWSProperty):
+    """
+    `ResponseExtractionMapping <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-responseextractionmapping.html>`__
+    """
+
+    props: PropsDictType = {
+        "ContentPath": (str, False),
+        "HeaderKey": (str, False),
+    }
+
+
+class ExtractedParameter(AWSProperty):
+    """
+    `ExtractedParameter <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-extractedparameter.html>`__
+    """
+
+    props: PropsDictType = {
+        "DefaultValue": (str, False),
+        "Key": (str, False),
+        "PropertyLocation": (str, False),
+        "Value": (ResponseExtractionMapping, False),
+    }
+
+
+class CursorConfiguration(AWSProperty):
+    """
+    `CursorConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-cursorconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "LimitParameter": (ExtractedParameter, False),
+        "NextPage": (ExtractedParameter, True),
+    }
+
+
+class OffsetConfiguration(AWSProperty):
+    """
+    `OffsetConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-offsetconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "LimitParameter": (ExtractedParameter, True),
+        "OffsetParameter": (ExtractedParameter, True),
+    }
+
+
+class PaginationConfiguration(AWSProperty):
+    """
+    `PaginationConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-paginationconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "CursorConfiguration": (CursorConfiguration, False),
+        "OffsetConfiguration": (OffsetConfiguration, False),
+    }
+
+
+class ResponseConfiguration(AWSProperty):
+    """
+    `ResponseConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-responseconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "ErrorPath": (str, False),
+        "ResultPath": (str, True),
+    }
+
+
+class SourceConfiguration(AWSProperty):
+    """
+    `SourceConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-sourceconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "FilterConfiguration": (FilterConfiguration, False),
+        "PaginationConfiguration": (PaginationConfiguration, False),
+        "RequestMethod": (str, False),
+        "RequestParameters": ([ConnectorProperty], False),
+        "RequestPath": (str, False),
+        "ResponseConfiguration": (ResponseConfiguration, False),
+    }
+
+
+class EntityConfiguration(AWSProperty):
+    """
+    `EntityConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-entityconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Schema": (dict, False),
+        "SourceConfiguration": (SourceConfiguration, False),
+    }
+
+
+class ValidationEndpointConfiguration(AWSProperty):
+    """
+    `ValidationEndpointConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-validationendpointconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "RequestMethod": (str, False),
+        "RequestPath": (str, False),
+    }
+
+
+class RestConfiguration(AWSProperty):
+    """
+    `RestConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-connectiontype-restconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "EntityConfigurations": (dict, False),
+        "GlobalSourceConfiguration": (SourceConfiguration, False),
+        "ValidationEndpointConfiguration": (ValidationEndpointConfiguration, False),
+    }
+
+
+class ConnectionType(AWSObject):
+    """
+    `ConnectionType <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-connectiontype.html>`__
+    """
+
+    resource_type = "AWS::Glue::ConnectionType"
+
+    props: PropsDictType = {
+        "ConnectionProperties": (ConnectionPropertiesConfiguration, False),
+        "ConnectionType": (str, True),
+        "ConnectorAuthenticationConfiguration": (
+            ConnectorAuthenticationConfiguration,
+            False,
+        ),
+        "Description": (str, False),
+        "IntegrationType": (str, False),
+        "RestConfiguration": (RestConfiguration, True),
+        "Tags": (Tags, False),
     }
 
 
@@ -557,8 +918,8 @@ class DataQualityTargetTable(AWSProperty):
     """
 
     props: PropsDictType = {
-        "DatabaseName": (str, False),
-        "TableName": (str, False),
+        "DatabaseName": (str, True),
+        "TableName": (str, True),
     }
 
 
@@ -572,7 +933,7 @@ class DataQualityRuleset(AWSObject):
     props: PropsDictType = {
         "ClientToken": (str, False),
         "Description": (str, False),
-        "Name": (str, False),
+        "Name": (str, True),
         "Ruleset": (str, False),
         "Tags": (dict, False),
         "TargetTable": (DataQualityTargetTable, False),
@@ -755,7 +1116,7 @@ class IntegrationResourceProperty(AWSObject):
 
 class ConnectionsList(AWSProperty):
     """
-    `ConnectionsList <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-job-connectionslist.html>`__
+    `ConnectionsList <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-session-connectionslist.html>`__
     """
 
     props: PropsDictType = {
@@ -832,7 +1193,7 @@ class Job(AWSObject):
 
 class GlueTables(AWSProperty):
     """
-    `GlueTables <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-mltransform-inputrecordtables-gluetables.html>`__
+    `GlueTables <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-mltransform-gluetables.html>`__
     """
 
     props: PropsDictType = {
@@ -855,7 +1216,7 @@ class InputRecordTables(AWSProperty):
 
 class MLUserDataEncryption(AWSProperty):
     """
-    `MLUserDataEncryption <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-mltransform-transformencryption-mluserdataencryption.html>`__
+    `MLUserDataEncryption <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-mltransform-mluserdataencryption.html>`__
     """
 
     props: PropsDictType = {
@@ -877,7 +1238,7 @@ class TransformEncryption(AWSProperty):
 
 class FindMatchesParameters(AWSProperty):
     """
-    `FindMatchesParameters <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-mltransform-transformparameters-findmatchesparameters.html>`__
+    `FindMatchesParameters <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-mltransform-findmatchesparameters.html>`__
     """
 
     props: PropsDictType = {
@@ -1195,6 +1556,43 @@ class SecurityConfiguration(AWSObject):
     }
 
 
+class SessionCommand(AWSProperty):
+    """
+    `SessionCommand <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-session-sessioncommand.html>`__
+    """
+
+    props: PropsDictType = {
+        "Name": (str, False),
+        "PythonVersion": (str, False),
+    }
+
+
+class Session(AWSObject):
+    """
+    `Session <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-session.html>`__
+    """
+
+    resource_type = "AWS::Glue::Session"
+
+    props: PropsDictType = {
+        "Command": (SessionCommand, True),
+        "Connections": (ConnectionsList, False),
+        "DefaultArguments": (dict, False),
+        "Description": (str, False),
+        "GlueVersion": (str, False),
+        "Id": (str, True),
+        "IdleTimeout": (integer, False),
+        "MaxCapacity": (double, False),
+        "NumberOfWorkers": (integer, False),
+        "RequestOrigin": (str, False),
+        "Role": (str, True),
+        "SecurityConfiguration": (str, False),
+        "Tags": (Tags, False),
+        "Timeout": (integer, False),
+        "WorkerType": (str, False),
+    }
+
+
 class IcebergPartitionField(AWSProperty):
     """
     `IcebergPartitionField <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-table-icebergpartitionfield.html>`__
@@ -1383,9 +1781,31 @@ class Table(AWSObject):
     }
 
 
+class IcebergCompactionConfiguration(AWSProperty):
+    """
+    `IcebergCompactionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-tableoptimizer-icebergcompactionconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "DeleteFileThreshold": (integer, False),
+        "MinInputFiles": (integer, False),
+        "Strategy": (str, False),
+    }
+
+
+class CompactionConfiguration(AWSProperty):
+    """
+    `CompactionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-tableoptimizer-compactionconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "IcebergConfiguration": (IcebergCompactionConfiguration, False),
+    }
+
+
 class IcebergConfiguration(AWSProperty):
     """
-    `IcebergConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-tableoptimizer-tableoptimizerconfiguration-orphanfiledeletionconfiguration-icebergconfiguration.html>`__
+    `IcebergConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-tableoptimizer-icebergconfiguration.html>`__
     """
 
     props: PropsDictType = {
@@ -1396,7 +1816,7 @@ class IcebergConfiguration(AWSProperty):
 
 class OrphanFileDeletionConfiguration(AWSProperty):
     """
-    `OrphanFileDeletionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-tableoptimizer-tableoptimizerconfiguration-orphanfiledeletionconfiguration.html>`__
+    `OrphanFileDeletionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-tableoptimizer-orphanfiledeletionconfiguration.html>`__
     """
 
     props: PropsDictType = {
@@ -1418,7 +1838,7 @@ class IcebergRetentionConfiguration(AWSProperty):
 
 class RetentionConfiguration(AWSProperty):
     """
-    `RetentionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-tableoptimizer-tableoptimizerconfiguration-retentionconfiguration.html>`__
+    `RetentionConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-tableoptimizer-retentionconfiguration.html>`__
     """
 
     props: PropsDictType = {
@@ -1428,7 +1848,7 @@ class RetentionConfiguration(AWSProperty):
 
 class VpcConfiguration(AWSProperty):
     """
-    `VpcConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-tableoptimizer-tableoptimizerconfiguration-vpcconfiguration.html>`__
+    `VpcConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-tableoptimizer-vpcconfiguration.html>`__
     """
 
     props: PropsDictType = {
@@ -1442,6 +1862,7 @@ class TableOptimizerConfiguration(AWSProperty):
     """
 
     props: PropsDictType = {
+        "CompactionConfiguration": (CompactionConfiguration, False),
         "Enabled": (boolean, True),
         "OrphanFileDeletionConfiguration": (OrphanFileDeletionConfiguration, False),
         "RetentionConfiguration": (RetentionConfiguration, False),
@@ -1463,6 +1884,19 @@ class TableOptimizer(AWSObject):
         "TableName": (str, True),
         "TableOptimizerConfiguration": (TableOptimizerConfiguration, True),
         "Type": (str, True),
+    }
+
+
+class TableVersion(AWSObject):
+    """
+    `TableVersion <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-tableversion.html>`__
+    """
+
+    resource_type = "AWS::Glue::TableVersion"
+
+    props: PropsDictType = {
+        "DatabaseName": (str, False),
+        "TableName": (str, False),
     }
 
 
@@ -1574,6 +2008,35 @@ class UsageProfile(AWSObject):
         "Description": (str, False),
         "Name": (str, True),
         "Tags": (Tags, False),
+    }
+
+
+class ResourceUri(AWSProperty):
+    """
+    `ResourceUri <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-glue-userdefinedfunction-resourceuri.html>`__
+    """
+
+    props: PropsDictType = {
+        "ResourceType": (str, False),
+        "Uri": (str, False),
+    }
+
+
+class UserDefinedFunction(AWSObject):
+    """
+    `UserDefinedFunction <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-glue-userdefinedfunction.html>`__
+    """
+
+    resource_type = "AWS::Glue::UserDefinedFunction"
+
+    props: PropsDictType = {
+        "ClassName": (str, False),
+        "DatabaseName": (str, True),
+        "FunctionName": (str, True),
+        "FunctionType": (str, False),
+        "OwnerName": (str, False),
+        "OwnerType": (str, False),
+        "ResourceUris": ([ResourceUri], False),
     }
 
 

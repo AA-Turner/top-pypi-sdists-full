@@ -22,6 +22,7 @@ from typing import List, Dict, Optional, Any, Union, TYPE_CHECKING
 from typing_extensions import Annotated
 from pydantic.v1 import BaseModel, StrictStr, StrictInt, StrictBool, StrictFloat, StrictBytes, Field, validator, ValidationError, conlist, constr
 from datetime import datetime
+from lusid.models.fractional_units_true_up_configuration import FractionalUnitsTrueUpConfiguration
 from lusid.models.instrument_event_configuration import InstrumentEventConfiguration
 from lusid.models.link import Link
 from lusid.models.portfolio_settlement_configuration import PortfolioSettlementConfiguration
@@ -51,8 +52,10 @@ class PortfolioDetails(BaseModel):
     staged_modifications: Optional[StagedModificationsInfo] = Field(default=None, alias="stagedModifications")
     transaction_exclusion_filter:  Optional[StrictStr] = Field(None,alias="transactionExclusionFilter", description="A filter expression that identifies transactions to exclude when building the transaction portfolio's transactions and holdings. Transactions matching this filter are flagged as excluded.") 
     tax_lot_selection_cost_basis:  Optional[StrictStr] = Field(None,alias="taxLotSelectionCostBasis", description="The cost figure that cost-referencing accounting methods evaluate when selecting tax lots for a disposal. This can be: Cost or AmortisedCost. Defaults to Cost if not specified. Supply Default to explicitly reset it; a reset or never-configured basis reads back as absent. Available values: Default, Cost, AmortisedCost.") 
+    fractional_units_true_up_configuration: Optional[FractionalUnitsTrueUpConfiguration] = Field(default=None, alias="fractionalUnitsTrueUpConfiguration")
+    holdings_fungibility:  Optional[StrictStr] = Field(None,alias="holdingsFungibility", description="Whether the portfolio's holdings are fungible across the currencies of a currency group. This can be: Default or Enabled. Defaults to Default if not specified, which currently means holdings fungibility is not applied. Supply Default to explicitly reset it; a reset or never-configured flag reads back as absent. Available values: Default, Enabled.") 
     links: Optional[List[Link]] = None
-    __properties = ["href", "originPortfolioId", "version", "baseCurrency", "corporateActionSourceId", "subHoldingKeys", "instrumentScopes", "accountingMethod", "amortisationMethod", "transactionTypeScope", "cashGainLossCalculationDate", "instrumentEventConfiguration", "amortisationRuleSetId", "taxRuleSetScope", "settlementConfiguration", "stagedModifications", "transactionExclusionFilter", "taxLotSelectionCostBasis", "links"]
+    __properties = ["href", "originPortfolioId", "version", "baseCurrency", "corporateActionSourceId", "subHoldingKeys", "instrumentScopes", "accountingMethod", "amortisationMethod", "transactionTypeScope", "cashGainLossCalculationDate", "instrumentEventConfiguration", "amortisationRuleSetId", "taxRuleSetScope", "settlementConfiguration", "stagedModifications", "transactionExclusionFilter", "taxLotSelectionCostBasis", "fractionalUnitsTrueUpConfiguration", "holdingsFungibility", "links"]
 
     @validator('accounting_method')
     def accounting_method_validate_enum(cls, value):
@@ -183,6 +186,9 @@ class PortfolioDetails(BaseModel):
         # override the default output from pydantic by calling `to_dict()` of staged_modifications
         if self.staged_modifications:
             _dict['stagedModifications'] = self.staged_modifications.to_dict()
+        # override the default output from pydantic by calling `to_dict()` of fractional_units_true_up_configuration
+        if self.fractional_units_true_up_configuration:
+            _dict['fractionalUnitsTrueUpConfiguration'] = self.fractional_units_true_up_configuration.to_dict()
         # override the default output from pydantic by calling `to_dict()` of each item in links (list)
         _items = []
         if self.links:
@@ -235,6 +241,11 @@ class PortfolioDetails(BaseModel):
         if self.tax_lot_selection_cost_basis is None and "tax_lot_selection_cost_basis" in self.__fields_set__:
             _dict['taxLotSelectionCostBasis'] = None
 
+        # set to None if holdings_fungibility (nullable) is None
+        # and __fields_set__ contains the field
+        if self.holdings_fungibility is None and "holdings_fungibility" in self.__fields_set__:
+            _dict['holdingsFungibility'] = None
+
         # set to None if links (nullable) is None
         # and __fields_set__ contains the field
         if self.links is None and "links" in self.__fields_set__:
@@ -270,6 +281,8 @@ class PortfolioDetails(BaseModel):
             "staged_modifications": StagedModificationsInfo.from_dict(obj.get("stagedModifications")) if obj.get("stagedModifications") is not None else None,
             "transaction_exclusion_filter": obj.get("transactionExclusionFilter"),
             "tax_lot_selection_cost_basis": obj.get("taxLotSelectionCostBasis"),
+            "fractional_units_true_up_configuration": FractionalUnitsTrueUpConfiguration.from_dict(obj.get("fractionalUnitsTrueUpConfiguration")) if obj.get("fractionalUnitsTrueUpConfiguration") is not None else None,
+            "holdings_fungibility": obj.get("holdingsFungibility"),
             "links": [Link.from_dict(_item) for _item in obj.get("links")] if obj.get("links") is not None else None
         })
         return _obj

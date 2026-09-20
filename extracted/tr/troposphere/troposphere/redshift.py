@@ -7,7 +7,7 @@
 
 
 from . import AWSObject, AWSProperty, PropsDictType, Tags
-from .validators import boolean, integer
+from .validators import boolean, double, integer
 
 
 class Endpoint(AWSProperty):
@@ -166,6 +166,16 @@ class ClusterSubnetGroup(AWSObject):
     }
 
 
+class DataShare(AWSObject):
+    """
+    `DataShare <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-datashare.html>`__
+    """
+
+    resource_type = "AWS::Redshift::DataShare"
+
+    props: PropsDictType = {}
+
+
 class EndpointAccess(AWSObject):
     """
     `EndpointAccess <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-endpointaccess.html>`__
@@ -233,6 +243,21 @@ class Integration(AWSObject):
     }
 
 
+class QEV2IdcApplication(AWSObject):
+    """
+    `QEV2IdcApplication <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-qev2idcapplication.html>`__
+    """
+
+    resource_type = "AWS::Redshift::QEV2IdcApplication"
+
+    props: PropsDictType = {
+        "IdcDisplayName": (str, True),
+        "IdcInstanceArn": (str, True),
+        "Qev2IdcApplicationName": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
 class PauseClusterMessage(AWSProperty):
     """
     `PauseClusterMessage <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-scheduledaction-pauseclustermessage.html>`__
@@ -295,6 +320,81 @@ class ScheduledAction(AWSObject):
         "ScheduledActionName": (str, True),
         "StartTime": (str, False),
         "TargetAction": (ScheduledActionType, False),
+    }
+
+
+class Snapshot(AWSObject):
+    """
+    `Snapshot <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshot.html>`__
+    """
+
+    resource_type = "AWS::Redshift::Snapshot"
+
+    props: PropsDictType = {
+        "ClusterIdentifier": (str, True),
+        "ManualSnapshotRetentionPeriod": (integer, False),
+        "SnapshotIdentifier": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
+class SnapshotCopyGrant(AWSObject):
+    """
+    `SnapshotCopyGrant <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshotcopygrant.html>`__
+    """
+
+    resource_type = "AWS::Redshift::SnapshotCopyGrant"
+
+    props: PropsDictType = {
+        "KmsKeyId": (str, False),
+        "SnapshotCopyGrantName": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
+class SnapshotSchedule(AWSObject):
+    """
+    `SnapshotSchedule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-snapshotschedule.html>`__
+    """
+
+    resource_type = "AWS::Redshift::SnapshotSchedule"
+
+    props: PropsDictType = {
+        "ScheduleDefinitions": ([str], True),
+        "ScheduleDescription": (str, False),
+        "ScheduleIdentifier": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
+class UsageLimit(AWSObject):
+    """
+    `UsageLimit <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-redshift-usagelimit.html>`__
+    """
+
+    resource_type = "AWS::Redshift::UsageLimit"
+
+    props: PropsDictType = {
+        "Amount": (double, True),
+        "BreachAction": (str, False),
+        "ClusterIdentifier": (str, True),
+        "FeatureType": (str, True),
+        "LimitType": (str, True),
+        "Period": (str, False),
+        "Tags": (Tags, False),
+    }
+
+
+class DataShareAssociation(AWSProperty):
+    """
+    `DataShareAssociation <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-redshift-datashare-datashareassociation.html>`__
+    """
+
+    props: PropsDictType = {
+        "ConsumerIdentifier": (str, False),
+        "CreatedDate": (str, False),
+        "Status": (str, False),
+        "StatusChangeDate": (str, False),
     }
 
 

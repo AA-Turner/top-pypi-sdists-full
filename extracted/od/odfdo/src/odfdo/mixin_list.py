@@ -51,7 +51,7 @@ class ListMixin(Element):
         style: str | None = None,
         content: str | None = None,
     ) -> list[List]:
-        """Returns all lists that match the specified criteria.
+        """Return all lists that match the specified criteria.
 
         Args:
             style: The name of the style to filter lists by.
@@ -59,6 +59,7 @@ class ListMixin(Element):
 
         Returns:
             list[List]: A list of `List` instances matching the criteria.
+
         """
         return cast(
             "list[List]",
@@ -74,6 +75,7 @@ class ListMixin(Element):
         Returns:
             list[List]: A list of all List instances that are descendants of
                 this element.
+
         """
         return cast("list[List]", self.get_elements("descendant::text:list"))
 
@@ -82,7 +84,7 @@ class ListMixin(Element):
         position: int = 0,
         content: str | None = None,
     ) -> List | None:
-        """Returns a single list that matches the specified criteria.
+        """Return a single list that matches the specified criteria.
 
         Args:
             position: The 0-based index of the matching list to return.
@@ -91,6 +93,7 @@ class ListMixin(Element):
         Returns:
             List | None: A List instance, or None if no list matches the
                 criteria.
+
         """
         return cast(
             "List | None",

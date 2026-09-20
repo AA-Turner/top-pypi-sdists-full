@@ -80,6 +80,7 @@ class SyncConfigurationModel(BaseModel):
     max_objects_per_run: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=100000, description="Hard cap on objects per sync run (prevents runaway syncs)")
     max_batch_chunk_size: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = Field(default=1000, description="Maximum objects per batch chunk")
     batch_chunk_size: Optional[Annotated[int, Field(le=1000, strict=True, ge=1)]] = Field(default=100, description="Number of objects per batch chunk (for concurrent processing)")
+    sync_concurrency: Optional[Annotated[int, Field(le=100, strict=True, ge=1)]] = Field(default=None, description="Per-sync override for concurrent object processing during a sync run. OPTIONAL. When unset, falls back to the SYNC_OBJECT_CONCURRENCY worker env default (8).")
     current_sync_run_id: Optional[StrictStr] = Field(default=None, description="UUID for current/last sync run")
     sync_run_counter: Optional[Annotated[int, Field(strict=True, ge=0)]] = Field(default=0, description="Increments on each sync execution")
     batch_ids: Optional[List[StrictStr]] = Field(default=None, description="List of batch IDs created by this sync")
@@ -95,7 +96,7 @@ class SyncConfigurationModel(BaseModel):
     schedule: Optional[Dict[str, Any]] = Field(default=None, description="Derived scheduling summary: mode, interval, next run, and last successful run.")
     sync_progress: Optional[Dict[str, Any]] = Field(default=None, description="Derived progress summary for API observability.")
     locked: StrictBool = Field(description="Whether a worker currently holds this sync's run lock.")
-    __properties: ClassVar[List[str]] = ["sync_config_id", "bucket_id", "connection_id", "internal_id", "namespace_id", "source_path", "file_filters", "schema_mapping", "sync_mode", "polling_interval_seconds", "batch_size", "create_object_on_confirm", "skip_duplicates", "skip_batch_submission", "reconcile", "status", "is_active", "total_files_discovered", "total_files_synced", "total_files_failed", "total_bytes_synced", "stats", "created_at", "updated_at", "last_sync_at", "per_shard_last_sync_at", "next_sync_at", "created_by_user_id", "last_error", "consecutive_failures", "provider_filters", "source_type", "metadata", "locked_by_worker_id", "locked_at", "lock_expires_at", "pending_full_sync", "paused", "pause_reason", "paused_at", "paused_by_user_id", "description", "max_objects_per_run", "max_batch_chunk_size", "batch_chunk_size", "current_sync_run_id", "sync_run_counter", "batch_ids", "task_ids", "batches_created", "resume_enabled", "resume_cursor", "resume_last_primary_key", "resume_objects_processed", "resume_checkpoint_frequency", "current_cursor", "sync_checkpoints", "schedule", "sync_progress", "locked"]
+    __properties: ClassVar[List[str]] = ["sync_config_id", "bucket_id", "connection_id", "internal_id", "namespace_id", "source_path", "file_filters", "schema_mapping", "sync_mode", "polling_interval_seconds", "batch_size", "create_object_on_confirm", "skip_duplicates", "skip_batch_submission", "reconcile", "status", "is_active", "total_files_discovered", "total_files_synced", "total_files_failed", "total_bytes_synced", "stats", "created_at", "updated_at", "last_sync_at", "per_shard_last_sync_at", "next_sync_at", "created_by_user_id", "last_error", "consecutive_failures", "provider_filters", "source_type", "metadata", "locked_by_worker_id", "locked_at", "lock_expires_at", "pending_full_sync", "paused", "pause_reason", "paused_at", "paused_by_user_id", "description", "max_objects_per_run", "max_batch_chunk_size", "batch_chunk_size", "sync_concurrency", "current_sync_run_id", "sync_run_counter", "batch_ids", "task_ids", "batches_created", "resume_enabled", "resume_cursor", "resume_last_primary_key", "resume_objects_processed", "resume_checkpoint_frequency", "current_cursor", "sync_checkpoints", "schedule", "sync_progress", "locked"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -207,6 +208,7 @@ class SyncConfigurationModel(BaseModel):
             "max_objects_per_run": obj.get("max_objects_per_run") if obj.get("max_objects_per_run") is not None else 100000,
             "max_batch_chunk_size": obj.get("max_batch_chunk_size") if obj.get("max_batch_chunk_size") is not None else 1000,
             "batch_chunk_size": obj.get("batch_chunk_size") if obj.get("batch_chunk_size") is not None else 100,
+            "sync_concurrency": obj.get("sync_concurrency"),
             "current_sync_run_id": obj.get("current_sync_run_id"),
             "sync_run_counter": obj.get("sync_run_counter") if obj.get("sync_run_counter") is not None else 0,
             "batch_ids": obj.get("batch_ids"),

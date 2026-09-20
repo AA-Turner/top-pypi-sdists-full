@@ -134,6 +134,7 @@ class TestSyncConfigurationModel(unittest.TestCase):
                 max_objects_per_run = 1.0,
                 max_batch_chunk_size = 1.0,
                 batch_chunk_size = 1.0,
+                sync_concurrency = 1.0,
                 current_sync_run_id = '',
                 sync_run_counter = 0.0,
                 batch_ids = [

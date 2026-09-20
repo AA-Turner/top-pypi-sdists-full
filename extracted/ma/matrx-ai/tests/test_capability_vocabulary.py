@@ -233,6 +233,15 @@ def test_single_and_agent_interaction_survive_resolution():
         assert caps.interaction == mode
 
 
+def test_decision_is_a_distinct_output_and_non_turn_interaction():
+    caps = resolve_model_capabilities(
+        _Model("jev-1.13.0", {"input": ["text"], "output": ["decision"], "interaction": "decision"})
+    )
+    assert caps.interaction == "decision"
+    assert caps.produces_decision is True
+    assert caps.produces_text is False
+
+
 # ── the write choke point ─────────────────────────────────────────────────
 
 

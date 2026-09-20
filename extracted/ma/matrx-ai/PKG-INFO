@@ -1,6 +1,6 @@
 Metadata-Version: 2.5
 Name: matrx-ai
-Version: 0.5.352
+Version: 0.5.358
 Summary: Unified multi-provider AI client, orchestration, and tool system
 Project-URL: Homepage, https://github.com/AI-Matrix-Engine/aidream-current
 Project-URL: Repository, https://github.com/AI-Matrix-Engine/aidream-current
@@ -32,11 +32,11 @@ Requires-Dist: groq>=1.2.0
 Requires-Dist: httpx
 Requires-Dist: json-repair
 Requires-Dist: matrx-assignment>=0.1.27
-Requires-Dist: matrx-connect>=0.1.122
-Requires-Dist: matrx-files>=0.2.186
-Requires-Dist: matrx-graph>=0.2.183
-Requires-Dist: matrx-runtime>=0.0.112
-Requires-Dist: matrx-scraper[browser]>=0.2.236
+Requires-Dist: matrx-connect>=0.1.123
+Requires-Dist: matrx-files>=0.2.191
+Requires-Dist: matrx-graph>=0.2.187
+Requires-Dist: matrx-runtime>=0.0.116
+Requires-Dist: matrx-scraper[browser]>=0.2.241
 Requires-Dist: matrx-utils>=2.0.50
 Requires-Dist: numpy>=2.0
 Requires-Dist: openai>=2.35.1

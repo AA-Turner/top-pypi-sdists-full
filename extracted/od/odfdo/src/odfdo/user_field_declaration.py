@@ -57,11 +57,12 @@ class UserFieldDeclMixin(Element):
     """
 
     def get_user_field_decl_list(self) -> list[UserFieldDecl]:
-        """Returns all user field declarations as a list.
+        """Return all user field declarations as a list.
 
         Returns:
             list[UserFieldDecl]: A list of all UserFieldDecl instances that
             are descendants of this element.
+
         """
         return cast(
             "list[UserFieldDecl]",
@@ -71,7 +72,7 @@ class UserFieldDeclMixin(Element):
         )
 
     def get_user_field_decl(self, name: str, position: int = 0) -> UserFieldDecl | None:
-        """Returns a single user field declaration that matches the specified
+        """Return a single user field declaration that matches the specified
         criteria.
 
         Args:
@@ -82,6 +83,7 @@ class UserFieldDeclMixin(Element):
         Returns:
             UserFieldDecl | None: A UserFieldDecl instance, or None if no
             declaration matches the criteria.
+
         """
         return cast(
             "UserFieldDecl | None",
@@ -93,7 +95,7 @@ class UserFieldDeclMixin(Element):
     def get_user_field_value(
         self, name: str, value_type: str | None = None
     ) -> CellValue | None:
-        """Returns the value of the specified user field.
+        """Return the value of the specified user field.
 
         Args:
             name: The name of the user field to retrieve its value.
@@ -106,6 +108,7 @@ class UserFieldDeclMixin(Element):
             bool | str | int | float | Decimal | datetime | timedelta | None:
                 The value of the user field, cast to the most appropriate
                 Python type, or None if the user field is not found.
+
         """
         user_field_decl = self.get_user_field_decl(name)
         if user_field_decl is None:
@@ -135,7 +138,7 @@ class UserFieldDeclContMixin(UserFieldDeclMixin):
     """
 
     def get_user_field_decls(self) -> UserFieldDecls:
-        """Returns the container for user field declarations.
+        """Return the container for user field declarations.
 
         If the container is not found, it is created within the document body.
 
@@ -146,12 +149,14 @@ class UserFieldDeclContMixin(UserFieldDeclMixin):
         Raises:
             ValueError: If the document body is empty and a new container
                 cannot be inserted.
+
         """
         user_field_decls = self.get_element("//text:user-field-decls")
         if user_field_decls is None:
             body = self.document_body
             if not body:
-                raise ValueError("Empty document.body")
+                msg = "Empty document.body"
+                raise ValueError(msg)
             body.insert(Element.from_tag("text:user-field-decls"), FIRST_CHILD)
             user_field_decls = body.get_element("//text:user-field-decls")
 
@@ -176,6 +181,7 @@ class UserFieldDecl(ElementTyped):
 
     Attributes:
         name (str): The unique name of the user field.
+
     """
 
     _tag = "text:user-field-decl"
@@ -188,13 +194,15 @@ class UserFieldDecl(ElementTyped):
         value_type: str | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initializes the UserFieldDecl element.
+        """Initialize the UserFieldDecl element.
 
         Args:
             name: The name of the user field.
             value: The initial value of the field.
             value_type: The ODF value type (e.g., 'string',
                 'float'). If not provided, it is inferred from the `value`.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -203,13 +211,14 @@ class UserFieldDecl(ElementTyped):
             self.set_value_and_type(value=value, value_type=value_type)
 
     def set_value(self, value: Any) -> None:
-        """Sets the value of the user field declaration.
+        """Set the value of the user field declaration.
 
         This method updates the value and value type of the declaration,
         preserving its name.
 
         Args:
             value: The new value for the field.
+
         """
         name = self.get_attribute("text:name")
         self.clear()

@@ -29,7 +29,7 @@ from .element import Element
 def _get_successor(
     element: Element, target: Element
 ) -> tuple[Element | None, Element | None]:
-    """Internal helper to find the logical successor of an element in the XML tree.
+    """Find the logical successor of an element in the XML tree (internal helper).
 
     This function attempts to find the next sibling. If no next sibling exists,
     it traverses up to the parent and tries to find the successor of the parent.
@@ -43,6 +43,7 @@ def _get_successor(
         tuple[Element | None, Element | None]: A tuple containing the successor
             element and its corresponding target element, or (None, None) if no
             successor is found.
+
     """
     next_u_element = element._xml_element.getnext()
     if next_u_element is not None:
@@ -54,7 +55,7 @@ def _get_successor(
 
 
 def _find_any_id(element: Element) -> tuple[str, str, str]:
-    """Internal helper to find any ID attribute and its value for a given element.
+    """Find any ID attribute and its value for a given element (internal helper).
 
     It iterates through a predefined list of common ODF ID attributes.
 
@@ -67,6 +68,7 @@ def _find_any_id(element: Element) -> tuple[str, str, str]:
 
     Raises:
         ValueError: If no recognized ID attribute is found on the element.
+
     """
     for attribute in (
         "text:id",
@@ -79,7 +81,8 @@ def _find_any_id(element: Element) -> tuple[str, str, str]:
         idx = element.get_attribute(attribute)
         if idx is not None:
             return element.tag, attribute, str(idx)
-    raise ValueError(f"No Id found in {element.serialize()}")
+    msg = f"No Id found in {element.serialize()}"
+    raise ValueError(msg)
 
 
 def _common_ancestor(
@@ -91,7 +94,7 @@ def _common_ancestor(
     attr2: str,
     val2: str,
 ) -> Element | None:
-    """Internal helper to find the common ancestor of two elements in the XML tree.
+    """Find the common ancestor of two elements in the XML tree (internal helper).
 
     The elements are identified by their tag, attribute, and value.
 
@@ -106,6 +109,7 @@ def _common_ancestor(
 
     Returns:
         Element | None: The common ancestor element, or `None` if not found.
+
     """
     request1 = f'descendant::{tag1}[@{attr1}="{val1}"]'
     request2 = f'descendant::{tag2}[@{attr2}="{val2}"]'
@@ -132,7 +136,7 @@ def _get_between_base(
     tag1: Element,
     tag2: Element,
 ) -> list[Element]:
-    """Internal helper to extract elements between two specified markers (`tag1`, `tag2`).
+    """Extract elements between two specified markers (`tag1`, `tag2`) (internal helper).
 
     This function finds the common ancestor of `tag1` and `tag2`, then traverses
     the XML tree between them, collecting all elements.
@@ -148,6 +152,7 @@ def _get_between_base(
     Raises:
         RuntimeError: If no common ancestor is found, or if the traversal fails
             to find an expected element.
+
     """
     elem1_tag, elem1_attr, elem1_val = _find_any_id(tag1)
     elem2_tag, elem2_attr, elem2_val = _find_any_id(tag2)
@@ -161,7 +166,8 @@ def _get_between_base(
         elem2_val,
     )
     if ancestor_result is None:
-        raise RuntimeError(f"No common ancestor for {elem1_tag!r} and {elem2_tag!r}")
+        msg = f"No common ancestor for {elem1_tag!r} and {elem2_tag!r}"
+        raise RuntimeError(msg)
     ancestor = ancestor_result.clone
     path1 = f'{elem1_tag}[@{elem1_attr}="{elem1_val}"]'
     path2 = f'{elem2_tag}[@{elem2_attr}="{elem2_val}"]'
@@ -176,9 +182,8 @@ def _get_between_base(
     state = 0
     while True:
         if current is None:
-            raise RuntimeError(
-                f"No current ancestor for {elem1_tag!r} and {elem2_tag!r}"
-            )
+            msg = f"No current ancestor for {elem1_tag!r} and {elem2_tag!r}"
+            raise RuntimeError(msg)
         # print 'current', state, current.serialize()
         if state == 0:  # before tag 1
             if current.xpath(f"descendant-or-self::{path1}"):
@@ -188,9 +193,8 @@ def _get_between_base(
                         # got a tail => the parent should be either text:p or text:h
                         if target is None:  # pragma: nocover
                             # should never happen
-                            raise RuntimeError(
-                                f"No target for {elem1_tag!r} and {elem2_tag!r}"
-                            )
+                            msg = f"No target for {elem1_tag!r} and {elem2_tag!r}"
+                            raise RuntimeError(msg)
                         target.text = tail
                     current, target = _get_successor(current, target)  # ty: ignore
                     state = 1
@@ -243,7 +247,7 @@ def _get_between_base(
 
 
 def _clean_inner_list(inner: list[Element]) -> list[Element]:
-    """Internal helper to clean a list of elements by removing unwanted tags.
+    """Clean a list of elements by removing unwanted tags (internal helper).
 
     Specifically targets tags related to tracked changes and reference marks.
 
@@ -252,6 +256,7 @@ def _clean_inner_list(inner: list[Element]) -> list[Element]:
 
     Returns:
         list[Element]: A new list with unwanted elements removed or stripped.
+
     """
     CLEAN_TAGS = (
         "text:change",
@@ -273,7 +278,7 @@ def _clean_inner_list(inner: list[Element]) -> list[Element]:
 
 
 def _no_header_inner_list(inner: list[Element]) -> list[Element]:
-    """Internal helper to convert header elements (`text:h`) to paragraph elements (`text:p`).
+    """Convert header elements (`text:h`) to paragraph elements (`text:p`) (internal helper).
 
     Args:
         inner: The list of elements to process.
@@ -281,6 +286,7 @@ def _no_header_inner_list(inner: list[Element]) -> list[Element]:
     Returns:
         list[Element]: A new list where `text:h` elements are replaced by `text:p`
             elements, preserving their content.
+
     """
     result: list[Element] = []
     for element in inner:
@@ -328,6 +334,7 @@ def elements_between(
     Raises:
         RuntimeError: If `start` or `end` elements are not found or if no
             common ancestor can be determined (propagated from internal helpers).
+
     """
     inner = _get_between_base(base, start, end)
 

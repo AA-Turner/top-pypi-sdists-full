@@ -61,6 +61,7 @@ class VarSet(ElementTyped):
             value.
         display (str): Controls whether the value is displayed ('none' or
             omitted).
+
     """
 
     _tag = "text:variable-set"
@@ -80,7 +81,7 @@ class VarSet(ElementTyped):
         style: str | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initializes the VarSet element.
+        """Initialize the VarSet element.
 
         Args:
             name: The name of the variable to set.
@@ -90,6 +91,8 @@ class VarSet(ElementTyped):
                 displayed. Otherwise, it is. Defaults to False.
             text: The textual representation of the value.
             style: The data style name for formatting.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -106,13 +109,14 @@ class VarSet(ElementTyped):
                 self.text = text
 
     def set_value(self, value: Any) -> None:
-        """Sets the value of the variable.
+        """Set the value of the variable.
 
         This method updates the value and value type, preserving other
         attributes like name, style, and display setting.
 
         Args:
             value: The new value for the variable.
+
         """
         name = self.get_attribute("text:name")
         display = self.get_attribute("text:display")
@@ -139,6 +143,7 @@ class VarGet(ElementTyped):
     Attributes:
         name (str): The name of the variable to display.
         style (str, optional): The data style for formatting the value.
+
     """
 
     _tag = "text:variable-get"
@@ -156,7 +161,7 @@ class VarGet(ElementTyped):
         style: str | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initializes the VarGet element.
+        """Initialize the VarGet element.
 
         Args:
             name: The name of the variable to get.
@@ -164,6 +169,8 @@ class VarGet(ElementTyped):
             value_type: The ODF value type.
             text: The textual representation to display.
             style: The data style name for formatting.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -191,6 +198,7 @@ class VarPageNumber(Element):
             'previous', 'next').
         page_adjust (str): A numerical value to add to or subtract from the
             page number.
+
     """
 
     _tag = "text:page-number"
@@ -205,13 +213,15 @@ class VarPageNumber(Element):
         page_adjust: str | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initializes the VarPageNumber element.
+        """Initialize the VarPageNumber element.
 
         Args:
             select_page: The page to select: 'current' (the
                 default), 'previous', or 'next'.
             page_adjust: A numerical value to add to or
                 subtract from the selected page number.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -244,6 +254,7 @@ class VarDate(Element):
         fixed (bool): If True, the date is not updated automatically.
         data_style (str): The style for formatting the date.
         date_adjust (str): A duration to add to or subtract from the date.
+
     """
 
     _tag = "text:date"
@@ -263,7 +274,7 @@ class VarDate(Element):
         date_adjust: timedelta | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initializes the VarDate element.
+        """Initialize the VarDate element.
 
         Args:
             date: The date value. If not provided, the
@@ -274,6 +285,8 @@ class VarDate(Element):
                 If not provided, it is generated from `date`.
             date_adjust: A timedelta to adjust the
                 date value.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -303,6 +316,7 @@ class VarTime(Element):
         fixed (bool): If True, the time is not updated automatically.
         data_style (str): The style for formatting the time.
         time_adjust (str): A duration to add to or subtract from the time.
+
     """
 
     _tag = "text:time"
@@ -322,7 +336,7 @@ class VarTime(Element):
         time_adjust: timedelta | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initializes the VarTime element.
+        """Initialize the VarTime element.
 
         Args:
             time: The time value. Defaults to
@@ -333,6 +347,8 @@ class VarTime(Element):
                 If not provided, it is generated from `time`.
             time_adjust: A timedelta to adjust the
                 time value.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -374,6 +390,7 @@ class VarChapter(Element):
             (e.g., 'name', 'number', 'number-and-name').
         outline_level (str): The heading level to consider for the chapter
             information.
+
     """
 
     _tag = "text:chapter"
@@ -395,18 +412,21 @@ class VarChapter(Element):
         outline_level: str | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initializes the VarChapter element.
+        """Initialize the VarChapter element.
 
         Args:
             display: The format for the chapter information.
                 Can be 'name' (default), 'number', 'number-and-name', etc.
             outline_level: The heading outline level to use
                 for chapter context.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
             if display not in VarChapter.DISPLAY_VALUE_CHOICE:
-                raise ValueError(f"Unknown display value: '{display}'")
+                msg = f"Unknown display value: {display!r}"
+                raise ValueError(msg)
             self.display = display
             if outline_level is not None:
                 self.outline_level = outline_level
@@ -425,6 +445,7 @@ class VarFileName(Element):
         display (str): The format for the file name ('full', 'path', 'name',
             'name-and-extension').
         fixed (bool): If True, the file name is not updated automatically.
+
     """
 
     _tag = "text:file-name"
@@ -445,17 +466,20 @@ class VarFileName(Element):
         fixed: bool = False,
         **kwargs: Any,
     ) -> None:
-        """Initializes the VarFileName element.
+        """Initialize the VarFileName element.
 
         Args:
             display: The format for the file name. Can be
                 'full' (default), 'path', 'name', or 'name-and-extension'.
             fixed: If True, the field is not updated automatically.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
             if display not in VarFileName.DISPLAY_VALUE_CHOICE:
-                raise ValueError(f"Unknown display value: '{display}'")
+                msg = f"Unknown display value: {display!r}"
+                raise ValueError(msg)
             self.display = display
             if fixed:
                 self.fixed = True
@@ -472,16 +496,19 @@ class VarInitialCreator(Element):
 
     Attributes:
         fixed (bool): If True, the field is not updated automatically.
+
     """
 
     _tag = "text:initial-creator"
     _properties = (PropDef("fixed", "text:fixed"),)
 
     def __init__(self, fixed: bool = False, **kwargs: Any) -> None:
-        """Initializes the VarInitialCreator element.
+        """Initialize the VarInitialCreator element.
 
         Args:
             fixed: If True, the field is not updated automatically.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init and fixed:
@@ -499,6 +526,7 @@ class VarCreationDate(Element):
     Attributes:
         fixed (bool): If True, the field is not updated automatically.
         data_style (str): The style for formatting the date.
+
     """
 
     _tag = "text:creation-date"
@@ -513,11 +541,13 @@ class VarCreationDate(Element):
         data_style: str | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initializes the VarCreationDate element.
+        """Initialize the VarCreationDate element.
 
         Args:
             fixed: If True, the field is not updated automatically.
             data_style: The style name for formatting.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:
@@ -538,6 +568,7 @@ class VarCreationTime(Element):
     Attributes:
         fixed (bool): If True, the field is not updated automatically.
         data_style (str): The style for formatting the time.
+
     """
 
     _tag = "text:creation-time"
@@ -552,11 +583,13 @@ class VarCreationTime(Element):
         data_style: str | None = None,
         **kwargs: Any,
     ) -> None:
-        """Initializes the VarCreationTime element.
+        """Initialize the VarCreationTime element.
 
         Args:
             fixed: If True, the field is not updated automatically.
             data_style: The style name for formatting.
+            kwargs: Arbitrary keyword arguments for the Element base class.
+
         """
         super().__init__(**kwargs)
         if self._do_init:

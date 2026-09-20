@@ -28,14 +28,15 @@ from typing_extensions import Self
 
 class CollectionExportRequest(BaseModel):
     """
-    Request model for exporting collection data.  **Export Formats:** - **JSON**: Line-delimited JSON (JSONL) format, one document per line. Good for streaming and large files. - **CSV**: Comma-separated values. Best for tabular data analysis in spreadsheets. - **PARQUET**: Columnar format optimized for analytics. Best for large datasets and data pipelines.  **Vector Export:** Vectors are stored separately from document metadata due to their large size. When `include_vectors=True`, vectors are exported to a separate file with the naming convention: `{collection_name}_vectors.{format}`  **Field Selection:** Use `select_fields` to export only specific fields, reducing file size for large collections. Supports dot notation for nested fields (e.g., \"metadata.title\").  **Filtering:** Apply filters to export a subset of documents. Uses the same LogicalOperator format as the documents list endpoint.
+    Request model for exporting collection data.  **Export Formats:** - **JSON**: Line-delimited JSON (JSONL) format, one document per line. Good for streaming and large files. - **CSV**: Comma-separated values. Best for tabular data analysis in spreadsheets. - **PARQUET**: Columnar format optimized for analytics. Best for large datasets and data pipelines.  **Vector Export:** Vectors are stored separately from document metadata due to their large size. When `include_vectors=True`, vectors are exported to a separate file with the naming convention: `{collection_name}_vectors.{format}`  **Lineage:** When `include_lineage=True`, every row also carries `lineage_chain` (each processing step from the source object to this document), `source_content_hash` (SHA-256 of the source content) and `document_created_at` (ISO 8601). In JSON the chain is a list; in CSV and Parquet it is a JSON-encoded string so every row keeps one column type.  **Field Selection:** Use `select_fields` to export only specific fields, reducing file size for large collections. Supports dot notation for nested fields (e.g., \"metadata.title\").  **Filtering:** Apply filters to export a subset of documents. Uses the same LogicalOperator format as the documents list endpoint.
     """ # noqa: E501
     format: Optional[ExportFormat] = Field(default=None, description="Export format: json (line-delimited), csv, or parquet (default).")
     include_vectors: Optional[StrictBool] = Field(default=False, description="Whether to include vectors in the export. Vectors are exported to a separate file due to their large size. This significantly increases export time and file size.")
+    include_lineage: Optional[StrictBool] = Field(default=False, description="Add lineage columns to every row: lineage_chain (the processing steps from source object to document), source_content_hash (SHA-256 of the source content) and document_created_at (ISO 8601). Kept even when select_fields is set. In CSV and Parquet, lineage_chain is a JSON-encoded string.")
     select_fields: Optional[List[StrictStr]] = Field(default=None, description="Specific fields to include in the export. If not provided, all fields are exported. Supports dot notation for nested fields (e.g., 'metadata.title', 'metadata.author').")
     filters: Optional[LogicalOperatorInput] = Field(default=None, description="Filter conditions to export only matching documents. Uses LogicalOperator format (AND/OR/NOT) same as document listing.")
     sample_size: Optional[Annotated[int, Field(le=1000000, strict=True, ge=1)]] = Field(default=None, description="Maximum number of documents to export. If not provided, exports all documents. Useful for testing exports or creating sample datasets.")
-    __properties: ClassVar[List[str]] = ["format", "include_vectors", "select_fields", "filters", "sample_size"]
+    __properties: ClassVar[List[str]] = ["format", "include_vectors", "include_lineage", "select_fields", "filters", "sample_size"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -93,6 +94,7 @@ class CollectionExportRequest(BaseModel):
         _obj = cls.model_validate({
             "format": obj.get("format"),
             "include_vectors": obj.get("include_vectors") if obj.get("include_vectors") is not None else False,
+            "include_lineage": obj.get("include_lineage") if obj.get("include_lineage") is not None else False,
             "select_fields": obj.get("select_fields"),
             "filters": LogicalOperatorInput.from_dict(obj["filters"]) if obj.get("filters") is not None else None,
             "sample_size": obj.get("sample_size")

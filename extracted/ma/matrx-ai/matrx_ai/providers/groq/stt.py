@@ -9,7 +9,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-from matrx_ai.processing.audio.stt import STTRequest, STTResult, STTUsage, prepare_audio_file
+from matrx_ai.processing.audio.stt import (
+    DEFAULT_PROVIDER_AUDIO_LIMIT_MB,
+    STTRequest,
+    STTResult,
+    STTUsage,
+    prepare_audio_file,
+)
 from matrx_ai.providers.keys import resolve_api_key
 from matrx_ai.providers.outbound_params import resolve_outbound_params
 from matrx_ai.providers.sdk_drift import route_undeclared_params
@@ -42,7 +48,9 @@ class GroqSTT:
 
     async def execute(self, request: STTRequest, profile: ResolvedCallProfile) -> STTResult:
         stt_meta = profile.offering_metadata.get("stt", {})
-        max_size = float(stt_meta.get("max_file_size_mb", 100.0))
+        max_size = float(
+            stt_meta.get("max_file_size_mb") or DEFAULT_PROVIDER_AUDIO_LIMIT_MB
+        )
         file_tuple, file_size_mb = await prepare_audio_file(
             request.audio_source, max_file_size_mb=max_size
         )

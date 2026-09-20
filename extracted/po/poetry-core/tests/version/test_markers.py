@@ -73,6 +73,9 @@ EMPTY = "<empty>"
         '"tegra" not in platform_release',
         '"tegra" in platform_release or "rpi-v8" in platform_release',
         '"tegra" not in platform_release and "rpi-v8" not in platform_release',
+        # Mixed version and string comparison
+        'platform_release != "1" and "a" not in platform_release',
+        '"a" not in platform_release or platform_release != "1"',
         # extra starting with "in"
         'extra == "in1" or extra == "in2"',
         'extra == "in1" and extra == "in2"',
@@ -162,6 +165,19 @@ def test_single_marker_normalisation() -> None:
     m2 = SingleMarker("python_version", ">= 3.6")
     assert m1 == m2
     assert hash(m1) == hash(m2)
+
+
+@pytest.mark.parametrize("operator", ["==", "!="])
+def test_single_marker_with_spaces(operator: str) -> None:
+    value = "#1 SMP Wed Jun 16 20:00:10 PDT 2021"
+    marker_string = f'platform_version {operator} "{value}"'
+    marker = parse_marker(marker_string)
+
+    assert str(marker) == marker_string
+    assert marker.validate({"platform_version": value}) == (operator == "==")
+    assert marker.validate({"platform_version": "another kernel"}) == (operator == "!=")
+    assert marker.intersect(marker.invert()).is_empty()
+    assert marker.union(marker.invert()).is_any()
 
 
 def test_single_marker_intersect() -> None:
@@ -1466,6 +1482,10 @@ def test_multi_marker_removes_duplicates() -> None:
             {"platform_release": "4.9.253"},
             True,
         ),
+        # both terms must be kept, not just the "not in" one
+        ("os_name != 'a' and 'b' not in os_name", {"os_name": "a"}, False),
+        ("os_name != 'a' and 'b' not in os_name", {"os_name": "ab"}, False),
+        ("os_name != 'a' and 'b' not in os_name", {"os_name": "c"}, True),
         (
             "platform_release >= '6.6.0+rpt-rpi-v8'",
             {"platform_release": "6.6.20+rpt-rpi-v8"},
@@ -1538,6 +1558,108 @@ def test_validate(
     m = parse_marker(marker_string)
 
     assert m.validate(environment) is expected
+
+
+@pytest.mark.parametrize(
+    ("marker_string", "environment", "expected"),
+    [
+        # AnyMarker / EmptyMarker are returned unchanged.
+        ("", {}, ""),
+        ("", {"os_name": "linux"}, ""),
+        (EMPTY, {}, EMPTY),
+        (EMPTY, {"os_name": "linux"}, EMPTY),
+        # Empty environment preserves the marker.
+        ("os_name == 'foo'", {}, "os_name == 'foo'"),
+        (
+            "python_version >= '3.8' and sys_platform == 'linux'",
+            {},
+            "python_version >= '3.8' and sys_platform == 'linux'",
+        ),
+        # SingleMarker with name in env collapses to Any/Empty.
+        ("os_name == 'foo'", {"os_name": "foo"}, ""),
+        ("os_name == 'foo'", {"os_name": "bar"}, EMPTY),
+        ("python_version >= '3.8'", {"python_version": "3.10"}, ""),
+        ("python_version >= '3.8'", {"python_version": "3.7"}, EMPTY),
+        # SingleMarker with name not in env is returned unchanged.
+        ("os_name == 'foo'", {"sys_platform": "linux"}, "os_name == 'foo'"),
+        # MultiMarker: only one name in env -> residual is the other branch.
+        (
+            "python_version >= '3.8' and sys_platform == 'linux'",
+            {"python_version": "3.10"},
+            "sys_platform == 'linux'",
+        ),
+        (
+            "python_version >= '3.8' and sys_platform == 'linux'",
+            {"sys_platform": "linux"},
+            "python_version >= '3.8'",
+        ),
+        # MultiMarker: one branch is False -> whole thing collapses to Empty.
+        (
+            "python_version >= '3.8' and sys_platform == 'linux'",
+            {"python_version": "3.7"},
+            EMPTY,
+        ),
+        # MultiMarker: both names known.
+        (
+            "python_version >= '3.8' and sys_platform == 'linux'",
+            {"python_version": "3.10", "sys_platform": "linux"},
+            "",
+        ),
+        (
+            "python_version >= '3.8' and sys_platform == 'linux'",
+            {"python_version": "3.10", "sys_platform": "win32"},
+            EMPTY,
+        ),
+        # MarkerUnion: one branch True -> collapses to Any.
+        (
+            "python_version >= '3.8' or sys_platform == 'linux'",
+            {"python_version": "3.10"},
+            "",
+        ),
+        # MarkerUnion: one branch False -> residual is the other branch.
+        (
+            "python_version >= '3.8' or sys_platform == 'linux'",
+            {"python_version": "3.7"},
+            "sys_platform == 'linux'",
+        ),
+        # MarkerUnion: both names known.
+        (
+            "python_version >= '3.8' or sys_platform == 'linux'",
+            {"python_version": "3.7", "sys_platform": "win32"},
+            EMPTY,
+        ),
+        # Nested: (A or B) and C, only python_version known.
+        (
+            "(python_version >= '3.8' or sys_platform == 'win32') and extra == 'foo'",
+            {"python_version": "3.10"},
+            "extra == 'foo'",
+        ),
+        (
+            "(python_version >= '3.8' or sys_platform == 'win32') and extra == 'foo'",
+            {"python_version": "3.7"},
+            "sys_platform == 'win32' and extra == 'foo'",
+        ),
+        # extra: name in env is evaluated, including empty-tuple case.
+        ("extra == 'a'", {"extra": "a"}, ""),
+        ("extra == 'a'", {"extra": "b"}, EMPTY),
+        ("extra == 'a'", {"extra": ()}, EMPTY),
+        ("extra != 'a'", {"extra": ()}, ""),
+        # extra: name not in env is preserved.
+        ("extra == 'a'", {}, "extra == 'a'"),
+        ("extra == 'a'", {"python_version": "3.10"}, "extra == 'a'"),
+        # AtomicMultiMarker / AtomicMarkerUnion (compact extra forms).
+        ("extra != 'a' and extra != 'b'", {"extra": ("c",)}, ""),
+        ("extra != 'a' and extra != 'b'", {"extra": ("a",)}, EMPTY),
+        ("extra != 'a' and extra != 'b'", {}, "extra != 'a' and extra != 'b'"),
+        ("extra == 'a' or extra == 'b'", {"extra": ("a",)}, ""),
+        ("extra == 'a' or extra == 'b'", {"extra": ("c",)}, EMPTY),
+        ("extra == 'a' or extra == 'b'", {}, "extra == 'a' or extra == 'b'"),
+    ],
+)
+def test_apply(marker_string: str, environment: dict[str, str], expected: str) -> None:
+    m = parse_marker(marker_string)
+
+    assert m.apply(environment) == parse_marker(expected)
 
 
 @pytest.mark.parametrize(

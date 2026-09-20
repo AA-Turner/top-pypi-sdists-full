@@ -12,6 +12,7 @@ from .models import (BucketInfo, CommonPrefixInfo,
                      UploadPartCopyResult, UploadPartInfo, UserInfo)
 from .models2 import (ListedObjectVersion,
                       ListObjectVersionsOutput, Owner)
+from .exceptions import make_server_error_with_exception
 from .utils import (get_etag, get_value, parse_modify_time_to_utc_datetime)
 
 
@@ -94,6 +95,8 @@ def convert_copy_object_result(resp):
     result.last_modified = get_value(data, 'LastModified')
     if result.last_modified:
         result.last_modified = parse_modify_time_to_utc_datetime(result.last_modified)
+    if not result.etag:
+        raise make_server_error_with_exception(resp, data)
 
     return result
 

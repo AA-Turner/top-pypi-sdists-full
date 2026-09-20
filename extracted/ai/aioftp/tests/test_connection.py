@@ -129,7 +129,7 @@ async def test_pasv_connection_port_reused(
 
 
 @pytest.mark.asyncio
-async def test_pasv_connection_pasv_forced_response_address(pair_factory, Server):
+async def test_pasv_connection_pasv_forced_response_address(pair_factory, Client, Server):
     def ipv4_used():
         try:
             ipaddress.IPv4Address(pair.host)
@@ -140,6 +140,7 @@ async def test_pasv_connection_pasv_forced_response_address(pair_factory, Server
     # using TEST-NET-1 address
     ipv4_address = "192.0.2.1"
     async with pair_factory(
+        client=Client(trust_server_pasv_ipv4_address=True),
         server=Server(ipv4_pasv_forced_response_address=ipv4_address),
     ) as pair:
         assert pair.server.ipv4_pasv_forced_response_address == ipv4_address
@@ -308,3 +309,28 @@ async def test_welcome_message(pair_factory, Server):
             pair.server.server_port,
         )
         assert lines == [" " + welcome_message]
+
+
+@pytest.mark.asyncio
+async def test_system_type(pair_factory, Server):
+    system_type = "My custom OS"
+    async with pair_factory(
+        server=Server(system_type=system_type),
+    ) as pair:
+        resp = await pair.client.command("SYST", expected_codes=(215,))
+        assert resp == ("215", [" " + system_type])
+
+
+@pytest.mark.asyncio
+async def test_client_timeout_passive_connection(pair_factory, Client, monkeypatch):
+    open_connection = asyncio.open_connection
+
+    async def slow_open_connection(host, port, **kwargs):
+        await asyncio.sleep(1)
+        return await open_connection(host, port, **kwargs)
+
+    async with pair_factory(Client(connection_timeout=0.5), logged=True) as pair:
+        with monkeypatch.context() as m:
+            m.setattr("asyncio.open_connection", slow_open_connection)
+            with pytest.raises(asyncio.TimeoutError):
+                await pair.client.get_passive_connection()

@@ -42,7 +42,7 @@ class MediaMixin:
     Helpers for media
     """
 
-    _medias_cache = {}  # pk -> object
+    _medias_cache: Dict[str, Media]
 
     def _media_share_story_background(self) -> Path:
         temp = tempfile.NamedTemporaryFile(prefix="instagrapi_story_share_", suffix=".jpg", delete=False)
@@ -538,7 +538,7 @@ class MediaMixin:
             response = self.public.get(
                 url,
                 proxies=self.public.proxies,
-                timeout=self.request_timeout,
+                timeout=self.read_timeout,
                 allow_redirects=False,
             )
             location = response.headers.get("Location") or response.headers.get("location")
@@ -1992,6 +1992,57 @@ class MediaMixin:
             "_uuid": self.uuid,
         }
         return self.private_request("clips/template/", data=data)
+
+    def media_upload_status(self, post_client_id: str) -> Dict:
+        """
+        Poll the processing status of an async upload.
+
+        The current Android app publishes clips and stories with
+        ``async_publish=1`` and polls ``media/get_upload_status_REST/`` using
+        the client-side upload id until the status turns ``COMPLETED``.
+
+        Parameters
+        ----------
+        post_client_id : str
+            The client-side upload id (the ``upload_id``/``post_client_id``
+            value used during the upload).
+
+        Returns
+        -------
+        dict
+            Raw response with ``posts`` and ``medias`` entries. Each entry
+            carries a ``status`` (``PENDING``, ``COMPLETED``, ...) and an
+            ``error_info`` object.
+        """
+        return self.private_request(
+            "media/get_upload_status_REST/",
+            data={"post_client_id": str(post_client_id)},
+            with_signature=True,
+        )
+
+    def video_refresh_resources(self, media_id: str, should_fetch_all_language_variants: bool = False) -> Dict:
+        """
+        Refresh the playable video resources of a media.
+
+        Returns a fresh ``video_versions`` list (and DASH manifest) for media
+        whose previously returned video URLs have expired.
+
+        Parameters
+        ----------
+        media_id : str
+            Media pk to refresh resources for.
+        should_fetch_all_language_variants : bool, optional
+            Whether to include all language variants, default is False.
+
+        Returns
+        -------
+        dict
+            Raw response with ``video_versions`` and ``video_dash_manifest``.
+        """
+        return self.private_request(
+            f"video/refresh_resources/{media_id}/",
+            params={"should_fetch_all_language_variants": str(should_fetch_all_language_variants).lower()},
+        )
 
     def media_create_livestream(self, title="Instagram Live"):
         """

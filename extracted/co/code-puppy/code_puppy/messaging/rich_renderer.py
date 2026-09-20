@@ -45,6 +45,7 @@ from .messages import (
     FileContentMessage,
     FileListingMessage,
     GrepResultMessage,
+    MessageCategory,
     MessageLevel,
     SelectionRequest,
     ShellLineMessage,
@@ -459,6 +460,14 @@ class RichConsoleRenderer:
         so paused messages are dropped before we bother classifying them.
         Individual suppress toggles are also checked here.
         """
+        # Tool bodies never reach the transcript, even when emitted by worker
+        # threads without the execution task's contextvars (e.g. shell pipes).
+        if getattr(
+            message, "category", None
+        ) == MessageCategory.TOOL_OUTPUT or isinstance(
+            message, (SubAgentInvocationMessage, SubAgentResponseMessage)
+        ):
+            return
         if self._should_silence_during_pause(message):
             return
 

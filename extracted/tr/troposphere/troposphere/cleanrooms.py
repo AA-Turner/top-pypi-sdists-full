@@ -360,9 +360,45 @@ class AnalysisRuleAggregation(AWSProperty):
     }
 
 
+class OutputColumnThreshold(AWSProperty):
+    """
+    `OutputColumnThreshold <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-outputcolumnthreshold.html>`__
+    """
+
+    props: PropsDictType = {
+        "MinimumIdentityCount": (integer, True),
+        "OutputColumnName": (str, True),
+    }
+
+
+class AggregationThreshold(AWSProperty):
+    """
+    `AggregationThreshold <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-aggregationthreshold.html>`__
+    """
+
+    props: PropsDictType = {
+        "AllowedAggregateExpressionType": (str, True),
+        "IdentityColumns": ([str], True),
+        "MinimumIdentityCount": (integer, True),
+        "OutputColumnThresholds": ([OutputColumnThreshold], False),
+        "Type": (str, True),
+    }
+
+
+class ComparisonControls(AWSProperty):
+    """
+    `ComparisonControls <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-comparisoncontrols.html>`__
+    """
+
+    props: PropsDictType = {
+        "AllowedColumnComparisonColumns": ([str], True),
+        "AllowedLiteralComparisonColumns": ([str], True),
+    }
+
+
 class DifferentialPrivacyColumn(AWSProperty):
     """
-    `DifferentialPrivacyColumn <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-differentialprivacycolumn.html>`__
+    `DifferentialPrivacyColumn <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-differentialprivacycolumn.html>`__
     """
 
     props: PropsDictType = {
@@ -372,7 +408,7 @@ class DifferentialPrivacyColumn(AWSProperty):
 
 class DifferentialPrivacy(AWSProperty):
     """
-    `DifferentialPrivacy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-configuredtable-differentialprivacy.html>`__
+    `DifferentialPrivacy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-differentialprivacy.html>`__
     """
 
     props: PropsDictType = {
@@ -387,8 +423,10 @@ class AnalysisRuleCustom(AWSProperty):
 
     props: PropsDictType = {
         "AdditionalAnalyses": (str, False),
+        "AggregationThresholds": ([AggregationThreshold], False),
         "AllowedAnalyses": ([str], True),
         "AllowedAnalysisProviders": ([str], False),
+        "ComparisonControls": (ComparisonControls, False),
         "DifferentialPrivacy": (DifferentialPrivacy, False),
         "DisallowedOutputColumns": ([str], False),
     }
@@ -683,6 +721,93 @@ class IdNamespaceAssociation(AWSObject):
         "InputReferenceConfig": (IdNamespaceAssociationInputReferenceConfig, True),
         "MembershipIdentifier": (str, True),
         "Name": (str, True),
+        "Tags": (Tags, False),
+    }
+
+
+class IntermediateTableAnalysisRuleCustom(AWSProperty):
+    """
+    `IntermediateTableAnalysisRuleCustom <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrulecustom.html>`__
+    """
+
+    props: PropsDictType = {
+        "AdditionalAnalyses": (str, False),
+        "AggregationThresholds": ([AggregationThreshold], False),
+        "AllowedAnalyses": ([str], True),
+        "AllowedAnalysisProviders": ([str], False),
+        "AllowedResultReceivers": ([str], False),
+        "ComparisonControls": (ComparisonControls, False),
+        "DifferentialPrivacy": (DifferentialPrivacy, False),
+        "DisallowedOutputColumns": ([str], False),
+    }
+
+
+class IntermediateTableAnalysisRulePolicyV1(AWSProperty):
+    """
+    `IntermediateTableAnalysisRulePolicyV1 <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrulepolicyv1.html>`__
+    """
+
+    props: PropsDictType = {
+        "Custom": (IntermediateTableAnalysisRuleCustom, True),
+    }
+
+
+class IntermediateTableAnalysisRulePolicy(AWSProperty):
+    """
+    `IntermediateTableAnalysisRulePolicy <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrulepolicy.html>`__
+    """
+
+    props: PropsDictType = {
+        "V1": (IntermediateTableAnalysisRulePolicyV1, True),
+    }
+
+
+class IntermediateTableAnalysisRule(AWSProperty):
+    """
+    `IntermediateTableAnalysisRule <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-intermediatetableanalysisrule.html>`__
+    """
+
+    props: PropsDictType = {
+        "Policy": (IntermediateTableAnalysisRulePolicy, True),
+        "Type": (str, True),
+    }
+
+
+class PopulationAnalysisSqlParameters(AWSProperty):
+    """
+    `PopulationAnalysisSqlParameters <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-populationanalysissqlparameters.html>`__
+    """
+
+    props: PropsDictType = {
+        "AnalysisTemplateArn": (str, False),
+        "QueryString": (str, False),
+    }
+
+
+class PopulationAnalysisConfiguration(AWSProperty):
+    """
+    `PopulationAnalysisConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cleanrooms-intermediatetable-populationanalysisconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "SqlParameters": (PopulationAnalysisSqlParameters, False),
+    }
+
+
+class IntermediateTable(AWSObject):
+    """
+    `IntermediateTable <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-cleanrooms-intermediatetable.html>`__
+    """
+
+    resource_type = "AWS::CleanRooms::IntermediateTable"
+
+    props: PropsDictType = {
+        "AnalysisRules": ([IntermediateTableAnalysisRule], False),
+        "Description": (str, False),
+        "KmsKeyArn": (str, False),
+        "MembershipIdentifier": (str, True),
+        "Name": (str, True),
+        "PopulationAnalysisConfiguration": (PopulationAnalysisConfiguration, True),
         "Tags": (Tags, False),
     }
 

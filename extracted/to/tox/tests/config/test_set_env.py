@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+import textwrap
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Literal
 from unittest.mock import ANY
@@ -467,50 +468,86 @@ def test_set_env_marker_with_replace_toml(
         assert "CONDITIONAL" not in set_env
 
 
-def test_set_env_cross_section_override(tox_project: ToxProjectCreator) -> None:
-    ini = """\
-    [testenv]
-    skip_install = true
-    set_env =
-        OS_TEST_PATH=./tests/unit
-    commands = python -c "import os; print(os.environ['OS_TEST_PATH'])"
+@pytest.mark.parametrize(
+    ("ini", "env", "expected"),
+    [
+        pytest.param(
+            """\
+            [testenv]
+            skip_install = true
+            set_env =
+                OS_TEST_PATH=./tests/unit
+            commands = python -c "import os; print(os.environ['OS_TEST_PATH'])"
 
-    [testenv:functional]
-    set_env =
-      {[testenv]set_env}
-      OS_TEST_PATH=./tests/functional
-    commands = python -c "import os; print(os.environ['OS_TEST_PATH'])"
+            [testenv:functional]
+            set_env =
+              {[testenv]set_env}
+              OS_TEST_PATH=./tests/functional
+            commands = python -c "import os; print(os.environ['OS_TEST_PATH'])"
 
-    [testenv:functional-py]
-    set_env = {[testenv:functional]set_env}
-    commands = {[testenv:functional]commands}
-    """
-    result = tox_project({"tox.ini": ini}).run("r", "-e", "functional-py")
+            [testenv:functional-py]
+            set_env = {[testenv:functional]set_env}
+            commands = {[testenv:functional]commands}
+            """,
+            "functional-py",
+            "./tests/functional",
+            id="via-referenced-section",
+        ),
+        pytest.param(
+            """\
+            [testenv]
+            skip_install = true
+            set_env =
+                COVERAGE_FILE=THISISBAD
+
+            [testenv:coverage_report]
+            set_env =
+                {[testenv]set_env}
+                COVERAGE_FILE=THISISGOOD
+            commands = python -c "import os; print(os.environ['COVERAGE_FILE'])"
+            """,
+            "coverage_report",
+            "THISISGOOD",
+            id="direct",
+        ),
+    ],
+)
+def test_set_env_cross_section_override(tox_project: ToxProjectCreator, ini: str, env: str, expected: str) -> None:
+    result = tox_project({"tox.ini": textwrap.dedent(ini)}).run("r", "-e", env)
     result.assert_success()
-    assert result.out.splitlines()[1] == "./tests/functional"
-
-
-def test_set_env_cross_section_override_direct(tox_project: ToxProjectCreator) -> None:
-    ini = """\
-    [testenv]
-    skip_install = true
-    set_env =
-        COVERAGE_FILE=THISISBAD
-
-    [testenv:coverage_report]
-    set_env =
-        {[testenv]set_env}
-        COVERAGE_FILE=THISISGOOD
-    commands = python -c "import os; print(os.environ['COVERAGE_FILE'])"
-    """
-    result = tox_project({"tox.ini": ini}).run("r", "-e", "coverage_report")
-    result.assert_success()
-    assert result.out.splitlines()[1] == "THISISGOOD"
+    assert result.out.splitlines()[1] == expected
 
 
 def test_set_env_escaped_semicolon() -> None:
     set_env = SetEnv(r"FOO=a\;b", "py", "py", Path())
     assert set_env.load("FOO") == "a;b"
+
+
+@pytest.mark.parametrize(
+    ("of_type", "config"),
+    [
+        pytest.param(
+            "ini",
+            "[testenv]\npackage=skip\nset_env=FOO=conditional; sys_platform == 'nonexistent'\n FOO=unconditional",
+            id="inline",
+        ),
+        pytest.param(
+            "ini",
+            "[testenv]\npackage=skip\nset_env=FOO=conditional; sys_platform == 'nonexistent'\n file|.env",
+            id="ini-file",
+        ),
+        pytest.param(
+            "toml",
+            '[env_run_base]\npackage="skip"\n'
+            'set_env = {FOO={value="conditional", marker="sys_platform == \'nonexistent\'"}, file=".env"}',
+            id="toml-file",
+        ),
+    ],
+)
+def test_set_env_unconditional_override(eval_set_env: EvalSetEnv, of_type: ConfigFileFormat, config: str) -> None:
+    set_env = eval_set_env(config, of_type=of_type, extra_files={".env": "FOO=unconditional\n"})
+    assert "FOO" in set_env
+    assert set_env.load("FOO") == "unconditional"
 
 
 def test_set_env_marker_mixed(eval_set_env: EvalSetEnv) -> None:

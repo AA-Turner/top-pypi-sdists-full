@@ -1,18 +1,21 @@
 from typing import (
     Any as _Any,
+)
+from typing import (
     Callable,
     Optional,
     Union,
 )
 
-from bacpypes3.debugging import bacpypes_debugging, ModuleLogger
-
-from bacpypes3.errors import PropertyError
 from bacpypes3.basetypes import (
     OptionalUnsigned,
-    PriorityArray as _PriorityArray,
     PriorityValue,
 )
+from bacpypes3.basetypes import (
+    PriorityArray as _PriorityArray,
+)
+from bacpypes3.debugging import ModuleLogger, bacpypes_debugging
+from bacpypes3.errors import PropertyError
 from bacpypes3.local.object import Object as _Object
 
 # some debugging
@@ -166,7 +169,7 @@ class Commandable:
 
         value: _Any
         priority_array = self.priorityArray
-        for i in range(0, 16):
+        for i in range(16):
             pv = priority_array[i]
             if pv.null is None:
                 value = getattr(pv, pv._choice)

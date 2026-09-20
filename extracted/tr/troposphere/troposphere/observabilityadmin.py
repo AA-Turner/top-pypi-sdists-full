@@ -7,7 +7,7 @@
 
 
 from . import AWSObject, AWSProperty, PropsDictType, Tags
-from .validators import double, integer
+from .validators import boolean, double, integer
 
 
 class LogGroupNameConfiguration(AWSProperty):
@@ -38,8 +38,20 @@ class LogsEncryptionConfiguration(AWSProperty):
 
     props: PropsDictType = {
         "EncryptionConflictResolutionStrategy": (str, False),
+        "EncryptionScope": (str, False),
         "EncryptionStrategy": (str, True),
         "KmsKeyArn": (str, False),
+    }
+
+
+class TagPropagationConfiguration(AWSProperty):
+    """
+    `TagPropagationConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-tagpropagationconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "DestinationRoleArn": (str, True),
+        "TagConflictResolutionStrategy": (str, False),
     }
 
 
@@ -52,6 +64,27 @@ class DestinationLogsConfiguration(AWSProperty):
         "BackupConfiguration": (LogsBackupConfiguration, False),
         "LogGroupNameConfiguration": (LogGroupNameConfiguration, False),
         "LogsEncryptionConfiguration": (LogsEncryptionConfiguration, False),
+        "TagPropagationConfiguration": (TagPropagationConfiguration, False),
+    }
+
+
+class MetricsBackupConfiguration(AWSProperty):
+    """
+    `MetricsBackupConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-metricsbackupconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "Region": (str, True),
+    }
+
+
+class DestinationMetricsConfiguration(AWSProperty):
+    """
+    `DestinationMetricsConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-destinationmetricsconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "BackupConfiguration": (MetricsBackupConfiguration, False),
     }
 
 
@@ -63,6 +96,7 @@ class CentralizationRuleDestination(AWSProperty):
     props: PropsDictType = {
         "Account": (str, False),
         "DestinationLogsConfiguration": (DestinationLogsConfiguration, False),
+        "DestinationMetricsConfiguration": (DestinationMetricsConfiguration, False),
         "Region": (str, True),
     }
 
@@ -79,6 +113,16 @@ class SourceLogsConfiguration(AWSProperty):
     }
 
 
+class SourceMetricsConfiguration(AWSProperty):
+    """
+    `SourceMetricsConfiguration <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-sourcemetricsconfiguration.html>`__
+    """
+
+    props: PropsDictType = {
+        "MetricsSelectionCriteria": (str, False),
+    }
+
+
 class CentralizationRuleSource(AWSProperty):
     """
     `CentralizationRuleSource <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-organizationcentralizationrule-centralizationrulesource.html>`__
@@ -88,6 +132,7 @@ class CentralizationRuleSource(AWSProperty):
         "Regions": ([str], True),
         "Scope": (str, False),
         "SourceLogsConfiguration": (SourceLogsConfiguration, False),
+        "SourceMetricsConfiguration": (SourceMetricsConfiguration, False),
     }
 
 
@@ -285,6 +330,7 @@ class TelemetryDestinationConfiguration(AWSProperty):
         "DestinationPattern": (str, False),
         "DestinationType": (str, False),
         "ELBLoadBalancerLoggingParameters": (ELBLoadBalancerLoggingParameters, False),
+        "KmsKeyArn": (str, False),
         "LogDeliveryParameters": (LogDeliveryParameters, False),
         "RetentionInDays": (integer, False),
         "VPCFlowLogParameters": (VPCFlowLogParameters, False),
@@ -298,7 +344,10 @@ class TelemetryRuleProperty(AWSProperty):
     """
 
     props: PropsDictType = {
+        "AllRegions": (boolean, False),
+        "AllowFieldUpdates": (boolean, False),
         "DestinationConfiguration": (TelemetryDestinationConfiguration, False),
+        "Regions": ([str], False),
         "ResourceType": (str, True),
         "SelectionCriteria": (str, False),
         "TelemetrySourceTypes": ([str], False),
@@ -366,7 +415,7 @@ class TelemetryEnrichment(AWSObject):
     resource_type = "AWS::ObservabilityAdmin::TelemetryEnrichment"
 
     props: PropsDictType = {
-        "Scope": (str, False),
+        "Scope": (str, True),
     }
 
 
@@ -405,6 +454,18 @@ class TelemetryRule(AWSObject):
         "Rule": (TelemetryRuleProperty, True),
         "RuleName": (str, True),
         "Tags": (Tags, False),
+    }
+
+
+class RegionStatus(AWSProperty):
+    """
+    `RegionStatus <http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-observabilityadmin-telemetryrule-regionstatus.html>`__
+    """
+
+    props: PropsDictType = {
+        "Region": (str, False),
+        "RuleArn": (str, False),
+        "Status": (str, False),
     }
 
 

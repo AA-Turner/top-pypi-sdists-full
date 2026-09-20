@@ -46,9 +46,10 @@ class SyncCreateRequest(BaseModel):
     provider_filters: Optional[Dict[str, Any]] = Field(default=None, description="OPTIONAL. Provider-specific pre-filters pushed down to the storage API call. Applied BEFORE file_filters (which are client-side). Each provider defines its own filter schema. Examples: - Iconik: {'collection_ids': ['col_abc']} - Google Drive: {'shared_drive_id': '0AH-Xabc123'} - S3: {'prefix': 'videos/'}")
     description: Optional[StrictStr] = Field(default=None, description="OPTIONAL description of this sync configuration. PATCH accepted it before create did.")
     max_objects_per_run: Optional[Annotated[int, Field(strict=True, ge=1)]] = Field(default=None, description="OPTIONAL hard cap on objects processed per sync run (default 100000). PATCH accepted it before create did.")
+    sync_concurrency: Optional[Annotated[int, Field(le=100, strict=True, ge=1)]] = Field(default=None, description="OPTIONAL per-sync override for concurrent object processing. Must be between 1 and 100 if provided. Defaults to the SYNC_OBJECT_CONCURRENCY worker env (8) when unset.")
     metadata: Optional[Dict[str, Any]] = Field(default=None, description="Optional custom metadata to attach to the sync configuration. NOT REQUIRED. Arbitrary key-value pairs for tagging and organization. Common uses: project tags, environment labels, cost centers. Maximum 50 keys, values must be JSON-serializable.")
     additional_properties: Dict[str, Any] = {}
-    __properties: ClassVar[List[str]] = ["connection_id", "source_path", "sync_mode", "file_filters", "schema_mapping", "polling_interval_seconds", "batch_size", "skip_batch_submission", "skip_duplicates", "reconcile", "sync_from", "provider_filters", "description", "max_objects_per_run", "metadata"]
+    __properties: ClassVar[List[str]] = ["connection_id", "source_path", "sync_mode", "file_filters", "schema_mapping", "polling_interval_seconds", "batch_size", "skip_batch_submission", "skip_duplicates", "reconcile", "sync_from", "provider_filters", "description", "max_objects_per_run", "sync_concurrency", "metadata"]
 
     model_config = ConfigDict(
         populate_by_name=True,
@@ -128,6 +129,7 @@ class SyncCreateRequest(BaseModel):
             "provider_filters": obj.get("provider_filters"),
             "description": obj.get("description"),
             "max_objects_per_run": obj.get("max_objects_per_run"),
+            "sync_concurrency": obj.get("sync_concurrency"),
             "metadata": obj.get("metadata")
         })
         # store additional fields in additional_properties

@@ -1,11 +1,19 @@
+from __future__ import annotations
+
 import base64
 import re
 from dataclasses import dataclass
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, cast
 
 import yaml
 from yaml.emitter import Emitter
-from yaml.events import AliasEvent, CollectionStartEvent, MappingEndEvent, ScalarEvent, SequenceEndEvent
+from yaml.events import (
+    AliasEvent,
+    CollectionStartEvent,
+    MappingEndEvent,
+    ScalarEvent,
+    SequenceEndEvent,
+)
 from yaml.serializer import Serializer
 
 COMMENT_PLACEMENT_BEFORE = "before"
@@ -35,22 +43,24 @@ def decode_comment(value: str) -> str:
 
 
 def make_mapping_comment_key(placement: str, key: str) -> str:
-    return "__yq_comment_{}_{}__".format(placement, key)
+    return f"__yq_comment_{placement}_{key}__"
 
 
 def make_sequence_comment_annotation(placement: str, index: int, value: str) -> str:
-    return "__yq_comment_{}_{}_{}__".format(placement, index, encode_comment(value))
+    return f"__yq_comment_{placement}_{index}_{encode_comment(value)}__"
 
 
-def normalize_comment_values(value: Any) -> List[str]:
+def normalize_comment_values(value: Any) -> list[str]:
     if isinstance(value, list):
         return [str(item) for item in value]
     return [str(value)]
 
 
-def consume_comments_for_node(loader: Any, anchor_node: Any, value_node: Optional[Any] = None) -> Dict[str, List[str]]:
-    result: Dict[str, List[str]] = {COMMENT_PLACEMENT_BEFORE: [], COMMENT_PLACEMENT_INLINE: []}
-    comments = getattr(loader, "yaml_comments", [])
+def consume_comments_for_node(
+    loader: CommentPreservingLoader, anchor_node: Any, value_node: Any | None = None
+) -> dict[str, list[str]]:
+    result: dict[str, list[str]] = {COMMENT_PLACEMENT_BEFORE: [], COMMENT_PLACEMENT_INLINE: []}
+    comments = loader.yaml_comments
     if not comments:
         return result
 
@@ -74,8 +84,22 @@ def consume_comments_for_node(loader: Any, anchor_node: Any, value_node: Optiona
 
 class CommentPreservingLoader(yaml.SafeLoader):
     def __init__(self, stream: Any) -> None:
-        self.yaml_comments: List[YamlComment] = []
+        self.yaml_comments: list[YamlComment] = []
+        self.yaml_document_constructed = False
         super().__init__(stream)
+
+    def parse_document_start(self) -> Any:
+        # yq constructs each document before advancing to the next one. Clear
+        # its comments before the parser scans the next document's leading comments.
+        if self.yaml_document_constructed:
+            self.yaml_comments.clear()
+            self.yaml_document_constructed = False
+        return super().parse_document_start()
+
+    def construct_document(self, node: Any) -> Any:
+        document = super().construct_document(node)
+        self.yaml_document_constructed = True
+        return document
 
     def scan_to_next_token(self) -> None:
         if self.index == 0 and self.peek() == "\ufeff":
@@ -100,21 +124,10 @@ class CommentPreservingLoader(yaml.SafeLoader):
                 found = True
 
 
-def _copy_comment_attrs(event: Any, node: Any) -> Any:
-    for attr in "yaml_comment_before", "yaml_comment_inline":
-        comments = getattr(node, attr, None)
-        if comments:
-            setattr(event, attr, comments)
-    return event
-
-
-class CommentPreservingDumperMixin:
-    def __getattr__(self, name: str) -> Any:
-        raise AttributeError(name)
-
+class CommentPreservingDumperMixin(Emitter):
     def serialize_node(self, node: Any, parent: Any, index: Any) -> None:
-        before = getattr(node, "yaml_comment_before", None)
-        inline = getattr(node, "yaml_comment_inline", None)
+        before = node.yaml_comment_before if hasattr(node, "yaml_comment_before") else None
+        inline = node.yaml_comment_inline if hasattr(node, "yaml_comment_inline") else None
         if not (before or inline):
             Serializer.serialize_node(cast(Serializer, self), node, parent, index)
             return
@@ -126,7 +139,11 @@ class CommentPreservingDumperMixin:
         def emit_with_comments(event: Any) -> None:
             nonlocal attached
             if not attached and isinstance(event, (AliasEvent, CollectionStartEvent, ScalarEvent)):
-                _copy_comment_attrs(event, node)
+                comment_event = cast(Any, event)
+                if before:
+                    comment_event.yaml_comment_before = before
+                if inline:
+                    comment_event.yaml_comment_inline = inline
                 attached = True
             original_emit(event)
 
@@ -140,34 +157,36 @@ class CommentPreservingDumperMixin:
         self, root: bool = False, sequence: bool = False, mapping: bool = False, simple_key: bool = False
     ) -> Any:
         if not (root or simple_key) and isinstance(self.event, CollectionStartEvent):
-            self.write_inline_comments(getattr(self.event, "yaml_comment_inline", None))
-        return Emitter.expect_node(
-            cast(Emitter, self), root=root, sequence=sequence, mapping=mapping, simple_key=simple_key
-        )
+            if hasattr(self.event, "yaml_comment_inline"):
+                self.write_inline_comments(self.event.yaml_comment_inline)
+        return Emitter.expect_node(self, root=root, sequence=sequence, mapping=mapping, simple_key=simple_key)
 
     def expect_block_mapping_key(self, first: bool = False) -> Any:
         if not first and isinstance(self.event, MappingEndEvent):
-            return Emitter.expect_block_mapping_key(cast(Emitter, self), first=first)
-        self.write_comments_before(getattr(self.event, "yaml_comment_before", None))
-        return Emitter.expect_block_mapping_key(cast(Emitter, self), first=first)
+            return Emitter.expect_block_mapping_key(self, first=first)
+        if self.event is not None and hasattr(self.event, "yaml_comment_before"):
+            self.write_comments_before(self.event.yaml_comment_before)
+        return Emitter.expect_block_mapping_key(self, first=first)
 
     def expect_block_sequence_item(self, first: bool = False) -> Any:
         if not first and isinstance(self.event, SequenceEndEvent):
-            return Emitter.expect_block_sequence_item(cast(Emitter, self), first=first)
-        self.write_comments_before(getattr(self.event, "yaml_comment_before", None))
-        return Emitter.expect_block_sequence_item(cast(Emitter, self), first=first)
+            return Emitter.expect_block_sequence_item(self, first=first)
+        if self.event is not None and hasattr(self.event, "yaml_comment_before"):
+            self.write_comments_before(self.event.yaml_comment_before)
+        return Emitter.expect_block_sequence_item(self, first=first)
 
     def process_scalar(self) -> None:
-        Emitter.process_scalar(cast(Emitter, self))
-        self.write_inline_comments(getattr(self.event, "yaml_comment_inline", None))
+        Emitter.process_scalar(self)
+        if self.event is not None and hasattr(self.event, "yaml_comment_inline"):
+            self.write_inline_comments(self.event.yaml_comment_inline)
 
-    def write_comments_before(self, comments: Optional[List[str]]) -> None:
+    def write_comments_before(self, comments: list[str] | None) -> None:
         for comment in comments or []:
             self.write_indent()
             self.write_comment(comment)
             self.write_line_break()
 
-    def write_inline_comments(self, comments: Optional[List[str]]) -> None:
+    def write_inline_comments(self, comments: list[str] | None) -> None:
         if not comments:
             return
         self.write_comment(comments[0])

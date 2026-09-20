@@ -8,9 +8,9 @@ from enum import StrEnum
 from typing import Any
 
 from mashumaro import DataClassDictMixin, field_options
+from mashumaro.config import BaseConfig
 from mashumaro.mixins.orjson import DataClassORJSONMixin
 from mashumaro.types import SerializationStrategy
-from mashumaro.config import BaseConfig
 
 
 class OptionalStringSerializationStrategy(SerializationStrategy):
@@ -39,6 +39,14 @@ class ShoppingItemsOrderBy(StrEnum):
     """ShoppingItemOrderBy type."""
 
     POSITION = "position"
+
+
+class RegisteredParser(StrEnum):
+    """RegisteredParser type."""
+
+    NLP = "nlp"
+    BRUTE = "brute"
+    OPENAI = "openai"
 
 
 @dataclass
@@ -129,7 +137,7 @@ class Ingredient(DataClassORJSONMixin):
     note: str
     title: str | None
     display: str | None
-    unit: str | None
+    unit: Unit | None
     food: Food | None
     reference_id: str = field(metadata=field_options(alias="referenceId"))
     original_text: str | None = field(
@@ -185,6 +193,9 @@ class Instruction(DataClassORJSONMixin):
             serialization_strategy=OptionalStringSerializationStrategy()
         ),
     )
+    recipe_note: RecipeNote | None = field(
+        default=None, metadata=field_options(alias="recipeNote")
+    )
 
 
 @dataclass
@@ -199,12 +210,16 @@ class Label(DataClassORJSONMixin):
 class Unit(DataClassORJSONMixin):
     """Unit model."""
 
-    unit_id: str = field(metadata=field_options(alias="id"))
     name: str
-    description: str
-    aliases: list[str]
-    created_at: datetime = field(metadata=field_options(alias="createdAt"))
-    updated_at: datetime = field(metadata=field_options(alias="updatedAt"))
+    unit_id: str | None = field(default=None, metadata=field_options(alias="id"))
+    description: str = ""
+    aliases: list[str] = field(default_factory=list)
+    created_at: datetime | None = field(
+        default=None, metadata=field_options(alias="createdAt")
+    )
+    updated_at: datetime | None = field(
+        default=None, metadata=field_options(alias="updatedAt")
+    )
     fraction: bool = False
     plural_name: str | None = field(
         default=None, metadata=field_options(alias="pluralName")
@@ -217,6 +232,12 @@ class Unit(DataClassORJSONMixin):
         default=False, metadata=field_options(alias="useAbbreviation")
     )
     extras: dict[str, str] | None = None
+    standard_quantity: float | None = field(
+        default=None, metadata=field_options(alias="standardQuantity")
+    )
+    standard_unit: str | None = field(
+        default=None, metadata=field_options(alias="standardUnit")
+    )
 
     @classmethod
     def __pre_deserialize__(cls, d: dict[Any, Any]) -> dict[Any, Any]:
@@ -225,6 +246,49 @@ class Unit(DataClassORJSONMixin):
         if "updateAt" in d and "updatedAt" not in d:
             d["updatedAt"] = d.pop("updateAt")
         return d
+
+
+@dataclass
+class Nutrition(DataClassORJSONMixin):
+    """Recipe nutrition information."""
+
+    calories: str | None = None
+    carbohydrate_content: str | None = field(
+        default=None, metadata=field_options(alias="carbohydrateContent")
+    )
+    cholesterol_content: str | None = field(
+        default=None, metadata=field_options(alias="cholesterolContent")
+    )
+    fat_content: str | None = field(
+        default=None, metadata=field_options(alias="fatContent")
+    )
+    fiber_content: str | None = field(
+        default=None, metadata=field_options(alias="fiberContent")
+    )
+    protein_content: str | None = field(
+        default=None, metadata=field_options(alias="proteinContent")
+    )
+    saturated_fat_content: str | None = field(
+        default=None, metadata=field_options(alias="saturatedFatContent")
+    )
+    sodium_content: str | None = field(
+        default=None, metadata=field_options(alias="sodiumContent")
+    )
+    sugar_content: str | None = field(
+        default=None, metadata=field_options(alias="sugarContent")
+    )
+    trans_fat_content: str | None = field(
+        default=None, metadata=field_options(alias="transFatContent")
+    )
+    unsaturated_fat_content: str | None = field(
+        default=None, metadata=field_options(alias="unsaturatedFatContent")
+    )
+
+    class Config(BaseConfig):  # pylint: disable=too-few-public-methods
+        """Mashumaro Config."""
+
+        serialize_by_alias = True
+        code_generation_options = ["TO_DICT_ADD_OMIT_NONE_FLAG"]  # noqa: RUF012
 
 
 @dataclass
@@ -290,6 +354,23 @@ class BaseRecipe(DataClassORJSONMixin):
     )
 
 
+@dataclass
+class RecipeNote(DataClassORJSONMixin):
+    """Recipe note model."""
+
+    title: str
+    text: str
+    reference_id: str | None = field(
+        default=None, metadata=field_options(alias="referenceId")
+    )
+
+    class Config(BaseConfig):  # pylint: disable=too-few-public-methods
+        """Mashumaro Config."""
+
+        serialize_by_alias = True
+        code_generation_options = ["TO_DICT_ADD_OMIT_NONE_FLAG"]  # noqa: RUF012
+
+
 @dataclass(kw_only=True)
 class Recipe(BaseRecipe):
     """Recipe model."""
@@ -300,6 +381,8 @@ class Recipe(BaseRecipe):
     instructions: list[Instruction] = field(
         metadata=field_options(alias="recipeInstructions")
     )
+    nutrition: Nutrition | None = None
+    notes: list[RecipeNote] | None = None
     extras: dict[str, str] = field(default_factory=dict)
 
 
@@ -443,7 +526,9 @@ class MutateShoppingItem(DataClassDictMixin):
         """Mashumaro Config."""
 
         serialize_by_alias = True
-        code_generation_options = ["TO_DICT_ADD_OMIT_NONE_FLAG"]
+        # RUF012: mashumaro's BaseConfig declares this as an instance variable,
+        # so a ClassVar annotation would break mypy; the list is a constant here.
+        code_generation_options = ["TO_DICT_ADD_OMIT_NONE_FLAG"]  # noqa: RUF012
 
 
 @dataclass
@@ -485,12 +570,16 @@ class MutateRecipe(DataClassDictMixin):
     instructions: list[Instruction] | None = field(
         default=None, metadata=field_options(alias="recipeInstructions")
     )
+    nutrition: Nutrition | None = None
+    notes: list[RecipeNote] | None = None
 
     class Config(BaseConfig):  # pylint: disable=too-few-public-methods
         """Mashumaro Config."""
 
         serialize_by_alias = True
-        code_generation_options = ["TO_DICT_ADD_OMIT_NONE_FLAG"]
+        # RUF012: mashumaro's BaseConfig declares this as an instance variable,
+        # so a ClassVar annotation would break mypy; the list is a constant here.
+        code_generation_options = ["TO_DICT_ADD_OMIT_NONE_FLAG"]  # noqa: RUF012
 
 
 @dataclass
@@ -531,9 +620,6 @@ class RecipeRating(DataClassORJSONMixin):
 
     recipe_id: str = field(metadata=field_options(alias="recipeId"))
     is_favorite: bool = field(metadata=field_options(alias="isFavorite"))
-    recipe_slug: str | None = field(
-        default=None, metadata=field_options(alias="recipeSlug")
-    )
     rating: float | None = None
 
 
@@ -542,3 +628,24 @@ class RecipeFavoritesResponse(DataClassORJSONMixin):
     """RecipeFavoritesResponse model."""
 
     ratings: list[RecipeRating]
+
+
+@dataclass
+class IngredientConfidence(DataClassORJSONMixin):
+    """IngredientConfidence model."""
+
+    average: float | None = None
+    comment: float | None = None
+    name: float | None = None
+    unit: float | None = None
+    quantity: float | None = None
+    food: float | None = None
+
+
+@dataclass
+class ParsedIngredient(DataClassORJSONMixin):
+    """ParsedIngredient model."""
+
+    ingredient: Ingredient
+    input: str | None = None
+    confidence: IngredientConfidence = field(default_factory=IngredientConfidence)

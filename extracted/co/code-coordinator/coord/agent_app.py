@@ -7,6 +7,7 @@ import json
 import logging
 import os
 import re
+import shutil
 import subprocess
 import sys
 import threading
@@ -20,7 +21,7 @@ from starlette.requests import Request
 from starlette.responses import JSONResponse, PlainTextResponse, Response, StreamingResponse
 from starlette.routing import Route
 
-from coord import __version__, agent_update
+from coord import __version__, agent_update, restart_cmd
 from coord.agent import RUNNING, PENDING, AgentAssignment, AgentServer, AssignmentSpec
 from coord.dist_name import DistributionNotFoundError, resolve_installed, resolve_installed_name
 from coord.dist_name import pkg_spec as _dist_pkg_spec
@@ -129,8 +130,13 @@ def _running_under_systemd() -> bool:
     ``INVOCATION_ID`` is set by systemd for every unit invocation (since
     v232) and is the standard "am I running under systemd" signal — unlike
     checking the parent PID, it survives the process being reparented.
+
+    Delegates to :mod:`coord.restart_cmd` (#3366) — the single place that
+    answers this, shared with the SSH-side escalation and every
+    operator-facing remediation string, so this process's own idea of its
+    supervisor can never drift from what those tell an operator.
     """
-    return bool(os.environ.get("INVOCATION_ID"))
+    return restart_cmd.running_under_systemd()
 
 
 def _systemctl_env() -> dict[str, str]:
@@ -587,11 +593,12 @@ def _idle_restart_target(server: "AgentServer", venv_dir: Path) -> Path | None:
         # or it's already running the slot the symlink points at — no swap
         # is waiting.
         return None
-    with server._lock:
-        active_count = sum(
-            1 for a in server._assignments.values() if a.status in (PENDING, RUNNING)
-        )
-    if active_count:
+    # #3363: shared predicate — see `AgentServer.active_assignment_count`'s
+    # docstring for why this must never be re-derived independently here.
+    # It also ages out (and finalizes) any phantom PENDING/RUNNING entry,
+    # so a leaked bookkeeping record can no longer keep this watcher —
+    # the deferred restart's own advertised fallback — permanently idle.
+    if server.active_assignment_count():
         return None
     if _host_has_live_interactive_session():
         # #2139 blocking review fix: an interactive pane is not an
@@ -1157,6 +1164,12 @@ def build_app(
         # liveness or PID.
         data["version"] = __version__
         data["installed_version"] = _installed_version()
+        # #3366: this process's own live self-report of what supervises
+        # it — "systemd", "launchd", or null when neither is known (a dev
+        # box, Windows). The freshest possible answer to "what restarts
+        # this host," ahead of any static config an operator may also set
+        # (see `coord.restart_cmd.resolve_supervisor`).
+        data["supervisor"] = restart_cmd.local_supervisor()
         # Surface the most recent /update attempt so the CLI can show
         # "0.3.0 → 0.4.0" or "no_change (0.3.0)" or "failed: <error>".
         last = _read_last_update(server.state_dir)
@@ -1526,12 +1539,14 @@ def build_app(
                 # started. Re-read fresh: `perform_update` above can take
                 # tens of seconds (venv creation, pip, smoke check), so the
                 # count at the top of this request is stale by now.
-                with server._lock:
-                    still_active = sum(
-                        1
-                        for a in server._assignments.values()
-                        if a.status in (PENDING, RUNNING)
-                    )
+                #
+                # #3363: `active_assignment_count()` is the single shared
+                # predicate (also used by `/rollback` and the idle
+                # watcher's `_idle_restart_target`) — it ages out and
+                # finalizes any phantom PENDING/RUNNING entry instead of
+                # trusting raw status forever, which is what let a single
+                # leaked assignment defer this restart for six days.
+                still_active = server.active_assignment_count()
                 if still_active and not force:
                     payload["result"] = "staged"
                     payload["error"] = (
@@ -1625,6 +1640,33 @@ def build_app(
             body = {}
         dry_run = bool(body.get("dry_run"))
 
+        # #3366: this whole lane is systemd-unit management — on a host
+        # with no `systemctl` at all (every macOS agent today; #1158's
+        # launchd port ships no unit-file equivalent) every one of the
+        # packaged units reads as "new"/"not installed here", every run,
+        # forever. That is not drift, it is the platform, and reporting it
+        # as drift-adjacent noise on every propagation trains the operator
+        # to ignore this lane. Short-circuit with an honest n/a instead of
+        # calling into `du.install_units`, which has no way to tell "not
+        # installed yet" apart from "cannot ever be installed here".
+        if shutil.which("systemctl") is None:
+            supervisor = restart_cmd.local_supervisor()
+            return JSONResponse(
+                {
+                    "ok": True,
+                    "units": [],
+                    "dry_run": dry_run,
+                    "reloaded": False,
+                    "reload_detail": "",
+                    "timers_enabled": {},
+                    "detail": (
+                        f"n/a — no systemd on this host (supervisor: "
+                        f"{supervisor or 'unknown'})"
+                    ),
+                },
+                status_code=200,
+            )
+
         report = du.install_units(
             machine_name=getattr(server, "machine_name", None),
             port=AGENT_PORT,
@@ -1714,12 +1756,20 @@ def build_app(
             )
 
         if not _running_under_systemd():
+            # #3366: name the actual supervisor, when known, instead of
+            # only ever saying what this ISN'T (systemd) — a launchd host
+            # reads as clearly out of scope for a systemd-only lane rather
+            # than as unexplained drift-adjacent noise on every run.
+            supervisor = restart_cmd.local_supervisor()
             return JSONResponse(
                 {
                     "units": {},
                     "detail": (
-                        "this agent is not running under systemd — nothing here "
-                        "can restart a sibling unit"
+                        f"this agent runs under {supervisor}, not systemd — "
+                        "nothing here can restart a sibling unit"
+                        if supervisor
+                        else "this agent is not running under systemd — nothing "
+                        "here can restart a sibling unit"
                     ),
                 },
                 status_code=200,
@@ -1768,12 +1818,9 @@ def build_app(
             body = {}
         force = bool(body.get("force"))
 
-        with server._lock:
-            active_count = sum(
-                1
-                for a in server._assignments.values()
-                if a.status in (PENDING, RUNNING)
-            )
+        # #3363: shared predicate with `/update` and the idle watcher — see
+        # `AgentServer.active_assignment_count`'s docstring.
+        active_count = server.active_assignment_count()
         if active_count and not force:
             payload = {
                 "mode": "rollback",
@@ -1952,34 +1999,36 @@ def build_app(
         cancel_timeout = float(body.get("cancel_timeout", 30))
         saved_argv = list(sys.argv)
 
-        with server._lock:
-            active_count = sum(
-                1
-                for a in server._assignments.values()
-                if a.status in (PENDING, RUNNING)
-            )
+        # #3363: shared predicate with `/update`/`/rollback`/the idle
+        # watcher — see `AgentServer.active_assignment_count`'s docstring.
+        # A side benefit here specifically: a phantom entry gets finalized
+        # (flipped to FAILED) the first time this is called, so it no
+        # longer shows up in `pending_ids` below either — this restart
+        # stops trying to `cancel()` a record with no real process behind
+        # it.
+        active_count = server.active_assignment_count()
 
         def _do_restart() -> None:
             # Wait for workers to drain.
             deadline = time.time() + cancel_timeout
             while time.time() < deadline:
-                with server._lock:
-                    still_active = sum(
-                        1
-                        for a in server._assignments.values()
-                        if a.status in (PENDING, RUNNING)
-                    )
+                still_active = server.active_assignment_count()
                 if still_active == 0:
                     break
                 time.sleep(1)
 
-            # Cancel any workers that are still running.
-            with server._lock:
-                pending_ids = [
-                    aid
-                    for aid, a in server._assignments.items()
-                    if a.status in (PENDING, RUNNING)
-                ]
+            # Cancel any workers that are still running. #3363 review: reuse
+            # the shared predicate rather than re-deriving PENDING/RUNNING
+            # via a second raw scan over `server._assignments` — by now any
+            # true phantom (confirmed-dead process, no terminal status) has
+            # already been finalized to FAILED by the `active_assignment_count()`
+            # polls above, so a raw scan would agree with this today, but a
+            # second copy of the same question right next to the shared
+            # predicate is exactly the split `active_assignment_count()` was
+            # introduced to eliminate — and `_active_assignment_ids()` is the
+            # one that also knows to leave a still-alive process's record
+            # alone rather than mis-scan it as gone.
+            pending_ids = list(server._active_assignment_ids())
             for aid in pending_ids:
                 try:
                     # #1567: this is an infra-triggered restart, not an

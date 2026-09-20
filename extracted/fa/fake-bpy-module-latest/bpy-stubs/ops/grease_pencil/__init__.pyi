@@ -1987,6 +1987,31 @@ class snap_to_grid(bpy.ops._BPyOpsSubModOp):
         :return: Result of the operator call.
         """
 
+class stroke_carver(bpy.ops._BPyOpsSubModOp):
+    def __new__(
+        cls,
+        execution_context: int | str | None = None,
+        undo: bool | None = None,
+        /,
+        *,
+        path: None
+        | bpy.types.bpy_prop_collection[bpy.types.OperatorMousePath]
+        | None = None,
+        use_smooth_stroke: bool | None = False,
+        smooth_stroke_factor: float | None = 0.75,
+        smooth_stroke_radius: int | None = 35,
+    ) -> set[typing.Literal[bpy.stub_internal.rna_enums.OperatorReturnItems]]:
+        """Cuts stroke point in the intersect lasso
+
+        :param execution_context:
+        :param undo:
+        :param path: Path, (optional)
+        :param use_smooth_stroke: Stabilize Stroke, Selection lags behind mouse and follows a smoother path (optional)
+        :param smooth_stroke_factor: Smooth Stroke Factor, Higher values give a smoother stroke (in [0.5, 0.99], optional)
+        :param smooth_stroke_radius: Smooth Stroke Radius, Minimum distance from last point before selection continues (in [10, 200], optional)
+        :return: Result of the operator call.
+        """
+
 class stroke_material_set(bpy.ops._BPyOpsSubModOp):
     def __new__(
         cls,
